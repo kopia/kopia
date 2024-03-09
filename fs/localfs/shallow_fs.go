@@ -124,9 +124,8 @@ func (fsd *shallowFilesystemDirectory) Child(ctx context.Context, name string) (
 	return nil, errors.New("shallowFilesystemDirectory.Child not supported")
 }
 
-//nolint:revive
-func (fsd *shallowFilesystemDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	return errors.New("shallowFilesystemDirectory.IterateEntries not supported")
+func (fsd *shallowFilesystemDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+	return nil, errors.New("shallowFilesystemDirectory.IterateEntries not supported")
 }
 
 var (

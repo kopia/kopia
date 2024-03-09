@@ -174,17 +174,17 @@ func (c *commandRepositorySetParameters) disableBlobRetention(ctx context.Contex
 }
 
 func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	mp, err := rep.FormatManager().GetMutableParameters()
+	mp, err := rep.FormatManager().GetMutableParameters(ctx)
 	if err != nil {
 		return errors.Wrap(err, "mutable parameters")
 	}
 
-	blobcfg, err := rep.FormatManager().BlobCfgBlob()
+	blobcfg, err := rep.FormatManager().BlobCfgBlob(ctx)
 	if err != nil {
 		return errors.Wrap(err, "blob configuration")
 	}
 
-	requiredFeatures, err := rep.FormatManager().RequiredFeatures()
+	requiredFeatures, err := rep.FormatManager().RequiredFeatures(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to get required features")
 	}
@@ -228,7 +228,8 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	requiredFeatures = c.addRemoveUpdateRequiredFeatures(requiredFeatures, &anyChange)
 
 	if !anyChange {
-		return errors.Errorf("no changes")
+		log(ctx).Info("no changes")
+		return nil
 	}
 
 	if blobcfg.IsRetentionEnabled() {

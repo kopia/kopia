@@ -66,20 +66,20 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 	info, err := c.merged.GetInfo(contentID)
 	if info != nil {
 		if shouldIgnore(info, c.deletionWatermark) {
-			return nil, ErrContentNotFound
+			return index.Info{}, ErrContentNotFound
 		}
 
-		return info, nil
+		return index.ToInfoStruct(info), nil
 	}
 
 	if err == nil {
-		return nil, ErrContentNotFound
+		return index.Info{}, ErrContentNotFound
 	}
 
-	return nil, errors.Wrap(err, "error getting content info from index")
+	return index.Info{}, errors.Wrap(err, "error getting content info from index")
 }
 
-func shouldIgnore(id Info, deletionWatermark time.Time) bool {
+func shouldIgnore(id index.InfoReader, deletionWatermark time.Time) bool {
 	if !id.GetDeleted() {
 		return false
 	}
@@ -131,12 +131,12 @@ func (c *committedContentIndex) listContents(r IDRange, cb func(i Info) error) e
 	c.mu.RUnlock()
 
 	//nolint:wrapcheck
-	return m.Iterate(r, func(i Info) error {
+	return m.Iterate(r, func(i index.InfoReader) error {
 		if shouldIgnore(i, deletionWatermark) {
 			return nil
 		}
 
-		return cb(i)
+		return cb(index.ToInfoStruct(i))
 	})
 }
 
@@ -186,7 +186,7 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 		newUsedMap[e] = ndx
 	}
 
-	mergedAndCombined, err := c.combineSmallIndexes(newMerged)
+	mergedAndCombined, err := c.combineSmallIndexes(ctx, newMerged)
 	if err != nil {
 		newlyOpened.Close() //nolint:errcheck
 
@@ -239,7 +239,7 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID, i
 	return nil
 }
 
-func (c *committedContentIndex) combineSmallIndexes(m index.Merged) (index.Merged, error) {
+func (c *committedContentIndex) combineSmallIndexes(ctx context.Context, m index.Merged) (index.Merged, error) {
 	var toKeep, toMerge index.Merged
 
 	for _, ndx := range m {
@@ -257,15 +257,15 @@ func (c *committedContentIndex) combineSmallIndexes(m index.Merged) (index.Merge
 	b := index.Builder{}
 
 	for _, ndx := range toMerge {
-		if err := ndx.Iterate(index.AllIDs, func(i Info) error {
-			b.Add(i)
+		if err := ndx.Iterate(index.AllIDs, func(i index.InfoReader) error {
+			b.Add(index.ToInfoStruct(i))
 			return nil
 		}); err != nil {
 			return nil, errors.Wrap(err, "unable to iterate index entries")
 		}
 	}
 
-	mp, mperr := c.formatProvider.GetMutableParameters()
+	mp, mperr := c.formatProvider.GetMutableParameters(ctx)
 	if mperr != nil {
 		return nil, errors.Wrap(mperr, "error getting mutable parameters")
 	}
@@ -324,6 +324,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 						c.log.Errorf("skipping bad read of index blob %v", indexBlobID)
 						continue
 					}
+
 					return errors.Wrapf(err, "error loading index blob %v", indexBlobID)
 				}
 
@@ -331,6 +332,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 					return errors.Wrap(err, "unable to add to committed content cache")
 				}
 			}
+
 			return nil
 		})
 	}

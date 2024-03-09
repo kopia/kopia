@@ -78,7 +78,7 @@ func getExpiredSnapshotsForSource(ctx context.Context, rep repo.Repository, snap
 			log(ctx).Debugf("  deleting %v", s.StartTime)
 			toDelete = append(toDelete, s.ID)
 		} else {
-			log(ctx).Debugf("  keeping %v retention: [%v] pins: [%v]", s.StartTime, strings.Join(s.RetentionReasons, ","), strings.Join(s.Pins, ","))
+			log(ctx).Debugf("  keeping %v retention: [%v] pins: [%v]", s.StartTime.ToTime(), strings.Join(s.RetentionReasons, ","), strings.Join(s.Pins, ","))
 		}
 	}
 

@@ -57,7 +57,7 @@ func benchmarkReadDirWithCount(b *testing.B, fileCount int) {
 
 	for i := 0; i < b.N; i++ {
 		dir, _ := localfs.Directory(td)
-		dir.IterateEntries(ctx, func(context.Context, fs.Entry) error {
+		fs.IterateEntries(ctx, dir, func(context.Context, fs.Entry) error {
 			return nil
 		})
 	}

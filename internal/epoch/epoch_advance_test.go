@@ -9,9 +9,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-var def = DefaultParameters()
-
 func TestShouldAdvanceEpoch(t *testing.T) {
+	def := DefaultParameters()
 	t0 := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	var lotsOfMetadata []blob.Metadata

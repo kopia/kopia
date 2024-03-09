@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/metricid"
@@ -866,8 +867,8 @@ func TestDeriveKey(t *testing.T) {
 	formatEncryptionKeyFromPassword, err := j.DeriveFormatEncryptionKeyFromPassword(repotesting.DefaultPasswordForTesting)
 	require.NoError(t, err)
 
-	validV1KeyDerivedFromPassword := format.DeriveKeyFromMasterKey(formatEncryptionKeyFromPassword, uniqueID, testPurpose, testKeyLength)
-	validV2KeyDerivedFromMasterKey := format.DeriveKeyFromMasterKey(masterKey, uniqueID, testPurpose, testKeyLength)
+	validV1KeyDerivedFromPassword := crypto.DeriveKeyFromMasterKey(formatEncryptionKeyFromPassword, uniqueID, testPurpose, testKeyLength)
+	validV2KeyDerivedFromMasterKey := crypto.DeriveKeyFromMasterKey(masterKey, uniqueID, testPurpose, testKeyLength)
 
 	setup := func(v format.Version) repo.DirectRepositoryWriter {
 		_, env := repotesting.NewEnvironment(t, v, repotesting.Options{
@@ -892,16 +893,16 @@ func TestDeriveKey(t *testing.T) {
 		dw1Upgraded := env.Repository.(repo.DirectRepositoryWriter)
 		cf := dw1Upgraded.ContentReader().ContentFormat()
 
-		mp, mperr := cf.GetMutableParameters()
+		mp, mperr := cf.GetMutableParameters(ctx)
 		require.NoError(t, mperr)
 
-		feat, err := dw1Upgraded.FormatManager().RequiredFeatures()
+		feat, err := dw1Upgraded.FormatManager().RequiredFeatures(ctx)
 		require.NoError(t, err)
 
 		// perform upgrade
 		mp.Version = v2
 
-		blobCfg, err := dw1Upgraded.FormatManager().BlobCfgBlob()
+		blobCfg, err := dw1Upgraded.FormatManager().BlobCfgBlob(ctx)
 		require.NoError(t, err)
 
 		require.NoError(t, dw1Upgraded.FormatManager().SetParameters(ctx, mp, blobCfg, feat))
@@ -926,7 +927,7 @@ func TestDeriveKey(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			mp, err := tc.dw.FormatManager().GetMutableParameters()
+			mp, err := tc.dw.FormatManager().GetMutableParameters(testlogging.Context(t))
 			require.NoError(t, err)
 
 			require.Equal(t, tc.wantFormat, mp.Version)

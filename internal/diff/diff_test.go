@@ -45,16 +45,10 @@ type testDirectory struct {
 	modtime time.Time
 }
 
-func (d *testDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
-	for _, file := range d.files {
-		err := cb(ctx, file)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
+func (d *testDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+	return fs.StaticIterator(d.files, nil), nil
 }
+
 func (d *testDirectory) SupportsMultipleIterations() bool { return false }
 func (d *testDirectory) IsDir() bool                      { return true }
 func (d *testDirectory) LocalFilesystemPath() string      { return d.name }
@@ -163,7 +157,7 @@ func TestCompareDifferentDirectories(t *testing.T) {
 
 	err = c.Compare(ctx, dir1, dir2)
 	require.NoError(t, err)
-	require.Equal(t, buf.String(), expectedOutput)
+	require.Equal(t, expectedOutput, buf.String())
 }
 
 func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
@@ -197,7 +191,7 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	expectedOutput := ". modification times differ:  2023-04-12 10:30:00 +0000 UTC 2022-04-12 10:30:00 +0000 UTC\n"
 	err = c.Compare(ctx, dir1, dir2)
 	require.NoError(t, err)
-	require.Equal(t, buf.String(), expectedOutput)
+	require.Equal(t, expectedOutput, buf.String())
 }
 
 func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
@@ -230,7 +224,7 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 
 	err = c.Compare(ctx, dir1, dir2)
 	require.NoError(t, err)
-	require.Equal(t, buf.String(), expectedOutput)
+	require.Equal(t, expectedOutput, buf.String())
 }
 
 func createTestDirectory(name string, modtime time.Time, files ...fs.Entry) *testDirectory {

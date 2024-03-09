@@ -46,6 +46,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 					if err := rep.BlobStorage().DeleteBlob(ctx, bm.BlobID); err != nil {
 						return errors.Wrapf(err, "unable to delete blob %q", bm.BlobID)
 					}
+
 					cnt, del := deleted.Add(bm.Length)
 					if cnt%100 == 0 {
 						log(ctx).Infof("  deleted %v unreferenced blobs (%v)", cnt, units.BytesString(del))

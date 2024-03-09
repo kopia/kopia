@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/pkg/errors"
-
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/units"
@@ -85,6 +83,8 @@ func Estimate(ctx context.Context, entry fs.Directory, policyTree *policy.Tree, 
 	}()
 
 	onIgnoredFile := func(ctx context.Context, relativePath string, e fs.Entry, pol *policy.Tree) {
+		_ = pol
+
 		if e.IsDir() {
 			if len(ed) < maxExamplesPerBucket {
 				ed = append(ed, relativePath)
@@ -107,10 +107,6 @@ func Estimate(ctx context.Context, entry fs.Directory, policyTree *policy.Tree, 
 }
 
 func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTree *policy.Tree, stats *snapshot.Stats, ib, eb SampleBuckets, ed *[]string, progress EstimateProgress, maxExamplesPerBucket int) error {
-	type processEntryError struct {
-		error
-	}
-
 	// see if the context got canceled
 	select {
 	case <-ctx.Done():
@@ -130,22 +126,26 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 
 		progress.Processing(ctx, relativePath)
 
-		err := entry.IterateEntries(ctx, func(c context.Context, child fs.Entry) error {
-			defer child.Close()
+		iter, err := entry.Iterate(ctx)
+		if err == nil {
+			defer iter.Close()
 
-			if err2 := estimate(ctx, filepath.Join(relativePath, child.Name()), child, policyTree.Child(child.Name()), stats, ib, eb, ed, progress, maxExamplesPerBucket); err2 != nil {
-				return processEntryError{err2}
+			var child fs.Entry
+
+			child, err = iter.Next(ctx)
+			for child != nil {
+				if err = estimate(ctx, filepath.Join(relativePath, child.Name()), child, policyTree.Child(child.Name()), stats, ib, eb, ed, progress, maxExamplesPerBucket); err != nil {
+					break
+				}
+
+				child.Close()
+				child, err = iter.Next(ctx)
 			}
+		}
 
-			return nil
-		})
+		progress.Stats(ctx, stats, ib, eb, *ed, false)
 
-		var funcErr processEntryError
 		if err != nil {
-			if errors.As(err, &funcErr) {
-				return funcErr.error
-			}
-
 			isIgnored := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false)
 
 			if isIgnored {
@@ -155,9 +155,10 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, policyTr
 			}
 
 			progress.Error(ctx, relativePath, err, isIgnored)
-		}
 
-		progress.Stats(ctx, stats, ib, eb, *ed, false)
+			//nolint:wrapcheck
+			return err
+		}
 
 	case fs.File:
 		ib.add(relativePath, entry.Size(), maxExamplesPerBucket)

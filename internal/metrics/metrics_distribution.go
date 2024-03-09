@@ -20,6 +20,10 @@ type DistributionState[T constraints.Float | constraints.Integer] struct {
 }
 
 func (s *DistributionState[T]) mergeFrom(other *DistributionState[T]) {
+	s.mergeScaledFrom(other, 1)
+}
+
+func (s *DistributionState[T]) mergeScaledFrom(other *DistributionState[T], scale float64) {
 	if s.Count == 0 {
 		s.Min = other.Min
 		s.Max = other.Max
@@ -46,7 +50,7 @@ func (s *DistributionState[T]) mergeFrom(other *DistributionState[T]) {
 
 	if len(s.BucketCounters) == len(other.BucketCounters) {
 		for i, v := range other.BucketCounters {
-			s.BucketCounters[i] += v
+			s.BucketCounters[i] += int64(float64(v) * scale)
 		}
 	}
 }

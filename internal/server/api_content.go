@@ -28,11 +28,17 @@ func handleContentGet(ctx context.Context, rc requestContext) (interface{}, *api
 	}
 
 	data, err := dr.ContentReader().GetContent(ctx, cid)
-	if errors.Is(err, content.ErrContentNotFound) {
-		return nil, notFoundError("content not found")
-	}
 
-	return data, nil
+	switch {
+	case err == nil:
+		return data, nil
+
+	case errors.Is(err, content.ErrContentNotFound):
+		return nil, notFoundError("content not found")
+
+	default:
+		return nil, internalServerError(err)
+	}
 }
 
 func handleContentInfo(ctx context.Context, rc requestContext) (interface{}, *apiError) {

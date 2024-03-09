@@ -20,7 +20,7 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 
 	sm.log.Debugf("Refresh started")
 
-	ibm, err := sm.indexBlobManager()
+	ibm, err := sm.indexBlobManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.Compa
 
 	sm.log.Debugf("CompactIndexes(%+v)", opt)
 
-	ibm, err := sm.indexBlobManager()
+	ibm, err := sm.indexBlobManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -77,7 +77,7 @@ func ParseIndexBlob(blobID blob.ID, encrypted gather.Bytes, crypter blobcrypto.C
 
 	var results []Info
 
-	err = ndx.Iterate(index.AllIDs, func(i Info) error {
+	err = ndx.Iterate(index.AllIDs, func(i index.InfoReader) error {
 		results = append(results, index.ToInfoStruct(i))
 		return nil
 	})

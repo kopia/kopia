@@ -117,13 +117,13 @@ func createTestSnapshot(t *testing.T, ctx context.Context, sp *testutil.ServerPa
 	f, err := os.Create(filepath.Join(snap1Path, "big.file"))
 
 	// assert that no error occurred
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	// truncate file to 10 mb
 	err = f.Truncate(1e7)
 
 	// assert that no error occurred
-	assert.Nil(t, err)
+	require.NoError(t, err)
 
 	// create test repository
 	require.NoError(t, chromedp.Run(ctx,
@@ -282,11 +282,14 @@ func TestChangeTheme(t *testing.T) {
 			tc.captureScreenshot("initial-theme"),
 		))
 
+		theme := nodes[0].AttributeValue("class")
+		t.Logf("theme: %v", theme)
+
 		// ensure we start with light mode
-		if nodes[0].AttributeValue("class") != "light" {
+		if theme != "light" {
 			require.NoError(t, chromedp.Run(ctx,
 				tc.log("selecting light-theme before starting the test"),
-				chromedp.SetValue(`//select[@class="select_theme, form-select form-select-sm"]`, "light", chromedp.BySearch),
+				chromedp.SetValue(`//select[@id="themeSelector"]`, "light", chromedp.BySearch),
 			))
 		}
 
@@ -294,25 +297,25 @@ func TestChangeTheme(t *testing.T) {
 		require.NoError(t, chromedp.Run(ctx,
 			chromedp.WaitVisible("html.light"),
 			tc.log("selecting pastel theme"),
-			chromedp.SetValue(`//select[@class="select_theme, form-select form-select-sm"]`, "pastel", chromedp.BySearch),
+			chromedp.SetValue(`//select[@id="themeSelector"]`, "pastel", chromedp.BySearch),
 			chromedp.Sleep(time.Second),
 			chromedp.WaitVisible("html.pastel"),
 			tc.captureScreenshot("theme-pastel"),
 
 			tc.log("selecting dark theme"),
-			chromedp.SetValue(`//select[@class="select_theme, form-select form-select-sm"]`, "dark", chromedp.BySearch),
+			chromedp.SetValue(`//select[@id="themeSelector"]`, "dark", chromedp.BySearch),
 			chromedp.WaitVisible("html.dark"),
 			chromedp.Sleep(time.Second),
 			tc.captureScreenshot("theme-dark"),
 
 			tc.log("selecting ocean theme"),
-			chromedp.SetValue(`//select[@class="select_theme, form-select form-select-sm"]`, "ocean", chromedp.BySearch),
+			chromedp.SetValue(`//select[@id="themeSelector"]`, "ocean", chromedp.BySearch),
 			chromedp.WaitVisible("html.ocean"),
 			chromedp.Sleep(time.Second),
 			tc.captureScreenshot("theme-ocean"),
 
 			tc.log("selecting light theme"),
-			chromedp.SetValue(`//select[@class="select_theme, form-select form-select-sm"]`, "light", chromedp.BySearch),
+			chromedp.SetValue(`//select[@id="themeSelector"]`, "light", chromedp.BySearch),
 			chromedp.WaitVisible("html.light"),
 			chromedp.Sleep(time.Second),
 			tc.captureScreenshot("theme-light"),
@@ -333,6 +336,8 @@ func TestByteRepresentation(t *testing.T) {
 
 		// begin test
 		require.NoError(t, chromedp.Run(ctx,
+			tc.captureScreenshot("initial0"),
+
 			tc.log("navigating to preferences tab"),
 			chromedp.Click("a[data-testid='tab-preferences']", chromedp.BySearch),
 			tc.captureScreenshot("initial"),

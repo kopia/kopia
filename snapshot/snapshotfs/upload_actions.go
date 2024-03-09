@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -66,7 +67,7 @@ func (hc *actionContext) ensureInitialized(ctx context.Context, actionType, dirP
 		return errors.Wrap(err, "error reading random bytes")
 	}
 
-	hc.SnapshotID = fmt.Sprintf("%x", randBytes[:])
+	hc.SnapshotID = hex.EncodeToString(randBytes[:])
 	hc.SourcePath = dirPathOrEmpty
 	hc.SnapshotPath = hc.SourcePath
 

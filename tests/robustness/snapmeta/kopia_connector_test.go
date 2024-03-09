@@ -6,23 +6,23 @@ package snapmeta
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestKopiaConnector(t *testing.T) {
-	assert := assert.New(t) //nolint:gocritic
+	require := require.New(t) //nolint:gocritic
 
 	t.Setenv("KOPIA_EXE", "kopia.exe")
 
 	tc := &testConnector{}
 
 	err := tc.initializeConnector("")
-	assert.NoError(err)
-	assert.NotNil(tc.snap)
-	assert.NotNil(tc.initS3Fn)
-	assert.NotNil(tc.initS3WithServerFn)
-	assert.NotNil(tc.initFilesystemFn)
-	assert.NotNil(tc.initFilesystemWithServerFn)
+	require.NoError(err)
+	require.NotNil(tc.snap)
+	require.NotNil(tc.initS3Fn)
+	require.NotNil(tc.initS3WithServerFn)
+	require.NotNil(tc.initFilesystemFn)
+	require.NotNil(tc.initFilesystemWithServerFn)
 
 	tc.initS3Fn = tc.testInitS3
 	tc.initFilesystemFn = tc.testInitFilesystem
@@ -35,34 +35,34 @@ func TestKopiaConnector(t *testing.T) {
 	t.Setenv(EngineModeEnvKey, EngineModeBasic)
 	t.Setenv(S3BucketNameEnvKey, "")
 	tc.reset()
-	assert.NoError(tc.connectOrCreateRepo(repoPath))
-	assert.True(tc.initFilesystemCalled)
-	assert.Equal(repoPath, tc.tcRepoPath)
+	require.NoError(tc.connectOrCreateRepo(repoPath))
+	require.True(tc.initFilesystemCalled)
+	require.Equal(repoPath, tc.tcRepoPath)
 
 	t.Setenv(EngineModeEnvKey, EngineModeBasic)
 	t.Setenv(S3BucketNameEnvKey, bucketName)
 	tc.reset()
-	assert.NoError(tc.connectOrCreateRepo(repoPath))
-	assert.True(tc.initS3Called)
-	assert.Equal(repoPath, tc.tcRepoPath)
-	assert.Equal(bucketName, tc.tcBucketName)
+	require.NoError(tc.connectOrCreateRepo(repoPath))
+	require.True(tc.initS3Called)
+	require.Equal(repoPath, tc.tcRepoPath)
+	require.Equal(bucketName, tc.tcBucketName)
 
 	t.Setenv(EngineModeEnvKey, EngineModeServer)
 	t.Setenv(S3BucketNameEnvKey, "")
 	tc.reset()
-	assert.NoError(tc.connectOrCreateRepo(repoPath))
-	assert.True(tc.initFilesystemWithServerCalled)
-	assert.Equal(repoPath, tc.tcRepoPath)
-	assert.Equal(defaultAddr, tc.tcAddr)
+	require.NoError(tc.connectOrCreateRepo(repoPath))
+	require.True(tc.initFilesystemWithServerCalled)
+	require.Equal(repoPath, tc.tcRepoPath)
+	require.Equal(defaultAddr, tc.tcAddr)
 
 	t.Setenv(EngineModeEnvKey, EngineModeServer)
 	t.Setenv(S3BucketNameEnvKey, bucketName)
 	tc.reset()
-	assert.NoError(tc.connectOrCreateRepo(repoPath))
-	assert.True(tc.initS3WithServerCalled)
-	assert.Equal(repoPath, tc.tcRepoPath)
-	assert.Equal(bucketName, tc.tcBucketName)
-	assert.Equal(defaultAddr, tc.tcAddr)
+	require.NoError(tc.connectOrCreateRepo(repoPath))
+	require.True(tc.initS3WithServerCalled)
+	require.Equal(repoPath, tc.tcRepoPath)
+	require.Equal(bucketName, tc.tcBucketName)
+	require.Equal(defaultAddr, tc.tcAddr)
 }
 
 type testConnector struct {

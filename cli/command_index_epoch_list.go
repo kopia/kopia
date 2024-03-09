@@ -23,7 +23,7 @@ func (c *commandIndexEpochList) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandIndexEpochList) run(ctx context.Context, rep repo.DirectRepository) error {
-	emgr, ok, err := rep.ContentReader().EpochManager()
+	emgr, ok, err := rep.ContentReader().EpochManager(ctx)
 	if err != nil {
 		return errors.Wrap(err, "epoch manager")
 	}

@@ -94,7 +94,7 @@ func (p *cliProgress) Error(path string, err error, isIgnored bool) {
 		p.output(warningColor, fmt.Sprintf("Ignored error when processing \"%v\": %v\n", path, err))
 	} else {
 		p.fatalErrorCount.Add(1)
-		p.output(warningColor, fmt.Sprintf("Error when processing \"%v\": %v\n", path, err))
+		p.output(errorColor, fmt.Sprintf("Error when processing \"%v\": %v\n", path, err))
 	}
 }
 

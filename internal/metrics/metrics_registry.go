@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -15,7 +16,11 @@ var log = logging.Module("metrics")
 
 // Registry groups together all metrics stored in the repository and provides ways of accessing them.
 type Registry struct {
-	mu                       sync.Mutex
+	mu sync.Mutex
+
+	// +checklocks:mu
+	startTime time.Time
+
 	allCounters              map[string]*Counter
 	allThroughput            map[string]*Throughput
 	allDurationDistributions map[string]*Distribution[time.Duration]
@@ -24,6 +29,11 @@ type Registry struct {
 
 // Snapshot captures the state of all metrics.
 type Snapshot struct {
+	StartTime time.Time `json:"startTime"`
+	EndTime   time.Time `json:"endTime"`
+	User      string    `json:"user"`
+	Hostname  string    `json:"hostname"`
+
 	Counters              map[string]int64                             `json:"counters"`
 	DurationDistributions map[string]*DistributionState[time.Duration] `json:"durationDistributions"`
 	SizeDistributions     map[string]*DistributionState[int64]         `json:"sizeDistributions"`
@@ -79,6 +89,16 @@ func (r *Registry) Snapshot(reset bool) Snapshot {
 		s.SizeDistributions[k] = c.Snapshot(reset)
 	}
 
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	s.StartTime = r.startTime
+	s.EndTime = clock.Now()
+
+	if reset {
+		r.startTime = clock.Now()
+	}
+
 	return s
 }
 
@@ -119,6 +139,8 @@ func (r *Registry) Log(ctx context.Context) {
 // NewRegistry returns new metrics registry.
 func NewRegistry() *Registry {
 	r := &Registry{
+		startTime: clock.Now(),
+
 		allCounters:              map[string]*Counter{},
 		allDurationDistributions: map[string]*Distribution[time.Duration]{},
 		allSizeDistributions:     map[string]*Distribution[int64]{},

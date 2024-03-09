@@ -1,18 +1,16 @@
-// Package repolog manages logs in the repository.
-package repolog
+// Package repodiag manages logs and metrics in the repository.
+package repodiag
 
 import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/kopia/kopia/internal/blobcrypto"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/zaplogutil"
@@ -21,8 +19,8 @@ import (
 
 const blobLoggerFlushThreshold = 4 << 20
 
-// BlobPrefix is a prefix given to text logs stored in repository.
-const BlobPrefix = "_log_"
+// LogBlobPrefix is a prefix given to text logs stored in repository.
+const LogBlobPrefix = "_log_"
 
 // LogManager manages writing encrypted log blobs to the repository.
 type LogManager struct {
@@ -32,55 +30,29 @@ type LogManager struct {
 	// repository asynchronously when the context is not provided.
 	ctx context.Context //nolint:containedctx
 
-	st             blob.Storage
-	bc             blobcrypto.Crypter
-	wg             sync.WaitGroup
+	writer *Writer
+
 	timeFunc       func() time.Time
 	flushThreshold int
 }
 
-// Close closes the log manager.
-func (m *LogManager) Close(ctx context.Context) {
-	m.wg.Wait()
-}
-
 func (m *LogManager) encryptAndWriteLogBlob(prefix blob.ID, data gather.Bytes, closeFunc func()) {
-	encrypted := gather.NewWriteBuffer()
-	// Close happens in a goroutine
-
-	blobID, err := blobcrypto.Encrypt(m.bc, data, prefix, "", encrypted)
-	if err != nil {
-		encrypted.Close()
-
-		// this should not happen, also nothing can be done about this, we're not in a place where we can return error, log it.
-		return
-	}
-
-	b := encrypted.Bytes()
-
-	m.wg.Add(1)
-
-	go func() {
-		defer m.wg.Done()
-		defer encrypted.Close()
-		defer closeFunc()
-
-		if err := m.st.PutBlob(m.ctx, blobID, b, blob.PutOptions{}); err != nil {
-			// nothing can be done about this, we're not in a place where we can return error, log it.
-			return
-		}
-	}()
+	m.writer.EncryptAndWriteBlobAsync(m.ctx, prefix, data, closeFunc)
 }
 
 // NewLogger creates new logger.
 func (m *LogManager) NewLogger() *zap.SugaredLogger {
+	if m == nil {
+		return zap.NewNop().Sugar()
+	}
+
 	var rnd [2]byte
 
 	rand.Read(rnd[:]) //nolint:errcheck
 
 	w := &internalLogger{
 		m:      m,
-		prefix: blob.ID(fmt.Sprintf("%v%v_%x", BlobPrefix, clock.Now().Local().Format("20060102150405"), rnd)),
+		prefix: blob.ID(fmt.Sprintf("%v%v_%x", LogBlobPrefix, clock.Now().Local().Format("20060102150405"), rnd)),
 	}
 
 	return zap.New(zapcore.NewCore(
@@ -101,11 +73,10 @@ func (m *LogManager) Enable() {
 }
 
 // NewLogManager creates a new LogManager that will emit logs as repository blobs.
-func NewLogManager(ctx context.Context, st blob.Storage, bc blobcrypto.Crypter) *LogManager {
+func NewLogManager(ctx context.Context, w *Writer) *LogManager {
 	return &LogManager{
 		ctx:            ctx,
-		st:             st,
-		bc:             bc,
+		writer:         w,
 		flushThreshold: blobLoggerFlushThreshold,
 		timeFunc:       clock.Now,
 	}

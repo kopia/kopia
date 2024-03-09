@@ -33,6 +33,8 @@ func CalculateStorageStats(ctx context.Context, rep repo.Repository, manifests [
 
 	tw, twerr := NewTreeWalker(ctx, TreeWalkerOptions{
 		EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
+			_ = entryPath
+
 			if !entry.IsDir() {
 				atomic.AddInt32(&unique.FileObjectCount, 1)
 				atomic.AddInt32(&runningTotal.FileObjectCount, 1)

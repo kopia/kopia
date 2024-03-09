@@ -89,7 +89,7 @@ type appServices interface {
 	stdout() io.Writer
 	Stderr() io.Writer
 	stdin() io.Reader
-	onCtrlC(callback func())
+	onTerminate(callback func())
 	onRepositoryFatalError(callback func(err error))
 	enableTestOnlyFlags() bool
 	EnvName(s string) string
@@ -365,7 +365,7 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 		"full": maintenance.SafetyFull,
 	}
 
-	cmd.Flag("safety", "Safety level").Default("full").PreAction(func(pc *kingpin.ParseContext) error {
+	cmd.Flag("safety", "Safety level").Default("full").PreAction(func(_ *kingpin.ParseContext) error {
 		r, ok := safetyByName[str]
 		if !ok {
 			return errors.Errorf("unhandled safety level")

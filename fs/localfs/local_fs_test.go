@@ -147,7 +147,7 @@ func TestIterateNonExistent(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	require.ErrorIs(t, dir.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+	require.ErrorIs(t, fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		t.Fatal("this won't be invoked")
 		return nil
 	}), os.ErrNotExist)
@@ -168,7 +168,7 @@ func testIterate(t *testing.T, nFiles int) {
 
 	names := map[string]int64{}
 
-	require.NoError(t, dir.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+	require.NoError(t, fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		names[e.Name()] = e.Size()
 		return nil
 	}))
@@ -179,7 +179,7 @@ func testIterate(t *testing.T, nFiles int) {
 
 	cnt := 0
 
-	require.ErrorIs(t, dir.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+	require.ErrorIs(t, fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		cnt++
 
 		if cnt == nFiles/10 {
@@ -191,7 +191,7 @@ func testIterate(t *testing.T, nFiles int) {
 
 	cnt = 0
 
-	require.ErrorIs(t, dir.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+	require.ErrorIs(t, fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		cnt++
 
 		if cnt == nFiles-1 {

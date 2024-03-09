@@ -81,6 +81,7 @@ linters:
     - ireturn # this one may be interesting to control allocations
     - gosmopolitan
     - maligned
+    - musttag
     - nilnil
     - nlreturn
     - nonamedreturns
@@ -118,13 +119,16 @@ issues:
       - funlen
       - gochecknoglobals
       - gocognit
+      - goconst
       - gomnd
       - gosec
       - musttag
       - nestif
+      - perfsprint
       - revive
       - nolintlint
       - wrapcheck
+      - wsl
     - text: "log is a global variable"
       linters:
       - gochecknoglobals
@@ -171,3 +175,6 @@ issues:
     - text: "unwrapped: sig: func github.com/kopia/kopia/fs.GetAllEntries"
       linters:
         - wrapcheck
+    - text: "float-compare: use require.InEpsilon"
+      linters:
+        - testifylint

@@ -1,7 +1,9 @@
 ---
 title: "Advanced Topics"
 linkTitle: "Advanced Topics"
-weight: 99
+weight: 35
+hide_summary: true
+no_list: true
 ---
 
 ## Advanced Topics

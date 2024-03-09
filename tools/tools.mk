@@ -102,11 +102,11 @@ retry:=
 endif
 
 # tool versions
-GOLANGCI_LINT_VERSION=1.54.0
+GOLANGCI_LINT_VERSION=1.56.2
 CHECKLOCKS_VERSION=e8c1fff214d0ecf02cfe5aa9c62d11174130c339
 NODE_VERSION=18.16.0
 HUGO_VERSION=0.113.0
-GOTESTSUM_VERSION=1.10.0
+GOTESTSUM_VERSION=1.11.0
 GORELEASER_VERSION=v0.176.0
 RCLONE_VERSION=1.63.1
 GITCHGLOG_VERSION=0.15.1
@@ -303,9 +303,8 @@ verify-all-tool-checksums:
 	  --tool $(ALL_TOOL_VERSIONS)
 
 regenerate-checksums:
-	go run github.com/kopia/kopia/tools/gettool --regenerate-checksums \
+	go run github.com/kopia/kopia/tools/gettool --regenerate-checksums $(CURDIR)/tools/gettool/checksums.txt \
 	  --output-dir /tmp/all-tools \
 	  --tool $(ALL_TOOL_VERSIONS)
 
 all-tools: $(gotestsum) $(npm) $(linter) $(maybehugo)
-

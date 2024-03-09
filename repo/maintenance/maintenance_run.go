@@ -247,7 +247,7 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 }
 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
-	_, ok, emerr := runParams.rep.ContentManager().EpochManager()
+	_, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if ok {
 		log(ctx).Debugf("quick maintenance not required for epoch manager")
 		return nil
@@ -299,6 +299,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		return errors.Wrap(err, "error performing index compaction")
 	}
 
+	// clean up logs last
 	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
 		return errors.Wrap(err, "error cleaning up logs")
 	}
@@ -327,7 +328,7 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 }
 
 func runTaskCleanupEpochManager(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	em, ok, emerr := runParams.rep.ContentManager().EpochManager()
+	em, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if emerr != nil {
 		return errors.Wrap(emerr, "epoch manager")
 	}
@@ -387,6 +388,7 @@ func runTaskDeleteOrphanedBlobsFull(ctx context.Context, runParams RunParameters
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
 		}, safety)
+
 		return err
 	})
 }
@@ -397,6 +399,7 @@ func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameter
 			NotAfterTime: runParams.MaintenanceStartTime,
 			Prefix:       content.PackBlobIDPrefixSpecial,
 		}, safety)
+
 		return err
 	})
 }
@@ -448,12 +451,13 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		log(ctx).Debug("Extending object lock retention-period is disabled.")
 	}
 
-	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
-		return errors.Wrap(err, "error cleaning up logs")
-	}
-
 	if err := runTaskCleanupEpochManager(ctx, runParams, s); err != nil {
 		return errors.Wrap(err, "error cleaning up epoch manager")
+	}
+
+	// clean up logs last
+	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error cleaning up logs")
 	}
 
 	return nil

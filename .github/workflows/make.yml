@@ -40,11 +40,11 @@ jobs:
     continue-on-error: ${{ contains(matrix.os, 'self-hosted') }}
     steps:
     - name: Check out repository
-      uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
       with:
         fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
       with:
         go-version-file: 'go.mod'
         check-latest: true
@@ -89,6 +89,7 @@ jobs:
         APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
         APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+        APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
         KOPIA_UI_NOTARIZE: ${{ secrets.KOPIA_UI_NOTARIZE }}
 
         # tool to install Windows signing certificate
@@ -100,9 +101,9 @@ jobs:
         # macOS signing certificate (base64-encoded), used by Electron Builder
         MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
     - name: Upload Kopia Artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
       with:
-        name: kopia
+        name: kopia-${{ matrix.os }}
         path: |
           dist/*.md
           dist/*.rb
@@ -122,9 +123,9 @@ jobs:
         if-no-files-found: ignore
       if: ${{ !contains(matrix.os, 'self-hosted') }}
     - name: Upload Kopia Binary
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3 # v4.3.1
       with:
-        name: kopia_binaries
+        name: kopia_binaries-${{ matrix.os }}
         path: |
           dist/*/kopia
           dist/*/kopia.exe
@@ -138,20 +139,22 @@ jobs:
     needs: build
     if: github.event_name != 'pull_request' && github.repository == 'kopia/kopia'
     steps:
-    - uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+    - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@v2
+      uses: docker/setup-qemu-action@68827325e0b33c7199eb31dd4e31fbe9023e06e3 # v3.0.0
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
+      uses: docker/setup-buildx-action@0d103c3126aa41d772a8362f6aa67afac040f80c # v3.1.0
     - name: Download Artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
       with:
-        name: kopia
+        pattern: kopia-*
+        merge-multiple: true
         path: dist
     - name: Download Kopia Binaries
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@c850b930e6ba138125429b7e5c93fc707a7f8427 # v4.1.4
       with:
-        name: kopia_binaries
+        pattern: kopia_binaries-*
+        merge-multiple: true
         path: dist_binaries
     - name: Display structure of downloaded files
       run: ls -lR dist/ dist_binaries/
@@ -191,7 +194,7 @@ jobs:
         DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Bump Homebrew formula
-      uses: dawidd6/action-homebrew-bump-formula@v3
+      uses: dawidd6/action-homebrew-bump-formula@baf2b60c51fc1f8453c884b0c61052668a71bd1d # v3.11.0
       # only bump formula for tags which don't contain '-'
       # this excludes vx.y.z-rc1
       if: github.ref_type == 'tag' && !contains(github.ref_name, '-')

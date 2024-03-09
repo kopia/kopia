@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -354,7 +355,7 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) 
 	faulty := blobtesting.NewFaultyStorage(st)
 	st = faulty
 
-	ta := faketime.NewTimeAdvance(fakeTime, 0)
+	ta := faketime.NewTimeAdvance(fakeTime)
 
 	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
 		Hash:              "HMAC-SHA256-128",
@@ -970,7 +971,7 @@ func (s *contentManagerSuite) TestDeleteAfterUndelete(t *testing.T) {
 		t.Fatal("error while flushing:", err)
 	}
 
-	c2Want = withDeleted{c2Want, true}
+	c2Want = withDeleted(c2Want)
 	deleteContentAfterUndeleteAndCheck(ctx, t, bm, content2, c2Want)
 }
 
@@ -983,7 +984,7 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 		t.Fatalf("Expected content %q to be deleted, got: %#v", id, got)
 	}
 
-	if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds"); len(diff) != 0 {
+	if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds", "Timestamp"); len(diff) != 0 {
 		t.Fatalf("Content %q info does not match\ndiff: %v", id, diff)
 	}
 
@@ -1227,6 +1228,7 @@ func (s *contentManagerSuite) verifyAllDataPresent(ctx context.Context, t *testi
 
 	bm := s.newTestContentManagerWithCustomTime(t, st, nil)
 	defer bm.CloseShared(ctx)
+
 	_ = bm.IterateContents(ctx, IterateOptions{}, func(ci Info) error {
 		delete(contentIDs, ci.GetContentID())
 		return nil
@@ -1830,7 +1832,7 @@ func (s *contentManagerSuite) TestAutoCompressionOfMetadata(t *testing.T) {
 	info, err := bm.ContentInfo(ctx, contentID)
 	require.NoError(t, err)
 
-	if scc, _ := bm.SupportsContentCompression(); scc {
+	if bm.SupportsContentCompression() {
 		require.Equal(t, compression.HeaderZstdFastest, info.GetCompressionHeaderID())
 	} else {
 		require.Equal(t, NoCompression, info.GetCompressionHeaderID())
@@ -2094,7 +2096,7 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	require.NoError(t, err)
 
 	// verify compression did not occur
-	require.True(t, ci.GetPackedLength() > ci.GetOriginalLength())
+	require.Greater(t, ci.GetPackedLength(), ci.GetOriginalLength())
 	require.Equal(t, uint32(len(nonCompressibleData)), ci.GetOriginalLength())
 	require.Equal(t, NoCompression, ci.GetCompressionHeaderID())
 
@@ -2514,7 +2516,8 @@ func verifyContent(ctx context.Context, t *testing.T, bm *WriteManager, contentI
 
 	b2, err := bm.GetContent(ctx, contentID)
 	if err != nil {
-		t.Fatalf("unable to read content %q: %v", contentID, err)
+		t.Errorf("unable to read content %q: %v", contentID, err)
+
 		return
 	}
 
@@ -2533,6 +2536,8 @@ func writeContentAndVerify(ctx context.Context, t *testing.T, bm *WriteManager, 
 	contentID, err := bm.WriteContent(ctx, gather.FromSlice(b), "", NoCompression)
 	if err != nil {
 		t.Errorf("err: %v", err)
+
+		return contentID
 	}
 
 	if got, want := contentID, hashValue(t, b); got != want {
@@ -2606,7 +2611,7 @@ func hashValue(t *testing.T, b []byte) ID {
 	h.Write(b)
 
 	id, err := IDFromHash("", h.Sum(nil))
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	return id
 }
@@ -2673,13 +2678,10 @@ func verifyBlobCount(t *testing.T, data blobtesting.DataMap, want map[blob.ID]in
 	}
 }
 
-type withDeleted struct {
-	index.Info
-	deleted bool
-}
+func withDeleted(i Info) Info {
+	i.Deleted = true
 
-func (o withDeleted) GetDeleted() bool {
-	return o.deleted
+	return i
 }
 
 var (

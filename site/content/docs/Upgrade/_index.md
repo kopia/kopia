@@ -1,7 +1,7 @@
 ---
 title: "Upgrading to New Version"
 linkTitle: "Upgrading to New Version"
-weight: 70
+weight: 45
 ---
 
 Upgrading Kopia from one version to the next is a seamless process except for the upgrade paths discussed in this document. If your Kopia upgrade path is not mentioned here, then you are safe to upgrade Kopia as normal.

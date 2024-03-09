@@ -13,7 +13,6 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
 )
@@ -49,11 +48,12 @@ const (
 
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
 	// override the parent, the upgrade sub-command becomes the new parent here-onwards
-	parent = parent.Command("upgrade", fmt.Sprintf("Upgrade repository format.\n\n%s", warningColor.Sprint(experimentalWarning))).Hidden().
-		Validate(func(tmpCmd *kingpin.CmdClause) error {
+	parent = parent.Command("upgrade", "Upgrade repository format.\n\n"+warningColor.Sprint(experimentalWarning)).Hidden().
+		Validate(func(_ *kingpin.CmdClause) error {
 			if v := os.Getenv(c.svc.EnvName(upgradeLockFeatureEnv)); v == "" {
 				return errors.Errorf("please set %q env variable to use this feature", upgradeLockFeatureEnv)
 			}
+
 			return nil
 		})
 
@@ -92,14 +92,14 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 }
 
 // assign store the info struct in a map that can be used to compare indexes.
-func assign(iif content.Info, i int, m map[content.ID][2]index.Info) {
+func assign(iif content.Info, i int, m map[content.ID][2]content.Info) {
 	v := m[iif.GetContentID()]
 	v[i] = iif
 	m[iif.GetContentID()] = v
 }
 
 // loadIndexBlobs load index blobs into indexEntries map.  indexEntries map will allow comparison betweel two indexes (index at which == 0 and index at which == 1).
-func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]index.Info, sm *content.SharedManager, which int, indexBlobInfos []indexblob.Metadata) error {
+func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]content.Info, sm *content.SharedManager, which int, indexBlobInfos []indexblob.Metadata) error {
 	d := gather.WriteBuffer{}
 
 	for _, indexBlobInfo := range indexBlobInfos {
@@ -121,7 +121,7 @@ func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]index.In
 // validateAction returns an error if the new V1 index blob content does not match the source V0 index blob content.
 // This is used to check that the upgraded index (V1 index) reflects the content of the old V0 index.
 func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	indexEntries := map[content.ID][2]index.Info{}
+	indexEntries := map[content.ID][2]content.Info{}
 
 	sm := rep.ContentManager().SharedManager
 
@@ -155,20 +155,23 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 	var msgs []string // a place to keep messages from the index comparison process
 
+	var zeroInfo content.Info
+
 	// both indexes will have matching contentiDs with matching indexInfo structures.
+	//nolint:gocritic
 	for contentID, indexEntryPairs := range indexEntries {
 		iep0 := indexEntryPairs[0] // first entry of index entry pair
 		iep1 := indexEntryPairs[1] // second entry of index entry pair
 
 		// check that both the new and old indexes have entries for the same content
-		if iep0 != nil && iep1 != nil {
+		if iep0 != zeroInfo && iep1 != zeroInfo {
 			// this is the happy-path, check the entries.  any problems found will be added to msgs
 			msgs = append(msgs, CheckIndexInfo(iep0, iep1)...)
 			continue
 		}
 
 		// one of iep0 or iep1 are nil .. find out which one and add an appropriate message.
-		if iep0 != nil {
+		if iep0 != zeroInfo {
 			msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep0.GetPackBlobID()))
 			continue
 		}
@@ -194,7 +197,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 }
 
 // CheckIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
-func CheckIndexInfo(i0, i1 index.Info) []string {
+func CheckIndexInfo(i0, i1 content.Info) []string {
 	var q []string
 
 	switch {
@@ -295,7 +298,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 
 	now := rep.Time()
 
-	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters()
+	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
@@ -353,7 +356,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	cf := rep.ContentReader().ContentFormat()
 
-	mp, mperr := cf.GetMutableParameters()
+	mp, mperr := cf.GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
@@ -361,7 +364,7 @@ func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.D
 	if mp.EpochParameters.Enabled {
 		log(ctx).Infof("Repository indices have already been migrated to the epoch format, no need to drain other clients")
 
-		l, err := rep.FormatManager().GetUpgradeLockIntent()
+		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
 		if err != nil {
 			return errors.Wrap(err, "failed to get upgrade lock intent")
 		}
@@ -390,7 +393,7 @@ func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur tim
 
 	stop := make(chan struct{})
 
-	c.svc.onCtrlC(func() { close(stop) })
+	c.svc.onTerminate(func() { close(stop) })
 
 	select {
 	case <-ctx.Done():
@@ -404,7 +407,7 @@ func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur tim
 
 func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	for {
-		l, err := rep.FormatManager().GetUpgradeLockIntent()
+		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
 
 		upgradeTime := l.UpgradeTime()
 		now := rep.Time()
@@ -434,12 +437,12 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 // repository. This phase runs after the lock has been acquired in one of the
 // prior phases.
 func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters()
+	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
 
-	rf, err := rep.FormatManager().RequiredFeatures()
+	rf, err := rep.FormatManager().RequiredFeatures(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error getting repository features")
 	}
@@ -458,7 +461,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 		return errors.Wrap(uerr, "error upgrading indices")
 	}
 
-	blobCfg, err := rep.FormatManager().BlobCfgBlob()
+	blobCfg, err := rep.FormatManager().BlobCfgBlob(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error getting blob configuration")
 	}

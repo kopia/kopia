@@ -157,8 +157,8 @@ func (r *apiServerRepository) Flush(ctx context.Context) error {
 	return nil
 }
 
-func (r *apiServerRepository) SupportsContentCompression() (bool, error) {
-	return r.serverSupportsContentCompression, nil
+func (r *apiServerRepository) SupportsContentCompression() bool {
+	return r.serverSupportsContentCompression
 }
 
 func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
@@ -177,7 +177,7 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 	w.afterFlush = nil
 
 	if w.wso.OnUpload == nil {
-		w.wso.OnUpload = func(i int64) {}
+		w.wso.OnUpload = func(_ int64) {}
 	}
 
 	r.addRef()
@@ -186,20 +186,21 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 }
 
 func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
-	var bi content.InfoStruct
+	var bi content.Info
 
+	//nolint:goconst
 	if err := r.cli.Get(ctx, "contents/"+contentID.String()+"?info=1", content.ErrContentNotFound, &bi); err != nil {
-		return nil, errors.Wrap(err, "ContentInfo")
+		return content.Info{}, errors.Wrap(err, "ContentInfo")
 	}
 
-	return &bi, nil
+	return bi, nil
 }
 
 func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	err := r.contentCache.GetOrLoad(ctx, contentID.String(), func(output *gather.WriteBuffer) error {
+	err := r.contentCache.GetOrLoad(ctx, contentID.String(), func(_ *gather.WriteBuffer) error {
 		var result []byte
 
 		if err := r.cli.Get(ctx, "contents/"+contentID.String(), content.ErrContentNotFound, &result); err != nil {
@@ -319,7 +320,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		immutableServerRepositoryParameters: par,
 		cli:                                 cli,
 		wso: WriteSessionOptions{
-			OnUpload: func(i int64) {},
+			OnUpload: func(_ int64) {},
 		},
 	}
 

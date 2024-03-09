@@ -36,7 +36,7 @@ type contentInfoOrError struct {
 }
 
 // RewriteContents rewrites contents according to provided criteria and creates new
-// blobs and index entries to point at the.
+// blobs and index entries to point at them.
 func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) error {
 	if opt == nil {
 		return errors.Errorf("missing options")
@@ -136,7 +136,7 @@ func getContentToRewrite(ctx context.Context, rep repo.DirectRepository, opt *Re
 
 		// add all content IDs from short packs
 		if opt.ShortPacks {
-			mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters()
+			mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters(ctx)
 			if mperr == nil {
 				threshold := int64(mp.MaxPackSize * shortPackThresholdPercent / 100) //nolint:gomnd
 				findContentInShortPacks(ctx, rep, ch, threshold, opt)
@@ -174,6 +174,7 @@ func findContentWithFormatVersion(ctx context.Context, rep repo.DirectRepository
 			if int(b.GetFormatVersion()) == opt.FormatVersion && strings.HasPrefix(string(b.GetPackBlobID()), string(opt.PackPrefix)) {
 				ch <- contentInfoOrError{Info: b}
 			}
+
 			return nil
 		})
 }

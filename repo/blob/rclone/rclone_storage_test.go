@@ -15,12 +15,14 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -235,14 +237,10 @@ func TestRCloneProviders(t *testing.T) {
 		}
 
 		t.Run("Cleanup-"+name, func(t *testing.T) {
-			t.Parallel()
-
 			cleanupOldData(t, rcloneExe, rp)
 		})
 
 		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
 			ctx := testlogging.Context(t)
 
 			// we are using shared storage, append a guid so that tests don't collide
@@ -258,6 +256,7 @@ func TestRCloneProviders(t *testing.T) {
 				blob.PutOptions{})
 
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+			require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
 
 			// write a bunch of tiny blobs massively in parallel
 			// and kill rclone immediately after to ensure all writes are synchronous
@@ -273,7 +272,7 @@ func TestRCloneProviders(t *testing.T) {
 					defer wg.Done()
 
 					for j := 0; j < 3; j++ {
-						require.NoError(t, st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j)), gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+						assert.NoError(t, st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j)), gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 					}
 				}()
 			}

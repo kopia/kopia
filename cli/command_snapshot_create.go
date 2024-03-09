@@ -233,7 +233,7 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 		u.CheckpointInterval = interval
 	}
 
-	c.svc.onCtrlC(u.Cancel)
+	c.svc.onTerminate(u.Cancel)
 
 	u.ForceHashPercentage = c.snapshotCreateForceHash
 	u.ParallelUploads = c.snapshotCreateParallelUploads
@@ -463,7 +463,6 @@ func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir st
 
 	if c.sourceOverride != "" {
 		info, err = parseFullSource(c.sourceOverride, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
-
 		if err != nil {
 			return nil, info, false, errors.Wrapf(err, "invalid source override %v", c.sourceOverride)
 		}

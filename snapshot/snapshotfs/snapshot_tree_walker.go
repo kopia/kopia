@@ -107,37 +107,42 @@ func (w *TreeWalker) processEntry(ctx context.Context, e fs.Entry, entryPath str
 }
 
 func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entryPath string) {
-	type errStop struct {
-		error
-	}
-
 	var ag workshare.AsyncGroup[any]
 	defer ag.Close()
 
-	err := dir.IterateEntries(ctx, func(c context.Context, ent fs.Entry) error {
+	iter, err := dir.Iterate(ctx)
+	if err != nil {
+		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
+
+		return
+	}
+
+	defer iter.Close()
+
+	ent, err := iter.Next(ctx)
+	for ent != nil {
+		ent2 := ent
+
 		if w.TooManyErrors() {
-			return errStop{errors.New("")}
+			break
 		}
 
-		if w.alreadyProcessed(ctx, ent) {
-			return nil
+		if !w.alreadyProcessed(ctx, ent2) {
+			childPath := path.Join(entryPath, ent2.Name())
+
+			if ag.CanShareWork(w.wp) {
+				ag.RunAsync(w.wp, func(_ *workshare.Pool[any], _ any) {
+					w.processEntry(ctx, ent2, childPath)
+				}, nil)
+			} else {
+				w.processEntry(ctx, ent2, childPath)
+			}
 		}
 
-		childPath := path.Join(entryPath, ent.Name())
+		ent, err = iter.Next(ctx)
+	}
 
-		if ag.CanShareWork(w.wp) {
-			ag.RunAsync(w.wp, func(c *workshare.Pool[any], request any) {
-				w.processEntry(ctx, ent, childPath)
-			}, nil)
-		} else {
-			w.processEntry(ctx, ent, childPath)
-		}
-
-		return nil
-	})
-
-	var stopped errStop
-	if err != nil && !errors.As(err, &stopped) {
+	if err != nil {
 		w.ReportError(ctx, entryPath, errors.Wrap(err, "error reading directory"))
 	}
 }

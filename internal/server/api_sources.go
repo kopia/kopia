@@ -25,7 +25,7 @@ func handleSourcesList(ctx context.Context, rc requestContext) (interface{}, *ap
 		MultiUser:     multiUser,
 	}
 
-	for src, v := range rc.srv.allSourceManagers() {
+	for src, v := range rc.srv.snapshotAllSourceManagers() {
 		if sourceMatchesURLFilter(src, rc.req.URL.Query()) {
 			resp.Sources = append(resp.Sources, v.Status())
 		}

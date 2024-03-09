@@ -83,7 +83,7 @@ func iterateAllNames(ctx context.Context, t *testing.T, dir fs.Directory, prefix
 
 	result := map[string]struct{}{}
 
-	err := dir.IterateEntries(ctx, func(innerCtx context.Context, ent fs.Entry) error {
+	err := fs.IterateEntries(ctx, dir, func(innerCtx context.Context, ent fs.Entry) error {
 		if ent.IsDir() {
 			result[prefix+ent.Name()+"/"] = struct{}{}
 			childEntries := iterateAllNames(ctx, t, ent.(fs.Directory), prefix+ent.Name()+"/")

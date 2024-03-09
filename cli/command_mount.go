@@ -61,6 +61,7 @@ func (c *commandMount) run(ctx context.Context, rep repo.Repository) error {
 		entry = snapshotfs.AllSourcesEntry(rep)
 	} else {
 		var err error
+
 		entry, err = snapshotfs.FilesystemDirectoryFromIDWithPath(ctx, rep, c.mountObjectID, false)
 		if err != nil {
 			return errors.Wrapf(err, "unable to get directory entry for %v", c.mountObjectID)
@@ -103,7 +104,7 @@ func (c *commandMount) run(ctx context.Context, rep repo.Repository) error {
 	// Wait until ctrl-c pressed or until the directory is unmounted.
 	ctrlCPressed := make(chan bool)
 
-	c.svc.onCtrlC(func() {
+	c.svc.onTerminate(func() {
 		close(ctrlCPressed)
 	})
 

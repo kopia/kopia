@@ -13,13 +13,14 @@ import (
 // CLIExeRunner is a CLIExeRunner that invokes the commands via external executable.
 type CLIExeRunner struct {
 	Exe               string
-	PassthroughStderr bool      // this is for debugging only
-	NextCommandStdin  io.Reader // this is used for stdin source tests
+	PassthroughStderr bool       // this is for debugging only
+	NextCommandStdin  io.Reader  // this is used for stdin source tests
+	ExtraFiles        []*os.File // this is used for socket-activation tests
 	LogsDir           string
 }
 
 // Start implements CLIRunner.
-func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, kill func()) {
+func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
 	t.Helper()
 
 	c := exec.Command(e.Exe, append([]string{
@@ -44,13 +45,20 @@ func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string)
 
 	c.Stdin = e.NextCommandStdin
 	e.NextCommandStdin = nil
+	c.ExtraFiles = e.ExtraFiles
 
 	if err := c.Start(); err != nil {
 		t.Fatalf("unable to start: %v", err)
 	}
 
-	return stdoutPipe, stderrPipe, c.Wait, func() {
-		c.Process.Kill()
+	return stdoutPipe, stderrPipe, c.Wait, func(sig os.Signal) {
+		if sig == os.Kill {
+			c.Process.Kill()
+
+			return
+		}
+
+		c.Process.Signal(sig)
 	}
 }
 

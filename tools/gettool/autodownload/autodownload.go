@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -212,6 +213,10 @@ type InvalidChecksumError struct {
 }
 
 func (e InvalidChecksumError) Error() string {
+	if e.expected == "" {
+		return fmt.Sprintf("missing checksum: %v", e.actual)
+	}
+
 	return fmt.Sprintf("invalid checksum: %v, wanted %v", e.actual, e.expected)
 }
 
@@ -241,12 +246,12 @@ func downloadInternal(url, dir string, checksum map[string]string, stripPathComp
 		return errors.Wrap(cerr, "copy error")
 	}
 
-	actualChecksum := fmt.Sprintf("%x", h.Sum(nil))
+	actualChecksum := hex.EncodeToString(h.Sum(nil))
 
 	switch {
 	case checksum[url] == "":
 		checksum[url] = actualChecksum
-		return errors.Errorf("missing checksum - calculated as %v", actualChecksum)
+		return InvalidChecksumError{actualChecksum, ""}
 
 	case checksum[url] != actualChecksum:
 		return InvalidChecksumError{actualChecksum, checksum[url]}

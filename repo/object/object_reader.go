@@ -65,6 +65,7 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 			if toCopy == 0 {
 				// EOF on current chunk
 				r.closeCurrentChunk()
+
 				r.currentChunkIndex++
 
 				continue

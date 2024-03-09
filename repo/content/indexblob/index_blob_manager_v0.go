@@ -53,7 +53,7 @@ type cleanupEntry struct {
 
 // IndexFormattingOptions provides options for formatting index blobs.
 type IndexFormattingOptions interface {
-	GetMutableParameters() (format.MutableParameters, error)
+	GetMutableParameters(ctx context.Context) (format.MutableParameters, error)
 }
 
 // ManagerV0 is a V0 (legacy) implementation of index blob manager.
@@ -155,7 +155,7 @@ func (m *ManagerV0) Compact(ctx context.Context, opt CompactOptions) error {
 		return errors.Wrap(err, "error listing active index blobs")
 	}
 
-	mp, mperr := m.formattingOptions.GetMutableParameters()
+	mp, mperr := m.formattingOptions.GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
@@ -484,7 +484,7 @@ func (m *ManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs []Metadata
 		return nil
 	}
 
-	mp, mperr := m.formattingOptions.GetMutableParameters()
+	mp, mperr := m.formattingOptions.GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
@@ -564,8 +564,8 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, bld ind
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}
 
-	_ = ndx.Iterate(index.AllIDs, func(i index.Info) error {
-		bld.Add(i)
+	_ = ndx.Iterate(index.AllIDs, func(i index.InfoReader) error {
+		bld.Add(index.ToInfoStruct(i))
 		return nil
 	})
 

@@ -34,7 +34,7 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 
 	var pointInTimeStr string
 
-	pitPreAction := func(pc *kingpin.ParseContext) error {
+	pitPreAction := func(_ *kingpin.ParseContext) error {
 		if pointInTimeStr != "" {
 			t, err := time.Parse(time.RFC3339, pointInTimeStr)
 			if err != nil {
@@ -49,8 +49,8 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 
 	cmd.Flag("point-in-time", "Use a point-in-time view of the storage repository when supported").PlaceHolder(time.RFC3339).PreAction(pitPreAction).StringVar(&pointInTimeStr)
 
-	cmd.Flag("root-ca-pem-base64", "Certficate authority in-line (base64 enc.)").Envar(svc.EnvName("ROOT_CA_PEM_BASE64")).PreAction(c.preActionLoadPEMBase64).StringVar(&c.rootCaPemBase64)
-	cmd.Flag("root-ca-pem-path", "Certficate authority file path").PreAction(c.preActionLoadPEMPath).StringVar(&c.rootCaPemPath)
+	cmd.Flag("root-ca-pem-base64", "Certificate authority in-line (base64 enc.)").Envar(svc.EnvName("ROOT_CA_PEM_BASE64")).PreAction(c.preActionLoadPEMBase64).StringVar(&c.rootCaPemBase64)
+	cmd.Flag("root-ca-pem-path", "Certificate authority file path").PreAction(c.preActionLoadPEMPath).StringVar(&c.rootCaPemPath)
 }
 
 func (c *storageS3Flags) preActionLoadPEMPath(_ *kingpin.ParseContext) error {

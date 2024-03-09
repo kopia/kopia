@@ -549,7 +549,7 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 	walk = func(path string, d fs.Directory) error {
 		output = append(output, path+"/")
 
-		return d.IterateEntries(testlogging.Context(t), func(innerCtx context.Context, e fs.Entry) error {
+		return fs.IterateEntries(testlogging.Context(t), d, func(innerCtx context.Context, e fs.Entry) error {
 			relPath := path + "/" + e.Name()
 
 			if subdir, ok := e.(fs.Directory); ok {
