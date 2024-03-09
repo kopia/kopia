@@ -650,6 +650,7 @@ func (e *Manager) loadUncompactedEpochs(ctx context.Context, min, max int) (map[
 			defer mu.Unlock()
 
 			result[n] = bm
+
 			return nil
 		})
 	}

@@ -174,6 +174,7 @@ func findContentWithFormatVersion(ctx context.Context, rep repo.DirectRepository
 			if int(b.GetFormatVersion()) == opt.FormatVersion && strings.HasPrefix(string(b.GetPackBlobID()), string(opt.PackPrefix)) {
 				ch <- contentInfoOrError{Info: b}
 			}
+
 			return nil
 		})
 }

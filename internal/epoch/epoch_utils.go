@@ -18,7 +18,7 @@ func epochNumberFromBlobID(blobID blob.ID) (int, bool) {
 		s = s[0:p]
 	}
 
-	for len(s) > 0 && !unicode.IsDigit(rune(s[0])) {
+	for s != "" && !unicode.IsDigit(rune(s[0])) {
 		s = s[1:]
 	}
 
@@ -43,7 +43,7 @@ func epochRangeFromBlobID(blobID blob.ID) (min, max int, ok bool) {
 	first := parts[0]
 	second := parts[1]
 
-	for len(first) > 0 && !unicode.IsDigit(rune(first[0])) {
+	for first != "" && !unicode.IsDigit(rune(first[0])) {
 		first = first[1:]
 	}
 

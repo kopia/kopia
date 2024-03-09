@@ -64,8 +64,8 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 				timesOfDay = append(timesOfDay, timeOfDay)
 			}
 		}
-		*changeCount++
 
+		*changeCount++
 		sp.TimesOfDay = policy.SortAndDedupeTimesOfDay(timesOfDay)
 
 		if timesOfDay == nil {
@@ -142,7 +142,7 @@ func splitCronExpressions(expr string) []string {
 
 func (c *policySchedulingFlags) setManualFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
 	// Cannot set both schedule and manual setting
-	if len(c.policySetInterval) > 0 || len(c.policySetTimesOfDay) > 0 || len(c.policySetCron) > 0 {
+	if len(c.policySetInterval) > 0 || len(c.policySetTimesOfDay) > 0 || c.policySetCron != "" {
 		return errors.New("cannot set manual field when scheduling snapshots")
 	}
 

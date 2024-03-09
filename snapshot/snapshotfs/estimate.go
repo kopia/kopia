@@ -83,6 +83,8 @@ func Estimate(ctx context.Context, entry fs.Directory, policyTree *policy.Tree, 
 	}()
 
 	onIgnoredFile := func(ctx context.Context, relativePath string, e fs.Entry, pol *policy.Tree) {
+		_ = pol
+
 		if e.IsDir() {
 			if len(ed) < maxExamplesPerBucket {
 				ed = append(ed, relativePath)

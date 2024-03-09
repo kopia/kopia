@@ -189,7 +189,7 @@ func maybePointInTimeStore(ctx context.Context, s *azStorage, pointInTime *time.
 		pointInTime: *pointInTime, // not used for the check
 	}
 
-	err := pit.getBlobVersions(ctx, format.KopiaRepositoryBlobID, func(vm versionMetadata) error {
+	err := pit.getBlobVersions(ctx, format.KopiaRepositoryBlobID, func(_ versionMetadata) error {
 		return nil
 	})
 	if err != nil {

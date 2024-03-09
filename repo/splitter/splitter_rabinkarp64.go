@@ -57,6 +57,7 @@ func (rs *rabinKarp64Splitter) NextSplitPoint(b []byte) int {
 
 		for i, b := range b[0:fp] {
 			rs.rh.Roll(b)
+
 			rs.count++
 
 			if rs.rh.Sum64()&rs.mask == 0 {

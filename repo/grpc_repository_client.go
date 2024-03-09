@@ -939,7 +939,7 @@ func newGRPCAPIRepositoryForConnection(
 	par *immutableServerRepositoryParameters,
 ) (*grpcRepositoryClient, error) {
 	if opt.OnUpload == nil {
-		opt.OnUpload = func(i int64) {}
+		opt.OnUpload = func(_ int64) {}
 	}
 
 	rr := &grpcRepositoryClient{
@@ -954,6 +954,7 @@ func newGRPCAPIRepositoryForConnection(
 
 	return inSessionWithoutRetry(ctx, rr, func(ctx context.Context, sess *grpcInnerSession) (*grpcRepositoryClient, error) {
 		p := sess.repoParams
+
 		hf, err := hashing.CreateHashFunc(p)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create hash function")
