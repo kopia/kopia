@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"io"
+	"log"
 
 	"github.com/pkg/errors"
 
@@ -53,7 +54,7 @@ func isValidPasswordV1(password string, hashedPassword []byte) bool {
 
 	h, err := computePasswordHashV1(password, salt)
 	if err != nil {
-		return false
+		log.Fatal(err)
 	}
 
 	return subtle.ConstantTimeCompare(h, hashedPassword) != 0
