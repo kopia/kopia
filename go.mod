@@ -20,7 +20,7 @@ require (
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/gofrs/flock v0.8.1
 	github.com/golang-jwt/jwt/v4 v4.5.0
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/google/fswalker v0.3.3-0.20231129010601-c0a7aa51805d
 	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.6.0
