@@ -6,6 +6,8 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -90,4 +92,61 @@ func deletionWatermarkFromBlobID(blobID blob.ID) (time.Time, bool) {
 	}
 
 	return time.Unix(unixSeconds, 0), true
+}
+
+type intRange struct {
+	lo, hi int
+}
+
+func (r intRange) length() uint {
+	return uint(r.hi - r.lo)
+}
+
+func (r intRange) isEmpty() bool {
+	return r.length() == 0
+}
+
+var errNonContiguousRange = errors.New("non-contiguous range")
+
+// constants from the standard math package.
+const (
+	//nolint:gomnd
+	intSize = 32 << (^uint(0) >> 63) // 32 or 64
+
+	maxInt = 1<<(intSize-1) - 1
+	minInt = -1 << (intSize - 1)
+)
+
+// Returns a continuous close-open epoch range for the keys, that is [lo, hi).
+// A range of the form [v,v) means the range is empty.
+// When the range is not continuous an error is returned.
+func getKeyRange[E any](m map[int]E) (intRange, error) {
+	var count uint
+
+	lo, hi := maxInt, minInt
+
+	for k := range m {
+		if k < lo {
+			lo = k
+		}
+
+		if k > hi {
+			hi = k
+		}
+
+		count++
+	}
+
+	if count == 0 {
+		return intRange{}, nil
+	}
+
+	// hi and lo are from unique map keys, so for the range to be continuous
+	// the difference between hi and lo cannot be larger than count -1.
+	// For example, if lo==2, hi==4, and count == 3, the range must be contiguous => {2, 3, 4}.
+	if uint(hi-lo) > count-1 {
+		return intRange{}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", lo, hi, count)
+	}
+
+	return intRange{lo: lo, hi: hi + 1}, nil
 }
