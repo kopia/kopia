@@ -61,6 +61,7 @@ func (c *commandMount) run(ctx context.Context, rep repo.Repository) error {
 		entry = snapshotfs.AllSourcesEntry(rep)
 	} else {
 		var err error
+
 		entry, err = snapshotfs.FilesystemDirectoryFromIDWithPath(ctx, rep, c.mountObjectID, false)
 		if err != nil {
 			return errors.Wrapf(err, "unable to get directory entry for %v", c.mountObjectID)

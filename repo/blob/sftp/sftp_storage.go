@@ -131,6 +131,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 		if err != nil {
 			return errors.Wrapf(err, "unrecognized error when opening SFTP file %v", fullPath)
 		}
+
 		defer r.Close() //nolint:errcheck
 
 		if length < 0 {

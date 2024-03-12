@@ -96,6 +96,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		}
 
 		atomic.AddUint32(toExtend, 1)
+
 		return nil
 	})
 

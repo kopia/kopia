@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -1227,6 +1228,7 @@ func (s *contentManagerSuite) verifyAllDataPresent(ctx context.Context, t *testi
 
 	bm := s.newTestContentManagerWithCustomTime(t, st, nil)
 	defer bm.CloseShared(ctx)
+
 	_ = bm.IterateContents(ctx, IterateOptions{}, func(ci Info) error {
 		delete(contentIDs, ci.GetContentID())
 		return nil
@@ -2514,7 +2516,8 @@ func verifyContent(ctx context.Context, t *testing.T, bm *WriteManager, contentI
 
 	b2, err := bm.GetContent(ctx, contentID)
 	if err != nil {
-		t.Fatalf("unable to read content %q: %v", contentID, err)
+		t.Errorf("unable to read content %q: %v", contentID, err)
+
 		return
 	}
 
@@ -2533,6 +2536,8 @@ func writeContentAndVerify(ctx context.Context, t *testing.T, bm *WriteManager, 
 	contentID, err := bm.WriteContent(ctx, gather.FromSlice(b), "", NoCompression)
 	if err != nil {
 		t.Errorf("err: %v", err)
+
+		return contentID
 	}
 
 	if got, want := contentID, hashValue(t, b); got != want {
@@ -2606,7 +2611,7 @@ func hashValue(t *testing.T, b []byte) ID {
 	h.Write(b)
 
 	id, err := IDFromHash("", h.Sum(nil))
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	return id
 }

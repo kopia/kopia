@@ -160,9 +160,11 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 
 				return err
 			}
+
 			mu.Lock()
 			manifests[ci.GetContentID()] = man
 			mu.Unlock()
+
 			return nil
 		})
 		if err == nil {
