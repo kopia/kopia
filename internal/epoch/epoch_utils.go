@@ -160,3 +160,11 @@ func getContiguousKeyRange[E any](m map[int]E) (closedIntRange, error) {
 
 	return r, nil
 }
+
+func getUncompactedEpochRange(cs CurrentSnapshot) (closedIntRange, error) {
+	return getContiguousKeyRange(cs.UncompactedEpochSets)
+}
+
+func getCompactedEpochRange(cs CurrentSnapshot) (closedIntRange, error) {
+	return getContiguousKeyRange(cs.SingleEpochCompactionSets)
+}
