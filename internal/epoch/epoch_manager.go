@@ -970,6 +970,57 @@ func (e *Manager) getCompleteIndexSetForCommittedState(ctx context.Context, cs C
 	return result, nil
 }
 
+// MaybeCompactSingleEpoch compacts the oldest epoch that is elegible for
+// compaction if there is one.
+func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
+	cs, err := e.committedState(ctx, 0)
+	if err != nil {
+		return err
+	}
+
+	uncompacted, err := getUncompactedEpochRange(cs)
+	if err != nil {
+		return err
+	}
+
+	if uncompacted.isEmpty() {
+		e.log.Debug("empty uncompacted epoch range, not compacting")
+		return nil
+	}
+
+	compacted, err := getCompactedEpochRange(cs)
+	if err != nil {
+		return err
+	}
+
+	if uncompacted.lo < compacted.hi {
+		uncompacted.lo = compacted.hi // avoid compacting already compacted epoch
+	}
+
+	if uncompacted.isEmpty() || !cs.isSettledEpochNumber(uncompacted.lo) {
+		e.log.Debug("there are no uncompacted epochs eligible for compaction")
+
+		return nil
+	}
+
+	epochToCompact := uncompacted.lo
+
+	uncompactedBlobs, ok := cs.UncompactedEpochSets[epochToCompact]
+	if !ok {
+		e.log.Debugf("there are no uncompacted blobs for epoch %d, not compacting", epochToCompact)
+
+		return nil
+	}
+
+	e.log.Debugf("starting single-epoch compaction of %v")
+
+	if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(epochToCompact)); err != nil {
+		return errors.Wrapf(err, "unable to compact blobs for epoch %v: performance will be affected", epochToCompact)
+	}
+
+	return nil
+}
+
 func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSnapshot, epoch int) ([]blob.Metadata, error) {
 	// check if the epoch is old enough to possibly have compacted blobs
 	epochSettled := cs.isSettledEpochNumber(epoch)
