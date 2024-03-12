@@ -81,6 +81,7 @@ linters:
     - ireturn # this one may be interesting to control allocations
     - gosmopolitan
     - maligned
+    - musttag
     - nilnil
     - nlreturn
     - nonamedreturns
@@ -123,9 +124,11 @@ issues:
       - gosec
       - musttag
       - nestif
+      - perfsprint
       - revive
       - nolintlint
       - wrapcheck
+      - wsl
     - text: "log is a global variable"
       linters:
       - gochecknoglobals

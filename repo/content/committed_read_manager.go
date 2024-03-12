@@ -587,7 +587,7 @@ func (sm *SharedManager) CloseShared(ctx context.Context) error {
 func (sm *SharedManager) AlsoLogToContentLog(ctx context.Context) context.Context {
 	sm.repoLogManager.Enable()
 
-	return logging.WithAdditionalLogger(ctx, func(module string) logging.Logger {
+	return logging.WithAdditionalLogger(ctx, func(_ string) logging.Logger {
 		return sm.log
 	})
 }

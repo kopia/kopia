@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fswalker/proto/fswalker"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/kopia/kopia/internal/testlogging"
 )
@@ -30,7 +30,7 @@ func TestReporterWithFiles(t *testing.T) {
 				Name: "this_is_a.file",
 				Size: 11235,
 				Mode: 0o700,
-				Modified: &timestamp.Timestamp{
+				Modified: &timestamppb.Timestamp{
 					Seconds: 12,
 					Nanos:   0,
 				},
@@ -47,15 +47,15 @@ func TestReporterWithFiles(t *testing.T) {
 				Size:    0,
 				Blksize: 0,
 				Blocks:  0,
-				Atime: &timestamp.Timestamp{
+				Atime: &timestamppb.Timestamp{
 					Seconds: 0,
 					Nanos:   0,
 				},
-				Mtime: &timestamp.Timestamp{
+				Mtime: &timestamppb.Timestamp{
 					Seconds: 0,
 					Nanos:   0,
 				},
-				Ctime: &timestamp.Timestamp{
+				Ctime: &timestamppb.Timestamp{
 					Seconds: 0,
 					Nanos:   0,
 				},
@@ -80,11 +80,11 @@ func TestReporterWithFiles(t *testing.T) {
 		File:         fileList,
 		Notification: nil,
 		Hostname:     "a-hostname",
-		StartWalk: &timestamp.Timestamp{
+		StartWalk: &timestamppb.Timestamp{
 			Seconds: 0,
 			Nanos:   0,
 		},
-		StopWalk: &timestamp.Timestamp{
+		StopWalk: &timestamppb.Timestamp{
 			Seconds: 0,
 			Nanos:   0,
 		},
@@ -106,11 +106,11 @@ func TestReporterWithFiles(t *testing.T) {
 		File:         fileList,
 		Notification: nil,
 		Hostname:     "a-hostname",
-		StartWalk: &timestamp.Timestamp{
+		StartWalk: &timestamppb.Timestamp{
 			Seconds: 100,
 			Nanos:   0,
 		},
-		StopWalk: &timestamp.Timestamp{
+		StopWalk: &timestamppb.Timestamp{
 			Seconds: 101,
 			Nanos:   0,
 		},

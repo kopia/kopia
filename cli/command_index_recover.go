@@ -111,7 +111,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 	go func() {
 		for _, prefix := range prefixes {
 			//nolint:errcheck
-			rep.BlobStorage().ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
+			rep.BlobStorage().ListBlobs(ctx, prefix, func(_ blob.Metadata) error {
 				discoveringBlobCount.Add(1)
 				return nil
 			})
@@ -151,6 +151,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 				finishedBlobs := processedBlobCount.Load()
 
 				log(ctx).Debugf("worker %v got %v", worker, cnt)
+
 				cnt++
 
 				if tt.ShouldOutput(time.Second) {
