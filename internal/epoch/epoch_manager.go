@@ -288,6 +288,21 @@ func (e *Manager) maxCleanupTime(cs CurrentSnapshot) time.Time {
 	return maxTime
 }
 
+// CleanupMarkers removes superseded watermarks and epoch markers.
+func (e *Manager) CleanupMarkers(ctx context.Context) error {
+	cs, err := e.committedState(ctx, 0)
+	if err != nil {
+		return err
+	}
+
+	p, err := e.getParameters(ctx)
+	if err != nil {
+		return err
+	}
+
+	return e.cleanupInternal(ctx, cs, p)
+}
+
 func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Parameters) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
