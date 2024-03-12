@@ -650,6 +650,7 @@ func (e *Manager) loadUncompactedEpochs(ctx context.Context, min, max int) (map[
 			defer mu.Unlock()
 
 			result[n] = bm
+
 			return nil
 		})
 	}
@@ -719,6 +720,25 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 	}
 
 	e.lastKnownState = cs
+
+	return nil
+}
+
+// MaybeAdvanceWriteEpoch writes a new write epoch marker when a new write
+// epoch should be started, otherwise it does not do anything.
+func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) error {
+	p, err := e.getParameters(ctx)
+	if err != nil {
+		return err
+	}
+
+	e.mu.Lock()
+	cs := e.lastKnownState
+	e.mu.Unlock()
+
+	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
+		return errors.Wrap(e.advanceEpochMarker(ctx, cs), "error advancing epoch")
+	}
 
 	return nil
 }

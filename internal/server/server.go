@@ -241,7 +241,7 @@ func isAuthenticated(rc requestContext) bool {
 }
 
 func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
-	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
+	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.RegisteredClaims{}, func(_ *jwt.Token) (interface{}, error) {
 		return s.authCookieSigningKey, nil
 	})
 	if err != nil {
@@ -381,6 +381,7 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 			http.Error(rc.w, "error reading request body", http.StatusInternalServerError)
 			return
 		}
+
 		rc.body = body
 
 		if s.options.LogRequests {
@@ -392,8 +393,10 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 		e := json.NewEncoder(rc.w)
 		e.SetIndent("", "  ")
 
-		var v interface{}
-		var err *apiError
+		var (
+			v   any
+			err *apiError
+		)
 
 		// process the request while ignoring the cancellation signal
 		// to ensure all goroutines started by it won't be canceled
@@ -804,6 +807,7 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 			}
 
 			http.ServeContent(w, r, "/", clock.Now(), bytes.NewReader(s.patchIndexBytes(sessionID, indexBytes)))
+
 			return
 		}
 

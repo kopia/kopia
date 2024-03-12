@@ -30,7 +30,7 @@ func (c *storageAzureFlags) Setup(svc StorageProviderServices, cmd *kingpin.CmdC
 
 	var pointInTimeStr string
 
-	pitPreAction := func(pc *kingpin.ParseContext) error {
+	pitPreAction := func(_ *kingpin.ParseContext) error {
 		if pointInTimeStr != "" {
 			t, err := time.Parse(time.RFC3339, pointInTimeStr)
 			if err != nil {

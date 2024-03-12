@@ -509,13 +509,13 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 
 func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, int) bool, error) {
 	if timespec == "" || timespec == "latest" {
-		return func(m *snapshot.Manifest, i, total int) bool {
+		return func(_ *snapshot.Manifest, i, _ int) bool {
 			return i == 0
 		}, nil
 	}
 
 	if timespec == "oldest" {
-		return func(m *snapshot.Manifest, i, total int) bool {
+		return func(_ *snapshot.Manifest, i, total int) bool {
 			return i == total-1
 		}, nil
 	}
@@ -525,7 +525,7 @@ func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, in
 		return nil, err
 	}
 
-	return func(m *snapshot.Manifest, i, total int) bool {
+	return func(m *snapshot.Manifest, _, _ int) bool {
 		return m.StartTime.ToTime().Before(t)
 	}, nil
 }
