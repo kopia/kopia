@@ -14,10 +14,11 @@ import (
 	"strings"
 
 	//nolint:staticcheck
-	"github.com/golang/protobuf/proto"
+
 	"github.com/google/fswalker"
 	fspb "github.com/google/fswalker/proto/fswalker"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/kopia/kopia/tests/tools/fswalker/reporter"
 	"github.com/kopia/kopia/tests/tools/fswalker/walker"
