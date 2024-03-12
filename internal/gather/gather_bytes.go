@@ -125,27 +125,30 @@ func (b *bytesReadSeekCloser) ReadAt(p []byte, off int64) (int, error) {
 
 	w := bytes.NewBuffer(p[:0])
 	offset := int(off)
-	size := len(p)
+	plen := len(p)
 
+	// negative offsets result in an error
 	if offset < 0 {
 		return 0, errors.Errorf("invalid offset")
 	}
 
-	// find the index of starting slice
 	sliceNdx := -1
 
+	// find the index of starting slice
 	for i, p := range b.b.Slices {
 		if offset < len(p) {
 			sliceNdx = i
 			break
 		}
 
+		// update offset to be relative to the sliceNdx slice
 		offset -= len(p)
 	}
 
-	// not found
+	// no slice found if sliceNdx is still negative
 	if sliceNdx == -1 {
-		if len(p) == 0 {
+		// return no bytes read if the buffer has no length
+		if plen == 0 {
 			return 0, nil
 		}
 
@@ -153,37 +156,38 @@ func (b *bytesReadSeekCloser) ReadAt(p []byte, off int64) (int, error) {
 	}
 
 	// first slice, possibly with offset zero
-	var firstChunkSize int
-	if offset+size <= len(b.b.Slices[sliceNdx]) {
-		firstChunkSize = size
-	} else {
-		// slice shorter
-		firstChunkSize = len(b.b.Slices[sliceNdx]) - offset
+	firstChunkSize := plen
+	s := b.b.Slices[sliceNdx]
+	slen := len(s)
+	if offset+plen > slen {
+		// buffer crosses chunks, so get first chunk
+		firstChunkSize = slen - offset
 	}
 
-	n, err := w.Write(b.b.Slices[sliceNdx][offset : offset+firstChunkSize])
+	n, err := w.Write(s[offset : offset+firstChunkSize])
 	if err != nil {
-		return 0, errors.Wrap(err, "error appending")
+		return n, errors.Wrap(err, "error appending")
 	}
 
-	size -= firstChunkSize
+	// first chunk written, move on to the next
+	plen -= firstChunkSize
 	sliceNdx++
 
 	// at this point we're staying at offset 0
-	for size > 0 && sliceNdx < len(b.b.Slices) {
-		s := b.b.Slices[sliceNdx]
+	for plen > 0 && sliceNdx < len(b.b.Slices) {
+		s = b.b.Slices[sliceNdx]
 
 		// l is how many bytes we consume out of the current slice
-		l := min(size, len(s))
+		l := min(plen, len(s))
 
 		m, err := w.Write(s[0:l])
 		n += m
 
 		if err != nil {
-			return 0, errors.Wrap(err, "error appending")
+			return n, errors.Wrap(err, "error appending")
 		}
 
-		size -= l
+		plen -= l
 		sliceNdx++
 	}
 
