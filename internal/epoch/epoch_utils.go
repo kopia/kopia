@@ -141,6 +141,9 @@ func getKeyRange[E any](m map[int]E) (intRange, error) {
 		return intRange{}, nil
 	}
 
+	// hi and lo are from unique map keys, so for the range to be continuous
+	// the difference between hi and lo cannot be larger than count -1.
+	// For example, if lo==2, hi==4, and count == 3, the range must be contiguous => {2, 3, 4}.
 	if uint(hi-lo) > count-1 {
 		return intRange{}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", lo, hi, count)
 	}
