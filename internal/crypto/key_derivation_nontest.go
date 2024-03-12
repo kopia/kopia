@@ -8,9 +8,12 @@ import (
 )
 
 const (
+	// MasterKeyLength describes the length of the master key.
 	MasterKeyLength = 32
 
+	// ScryptAlgorithm is the key for the scrypt algorithm.
 	ScryptAlgorithm = "scrypt-65536-8-1"
+	// Pbkdf2Algorithm is the key for the pbkdf algorithm.
 	Pbkdf2Algorithm = "pbkdf2"
 )
 
@@ -19,8 +22,10 @@ const DefaultKeyDerivationAlgorithm = ScryptAlgorithm
 
 type keyDerivationFunc func(password string, salt []byte) ([]byte, error)
 
+//nolint:gochecknoglobals
 var keyDerivers = map[string]keyDerivationFunc{}
 
+// RegisterKeyDerivationFunc registers various key derivation functions.
 func RegisterKeyDerivationFunc(name string, keyDeriver keyDerivationFunc) {
 	keyDerivers[name] = keyDeriver
 }
@@ -31,5 +36,6 @@ func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]by
 	if !ok {
 		return nil, errors.Errorf("unsupported key algorithm: %v", algorithm)
 	}
+
 	return kdFunc(password, salt)
 }

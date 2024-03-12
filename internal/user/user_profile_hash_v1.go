@@ -37,7 +37,7 @@ func (p *Profile) setPasswordV1(password string) error {
 func computePasswordHashV1(password string, salt []byte) ([]byte, error) {
 	key, err := crypto.DeriveKeyFromPassword(password, salt, crypto.DefaultKeyDerivationAlgorithm)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error deriving key from password")
 	}
 
 	payload := append(append([]byte(nil), salt...), key...)

@@ -1,8 +1,10 @@
+//go:build !testing
+// +build !testing
+
 package crypto
 
 import (
-	"fmt"
-
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/scrypt"
 )
 
@@ -17,8 +19,10 @@ const minScryptSha256SaltSize = 32 // size in bytes == 256 bits
 func init() {
 	RegisterKeyDerivationFunc(ScryptAlgorithm, func(password string, salt []byte) ([]byte, error) {
 		if len(salt) < minScryptSha256SaltSize {
-			return nil, fmt.Errorf("required salt size is atleast %d bytes", minPbkdfSha256SaltSize)
+			return nil, errors.Errorf("required salt size is atleast %d bytes", minPbkdfSha256SaltSize)
 		}
+
+		//nolint:wrapcheck,gomnd
 		return scrypt.Key([]byte(password), salt, 65536, 8, 1, MasterKeyLength)
 	})
 }
