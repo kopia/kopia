@@ -103,7 +103,7 @@ func (r intRange) length() uint {
 }
 
 func (r intRange) isEmpty() bool {
-	return r.length() <= 0
+	return r.length() == 0
 }
 
 var errNonContiguousRange = errors.New("non-contiguous range")

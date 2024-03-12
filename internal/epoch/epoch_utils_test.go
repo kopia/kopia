@@ -83,8 +83,11 @@ func TestGetKeyRange(t *testing.T) {
 		want      intRange
 		shouldErr bool
 		length    uint
+		isEmpty   bool
 	}{
-		{},
+		{
+			isEmpty: true,
+		},
 		{
 			input:  map[int]bool{-5: true},
 			want:   intRange{lo: -5, hi: -4},
@@ -124,31 +127,37 @@ func TestGetKeyRange(t *testing.T) {
 			input:     map[int]bool{8: true, 10: true},
 			want:      intRange{},
 			shouldErr: true,
+			isEmpty:   true,
 		},
 		{
 			input:     map[int]bool{1: true, 2: true, 3: true, 5: true},
 			want:      intRange{},
 			shouldErr: true,
+			isEmpty:   true,
 		},
 		{
 			input:     map[int]bool{-5: true, -7: true},
 			want:      intRange{},
 			shouldErr: true,
+			isEmpty:   true,
 		},
 		{
 			input:     map[int]bool{0: true, minInt: true},
 			want:      intRange{},
 			shouldErr: true,
+			isEmpty:   true,
 		},
 		{
 			input:     map[int]bool{0: true, maxInt: true},
 			want:      intRange{},
 			shouldErr: true,
+			isEmpty:   true,
 		},
 		{
 			input:     map[int]bool{maxInt: true, minInt: true},
 			want:      intRange{},
 			shouldErr: true,
+			isEmpty:   true,
 		},
 		{
 			input:  map[int]bool{minInt: true},
@@ -176,6 +185,7 @@ func TestGetKeyRange(t *testing.T) {
 
 			require.Equal(t, tc.want, got, "input: %#v", tc.input)
 			require.Equal(t, tc.length, got.length())
+			require.Equal(t, tc.isEmpty, got.isEmpty())
 		})
 	}
 }
