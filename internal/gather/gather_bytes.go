@@ -123,8 +123,12 @@ type bytesReadSeekCloser struct {
 func (b *bytesReadSeekCloser) ReadAt(p []byte, off int64) (int, error) {
 	b.b.assertValid()
 
-	w := bytes.NewBuffer(p[:0])
+	// source data that is read will be written to w, the buffer backed by p.
 	offset := int(off)
+	if int64(offset) != off {
+		return 0, errors.Errorf("invalid offset. overflow")
+	}
+
 	plen := len(p)
 
 	// negative offsets result in an error
@@ -155,43 +159,32 @@ func (b *bytesReadSeekCloser) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 
-	// first slice, possibly with offset zero
-	firstChunkSize := plen
 	s := b.b.Slices[sliceNdx]
-	slen := len(s)
-	if offset+plen > slen {
-		// buffer crosses chunks, so get first chunk
-		firstChunkSize = slen - offset
-	}
 
-	n, err := w.Write(s[offset : offset+firstChunkSize])
-	if err != nil {
-		return n, errors.Wrap(err, "error appending")
-	}
+	n := copy(p, s[offset:])
 
 	// first chunk written, move on to the next
-	plen -= firstChunkSize
 	sliceNdx++
 
 	// at this point we're staying at offset 0
-	for plen > 0 && sliceNdx < len(b.b.Slices) {
+	blen := len(b.b.Slices)
+	// while there are bytes to read (plen) and not at the last slice in the
+	// slice index
+	m := 0
+
+	for plen-n != 0 && sliceNdx < blen {
 		s = b.b.Slices[sliceNdx]
-
-		// l is how many bytes we consume out of the current slice
-		l := min(plen, len(s))
-
-		m, err := w.Write(s[0:l])
+		m = copy(p[n:], s)
+		// accounting: keep track of total number of bytes written and
+		// number of bytes written from the current slice
 		n += m
 
-		if err != nil {
-			return n, errors.Wrap(err, "error appending")
-		}
-
-		plen -= l
 		sliceNdx++
 	}
 
-	if sliceNdx == len(b.b.Slices) && offset+n == b.b.Length() {
+	// if the slice index, sliceNdx is the last slice index in b and
+	// the offset plus all the bytes read
+	if sliceNdx == blen && m == len(s) {
 		return n, io.EOF
 	}
 
