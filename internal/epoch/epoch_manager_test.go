@@ -730,6 +730,63 @@ func TestInvalid_Cleanup(t *testing.T) {
 	require.ErrorIs(t, err, ctx.Err())
 }
 
+func TestLoadAllUncompactedEpochs(t *testing.T) {
+	const epochsToWrite = 5
+
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+	te.mgr.allowCleanupWritesOnIndexLoad = false
+	te.mgr.compact = func(context.Context, []blob.ID, blob.ID) error {
+		return nil
+	}
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	// TODO: epochs, so there is an eligible epoch for compaction
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+
+	var k int
+
+	// Create sufficient indexes blobs and move clock forward to advance current epoch
+	for j := 0; j < epochsToWrite; j++ {
+		for i := 0; i < idxCount; i++ {
+			if i == idxCount-1 {
+				// Advance the time so that the difference in times for writes will force
+				// new epochs.
+				te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+			}
+
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(k))
+			k++
+		}
+
+		te.verifyCurrentWriteEpoch(t, j)
+
+		err = te.mgr.MaybeAdvanceWriteEpoch(ctx)
+		require.NoError(t, err)
+
+		err = te.mgr.Refresh(ctx) // force state refresh
+
+		require.NoError(t, err)
+		te.verifyCurrentWriteEpoch(t, j+1)
+	}
+
+	err = te.mgr.Refresh(ctx)
+	require.NoError(t, err)
+
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+
+	// no epochs have been compacted, so the compacted set should be empty and
+	// the uncompacted epoch set should have all the epochs
+	require.Empty(t, cs.LongestRangeCheckpointSets)
+	require.Empty(t, cs.SingleEpochCompactionSets)
+	require.Len(t, cs.UncompactedEpochSets, epochsToWrite)
+}
+
 //nolint:thelper
 func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 	ctx := testlogging.Context(t)
