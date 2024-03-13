@@ -120,33 +120,34 @@ type bytesReadSeekCloser struct {
 	offset int
 }
 
+var (
+	ErrInvalidOffset = errors.Errorf("invalid offset")
+)
+
 func (b *bytesReadSeekCloser) ReadAt(p []byte, off int64) (int, error) {
 	b.b.assertValid()
 
 	// source data that is read will be written to w, the buffer backed by p.
-	offset := int(off)
-	if int64(offset) != off {
-		return 0, errors.Errorf("invalid offset. overflow")
-	}
+	offset := off
 
 	plen := len(p)
 
 	// negative offsets result in an error
 	if offset < 0 {
-		return 0, errors.Errorf("invalid offset")
+		return 0, ErrInvalidOffset
 	}
 
 	sliceNdx := -1
 
 	// find the index of starting slice
 	for i, p := range b.b.Slices {
-		if offset < len(p) {
+		if offset < int64(len(p)) {
 			sliceNdx = i
 			break
 		}
 
 		// update offset to be relative to the sliceNdx slice
-		offset -= len(p)
+		offset -= int64(len(p))
 	}
 
 	// no slice found if sliceNdx is still negative

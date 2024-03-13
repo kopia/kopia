@@ -3,6 +3,7 @@ package gather
 import (
 	"bytes"
 	"io"
+	"math"
 	"testing"
 	"testing/iotest"
 
@@ -171,6 +172,47 @@ func TestGatherBytesReadSeeker(t *testing.T) {
 
 	_, err = reader.Seek(10000000, io.SeekCurrent)
 	require.Error(t, err)
+}
+
+func TestGatherBytesReaderAt(t *testing.T) {
+	var tmp WriteBuffer
+	defer tmp.Close()
+
+	buf := make([]byte, 1234567)
+
+	tmp.Append(buf)
+
+	require.Len(t, buf, tmp.Length())
+
+	reader := tmp.inner.Reader()
+	defer reader.Close() //nolint:errcheck
+
+	require.NoError(t, iotest.TestReader(reader, buf))
+
+	readerAt := reader.(io.ReaderAt)
+
+	bs1k := make([]byte, 1<<10)
+	bs0 := make([]byte, 0)
+
+	n, err := readerAt.ReadAt(bs1k, -1)
+	require.ErrorIs(t, err, ErrInvalidOffset)
+	require.Equal(t, 0, n)
+
+	n, err = readerAt.ReadAt(bs1k, math.MaxInt64)
+	require.ErrorIs(t, err, io.EOF)
+	require.Equal(t, 0, n)
+
+	n, err = readerAt.ReadAt(bs0, -1)
+	require.Error(t, err)
+	require.Equal(t, 0, n)
+
+	n, err = readerAt.ReadAt(bs0, math.MaxInt64)
+	require.NoError(t, err)
+	require.Equal(t, 0, n)
+
+	n, err = readerAt.ReadAt(bs0, math.MaxInt64)
+	require.NoError(t, err)
+	require.Equal(t, 0, n)
 }
 
 func TestGatherBytesPanicsOnClose(t *testing.T) {
