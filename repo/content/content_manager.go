@@ -350,7 +350,9 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 func (bm *WriteManager) DisableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock(ctx)
+
 	bm.log.Debugf("DisableIndexFlush()")
+
 	bm.disableIndexFlushCount++
 }
 
@@ -359,7 +361,9 @@ func (bm *WriteManager) DisableIndexFlush(ctx context.Context) {
 func (bm *WriteManager) EnableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock(ctx)
+
 	bm.log.Debugf("EnableIndexFlush()")
+
 	bm.disableIndexFlushCount--
 }
 

@@ -336,6 +336,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		},
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		log(ctx).Debugf("uploading %v", s.src)
+
 		u := snapshotfs.NewUploader(w)
 
 		ctrl.OnCancel(u.Cancel)
@@ -359,8 +360,8 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		s.setUploader(u)
 
 		manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, manifestsSinceLastCompleteSnapshot...)
-		prog.report(true)
 
+		prog.report(true)
 		s.setUploader(nil)
 
 		if err != nil {
@@ -385,6 +386,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		}
 
 		log(ctx).Debugf("created snapshot %v", snapshotID)
+
 		return nil
 	})
 }

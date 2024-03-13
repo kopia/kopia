@@ -63,13 +63,7 @@ const (
 	ProfileNameCPU = "cpu"
 )
 
-const (
-	errMsgCouldNotWritePem = "could not write pem"
-)
-
 var (
-	// ErrEmptyConfiguration returned when attempt to configure profile buffers without a configuration string.
-	ErrEmptyConfiguration = errors.New("empty profile configuration")
 	// ErrEmptyProfileName returned when a profile configuration flag has no argument.
 	ErrEmptyProfileName = errors.New("empty profile flag")
 
@@ -86,10 +80,15 @@ type Writer interface {
 // ProfileConfigs configuration flags for all requested profiles.
 type ProfileConfigs struct {
 	mu sync.Mutex
-	//+checklocks:mu
+	// wrt represents the final destination for the PPROF PEM output.  Typically,
+	// this is attached to stderr or log output.  A custom writer is used because
+	// not all loggers support line oriented output through the io.Writer interface...
+	// support is often attached th a io.StringWriter.
+	// +checklocks:mu
 	wrt Writer
 	//+checklocks:mu
 	pcm map[ProfileName]*ProfileConfig
+	//+checklocks:mu
 	src string
 }
 
@@ -221,8 +220,9 @@ func (p *ProfileConfigs) GetProfileConfig(nm ProfileName) *ProfileConfig {
 
 // LoadProfileConfig configure PPROF profiling from the config in ppconfigss.
 func LoadProfileConfig(ctx context.Context, ppconfigss string) (map[ProfileName]*ProfileConfig, error) {
-	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
+	// if empty, then don't bother configuring but emit a log message - user might be expecting them to be configured
 	if ppconfigss == "" {
+		log(ctx).Debug("no profile configuration. skipping PPROF setup")
 		return nil, nil
 	}
 
@@ -355,11 +355,7 @@ type ProfileConfig struct {
 // GetValue get the value of the named flag, `s`.  False will be returned
 // if the flag does not exist. True will be returned if flag exists without
 // a value.
-func (p *ProfileConfig) GetValue(s string) (string, bool) {
-	if p == nil {
-		return "", false
-	}
-
+func (p ProfileConfig) GetValue(s string) (string, bool) {
 	for _, f := range p.flags {
 		kvs := strings.SplitN(f, "=", pair)
 		if kvs[0] != s {
@@ -386,7 +382,7 @@ func parseProfileConfigs(bufSizeB int, ppconfigs string) (map[ProfileName]*Profi
 		flagValue := ""
 
 		if len(profileFlagNameValuePairs) > 1 {
-			// only <key>=<value? allowed
+			// only <key>=<value> allowed
 			flagValue = profileFlagNameValuePairs[1]
 		}
 
@@ -474,7 +470,7 @@ func StartProfileBuffers(ctx context.Context) {
 	ppconfigs := os.Getenv(EnvVarKopiaDebugPprof)
 	// if empty, then don't bother configuring but emit a log message - use might be expecting them to be configured
 	if ppconfigs == "" {
-		log(ctx).Debug("no profile buffers enabled")
+		log(ctx).Warn("no profile buffers enabled")
 		return
 	}
 
@@ -487,44 +483,54 @@ func StartProfileBuffers(ctx context.Context) {
 	pprofConfigs.mu.Lock()
 	defer pprofConfigs.mu.Unlock()
 
-	pprofConfigs.pcm, _ = parseProfileConfigs(bufSizeB, ppconfigs)
+	var err error
+
+	pprofConfigs.pcm, err = parseProfileConfigs(bufSizeB, ppconfigs)
+	if err != nil {
+		log(ctx).With("cause", err).Warnf("cannot start PPROF config, %q, due to parse error", ppconfigs)
+		return
+	}
 
 	// profiling rates need to be set before starting profiling
 	setupProfileFractions(ctx, pprofConfigs.pcm)
 
 	// cpu has special initialization
 	v, ok := pprofConfigs.pcm[ProfileNameCPU]
-	if ok {
-		err := pprof.StartCPUProfile(v.buf)
-		if err != nil {
-			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
-			delete(pprofConfigs.pcm, ProfileNameCPU)
-		}
+	if !ok {
+		return
+	}
+
+	err = pprof.StartCPUProfile(v.buf)
+	if err != nil {
+		log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
+		delete(pprofConfigs.pcm, ProfileNameCPU)
 	}
 }
 
 // DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
 func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
+	// err0 for background process
+	var err0 error
+
 	blk := &pem.Block{
 		Type:  types,
 		Bytes: bs,
 	}
-
 	// wrt is likely a line oriented writer, so writing individual lines
 	// will make best use of output buffer and help prevent overflows or
 	// stalls in the output path.
 	pr, pw := io.Pipe()
+
+	// ensure read-end of the pipe is close
+	//nolint:errcheck
+	defer pr.Close()
 
 	// encode PEM in the background and output in a line oriented
 	// fashion - this prevents the need for a large buffer to hold
 	// the encoded PEM.
 	go func() {
 		// do the encoding
-		err0 := pem.Encode(pw, blk)
-		if err0 != nil {
-			// got a write error.
-			log(ctx).With("cause", err0).Error(errMsgCouldNotWritePem)
-		}
+		err0 = pem.Encode(pw, blk)
 
 		// writer close on exit of background process
 		// pipe writer will not return a meaningful error
@@ -539,71 +545,51 @@ func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 	// err2 for writing
 	// err3 for context
 	var err1, err2, err3 error
-	err3 = ctx.Err()
 
-	// A missed line or partial line in console output will result in a corrupted PEM.
-	// Because of this, it is important that output conform to external loggers,
-	// especially Kubernetes.
-	// this code ensures that output occurs in a line oriented way so that there are
-	// no broken lines or missing terminal lines.
-	//
-	// output as long as there are no:
-	// - errors writing to the log
-	// - reading from the pem encodings
-	// - canceled contexts
-	//
+	err3 = ctx.Err()
 	for err1 == nil && err2 == nil && err3 == nil {
 		var ln []byte
 		// ReadBytes may hang and ignore context timout
 		// err1 can return ln and non-nil err1, so always call write
 		ln, err1 = rdr.ReadBytes('\n')
-		// Write may hang and ignore context timout
-		// write line to output
+		// err1 can return ln and non-nil err1, so always call write
 		_, err2 = wrt.Write(ln)
-		// check context timeout between the two.  If a stall occurs on
-		// any of the IO operations above, it will rely on the OS/golang
-		// library timeout to return
-		// (golang really needs IO functions with better support for
-		// timeouts)
+		// update the context error
 		err3 = ctx.Err()
 	}
 
-	// cleanup the reader end of the pipe.
-	// pipe writer will not return a meaningful error
-	//nolint:errcheck
-	pr.Close()
-
+	// context cancellation has precedence
 	if err3 != nil {
-		// got a context error.  this has precedent
-		// err2 and err1 may be non-nil but err3 is the "cause"
-		// so report that.
-		return fmt.Errorf("%s: %w", errMsgCouldNotWritePem, err3)
+		return fmt.Errorf("could not write PEM: %w", err3)
 	}
 
+	// got a write error
 	if err2 != nil {
-		// got a write error.
-		return fmt.Errorf("%s: %w", errMsgCouldNotWritePem, err2)
+		return fmt.Errorf("could not write PEM: %w", err2)
 	}
 
-	// lines are flushed one at a time.  Do not risk omitting a
-	// newline at the end of a dump
-	_, err2 = wrt.WriteString("\n")
-	if err2 != nil {
-		return fmt.Errorf("%s: %w", errMsgCouldNotWritePem, err2)
+	if err0 != nil {
+		return fmt.Errorf("could not write PEM: %w", err0)
 	}
 
-	// did not get a read error.  file ends in newline
-	if err1 != nil && !errors.Is(err1, io.EOF) {
-		return fmt.Errorf("error reading bytes: %w", err1)
+	if err1 == nil {
+		return nil
 	}
 
-	return nil
+	// got a read error
+	// if file does not end in newline, then output one
+	if errors.Is(err1, io.EOF) {
+		_, err2 = wrt.WriteString("\n")
+		if err2 != nil {
+			return fmt.Errorf("could not write PEM: %w", err2)
+		}
+
+		return io.EOF
+	}
+
+	return fmt.Errorf("error reading bytes: %w", err1)
 }
 
-// parseDebugNumber debug numbers are supported by Go PPROF logging
-// the interpretation of debug numbers is left up to the profile
-// implementation.  This library is permissive on the debug number
-// values, so it makes no attempt to determine what's valid.
 func parseDebugNumber(v *ProfileConfig) (int, error) {
 	debugs, ok := v.GetValue(KopiaDebugFlagDebug)
 	if !ok {

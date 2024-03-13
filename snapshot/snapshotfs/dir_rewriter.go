@@ -258,6 +258,8 @@ func RewriteKeep(ctx context.Context, parentPath string, input *snapshot.DirEntr
 // the error.
 func RewriteAsStub(rep repo.RepositoryWriter) RewriteFailedEntryCallback {
 	return func(ctx context.Context, parentPath string, input *snapshot.DirEntry, originalErr error) (*snapshot.DirEntry, error) {
+		_ = parentPath
+
 		var buf bytes.Buffer
 
 		e := json.NewEncoder(&buf)

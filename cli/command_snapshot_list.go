@@ -65,7 +65,7 @@ func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
 func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, tags map[string]string) (manifestIDs []manifest.ID, err error) {
 	var result []manifest.ID
 
-	for len(sourceInfo.Path) > 0 {
+	for sourceInfo.Path != "" {
 		list, err := snapshot.ListSnapshotManifests(ctx, rep, &sourceInfo, tags)
 		if err != nil {
 			return nil, errors.Wrapf(err, "error listing manifests for %v", sourceInfo)

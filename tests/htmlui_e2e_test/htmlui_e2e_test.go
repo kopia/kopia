@@ -12,6 +12,7 @@ import (
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/chromedp/kb"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
@@ -90,8 +91,8 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 			t.Logf("dialog opening: %v", do.Message)
 
 			go func() {
-				require.Equal(t, tc.expectedDialogText, do.Message)
-				require.NoError(t, chromedp.Run(ctx, page.HandleJavaScriptDialog(tc.dialogResponse)))
+				assert.Equal(t, tc.expectedDialogText, do.Message)
+				assert.NoError(t, chromedp.Run(ctx, page.HandleJavaScriptDialog(tc.dialogResponse)))
 				tc.expectedDialogText = ""
 			}()
 		}

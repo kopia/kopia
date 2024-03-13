@@ -378,7 +378,6 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 	var err error
 
 	minioOpts.Transport, err = getCustomTransport(opt)
-
 	if err != nil {
 		return nil, err
 	}

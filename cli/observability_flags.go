@@ -32,12 +32,12 @@ const DirMode = 0o700
 
 //nolint:gochecknoglobals
 var metricsPushFormats = map[string]expfmt.Format{
-	"text":               expfmt.FmtText,
-	"proto-text":         expfmt.FmtProtoText,
-	"proto-delim":        expfmt.FmtProtoDelim,
-	"proto-compact":      expfmt.FmtProtoCompact,
-	"open-metrics":       expfmt.FmtOpenMetrics_1_0_0,
-	"open-metrics-0.0.1": expfmt.FmtOpenMetrics_0_0_1,
+	"text":               expfmt.NewFormat(expfmt.TypeTextPlain),
+	"proto-text":         expfmt.NewFormat(expfmt.TypeProtoText),
+	"proto-delim":        expfmt.NewFormat(expfmt.TypeProtoDelim),
+	"proto-compact":      expfmt.NewFormat(expfmt.TypeProtoCompact),
+	"open-metrics":       expfmt.NewFormat(expfmt.TypeOpenMetrics),
+	"open-metrics-0.0.1": "application/openmetrics-text; version=0.0.1; charset=utf-8",
 }
 
 type observabilityFlags struct {

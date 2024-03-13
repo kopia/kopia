@@ -35,7 +35,7 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *bigmap.
 	}
 
 	w, twerr := snapshotfs.NewTreeWalker(ctx, snapshotfs.TreeWalkerOptions{
-		EntryCallback: func(ctx context.Context, entry fs.Entry, oid object.ID, entryPath string) error {
+		EntryCallback: func(ctx context.Context, _ fs.Entry, oid object.ID, _ string) error {
 			contentIDs, verr := rep.VerifyObject(ctx, oid)
 			if verr != nil {
 				return errors.Wrapf(verr, "error verifying %v", oid)
@@ -128,6 +128,7 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 				if err := rep.ContentManager().UndeleteContent(ctx, ci.GetContentID()); err != nil {
 					return errors.Wrapf(err, "Could not undelete referenced content: %v", ci)
 				}
+
 				undeleted.Add(int64(ci.GetPackedLength()))
 			}
 
@@ -154,6 +155,7 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 
 		if cnt%100000 == 0 {
 			log(ctx).Infof("... found %v unused contents so far (%v bytes)", cnt, units.BytesString(totalSize))
+
 			if gcDelete {
 				if err := rep.Flush(ctx); err != nil {
 					return errors.Wrap(err, "flush error")

@@ -150,6 +150,7 @@ func (c *commandContentStats) calculateStats(ctx context.Context, rep repo.Direc
 					totalSizeOfContentsUnder[s] += int64(b.GetPackedLength())
 				}
 			}
+
 			return nil
 		})
 
