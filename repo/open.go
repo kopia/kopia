@@ -57,7 +57,7 @@ const throttlingWindow = 60 * time.Second
 const throttleBucketInitialFill = 0.1
 
 // localCacheIntegrityHMACSecretLength length of HMAC secret protecting local cache items.
-const localCacheIntegrityHMACSecretLength = 16
+const localCacheIntegrityHMACSecretLength = 32 // 16
 
 //nolint:gochecknoglobals
 var localCacheIntegrityPurpose = []byte("local-cache-integrity")
