@@ -12,6 +12,9 @@ import (
 // DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
 const DefaultKeyDerivationAlgorithm = "testing-only-insecure"
 
+// MasterKeyLength describes the length of the master key.
+const MasterKeyLength = 32
+
 // DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
 func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]byte, error) {
 	const masterKeySize = 32
