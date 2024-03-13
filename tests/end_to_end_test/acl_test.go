@@ -77,6 +77,7 @@ func verifyACL(t *testing.T, disableGRPC bool) {
 		"--server-control-password=admin-pwd",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
+		"--legacy-api",
 	)
 
 	t.Logf("detected server parameters %#v", sp)
