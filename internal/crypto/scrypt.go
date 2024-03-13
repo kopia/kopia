@@ -8,13 +8,15 @@ import (
 	"golang.org/x/crypto/scrypt"
 )
 
-// The recommended minimum size for a salt to be used for scrypt
-// A good rule of thumb is to use a salt that is the same size
+// The recommended minimum size for a salt to be used for scrypt.
+// Currently set to 16 bytes (128 bits).
+//
+// TBD: A good rule of thumb is to use a salt that is the same size
 // as the output of the hash function. For example, the output of SHA256
 // is 256 bits (32 bytes), so the salt should be at least 32 random bytes.
 // Scrypt uses a SHA256 hash function.
 // https://crackstation.net/hashing-security.htm
-const minScryptSha256SaltSize = 32 // size in bytes == 256 bits
+const minScryptSha256SaltSize = 16 // size in bytes == 128 bits
 
 func init() {
 	RegisterKeyDerivationFunc(ScryptAlgorithm, func(password string, salt []byte) ([]byte, error) {
