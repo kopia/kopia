@@ -648,7 +648,6 @@ func createClient(tb testing.TB, opt *Options) *minio.Client {
 	var err error
 
 	transport, err = getCustomTransport(opt)
-
 	if err != nil {
 		tb.Fatalf("unable to get proper transport: %v", err)
 	}

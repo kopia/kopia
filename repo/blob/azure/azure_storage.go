@@ -427,7 +427,8 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	// verify Azure connection is functional by listing blobs in a bucket, which will fail if the container
 	// does not exist. We list with a prefix that will not exist, to avoid iterating through any objects.
 	nonExistentPrefix := fmt.Sprintf("kopia-azure-storage-initializing-%v", clock.Now().UnixNano())
-	if err := raw.ListBlobs(ctx, blob.ID(nonExistentPrefix), func(md blob.Metadata) error {
+
+	if err := raw.ListBlobs(ctx, blob.ID(nonExistentPrefix), func(_ blob.Metadata) error {
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "unable to list from the bucket")

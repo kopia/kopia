@@ -71,7 +71,6 @@ func createOSSnapshot(ctx context.Context, root fs.Directory, _ *policy.OSSnapsh
 	}
 
 	newRoot, err = localfs.Directory(filepath.Join(sc.DeviceObject, rel))
-
 	if err != nil {
 		return nil, nil, err
 	}

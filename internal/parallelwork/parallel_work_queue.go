@@ -80,7 +80,9 @@ func (v *Queue) Process(ctx context.Context, workers int) error {
 					}
 
 					err := callback()
+
 					v.completed(ctx)
+
 					if err != nil {
 						return err
 					}

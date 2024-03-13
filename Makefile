@@ -197,6 +197,14 @@ endif
 kopia: $(kopia_ui_embedded_exe)
 
 ci-build:
+# install Apple API key needed to notarize Apple binaries
+ifeq ($(GOOS),darwin)
+ifneq ($(APPLE_API_KEY_BASE64),)
+ifneq ($(APPLE_API_KEY),)
+	@ echo "$(APPLE_API_KEY_BASE64)" | base64 -d > "$(APPLE_API_KEY)"
+endif
+endif
+endif
 	$(MAKE) kopia
 ifeq ($(GOARCH),amd64)
 	$(retry) $(MAKE) kopia-ui
@@ -206,6 +214,14 @@ ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	$(MAKE) generate-change-log
 	$(MAKE) download-rclone
 endif
+
+# remove API key
+ifeq ($(GOOS),darwin)
+ifneq ($(APPLE_API_KEY),)
+	@ rm -f "$(APPLE_API_KEY)"
+endif
+endif
+
 
 download-rclone:
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_amd64/ --goos=linux --goarch=amd64

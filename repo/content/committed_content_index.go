@@ -324,6 +324,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 						c.log.Errorf("skipping bad read of index blob %v", indexBlobID)
 						continue
 					}
+
 					return errors.Wrapf(err, "error loading index blob %v", indexBlobID)
 				}
 
@@ -331,6 +332,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 					return errors.Wrap(err, "unable to add to committed content cache")
 				}
 			}
+
 			return nil
 		})
 	}

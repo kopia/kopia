@@ -177,7 +177,7 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 	w.afterFlush = nil
 
 	if w.wso.OnUpload == nil {
-		w.wso.OnUpload = func(i int64) {}
+		w.wso.OnUpload = func(_ int64) {}
 	}
 
 	r.addRef()
@@ -200,7 +200,7 @@ func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	err := r.contentCache.GetOrLoad(ctx, contentID.String(), func(output *gather.WriteBuffer) error {
+	err := r.contentCache.GetOrLoad(ctx, contentID.String(), func(_ *gather.WriteBuffer) error {
 		var result []byte
 
 		if err := r.cli.Get(ctx, "contents/"+contentID.String(), content.ErrContentNotFound, &result); err != nil {
@@ -320,7 +320,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		immutableServerRepositoryParameters: par,
 		cli:                                 cli,
 		wso: WriteSessionOptions{
-			OnUpload: func(i int64) {},
+			OnUpload: func(_ int64) {},
 		},
 	}
 

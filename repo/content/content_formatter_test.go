@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -142,7 +143,7 @@ func mustCreateFormatProvider(t *testing.T, f *format.ContentFormat) format.Prov
 	t.Helper()
 
 	fop, err := format.NewFormattingOptionsProvider(f, nil)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	return fop
 }

@@ -131,7 +131,7 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 			childPath := path.Join(entryPath, ent2.Name())
 
 			if ag.CanShareWork(w.wp) {
-				ag.RunAsync(w.wp, func(c *workshare.Pool[any], request any) {
+				ag.RunAsync(w.wp, func(_ *workshare.Pool[any], _ any) {
 					w.processEntry(ctx, ent2, childPath)
 				}, nil)
 			} else {
