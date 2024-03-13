@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/user"
 	"github.com/kopia/kopia/repo"
 )
@@ -74,7 +75,7 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 	if p := c.userSetPassword; p != "" {
 		changed = true
 
-		if err := up.SetPassword(p); err != nil {
+		if err := up.SetPassword(p, crypto.DefaultKeyDerivationAlgorithm); err != nil {
 			return errors.Wrap(err, "error setting password")
 		}
 	}
@@ -107,7 +108,7 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 
 		changed = true
 
-		if err := up.SetPassword(pwd); err != nil {
+		if err := up.SetPassword(pwd, crypto.DefaultKeyDerivationAlgorithm); err != nil {
 			return errors.Wrap(err, "error setting password")
 		}
 	}
