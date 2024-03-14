@@ -14,7 +14,7 @@ import (
 )
 
 func TestRepositoryAuthenticator(t *testing.T) {
-	a := auth.AuthenticateRepositoryUsers()
+	a := auth.AuthenticateRepositoryUsers(crypto.DefaultKeyDerivationAlgorithm)
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{},

@@ -40,10 +40,12 @@ func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]by
 	return kdFunc(password, salt)
 }
 
+// AllowedKeyDerivationAlgorithms returns a slice of the allowed key derivation algorithms.
 func AllowedKeyDerivationAlgorithms() []string {
 	kdAlgorithms := make([]string, 0, len(keyDerivers))
 	for k := range keyDerivers {
 		kdAlgorithms = append(kdAlgorithms, k)
 	}
+
 	return kdAlgorithms
 }
