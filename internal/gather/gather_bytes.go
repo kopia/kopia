@@ -10,8 +10,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-//nolint:gochecknoglobals
-var invalidSliceBuf = []byte(uuid.NewString())
+var (
+	//nolint:gochecknoglobals
+	invalidSliceBuf = []byte(uuid.NewString())
+
+	ErrInvalidOffset = errors.Errorf("invalid offset")
+)
 
 // Bytes represents a sequence of bytes split into slices.
 type Bytes struct {
@@ -119,10 +123,6 @@ type bytesReadSeekCloser struct {
 	b      Bytes
 	offset int
 }
-
-var (
-	ErrInvalidOffset = errors.Errorf("invalid offset")
-)
 
 func (b *bytesReadSeekCloser) ReadAt(p []byte, off int64) (int, error) {
 	b.b.assertValid()
