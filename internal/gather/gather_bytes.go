@@ -13,7 +13,7 @@ import (
 var (
 	//nolint:gochecknoglobals
 	invalidSliceBuf = []byte(uuid.NewString())
-
+	// ErrInvalidOffset checkable error for supplying an invalid offset.
 	ErrInvalidOffset = errors.Errorf("invalid offset")
 )
 
