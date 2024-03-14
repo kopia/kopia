@@ -77,6 +77,7 @@ func setupCachingOptionsWithDefaults(ctx context.Context, configPath string, lc 
 	lc.Caching.MinMetadataSweepAge = opt.MinMetadataSweepAge
 	lc.Caching.MinIndexSweepAge = opt.MinIndexSweepAge
 
+	lc.Caching.KeyDerivationAlgorithm = opt.KeyDerivationAlgorithm
 	if lc.Caching.KeyDerivationAlgorithm == "" {
 		lc.Caching.KeyDerivationAlgorithm = crypto.DefaultKeyDerivationAlgorithm
 	}

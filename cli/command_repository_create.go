@@ -81,18 +81,18 @@ func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepos
 			MutableParameters: format.MutableParameters{
 				Version: format.Version(c.createFormatVersion),
 			},
-			Hash:               c.createBlockHashFormat,
-			Encryption:         c.createBlockEncryptionFormat,
-			ECC:                c.createBlockECCFormat,
-			ECCOverheadPercent: c.createBlockECCOverheadPercent,
+			Hash:                   c.createBlockHashFormat,
+			Encryption:             c.createBlockEncryptionFormat,
+			ECC:                    c.createBlockECCFormat,
+			ECCOverheadPercent:     c.createBlockECCOverheadPercent,
+			KeyDerivationAlgorithm: c.co.keyDerivationAlgorithm,
 		},
 
 		ObjectFormat: format.ObjectFormat{
 			Splitter: c.createSplitter,
 		},
-		KeyDerivationAlgorithm: c.co.keyDerivationAlgorithm,
-		RetentionMode:          blob.RetentionMode(c.retentionMode),
-		RetentionPeriod:        c.retentionPeriod,
+		RetentionMode:   blob.RetentionMode(c.retentionMode),
+		RetentionPeriod: c.retentionPeriod,
 	}
 }
 
@@ -131,6 +131,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 
 	log(ctx).Infof("  block hash:          %v", options.BlockFormat.Hash)
 	log(ctx).Infof("  encryption:          %v", options.BlockFormat.Encryption)
+	log(ctx).Infof("  key derivation:      %v", options.BlockFormat.KeyDerivationAlgorithm)
 
 	if options.BlockFormat.ECC != "" && options.BlockFormat.ECCOverheadPercent > 0 {
 		log(ctx).Infof("  ecc:                 %v with %v%% overhead", options.BlockFormat.ECC, options.BlockFormat.ECCOverheadPercent)
