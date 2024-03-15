@@ -94,13 +94,13 @@ func deletionWatermarkFromBlobID(blobID blob.ID) (time.Time, bool) {
 	return time.Unix(unixSeconds, 0), true
 }
 
-// intRange represents a discrete closed-closed [lo, hi] range for ints.
+// closedIntRange represents a discrete closed-closed [lo, hi] range for ints.
 // That is, the range includes both lo and hi.
-type intRange struct {
+type closedIntRange struct {
 	lo, hi int
 }
 
-func (r intRange) length() uint {
+func (r closedIntRange) length() uint {
 	// any range where lo > hi is empty. The canonical empty representation
 	// is {lo:0, hi: -1}
 	if r.lo > r.hi {
@@ -110,7 +110,7 @@ func (r intRange) length() uint {
 	return uint(r.hi - r.lo + 1)
 }
 
-func (r intRange) isEmpty() bool {
+func (r closedIntRange) isEmpty() bool {
 	return r.length() == 0
 }
 
@@ -126,9 +126,9 @@ const (
 )
 
 // Returns a range for the keys in m. It returns an empty range when m is empty.
-func getKeyRange[E any](m map[int]E) intRange {
+func getKeyRange[E any](m map[int]E) closedIntRange {
 	if len(m) == 0 {
-		return intRange{lo: 0, hi: -1}
+		return closedIntRange{lo: 0, hi: -1}
 	}
 
 	lo, hi := maxInt, minInt
@@ -142,12 +142,12 @@ func getKeyRange[E any](m map[int]E) intRange {
 		}
 	}
 
-	return intRange{lo: lo, hi: hi}
+	return closedIntRange{lo: lo, hi: hi}
 }
 
 // Returns a contiguous range for the keys in m.
 // When the range is not continuous an error is returned.
-func getContiguousKeyRange[E any](m map[int]E) (intRange, error) {
+func getContiguousKeyRange[E any](m map[int]E) (closedIntRange, error) {
 	r := getKeyRange(m)
 
 	// r.hi and r.lo are from unique map keys, so for the range to be continuous
@@ -155,7 +155,7 @@ func getContiguousKeyRange[E any](m map[int]E) (intRange, error) {
 	// For example, if lo==2, hi==4, and len(m) == 3, the range must be
 	// contiguous => {2, 3, 4}
 	if r.length() != uint(len(m)) {
-		return intRange{-1, -2}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", r.lo, r.hi, len(m))
+		return closedIntRange{-1, -2}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", r.lo, r.hi, len(m))
 	}
 
 	return r, nil
