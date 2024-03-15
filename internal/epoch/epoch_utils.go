@@ -121,10 +121,11 @@ const (
 // A range of the form [v,v) means the range is empty.
 // When the range is not continuous an error is returned.
 func getKeyRange[E any](m map[int]E) (intRange, error) {
-	var count uint
+	if len(m) == 0 {
+		return intRange{}, nil
+	}
 
 	lo, hi := maxInt, minInt
-
 	for k := range m {
 		if k < lo {
 			lo = k
@@ -133,18 +134,12 @@ func getKeyRange[E any](m map[int]E) (intRange, error) {
 		if k > hi {
 			hi = k
 		}
-
-		count++
-	}
-
-	if count == 0 {
-		return intRange{}, nil
 	}
 
 	// hi and lo are from unique map keys, so for the range to be continuous
 	// the difference between hi and lo cannot be larger than count -1.
 	// For example, if lo==2, hi==4, and count == 3, the range must be contiguous => {2, 3, 4}.
-	if uint(hi-lo) > count-1 {
+	if count := uint(len(m)); uint(hi-lo) > count-1 {
 		return intRange{}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", lo, hi, count)
 	}
 
