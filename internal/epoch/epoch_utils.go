@@ -117,12 +117,10 @@ const (
 	minInt = -1 << (intSize - 1)
 )
 
-// Returns a continuous close-open epoch range for the keys, that is [lo, hi).
-// A range of the form [v,v) means the range is empty.
-// When the range is not continuous an error is returned.
-func getKeyRange[E any](m map[int]E) (intRange, error) {
+// Returns a range for the keys in m. It returns an empty range when m is empty.
+func getKeyRange[E any](m map[int]E) intRange {
 	if len(m) == 0 {
-		return intRange{}, nil
+		return intRange{}
 	}
 
 	lo, hi := maxInt, minInt
@@ -136,12 +134,21 @@ func getKeyRange[E any](m map[int]E) (intRange, error) {
 		}
 	}
 
-	// hi and lo are from unique map keys, so for the range to be continuous
-	// the difference between hi and lo cannot be larger than count -1.
-	// For example, if lo==2, hi==4, and count == 3, the range must be contiguous => {2, 3, 4}.
-	if count := uint(len(m)); uint(hi-lo) > count-1 {
-		return intRange{}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", lo, hi, count)
+	return intRange{lo: lo, hi: hi + 1}
+}
+
+// Returns a contiguous range for the keys in m.
+// When the range is not continuous an error is returned.
+func getContiguousKeyRange[E any](m map[int]E) (intRange, error) {
+	r := getKeyRange(m)
+
+	// r.hi and r.lo are from unique map keys, so for the range to be continuous
+	// then the range length must be exactly the same as the size of the map.
+	// For example, if lo==2, hi==4, and len(m) == 3, the range must be
+	// contiguous => {2, 3, 4}
+	if r.length() != uint(len(m)) {
+		return intRange{}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d), length: %d", r.lo, r.hi, len(m))
 	}
 
-	return intRange{lo: lo, hi: hi + 1}, nil
+	return r, nil
 }

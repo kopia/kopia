@@ -77,7 +77,7 @@ func TestGroupByEpochNumber(t *testing.T) {
 	}
 }
 
-func TestGetKeyRange(t *testing.T) {
+func TestGetContiguosKeyRange(t *testing.T) {
 	cases := []struct {
 		input     map[int]bool
 		want      intRange
@@ -178,7 +178,7 @@ func TestGetKeyRange(t *testing.T) {
 
 	for i, tc := range cases {
 		t.Run(fmt.Sprint("case: ", i), func(t *testing.T) {
-			got, err := getKeyRange(tc.input)
+			got, err := getContiguousKeyRange(tc.input)
 			if tc.shouldErr {
 				require.Error(t, err, "input: %v", tc.input)
 			}
