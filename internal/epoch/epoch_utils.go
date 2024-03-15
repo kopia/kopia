@@ -168,3 +168,49 @@ func getUncompactedEpochRange(cs CurrentSnapshot) (closedIntRange, error) {
 func getCompactedEpochRange(cs CurrentSnapshot) (closedIntRange, error) {
 	return getContiguousKeyRange(cs.SingleEpochCompactionSets)
 }
+
+var errInvalidCompactedRange = errors.New("invalid compacted epoch range")
+
+func getRangeCompactedRange(cs CurrentSnapshot) closedIntRange {
+	rangeSetsLen := len(cs.LongestRangeCheckpointSets)
+
+	if rangeSetsLen == 0 {
+		return closedIntRange{lo: 0, hi: -1}
+	}
+
+	return closedIntRange{
+		lo: cs.LongestRangeCheckpointSets[0].MinEpoch,
+		hi: cs.LongestRangeCheckpointSets[rangeSetsLen-1].MaxEpoch,
+	}
+}
+
+func oldestUncompactedEpoch(cs CurrentSnapshot) (int, error) {
+	rangeCompacted := getRangeCompactedRange(cs)
+
+	var oldesUncompactedEpoch int
+
+	if !rangeCompacted.isEmpty() {
+		if rangeCompacted.lo != 0 {
+			// range compactions are expected to cover the 0 epoch
+			return -1, errors.Wrapf(errInvalidCompactedRange, "Epoch 0 not included in range compaction, lowest epoch in range compactions: %v", rangeCompacted.lo)
+		}
+
+		oldesUncompactedEpoch = rangeCompacted.hi + 1
+	}
+
+	singleCompacted, err := getCompactedEpochRange(cs)
+	if err != nil {
+		return -1, errors.Wrap(err, "could not get latest single-compacted epoch")
+	}
+
+	if singleCompacted.isEmpty() || oldesUncompactedEpoch < singleCompacted.lo {
+		return oldesUncompactedEpoch, nil
+	}
+
+	// singleCompacted is not empty
+	if oldesUncompactedEpoch > singleCompacted.hi {
+		return oldesUncompactedEpoch, nil
+	}
+
+	return singleCompacted.hi + 1, nil
+}
