@@ -78,6 +78,8 @@ func TestGroupByEpochNumber(t *testing.T) {
 }
 
 func TestGetContiguosKeyRange(t *testing.T) {
+	invalidEmptyRange := intRange{-1, -2}
+
 	cases := []struct {
 		input     map[int]bool
 		want      intRange
@@ -87,91 +89,97 @@ func TestGetContiguosKeyRange(t *testing.T) {
 	}{
 		{
 			isEmpty: true,
+			want:    intRange{0, -1},
+		},
+		{
+			input:  map[int]bool{0: true},
+			want:   intRange{lo: 0, hi: 0},
+			length: 1,
 		},
 		{
 			input:  map[int]bool{-5: true},
-			want:   intRange{lo: -5, hi: -4},
+			want:   intRange{lo: -5, hi: -5},
 			length: 1,
 		},
 		{
 			input:  map[int]bool{-5: true, -4: true},
-			want:   intRange{lo: -5, hi: -3},
+			want:   intRange{lo: -5, hi: -4},
 			length: 2,
 		},
 		{
 			input:  map[int]bool{0: true},
-			want:   intRange{lo: 0, hi: 1},
+			want:   intRange{lo: 0, hi: 0},
 			length: 1,
 		},
 		{
 			input:  map[int]bool{5: true},
-			want:   intRange{lo: 5, hi: 6},
+			want:   intRange{lo: 5, hi: 5},
 			length: 1,
 		},
 		{
 			input:  map[int]bool{0: true, 1: true},
-			want:   intRange{lo: 0, hi: 2},
+			want:   intRange{lo: 0, hi: 1},
 			length: 2,
 		},
 		{
 			input:  map[int]bool{8: true, 9: true},
-			want:   intRange{lo: 8, hi: 10},
+			want:   intRange{lo: 8, hi: 9},
 			length: 2,
 		},
 		{
 			input:  map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true},
-			want:   intRange{lo: 1, hi: 6},
+			want:   intRange{lo: 1, hi: 5},
 			length: 5,
 		},
 		{
 			input:     map[int]bool{8: true, 10: true},
-			want:      intRange{},
+			want:      invalidEmptyRange,
 			shouldErr: true,
 			isEmpty:   true,
 		},
 		{
 			input:     map[int]bool{1: true, 2: true, 3: true, 5: true},
-			want:      intRange{},
+			want:      invalidEmptyRange,
 			shouldErr: true,
 			isEmpty:   true,
 		},
 		{
 			input:     map[int]bool{-5: true, -7: true},
-			want:      intRange{},
+			want:      invalidEmptyRange,
 			shouldErr: true,
 			isEmpty:   true,
 		},
 		{
 			input:     map[int]bool{0: true, minInt: true},
-			want:      intRange{},
+			want:      invalidEmptyRange,
 			shouldErr: true,
 			isEmpty:   true,
 		},
 		{
 			input:     map[int]bool{0: true, maxInt: true},
-			want:      intRange{},
+			want:      invalidEmptyRange,
 			shouldErr: true,
 			isEmpty:   true,
 		},
 		{
 			input:     map[int]bool{maxInt: true, minInt: true},
-			want:      intRange{},
+			want:      invalidEmptyRange,
 			shouldErr: true,
 			isEmpty:   true,
 		},
 		{
 			input:  map[int]bool{minInt: true},
-			want:   intRange{lo: minInt, hi: minInt + 1},
+			want:   intRange{lo: minInt, hi: minInt},
 			length: 1,
 		},
 		{
 			input:  map[int]bool{maxInt - 1: true},
-			want:   intRange{lo: maxInt - 1, hi: maxInt},
+			want:   intRange{lo: maxInt - 1, hi: maxInt - 1},
 			length: 1,
 		},
 		{
 			input:  map[int]bool{maxInt: true},
-			want:   intRange{lo: maxInt, hi: minInt}, // not representable corner case :(
+			want:   intRange{lo: maxInt, hi: maxInt},
 			length: 1,
 		},
 	}
@@ -193,4 +201,114 @@ func TestGetContiguosKeyRange(t *testing.T) {
 func TestAssertMinMaxIntConstants(t *testing.T) {
 	require.Equal(t, math.MinInt, minInt)
 	require.Equal(t, math.MaxInt, maxInt)
+}
+
+func TestGetKeyRange(t *testing.T) {
+	cases := []struct {
+		input   map[int]bool
+		want    intRange
+		length  uint
+		isEmpty bool
+	}{
+		{
+			isEmpty: true,
+			want:    intRange{lo: 0, hi: -1},
+		},
+		{
+			input:  map[int]bool{0: true},
+			want:   intRange{lo: 0, hi: 0},
+			length: 1,
+		},
+		{
+			input:  map[int]bool{-5: true},
+			want:   intRange{lo: -5, hi: -5},
+			length: 1,
+		},
+		{
+			input:  map[int]bool{-5: true, -4: true},
+			want:   intRange{lo: -5, hi: -4},
+			length: 2,
+		},
+		{
+			input:  map[int]bool{0: true},
+			want:   intRange{lo: 0, hi: 0},
+			length: 1,
+		},
+		{
+			input:  map[int]bool{5: true},
+			want:   intRange{lo: 5, hi: 5},
+			length: 1,
+		},
+		{
+			input:  map[int]bool{0: true, 1: true},
+			want:   intRange{lo: 0, hi: 1},
+			length: 2,
+		},
+		{
+			input:  map[int]bool{8: true, 9: true},
+			want:   intRange{lo: 8, hi: 9},
+			length: 2,
+		},
+		{
+			input:  map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true},
+			want:   intRange{lo: 1, hi: 5},
+			length: 5,
+		},
+		{
+			input:  map[int]bool{8: true, 10: true},
+			want:   intRange{lo: 8, hi: 10},
+			length: 3,
+		},
+		{
+			input:  map[int]bool{1: true, 2: true, 3: true, 5: true},
+			want:   intRange{lo: 1, hi: 5},
+			length: 5,
+		},
+		{
+			input:  map[int]bool{-5: true, -7: true},
+			want:   intRange{lo: -7, hi: -5},
+			length: 3,
+		},
+		{
+			input:  map[int]bool{0: true, minInt: true},
+			want:   intRange{lo: minInt, hi: 0},
+			length: -minInt + 1,
+		},
+		{
+			input:  map[int]bool{0: true, maxInt: true},
+			want:   intRange{lo: 0, hi: maxInt},
+			length: maxInt + 1,
+		},
+		{
+			input:   map[int]bool{maxInt: true, minInt: true},
+			want:    intRange{lo: minInt, hi: maxInt},
+			length:  0, // corner case, not representable :(
+			isEmpty: true,
+		},
+		{
+			input:  map[int]bool{minInt: true},
+			want:   intRange{lo: minInt, hi: minInt},
+			length: 1,
+		},
+		{
+			input:  map[int]bool{maxInt - 1: true},
+			want:   intRange{lo: maxInt - 1, hi: maxInt - 1},
+			length: 1,
+		},
+		{
+			input:  map[int]bool{maxInt: true},
+			want:   intRange{lo: maxInt, hi: maxInt},
+			length: 1,
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprint("case: ", i), func(t *testing.T) {
+			got := getKeyRange(tc.input)
+
+			require.Equal(t, tc.want, got, "input: %#v", tc.input)
+			require.Equal(t, tc.length, got.length())
+			require.Equal(t, tc.isEmpty, got.isEmpty())
+		})
+	}
 }

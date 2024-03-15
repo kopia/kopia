@@ -94,12 +94,20 @@ func deletionWatermarkFromBlobID(blobID blob.ID) (time.Time, bool) {
 	return time.Unix(unixSeconds, 0), true
 }
 
+// intRange represents a discrete closed-closed [lo, hi] range for ints.
+// That is, the range includes both lo and hi.
 type intRange struct {
 	lo, hi int
 }
 
 func (r intRange) length() uint {
-	return uint(r.hi - r.lo)
+	// any range where lo > hi is empty. The canonical empty representation
+	// is {lo:0, hi: -1}
+	if r.lo > r.hi {
+		return 0
+	}
+
+	return uint(r.hi - r.lo + 1)
 }
 
 func (r intRange) isEmpty() bool {
@@ -120,7 +128,7 @@ const (
 // Returns a range for the keys in m. It returns an empty range when m is empty.
 func getKeyRange[E any](m map[int]E) intRange {
 	if len(m) == 0 {
-		return intRange{}
+		return intRange{lo: 0, hi: -1}
 	}
 
 	lo, hi := maxInt, minInt
@@ -134,7 +142,7 @@ func getKeyRange[E any](m map[int]E) intRange {
 		}
 	}
 
-	return intRange{lo: lo, hi: hi + 1}
+	return intRange{lo: lo, hi: hi}
 }
 
 // Returns a contiguous range for the keys in m.
@@ -147,7 +155,7 @@ func getContiguousKeyRange[E any](m map[int]E) (intRange, error) {
 	// For example, if lo==2, hi==4, and len(m) == 3, the range must be
 	// contiguous => {2, 3, 4}
 	if r.length() != uint(len(m)) {
-		return intRange{}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d), length: %d", r.lo, r.hi, len(m))
+		return intRange{-1, -2}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", r.lo, r.hi, len(m))
 	}
 
 	return r, nil
