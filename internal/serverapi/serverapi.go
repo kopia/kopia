@@ -294,4 +294,5 @@ type UIPreferences struct {
 	Theme                  string `json:"theme"`                  // Specifies the theme used by the UI
 	FontSize               string `json:"fontSize"`               // Specifies the font size used by the UI
 	PageSize               int    `json:"pageSize"`               // A page size; the actual possible values will only be provided by the frontend
+	Language               string `json:"language"`               // Specifies the language used by the UI
 }
