@@ -978,44 +978,32 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
 		return err
 	}
 
-	uncompacted, err := getUncompactedEpochRange(cs)
+	uncompacted, err := oldestUncompactedEpoch(cs)
 	if err != nil {
 		return err
 	}
 
-	if uncompacted.isEmpty() {
-		e.log.Debug("empty uncompacted epoch range, not compacting")
-		return nil
-	}
-
-	compacted, err := getCompactedEpochRange(cs)
-	if err != nil {
-		return err
-	}
-
-	if uncompacted.lo < compacted.hi {
-		uncompacted.lo = compacted.hi // avoid compacting already compacted epoch
-	}
-
-	if uncompacted.isEmpty() || !cs.isSettledEpochNumber(uncompacted.lo) {
-		e.log.Debug("there are no uncompacted epochs eligible for compaction")
+	if !cs.isSettledEpochNumber(uncompacted) {
+		e.log.Debugw("there are no uncompacted epochs eligible for compaction", "oldestUncompactedEpoch", uncompacted)
 
 		return nil
 	}
 
-	epochToCompact := uncompacted.lo
-
-	uncompactedBlobs, ok := cs.UncompactedEpochSets[epochToCompact]
+	uncompactedBlobs, ok := cs.UncompactedEpochSets[uncompacted]
 	if !ok {
-		e.log.Debugf("there are no uncompacted blobs for epoch %d, not compacting", epochToCompact)
+		// TODO: attempt to load blobs for this epoch
+		ue, err := blob.ListAllBlobs(ctx, e.st, UncompactedEpochBlobPrefix(uncompacted))
+		if err != nil {
+			return errors.Wrapf(err, "error listing uncompacted indexes for epoch %v", uncompacted)
+		}
 
-		return nil
+		uncompactedBlobs = ue
 	}
 
 	e.log.Debugf("starting single-epoch compaction of %v")
 
-	if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(epochToCompact)); err != nil {
-		return errors.Wrapf(err, "unable to compact blobs for epoch %v: performance will be affected", epochToCompact)
+	if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(uncompacted)); err != nil {
+		return errors.Wrapf(err, "unable to compact blobs for epoch %v: performance will be affected", uncompacted)
 	}
 
 	return nil
