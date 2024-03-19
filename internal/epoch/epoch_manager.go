@@ -970,7 +970,7 @@ func (e *Manager) getCompleteIndexSetForCommittedState(ctx context.Context, cs C
 	return result, nil
 }
 
-// MaybeCompactSingleEpoch compacts the oldest epoch that is elegible for
+// MaybeCompactSingleEpoch compacts the oldest epoch that is eligible for
 // compaction if there is one.
 func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
 	cs, err := e.committedState(ctx, 0)
@@ -991,7 +991,7 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
 
 	uncompactedBlobs, ok := cs.UncompactedEpochSets[uncompacted]
 	if !ok {
-		// TODO: attempt to load blobs for this epoch
+		// blobs for this epoch were not loaded in the current snapshot, get the list of blobs for this epoch
 		ue, err := blob.ListAllBlobs(ctx, e.st, UncompactedEpochBlobPrefix(uncompacted))
 		if err != nil {
 			return errors.Wrapf(err, "error listing uncompacted indexes for epoch %v", uncompacted)
