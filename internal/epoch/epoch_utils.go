@@ -94,15 +94,23 @@ func deletionWatermarkFromBlobID(blobID blob.ID) (time.Time, bool) {
 	return time.Unix(unixSeconds, 0), true
 }
 
-type intRange struct {
+// closedIntRange represents a discrete closed-closed [lo, hi] range for ints.
+// That is, the range includes both lo and hi.
+type closedIntRange struct {
 	lo, hi int
 }
 
-func (r intRange) length() uint {
-	return uint(r.hi - r.lo)
+func (r closedIntRange) length() uint {
+	// any range where lo > hi is empty. The canonical empty representation
+	// is {lo:0, hi: -1}
+	if r.lo > r.hi {
+		return 0
+	}
+
+	return uint(r.hi - r.lo + 1)
 }
 
-func (r intRange) isEmpty() bool {
+func (r closedIntRange) isEmpty() bool {
 	return r.length() == 0
 }
 
@@ -117,14 +125,13 @@ const (
 	minInt = -1 << (intSize - 1)
 )
 
-// Returns a continuous close-open epoch range for the keys, that is [lo, hi).
-// A range of the form [v,v) means the range is empty.
-// When the range is not continuous an error is returned.
-func getKeyRange[E any](m map[int]E) (intRange, error) {
-	var count uint
+// Returns a range for the keys in m. It returns an empty range when m is empty.
+func getKeyRange[E any](m map[int]E) closedIntRange {
+	if len(m) == 0 {
+		return closedIntRange{lo: 0, hi: -1}
+	}
 
 	lo, hi := maxInt, minInt
-
 	for k := range m {
 		if k < lo {
 			lo = k
@@ -133,20 +140,23 @@ func getKeyRange[E any](m map[int]E) (intRange, error) {
 		if k > hi {
 			hi = k
 		}
-
-		count++
 	}
 
-	if count == 0 {
-		return intRange{}, nil
+	return closedIntRange{lo: lo, hi: hi}
+}
+
+// Returns a contiguous range for the keys in m.
+// When the range is not continuous an error is returned.
+func getContiguousKeyRange[E any](m map[int]E) (closedIntRange, error) {
+	r := getKeyRange(m)
+
+	// r.hi and r.lo are from unique map keys, so for the range to be continuous
+	// then the range length must be exactly the same as the size of the map.
+	// For example, if lo==2, hi==4, and len(m) == 3, the range must be
+	// contiguous => {2, 3, 4}
+	if r.length() != uint(len(m)) {
+		return closedIntRange{-1, -2}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", r.lo, r.hi, len(m))
 	}
 
-	// hi and lo are from unique map keys, so for the range to be continuous
-	// the difference between hi and lo cannot be larger than count -1.
-	// For example, if lo==2, hi==4, and count == 3, the range must be contiguous => {2, 3, 4}.
-	if uint(hi-lo) > count-1 {
-		return intRange{}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", lo, hi, count)
-	}
-
-	return intRange{lo: lo, hi: hi + 1}, nil
+	return r, nil
 }
