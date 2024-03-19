@@ -187,7 +187,7 @@ func getRangeCompactedRange(cs CurrentSnapshot) closedIntRange {
 func oldestUncompactedEpoch(cs CurrentSnapshot) (int, error) {
 	rangeCompacted := getRangeCompactedRange(cs)
 
-	var oldesUncompactedEpoch int
+	var oldestUncompacted int
 
 	if !rangeCompacted.isEmpty() {
 		if rangeCompacted.lo != 0 {
@@ -195,7 +195,7 @@ func oldestUncompactedEpoch(cs CurrentSnapshot) (int, error) {
 			return -1, errors.Wrapf(errInvalidCompactedRange, "Epoch 0 not included in range compaction, lowest epoch in range compactions: %v", rangeCompacted.lo)
 		}
 
-		oldesUncompactedEpoch = rangeCompacted.hi + 1
+		oldestUncompacted = rangeCompacted.hi + 1
 	}
 
 	singleCompacted, err := getCompactedEpochRange(cs)
@@ -203,13 +203,13 @@ func oldestUncompactedEpoch(cs CurrentSnapshot) (int, error) {
 		return -1, errors.Wrap(err, "could not get latest single-compacted epoch")
 	}
 
-	if singleCompacted.isEmpty() || oldesUncompactedEpoch < singleCompacted.lo {
-		return oldesUncompactedEpoch, nil
+	if singleCompacted.isEmpty() || oldestUncompacted < singleCompacted.lo {
+		return oldestUncompacted, nil
 	}
 
 	// singleCompacted is not empty
-	if oldesUncompactedEpoch > singleCompacted.hi {
-		return oldesUncompactedEpoch, nil
+	if oldestUncompacted > singleCompacted.hi {
+		return oldestUncompacted, nil
 	}
 
 	return singleCompacted.hi + 1, nil
