@@ -1015,6 +1015,117 @@ func TestValidateParameters(t *testing.T) {
 	}
 }
 
+func TestCleanupMarkers_Empty(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	te.mgr.allowCleanupWritesOnIndexLoad = false
+	ctx := testlogging.Context(t)
+
+	// this should be a no-op
+	err := te.mgr.CleanupMarkers(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestCleanupMarkers_GetParametersError(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+	te.mgr.allowCleanupWritesOnIndexLoad = false
+
+	paramsError := errors.New("no parameters error")
+	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
+
+	err := te.mgr.CleanupMarkers(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, paramsError)
+}
+
+func TestCleanupMarkers_FailToReadState(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	te.mgr.allowCleanupWritesOnIndexLoad = false
+	ctx, cancel := context.WithCancel(testlogging.Context(t))
+
+	te.ft.Advance(1 * time.Hour) // force state refresh in CleanupMarkers
+
+	cancel()
+	err := te.mgr.CleanupMarkers(ctx)
+
+	require.Error(t, err)
+}
+
+func TestCleanupMarkers_AvoidCleaningUpSingleEpochMarker(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	te.mgr.allowCleanupWritesOnIndexLoad = false
+	ctx := testlogging.Context(t)
+
+	te.mgr.forceAdvanceEpoch(ctx)
+	te.ft.Advance(1 * time.Hour)
+
+	require.NoError(t, te.mgr.Refresh(ctx))
+
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, cs.WriteEpoch)
+
+	err = te.mgr.CleanupMarkers(ctx)
+	require.NoError(t, err)
+
+	require.NoError(t, te.mgr.Refresh(ctx))
+
+	// is the epoch marker preserved?
+	te.verifyCurrentWriteEpoch(t, 1)
+
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Len(t, cs.EpochMarkerBlobs, 1)
+}
+
+func TestCleanupMarkers_CleanUpManyMarkers(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	te.mgr.allowCleanupWritesOnIndexLoad = false
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	const epochsToAdvance = 5
+
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(0))
+	for i := 0; i < epochsToAdvance; i++ {
+		te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+		te.mgr.forceAdvanceEpoch(ctx)
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i+1))
+	}
+
+	require.NoError(t, te.mgr.Refresh(ctx))
+	te.verifyCurrentWriteEpoch(t, epochsToAdvance)
+
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Len(t, cs.EpochMarkerBlobs, epochsToAdvance)
+
+	err = te.mgr.CleanupMarkers(ctx)
+	require.NoError(t, err)
+
+	// is the epoch marker preserved?
+	require.NoError(t, te.mgr.Refresh(ctx))
+	te.verifyCurrentWriteEpoch(t, epochsToAdvance)
+
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Len(t, cs.EpochMarkerBlobs, 2) // at least 2 epoch markers are kept
+}
+
 func randomTime(min, max time.Duration) time.Duration {
 	return time.Duration(float64(max-min)*rand.Float64() + float64(min))
 }
