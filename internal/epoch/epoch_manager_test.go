@@ -800,6 +800,147 @@ func TestIndexEpochManager_RefreshContextCanceled(t *testing.T) {
 	require.ErrorIs(t, err, ctx.Err())
 }
 
+func TestMaybeCompactSingleEpoch_Empty(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	// this should be a no-op
+	err := te.mgr.MaybeCompactSingleEpoch(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestMaybeCompactSingleEpoch_GetParametersError(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	paramsError := errors.New("no parameters error")
+	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
+
+	err := te.mgr.MaybeCompactSingleEpoch(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, paramsError)
+}
+
+func TestMaybeCompactSingleEpoch_CompactionError(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+	// Create sufficient indexes blobs and move clock forward to advance epoch.
+	for j := 0; j < 3; j++ {
+		for i := 0; i < idxCount; i++ {
+			if i == idxCount-1 {
+				// Advance the time so that the difference in times for writes will force
+				// new epochs.
+				te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+			}
+
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
+		}
+	}
+
+	compactionError := errors.New("test compaction error")
+	te.mgr.compact = func(context.Context, []blob.ID, blob.ID) error {
+		return compactionError
+	}
+
+	err = te.mgr.MaybeCompactSingleEpoch(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, compactionError)
+}
+
+func TestMaybeCompactSingleEpoch(t *testing.T) {
+	const epochsToWrite = 5
+
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+	te.mgr.allowCleanupWritesOnIndexLoad = false
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+
+	var k int
+
+	// Create sufficient indexes blobs and move clock forward to advance current epoch
+	for j := 0; j < epochsToWrite; j++ {
+		for i := 0; i < idxCount; i++ {
+			if i == idxCount-1 {
+				// Advance the time so that the difference in times for writes will force
+				// new epochs.
+				te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+			}
+
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(k))
+			k++
+		}
+
+		te.verifyCurrentWriteEpoch(t, j)
+
+		err = te.mgr.MaybeAdvanceWriteEpoch(ctx)
+		require.NoError(t, err)
+
+		err = te.mgr.Refresh(ctx) // force state refresh
+
+		require.NoError(t, err)
+		te.verifyCurrentWriteEpoch(t, j+1)
+	}
+
+	cs, err := te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, epochsToWrite, cs.WriteEpoch)
+
+	// no epochs have been compacted, so the compacted set should be empty and
+	// the uncompacted epoch set should have all the epochs
+	require.Empty(t, cs.LongestRangeCheckpointSets)
+	require.Empty(t, cs.SingleEpochCompactionSets)
+
+	// perform single-epoch compaction for settled epochs
+	newestEpochToCompact := cs.WriteEpoch - numUnsettledEpochs + 1
+	for j := 0; j < newestEpochToCompact; j++ {
+		err = te.mgr.MaybeCompactSingleEpoch(ctx)
+		require.NoError(t, err)
+
+		err = te.mgr.Refresh(ctx) // force state refresh
+		require.NoError(t, err)
+
+		cs, err = te.mgr.Current(ctx)
+		require.NoError(t, err)
+
+		require.Len(t, cs.SingleEpochCompactionSets, j+1)
+	}
+
+	require.Len(t, cs.SingleEpochCompactionSets, newestEpochToCompact)
+
+	// no more epochs should be compacted at this point
+	err = te.mgr.MaybeCompactSingleEpoch(ctx)
+	require.NoError(t, err)
+
+	err = te.mgr.Refresh(ctx)
+	require.NoError(t, err)
+
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+
+	require.Len(t, cs.SingleEpochCompactionSets, newestEpochToCompact)
+}
+
 func TestValidateParameters(t *testing.T) {
 	cases := []struct {
 		p       Parameters

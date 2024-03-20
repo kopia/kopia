@@ -312,3 +312,225 @@ func TestGetKeyRange(t *testing.T) {
 		})
 	}
 }
+
+func TestOldestUncompactedEpoch(t *testing.T) {
+	cases := []struct {
+		input         CurrentSnapshot
+		expectedEpoch int
+		wantErr       error
+	}{
+		{
+			input: CurrentSnapshot{
+				SingleEpochCompactionSets: map[int][]blob.Metadata{},
+			},
+		},
+		{
+			input: CurrentSnapshot{
+				WriteEpoch: 0,
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					0: {blob.Metadata{BlobID: compactedEpochBlobPrefix(0) + "foo0"}},
+				},
+			},
+			expectedEpoch: 1,
+		},
+		{
+			input: CurrentSnapshot{
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					0: {blob.Metadata{BlobID: compactedEpochBlobPrefix(0) + "foo0"}},
+					1: {blob.Metadata{BlobID: compactedEpochBlobPrefix(1) + "foo1"}},
+				},
+			},
+			expectedEpoch: 2,
+		},
+		{
+			input: CurrentSnapshot{
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					1: {blob.Metadata{BlobID: compactedEpochBlobPrefix(1) + "foo1"}},
+				},
+			},
+			expectedEpoch: 0,
+		},
+		{
+			input: CurrentSnapshot{
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					0: {blob.Metadata{BlobID: compactedEpochBlobPrefix(0) + "foo0"}},
+					2: {blob.Metadata{BlobID: compactedEpochBlobPrefix(2) + "foo2"}},
+				},
+			},
+			expectedEpoch: -1,
+			wantErr:       errNonContiguousRange,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: []*RangeMetadata{
+					{
+						MinEpoch: 0,
+						MaxEpoch: 2,
+						Blobs: []blob.Metadata{
+							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
+						},
+					},
+				},
+			},
+			expectedEpoch: 3,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: []*RangeMetadata{
+					{
+						MinEpoch: 0,
+						MaxEpoch: 2,
+						Blobs: []blob.Metadata{
+							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
+						},
+					},
+				},
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					0: {blob.Metadata{BlobID: compactedEpochBlobPrefix(0) + "foo0"}},
+					1: {blob.Metadata{BlobID: compactedEpochBlobPrefix(1) + "foo1"}},
+				},
+			},
+			expectedEpoch: 3,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: []*RangeMetadata{
+					{
+						MinEpoch: 0,
+						MaxEpoch: 2,
+						Blobs: []blob.Metadata{
+							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
+						},
+					},
+				},
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					1: {blob.Metadata{BlobID: compactedEpochBlobPrefix(1) + "foo1"}},
+					2: {blob.Metadata{BlobID: compactedEpochBlobPrefix(2) + "foo2"}},
+				},
+			},
+			expectedEpoch: 3,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: []*RangeMetadata{
+					{
+						MinEpoch: 0,
+						MaxEpoch: 2,
+						Blobs: []blob.Metadata{
+							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
+						},
+					},
+				},
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					1: {blob.Metadata{BlobID: compactedEpochBlobPrefix(1) + "foo1"}},
+				},
+			},
+			expectedEpoch: 3,
+		},
+
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: []*RangeMetadata{
+					{
+						MinEpoch: 0,
+						MaxEpoch: 2,
+						Blobs: []blob.Metadata{
+							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
+						},
+					},
+				},
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					4: {blob.Metadata{BlobID: compactedEpochBlobPrefix(4) + "foo4"}},
+					5: {blob.Metadata{BlobID: compactedEpochBlobPrefix(5) + "foo5"}},
+				},
+			},
+			expectedEpoch: 3,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: []*RangeMetadata{
+					{
+						MinEpoch: 0,
+						MaxEpoch: 2,
+						Blobs: []blob.Metadata{
+							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
+						},
+					},
+				},
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					2: {blob.Metadata{BlobID: compactedEpochBlobPrefix(2) + "foo2"}},
+					3: {blob.Metadata{BlobID: compactedEpochBlobPrefix(3) + "foo3"}},
+				},
+			},
+			expectedEpoch: 4,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: []*RangeMetadata{
+					{
+						MinEpoch: 0,
+						MaxEpoch: 2,
+						Blobs: []blob.Metadata{
+							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
+						},
+					},
+				},
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					3: {blob.Metadata{BlobID: compactedEpochBlobPrefix(3) + "foo3"}},
+					4: {blob.Metadata{BlobID: compactedEpochBlobPrefix(4) + "foo4"}},
+				},
+			},
+			expectedEpoch: 5,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: []*RangeMetadata{
+					{
+						MinEpoch: 1,
+						MaxEpoch: 2,
+						Blobs: []blob.Metadata{
+							{BlobID: rangeCheckpointBlobPrefix(1, 2) + "foo-1-2"},
+						},
+					},
+				},
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					3: {blob.Metadata{BlobID: compactedEpochBlobPrefix(3) + "foo3"}},
+					4: {blob.Metadata{BlobID: compactedEpochBlobPrefix(4) + "foo4"}},
+				},
+			},
+			expectedEpoch: -1,
+			wantErr:       errInvalidCompactedRange,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: []*RangeMetadata{
+					{
+						MinEpoch: 0,
+						MaxEpoch: 2,
+						Blobs: []blob.Metadata{
+							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
+						},
+					},
+				},
+				SingleEpochCompactionSets: map[int][]blob.Metadata{
+					3: {blob.Metadata{BlobID: compactedEpochBlobPrefix(3) + "foo3"}},
+					5: {blob.Metadata{BlobID: compactedEpochBlobPrefix(5) + "foo5"}},
+				},
+			},
+			expectedEpoch: -1,
+			wantErr:       errNonContiguousRange,
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run(fmt.Sprint("case: ", i), func(t *testing.T) {
+			got, err := oldestUncompactedEpoch(tc.input)
+
+			if tc.wantErr != nil {
+				require.Error(t, err)
+			}
+
+			require.Equal(t, tc.expectedEpoch, got, "input: %#v", tc.input)
+		})
+	}
+}
