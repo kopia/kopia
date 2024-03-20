@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -688,7 +689,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 	}
 }
 
-func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
+func TestParallelUploadUploadsBlobsInParallelOverNumCPU(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -718,7 +719,67 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
-	require.Equal(t, 13, u.effectiveParallelFileReads(policyTree.EffectivePolicy()))
+	n := runtime.NumCPU()
+
+	require.Equal(t, n, u.effectiveParallelFileReads(policyTree.EffectivePolicy()))
+
+	si := snapshot.SourceInfo{
+		UserName: "user",
+		Host:     "host",
+		Path:     "path",
+	}
+
+	// add a bunch of very large files which can be hashed in parallel and will trigger parallel
+	// uploads
+	th.sourceDir.AddFile("d1/large1", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large2", randomBytes(2e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large3", randomBytes(2e7), defaultPermissions)
+	th.sourceDir.AddFile("d1/large4", randomBytes(1e7), defaultPermissions)
+
+	th.sourceDir.AddFile("d2/large1", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large2", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large3", randomBytes(1e7), defaultPermissions)
+	th.sourceDir.AddFile("d2/large4", randomBytes(1e7), defaultPermissions)
+
+	_, err := u.Upload(ctx, th.sourceDir, policyTree, si)
+	require.NoError(t, err)
+
+	require.NoError(t, th.repo.Flush(ctx))
+
+	require.Greater(t, maxParallelCalls.Load(), int32(0))
+}
+
+func TestParallelUploadUploadsBlobsInParallelWithinNumCPU(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	u := NewUploader(th.repo)
+	u.ParallelUploads = 2
+
+	// no faults for first blob write - session marker.
+	th.faulty.AddFault(blobtesting.MethodPutBlob)
+
+	var currentParallelCalls, maxParallelCalls atomic.Int32
+
+	// measure concurrency of PutBlob calls
+	th.faulty.AddFault(blobtesting.MethodPutBlob).Repeat(10).Before(func() {
+		v := currentParallelCalls.Add(1)
+		max := maxParallelCalls.Load()
+		if v > max {
+			maxParallelCalls.CompareAndSwap(max, v)
+		}
+
+		time.Sleep(100 * time.Millisecond)
+		currentParallelCalls.Add(-1)
+	})
+
+	// create a channel that will be sent to whenever checkpoint completes.
+	u.checkpointFinished = make(chan struct{})
+	u.disableEstimation = true
+
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	require.Equal(t, 2, u.effectiveParallelFileReads(policyTree.EffectivePolicy()))
 
 	si := snapshot.SourceInfo{
 		UserName: "user",
