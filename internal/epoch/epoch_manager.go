@@ -593,19 +593,38 @@ func (e *Manager) loadSingleEpochCompactions(ctx context.Context, cs *CurrentSna
 	return nil
 }
 
+// MaybeGenerateRangeCheckpoint may create a new range index for all the
+// individual epochs covered by the new range. If there are not enough epochs
+// to create a new range, then a range index is not created.
+func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) error {
+	p, err := e.getParameters(ctx)
+	if err != nil {
+		return err
+	}
+
+	cs, err := e.committedState(ctx, 0)
+	if err != nil {
+		return err
+	}
+
+	latestSettled, firstNonRangeCompacted, compact := getRangeToCompact(cs, *p)
+	if !compact {
+		e.log.Debug("not generating range checkpoint")
+
+		return nil
+	}
+
+	if err := e.generateRangeCheckpointFromCommittedState(ctx, cs, firstNonRangeCompacted, latestSettled); err != nil {
+		return errors.Wrap(err, "unable to generate full checkpoint, performance will be affected")
+	}
+
+	return nil
+}
+
 func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs CurrentSnapshot, p *Parameters) {
-	latestSettled := cs.WriteEpoch - numUnsettledEpochs
-	if latestSettled < 0 {
-		return
-	}
-
-	firstNonRangeCompacted := 0
-	if len(cs.LongestRangeCheckpointSets) > 0 {
-		firstNonRangeCompacted = cs.LongestRangeCheckpointSets[len(cs.LongestRangeCheckpointSets)-1].MaxEpoch + 1
-	}
-
-	if latestSettled-firstNonRangeCompacted < p.FullCheckpointFrequency {
-		e.log.Debugf("not generating range checkpoint")
+	latestSettled, firstNonRangeCompacted, compact := getRangeToCompact(cs, *p)
+	if !compact {
+		e.log.Debug("not generating range checkpoint")
 
 		return
 	}
@@ -622,6 +641,24 @@ func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs 
 			e.log.Errorf("unable to generate full checkpoint: %v, performance will be affected", err)
 		}
 	})
+}
+
+func getRangeToCompact(cs CurrentSnapshot, p Parameters) (low, high int, compactRange bool) {
+	latestSettled := cs.WriteEpoch - numUnsettledEpochs
+	if latestSettled < 0 {
+		return -1, -1, false
+	}
+
+	firstNonRangeCompacted := 0
+	if rangeSetsLen := len(cs.LongestRangeCheckpointSets); rangeSetsLen > 0 {
+		firstNonRangeCompacted = cs.LongestRangeCheckpointSets[rangeSetsLen-1].MaxEpoch + 1
+	}
+
+	if latestSettled-firstNonRangeCompacted < p.FullCheckpointFrequency {
+		return -1, -1, false
+	}
+
+	return latestSettled, firstNonRangeCompacted, true
 }
 
 func (e *Manager) maybeOptimizeRangeCheckpointsAsync(ctx context.Context, cs CurrentSnapshot) {
