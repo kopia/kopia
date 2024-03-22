@@ -76,6 +76,8 @@ type Options struct {
 
 	// test-only flags
 	TestOnlyIgnoreMissingRequiredFeatures bool // ignore missing features
+
+	AllowWriteOnIndexLoad bool
 }
 
 // ErrInvalidPassword is returned when repository password is invalid.
@@ -241,6 +243,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		TimeNow:                defaultTime(options.TimeNowFunc),
 		DisableInternalLog:     options.DisableInternalLog,
 		PermissiveCacheLoading: cliOpts.PermissiveCacheLoading,
+		AllowWriteOnIndexLoad:  options.AllowWriteOnIndexLoad,
 	}
 
 	mr := metrics.NewRegistry()
