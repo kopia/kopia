@@ -161,23 +161,6 @@ func (s *Server) SetupHTMLUIAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/tasks/{taskID}/cancel", s.handleUIPossiblyNotConnected(handleTaskCancel)).Methods(http.MethodPost)
 }
 
-// SetupRepositoryAPIHandlers registers HTTP repository API handlers.
-func (s *Server) SetupRepositoryAPIHandlers(m *mux.Router) {
-	m.HandleFunc("/api/v1/flush", s.handleRepositoryAPI(anyAuthenticatedUser, handleFlush)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/repo/parameters", s.handleRepositoryAPI(anyAuthenticatedUser, handleRepoParameters)).Methods(http.MethodGet)
-
-	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), handleContentInfo)).Methods(http.MethodGet).Queries("info", "1")
-	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), handleContentGet)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelAppend), handleContentPut)).Methods(http.MethodPut)
-	m.HandleFunc("/api/v1/contents/prefetch", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), handleContentPrefetch)).Methods(http.MethodPost)
-
-	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestGet)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestDelete)).Methods(http.MethodDelete)
-	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestCreate)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestList)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/policies/apply-retention", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleApplyRetentionPolicy)).Methods(http.MethodPost)
-}
-
 // SetupControlAPIHandlers registers control API handlers.
 func (s *Server) SetupControlAPIHandlers(m *mux.Router) {
 	// server control API, requires authentication as `server-control` and no CSRF token.
@@ -317,18 +300,6 @@ func (s *Server) requireAuth(checkCSRFToken csrfTokenOption, f func(ctx context.
 	}
 }
 
-func httpAuthorizationInfo(ctx context.Context, rc requestContext) auth.AuthorizationInfo {
-	// authentication already done
-	userAtHost, _, _ := rc.req.BasicAuth()
-
-	authz := rc.srv.getAuthorizer().Authorize(ctx, rc.rep, userAtHost)
-	if authz == nil {
-		authz = auth.NoAccess()
-	}
-
-	return authz
-}
-
 type isAuthorizedFunc func(ctx context.Context, rc requestContext) bool
 
 func (s *Server) handleServerControlAPI(f apiRequestFunc) http.HandlerFunc {
@@ -343,16 +314,6 @@ func (s *Server) handleServerControlAPI(f apiRequestFunc) http.HandlerFunc {
 
 func (s *Server) handleServerControlAPIPossiblyNotConnected(f apiRequestFunc) http.HandlerFunc {
 	return s.handleRequestPossiblyNotConnected(requireServerControlUser, csrfTokenNotRequired, func(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-		return f(ctx, rc)
-	})
-}
-
-func (s *Server) handleRepositoryAPI(isAuthorized isAuthorizedFunc, f apiRequestFunc) http.HandlerFunc {
-	return s.handleRequestPossiblyNotConnected(isAuthorized, csrfTokenNotRequired, func(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-		if rc.rep == nil {
-			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
-		}
-
 		return f(ctx, rc)
 	})
 }
