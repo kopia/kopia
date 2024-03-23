@@ -61,7 +61,6 @@ func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int6
 			return nil
 		}
 
-		//nolint:wrapcheck
 		return iocopy.JustCopy(output, r)
 	}
 

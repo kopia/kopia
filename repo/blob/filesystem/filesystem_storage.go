@@ -92,7 +92,6 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 		defer f.Close() //nolint:errcheck
 
 		if length < 0 {
-			//nolint:wrapcheck
 			return iocopy.JustCopy(output, f)
 		}
 
