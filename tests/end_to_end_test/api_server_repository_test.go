@@ -38,33 +38,23 @@ const (
 	controlPassword = "control-password"
 )
 
-func TestAPIServerRepository_GRPC_htpasswd(t *testing.T) {
+func TestAPIServerRepository_htpasswd(t *testing.T) {
 	t.Parallel()
 
-	testAPIServerRepository(t, []string{"--no-legacy-api"}, true, false)
+	testAPIServerRepository(t, false)
 }
 
-func TestAPIServerRepository_GRPC_RepositoryUsers(t *testing.T) {
+func TestAPIServerRepository_RepositoryUsers(t *testing.T) {
 	t.Parallel()
 
-	testAPIServerRepository(t, []string{"--no-legacy-api"}, true, true)
-}
-
-func TestAPIServerRepository_DisableGRPC_htpasswd(t *testing.T) {
-	t.Parallel()
-
-	testAPIServerRepository(t, []string{"--no-grpc", "--legacy-api"}, false, false)
+	testAPIServerRepository(t, true)
 }
 
 //nolint:thelper
-func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, allowRepositoryUsers bool) {
+func testAPIServerRepository(t *testing.T, allowRepositoryUsers bool) {
 	ctx := testlogging.Context(t)
 
 	var connectArgs []string
-
-	if !useGRPC {
-		connectArgs = []string{"--no-grpc"}
-	}
 
 	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
@@ -97,6 +87,8 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	tlsCert := filepath.Join(e.ConfigDir, "tls.cert")
 	tlsKey := filepath.Join(e.ConfigDir, "tls.key")
+
+	var serverStartArgs []string
 
 	if allowRepositoryUsers {
 		e.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
@@ -146,7 +138,6 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx2, &repo.APIServerInfo{
 		BaseURL:                             sp.BaseURL,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
-		DisableGRPC:                         !useGRPC,
 	}, repo.ClientOptions{
 		Username: "foo",
 		Hostname: "bar",
@@ -205,15 +196,9 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		verifyFindManifestCount(ctx, t, rep, pageSize, someLabels, 5)
 	}
 
-	if useGRPC {
-		// the same method on a GRPC write session should fail because the stream was broken.
-		_, err := writeSess.FindManifests(ctx, someLabels)
-		require.Error(t, err)
-	} else {
-		// invoke some method on write session, this will succeed because legacy API is stateless
-		// (also incorrect in this case).
-		verifyFindManifestCount(ctx, t, writeSess, 1, someLabels, 5)
-	}
+	// the same method on a GRPC write session should fail because the stream was broken.
+	_, err = writeSess.FindManifests(ctx, someLabels)
+	require.Error(t, err)
 
 	runner2 := testenv.NewInProcRunner(t)
 	e2 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner2)
@@ -275,7 +260,6 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	servertesting.ConnectAndOpenAPIServer(t, ctx, &repo.APIServerInfo{
 		BaseURL:                             sp.BaseURL,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
-		DisableGRPC:                         !useGRPC,
 	}, repo.ClientOptions{
 		Username: "foo",
 		Hostname: "bar",
@@ -321,7 +305,6 @@ func TestFindManifestsPaginationOverGRPC(t *testing.T) {
 		"server", "start",
 		"--address=localhost:0",
 		"--grpc",
-		"--no-legacy-api",
 		"--tls-key-file", tlsKey,
 		"--tls-cert-file", tlsCert,
 		"--tls-generate-cert",
