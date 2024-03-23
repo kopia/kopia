@@ -157,7 +157,7 @@ func TestIterateNonExistent(t *testing.T) {
 func testIterate(t *testing.T, nFiles int) {
 	tmp := testutil.TempDirectory(t)
 
-	for i := 0; i < nFiles; i++ {
+	for i := range nFiles {
 		assertNoError(t, os.WriteFile(filepath.Join(tmp, fmt.Sprintf("f%v", i)), []byte{1, 2, 3}, 0o777))
 	}
 

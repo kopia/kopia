@@ -13,7 +13,7 @@ func TestBucketForThresholds(t *testing.T) {
 
 	assert.Equal(t, 0, bucketForThresholds(buckets, buckets[0]-1))
 
-	for i := 0; i < n; i++ {
+	for i := range n {
 		assert.Equal(t, i, bucketForThresholds(buckets, buckets[i]-1))
 		assert.Equal(t, i, bucketForThresholds(buckets, buckets[i]))
 		assert.Equal(t, i+1, bucketForThresholds(buckets, buckets[i]+1), "looking for %v", buckets[i]+1)

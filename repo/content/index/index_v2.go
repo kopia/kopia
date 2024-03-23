@@ -788,7 +788,7 @@ func openV2PackIndex(data []byte, closer func() error) (Index, error) {
 func parseFormatsBuffer(formatsBuf []byte, cnt int) []indexV2FormatInfo {
 	formats := make([]indexV2FormatInfo, cnt)
 
-	for i := 0; i < cnt; i++ {
+	for i := range cnt {
 		f := formatsBuf[v2FormatInfoSize*i:]
 
 		formats[i].compressionHeaderID = compression.HeaderID(binary.BigEndian.Uint32(f[v2FormatOffsetCompressionID:]))

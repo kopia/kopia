@@ -42,7 +42,7 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 	fmt.Println(snapIDIsLastInList("asdf", snapIDListSnap))
 
 	const numSnapsToTest = 5
-	for snapCount := 0; snapCount < numSnapsToTest; snapCount++ {
+	for snapCount := range numSnapsToTest {
 		snapID, err := ks.CreateSnapshot(sourceDir)
 		require.NoError(t, err)
 

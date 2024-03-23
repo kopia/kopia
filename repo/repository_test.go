@@ -207,7 +207,7 @@ func verify(ctx context.Context, t *testing.T, rep repo.Repository, objectID obj
 		return
 	}
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		sampleSize := int(rand.Int31n(300))
 		seekOffset := int(rand.Int31n(int32(len(expectedData))))
 

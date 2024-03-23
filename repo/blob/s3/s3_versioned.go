@@ -80,8 +80,7 @@ func (s *s3Storage) list(ctx context.Context, prefix blob.ID, onlyMatching bool,
 			return nil
 		}
 
-		oi := o
-		om := infoToVersionMetadata(s.Prefix, &oi)
+		om := infoToVersionMetadata(s.Prefix, &o)
 
 		if err := callback(om); err != nil {
 			return errors.Wrapf(err, "callback failed for %q", o.Key)

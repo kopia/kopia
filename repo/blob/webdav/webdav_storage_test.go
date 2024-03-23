@@ -84,7 +84,6 @@ func TestWebDAVStorageBuiltInServer(t *testing.T) {
 		{1, 2},
 		{2, 2, 2},
 	} {
-		shardSpec := shardSpec
 		t.Run(fmt.Sprintf("shards-%v", shardSpec), func(t *testing.T) {
 			if err := os.RemoveAll(tmpDir); err != nil {
 				t.Errorf("can't remove all: %q", tmpDir)

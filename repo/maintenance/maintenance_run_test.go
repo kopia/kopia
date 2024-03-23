@@ -69,8 +69,6 @@ func TestShouldDeleteOrphanedBlobs(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
 			require.Equal(t, tc.want, shouldDeleteOrphanedPacks(now, &Schedule{
 				Runs: tc.runs,

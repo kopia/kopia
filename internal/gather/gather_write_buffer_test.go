@@ -113,7 +113,7 @@ func TestGatherWriteBufferMax(t *testing.T) {
 	defer b.Close()
 
 	// write 1Mx5 bytes
-	for i := 0; i < 1000000; i++ {
+	for range 1000000 {
 		b.Append([]byte("hello"))
 	}
 
@@ -121,7 +121,7 @@ func TestGatherWriteBufferMax(t *testing.T) {
 	require.Len(t, b.Bytes().Slices, 1)
 
 	// write 10Mx5 bytes
-	for i := 0; i < 10000000; i++ {
+	for range 10000000 {
 		b.Append([]byte("hello"))
 	}
 

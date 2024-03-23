@@ -37,7 +37,7 @@ func (s *formatSpecificTestSuite) TestSnapshotMigrate(t *testing.T) {
 
 	compressibleDir := testutil.TempDirectory(t)
 
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		require.NoError(t, writeCompressibleFile(filepath.Join(compressibleDir, uuid.NewString())))
 	}
 
@@ -114,10 +114,10 @@ func writeCompressibleFile(fname string) error {
 	defer f.Close()
 
 	// 1000 x 64000
-	for i := 0; i < 1000; i++ {
+	for range 1000 {
 		val := uuid.NewString()
 
-		for j := 0; j < 100; j++ {
+		for range 100 {
 			if _, err := f.WriteString(val); err != nil {
 				return err
 			}

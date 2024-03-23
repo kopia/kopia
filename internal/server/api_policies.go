@@ -95,7 +95,7 @@ func handlePolicyResolve(ctx context.Context, rc requestContext) (interface{}, *
 
 	now := clock.Now().Local()
 
-	for i := 0; i < req.NumUpcomingSnapshotTimes; i++ {
+	for range req.NumUpcomingSnapshotTimes {
 		st, ok := resp.Effective.SchedulingPolicy.NextSnapshotTime(now, now)
 		if !ok {
 			break

@@ -28,8 +28,6 @@ func TestRoundTrip(t *testing.T) {
 	rand.Read(hmacSecret)
 
 	for _, hashingAlgo := range hashing.SupportedAlgorithms() {
-		hashingAlgo := hashingAlgo
-
 		t.Run(hashingAlgo, func(t *testing.T) {
 			f, err := hashing.CreateHashFunc(parameters{hashingAlgo, hmacSecret})
 			if err != nil {

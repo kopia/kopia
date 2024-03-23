@@ -19,7 +19,7 @@ func TestShouldAdvanceEpoch(t *testing.T) {
 		Timestamp: t0, Length: 1,
 	})
 
-	for i := 0; i < def.EpochAdvanceOnCountThreshold; i++ {
+	for range def.EpochAdvanceOnCountThreshold {
 		lotsOfMetadata = append(lotsOfMetadata, blob.Metadata{
 			Timestamp: t0.Add(def.MinEpochDuration),
 			Length:    1,

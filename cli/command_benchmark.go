@@ -40,7 +40,7 @@ func runInParallelNoResult(parallel int, run func()) {
 func runInParallel[T any](parallel int, run func() T) T {
 	var wg sync.WaitGroup
 
-	for i := 0; i < parallel-1; i++ {
+	for range parallel - 1 {
 		wg.Add(1)
 
 		go func() {

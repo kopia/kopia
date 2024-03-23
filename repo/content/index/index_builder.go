@@ -50,11 +50,11 @@ func (b Builder) Add(i Info) {
 var base36Value [256]byte
 
 func init() {
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		base36Value['0'+i] = byte(i)
 	}
 
-	for i := 0; i < 26; i++ {
+	for i := range 26 {
 		base36Value['a'+i] = byte(i + 10) //nolint:gomnd
 		base36Value['A'+i] = byte(i + 10) //nolint:gomnd
 	}
@@ -83,9 +83,7 @@ func (b Builder) sortedContents() []Info {
 	var wg sync.WaitGroup
 
 	numWorkers := runtime.NumCPU()
-	for worker := 0; worker < numWorkers; worker++ {
-		worker := worker
-
+	for worker := range numWorkers {
 		wg.Add(1)
 
 		go func() {
@@ -108,7 +106,7 @@ func (b Builder) sortedContents() []Info {
 	// Phase 3 - merge results from all buckets.
 	result := make([]Info, 0, len(b))
 
-	for i := 0; i < len(buckets); i++ {
+	for i := range len(buckets) {
 		result = append(result, buckets[i]...)
 	}
 

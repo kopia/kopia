@@ -226,7 +226,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 	var configFiles []string
 
 	// set up two parallel kopia connections, each with its own config file and cache.
-	for i := 0; i < opt.ConfigsPerRepository; i++ {
+	for i := range opt.ConfigsPerRepository {
 		configFile := filepath.Join(tmpPath, fmt.Sprintf("kopia-%v.config", i))
 		configFiles = append(configFiles, configFile)
 
@@ -256,11 +256,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 	defer logFile.Close()
 
 	for _, configFile := range configFiles {
-		configFile := configFile
-
-		for i := 0; i < opt.OpenRepositoriesPerConfig; i++ {
-			i := i
-
+		for i := range opt.OpenRepositoriesPerConfig {
 			eg.Go(func() error {
 				log := testlogging.Printf(func(msg string, args ...interface{}) {
 					fmt.Fprintf(logFile, clock.Now().Format("2006-01-02T15:04:05.000000Z07:00")+" "+msg+"\n", args...)
@@ -302,7 +298,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, configFile strin
 
 	eg, ctx := errgroup.WithContext(ctx)
 
-	for i := 0; i < opt.SessionsPerOpenRepository; i++ {
+	for i := range opt.SessionsPerOpenRepository {
 		ors := or.NewSession()
 
 		_, w, err := rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{
@@ -312,7 +308,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, configFile strin
 			return errors.Wrap(err, "error opening writer")
 		}
 
-		for j := 0; j < opt.WorkersPerSession; j++ {
+		for j := range opt.WorkersPerSession {
 			log2 := log.With("worker", fmt.Sprintf("s%vw%v::", i, j))
 
 			eg.Go(func() error {

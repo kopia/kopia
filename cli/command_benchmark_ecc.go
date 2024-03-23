@@ -70,7 +70,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 	var results []eccBenchResult
 
 	data := make([]byte, c.blockSize)
-	for i := uint64(0); i < uint64(c.blockSize); i++ {
+	for i := range uint64(c.blockSize) {
 		data[i] = byte(i%255 + 1)
 	}
 
@@ -99,7 +99,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 				var tmp gather.WriteBuffer
 				defer tmp.Close()
 
-				for i := 0; i < repeat; i++ {
+				for range repeat {
 					if encerr := impl.Encrypt(input, nil, &tmp); encerr != nil {
 						log(ctx).Errorf("encoding failed: %v", encerr)
 						break
@@ -125,7 +125,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 				var tmp gather.WriteBuffer
 				defer tmp.Close()
 
-				for i := 0; i < repeat; i++ {
+				for range repeat {
 					if decerr := impl.Decrypt(input, nil, &tmp); decerr != nil {
 						log(ctx).Errorf("decoding failed: %v", decerr)
 						break

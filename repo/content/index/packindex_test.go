@@ -112,7 +112,7 @@ func TestPackIndex_V2(t *testing.T) {
 func testPackIndex(t *testing.T, version int) {
 	var infos []Info
 	// deleted contents with all information
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		infos = append(infos, Info{
 			TimestampSeconds:    randomUnixTime(),
 			Deleted:             true,
@@ -127,7 +127,7 @@ func testPackIndex(t *testing.T, version int) {
 		})
 	}
 	// non-deleted content
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		infos = append(infos, Info{
 			TimestampSeconds:    randomUnixTime(),
 			ContentID:           deterministicContentID(t, "packed", i),
@@ -229,7 +229,7 @@ func testPackIndex(t *testing.T, version int) {
 
 	prefixes := []IDPrefix{"a", "b", "f", "0", "3", "aa", "aaa", "aab", "fff", "m", "x", "y", "m0", "ma"}
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		contentID := deterministicContentID(t, "no-such-content", i)
 
 		v, err := ndx.GetInfo(contentID)
@@ -244,7 +244,6 @@ func testPackIndex(t *testing.T, version int) {
 
 	for _, prefix := range prefixes {
 		cnt2 := 0
-		prefix := prefix
 		require.NoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 InfoReader) error {
 			cnt2++
 			if !strings.HasPrefix(info2.GetContentID().String(), string(prefix)) {
@@ -300,7 +299,7 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 func TestSortedContents(t *testing.T) {
 	b := Builder{}
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		v := deterministicContentID(t, "", i)
 
 		b.Add(Info{
@@ -370,7 +369,7 @@ func TestSortedContents2(t *testing.T) {
 func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 	b := Builder{}
 
-	for i := 0; i < v2MaxFormatCount; i++ {
+	for i := range v2MaxFormatCount {
 		v := deterministicContentID(t, "", i)
 
 		b.Add(Info{
@@ -416,18 +415,18 @@ func fuzzTestIndexOpen(originalData []byte) {
 }
 
 func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d []byte)) {
-	for round := 0; round < rounds; round++ {
+	for range rounds {
 		data := append([]byte(nil), originalData...)
 
 		// mutate small number of bytes
 		bytesToMutate := rnd.Intn(3)
-		for i := 0; i < bytesToMutate; i++ {
+		for range bytesToMutate {
 			pos := rnd.Intn(len(data))
 			data[pos] = byte(rnd.Int())
 		}
 
 		sectionsToInsert := rnd.Intn(3)
-		for i := 0; i < sectionsToInsert; i++ {
+		for range sectionsToInsert {
 			pos := rnd.Intn(len(data))
 			insertedLength := rnd.Intn(20)
 			insertedData := make([]byte, insertedLength)
@@ -437,7 +436,7 @@ func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d [
 		}
 
 		sectionsToDelete := rnd.Intn(3)
-		for i := 0; i < sectionsToDelete; i++ {
+		for range sectionsToDelete {
 			pos := rnd.Intn(len(data))
 
 			deletedLength := rnd.Intn(10)
@@ -494,7 +493,7 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 	require.Len(t, sharded, numShards)
 
 	m := map[ID]bool{}
-	for i := 0; i < numTotal; i++ {
+	for i := range numTotal {
 		m[deterministicContentID(t, "", i)] = true
 	}
 

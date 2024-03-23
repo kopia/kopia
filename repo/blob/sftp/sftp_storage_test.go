@@ -173,7 +173,6 @@ func TestSFTPStorageValid(t *testing.T) {
 	host, port, knownHostsFile := startDockerSFTPServerOrSkip(t, idRSA)
 
 	for _, embedCreds := range []bool{false, true} {
-		embedCreds := embedCreds
 		t.Run(fmt.Sprintf("Embed=%v", embedCreds), func(t *testing.T) {
 			ctx := testlogging.Context(t)
 

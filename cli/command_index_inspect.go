@@ -91,7 +91,7 @@ func (c *commandIndexInspect) inspectAllBlobs(ctx context.Context, rep repo.Dire
 
 	var eg errgroup.Group
 
-	for i := 0; i < c.parallel; i++ {
+	for range c.parallel {
 		eg.Go(func() error {
 			for bm := range indexesCh {
 				if err := c.inspectSingleIndexBlob(ctx, rep, bm.BlobID, output); err != nil {

@@ -146,7 +146,7 @@ func (v *Verifier) InParallel(ctx context.Context, enqueue func(tw *TreeWalker) 
 
 	v.fileWorkQueue = make(chan verifyFileWorkItem, v.opts.FileQueueLength)
 
-	for i := 0; i < v.opts.Parallelism; i++ {
+	for range v.opts.Parallelism {
 		v.workersWG.Add(1)
 
 		go func() {

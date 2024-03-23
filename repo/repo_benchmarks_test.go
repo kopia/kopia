@@ -23,7 +23,7 @@ func BenchmarkWriterDedup1M(b *testing.B) {
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		// write exactly the same data
 		writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
 		writer.Write(dataBuf)
@@ -43,7 +43,7 @@ func BenchmarkWriterNoDedup1M(b *testing.B) {
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		// write exactly the same data
 		writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
 

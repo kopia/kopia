@@ -28,10 +28,8 @@ func TestFormatters(t *testing.T) {
 	h0 := sha1.Sum(data)
 
 	for _, hashAlgo := range hashing.SupportedAlgorithms() {
-		hashAlgo := hashAlgo
 		t.Run(hashAlgo, func(t *testing.T) {
 			for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
-				encryptionAlgo := encryptionAlgo
 				t.Run(encryptionAlgo, func(t *testing.T) {
 					ctx := testlogging.Context(t)
 

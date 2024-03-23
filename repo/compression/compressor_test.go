@@ -14,8 +14,6 @@ func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 func TestCompressor(t *testing.T) {
 	for id, comp := range ByHeaderID {
-		id, comp := id, comp
-
 		t.Run(fmt.Sprintf("compressible-data-%x", id), func(t *testing.T) {
 			// make sure all-zero data is compressed
 			data := make([]byte, 10000)
@@ -136,7 +134,7 @@ func compressionBenchmark(b *testing.B, comp Compressor, input []byte, output *b
 
 	rdr := bytes.NewReader(input)
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		output.Reset()
 		rdr.Reset(input)
 
@@ -153,7 +151,7 @@ func decompressionBenchmark(b *testing.B, comp Compressor, input []byte, output 
 
 	rdr := bytes.NewReader(input)
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		output.Reset()
 
 		rdr.Reset(input)

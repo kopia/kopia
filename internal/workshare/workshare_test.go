@@ -22,7 +22,7 @@ func buildTree(level int) *treeNode {
 		return n
 	}
 
-	for i := 0; i < level; i++ {
+	for range level {
 		n.children = append(n.children, buildTree(level-1))
 	}
 
@@ -71,9 +71,7 @@ func computeTreeSum(workPool *workshare.Pool[*computeTreeSumRequest], n *treeNod
 		}
 	}
 
-	for _, req := range cs.Wait() {
-		twr := req
-
+	for _, twr := range cs.Wait() {
 		if twr.err != nil {
 			return 0, twr.err
 		}
@@ -158,7 +156,7 @@ func BenchmarkComputeTreeSum(b *testing.B) {
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		computeTreeSum(w, treeToWalk)
 	}
 }

@@ -25,12 +25,8 @@ func TestAllFormatsSmokeTest(t *testing.T) {
 	}, nil)
 
 	for _, encryptionAlgo := range encryption.SupportedAlgorithms(false) {
-		encryptionAlgo := encryptionAlgo
-
 		t.Run(encryptionAlgo, func(t *testing.T) {
 			for _, hashAlgo := range hashing.SupportedAlgorithms() {
-
-				hashAlgo := hashAlgo
 				t.Run(hashAlgo, func(t *testing.T) {
 					t.Parallel()
 

@@ -129,7 +129,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 				input          = bytes.NewReader(nil)
 			)
 
-			for i := 0; i < cnt; i++ {
+			for i := range cnt {
 				compressed.Reset()
 				input.Reset(data)
 
