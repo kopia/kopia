@@ -46,7 +46,7 @@ func (cs *cacheSource) setEntryCount(id string, cnt int) {
 
 	var fakeEntry fs.Entry
 
-	for i := 0; i < cnt; i++ {
+	for range cnt {
 		fakeEntries = append(fakeEntries, fakeEntry)
 	}
 

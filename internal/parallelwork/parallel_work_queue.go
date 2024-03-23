@@ -63,7 +63,7 @@ func (v *Queue) Process(ctx context.Context, workers int) error {
 
 	eg, ctx := errgroup.WithContext(ctx)
 
-	for i := 0; i < workers; i++ {
+	for range workers {
 		eg.Go(func() error {
 			for {
 				select {

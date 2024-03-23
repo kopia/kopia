@@ -196,15 +196,15 @@ func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, _ []byte, output *gather
 
 	inputPos := 0
 
-	for b := 0; b < sizes.Blocks; b++ {
+	for range sizes.Blocks {
 		eccPos := 0
 
-		for i := 0; i < sizes.DataShards; i++ {
+		for i := range sizes.DataShards {
 			shards[i] = inputBytes[inputPos : inputPos+sizes.ShardSize]
 			inputPos += sizes.ShardSize
 		}
 
-		for i := 0; i < sizes.ParityShards; i++ {
+		for i := range sizes.ParityShards {
 			shards[sizes.DataShards+i] = eccBytes[eccPos : eccPos+sizes.ShardSize]
 			eccPos += sizes.ShardSize
 		}
@@ -214,7 +214,7 @@ func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, _ []byte, output *gather
 			return errors.Wrap(err, "Error computing ECC")
 		}
 
-		for i := 0; i < sizes.ParityShards; i++ {
+		for i := range sizes.ParityShards {
 			s := sizes.DataShards + i
 
 			binary.BigEndian.PutUint32(crcBytes, crc32.ChecksumIEEE(shards[s]))
@@ -278,9 +278,9 @@ func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, _ []byte, output *gather
 	writeOriginalPos := 0
 	paddingStartPos := len(copied) - parityPlusCrcSizeInBlock*sizes.Blocks
 
-	for b := 0; b < sizes.Blocks; b++ {
-		for i := 0; i < sizes.DataShards; i++ {
-			initialDataPos := dataPos
+	for b := range sizes.Blocks {
+		for i := range sizes.DataShards {
+			initialDataPos := dataPos //nolint:copyloopvar
 
 			crc := binary.BigEndian.Uint32(dataBytes[dataPos : dataPos+crcSize])
 			dataPos += crcSize
@@ -297,7 +297,7 @@ func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, _ []byte, output *gather
 			}
 		}
 
-		for i := 0; i < sizes.ParityShards; i++ {
+		for i := range sizes.ParityShards {
 			s := sizes.DataShards + i
 
 			crc := binary.BigEndian.Uint32(eccBytes[eccPos : eccPos+crcSize])
@@ -351,7 +351,7 @@ func readLength(shards [][]byte, sizes *sizesInfo) (originalSize, startShard, st
 		startShard = 4
 		startByte = 0
 
-		for i := 0; i < 4; i++ {
+		for i := range 4 {
 			lengthBuffer[i] = shards[i][0]
 		}
 

@@ -66,8 +66,6 @@ func TestIndexBlobManager(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
 			// fake underlying blob store with fake time
 			storageData := blobtesting.DataMap{}
@@ -196,8 +194,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 
 	numActors := 2
 
-	for actorID := 0; actorID < numActors; actorID++ {
-		actorID := actorID
+	for actorID := range numActors {
 		loggedSt := logging.NewWrapper(st, testlogging.Printf(func(m string, args ...interface{}) {
 			t.Logf(fmt.Sprintf("@%v actor[%v]:", fakeTimeFunc().Format("150405.000"), actorID)+m, args...)
 		}, ""), "")
@@ -334,7 +331,7 @@ func TestIndexBlobManagerPreventsResurrectOfDeletedContents_RandomizedTimings(t 
 	}
 
 	// the test is randomized and runs very quickly, run it lots of times
-	for i := 0; i < numAttempts; i++ {
+	for i := range numAttempts {
 		t.Run(fmt.Sprintf("attempt-%v", i), func(t *testing.T) {
 			verifyIndexBlobManagerPreventsResurrectOfDeletedContents(
 				t,
@@ -435,7 +432,7 @@ func verifyFakeContentsWritten(ctx context.Context, t *testing.T, m *ManagerV0, 
 	}
 
 	// verify that all contents previously written can be read.
-	for i := 0; i < numWritten; i++ {
+	for i := range numWritten {
 		id := fakeContentID(contentPrefix, i)
 		if _, ok := all[id]; !ok {
 			if deletedContents[id] {
@@ -523,7 +520,7 @@ func deleteFakeContents(ctx context.Context, t *testing.T, m *ManagerV0, prefix 
 
 	ndx := map[string]fakeContentIndexEntry{}
 
-	for i := 0; i < count; i++ {
+	for range count {
 		n := fakeContentID(prefix, rand.Intn(numWritten))
 		if deleted[n] {
 			continue
@@ -592,7 +589,7 @@ func writeFakeContents(ctx context.Context, t *testing.T, m *ManagerV0, prefix s
 
 	ndx := map[string]fakeContentIndexEntry{}
 
-	for i := 0; i < count; i++ {
+	for range count {
 		n := fakeContentID(prefix, *numWritten)
 		ndx[n] = fakeContentIndexEntry{
 			ModTime: timeFunc(),

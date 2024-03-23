@@ -165,8 +165,6 @@ func TestS3StorageProviders(t *testing.T) {
 	t.Parallel()
 
 	for k, env := range providerCreds {
-		env := env
-
 		t.Run(k, func(t *testing.T) {
 			opt := getProviderOptions(t, env)
 

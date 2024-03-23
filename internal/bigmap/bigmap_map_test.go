@@ -28,7 +28,7 @@ func TestGrowingMap(t *testing.T) {
 	h := sha256.New()
 
 	// insert 20K hashes
-	for i := 0; i < 20000; i++ {
+	for i := range 20000 {
 		var keybuf, valbuf, valbuf2 [sha256.Size]byte
 
 		k := sha256Key(h, keybuf[:0], i)
@@ -102,7 +102,7 @@ func benchmarkMap(b *testing.B, m *bigmap.Map, someVal []byte) {
 		keyBuf [sha256.Size]byte
 	)
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		// generate key=sha256(i) without allocations.
 		h.Reset()
 		binary.LittleEndian.PutUint64(num[:], uint64(i))
@@ -114,8 +114,8 @@ func benchmarkMap(b *testing.B, m *bigmap.Map, someVal []byte) {
 
 	valBuf := make([]byte, 10)
 
-	for j := 0; j < 4; j++ {
-		for i := 0; i < b.N; i++ {
+	for range 4 {
+		for i := range b.N {
 			// generate key=sha256(i) without allocations.
 			h.Reset()
 			binary.LittleEndian.PutUint64(num[:], uint64(i))

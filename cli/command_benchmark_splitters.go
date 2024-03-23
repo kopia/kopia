@@ -66,7 +66,7 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 
 	rnd := rand.New(rand.NewSource(c.randSeed)) //nolint:gosec
 
-	for i := 0; i < c.blockCount; i++ {
+	for range c.blockCount {
 		b := make([]byte, c.blockSize)
 		if _, err := rnd.Read(b); err != nil {
 			return errors.Wrap(err, "error generating random data")
@@ -85,10 +85,9 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 
 			var segmentLengths []int
 
-			for _, data := range dataBlocks {
+			for _, d := range dataBlocks {
 				s := fact()
 
-				d := data
 				for len(d) > 0 {
 					n := s.NextSplitPoint(d)
 					if n < 0 {

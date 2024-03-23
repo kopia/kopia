@@ -275,8 +275,6 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 	onItemCompletion := parallelwork.OnNthCompletion(len(entries), onCompletion)
 
 	for _, e := range entries {
-		e := e
-
 		if e.IsDir() {
 			c.stats.EnqueuedDirCount.Add(1)
 			// enqueue directories first, so that we quickly determine the total number and size of items.

@@ -62,7 +62,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < opt.Parallel; i++ {
+	for range opt.Parallel {
 		wg.Add(1)
 
 		go func() {

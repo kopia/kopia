@@ -361,7 +361,7 @@ func TestFindManifestsPaginationOverGRPC(t *testing.T) {
 
 	// add about 36 MB worth of manifests
 	require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
-		for i := 0; i < numManifests; i++ {
+		for range numManifests {
 			uniqueID := strings.Repeat(uuid.NewString(), 100)
 			require.Len(t, uniqueID, 3600)
 

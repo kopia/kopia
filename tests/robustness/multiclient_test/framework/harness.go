@@ -210,7 +210,6 @@ func (th *TestHarness) Run( //nolint:thelper
 		testNum := 0
 
 		for _, ctx := range ctxs {
-			ctx := ctx
 			testNum++
 
 			t.Run(strconv.Itoa(testNum), func(t *testing.T) {

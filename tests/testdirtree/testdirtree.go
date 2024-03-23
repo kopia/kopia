@@ -206,7 +206,7 @@ func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, c
 		childOptions.Depth--
 
 		numSubDirs := rand.Intn(options.MaxSubdirsPerDirectory) + 1
-		for i := 0; i < numSubDirs; i++ {
+		for range numSubDirs {
 			subdirName := randomName(options)
 
 			if err := createDirectoryTreeInternal(filepath.Join(dirname, subdirName), childOptions, counters); err != nil {
@@ -219,7 +219,7 @@ func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, c
 
 	if options.MaxFilesPerDirectory > 0 {
 		numFiles := rand.Intn(options.MaxFilesPerDirectory) + 1
-		for i := 0; i < numFiles; i++ {
+		for range numFiles {
 			fileName := randomName(options)
 
 			if err := createRandomFile(filepath.Join(dirname, fileName), options, counters); err != nil {
@@ -232,7 +232,7 @@ func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, c
 
 	if options.MaxSymlinksPerDirectory > 0 {
 		numSymlinks := rand.Intn(options.MaxSymlinksPerDirectory) + 1
-		for i := 0; i < numSymlinks; i++ {
+		for range numSymlinks {
 			fileName := randomName(options)
 
 			if err := createRandomSymlink(filepath.Join(dirname, fileName), fileNames, options, counters); err != nil {

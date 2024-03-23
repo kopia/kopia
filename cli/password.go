@@ -94,7 +94,7 @@ func (c *App) getPasswordFromFlags(ctx context.Context, isCreate, allowPersisten
 
 // askPass presents a given prompt and asks the user for password.
 func askPass(out io.Writer, prompt string) (string, error) {
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		fmt.Fprint(out, prompt)
 
 		passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))

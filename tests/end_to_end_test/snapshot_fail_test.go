@@ -121,7 +121,7 @@ func testSnapshotFail(
 			)
 
 			// Test the root dir permissions
-			for ti, tt := range []struct {
+			for tcIdx, tc := range []struct {
 				desc          string
 				modifyEntry   string
 				snapSource    string
@@ -251,8 +251,6 @@ func testSnapshotFail(
 				// Reference test conditions outside of range variables to satisfy linter
 				tcIgnoreDirErr := ignoreDirErr
 				tcIgnoreFileErr := ignoreFileErr
-				tcIdx := ti
-				tc := tt
 				tname := fmt.Sprintf("%s_ignoreFileErr_%s_ignoreDirErr_%s_failFast_%v", tc.desc, ignoreDirErr, ignoreFileErr, isFailFast)
 
 				t.Run(tname, func(t *testing.T) {

@@ -229,9 +229,7 @@ func (c *commandRepositorySyncTo) runSyncBlobs(ctx context.Context, src blob.Rea
 
 	tt := timetrack.Start()
 
-	for i := 0; i < c.repositorySyncParallelism; i++ {
-		workerID := i
-
+	for workerID := range c.repositorySyncParallelism {
 		eg.Go(func() error {
 			for m := range copyCh {
 				log(ctx).Debugf("[%v] Copying %v (%v bytes)...\n", workerID, m.BlobID, m.Length)
