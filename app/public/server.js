@@ -5,7 +5,7 @@ const https = require('https');
 const { defaultServerBinary } = require('./utils');
 const { spawn } = require('child_process');
 const log = require("electron-log")
-const { configDir, isPortableConfig } = require('./config');
+const { configDir, isPortableConfig, additionalServerArgs } = require('./config');
 
 let servers = {};
 
@@ -44,6 +44,8 @@ function newServerForRepo(repoID) {
                 '--shutdown-on-stdin', // shutdown the server when parent dies
                 '--address=127.0.0.1:0');
     
+            args.push(...additionalServerArgs(repoID))
+
 
             args.push("--config-file", path.resolve(configDir(), repoID + ".config"));
             if (isPortableConfig()) {
