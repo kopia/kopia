@@ -73,7 +73,6 @@ func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version s
 			return nil
 		}
 
-		//nolint:wrapcheck
 		return iocopy.JustCopy(output, o)
 	}
 

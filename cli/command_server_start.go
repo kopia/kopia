@@ -165,7 +165,6 @@ func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Op
 
 func (c *commandServerStart) initRepositoryPossiblyAsync(ctx context.Context, srv *server.Server) error {
 	initialize := func(ctx context.Context) (repo.Repository, error) {
-		//nolint:wrapcheck
 		return c.svc.openRepository(ctx, false)
 	}
 

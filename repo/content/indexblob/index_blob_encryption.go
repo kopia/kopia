@@ -33,7 +33,6 @@ func (m *EncryptionManager) GetEncryptedBlob(ctx context.Context, blobID blob.ID
 	defer payload.Close()
 
 	if err := m.indexBlobCache.GetOrLoad(ctx, string(blobID), func(output *gather.WriteBuffer) error {
-		//nolint:wrapcheck
 		return m.st.GetBlob(ctx, blobID, 0, -1, output)
 	}, &payload); err != nil {
 		return errors.Wrap(err, "getContent")

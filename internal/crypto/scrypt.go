@@ -24,7 +24,7 @@ func init() {
 			return nil, errors.Errorf("required salt size is atleast %d bytes", minPbkdfSha256SaltSize)
 		}
 
-		//nolint:wrapcheck,gomnd
+		//nolint:gomnd
 		return scrypt.Key([]byte(password), salt, 65536, 8, 1, MasterKeyLength)
 	})
 }
