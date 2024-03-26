@@ -41,7 +41,7 @@ func (s *ContentSet) Replace(ids []content.ID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.ids = append([]content.ID(nil), s.ids...)
+	s.ids = append([]content.ID(nil), ids...)
 }
 
 // Add adds the provided items to the set.

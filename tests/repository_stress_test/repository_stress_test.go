@@ -419,7 +419,7 @@ func listAndReadAllContents(ctx context.Context, r repo.DirectRepositoryWriter, 
 		ctx,
 		content.IterateOptions{},
 		func(ci content.Info) error {
-			cid := ci.GetContentID()
+			cid := ci.ContentID
 			_, err := r.ContentReader().GetContent(ctx, cid)
 			if err != nil {
 				return errors.Wrapf(err, "error reading content %v", cid)

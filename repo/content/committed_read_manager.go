@@ -287,25 +287,25 @@ func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, 
 
 	var hashBuf [hashing.MaxHashSize]byte
 
-	iv := getPackedContentIV(hashBuf[:0], bi.GetContentID())
+	iv := getPackedContentIV(hashBuf[:0], bi.ContentID)
 
 	// reserved for future use
-	if k := bi.GetEncryptionKeyID(); k != 0 {
+	if k := bi.EncryptionKeyID; k != 0 {
 		return errors.Errorf("unsupported encryption key ID: %v", k)
 	}
 
-	h := bi.GetCompressionHeaderID()
+	h := bi.CompressionHeaderID
 	if h == 0 {
 		return errors.Wrapf(
 			sm.decryptAndVerify(payload, iv, output),
-			"invalid checksum at %v offset %v length %v/%v", bi.GetPackBlobID(), bi.GetPackOffset(), bi.GetPackedLength(), payload.Length())
+			"invalid checksum at %v offset %v length %v/%v", bi.PackBlobID, bi.PackOffset, bi.PackedLength, payload.Length())
 	}
 
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
 	if err := sm.decryptAndVerify(payload, iv, &tmp); err != nil {
-		return errors.Wrapf(err, "invalid checksum at %v offset %v length %v/%v", bi.GetPackBlobID(), bi.GetPackOffset(), bi.GetPackedLength(), payload.Length())
+		return errors.Wrapf(err, "invalid checksum at %v offset %v length %v/%v", bi.PackBlobID, bi.PackOffset, bi.PackedLength, payload.Length())
 	}
 
 	c := compression.ByHeaderID[h]
