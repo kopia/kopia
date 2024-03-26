@@ -176,7 +176,6 @@ func TestGatherBytesReadSeeker(t *testing.T) {
 }
 
 func TestGatherBytesReaderAt(t *testing.T) {
-
 	// assert some preconditions that the reader conforms to ReaderAt
 	contentBuf := make([]byte, 1234567)
 	for i := range contentBuf {
@@ -185,6 +184,8 @@ func TestGatherBytesReaderAt(t *testing.T) {
 
 	// write the generated data
 	var preWrt WriteBuffer
+	defer preWrt.Close()
+
 	n, err := preWrt.Write(contentBuf)
 	require.NoError(t, err)
 
