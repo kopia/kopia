@@ -5,7 +5,8 @@ const https = require('https');
 const { defaultServerBinary } = require('./utils');
 const { spawn } = require('child_process');
 const log = require("electron-log")
-const { configDir, isPortableConfig } = require('./config');
+const { configDir, readConfig, isPortableConfig } = require('./config');
+const { config } = require('process');
 
 let servers = {};
 
@@ -19,6 +20,13 @@ function newServerForRepo(repoID) {
     let runningServerStatusDetails = {
         startingUp: true,
     };
+    readConfig(repoID).then(data => {
+        let config = JSON.parse(data);
+        runningServerStatusDetails = {
+            startingUp: true,
+            description: config['description']
+        }
+    });
     let serverLog = [];
 
     const maxLogLines = 100;
