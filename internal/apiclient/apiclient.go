@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -148,9 +149,30 @@ func (e HTTPStatusError) Error() string {
 	return e.ErrorMessage
 }
 
+// serverErrorResponse is a structure that can decode the Error field
+// of a serverapi.ErrorResponse received from the API server.
+type serverErrorResponse struct {
+	Error string `json:"error"`
+}
+
+// respToErrorMessage will attempt to JSON decode the response body into
+// a structure resembling the serverapi.ErrorResponse struct. If successful,
+// the Error field will be included in the string output. Otherwise
+// only the response Status field will be returned.
+func respToErrorMessage(resp *http.Response) string {
+	errResp := serverErrorResponse{}
+
+	err := json.NewDecoder(resp.Body).Decode(&errResp)
+	if err != nil {
+		return resp.Status
+	}
+
+	return fmt.Sprintf("%s: %s", resp.Status, errResp.Error)
+}
+
 func decodeResponse(resp *http.Response, respPayload interface{}) error {
 	if resp.StatusCode != http.StatusOK {
-		return HTTPStatusError{resp.StatusCode, resp.Status}
+		return HTTPStatusError{resp.StatusCode, respToErrorMessage(resp)}
 	}
 
 	if respPayload == nil {

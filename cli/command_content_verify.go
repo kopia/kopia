@@ -133,7 +133,7 @@ func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep rep
 	if err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{
 		Range:          c.contentRange.contentIDRange(),
 		IncludeDeleted: c.contentVerifyIncludeDeleted,
-	}, func(ci content.Info) error {
+	}, func(_ content.Info) error {
 		if err := ctx.Err(); err != nil {
 			return errors.Wrap(err, "context error")
 		}

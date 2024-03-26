@@ -53,7 +53,7 @@ func TestAPIServerRepository_GRPC_RepositoryUsers(t *testing.T) {
 func TestAPIServerRepository_DisableGRPC_htpasswd(t *testing.T) {
 	t.Parallel()
 
-	testAPIServerRepository(t, []string{"--no-grpc"}, false, false)
+	testAPIServerRepository(t, []string{"--no-grpc", "--legacy-api"}, false, false)
 }
 
 //nolint:thelper

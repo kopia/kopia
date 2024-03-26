@@ -62,7 +62,6 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 		cc := cmd.Command(prov.Name, "Create repository in "+prov.Description)
 		f.Setup(svc, cc)
 		cc.Action(func(kpc *kingpin.ParseContext) error {
-			//nolint:wrapcheck
 			return svc.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 				st, err := f.Connect(ctx, true, c.createFormatVersion)
 				if err != nil {
@@ -99,7 +98,7 @@ func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepos
 func (c *commandRepositoryCreate) ensureEmpty(ctx context.Context, s blob.Storage) error {
 	hasDataError := errors.Errorf("has data")
 
-	err := s.ListBlobs(ctx, "", func(cb blob.Metadata) error {
+	err := s.ListBlobs(ctx, "", func(_ blob.Metadata) error {
 		return hasDataError
 	})
 

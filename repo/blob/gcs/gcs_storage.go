@@ -50,7 +50,6 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 		}
 		defer reader.Close() //nolint:errcheck
 
-		//nolint:wrapcheck
 		return iocopy.JustCopy(output, reader)
 	}
 
@@ -273,10 +272,10 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	// verify GCS connection is functional by listing blobs in a bucket, which will fail if the bucket
 	// does not exist. We list with a prefix that will not exist, to avoid iterating through any objects.
 	nonExistentPrefix := fmt.Sprintf("kopia-gcs-storage-initializing-%v", clock.Now().UnixNano())
-	err = gcs.ListBlobs(ctx, blob.ID(nonExistentPrefix), func(md blob.Metadata) error {
+
+	err = gcs.ListBlobs(ctx, blob.ID(nonExistentPrefix), func(_ blob.Metadata) error {
 		return nil
 	})
-
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list from the bucket")
 	}

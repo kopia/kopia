@@ -34,7 +34,7 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 
 	var pointInTimeStr string
 
-	pitPreAction := func(pc *kingpin.ParseContext) error {
+	pitPreAction := func(_ *kingpin.ParseContext) error {
 		if pointInTimeStr != "" {
 			t, err := time.Parse(time.RFC3339, pointInTimeStr)
 			if err != nil {

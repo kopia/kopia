@@ -17,31 +17,26 @@ type retryingStorage struct {
 }
 
 func (s retryingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
-	//nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, fmt.Sprintf("GetBlob(%v,%v,%v)", id, offset, length), func() error {
 		output.Reset()
 
-		//nolint:wrapcheck
 		return s.Storage.GetBlob(ctx, id, offset, length, output)
 	}, isRetriable)
 }
 
 func (s retryingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	return retry.WithExponentialBackoff(ctx, "GetMetadata("+string(id)+")", func() (blob.Metadata, error) {
-		//nolint:wrapcheck
 		return s.Storage.GetMetadata(ctx, id)
 	}, isRetriable)
 }
 
 func (s retryingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	return retry.WithExponentialBackoffNoValue(ctx, "PutBlob("+string(id)+")", func() error {
-		//nolint:wrapcheck
 		return s.Storage.PutBlob(ctx, id, data, opts)
 	}, isRetriable)
 }
 
 func (s retryingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
-	//nolint:wrapcheck
 	return retry.WithExponentialBackoffNoValue(ctx, "DeleteBlob("+string(id)+")", func() error {
 		return s.Storage.DeleteBlob(ctx, id)
 	}, isRetriable)

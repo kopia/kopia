@@ -162,19 +162,19 @@ func IndirectObjectID(indexObjectID ID) ID {
 func ParseID(s string) (ID, error) {
 	var id ID
 
-	for len(s) > 0 && s[0] == 'I' {
+	for s != "" && s[0] == 'I' {
 		id.indirection++
 
 		s = s[1:]
 	}
 
-	if len(s) > 0 && s[0] == 'Z' {
+	if s != "" && s[0] == 'Z' {
 		id.compression = true
 
 		s = s[1:]
 	}
 
-	if len(s) > 0 && s[0] == 'D' {
+	if s != "" && s[0] == 'D' {
 		// no-op, legacy case
 		s = s[1:]
 	}

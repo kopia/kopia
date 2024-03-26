@@ -7,7 +7,6 @@ const { loadConfigs, allConfigs, deleteConfigIfDisconnected, addNewConfig, confi
 const Store = require('electron-store')
 const log = require("electron-log");
 const path = require('path');
-const isDev = require('electron-is-dev');
 const crypto = require('crypto')
 
 // Store to save parameters
@@ -343,7 +342,7 @@ function viewReleaseNotes() {
 }
 
 function isOutsideOfApplicationsFolderOnMac() {
-  if (isDev || isPortableConfig()) {
+  if (!app.isPackaged || isPortableConfig()) {
     return false;
   }
 
