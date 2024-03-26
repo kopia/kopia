@@ -84,7 +84,7 @@ func (c *connectOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("enable-actions", "Allow snapshot actions").BoolVar(&c.connectEnableActions)
 	cmd.Flag("repository-format-cache-duration", "Duration of kopia.repository format blob cache").Hidden().DurationVar(&c.formatBlobCacheDuration)
 	cmd.Flag("disable-repository-format-cache", "Disable caching of kopia.repository format blob").Hidden().BoolVar(&c.disableFormatBlobCache)
-	cmd.Flag("key-derivation-algorithm", "Key Derivation Algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).StringVar(&c.keyDerivationAlgorithm)
+	cmd.Flag("key-derivation-algorithm", "Key derivation algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.keyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
 }
 
 func (c *connectOptions) getFormatBlobCacheDuration() time.Duration {

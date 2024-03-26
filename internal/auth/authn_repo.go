@@ -22,7 +22,7 @@ type repositoryUserAuthenticator struct {
 	userProfiles map[string]*user.Profile
 	// +checklocks:mu
 	userProfileRefreshFrequency time.Duration
-
+	// +checklocks:mu
 	keyDerivationAlgorithm string
 }
 
