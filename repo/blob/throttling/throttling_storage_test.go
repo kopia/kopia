@@ -41,6 +41,10 @@ func (m *mockThrottler) BeforeUpload(ctx context.Context, numBytes int64) {
 	m.activity = append(m.activity, fmt.Sprintf("BeforeUpload(%v)", numBytes))
 }
 
+func (m *mockThrottler) DuringUpload(ctx context.Context, numBytes int64) {
+	m.activity = append(m.activity, fmt.Sprintf("DuringUpload(%v)", numBytes))
+}
+
 func (m *mockThrottler) ReturnUnusedDownloadBytes(ctx context.Context, numBytes int64) {
 	m.activity = append(m.activity, fmt.Sprintf("ReturnUnusedDownloadBytes(%v)", numBytes))
 }
@@ -77,6 +81,7 @@ func TestThrottling(t *testing.T) {
 	require.Equal(t, []string{
 		"BeforeOperation(PutBlob)",
 		"BeforeUpload(7)",
+		"DuringUpload(7)",
 		"inner.PutBlob",
 		"AfterOperation(PutBlob)",
 	}, m.activity)
@@ -87,6 +92,23 @@ func TestThrottling(t *testing.T) {
 	require.Equal(t, []string{
 		"BeforeOperation(PutBlob)",
 		"BeforeUpload(30000000)",
+		"DuringUpload(512)",
+		"DuringUpload(512)",
+		"DuringUpload(1024)",
+		"DuringUpload(2048)",
+		"DuringUpload(4096)",
+		"DuringUpload(8192)",
+		"DuringUpload(16384)",
+		"DuringUpload(32768)",
+		"DuringUpload(65536)",
+		"DuringUpload(131072)",
+		"DuringUpload(262144)",
+		"DuringUpload(524288)",
+		"DuringUpload(1048576)",
+		"DuringUpload(2097152)",
+		"DuringUpload(4194304)",
+		"DuringUpload(8388608)",
+		"DuringUpload(13222784)",
 		"inner.PutBlob",
 		"AfterOperation(PutBlob)",
 	}, m.activity)
