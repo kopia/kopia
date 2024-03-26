@@ -64,7 +64,7 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 
 	// start N workers, each fetching from the shared channel and invoking the provided callback.
 	// cleanup() must be called to for worker completion
-	for i := 0; i < parallel; i++ {
+	for range parallel {
 		wg.Add(1)
 
 		go func() {
@@ -266,7 +266,7 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 	} else {
 		// iterate {p,q}[0-9,a-f]
 		for _, prefix := range blobPrefixes {
-			for hexDigit := 0; hexDigit < 16; hexDigit++ {
+			for hexDigit := range 16 {
 				prefixes = append(prefixes, blob.ID(fmt.Sprintf("%v%x", prefix, hexDigit)))
 			}
 		}

@@ -30,8 +30,6 @@ func TestFormatBlobCache(t *testing.T) {
 
 	t.Run("Cases", func(t *testing.T) {
 		for _, tc := range cases {
-			tc := tc
-
 			t.Run(tc.desc, func(t *testing.T) {
 				t.Parallel()
 

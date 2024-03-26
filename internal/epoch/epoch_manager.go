@@ -687,7 +687,6 @@ func (e *Manager) loadUncompactedEpochs(ctx context.Context, min, max int) (map[
 	eg, ctx := errgroup.WithContext(ctx)
 
 	for n := min; n <= max; n++ {
-		n := n
 		if n < 0 {
 			continue
 		}
@@ -995,8 +994,7 @@ func (e *Manager) getCompleteIndexSetForCommittedState(ctx context.Context, cs C
 
 	tmp := make([][]blob.Metadata, cnt)
 
-	for i := 0; i < cnt; i++ {
-		i := i
+	for i := range cnt {
 		ep := i + startEpoch
 
 		eg.Go(func() error {

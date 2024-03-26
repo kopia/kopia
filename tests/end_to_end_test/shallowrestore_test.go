@@ -946,7 +946,7 @@ func verifyShallowVsOriginalFile(t *testing.T, rdc *repoDirEntryCache, shallow, 
 func makeLongName(c rune) string {
 	// TODO(rjk): not likely to work on plan9.
 	buffy := make([]byte, 0, restore.MaxFilenameLength)
-	for i := 0; i < restore.MaxFilenameLength; i++ {
+	for range restore.MaxFilenameLength {
 		buffy = append(buffy, byte(c))
 	}
 

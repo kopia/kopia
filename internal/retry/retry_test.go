@@ -45,7 +45,6 @@ func TestRetry(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 

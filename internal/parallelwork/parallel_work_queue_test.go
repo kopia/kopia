@@ -176,7 +176,7 @@ func TestOnNthCompletion(t *testing.T) {
 		onNthCompletion := parallelwork.OnNthCompletion(n, callback)
 
 		// before n-th invocation
-		for i := 0; i < n-1; i++ {
+		for range n - 1 {
 			err := onNthCompletion()
 			require.NoError(t, err)
 			require.Equal(t, 0, callbackInvoked)
@@ -211,7 +211,7 @@ func TestOnNthCompletion(t *testing.T) {
 
 		wg.Add(n + 1)
 
-		for i := 0; i < n+1; i++ {
+		for range n + 1 {
 			go func() {
 				results <- onNthCompletion()
 				wg.Done()

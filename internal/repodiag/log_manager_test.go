@@ -49,7 +49,7 @@ func TestLogManager_AutoFlush(t *testing.T) {
 
 	// flush happens after 4 << 20 bytes (4MB) after compression,
 	// write ~10MB of base16 data which compresses to ~5MB and writes 1 blob
-	for i := 0; i < 5000; i++ {
+	for range 5000 {
 		var b [1024]byte
 
 		rand.Read(b[:])

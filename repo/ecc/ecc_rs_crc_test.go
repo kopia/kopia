@@ -117,7 +117,7 @@ func testRsCrc32ChangeInData(t *testing.T, opts *Options, originalSize, changedB
 			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
 			parity := sizes.ParityShards * (crcSize + sizes.ShardSize) * sizes.Blocks
 
-			for i := 0; i < changedBytes; i++ {
+			for i := range changedBytes {
 				flipByte(data, parity+i*(crcSize+sizes.ShardSize)+crcSize)
 			}
 		})
@@ -131,7 +131,7 @@ func testRsCrc32ChangeInDataCrc(t *testing.T, opts *Options, originalSize, chang
 			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
 			parity := sizes.ParityShards * (crcSize + sizes.ShardSize) * sizes.Blocks
 
-			for i := 0; i < changedBytes; i++ {
+			for i := range changedBytes {
 				flipByte(data, parity+i*(crcSize+sizes.ShardSize))
 			}
 		})
@@ -144,7 +144,7 @@ func testRsCrc32ChangeInParity(t *testing.T, opts *Options, originalSize, change
 		func(impl encryption.Encryptor, data []byte) {
 			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
 
-			for i := 0; i < changedBytes; i++ {
+			for i := range changedBytes {
 				flipByte(data, i*(crcSize+sizes.ShardSize)+crcSize)
 			}
 		})
@@ -157,7 +157,7 @@ func testRsCrc32ChangeInParityCrc(t *testing.T, opts *Options, originalSize, cha
 		func(impl encryption.Encryptor, data []byte) {
 			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
 
-			for i := 0; i < changedBytes; i++ {
+			for i := range changedBytes {
 				flipByte(data, i*(crcSize+sizes.ShardSize))
 			}
 		})

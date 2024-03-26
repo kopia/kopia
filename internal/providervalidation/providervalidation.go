@@ -459,19 +459,19 @@ func (c *concurrencyTest) listBlobWorker(ctx context.Context, worker int) func()
 func (c *concurrencyTest) run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
-	for worker := 0; worker < c.opt.NumPutBlobWorkers; worker++ {
+	for worker := range c.opt.NumPutBlobWorkers {
 		eg.Go(c.putBlobWorker(ctx, worker))
 	}
 
-	for worker := 0; worker < c.opt.NumGetBlobWorkers; worker++ {
+	for worker := range c.opt.NumGetBlobWorkers {
 		eg.Go(c.getBlobWorker(ctx, worker))
 	}
 
-	for worker := 0; worker < c.opt.NumGetMetadataWorkers; worker++ {
+	for worker := range c.opt.NumGetMetadataWorkers {
 		eg.Go(c.getMetadataWorker(ctx, worker))
 	}
 
-	for worker := 0; worker < c.opt.NumListBlobsWorkers; worker++ {
+	for worker := range c.opt.NumListBlobsWorkers {
 		eg.Go(c.listBlobWorker(ctx, worker))
 	}
 

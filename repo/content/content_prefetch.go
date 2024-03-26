@@ -103,7 +103,7 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 		}
 	}()
 
-	for i := 0; i < parallelFetches; i++ {
+	for range parallelFetches {
 		wg.Add(1)
 
 		go func() {

@@ -36,7 +36,6 @@ func TestRoundTrip(t *testing.T) {
 	rand.Read(contentID2)
 
 	for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
-		encryptionAlgo := encryptionAlgo
 		t.Run(encryptionAlgo, func(t *testing.T) {
 			e, err := encryption.CreateEncryptor(parameters{encryptionAlgo, masterKey})
 			if err != nil {
@@ -189,7 +188,7 @@ func BenchmarkEncryption(b *testing.B) {
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		var out gather.WriteBuffer
 
 		enc.Encrypt(plainText, iv, &out)

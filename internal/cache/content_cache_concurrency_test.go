@@ -176,9 +176,7 @@ func testGetContentForDifferentContentIDsExecutesInParallel(t *testing.T, newCac
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < 20; i++ {
-		i := i
-
+	for i := range 20 {
 		wg.Add(1)
 
 		go func() {
@@ -212,7 +210,7 @@ func testGetContentForDifferentBlobsExecutesInParallel(t *testing.T, newCache ne
 
 	defer dataCache.Close(ctx)
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		require.NoError(t, underlying.PutBlob(ctx, blob.ID(fmt.Sprintf("blob%v", i)), gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}), blob.PutOptions{}))
 	}
 
@@ -226,9 +224,7 @@ func testGetContentForDifferentBlobsExecutesInParallel(t *testing.T, newCache ne
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < 20; i++ {
-		i := i
-
+	for i := range 20 {
 		wg.Add(1)
 
 		go func() {
@@ -275,7 +271,7 @@ func testGetContentRaceFetchesOnce(t *testing.T, newCache newContentCacheFunc) {
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		wg.Add(1)
 
 		go func() {

@@ -121,9 +121,6 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 	}
 
 	for urlSuffix, wantStatus := range getUrls {
-		urlSuffix := urlSuffix
-		wantStatus := wantStatus
-
 		t.Run(urlSuffix, func(t *testing.T) {
 			var hsr apiclient.HTTPStatusError
 

@@ -292,7 +292,7 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 		repeat = 5
 	}
 
-	for i := 0; i < repeat; i++ {
+	for range repeat {
 		w := om.NewWriter(ctx, WriterOptions{
 			AsyncWrites: 1,
 		})
@@ -662,8 +662,6 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 
 func TestEndToEndReadAndSeek(t *testing.T) {
 	for _, asyncWrites := range []int{0, 4, 8} {
-		asyncWrites := asyncWrites
-
 		t.Run(fmt.Sprintf("async-%v", asyncWrites), func(t *testing.T) {
 			t.Parallel()
 
@@ -712,10 +710,7 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 	}
 
 	for _, compressible := range []bool{false, true} {
-		compressible := compressible
-
 		for compressorName := range compression.ByName {
-			compressorName := compressorName
 			t.Run(string(compressorName), func(t *testing.T) {
 				ctx := testlogging.Context(t)
 
@@ -789,7 +784,7 @@ func verify(ctx context.Context, t *testing.T, cr contentReader, objectID ID, ex
 		return
 	}
 
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		sampleSize := int(rand.Int31n(300))
 		seekOffset := int(rand.Int31n(int32(len(expectedData))))
 

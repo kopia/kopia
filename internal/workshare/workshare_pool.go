@@ -48,7 +48,7 @@ func NewPool[T any](numWorkers int) *Pool[T] {
 		semaphore: make(chan struct{}, numWorkers),
 	}
 
-	for i := 0; i < numWorkers; i++ {
+	for range numWorkers {
 		w.wg.Add(1)
 
 		go func() {

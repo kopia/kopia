@@ -167,9 +167,10 @@ func LoadSnapshots(ctx context.Context, rep repo.Repository, manifestIDs []manif
 		}(i, n)
 	}
 
-	for i := 0; i < cap(sem); i++ {
+	for range cap(sem) {
 		sem <- true
 	}
+
 	close(sem)
 
 	successful := result[:0]

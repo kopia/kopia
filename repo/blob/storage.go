@@ -270,8 +270,6 @@ func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Stora
 	for _, prefix := range prefixes {
 		wg.Add(1)
 
-		prefix := prefix
-
 		// acquire semaphore
 		semaphore <- struct{}{}
 
@@ -365,8 +363,6 @@ func DeleteMultiple(ctx context.Context, st Storage, ids []ID, parallelism int) 
 	for _, id := range ids {
 		// acquire semaphore
 		sem <- struct{}{}
-
-		id := id
 
 		eg.Go(func() error {
 			defer func() {

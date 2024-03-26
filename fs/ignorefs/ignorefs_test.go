@@ -496,7 +496,6 @@ var cases = []struct {
 
 func TestIgnoreFS(t *testing.T) {
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			root := setupFilesystem(tc.skipDefaultFiles)
 			originalFiles := walkTree(t, root)

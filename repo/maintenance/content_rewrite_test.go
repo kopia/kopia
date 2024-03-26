@@ -73,13 +73,11 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(fmt.Sprintf("case-%v", tc), func(t *testing.T) {
 			ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 			// run N sessions to create N individual pack blobs for each content prefix
-			for i := 0; i < tc.numPContents; i++ {
+			for range tc.numPContents {
 				require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 					ow := w.NewObjectWriter(ctx, object.WriterOptions{})
 					fmt.Fprintf(ow, "%v", uuid.NewString())
@@ -88,7 +86,7 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 				}))
 			}
 
-			for i := 0; i < tc.numQContents; i++ {
+			for range tc.numQContents {
 				require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 					ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "k"})
 					fmt.Fprintf(ow, "%v", uuid.NewString())

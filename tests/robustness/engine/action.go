@@ -42,7 +42,7 @@ func (e *Engine) ExecAction(ctx context.Context, actionKey ActionKey, opts map[s
 	var out map[string]string
 
 	n := robustness.GetOptAsIntOrDefault(ActionRepeaterField, opts, defaultActionRepeats)
-	for i := 0; i < n; i++ {
+	for range n {
 		out, err = action.f(ctx, e, opts, logEntry)
 		if err != nil {
 			break

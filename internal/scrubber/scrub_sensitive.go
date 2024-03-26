@@ -16,7 +16,7 @@ func ScrubSensitiveData(v reflect.Value) reflect.Value {
 	case reflect.Struct:
 		res := reflect.New(v.Type()).Elem()
 
-		for i := 0; i < v.NumField(); i++ {
+		for i := range v.NumField() {
 			fv := v.Field(i)
 
 			sf := v.Type().Field(i)

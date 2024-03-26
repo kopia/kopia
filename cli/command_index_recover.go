@@ -141,9 +141,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 	})
 
 	// N goroutines to recover from incoming blobs.
-	for i := 0; i < c.parallel; i++ {
-		worker := i
-
+	for worker := range c.parallel {
 		eg.Go(func() error {
 			cnt := 0
 

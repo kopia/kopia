@@ -90,7 +90,7 @@ func TestRCloneStorage(t *testing.T) {
 
 	// trigger multiple parallel reads to ensure we're properly preventing race
 	// described in https://github.com/kopia/kopia/issues/624
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		eg.Go(func() error {
 			var tmp gather.WriteBuffer
 			defer tmp.Close()
@@ -222,8 +222,6 @@ func TestRCloneProviders(t *testing.T) {
 	rcloneExe := mustGetRcloneExeOrSkip(t)
 
 	for name, rp := range rcloneExternalProviders {
-		rp := rp
-
 		opt := &rclone.Options{
 			RemotePath:     rp,
 			RCloneExe:      rcloneExe,
@@ -264,14 +262,13 @@ func TestRCloneProviders(t *testing.T) {
 
 			prefix := uuid.NewString()
 
-			for i := 0; i < 10; i++ {
-				i := i
+			for i := range 10 {
 				wg.Add(1)
 
 				go func() {
 					defer wg.Done()
 
-					for j := 0; j < 3; j++ {
+					for j := range 3 {
 						assert.NoError(t, st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j)), gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 					}
 				}()
@@ -294,8 +291,8 @@ func TestRCloneProviders(t *testing.T) {
 
 			var eg errgroup.Group
 
-			for i := 0; i < 10; i++ {
-				for j := 0; j < 3; j++ {
+			for i := range 10 {
+				for j := range 3 {
 					blobID := blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j))
 
 					eg.Go(func() error {

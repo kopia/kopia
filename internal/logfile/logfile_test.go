@@ -121,7 +121,6 @@ func TestLogFileRotation(t *testing.T) {
 
 	for subdir, wantEntryCount := range subdirs {
 		logSubdir := filepath.Join(tmpLogDir, subdir)
-		wantEntryCount := wantEntryCount
 
 		t.Run(subdir, func(t *testing.T) {
 			entries, err := os.ReadDir(logSubdir)
@@ -177,7 +176,6 @@ func TestLogFileMaxTotalSize(t *testing.T) {
 
 	for subdir, flag := range subdirFlags {
 		logSubdir := filepath.Join(tmpLogDir, subdir)
-		flag := flag
 
 		t.Run(subdir, func(t *testing.T) {
 			size0 := getTotalDirSize(t, logSubdir)
