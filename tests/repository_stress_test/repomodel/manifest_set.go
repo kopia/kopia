@@ -41,7 +41,7 @@ func (s *ManifestSet) Replace(ids []manifest.ID) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.ids = append([]manifest.ID(nil), s.ids...)
+	s.ids = append([]manifest.ID(nil), ids...)
 }
 
 // Add adds the provided items to the set.

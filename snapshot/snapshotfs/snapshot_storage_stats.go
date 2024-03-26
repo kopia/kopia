@@ -64,12 +64,12 @@ func CalculateStorageStats(ctx context.Context, rep repo.Repository, manifests [
 							return errors.Wrapf(err, "error getting content info for %v", cid)
 						}
 
-						l := int64(info.GetOriginalLength())
+						l := int64(info.OriginalLength)
 
 						atomic.AddInt64(&unique.OriginalContentBytes, l)
 						atomic.AddInt64(&runningTotal.OriginalContentBytes, l)
 
-						l2 := int64(info.GetPackedLength())
+						l2 := int64(info.PackedLength)
 
 						atomic.AddInt64(&unique.PackedContentBytes, l2)
 						atomic.AddInt64(&runningTotal.PackedContentBytes, l2)

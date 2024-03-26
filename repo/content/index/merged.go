@@ -33,70 +33,62 @@ func (m Merged) Close() error {
 	return errors.Wrap(err, "closing index shards")
 }
 
-func contentInfoGreaterThan(a, b InfoReader) bool {
-	if l, r := a.GetTimestampSeconds(), b.GetTimestampSeconds(); l != r {
-		// different timestamps, higher one wins
-		return l > r
-	}
-
-	if l, r := a.GetDeleted(), b.GetDeleted(); l != r {
-		// non-deleted is greater than deleted.
-		return !a.GetDeleted()
-	}
-
-	// both same time, both deleted, we must ensure we always resolve to the same pack blob.
-	// since pack blobs are random and unique, simple lexicographic ordering will suffice.
-	return a.GetPackBlobID() > b.GetPackBlobID()
-}
-
 func contentInfoGreaterThanStruct(a, b Info) bool {
-	if l, r := a.GetTimestampSeconds(), b.GetTimestampSeconds(); l != r {
+	if l, r := a.TimestampSeconds, b.TimestampSeconds; l != r {
 		// different timestamps, higher one wins
 		return l > r
 	}
 
-	if l, r := a.GetDeleted(), b.GetDeleted(); l != r {
+	if l, r := a.Deleted, b.Deleted; l != r {
 		// non-deleted is greater than deleted.
-		return !a.GetDeleted()
+		return !a.Deleted
 	}
 
 	// both same time, both deleted, we must ensure we always resolve to the same pack blob.
 	// since pack blobs are random and unique, simple lexicographic ordering will suffice.
-	return a.GetPackBlobID() > b.GetPackBlobID()
+	return a.PackBlobID > b.PackBlobID
 }
 
-// GetInfo returns information about a single content. If a content is not found, returns (nil,nil).
-func (m Merged) GetInfo(id ID) (InfoReader, error) {
-	var best InfoReader
+// GetInfo returns information about a single content. If a content is not found, returns (false,nil).
+func (m Merged) GetInfo(id ID, result *Info) (bool, error) {
+	var (
+		found bool
+		tmp   Info
+	)
 
 	for _, ndx := range m {
-		i, err := ndx.GetInfo(id)
+		ok, err := ndx.GetInfo(id, &tmp)
 		if err != nil {
-			return nil, errors.Wrapf(err, "error getting id %v from index shard", id)
+			return false, errors.Wrapf(err, "error getting id %v from index shard", id)
 		}
 
-		if i != nil && (best == nil || contentInfoGreaterThan(i, best)) {
-			best = i
+		if !ok {
+			continue
+		}
+
+		if !found || contentInfoGreaterThanStruct(tmp, *result) {
+			*result = tmp
+			found = true
 		}
 	}
 
-	return best, nil
+	return found, nil
 }
 
 type nextInfo struct {
-	it InfoReader
-	ch <-chan InfoReader
+	it Info
+	ch <-chan Info
 }
 
 type nextInfoHeap []*nextInfo
 
 func (h nextInfoHeap) Len() int { return len(h) }
 func (h nextInfoHeap) Less(i, j int) bool {
-	if a, b := h[i].it.GetContentID(), h[j].it.GetContentID(); a != b {
+	if a, b := h[i].it.ContentID, h[j].it.ContentID; a != b {
 		return a.less(b)
 	}
 
-	return !contentInfoGreaterThan(h[i].it, h[j].it)
+	return !contentInfoGreaterThanStruct(h[i].it, h[j].it)
 }
 
 func (h nextInfoHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
@@ -113,14 +105,14 @@ func (h *nextInfoHeap) Pop() interface{} {
 	return x
 }
 
-func iterateChan(r IDRange, ndx Index, done chan bool, wg *sync.WaitGroup) <-chan InfoReader {
-	ch := make(chan InfoReader, 1)
+func iterateChan(r IDRange, ndx Index, done chan bool, wg *sync.WaitGroup) <-chan Info {
+	ch := make(chan Info, 1)
 
 	go func() {
 		defer wg.Done()
 		defer close(ch)
 
-		_ = ndx.Iterate(r, func(i InfoReader) error {
+		_ = ndx.Iterate(r, func(i Info) error {
 			select {
 			case <-done:
 				return errors.New("end of iteration")
@@ -135,7 +127,7 @@ func iterateChan(r IDRange, ndx Index, done chan bool, wg *sync.WaitGroup) <-cha
 
 // Iterate invokes the provided callback for all unique content IDs in the underlying sources until either
 // all contents have been visited or until an error is returned by the callback.
-func (m Merged) Iterate(r IDRange, cb func(i InfoReader) error) error {
+func (m Merged) Iterate(r IDRange, cb func(i Info) error) error {
 	var minHeap nextInfoHeap
 
 	done := make(chan bool)
@@ -158,20 +150,24 @@ func (m Merged) Iterate(r IDRange, cb func(i InfoReader) error) error {
 	defer wg.Wait()
 	defer close(done)
 
-	var pendingItem InfoReader
+	var (
+		havePendingItem bool
+		pendingItem     Info
+	)
 
 	for len(minHeap) > 0 {
 		//nolint:forcetypeassert
 		min := heap.Pop(&minHeap).(*nextInfo)
-		if pendingItem == nil || pendingItem.GetContentID() != min.it.GetContentID() {
-			if pendingItem != nil {
+		if !havePendingItem || pendingItem.ContentID != min.it.ContentID {
+			if havePendingItem {
 				if err := cb(pendingItem); err != nil {
 					return err
 				}
 			}
 
 			pendingItem = min.it
-		} else if min.it != nil && contentInfoGreaterThan(min.it, pendingItem) {
+			havePendingItem = true
+		} else if contentInfoGreaterThanStruct(min.it, pendingItem) {
 			pendingItem = min.it
 		}
 
@@ -181,7 +177,7 @@ func (m Merged) Iterate(r IDRange, cb func(i InfoReader) error) error {
 		}
 	}
 
-	if pendingItem != nil {
+	if havePendingItem {
 		return cb(pendingItem)
 	}
 

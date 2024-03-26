@@ -130,24 +130,24 @@ func (c *commandContentStats) calculateStats(ctx context.Context, rep repo.Direc
 			Range: c.contentRange.contentIDRange(),
 		},
 		func(b content.Info) error {
-			grandTotal.packedSize += int64(b.GetPackedLength())
-			grandTotal.originalSize += int64(b.GetOriginalLength())
+			grandTotal.packedSize += int64(b.PackedLength)
+			grandTotal.originalSize += int64(b.OriginalLength)
 			grandTotal.count++
 
-			bct := byCompressionTotal[b.GetCompressionHeaderID()]
+			bct := byCompressionTotal[b.CompressionHeaderID]
 			if bct == nil {
 				bct = &contentStatsTotals{}
-				byCompressionTotal[b.GetCompressionHeaderID()] = bct
+				byCompressionTotal[b.CompressionHeaderID] = bct
 			}
 
-			bct.packedSize += int64(b.GetPackedLength())
-			bct.originalSize += int64(b.GetOriginalLength())
+			bct.packedSize += int64(b.PackedLength)
+			bct.originalSize += int64(b.OriginalLength)
 			bct.count++
 
 			for s := range countMap {
-				if b.GetPackedLength() < s {
+				if b.PackedLength < s {
 					countMap[s]++
-					totalSizeOfContentsUnder[s] += int64(b.GetPackedLength())
+					totalSizeOfContentsUnder[s] += int64(b.PackedLength)
 				}
 			}
 
