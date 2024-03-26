@@ -2,6 +2,7 @@ package gather
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"math"
 	"testing"
@@ -175,44 +176,81 @@ func TestGatherBytesReadSeeker(t *testing.T) {
 }
 
 func TestGatherBytesReaderAt(t *testing.T) {
-	var tmp WriteBuffer
-	defer tmp.Close()
 
-	buf := make([]byte, 1234567)
+	// assert some preconditions that the reader conforms to ReaderAt
+	contentBuf := make([]byte, 1234567)
+	for i := range contentBuf {
+		contentBuf[i] = uint8(i % math.MaxUint8)
+	}
 
-	tmp.Append(buf)
-
-	require.Len(t, buf, tmp.Length())
-
-	reader := tmp.inner.Reader()
-	defer reader.Close() //nolint:errcheck
-
-	require.NoError(t, iotest.TestReader(reader, buf))
-
-	readerAt := reader.(io.ReaderAt)
-
-	bs1k := make([]byte, 1<<10)
-	bs0 := make([]byte, 0)
-
-	n, err := readerAt.ReadAt(bs1k, -1)
-	require.ErrorIs(t, err, ErrInvalidOffset)
-	require.Equal(t, 0, n)
-
-	n, err = readerAt.ReadAt(bs1k, math.MaxInt64)
-	require.ErrorIs(t, err, io.EOF)
-	require.Equal(t, 0, n)
-
-	n, err = readerAt.ReadAt(bs0, -1)
-	require.Error(t, err)
-	require.Equal(t, 0, n)
-
-	n, err = readerAt.ReadAt(bs0, math.MaxInt64)
+	// write the generated data
+	var preWrt WriteBuffer
+	n, err := preWrt.Write(contentBuf)
 	require.NoError(t, err)
-	require.Equal(t, 0, n)
 
-	n, err = readerAt.ReadAt(bs0, math.MaxInt64)
-	require.NoError(t, err)
-	require.Equal(t, 0, n)
+	require.Len(t, contentBuf, n)
+
+	// get the reader out of the WriteBuffer so we can read what was written
+	preRdr := preWrt.inner.Reader()
+	_, ok := preRdr.(io.ReaderAt)
+	require.True(t, ok)
+	require.NoError(t, iotest.TestReader(preRdr, contentBuf))
+
+	tcs := []struct {
+		inBsLen   int
+		inOff     int64
+		expectErr error
+		expectN   int
+	}{
+		{
+			inBsLen:   1 << 10,
+			inOff:     -1,
+			expectErr: ErrInvalidOffset,
+			expectN:   0,
+		},
+		{
+			inBsLen:   1 << 10,
+			inOff:     math.MaxInt64,
+			expectErr: io.EOF,
+			expectN:   0,
+		},
+		{
+			inBsLen:   0,
+			inOff:     -1,
+			expectErr: ErrInvalidOffset,
+			expectN:   0,
+		},
+		{
+			inBsLen: 0,
+			inOff:   math.MaxInt64,
+			expectN: 0,
+		},
+	}
+	for i, tc := range tcs {
+		t.Run(fmt.Sprintf("%d: %d %d %d", i, tc.inBsLen, tc.inOff, tc.expectN), func(t *testing.T) {
+			// tmp is an empty buffer that will supply some bytes
+			// for testing
+			var wrt WriteBuffer
+			defer wrt.Close()
+
+			wrt.Append(contentBuf)
+
+			// get the reader out of the WriteBuffer so we can read what was written
+			// (presume all 0s)
+			reader := wrt.inner.Reader()
+			defer reader.Close() //nolint:errcheck
+
+			// get the reader as a ReaderAt
+			readerAt := reader.(io.ReaderAt)
+
+			// make an output buffer of the required length
+			bs := make([]byte, tc.inBsLen)
+
+			n, err := readerAt.ReadAt(bs, tc.inOff)
+			require.ErrorIs(t, err, tc.expectErr)
+			require.Equal(t, tc.expectN, n)
+		})
+	}
 }
 
 func TestGatherBytesPanicsOnClose(t *testing.T) {
