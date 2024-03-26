@@ -69,7 +69,6 @@ func (v *Queue) Process(ctx context.Context, workers int) error {
 				select {
 				case <-ctx.Done():
 					// context canceled - some other worker returned an error.
-					//nolint:wrapcheck
 					return ctx.Err()
 
 				default:

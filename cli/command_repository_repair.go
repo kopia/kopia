@@ -30,7 +30,6 @@ func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandP
 		cc := cmd.Command(prov.Name, "Repair repository in "+prov.Description)
 		f.Setup(svc, cc)
 		cc.Action(func(kpc *kingpin.ParseContext) error {
-			//nolint:wrapcheck
 			return svc.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 				st, err := f.Connect(ctx, false, 0)
 				if err != nil {

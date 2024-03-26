@@ -75,7 +75,6 @@ func handleSourcesCreate(ctx context.Context, rc requestContext) (interface{}, *
 	if err = repo.WriteSession(ctx, rc.rep, repo.WriteSessionOptions{
 		Purpose: "handleSourcesCreate",
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
-		//nolint:wrapcheck
 		return policy.SetPolicy(ctx, w, sourceInfo, req.Policy)
 	}); err != nil {
 		return nil, internalServerError(errors.Wrap(err, "unable to set initial policy"))
