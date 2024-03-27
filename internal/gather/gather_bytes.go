@@ -10,8 +10,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-//nolint:gochecknoglobals
-var invalidSliceBuf = []byte(uuid.NewString())
+var (
+	//nolint:gochecknoglobals
+	invalidSliceBuf = []byte(uuid.NewString())
+	// ErrInvalidOffset checkable error for supplying an invalid offset.
+	ErrInvalidOffset = errors.Errorf("invalid offset")
+)
 
 // Bytes represents a sequence of bytes split into slices.
 type Bytes struct {
@@ -44,13 +48,13 @@ func (b *Bytes) AppendSectionTo(w io.Writer, offset, size int) error {
 	// find the index of starting slice
 	sliceNdx := -1
 
-	for i, p := range b.Slices {
-		if offset < len(p) {
+	for i, bs := range b.Slices {
+		if offset < len(bs) {
 			sliceNdx = i
 			break
 		}
 
-		offset -= len(p)
+		offset -= len(bs)
 	}
 
 	// not found
@@ -118,6 +122,78 @@ func (b Bytes) ReadAt(p []byte, off int64) (n int, err error) {
 type bytesReadSeekCloser struct {
 	b      Bytes
 	offset int
+}
+
+func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
+	b.b.assertValid()
+	// cache "b.b.Slices" - slice parameters will stay constant for duration of
+	// function.  Locking is left to the calling function
+	slices := b.b.Slices
+
+	// source data that is read will be written to w, the buffer backed by p.
+	offset := off
+
+	plen := len(bs)
+
+	// negative offsets result in an error
+	if offset < 0 {
+		return 0, ErrInvalidOffset
+	}
+
+	sliceNdx := -1
+
+	// find the index of starting slice
+	for i, bs := range slices {
+		if offset < int64(len(bs)) {
+			sliceNdx = i
+			break
+		}
+
+		// update offset to be relative to the sliceNdx slice
+		offset -= int64(len(bs))
+	}
+
+	// no slice found if sliceNdx is still negative
+	if sliceNdx == -1 {
+		// return no bytes read if the buffer has no length
+		if plen == 0 {
+			return 0, nil
+		}
+
+		return 0, io.EOF
+	}
+
+	curSlice := slices[sliceNdx]
+
+	n := copy(bs, curSlice[offset:])
+
+	// first chunk written, move on to the next
+	sliceNdx++
+
+	// at this point we're staying at offset 0
+	blen := len(slices)
+	// while there are bytes to read (plen) and not at the last slice in the
+	// slice index
+	m := 0
+
+	for plen-n != 0 && sliceNdx < blen {
+		curSlice = slices[sliceNdx]
+
+		m = copy(bs[n:], curSlice)
+		// accounting: keep track of total number of bytes written and
+		// number of bytes written from the current slice
+		n += m
+
+		sliceNdx++
+	}
+
+	// if the slice index, sliceNdx is the last slice index in b and
+	// the offset plus all the bytes read
+	if sliceNdx == blen && m == len(curSlice) {
+		return n, io.EOF
+	}
+
+	return n, nil
 }
 
 func (b *bytesReadSeekCloser) Close() error {
