@@ -838,7 +838,7 @@ func TestMaybeCompactSingleEpoch_CompactionError(t *testing.T) {
 
 	idxCount := p.GetEpochAdvanceOnCountThreshold()
 	// Create sufficient indexes blobs and move clock forward to advance epoch.
-	for j := 0; j < 3; j++ {
+	for j := 0; j < 4; j++ {
 		for i := 0; i < idxCount; i++ {
 			if i == idxCount-1 {
 				// Advance the time so that the difference in times for writes will force
@@ -848,6 +848,8 @@ func TestMaybeCompactSingleEpoch_CompactionError(t *testing.T) {
 
 			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
 		}
+
+		require.NoError(t, te.mgr.MaybeAdvanceWriteEpoch(ctx))
 	}
 
 	compactionError := errors.New("test compaction error")
