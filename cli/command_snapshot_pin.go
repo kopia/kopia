@@ -17,8 +17,26 @@ type commandSnapshotPin struct {
 	snapshotIDs []string
 }
 
+const (
+	snapshotPinHelp = `Add or remove pins to preventing automatic snapshot deletion
+based on defined retention policy.
+Pinned snapshots can still be manually deleted using kopia snapshot delete.
+The ` + "`" + `--add` + "`" + ` or ` + "`" + `--remove` + "`" + `
+flag must be given with the pin name specified.
+Unpinned snapshots that don't have any retention tags will be deleted with
+the next snapshot create run. Snapshots can have more than 1 pin at a time.
+
+Snapshots can be pinned at creation time with the
+` + "`" + `--pin` + "`" + ` flag on
+
+` + "`" + `
+$ kopia snapshot create /path/to/example --pin keep_this_snapshot
+` + "`" + `
+`
+)
+
 func (c *commandSnapshotPin) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("pin", "Add or remove pins preventing snapshot deletion")
+	cmd := parent.Command("pin", snapshotPinHelp)
 	cmd.Flag("add", "Add pins").StringsVar(&c.addPins)
 	cmd.Flag("remove", "Remove pins").StringsVar(&c.removePins)
 	cmd.Arg("id", "Snapshot ID or root object ID").Required().StringsVar(&c.snapshotIDs)

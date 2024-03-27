@@ -14,7 +14,7 @@ type commandBenchmark struct {
 }
 
 func (c *commandBenchmark) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("benchmark", "Commands to test performance of algorithms.")
+	cmd := parent.Command("benchmark", "Commands to test performance of algorithms")
 
 	c.compression.setup(svc, cmd)
 	c.crypto.setup(svc, cmd)

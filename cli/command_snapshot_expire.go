@@ -18,7 +18,7 @@ type commandSnapshotExpire struct {
 }
 
 func (c *commandSnapshotExpire) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("expire", "Remove old snapshots according to defined expiration policies.")
+	cmd := parent.Command("expire", "Remove old snapshots according to defined retention policies.")
 
 	cmd.Flag("all", "Expire all snapshots").BoolVar(&c.snapshotExpireAll)
 	cmd.Arg("path", "Expire snapshots for given paths only").StringsVar(&c.snapshotExpirePaths)
