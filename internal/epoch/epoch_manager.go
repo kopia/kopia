@@ -1133,11 +1133,6 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 func allowWritesOnIndexLoad() bool {
 	v := strings.ToLower(os.Getenv("KOPIA_ALLOW_WRITE_ON_INDEX_LOAD"))
 
-	if v == "" {
-		// temporary default to be changed once index cleanup is performed on maintenance
-		return true
-	}
-
 	return v == "true" || v == "1"
 }
 
