@@ -31,10 +31,9 @@ type commandServerStart struct {
 
 	serverStartHTMLPath string
 
-	serverStartUI                  bool
-	serverStartLegacyRepositoryAPI bool
-	serverStartGRPC                bool
-	serverStartControlAPI          bool
+	serverStartUI         bool
+	serverStartGRPC       bool
+	serverStartControlAPI bool
 
 	serverStartRefreshInterval time.Duration
 	serverStartInsecure        bool
@@ -82,7 +81,6 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("html", "Server the provided HTML at the root URL").ExistingDirVar(&c.serverStartHTMLPath)
 	cmd.Flag("ui", "Start the server with HTML UI").Default("true").BoolVar(&c.serverStartUI)
 
-	cmd.Flag("legacy-api", "Start the legacy server API").Default("false").BoolVar(&c.serverStartLegacyRepositoryAPI)
 	cmd.Flag("grpc", "Start the GRPC server").Default("true").BoolVar(&c.serverStartGRPC)
 	cmd.Flag("control-api", "Start the control API").Default("true").BoolVar(&c.serverStartControlAPI)
 
@@ -276,10 +274,6 @@ func shutdownHTTPServer(ctx context.Context, httpServer *http.Server) {
 }
 
 func (c *commandServerStart) setupHandlers(srv *server.Server, m *mux.Router) {
-	if c.serverStartLegacyRepositoryAPI {
-		srv.SetupRepositoryAPIHandlers(m)
-	}
-
 	if c.serverStartControlAPI {
 		srv.SetupControlAPIHandlers(m)
 	}

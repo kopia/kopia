@@ -10,7 +10,6 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/passwordpersist"
-	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -26,24 +25,6 @@ import (
 )
 
 const syncConnectWaitTime = 5 * time.Second
-
-func handleRepoParameters(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	dr, ok := rc.rep.(repo.DirectRepository)
-	if !ok {
-		return &serverapi.StatusResponse{
-			Connected: false,
-		}, nil
-	}
-
-	rp := &remoterepoapi.Parameters{
-		HashFunction:               dr.ContentReader().ContentFormat().GetHashFunction(),
-		HMACSecret:                 dr.ContentReader().ContentFormat().GetHmacSecret(),
-		ObjectFormat:               dr.ObjectFormat(),
-		SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
-	}
-
-	return rp, nil
-}
 
 func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	if rc.rep == nil {
