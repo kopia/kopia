@@ -34,8 +34,18 @@ func RegisterKeyDerivationFunc(name string, keyDeriver keyDerivationFunc) {
 func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]byte, error) {
 	kdFunc, ok := keyDerivers[algorithm]
 	if !ok {
-		return nil, errors.Errorf("unsupported key algorithm: %v", algorithm)
+		return nil, errors.Errorf("unsupported key algorithm: %v, supported algorithms %v", algorithm, AllowedKeyDerivationAlgorithms())
 	}
 
 	return kdFunc(password, salt)
+}
+
+// AllowedKeyDerivationAlgorithms returns a slice of the allowed key derivation algorithms.
+func AllowedKeyDerivationAlgorithms() []string {
+	kdAlgorithms := make([]string, 0, len(keyDerivers))
+	for k := range keyDerivers {
+		kdAlgorithms = append(kdAlgorithms, k)
+	}
+
+	return kdAlgorithms
 }

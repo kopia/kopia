@@ -365,7 +365,7 @@ User accounts can be added using 'kopia server user add'.
 `)
 
 	// handle user accounts stored in the repository
-	authenticators = append(authenticators, auth.AuthenticateRepositoryUsers())
+	authenticators = append(authenticators, auth.AuthenticateRepositoryUsers(c.co.keyDerivationAlgorithm))
 
 	return auth.CombineAuthenticators(authenticators...), nil
 }

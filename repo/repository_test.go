@@ -861,7 +861,7 @@ func TestDeriveKey(t *testing.T) {
 
 	j := format.KopiaRepositoryJSON{
 		UniqueID:               uniqueID,
-		KeyDerivationAlgorithm: format.DefaultKeyDerivationAlgorithm,
+		KeyDerivationAlgorithm: crypto.DefaultKeyDerivationAlgorithm,
 	}
 
 	formatEncryptionKeyFromPassword, err := j.DeriveFormatEncryptionKeyFromPassword(repotesting.DefaultPasswordForTesting)

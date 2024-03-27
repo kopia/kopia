@@ -66,7 +66,7 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *format.KopiaRepositoryJSO
 		Tool:                   "https://github.com/kopia/kopia",
 		BuildInfo:              BuildInfo,
 		BuildVersion:           BuildVersion,
-		KeyDerivationAlgorithm: format.DefaultKeyDerivationAlgorithm,
+		KeyDerivationAlgorithm: opt.BlockFormat.KeyDerivationAlgorithm,
 		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, format.UniqueIDLengthBytes),
 		EncryptionAlgorithm:    format.DefaultFormatEncryption,
 	}
