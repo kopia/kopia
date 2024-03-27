@@ -864,6 +864,6 @@ func TestRestoreByPathWithoutTarget(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, originalData, data)
 
-	// Must pass snapshot time
-	e.RunAndExpectFailure(t, "restore", srcdir)
+	// Defaults to latest snapshot time
+	e.RunAndExpectSuccess(t, "restore", srcdir)
 }
