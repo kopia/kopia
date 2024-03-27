@@ -163,6 +163,13 @@ func TestGatherBytesReadSeeker(t *testing.T) {
 	reader := tmp.inner.Reader()
 	defer reader.Close() //nolint:errcheck
 
+	// TestReader tests that reading from r returns the expected file content.
+	// It does reads of different sizes, until EOF.
+	// If r implements [io.ReaderAt] or [io.Seeker], TestReader also checks
+	// that those operations behave as they should.
+	//
+	// If TestReader finds any misbehaviors, it returns an error reporting them.
+	// The error text may span multiple lines.
 	require.NoError(t, iotest.TestReader(reader, buf))
 
 	_, err := reader.Seek(-3, io.SeekStart)
