@@ -9,18 +9,18 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
-var log = logging.Module("repomodel")
+var log = logging.Module("repomodel") // +checklocksignore
 
 // OpenRepository models the behavior of an open repository.
 type OpenRepository struct {
-	RepoData *RepositoryData
+	mu sync.Mutex
 
-	ReadableContents  *TrackingSet[content.ID]
-	ReadableManifests *TrackingSet[manifest.ID]
+	RepoData          *RepositoryData           // +checklocksignore
+	ReadableContents  *TrackingSet[content.ID]  // +checklocksignore
+	ReadableManifests *TrackingSet[manifest.ID] // +checklocksignore
 
 	EnableMaintenance bool
 
-	mu     sync.Mutex
 	openID string
 }
 
