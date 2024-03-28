@@ -116,39 +116,39 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 	// Ensure that the iteration includes deleted contents, so those can be
 	// undeleted (recovered).
 	err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{IncludeDeleted: true}, func(ci content.Info) error {
-		if manifest.ContentPrefix == ci.GetContentID().Prefix() {
-			system.Add(int64(ci.GetPackedLength()))
+		if manifest.ContentPrefix == ci.ContentID.Prefix() {
+			system.Add(int64(ci.PackedLength))
 			return nil
 		}
 
 		var cidbuf [128]byte
 
-		if used.Contains(ci.GetContentID().Append(cidbuf[:0])) {
-			if ci.GetDeleted() {
-				if err := rep.ContentManager().UndeleteContent(ctx, ci.GetContentID()); err != nil {
+		if used.Contains(ci.ContentID.Append(cidbuf[:0])) {
+			if ci.Deleted {
+				if err := rep.ContentManager().UndeleteContent(ctx, ci.ContentID); err != nil {
 					return errors.Wrapf(err, "Could not undelete referenced content: %v", ci)
 				}
 
-				undeleted.Add(int64(ci.GetPackedLength()))
+				undeleted.Add(int64(ci.PackedLength))
 			}
 
-			inUse.Add(int64(ci.GetPackedLength()))
+			inUse.Add(int64(ci.PackedLength))
 
 			return nil
 		}
 
 		if maintenanceStartTime.Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
-			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.GetContentID(), ci.GetPackedLength(), ci.Timestamp())
-			tooRecent.Add(int64(ci.GetPackedLength()))
+			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ContentID, ci.PackedLength, ci.Timestamp())
+			tooRecent.Add(int64(ci.PackedLength))
 
 			return nil
 		}
 
-		log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.GetContentID(), ci.GetPackedLength(), ci.Timestamp())
-		cnt, totalSize := unused.Add(int64(ci.GetPackedLength()))
+		log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.ContentID, ci.PackedLength, ci.Timestamp())
+		cnt, totalSize := unused.Add(int64(ci.PackedLength))
 
 		if gcDelete {
-			if err := rep.ContentManager().DeleteContent(ctx, ci.GetContentID()); err != nil {
+			if err := rep.ContentManager().DeleteContent(ctx, ci.ContentID); err != nil {
 				return errors.Wrap(err, "error deleting content")
 			}
 		}

@@ -18,10 +18,10 @@ const (
 type Index interface {
 	io.Closer
 	ApproximateCount() int
-	GetInfo(contentID ID) (InfoReader, error)
+	GetInfo(contentID ID, result *Info) (bool, error)
 
 	// invoked the provided callback for all entries such that entry.ID >= startID and entry.ID < endID
-	Iterate(r IDRange, cb func(InfoReader) error) error
+	Iterate(r IDRange, cb func(Info) error) error
 }
 
 // Open reads an Index from a given reader. The caller must call Close() when the index is no longer used.

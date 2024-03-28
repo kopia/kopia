@@ -1,28 +1,40 @@
 package repomodel
 
-import "sync"
+import (
+	"context"
+	"sync"
+
+	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/repo/manifest"
+)
+
+var log = logging.Module("repomodel") // +checklocksignore
 
 // OpenRepository models the behavior of an open repository.
 type OpenRepository struct {
-	RepoData *RepositoryData
+	mu sync.Mutex
 
-	Contents  ContentSet
-	Manifests ManifestSet
+	RepoData          *RepositoryData           // +checklocksignore
+	ReadableContents  *TrackingSet[content.ID]  // +checklocksignore
+	ReadableManifests *TrackingSet[manifest.ID] // +checklocksignore
 
 	EnableMaintenance bool
 
-	mu sync.Mutex
+	openID string
 }
 
 // Refresh refreshes the set of committed Contents and manifest from repositor.
-func (o *OpenRepository) Refresh() {
-	o.Contents.Replace(o.RepoData.Contents.Snapshot().ids)
-	o.Manifests.Replace(o.RepoData.Manifests.Snapshot().ids)
+func (o *OpenRepository) Refresh(ctx context.Context, cids *TrackingSet[content.ID], mids *TrackingSet[manifest.ID]) {
+	o.ReadableContents.Replace(ctx, cids.ids)
+	o.ReadableManifests.Replace(ctx, mids.ids)
 }
 
 // NewSession creates new model for a session to access a repository.
-func (o *OpenRepository) NewSession() *RepositorySession {
+func (o *OpenRepository) NewSession(sessionID string) *RepositorySession {
 	return &RepositorySession{
-		OpenRepo: o,
+		OpenRepo:         o,
+		WrittenContents:  NewChangeSet[content.ID](o.openID + "-written-" + sessionID),
+		WrittenManifests: NewChangeSet[manifest.ID](o.openID + "-written-" + sessionID),
 	}
 }
