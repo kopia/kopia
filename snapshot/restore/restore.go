@@ -5,10 +5,12 @@ import (
 	"path"
 	"runtime"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
@@ -17,13 +19,16 @@ import (
 
 var log = logging.Module("restore")
 
+// FileWriteProgress is a callback used to report amount of data sent to the output.
+type FileWriteProgress func(chunkSize int64)
+
 // Output encapsulates output for restore operation.
 type Output interface {
 	Parallelizable() bool
 	BeginDirectory(ctx context.Context, relativePath string, e fs.Directory) error
 	WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error
 	FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error
-	WriteFile(ctx context.Context, relativePath string, e fs.File) error
+	WriteFile(ctx context.Context, relativePath string, e fs.File, progressCb FileWriteProgress) error
 	FileExists(ctx context.Context, relativePath string, e fs.File) bool
 	CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error
 	SymlinkExists(ctx context.Context, relativePath string, e fs.Symlink) bool
@@ -78,6 +83,9 @@ func (s *statsInternal) clone() Stats {
 	}
 }
 
+// ProgressCallback is a callback used to report progress of snapshot restore.
+type ProgressCallback func(ctx context.Context, s Stats)
+
 // Options provides optional restore parameters.
 type Options struct {
 	// NOTE: this structure is passed as-is from the UI, make sure to add
@@ -88,8 +96,8 @@ type Options struct {
 	RestoreDirEntryAtDepth int32 `json:"restoreDirEntryAtDepth"`
 	MinSizeForPlaceholder  int32 `json:"minSizeForPlaceholder"`
 
-	ProgressCallback func(ctx context.Context, s Stats) `json:"-"`
-	Cancel           chan struct{}                      `json:"-"` // channel that can be externally closed to signal cancellation
+	ProgressCallback ProgressCallback `json:"-"`
+	Cancel           chan struct{}    `json:"-"` // channel that can be externally closed to signal cancellation
 }
 
 // Entry walks a snapshot root with given root entry and restores it to the provided output.
@@ -97,18 +105,17 @@ type Options struct {
 //nolint:revive
 func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs.Entry, options Options) (Stats, error) {
 	c := copier{
-		output:        output,
-		shallowoutput: makeShallowFilesystemOutput(output, options),
-		q:             parallelwork.NewQueue(),
-		incremental:   options.Incremental,
-		ignoreErrors:  options.IgnoreErrors,
-		cancel:        options.Cancel,
+		output:           output,
+		shallowoutput:    makeShallowFilesystemOutput(output, options),
+		q:                parallelwork.NewQueue(),
+		incremental:      options.Incremental,
+		ignoreErrors:     options.IgnoreErrors,
+		cancel:           options.Cancel,
+		progressCallback: options.ProgressCallback,
 	}
 
 	c.q.ProgressCallback = func(ctx context.Context, enqueued, active, completed int64) {
-		if options.ProgressCallback != nil {
-			options.ProgressCallback(ctx, c.stats.clone())
-		}
+		c.reportProgress(ctx)
 	}
 
 	// Control the depth of a restore. Default (options.MaxDepth = 0) is to restore to full depth.
@@ -146,6 +153,25 @@ type copier struct {
 	incremental   bool
 	ignoreErrors  bool
 	cancel        chan struct{}
+
+	progressCallback ProgressCallback
+	nextReportTime   time.Time
+}
+
+func (c *copier) maybeReportProgress(ctx context.Context) {
+	if clock.Now().Before(c.nextReportTime) {
+		return
+	}
+
+	c.nextReportTime = clock.Now().Add(1 * time.Second)
+
+	c.reportProgress(ctx)
+}
+
+func (c *copier) reportProgress(ctx context.Context) {
+	if c.progressCallback != nil {
+		c.progressCallback(ctx, c.stats.clone())
+	}
 }
 
 func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int32, onCompletion func() error) error {
@@ -203,18 +229,26 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 	case fs.File:
 		log(ctx).Debugf("file: '%v'", targetPath)
 
-		c.stats.RestoredFileCount.Add(1)
-		c.stats.RestoredTotalFileSize.Add(e.Size())
+		bytesExpected := e.Size()
+		bytesWritten := int64(0)
+		progressCallback := func(chunkSize int64) {
+			bytesWritten += chunkSize
+			c.stats.RestoredTotalFileSize.Add(chunkSize)
+			c.maybeReportProgress(ctx)
+		}
 
 		if currentdepth > maxdepth {
-			if err := c.shallowoutput.WriteFile(ctx, targetPath, e); err != nil {
+			if err := c.shallowoutput.WriteFile(ctx, targetPath, e, progressCallback); err != nil {
 				return errors.Wrap(err, "copy file")
 			}
 		} else {
-			if err := c.output.WriteFile(ctx, targetPath, e); err != nil {
+			if err := c.output.WriteFile(ctx, targetPath, e, progressCallback); err != nil {
 				return errors.Wrap(err, "copy file")
 			}
 		}
+
+		c.stats.RestoredFileCount.Add(1)
+		c.stats.RestoredTotalFileSize.Add(bytesExpected - bytesWritten)
 
 		return onCompletion()
 
