@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"sort"
 
 	"github.com/pkg/errors"
@@ -738,7 +737,6 @@ func openV2PackIndex(data []byte, closer func() error) (Index, error) {
 		}
 
 		packIDs[i] = blob.ID(nameBuf)
-		log.Printf("pack %v: %v", i, packIDs[i])
 	}
 
 	return &indexV2{
