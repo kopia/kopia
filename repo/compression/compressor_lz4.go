@@ -4,7 +4,7 @@ import (
 	"io"
 	"sync"
 
-	"github.com/pierrec/lz4"
+	"github.com/pierrec/lz4/v4"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/iocopy"
