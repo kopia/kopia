@@ -298,7 +298,8 @@ func TestGatherBytesReaderAtVariableInputBufferSizes(t *testing.T) {
 	for chunkSizeMultiplier := inputBufferMaxMultiplier - 0.9; chunkSizeMultiplier < inputBufferMaxMultiplier; chunkSizeMultiplier += 0.1 {
 		testCases = append(testCases, testCase{
 			fmt.Sprintf("%.1fx", chunkSizeMultiplier),
-			int(float64(defaultAllocator.chunkSize) * chunkSizeMultiplier)},
+			int(float64(defaultAllocator.chunkSize) * chunkSizeMultiplier),
+		},
 		)
 	}
 
