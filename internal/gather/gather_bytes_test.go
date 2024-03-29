@@ -289,6 +289,8 @@ func TestGatherBytesReaderAtVariableInputBufferSizes(t *testing.T) {
 			preRdr := preWrt.inner.Reader()
 			_, ok := preRdr.(io.ReaderAt)
 			require.Truef(t, ok, "MUST implement io.ReaderAt, chunkSizeMultiplier: %f", chunkSizeMultiplier)
+			
+			// execute standard ReadAt tests.
 			require.NoErrorf(t, iotest.TestReader(preRdr, buf),
 				"iotest failed, chunkSizeMultiplier: %f", chunkSizeMultiplier)
 		})
