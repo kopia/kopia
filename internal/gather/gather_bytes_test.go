@@ -256,41 +256,79 @@ func TestGatherBytesReaderAtVariableInputBufferSizes(t *testing.T) {
 		contentBuf[i] = uint8(i % math.MaxUint8)
 	}
 
+	type testCase struct {
+		name            string
+		inputBufferSize int
+	}
 	// Test some interesting input buffer sizes from a minimum three
 	// times the size of the internal allocator byte slices.
-	//
-	// The idea here is to exercise the part of the buffer ReaderAt
-	// implementation where it has a longer buffer size than the size of the
-	// internal chunks of the buffer implementation. When we do this, the
-	// ReaderAt is forced to draw more data than it actually can from the
-	// first slice it found after searching for the current pointer in read
-	// cycle. Finally, it should increment the read index correctly.
+	testCases := []testCase{
+		{"1", 1},
+		{"0.5x", int(0.5 * float64(defaultAllocator.chunkSize))},
+
+		{"x-1", defaultAllocator.chunkSize - 1},
+		{"x", defaultAllocator.chunkSize},
+		{"x+1", defaultAllocator.chunkSize + 1},
+		{"1.5x", int(1.5 * float64(defaultAllocator.chunkSize))},
+
+		{"2x-1", 2*defaultAllocator.chunkSize - 1},
+		{"2x", 2 * defaultAllocator.chunkSize},
+		{"2x+1", 2*defaultAllocator.chunkSize + 1},
+		{"2.5x", int(2.5 * float64(defaultAllocator.chunkSize))},
+
+		{"3x-1", 3*defaultAllocator.chunkSize - 1},
+		{"3x", 3 * defaultAllocator.chunkSize},
+		{"3x+1", 3*defaultAllocator.chunkSize + 1},
+		// The 3.5x is already tested later in this code
+		// {"3.5x", int(3.5 * float64(defaultAllocator.chunkSize))},
+
+		{"4x-1", 4*defaultAllocator.chunkSize - 1},
+		{"4x", 4 * defaultAllocator.chunkSize},
+	}
+
+	// Test the third buffer slice. The idea here is to exercise the part of
+	// the buffer ReaderAt implementation where it has a longer buffer size
+	// than the size of the internal chunks of the buffer implementation. When
+	// we do this, the ReaderAt is forced to draw more data than it actually
+	// can from the first slice it found after searching for the current
+	// pointer in read cycle. Finally, it should increment the read index
+	// correctly.
 	//
 	// x.1 ... x.9
 	for chunkSizeMultiplier := inputBufferMaxMultiplier - 0.9; chunkSizeMultiplier < inputBufferMaxMultiplier; chunkSizeMultiplier += 0.1 {
-		t.Run(fmt.Sprintf("%.1f", chunkSizeMultiplier), func(t *testing.T) {
+		testCases = append(testCases, testCase{
+			fmt.Sprintf("%.1fx", chunkSizeMultiplier),
+			int(float64(defaultAllocator.chunkSize) * chunkSizeMultiplier)},
+		)
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
 			// each test should have its own writer because t.Run() can be
 			// parallelized
 			var preWrt WriteBuffer
 			defer preWrt.Close()
 
 			// assert some preconditions that the reader conforms to ReaderAt
-			buf := contentBuf[:int(float64(defaultAllocator.chunkSize)*chunkSizeMultiplier)]
+			buf := contentBuf[:tc.inputBufferSize]
 
 			// write the generated data
 			n, err := preWrt.Write(buf)
-			require.NoErrorf(t, err, "Write() faiiled, chunkSizeMultiplier: %f", chunkSizeMultiplier)
+			require.NoErrorf(t, err, "Write() faiiled, inputBufferSize: %8", tc.inputBufferSize)
 			require.Equalf(t, defaultAllocator.chunkSize, preWrt.alloc.chunkSize,
 				"this test expects that the default-allocator will be used, but we are using: %#v", preWrt.alloc)
 
-			require.Lenf(t, buf, n, "unexpected size of data written, chunkSizeMultiplier: %f", chunkSizeMultiplier)
+			require.Lenf(t, buf, n, "unexpected size of data written, inputBufferSize: %d", tc.inputBufferSize)
 
 			// get the reader out of the WriteBuffer so we can read what was written
 			preRdr := preWrt.inner.Reader()
 			_, ok := preRdr.(io.ReaderAt)
-			require.Truef(t, ok, "MUST implement io.ReaderAt, chunkSizeMultiplier: %f", chunkSizeMultiplier)
+			require.Truef(t, ok, "MUST implement io.ReaderAt, inputBufferSize: %d", tc.inputBufferSize)
+
+			// TEST READER; using golang iotest package, this will perform tests
+			// with various read sizes.
 			require.NoErrorf(t, iotest.TestReader(preRdr, buf),
-				"iotest failed, chunkSizeMultiplier: %f", chunkSizeMultiplier)
+				"iotest failed, inputBufferSize: %d", tc.inputBufferSize)
 		})
 	}
 }
