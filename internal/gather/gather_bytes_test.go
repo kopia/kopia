@@ -182,27 +182,12 @@ func TestGatherBytesReadSeeker(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestGatherBytesReaderAt(t *testing.T) {
-	// assert some preconditions that the reader conforms to ReaderAt
-	contentBuf := make([]byte, 1234567)
+func TestGatherBytesReaderAtErrorResponses(t *testing.T) {
+	// 3.7 times the internal chunk size
+	contentBuf := make([]byte, int(float64(defaultAllocator.chunkSize)*3.7))
 	for i := range contentBuf {
 		contentBuf[i] = uint8(i % math.MaxUint8)
 	}
-
-	// write the generated data
-	var preWrt WriteBuffer
-	defer preWrt.Close()
-
-	n, err := preWrt.Write(contentBuf)
-	require.NoError(t, err)
-
-	require.Len(t, contentBuf, n)
-
-	// get the reader out of the WriteBuffer so we can read what was written
-	preRdr := preWrt.inner.Reader()
-	_, ok := preRdr.(io.ReaderAt)
-	require.True(t, ok)
-	require.NoError(t, iotest.TestReader(preRdr, contentBuf))
 
 	tcs := []struct {
 		inBsLen   int
@@ -242,6 +227,8 @@ func TestGatherBytesReaderAt(t *testing.T) {
 			defer wrt.Close()
 
 			wrt.Append(contentBuf)
+			require.Equalf(t, defaultAllocator.chunkSize, wrt.alloc.chunkSize,
+				"this test expects that the default-allocator will be used, but we are using: %#v", wrt.alloc)
 
 			// get the reader out of the WriteBuffer so we can read what was written
 			// (presume all 0s)
@@ -257,6 +244,53 @@ func TestGatherBytesReaderAt(t *testing.T) {
 			n, err := readerAt.ReadAt(bs, tc.inOff)
 			require.ErrorIs(t, err, tc.expectErr)
 			require.Equal(t, tc.expectN, n)
+		})
+	}
+}
+
+func TestGatherBytesReaderAtVariableInputBufferSizes(t *testing.T) {
+	const inputBufferMaxMultiplier = 4.0 // maximum number of times the internal chunk size
+
+	contentBuf := make([]byte, defaultAllocator.chunkSize*inputBufferMaxMultiplier)
+	for i := range contentBuf {
+		contentBuf[i] = uint8(i % math.MaxUint8)
+	}
+
+	// Test some interesting input buffer sizes from a minimum three
+	// times the size of the internal allocator byte slices.
+	//
+	// The idea here is to exercise the part of the buffer ReaderAt
+	// implementation where it has a longer buffer size than the size of the
+	// internal chunks of the buffer implementation. When we do this, the
+	// ReaderAt is forced to draw more data than it actually can from the
+	// first slice it found after searching for the current pointer in read
+	// cycle. Finally, it should increment the read index correctly.
+	//
+	// x.1 ... x.9
+	for chunkSizeMultiplier := inputBufferMaxMultiplier - 0.9; chunkSizeMultiplier < inputBufferMaxMultiplier; chunkSizeMultiplier += 0.1 {
+		t.Run(fmt.Sprintf("%.1f", chunkSizeMultiplier), func(t *testing.T) {
+			// each test should have its own writer because t.Run() can be
+			// parallelized
+			var preWrt WriteBuffer
+			defer preWrt.Close()
+
+			// assert some preconditions that the reader conforms to ReaderAt
+			buf := contentBuf[:int(float64(defaultAllocator.chunkSize)*chunkSizeMultiplier)]
+
+			// write the generated data
+			n, err := preWrt.Write(buf)
+			require.NoErrorf(t, err, "Write() faiiled, chunkSizeMultiplier: %f", chunkSizeMultiplier)
+			require.Equalf(t, defaultAllocator.chunkSize, preWrt.alloc.chunkSize,
+				"this test expects that the default-allocator will be used, but we are using: %#v", preWrt.alloc)
+
+			require.Lenf(t, buf, n, "unexpected size of data written, chunkSizeMultiplier: %f", chunkSizeMultiplier)
+
+			// get the reader out of the WriteBuffer so we can read what was written
+			preRdr := preWrt.inner.Reader()
+			_, ok := preRdr.(io.ReaderAt)
+			require.Truef(t, ok, "MUST implement io.ReaderAt, chunkSizeMultiplier: %f", chunkSizeMultiplier)
+			require.NoErrorf(t, iotest.TestReader(preRdr, buf),
+				"iotest failed, chunkSizeMultiplier: %f", chunkSizeMultiplier)
 		})
 	}
 }
