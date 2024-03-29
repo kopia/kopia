@@ -325,8 +325,7 @@ func TestGatherBytesReaderAtVariableInputBufferSizes(t *testing.T) {
 			_, ok := preRdr.(io.ReaderAt)
 			require.Truef(t, ok, "MUST implement io.ReaderAt, inputBufferSize: %d", tc.inputBufferSize)
 
-			// TEST READER; using golang iotest package, this will perform tests
-			// with various read sizes.
+			// execute standard ReadAt tests.
 			require.NoErrorf(t, iotest.TestReader(preRdr, buf),
 				"iotest failed, inputBufferSize: %d", tc.inputBufferSize)
 		})
