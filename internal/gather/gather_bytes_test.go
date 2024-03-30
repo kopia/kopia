@@ -279,8 +279,6 @@ func TestGatherBytesReaderAtVariableInputBufferSizes(t *testing.T) {
 		{"3x-1", 3*defaultAllocator.chunkSize - 1},
 		{"3x", 3 * defaultAllocator.chunkSize},
 		{"3x+1", 3*defaultAllocator.chunkSize + 1},
-		// The 3.5x is already tested later in this code
-		// {"3.5x", int(3.5 * float64(defaultAllocator.chunkSize))},
 
 		{"4x-1", 4*defaultAllocator.chunkSize - 1},
 		{"4x", 4 * defaultAllocator.chunkSize},
