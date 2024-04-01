@@ -133,7 +133,7 @@ func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
 	// source data that is read will be written to w, the buffer backed by p.
 	offset := off
 
-	maxSliceNdx := len(bs)
+	maxBsIndex := len(bs)
 
 	// negative offsets result in an error
 	if offset < 0 {
@@ -143,20 +143,20 @@ func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
 	sliceNdx := -1
 
 	// find the index of starting slice
-	for i, bs := range slices {
-		if offset < int64(len(bs)) {
+	for i, slicesBuf := range slices {
+		if offset < int64(len(slicesBuf)) {
 			sliceNdx = i
 			break
 		}
 
 		// update offset to be relative to the sliceNdx slice
-		offset -= int64(len(bs))
+		offset -= int64(len(slicesBuf))
 	}
 
 	// no slice found if sliceNdx is still negative
 	if sliceNdx == -1 {
 		// return no bytes read if the buffer has no length
-		if maxSliceNdx == 0 {
+		if maxBsIndex == 0 {
 			return 0, nil
 		}
 
@@ -165,23 +165,25 @@ func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
 
 	curSlice := slices[sliceNdx]
 
-	n := copy(bs, curSlice[offset:])
-	m := n
+	m := copy(bs, curSlice[offset:])
+	// accounting: keep track of total number of bytes written in n and
+	// number of bytes written from the current slice in m
+	n := m
 
-	// if we were able to consume the entire slice then move to the next slice
-	// first chunk written, move on to the next
+	// move on to next and then check if all slices were consumed
 	sliceNdx++
 
 	slicesN := len(slices)
 
-	for maxSliceNdx > n && sliceNdx < slicesN {
+	for maxBsIndex > n && sliceNdx < slicesN {
 		curSlice = slices[sliceNdx]
 
 		m = copy(bs[n:], curSlice)
-		// accounting: keep track of total number of bytes written and
-		// number of bytes written from the current slice
+		// accounting: keep track of total number of bytes written in n and
+		// number of bytes written from the current slice in m
 		n += m
 
+		// move on to next and then check if all slices were consumed
 		sliceNdx++
 	}
 
