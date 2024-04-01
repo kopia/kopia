@@ -133,7 +133,7 @@ func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
 	// source data that is read will be written to w, the buffer backed by p.
 	offset := off
 
-	plen := len(bs)
+	maxSliceNdx := len(bs)
 
 	// negative offsets result in an error
 	if offset < 0 {
@@ -156,7 +156,7 @@ func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
 	// no slice found if sliceNdx is still negative
 	if sliceNdx == -1 {
 		// return no bytes read if the buffer has no length
-		if plen == 0 {
+		if maxSliceNdx == 0 {
 			return 0, nil
 		}
 
@@ -166,31 +166,28 @@ func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
 	curSlice := slices[sliceNdx]
 
 	n := copy(bs, curSlice[offset:])
+	m := n
 
 	// if we were able to consume the entire slice then move to the next slice
-	if int64(n) == (int64(len(curSlice)) - offset) {
-		// first chunk written, move on to the next
-		sliceNdx++
-	}
+	// first chunk written, move on to the next
+	sliceNdx++
 
-	blen := len(slices)
+	slicesN := len(slices)
 
-	for n < plen && sliceNdx < blen {
+	for maxSliceNdx > n && sliceNdx < slicesN {
 		curSlice = slices[sliceNdx]
 
-		m := copy(bs[n:], curSlice)
+		m = copy(bs[n:], curSlice)
 		// accounting: keep track of total number of bytes written and
 		// number of bytes written from the current slice
 		n += m
 
-		if len(curSlice) == m {
-			sliceNdx++
-		}
+		sliceNdx++
 	}
 
 	// if we have run out of slices but the input buffer is still not
 	// consumed completely then it means we have hit an EOF
-	if sliceNdx == blen && n < len(bs) {
+	if sliceNdx == slicesN && m == len(curSlice) {
 		return n, io.EOF
 	}
 
