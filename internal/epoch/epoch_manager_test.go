@@ -408,6 +408,89 @@ func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 	assert.Nil(t, loadedErr.Load(), "refreshing read-only index")
 }
 
+func TestNoEpochAdvanceOnIndexRead(t *testing.T) {
+	const epochs = 3
+
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	te := newTestEnv(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	count := p.GetEpochAdvanceOnCountThreshold()
+	minDuration := p.MinEpochDuration
+
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 0, cs.WriteEpoch, "write epoch mismatch")
+
+	// Write enough index blobs such that the next time the manager loads
+	// indexes it should attempt to advance the epoch.
+	// Write exactly the number of index blobs that will cause it to advance so
+	// we can keep track of which one is the current epoch.
+	for j := 0; j < epochs; j++ {
+		for i := 0; i < count-1; i++ {
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
+		}
+
+		te.ft.Advance(3*minDuration + time.Second)
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(count-1))
+		// this could advance the epoch on write
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(count-1))
+	}
+
+	te.mgr.Invalidate()
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+
+	te.mgr.Flush() // wait for background work
+
+	// get written lastWriteEpoch markers if any
+	var (
+		lastWriteEpoch int
+		epochMarkers   []blob.ID
+		deletedMarker  blob.ID
+	)
+
+	te.st.ListBlobs(ctx, EpochMarkerIndexBlobPrefix, func(bm blob.Metadata) error {
+		epochMarkers = append(epochMarkers, bm.BlobID)
+
+		return nil
+	})
+
+	t.Log("epoch marker blobs:", epochMarkers)
+
+	if emLen := len(epochMarkers); emLen > 0 {
+		var ok bool // to prevent shadowing 'lastWriteEpoch' below
+
+		deletedMarker = epochMarkers[emLen-1]
+		lastWriteEpoch, ok = epochNumberFromBlobID(deletedMarker)
+
+		require.True(t, ok, "could not parse epoch from marker blob")
+	}
+
+	require.Equal(t, 0, lastWriteEpoch, "epoch should NOT have advanced")
+
+	// reload indexes
+	te.mgr.Invalidate()
+
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+
+	// wait for any background work, there shouldn't be any
+	te.mgr.backgroundWork.Wait()
+
+	require.Equal(t, 0, cs.WriteEpoch, "epoch should NOT have advanced")
+
+	te.st.ListBlobs(ctx, EpochMarkerIndexBlobPrefix, func(bm blob.Metadata) error {
+		t.Fatal("deleted epoch marker should NOT be found in the store:", deletedMarker)
+
+		return nil
+	})
+}
+
 func TestRefreshRetriesIfTakingTooLong(t *testing.T) {
 	te := newTestEnv(t)
 
@@ -838,7 +921,7 @@ func TestMaybeCompactSingleEpoch_CompactionError(t *testing.T) {
 
 	idxCount := p.GetEpochAdvanceOnCountThreshold()
 	// Create sufficient indexes blobs and move clock forward to advance epoch.
-	for j := 0; j < 3; j++ {
+	for j := 0; j < 4; j++ {
 		for i := 0; i < idxCount; i++ {
 			if i == idxCount-1 {
 				// Advance the time so that the difference in times for writes will force
@@ -848,6 +931,8 @@ func TestMaybeCompactSingleEpoch_CompactionError(t *testing.T) {
 
 			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
 		}
+
+		require.NoError(t, te.mgr.MaybeAdvanceWriteEpoch(ctx))
 	}
 
 	compactionError := errors.New("test compaction error")
