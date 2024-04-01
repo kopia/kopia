@@ -163,8 +163,10 @@ func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 
+	// save off our working slice as curSlice
 	curSlice := slices[sliceNdx]
 
+	// copy the requested bytes from curSlice into bs (reader output)
 	m := copy(bs, curSlice[offset:])
 	// accounting: keep track of total number of bytes written in n and
 	// number of bytes written from the current slice in m
@@ -175,11 +177,16 @@ func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
 
 	slicesN := len(slices)
 
+	// while there are more bytes to read (maxBsIndex > n) and there are more
+	// slices left (sliceNdx < slicesN)
 	for maxBsIndex > n && sliceNdx < slicesN {
+		// get a new working slice
 		curSlice = slices[sliceNdx]
 
+		// copy what we can from the current slice into our destination.
+		// (no need to keep track of offset within curSlice)
 		m = copy(bs[n:], curSlice)
-		// accounting: keep track of total number of bytes written in n and
+		// keep track of total number of bytes written in n and
 		// number of bytes written from the current slice in m
 		n += m
 
