@@ -260,8 +260,9 @@ func TestGatherBytesReaderAtVariableInputBufferSizes(t *testing.T) {
 		name            string
 		inputBufferSize int
 	}
-	// Test some interesting input buffer sizes from a minimum three
-	// times the size of the internal allocator byte slices.
+
+	// Test some interesting input buffer sizes from a 1-byte buffer to many
+	// multiples of the internal allocator chunk size.
 	testCases := []testCase{
 		{"1", 1},
 		{"0.5x", int(0.5 * float64(defaultAllocator.chunkSize))},
@@ -279,8 +280,6 @@ func TestGatherBytesReaderAtVariableInputBufferSizes(t *testing.T) {
 		{"3x-1", 3*defaultAllocator.chunkSize - 1},
 		{"3x", 3 * defaultAllocator.chunkSize},
 		{"3x+1", 3*defaultAllocator.chunkSize + 1},
-		// The 3.5x is already tested later in this code
-		// {"3.5x", int(3.5 * float64(defaultAllocator.chunkSize))},
 
 		{"4x-1", 4*defaultAllocator.chunkSize - 1},
 		{"4x", 4 * defaultAllocator.chunkSize},
