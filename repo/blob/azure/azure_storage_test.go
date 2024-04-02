@@ -67,7 +67,7 @@ func createContainer(t *testing.T, container, storageAccount, storageKey string)
 	}
 
 	// return if already exists
-	if bloberror.HasCode(err, bloberror.ResourceAlreadyExists) {
+	if bloberror.HasCode(err, bloberror.ContainerAlreadyExists) {
 		return
 	}
 
