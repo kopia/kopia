@@ -3,6 +3,7 @@ package snapshotfs
 import (
 	"bytes"
 	"context"
+	stderrors "errors"
 	"io"
 	"math/rand"
 	"os"
@@ -18,7 +19,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/multierr"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -202,7 +202,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	wg.Wait()
 
 	// see if we got any errors
-	if err := multierr.Combine(partErrors...); err != nil {
+	if err := stderrors.Join(partErrors...); err != nil {
 		return nil, errors.Wrap(err, "error uploading parts")
 	}
 
@@ -249,7 +249,6 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 	defer writer.Close() //nolint:errcheck
 
 	parentCheckpointRegistry.addCheckpointCallback(fname, func() (*snapshot.DirEntry, error) {
-		//nolint:govet
 		checkpointID, err := writer.Checkpoint()
 		if err != nil {
 			return nil, errors.Wrap(err, "checkpoint error")

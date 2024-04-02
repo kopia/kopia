@@ -82,7 +82,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("html", "Server the provided HTML at the root URL").ExistingDirVar(&c.serverStartHTMLPath)
 	cmd.Flag("ui", "Start the server with HTML UI").Default("true").BoolVar(&c.serverStartUI)
 
-	cmd.Flag("legacy-api", "Start the legacy server API").Default("true").BoolVar(&c.serverStartLegacyRepositoryAPI)
+	cmd.Flag("legacy-api", "Start the legacy server API").Default("false").BoolVar(&c.serverStartLegacyRepositoryAPI)
 	cmd.Flag("grpc", "Start the GRPC server").Default("true").BoolVar(&c.serverStartGRPC)
 	cmd.Flag("control-api", "Start the control API").Default("true").BoolVar(&c.serverStartControlAPI)
 
@@ -165,7 +165,6 @@ func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Op
 
 func (c *commandServerStart) initRepositoryPossiblyAsync(ctx context.Context, srv *server.Server) error {
 	initialize := func(ctx context.Context) (repo.Repository, error) {
-		//nolint:wrapcheck
 		return c.svc.openRepository(ctx, false)
 	}
 

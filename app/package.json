@@ -4,9 +4,9 @@
   "repository": "github:kopia/kopia",
   "dependencies": {
     "auto-launch": "^5.0.6",
-    "electron-log": "^5.1.1",
+    "electron-log": "^5.1.2",
     "electron-updater": "^6.1.8",
-    "electron-store": "^8.1.0",
+    "electron-store": "^8.2.0",
     "minimist": "^1.2.8",
     "semver": "^7.6.0",
     "uuid": "^9.0.1"
@@ -115,8 +115,8 @@
     "asar": "^3.2.0",
     "concurrently": "^8.2.2",
     "dotenv": "^16.4.5",
-    "electron": "^29.1.0",
-    "electron-store": "^8.1.0",
+    "electron": "^29.1.6",
+    "electron-store": "^8.2.0",
     "electron-builder": "^24.13.3",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1"

@@ -116,8 +116,8 @@ func TestListAndDeleteSnapshots(t *testing.T) {
 		},
 	}, &serverapi.Empty{}))
 
-	badReq := apiclient.HTTPStatusError{HTTPStatusCode: 400, ErrorMessage: "400 Bad Request"}
-	serverError := apiclient.HTTPStatusError{HTTPStatusCode: 500, ErrorMessage: "500 Internal Server Error"}
+	badReq := apiclient.HTTPStatusError{HTTPStatusCode: 400, ErrorMessage: "400 Bad Request: unknown source"}
+	serverError := apiclient.HTTPStatusError{HTTPStatusCode: 500, ErrorMessage: "500 Internal Server Error: internal server error: source info does not match snapshot source"}
 
 	// make sure when deleting snapshot by ID the source must match
 	require.ErrorIs(t, cli.Post(ctx, "snapshots/delete", &serverapi.DeleteSnapshotsRequest{

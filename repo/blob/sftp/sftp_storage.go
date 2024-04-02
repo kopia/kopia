@@ -324,7 +324,6 @@ func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, fullPath strin
 
 func (s *sftpImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
 	return connection.UsingConnection(ctx, s.rec, "ReadDir", func(conn connection.Connection) ([]os.FileInfo, error) {
-		//nolint:wrapcheck
 		return sftpClientFromConnection(conn).ReadDir(dirname)
 	})
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
@@ -36,16 +37,20 @@ type TaskType string
 
 // Task IDs.
 const (
-	TaskSnapshotGarbageCollection   = "snapshot-gc"
-	TaskDeleteOrphanedBlobsQuick    = "quick-delete-blobs"
-	TaskDeleteOrphanedBlobsFull     = "full-delete-blobs"
-	TaskRewriteContentsQuick        = "quick-rewrite-contents"
-	TaskRewriteContentsFull         = "full-rewrite-contents"
-	TaskDropDeletedContentsFull     = "full-drop-deleted-content"
-	TaskIndexCompaction             = "index-compaction"
-	TaskExtendBlobRetentionTimeFull = "extend-blob-retention-time"
-	TaskCleanupLogs                 = "cleanup-logs"
-	TaskCleanupEpochManager         = "cleanup-epoch-manager"
+	TaskSnapshotGarbageCollection    = "snapshot-gc"
+	TaskDeleteOrphanedBlobsQuick     = "quick-delete-blobs"
+	TaskDeleteOrphanedBlobsFull      = "full-delete-blobs"
+	TaskRewriteContentsQuick         = "quick-rewrite-contents"
+	TaskRewriteContentsFull          = "full-rewrite-contents"
+	TaskDropDeletedContentsFull      = "full-drop-deleted-content"
+	TaskIndexCompaction              = "index-compaction"
+	TaskExtendBlobRetentionTimeFull  = "extend-blob-retention-time"
+	TaskCleanupLogs                  = "cleanup-logs"
+	TaskEpochAdvance                 = "advance-epoch"
+	TaskEpochDeleteSupersededIndexes = "delete-superseded-epoch-indexes"
+	TaskEpochCleanupMarkers          = "cleanup-epoch-markers"
+	TaskEpochGenerateRange           = "generate-epoch-range-index"
+	TaskEpochCompactSingle           = "compact-single-epoch"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -294,6 +299,10 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		notDeletingOrphanedBlobs(ctx, s, safety)
 	}
 
+	if err := runTaskEpochMaintenanceQuick(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error running quick epoch maintenance tasks")
+	}
+
 	// consolidate many smaller indexes into fewer larger ones.
 	if err := runTaskIndexCompactionQuick(ctx, runParams, s, safety); err != nil {
 		return errors.Wrap(err, "error performing index compaction")
@@ -327,19 +336,78 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 	})
 }
 
-func runTaskCleanupEpochManager(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	em, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
+func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
+	return ReportRun(ctx, runParams.rep, TaskEpochAdvance, s, func() error {
+		log(ctx).Infof("Cleaning up no-longer-needed epoch markers...")
+		return errors.Wrap(em.MaybeAdvanceWriteEpoch(ctx), "error advancing epoch marker")
+	})
+}
+
+func runTaskEpochMaintenanceQuick(ctx context.Context, runParams RunParameters, s *Schedule) error {
+	em, hasEpochManager, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if emerr != nil {
 		return errors.Wrap(emerr, "epoch manager")
 	}
 
-	if !ok {
+	if !hasEpochManager {
 		return nil
 	}
 
-	return ReportRun(ctx, runParams.rep, TaskCleanupEpochManager, s, func() error {
+	err := ReportRun(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
+		log(ctx).Infof("Compacting an eligible uncompacted epoch...")
+		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
+	})
+	if err != nil {
+		return err
+	}
+
+	return runTaskEpochAdvance(ctx, em, runParams, s)
+}
+
+func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
+	em, hasEpochManager, emerr := runParams.rep.ContentManager().EpochManager(ctx)
+	if emerr != nil {
+		return errors.Wrap(emerr, "epoch manager")
+	}
+
+	if !hasEpochManager {
+		return nil
+	}
+
+	// compact a single epoch
+	if err := ReportRun(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
+		log(ctx).Infof("Compacting an eligible uncompacted epoch...")
+		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
+	}); err != nil {
+		return err
+	}
+
+	if err := runTaskEpochAdvance(ctx, em, runParams, s); err != nil {
+		return err
+	}
+
+	// compact range
+	if err := ReportRun(ctx, runParams.rep, TaskEpochGenerateRange, s, func() error {
+		log(ctx).Infof("Attempting to compact a range of epoch indexes ...")
+
+		return errors.Wrap(em.MaybeGenerateRangeCheckpoint(ctx), "error creating epoch range indexes")
+	}); err != nil {
+		return err
+	}
+
+	// clean up epoch markers
+	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() error {
+		log(ctx).Infof("Cleaning up unneeded epoch markers...")
+
+		return errors.Wrap(em.CleanupMarkers(ctx), "error removing epoch markers")
+	})
+	if err != nil {
+		return err
+	}
+
+	return ReportRun(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() error {
 		log(ctx).Infof("Cleaning up old index blobs which have already been compacted...")
-		return errors.Wrap(em.CleanupSupersededIndexes(ctx), "error cleaning up superseded index blobs")
+		return errors.Wrap(em.CleanupSupersededIndexes(ctx), "error removing superseded epoch index blobs")
 	})
 }
 
@@ -451,7 +519,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		log(ctx).Debug("Extending object lock retention-period is disabled.")
 	}
 
-	if err := runTaskCleanupEpochManager(ctx, runParams, s); err != nil {
+	if err := runTaskEpochMaintenanceFull(ctx, runParams, s); err != nil {
 		return errors.Wrap(err, "error cleaning up epoch manager")
 	}
 

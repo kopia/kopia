@@ -934,7 +934,6 @@ func RetryInitRepository(initialize InitRepositoryFunc) InitRepositoryFunc {
 			log(ctx).Warnf("unable to open repository: %v, will keep trying until canceled. Sleeping for %v", rerr, nextSleepTime)
 
 			if !clock.SleepInterruptibly(ctx, nextSleepTime) {
-				//nolint:wrapcheck
 				return nil, ctx.Err()
 			}
 
@@ -964,11 +963,9 @@ func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, i
 
 func (s *Server) runMaintenanceTask(ctx context.Context, dr repo.DirectRepository) error {
 	return errors.Wrap(s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
-		//nolint:wrapcheck
 		return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 			Purpose: "periodicMaintenance",
 		}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
-			//nolint:wrapcheck
 			return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 		})
 	}), "unable to run maintenance")
