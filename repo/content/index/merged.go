@@ -2,10 +2,10 @@ package index
 
 import (
 	"container/heap"
+	std_errors "errors"
 	"sync"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 )
 
 // Merged is an implementation of Index that transparently merges returns from underlying Indexes.
@@ -27,7 +27,7 @@ func (m Merged) Close() error {
 	var err error
 
 	for _, ndx := range m {
-		err = multierr.Append(err, ndx.Close())
+		err = std_errors.Join(err, ndx.Close())
 	}
 
 	return errors.Wrap(err, "closing index shards")

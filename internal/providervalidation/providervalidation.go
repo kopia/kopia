@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	std_errors "errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -67,7 +67,7 @@ func (st equivalentBlobStorageConnections) closeAdditional(ctx context.Context) 
 	var err error
 
 	for i := 1; i < len(st); i++ {
-		err = multierr.Combine(err, st[i].Close(ctx))
+		err = std_errors.Join(err, st[i].Close(ctx))
 	}
 
 	return errors.Wrap(err, "error closing additional connections")

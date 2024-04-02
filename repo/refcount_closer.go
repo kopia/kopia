@@ -2,9 +2,8 @@ package repo
 
 import (
 	"context"
+	std_errors "errors"
 	"sync/atomic"
-
-	"go.uber.org/multierr"
 )
 
 // closeFunc is a function to invoke when the last repository reference is closed.
@@ -37,8 +36,7 @@ func (c *refCountedCloser) Close(ctx context.Context) error {
 		errors = append(errors, closer(ctx))
 	}
 
-	//nolint:wrapcheck
-	return multierr.Combine(errors...)
+	return std_errors.Join(errors...)
 }
 
 func (c *refCountedCloser) addRef() {
