@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	std_errors "errors"
+	stderrors "errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -67,7 +67,7 @@ func (st equivalentBlobStorageConnections) closeAdditional(ctx context.Context) 
 	var err error
 
 	for i := 1; i < len(st); i++ {
-		err = std_errors.Join(err, st[i].Close(ctx))
+		err = stderrors.Join(err, st[i].Close(ctx))
 	}
 
 	return errors.Wrap(err, "error closing additional connections")

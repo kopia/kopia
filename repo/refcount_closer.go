@@ -2,7 +2,7 @@ package repo
 
 import (
 	"context"
-	std_errors "errors"
+	stderrors "errors"
 	"sync/atomic"
 )
 
@@ -36,7 +36,7 @@ func (c *refCountedCloser) Close(ctx context.Context) error {
 		errors = append(errors, closer(ctx))
 	}
 
-	return std_errors.Join(errors...)
+	return stderrors.Join(errors...)
 }
 
 func (c *refCountedCloser) addRef() {

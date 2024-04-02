@@ -2,7 +2,7 @@ package index
 
 import (
 	"container/heap"
-	std_errors "errors"
+	stderrors "errors"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -27,7 +27,7 @@ func (m Merged) Close() error {
 	var err error
 
 	for _, ndx := range m {
-		err = std_errors.Join(err, ndx.Close())
+		err = stderrors.Join(err, ndx.Close())
 	}
 
 	return errors.Wrap(err, "closing index shards")

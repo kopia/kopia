@@ -3,7 +3,7 @@ package snapshotfs
 import (
 	"bytes"
 	"context"
-	std_errors "errors"
+	stderrors "errors"
 	"io"
 	"math/rand"
 	"os"
@@ -202,7 +202,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	wg.Wait()
 
 	// see if we got any errors
-	if err := std_errors.Join(partErrors...); err != nil {
+	if err := stderrors.Join(partErrors...); err != nil {
 		return nil, errors.Wrap(err, "error uploading parts")
 	}
 
