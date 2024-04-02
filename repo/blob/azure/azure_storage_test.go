@@ -4,12 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"net/url"
 	"os"
 	"testing"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/pkg/errors"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -55,27 +54,21 @@ func createContainer(t *testing.T, container, storageAccount, storageKey string)
 		t.Fatalf("failed to create Azure credentials: %v", err)
 	}
 
-	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
+	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net", storageAccount)
 
-	u, err := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net", storageAccount))
+	client, err := azblob.NewClientWithSharedKeyCredential(serviceURL, credential, nil)
 	if err != nil {
-		t.Fatalf("failed to parse container URL: %v", err)
+		t.Fatalf("failed to get client: %v", err)
 	}
 
-	serviceURL := azblob.NewServiceURL(*u, p)
-	containerURL := serviceURL.NewContainerURL(container)
-
-	_, err = containerURL.Create(context.Background(), azblob.Metadata{}, azblob.PublicAccessNone)
+	_, err = client.CreateContainer(context.Background(), container, nil)
 	if err == nil {
 		return
 	}
 
 	// return if already exists
-	var stgErr azblob.StorageError
-	if errors.As(err, &stgErr) {
-		if stgErr.ServiceCode() == azblob.ServiceCodeContainerAlreadyExists {
-			return
-		}
+	if bloberror.HasCode(err, bloberror.ResourceAlreadyExists) {
+		return
 	}
 
 	t.Fatalf("failed to create blob storage container: %v", err)
