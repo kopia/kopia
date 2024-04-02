@@ -7,10 +7,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -69,7 +67,7 @@ func createContainer(t *testing.T, container, storageAccount, storageKey string)
 	}
 
 	// return if already exists
-	if bloberror.HasCode(stgErr, bloberror.ResourceAlreadyExists) {
+	if bloberror.HasCode(err, bloberror.ResourceAlreadyExists) {
 		return
 	}
 
