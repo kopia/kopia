@@ -17,7 +17,7 @@ type Profile struct {
 
 // SetPassword changes the password for a user profile.
 func (p *Profile) SetPassword(password string) error {
-	return p.setPasswordV1(password)
+	return p.setPassword(password)
 }
 
 // IsValidPassword determines whether the password is valid for a given user.
@@ -25,16 +25,16 @@ func (p *Profile) IsValidPassword(password string) bool {
 	if p == nil {
 		// if the user is invalid, return false but use the same amount of time as when we
 		// compare against valid user to avoid revealing whether the user account exists.
-		isValidPasswordV1(password, dummyV1HashThatNeverMatchesAnyPassword, crypto.DefaultKeyDerivationAlgorithm)
+		isValidPassword(password, dummyV1HashThatNeverMatchesAnyPassword, crypto.DefaultKeyDerivationAlgorithm)
 
 		return false
 	}
 	// Legacy case where password hash version is set
-	if p.PasswordHashVersion == hashVersion1 {
-		return isValidPasswordV1(password, p.PasswordHash, crypto.ScryptAlgorithm)
+	if p.PasswordHashVersion == crypto.HashVersion1 {
+		return isValidPassword(password, p.PasswordHash, crypto.ScryptAlgorithm)
 	}
 	if len(p.KeyDerivationAlgorithm) > 0 {
-		return isValidPasswordV1(password, p.PasswordHash, p.KeyDerivationAlgorithm)
+		return isValidPassword(password, p.PasswordHash, p.KeyDerivationAlgorithm)
 	}
 	return false
 
