@@ -25,6 +25,15 @@ func TestLegacyUserProfile(t *testing.T) {
 	if p.IsValidPassword("bar") {
 		t.Fatalf("password unexpectedly valid!")
 	}
+
+	// Setting the key derivation to scrypt and unsetting PasswordHashVersion
+	// Legacy profile should translate to scrypt
+	p.KeyDerivationAlgorithm = crypto.ScryptAlgorithm
+	p.PasswordHashVersion = 0
+	if !p.IsValidPassword("foo") {
+		t.Fatalf("password not valid!")
+	}
+
 }
 
 func TestUserProfile(t *testing.T) {
