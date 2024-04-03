@@ -13,11 +13,11 @@ import (
 )
 
 type commandServerUserAddSet struct {
-	userAskPassword            bool
-	userSetName                string
-	userSetPassword            string
-	userSetPasswordHashVersion int
-	userSetPasswordHash        string
+	userAskPassword        bool
+	userSetName            string
+	userSetPassword        string
+	keyDerivationAlgorithm string
+	userSetPasswordHash    string
 
 	isNew bool // true == 'add', false == 'update'
 	out   textOutput
@@ -37,7 +37,7 @@ func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, i
 	cmd.Flag("ask-password", "Ask for user password").BoolVar(&c.userAskPassword)
 	cmd.Flag("user-password", "Password").StringVar(&c.userSetPassword)
 	cmd.Flag("user-password-hash", "Password hash").StringVar(&c.userSetPasswordHash)
-	cmd.Flag("user-password-hash-version", "Password hash version").Default("1").IntVar(&c.userSetPasswordHashVersion)
+	cmd.Flag("key-derivation-algorithm", "Key derivation algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.keyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
 	cmd.Arg("username", "Username").Required().StringVar(&c.userSetName)
 	cmd.Action(svc.repositoryWriterAction(c.runServerUserAddSet))
 
@@ -54,7 +54,8 @@ func (c *commandServerUserAddSet) getExistingOrNewUserProfile(ctx context.Contex
 
 		case errors.Is(err, user.ErrUserNotFound):
 			return &user.Profile{
-				Username: username,
+				Username:               username,
+				KeyDerivationAlgorithm: c.keyDerivationAlgorithm,
 			}, nil
 		}
 	}
@@ -75,7 +76,7 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 	if p := c.userSetPassword; p != "" {
 		changed = true
 
-		if err := up.SetPassword(p, crypto.DefaultKeyDerivationAlgorithm); err != nil {
+		if err := up.SetPassword(p); err != nil {
 			return errors.Wrap(err, "error setting password")
 		}
 	}
@@ -86,7 +87,6 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 			return errors.Wrap(err, "invalid password hash, must be valid base64 string")
 		}
 
-		up.PasswordHashVersion = c.userSetPasswordHashVersion
 		up.PasswordHash = ph
 		changed = true
 	}
@@ -108,7 +108,7 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 
 		changed = true
 
-		if err := up.SetPassword(pwd, crypto.DefaultKeyDerivationAlgorithm); err != nil {
+		if err := up.SetPassword(pwd); err != nil {
 			return errors.Wrap(err, "error setting password")
 		}
 	}

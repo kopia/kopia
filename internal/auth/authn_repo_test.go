@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/auth"
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/user"
 	"github.com/kopia/kopia/repo"
@@ -23,7 +22,7 @@ func TestRepositoryAuthenticator(t *testing.T) {
 				Username: "user1@host1",
 			}
 
-			p.SetPassword("password1", crypto.DefaultKeyDerivationAlgorithm)
+			p.SetPassword("password1")
 
 			return user.SetUserProfile(ctx, w, p)
 		}))

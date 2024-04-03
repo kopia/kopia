@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/user"
 	"github.com/kopia/kopia/repo"
 )
@@ -52,7 +51,7 @@ func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Rep
 
 	// IsValidPassword can be safely called on nil and the call will take as much time as for a valid user
 	// thus not revealing anything about whether the user exists.
-	return ac.userProfiles[username].IsValidPassword(password, crypto.DefaultKeyDerivationAlgorithm)
+	return ac.userProfiles[username].IsValidPassword(password)
 }
 
 func (ac *repositoryUserAuthenticator) Refresh(ctx context.Context) error {

@@ -12,7 +12,8 @@ import (
 
 // parameters for v1 hashing.
 const (
-	hashVersion1 = 1
+	// Legacy hash version system translates to KeyDerivationAlgorithm
+	hashVersion1 = 1 // this translates to Scrypt KeyDerivationAlgorithm
 
 	v1SaltLength = 32
 )
@@ -20,7 +21,7 @@ const (
 //nolint:gochecknoglobals
 var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+v1SaltLength)
 
-func (p *Profile) setPasswordV1(password, keyDerivationAlgorithm string) error {
+func (p *Profile) setPasswordV1(password string) error {
 	salt := make([]byte, v1SaltLength)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return errors.Wrap(err, "error generating salt")
@@ -28,8 +29,11 @@ func (p *Profile) setPasswordV1(password, keyDerivationAlgorithm string) error {
 
 	var err error
 
-	p.PasswordHashVersion = 1
-	p.PasswordHash, err = computePasswordHashV1(password, salt, keyDerivationAlgorithm)
+	// Setup to handle legacy hashVersion.
+	if p.PasswordHashVersion == hashVersion1 {
+		p.KeyDerivationAlgorithm = crypto.ScryptAlgorithm
+	}
+	p.PasswordHash, err = computePasswordHashV1(password, salt, p.KeyDerivationAlgorithm)
 
 	return err
 }
