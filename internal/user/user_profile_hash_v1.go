@@ -14,10 +14,16 @@ import (
 var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+crypto.V1SaltLength)
 
 func (p *Profile) setPassword(password string) error {
-	// Setup to handle legacy hashVersion.
-	if p.PasswordHashVersion == crypto.HashVersion1 {
-		p.KeyDerivationAlgorithm = crypto.ScryptAlgorithm
+	if len(p.KeyDerivationAlgorithm) == 0 {
+		if p.PasswordHashVersion == 0 {
+			return errors.New("key derivation algorithm and password hash version not set")
+		}
+		// Setup to handle legacy hashVersion.
+		if p.PasswordHashVersion == crypto.HashVersion1 {
+			p.KeyDerivationAlgorithm = crypto.ScryptAlgorithm
+		}
 	}
+
 	saltLength, err := crypto.RecommendedSaltLength(p.KeyDerivationAlgorithm)
 	if err != nil {
 		return err
