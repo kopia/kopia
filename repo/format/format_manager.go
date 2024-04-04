@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -456,7 +457,7 @@ func Initialize(ctx context.Context, st blob.Storage, formatBlob *KopiaRepositor
 	}
 
 	if formatBlob.KeyDerivationAlgorithm == "" {
-		formatBlob.KeyDerivationAlgorithm = DefaultKeyDerivationAlgorithm
+		formatBlob.KeyDerivationAlgorithm = crypto.ScryptAlgorithm
 	}
 
 	if len(formatBlob.UniqueID) == 0 {
