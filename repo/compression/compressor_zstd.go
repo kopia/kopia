@@ -2,6 +2,8 @@ package compression
 
 import (
 	"io"
+	"os"
+	"strconv"
 	"sync"
 
 	"github.com/klauspost/compress/zstd"
@@ -59,6 +61,27 @@ func (c *zstdCompressor) Compress(output io.Writer, input io.Reader) error {
 	return nil
 }
 
+//nolint:gochecknoglobals
+var zstdDecoderOptions []zstd.DOption
+
+func init() {
+	if v, err := strconv.Atoi(os.Getenv("KOPIA_ZSTD_DECODER_CONCURRENCY")); err == nil {
+		zstdDecoderOptions = append(zstdDecoderOptions, zstd.WithDecoderConcurrency(v))
+	}
+
+	if v, err := strconv.Atoi(os.Getenv("KOPIA_ZSTD_DECODER_MAX_MEMORY")); err == nil {
+		zstdDecoderOptions = append(zstdDecoderOptions, zstd.WithDecoderMaxMemory(uint64(v)))
+	}
+
+	if v, err := strconv.Atoi(os.Getenv("KOPIA_ZSTD_DECODER_MAX_WINDOW")); err == nil {
+		zstdDecoderOptions = append(zstdDecoderOptions, zstd.WithDecoderMaxWindow(uint64(v)))
+	}
+
+	if v, err := strconv.Atoi(os.Getenv("KOPIA_ZSTD_DECODER_LOWMEM")); err == nil {
+		zstdDecoderOptions = append(zstdDecoderOptions, zstd.WithDecoderLowmem(v != 0))
+	}
+}
+
 func (c *zstdCompressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
 	if withHeader {
 		if err := verifyCompressionHeader(input, c.header); err != nil {
@@ -66,7 +89,7 @@ func (c *zstdCompressor) Decompress(output io.Writer, input io.Reader, withHeade
 		}
 	}
 
-	r, err := zstd.NewReader(input)
+	r, err := zstd.NewReader(input, zstdDecoderOptions...)
 	if err != nil {
 		return errors.Wrap(err, "unable to open zstd stream")
 	}
