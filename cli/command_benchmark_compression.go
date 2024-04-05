@@ -168,7 +168,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data []byte, repeatCount int, algorithms map[compression.Name]compression.Compressor) error {
 	var results []compressionBechmarkResult
 
-	log(ctx).Infof("Compressing input file %q (%v) using all compression methods.", c.dataFile, units.BytesString(int64(len(data))))
+	log(ctx).Infof("Compressing input file %q (%v) using %v compression methods.", c.dataFile, units.BytesString(int64(len(data))), len(algorithms))
 
 	for name, comp := range algorithms {
 		log(ctx).Infof("Benchmarking compressor '%v'...", name)
@@ -243,7 +243,7 @@ func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data [
 func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data []byte, repeatCount int, algorithms map[compression.Name]compression.Compressor) error {
 	var results []compressionBechmarkResult
 
-	log(ctx).Infof("Decompressing input file %q (%v) using all compression methods.", c.dataFile, units.BytesString(int64(len(data))))
+	log(ctx).Infof("Decompressing input file %q (%v) using %v compression methods.", c.dataFile, units.BytesString(int64(len(data))), len(algorithms))
 
 	var compressedInput gather.WriteBuffer
 	defer compressedInput.Close()
