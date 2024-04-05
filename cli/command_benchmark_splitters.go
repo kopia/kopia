@@ -80,7 +80,7 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 	for _, sp := range splitter.SupportedAlgorithms() {
 		tt := timetrack.Start()
 
-		segmentLengths := runInParallel(c.parallel, func() []int {
+		segmentLengths := runInParallelNoInput(c.parallel, func() []int {
 			fact := splitter.GetFactory(sp)
 
 			var segmentLengths []int

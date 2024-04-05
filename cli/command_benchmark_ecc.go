@@ -95,7 +95,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 
 			repeat := c.repeat
 
-			runInParallelNoResult(c.parallel, func() {
+			runInParallelNoInputNoResult(c.parallel, func() {
 				var tmp gather.WriteBuffer
 				defer tmp.Close()
 
@@ -121,7 +121,7 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 			input = encodedBuffer.Bytes()
 			tt = timetrack.Start()
 
-			runInParallelNoResult(c.parallel, func() {
+			runInParallelNoInputNoResult(c.parallel, func() {
 				var tmp gather.WriteBuffer
 				defer tmp.Close()
 
