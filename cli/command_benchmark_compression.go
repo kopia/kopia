@@ -42,7 +42,7 @@ func (c *commandBenchmarkCompression) setup(svc appServices, parent commandParen
 	cmd.Flag("by-size", "Sort results by size").BoolVar(&c.bySize)
 	cmd.Flag("by-alloc", "Sort results by allocated bytes").BoolVar(&c.byAllocated)
 	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").IntVar(&c.parallel)
-	cmd.Flag("operations", "Operatins").Default("both").EnumVar(&c.operations, "compress", "decompress", "both")
+	cmd.Flag("operations", "Operations").Default("both").EnumVar(&c.operations, "compress", "decompress", "both")
 	cmd.Flag("verify-stable", "Verify that compression is stable").BoolVar(&c.verifyStable)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
 	cmd.Flag("deprecated", "Included deprecated compression algorithms").BoolVar(&c.deprecated)
