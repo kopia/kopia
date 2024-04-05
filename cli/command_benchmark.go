@@ -57,7 +57,7 @@ func runInParallelNoResult[A any](args []A, run func(arg A)) {
 func runInParallel[A any, T any](args []A, run func(arg A) T) T {
 	var wg sync.WaitGroup
 
-	for i := 0; i < len(args)-1; i++ {
+	for i := range len(args) - 1 {
 		wg.Add(1)
 
 		arg := args[i]
