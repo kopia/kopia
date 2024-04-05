@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/freepool"
 	"github.com/kopia/kopia/internal/iocopy"
 )
 
@@ -58,6 +59,11 @@ func (c *gzipCompressor) Compress(output io.Writer, input io.Reader) error {
 	return nil
 }
 
+//nolint:gochecknoglobals
+var gzipDecoderPool = freepool.New(func() *gzip.Reader {
+	return new(gzip.Reader)
+}, func(_ *gzip.Reader) {})
+
 func (c *gzipCompressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
 	if withHeader {
 		if err := verifyCompressionHeader(input, c.header); err != nil {
@@ -65,13 +71,12 @@ func (c *gzipCompressor) Decompress(output io.Writer, input io.Reader, withHeade
 		}
 	}
 
-	r, err := gzip.NewReader(input)
-	if err != nil {
-		return errors.Wrap(err, "unable to open gzip stream")
-	}
-	defer r.Close() //nolint:errcheck
+	dec := gzipDecoderPool.Take()
+	defer gzipDecoderPool.Return(dec)
 
-	if err := iocopy.JustCopy(output, r); err != nil {
+	mustSucceed(dec.Reset(input))
+
+	if err := iocopy.JustCopy(output, dec); err != nil {
 		return errors.Wrap(err, "decompression error")
 	}
 
