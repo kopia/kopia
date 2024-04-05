@@ -280,12 +280,7 @@ func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data
 			return int64(compressedInput.Length())
 		}
 
-		outputBuffers := make([]*bytes.Buffer, c.parallel)
-		for i := range outputBuffers {
-			buf := &bytes.Buffer{}
-			buf.Grow(defaultCompressedDataByMethod)
-			outputBuffers[i] = buf
-		}
+		outputBuffers := makeOutputBuffers(c.parallel, defaultCompressedDataByMethod)
 
 		tt := timetrack.Start()
 
