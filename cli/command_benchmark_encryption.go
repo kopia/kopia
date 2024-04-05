@@ -83,7 +83,7 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 
 		hashCount := c.repeat
 
-		runInParallelNoResult(c.parallel, func() {
+		runInParallelNoInputNoResult(c.parallel, func() {
 			var hashOutput [hashing.MaxHashSize]byte
 
 			var encryptOutput gather.WriteBuffer
