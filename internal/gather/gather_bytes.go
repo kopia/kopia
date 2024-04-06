@@ -175,10 +175,11 @@ func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
 	// move on to next and then check if all slices were consumed
 	sliceNdx++
 
+	// keep track of length of gather-buffer length in slicesN
 	slicesN := len(slices)
 
-	// while there are more bytes to read (maxBsIndex > n) and there are more
-	// slices left (sliceNdx < slicesN)
+	// while there is more room in bs (maxBsIndex > n) and there are more
+	// slices left to copy (sliceNdx < slicesN)
 	for maxBsIndex > n && sliceNdx < slicesN {
 		// get a new working slice
 		curSlice = slices[sliceNdx]
