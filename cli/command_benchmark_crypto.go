@@ -91,7 +91,7 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 
 			hashCount := c.repeat
 
-			runInParallelNoResult(c.parallel, func() {
+			runInParallelNoInputNoResult(c.parallel, func() {
 				var hashOutput [hashing.MaxHashSize]byte
 
 				var encryptOutput gather.WriteBuffer
