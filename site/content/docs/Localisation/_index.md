@@ -10,13 +10,15 @@ weight: 50
 ## Localisation Guidlines
 
 ### Localisation Files & Folders
-The file ```languages.json``` is a json representation of supported languages along with their meta data. The ```label``` is used to display the corresponding language as text in a react-select component. It is using a native representation of the language. 
+Supported languages are declared in ```languages.json``` along with their meta data. Each language consists of a ```key``` and various meta information that is used within ```kopiaUI```. The file is located under ```src/assets/```.  
 
-The ```code``` contains ISO-3166-1 codes and is given in upper-case letters. It is responsible for displaying a corresponding national flag next to the selected language. The ```code``` uses a ISO-3166-1 representation of the language. 
+- The ```label``` displays the corresponding language as a text in a select component. It is using a native representation of that specific language. 
+- The ```code``` is given in upper-case letters. It is responsible for displaying a corresponding national flag next to the selected language. The ```code``` uses the ISO-3166-1 definition.
+- The ```value``` attribute is used a an option for the select component. After selecting a specific language, the value is stored in the UI-Preference context and is sent to ```kopia```.
 
 > NOTE: More information on supported ISO-3166-1 codes [can be found here](https://en.wikipedia.org/wiki/ISO_3166-1).
 
-Finally, the ```value``` attribute is used a an option for the react-select component. After selecting a specific language, the value is stored in the UI-Preference context and is sent to ```kopia```. The following code shows the ```language.json``` file with different languages.  
+ The following code shows the ```language.json``` file with different languages.  
 
 ```json
 {
@@ -63,15 +65,14 @@ Finally, the ```value``` attribute is used a an option for the react-select comp
 }
 ```
 
-### Naming Conventions
-TBD
+The actual translations are located under ```public/locales/```, where each language is located under it's own sub-folder. The translation file itself is a json - consisting of key/value pairs. The ```key``` is a unique identifier that points to a specific item. The ```value``` contains the translated string for that language.  
 
-### Namespaces
+The following example shows some strings in english language:
 ```json
 {
   "common.back": "Back",
   "common.cancel": "Cancel",
-  "common.click-here-to-learn-more": "Click here to learn more.",
+  "common.click-here-to-learn-more": "Click here to learn more",
   "common.delete": "Delete",
   "common.delete-confirm": "Confirm Delete",
   "common.loading": "Loading ...",
@@ -82,10 +83,46 @@ TBD
 }
 ```
 
-### Tests
-```kopiaUI``` features different tests to prevent situations where translations become obsolet and or unused. The tests check for keys with empty or null values and that keys exist in all provided translation files. The tests will fail if translation files contain empty keys or if keys are not declared in all files. 
+### Naming Conventions
+We defined a strict naming convention to facilitate a meaningful and extendable organization of translations across ```kopiaUI```and ```kopia``` in the future. A proper naming convention is needed to provide context and hints to translators - lowering the chances of misunderstandings and poor translations. The naming convention uses the following schema: ```[type].[category].[sub-category].[id]```
 
-Additionally, the test extracts the currently used translation keys within the code to check if all keys are used at least once. 
+There are 
+
+| Type  | Meaning  |
+|---|---|
+|```feedback``` | The type ```feedback``` shoule be used when informing or displaying information to the user. For example, these can be hints, placeholders or labels |
+|```value```    | The type ```value``` is used to |
+|```event```    |   |
+|```common```   |   |
+
+
+| Category  | Meaning  |
+|---|---|
+|```policy```    | The type ```feedback``` shoule be used when informing or displaying information to the user. For example, these can be hints, placeholders or labels |
+|```repository```       | The type ```repository``` is used to    |
+|```task```      |   |
+|```log```     |   |
+|```pin```     |   |
+|```validation```     |   |
+|```button```     |   |
+|```label```     |   |
+|```provider```     |   |
+|```algorithm```     |   |
+|```ui```     |   |
+|```ui```     |   |
+
+
+| Sub-Category  | Meaning  |
+|---|---|
+|```policy```    | The type ```feedback``` shoule be used when informing or displaying information to the user. For example, these can be hints, 
+
+
+
+### Namespaces
+TBD
+
+### Tests
+```kopiaUI``` features different tests to prevent situations where translations become obsolet and or unused. The tests check for keys with empty or null values and that keys exist in all provided translation files. The tests will fail if translation files contain empty keys or if keys are not declared in all files. Additionally, the test extracts the currently used translation keys within the code to check if all keys are used at least once. 
 
 > Note: It is mandatory that all these tests pass when adding new languages or updating existing keys.
 
