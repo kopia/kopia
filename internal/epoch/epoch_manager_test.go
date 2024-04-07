@@ -429,8 +429,8 @@ func TestNoEpochAdvanceOnIndexRead(t *testing.T) {
 	// indexes it should attempt to advance the epoch.
 	// Write exactly the number of index blobs that will cause it to advance so
 	// we can keep track of which one is the current epoch.
-	for j := 0; j < epochs; j++ {
-		for i := 0; i < count-1; i++ {
+	for range epochs {
+		for i := range count - 1 {
 			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
 		}
 

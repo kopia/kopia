@@ -268,7 +268,7 @@ func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data
 		run := func(decompressed *bytes.Buffer) int64 {
 			input := bytes.NewReader(nil)
 
-			for i := 0; i < cnt; i++ {
+			for range cnt {
 				decompressed.Reset()
 				input.Reset(compressedInputBytes)
 
