@@ -700,7 +700,7 @@ func (rdc *repoDirEntryCache) getRepoDirEntry(t *testing.T, rop string) *snapsho
 	return nil
 }
 
-// validateXattr checks that shallowrestore absolute path srp has placeholder
+// validatePlaceholder checks that shallowrestore absolute path srp has placeholder
 // DirEntry value equal to the in-repository DirEntry for rootid/rop.
 func (rdc *repoDirEntryCache) validatePlaceholder(t *testing.T, rop, srp string) {
 	t.Helper()
