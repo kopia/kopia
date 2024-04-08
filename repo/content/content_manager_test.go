@@ -141,7 +141,7 @@ func (s *contentManagerSuite) TestContentManagerSmallContentWrites(t *testing.T)
 	defer bm.CloseShared(ctx)
 
 	itemCount := maxPackCapacity / (10 + encryptionOverhead)
-	for i := 0; i < itemCount; i++ {
+	for i := range itemCount {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 10))
 	}
 
@@ -163,7 +163,7 @@ func (s *contentManagerSuite) TestContentManagerDedupesPendingContents(t *testin
 
 	defer bm.CloseShared(ctx)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(0, maxPackCapacity/2))
 	}
 
@@ -264,7 +264,7 @@ func (s *contentManagerSuite) TestContentManagerInternalFlush(t *testing.T) {
 	defer bm.CloseShared(ctx)
 
 	itemsToOverflow := (maxPackCapacity)/(25+encryptionOverhead) + 2
-	for i := 0; i < itemsToOverflow; i++ {
+	for range itemsToOverflow {
 		b := make([]byte, 25)
 		cryptorand.Read(b)
 		writeContentAndVerify(ctx, t, bm, b)
@@ -274,7 +274,7 @@ func (s *contentManagerSuite) TestContentManagerInternalFlush(t *testing.T) {
 	verifyBlobCount(t, data, map[blob.ID]int{"s": 1, "p": 1})
 
 	// do it again - should be 2 blobs + some bytes pending.
-	for i := 0; i < itemsToOverflow; i++ {
+	for range itemsToOverflow {
 		b := make([]byte, 25)
 		cryptorand.Read(b)
 		writeContentAndVerify(ctx, t, bm, b)
@@ -310,7 +310,7 @@ func (s *contentManagerSuite) TestContentManagerWriteMultiple(t *testing.T) {
 		repeatCount = 500
 	}
 
-	for i := 0; i < repeatCount; i++ {
+	for i := range repeatCount {
 		b := seededRandomData(i, i%113)
 
 		blkID, err := bm.WriteContent(ctx, gather.FromSlice(b), "", NoCompression)
@@ -1036,9 +1036,7 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	workerWritten := make([][]ID, numWorkers)
 
 	// start numWorkers, each writing random block and recording it
-	for workerID := 0; workerID < numWorkers; workerID++ {
-		workerID := workerID
-
+	for workerID := range numWorkers {
 		workersWG.Add(1)
 
 		go func() {
@@ -1287,8 +1285,6 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 	}
 
 	for n, tc := range cases {
-		tc := tc
-
 		t.Run(fmt.Sprintf("case-%v", n), func(t *testing.T) {
 			ctx := testlogging.Context(t)
 			data := blobtesting.DataMap{}
@@ -1334,11 +1330,8 @@ func (s *contentManagerSuite) TestRewriteNonDeleted(t *testing.T) {
 
 	// perform a sequence WriteContent() <action1> RewriteContent() <action2> GetContent()
 	// where actionX can be (0=flush and reopen, 1=flush, 2=nothing)
-	for action1 := 0; action1 < stepBehaviors; action1++ {
-		for action2 := 0; action2 < stepBehaviors; action2++ {
-			action1 := action1
-			action2 := action2
-
+	for action1 := range stepBehaviors {
+		for action2 := range stepBehaviors {
 			t.Run(fmt.Sprintf("case-%v-%v", action1, action2), func(t *testing.T) {
 				ctx := testlogging.Context(t)
 				data := blobtesting.DataMap{}
@@ -1384,7 +1377,7 @@ func (s *contentManagerSuite) TestDisableFlush(t *testing.T) {
 	bm.DisableIndexFlush(ctx)
 	bm.DisableIndexFlush(ctx)
 
-	for i := 0; i < 500; i++ {
+	for i := range 500 {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 100))
 	}
 	bm.Flush(ctx) // flush will not have effect
@@ -1404,12 +1397,9 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 
 	// perform a sequence WriteContent() <action1> Delete() <action2> RewriteContent() <action3> GetContent()
 	// where actionX can be (0=flush and reopen, 1=flush, 2=nothing)
-	for action1 := 0; action1 < stepBehaviors; action1++ {
-		for action2 := 0; action2 < stepBehaviors; action2++ {
-			for action3 := 0; action3 < stepBehaviors; action3++ {
-				action1 := action1
-				action2 := action2
-				action3 := action3
+	for action1 := range stepBehaviors {
+		for action2 := range stepBehaviors {
+			for action3 := range stepBehaviors {
 				t.Run(fmt.Sprintf("case-%v-%v-%v", action1, action2, action3), func(t *testing.T) {
 					ctx := testlogging.Context(t)
 					data := blobtesting.DataMap{}
@@ -1470,7 +1460,6 @@ func (s *contentManagerSuite) TestDeleteAndRecreate(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			// write a content
 			data := blobtesting.DataMap{}
@@ -1635,7 +1624,6 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			var mu sync.Mutex
 			got := map[ID]bool{}
@@ -1865,7 +1853,6 @@ func (s *contentManagerSuite) TestContentReadAliasing(t *testing.T) {
 
 func (s *contentManagerSuite) TestVersionCompatibility(t *testing.T) {
 	for writeVer := format.MinSupportedReadVersion; writeVer <= format.CurrentWriteVersion; writeVer++ {
-		writeVer := writeVer
 		t.Run(fmt.Sprintf("version-%v", writeVer), func(t *testing.T) {
 			s.verifyVersionCompat(t, writeVer)
 		})
@@ -1984,10 +1971,10 @@ func (s *contentManagerSuite) verifyReadsOwnWrites(t *testing.T, st blob.Storage
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) {
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
-		for j := 0; j < i; j++ {
+		for j := range i {
 			// verify all contents written so far
 			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
 		}
@@ -2005,7 +1992,7 @@ func (s *contentManagerSuite) verifyReadsOwnWrites(t *testing.T, st blob.Storage
 	require.NoError(t, bm.CloseShared(ctx))
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) {
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }
@@ -2257,12 +2244,8 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	}
 
 	for _, hint := range hints {
-		hint := hint
-
 		t.Run("hint:"+hint, func(t *testing.T) {
 			for _, tc := range cases {
-				tc := tc
-
 				t.Run(tc.name, func(t *testing.T) {
 					wipeCache(t, ccd.CacheStorage())
 					wipeCache(t, ccm.CacheStorage())
@@ -2302,10 +2285,10 @@ func (s *contentManagerSuite) TestContentPermissiveCacheLoading(t *testing.T) {
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := 0; i < len(ids); i++ {
+	for i := range ids {
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
-		for j := 0; j < i; j++ {
+		for j := range i {
 			// verify all contents written so far
 			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
 		}
@@ -2331,7 +2314,7 @@ func (s *contentManagerSuite) TestContentPermissiveCacheLoading(t *testing.T) {
 
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := 0; i < len(ids); i++ {
+	for i := range ids {
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }
@@ -2353,10 +2336,10 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) {
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
-		for j := 0; j < i; j++ {
+		for j := range i {
 			// verify all contents written so far
 			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
 		}
@@ -2384,7 +2367,7 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) {
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }

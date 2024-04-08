@@ -34,7 +34,7 @@ func (c *commandBlobStats) run(ctx context.Context, rep repo.DirectRepository) e
 
 	var sizeThresholds []int64
 
-	for i := 0; i < 8; i++ {
+	for range 8 {
 		sizeThresholds = append(sizeThresholds, sizeThreshold)
 		countMap[sizeThreshold] = 0
 		sizeThreshold *= 10

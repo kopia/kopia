@@ -203,7 +203,7 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 	nextSleepTime := 100 * time.Millisecond //nolint:gomnd
 
-	for i := 0; i < indexLoadAttempts; i++ {
+	for i := range indexLoadAttempts {
 		ibm, err0 := sm.indexBlobManager(ctx)
 		if err0 != nil {
 			return err0

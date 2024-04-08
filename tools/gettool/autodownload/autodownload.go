@@ -171,7 +171,7 @@ func Download(url, dir string, checksum map[string]string, stripPathComponents i
 
 	nextSleepTime := initialSleepTime
 
-	for i := 0; i < maxRetries; i++ {
+	for i := range maxRetries {
 		err := downloadInternal(url, dir, checksum, stripPathComponents)
 		if err == nil {
 			// success

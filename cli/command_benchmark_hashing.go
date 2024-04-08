@@ -81,7 +81,7 @@ func (c *commandBenchmarkHashing) runBenchmark(ctx context.Context) []cryptoBenc
 		runInParallelNoInputNoResult(c.parallel, func() {
 			var hashOutput [hashing.MaxHashSize]byte
 
-			for i := 0; i < hashCount; i++ {
+			for range hashOutput {
 				hf(hashOutput[:0], input)
 			}
 		})

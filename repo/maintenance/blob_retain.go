@@ -59,7 +59,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	if !opt.DryRun {
 		// start goroutines to extend blob retention as they come.
-		for i := 0; i < opt.Parallel; i++ {
+		for range opt.Parallel {
 			wg.Add(1)
 
 			go func() {

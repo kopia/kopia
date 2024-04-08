@@ -178,11 +178,10 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	var wg workshare.AsyncGroup[*uploadWorkItem]
 	defer wg.Close()
 
-	for i := 0; i < len(parts); i++ {
-		i := i
+	for i := range parts {
 		offset := int64(i) * chunkSize
 
-		length := chunkSize
+		length := chunkSize //nolint:copyloopvar
 		if i == len(parts)-1 {
 			// last part has unknown length to accommodate the file that may be growing as we're snapshotting it
 			length = -1

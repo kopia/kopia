@@ -18,7 +18,7 @@ func TestFrozen(t *testing.T) {
 	for _, tm := range times {
 		timeNow := Frozen(tm)
 
-		for i := 0; i < 5; i++ {
+		for range 5 {
 			if want, got := tm, timeNow(); got != want {
 				t.Fatalf("Invalid frozen time, got: %v, want: %v", got, want)
 			}
@@ -40,13 +40,13 @@ func TestAutoAdvance(t *testing.T) {
 
 	wg.Add(goRoutinesCount)
 
-	for i := 0; i < goRoutinesCount; i++ {
+	for range goRoutinesCount {
 		go func() {
 			defer wg.Done()
 
 			times := make([]time.Time, iterations)
 
-			for j := 0; j < iterations; j++ {
+			for j := range iterations {
 				times[j] = timeNow()
 			}
 
@@ -108,7 +108,7 @@ func TestTimeAdvanceConcurrent(t *testing.T) {
 
 	wg.Add(parallelism)
 
-	for i := 0; i < parallelism; i++ {
+	for range parallelism {
 		go func() {
 			defer wg.Done()
 
@@ -116,7 +116,7 @@ func TestTimeAdvanceConcurrent(t *testing.T) {
 
 			var prev time.Time
 
-			for j := 0; j < iterations; j++ {
+			for j := range iterations {
 				if advanceProbability > rand.Float64() {
 					ta.Advance(17 * time.Second)
 				}

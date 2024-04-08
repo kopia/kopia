@@ -57,10 +57,8 @@ func runInParallelNoResult[A any](args []A, run func(arg A)) {
 func runInParallel[A any, T any](args []A, run func(arg A) T) T {
 	var wg sync.WaitGroup
 
-	for i := 0; i < len(args)-1; i++ {
+	for _, arg := range args[1:] {
 		wg.Add(1)
-
-		arg := args[i]
 
 		go func() {
 			defer wg.Done()
@@ -70,7 +68,7 @@ func runInParallel[A any, T any](args []A, run func(arg A) T) T {
 	}
 
 	// run one on the main goroutine and N-1 in parallel.
-	v := run(args[len(args)-1])
+	v := run(args[0])
 
 	wg.Wait()
 
@@ -80,7 +78,7 @@ func runInParallel[A any, T any](args []A, run func(arg A) T) T {
 func makeOutputBuffers(n, capacity int) []*bytes.Buffer {
 	var res []*bytes.Buffer
 
-	for i := 0; i < n; i++ {
+	for range n {
 		res = append(res, bytes.NewBuffer(make([]byte, 0, capacity)))
 	}
 

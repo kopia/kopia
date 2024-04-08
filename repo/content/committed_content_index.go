@@ -311,7 +311,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 
 	eg, ctx := errgroup.WithContext(ctx)
 
-	for i := 0; i < parallelFetches; i++ {
+	for range parallelFetches {
 		eg.Go(func() error {
 			var data gather.WriteBuffer
 			defer data.Close()

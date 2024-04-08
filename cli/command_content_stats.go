@@ -38,7 +38,7 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 		sizeBuckets   []uint32
 	)
 
-	for i := 0; i < 8; i++ {
+	for range 8 {
 		sizeBuckets = append(sizeBuckets, sizeThreshold)
 		sizeThreshold *= 10
 	}

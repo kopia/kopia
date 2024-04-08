@@ -286,8 +286,6 @@ func TestSnapshotFix(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			runner := testenv.NewInProcRunner(t)
 			env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
@@ -434,7 +432,7 @@ func mustWriteFileWithRepeatedData(t *testing.T, fname string, repeat int, data 
 
 	defer f.Close()
 
-	for i := 0; i < repeat; i++ {
+	for range repeat {
 		_, err := f.Write(data)
 		require.NoError(t, err)
 	}
