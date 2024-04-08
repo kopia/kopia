@@ -531,7 +531,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 	return nil
 }
 
-// shouldRewriteContents returns true if it's currently ok to rewrite contents.
+// shouldQuickRewriteContents returns true if it's currently ok to rewrite contents.
 // since each content rewrite will require deleting of orphaned blobs after some time passes,
 // we don't want to starve blob deletion by constantly doing rewrites.
 func shouldQuickRewriteContents(s *Schedule, safety SafetyParameters) bool {
