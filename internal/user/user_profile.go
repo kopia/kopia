@@ -1,6 +1,8 @@
 package user
 
 import (
+	"math/rand"
+
 	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/repo/manifest"
 )
@@ -23,10 +25,10 @@ func (p *Profile) SetPassword(password string) error {
 // IsValidPassword determines whether the password is valid for a given user.
 func (p *Profile) IsValidPassword(password string) bool {
 	if p == nil {
+		algorithms := crypto.AllowedKeyDerivationAlgorithms()
 		// if the user is invalid, return false but use the same amount of time as when we
 		// compare against valid user to avoid revealing whether the user account exists.
-		isValidPassword(password, dummyV1HashThatNeverMatchesAnyPassword, crypto.DefaultKeyDerivationAlgorithm)
-
+		isValidPassword(password, dummyV1HashThatNeverMatchesAnyPassword, algorithms[rand.Intn(len(algorithms))])
 		return false
 	}
 	// Legacy case where password hash version is set
@@ -37,5 +39,4 @@ func (p *Profile) IsValidPassword(password string) bool {
 		return isValidPassword(password, p.PasswordHash, p.KeyDerivationAlgorithm)
 	}
 	return false
-
 }

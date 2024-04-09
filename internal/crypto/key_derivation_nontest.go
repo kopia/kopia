@@ -22,15 +22,13 @@ type KeyDeriver interface {
 	RecommendedSaltLength() int
 }
 
-type keyDerivationFunc func(password string, salt []byte) ([]byte, error)
-
 //nolint:gochecknoglobals
 var keyDerivers = map[string]KeyDeriver{}
 
 // RegisterKeyDerivers registers various key derivation functions.
 func RegisterKeyDerivers(name string, keyDeriver KeyDeriver) {
 	if _, ok := keyDerivers[name]; ok {
-		panic(fmt.Sprintf("key (%s) deriver already register", name))
+		panic(fmt.Sprintf("key deriver (%s) is already registered", name))
 	}
 	keyDerivers[name] = keyDeriver
 }

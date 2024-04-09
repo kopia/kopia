@@ -43,6 +43,13 @@ func TestRepositoryAuthenticator(t *testing.T) {
 					},
 					password: "password3",
 				},
+				{
+					profile: &user.Profile{
+						Username:               "user4@host4",
+						KeyDerivationAlgorithm: crypto.Pbkdf2Algorithm,
+					},
+					password: "password4",
+				},
 			} {
 				tc.profile.SetPassword(tc.password)
 				err := user.SetUserProfile(ctx, w, tc.profile)
@@ -64,6 +71,9 @@ func TestRepositoryAuthenticator(t *testing.T) {
 
 	// Test for User with neither key derivation or PasswordHashVersion set
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user3@host3", "password3", false)
+
+	// Test for PBKDF2 key derivation
+	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user4@host4", "password4", true)
 }
 
 func verifyRepoAuthenticator(ctx context.Context, t *testing.T, a auth.Authenticator, r repo.Repository, username, password string, want bool) {
