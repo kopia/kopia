@@ -33,7 +33,6 @@ func TestLegacyUserProfile(t *testing.T) {
 	if !p.IsValidPassword("foo") {
 		t.Fatalf("password not valid!")
 	}
-
 }
 
 func TestUserProfile(t *testing.T) {
@@ -60,7 +59,6 @@ func TestUserProfile(t *testing.T) {
 	if p.IsValidPassword("foo") {
 		t.Fatalf("password unexpectedly valid!")
 	}
-
 }
 
 func TestBadKeyDerivationAlgorithmPanic(t *testing.T) {
