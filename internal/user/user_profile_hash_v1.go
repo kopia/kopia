@@ -15,7 +15,7 @@ var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength
 
 func (p *Profile) setPassword(password string) error {
 	keyDerivationAlgorithm := p.KeyDerivationAlgorithm
-	if len(keyDerivationAlgorithm) == 0 {
+	if keyDerivationAlgorithm == "" {
 		if p.PasswordHashVersion == 0 {
 			return errors.New("key derivation algorithm and password hash version not set")
 		}
@@ -27,8 +27,9 @@ func (p *Profile) setPassword(password string) error {
 
 	saltLength, err := crypto.RecommendedSaltLength(keyDerivationAlgorithm)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error getting recommended salt length")
 	}
+
 	salt := make([]byte, saltLength)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return errors.Wrap(err, "error generating salt")
@@ -55,6 +56,7 @@ func isValidPassword(password string, hashedPassword []byte, keyDerivationAlgori
 	if err != nil {
 		panic(err)
 	}
+
 	if len(hashedPassword) != saltLength+crypto.MasterKeyLength {
 		return false
 	}
