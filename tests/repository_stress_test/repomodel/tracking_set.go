@@ -114,6 +114,7 @@ func (s *TrackingSet[T]) Clear(ctx context.Context) TrackingSet[T] {
 	return TrackingSet[T]{ids: old}
 }
 
+// NewChangeSet creates new tracking set.
 func NewChangeSet[T comparable](setID string) *TrackingSet[T] {
 	return &TrackingSet[T]{setID: setID}
 }

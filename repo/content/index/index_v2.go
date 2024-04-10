@@ -722,7 +722,7 @@ func openV2PackIndex(data []byte, closer func() error) (Index, error) {
 
 	packIDs := make([]blob.ID, hi.packCount)
 
-	for i := 0; i < int(hi.packCount); i++ {
+	for i := range int(hi.packCount) {
 		buf, err := safeSlice(data, hi.packsOffset+int64(v2PackInfoSize*i), v2PackInfoSize)
 		if err != nil {
 			return nil, errors.Errorf("unable to read pack blob IDs section - 1")

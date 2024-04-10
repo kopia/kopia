@@ -256,9 +256,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 	defer logFile.Close()
 
 	for _, configFile := range configFiles {
-		for i := 0; i < opt.OpenRepositoriesPerConfig; i++ {
-			i := i
-
+		for i := range opt.OpenRepositoriesPerConfig {
 			openID := fmt.Sprintf("open-%v", i)
 
 			eg.Go(func() error {
