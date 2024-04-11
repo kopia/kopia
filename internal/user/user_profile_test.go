@@ -7,20 +7,56 @@ import (
 	"github.com/kopia/kopia/internal/user"
 )
 
-func TestUserProfile(t *testing.T) {
-	p := &user.Profile{}
+func TestLegacyUserProfile(t *testing.T) {
+	p := &user.Profile{
+		PasswordHashVersion: 1, // hashVersion1
+	}
 
-	if p.IsValidPassword("bar", crypto.DefaultKeyDerivationAlgorithm) {
+	if p.IsValidPassword("bar") {
 		t.Fatalf("password unexpectedly valid!")
 	}
 
-	p.SetPassword("foo", crypto.DefaultKeyDerivationAlgorithm)
+	p.SetPassword("foo")
 
-	if !p.IsValidPassword("foo", crypto.DefaultKeyDerivationAlgorithm) {
+	if !p.IsValidPassword("foo") {
 		t.Fatalf("password not valid!")
 	}
 
-	if p.IsValidPassword("bar", crypto.DefaultKeyDerivationAlgorithm) {
+	if p.IsValidPassword("bar") {
+		t.Fatalf("password unexpectedly valid!")
+	}
+
+	// Setting the key derivation to scrypt and unsetting PasswordHashVersion
+	// Legacy profile should translate to scrypt
+	p.KeyDerivationAlgorithm = crypto.ScryptAlgorithm
+	p.PasswordHashVersion = 0
+	if !p.IsValidPassword("foo") {
+		t.Fatalf("password not valid!")
+	}
+}
+
+func TestUserProfile(t *testing.T) {
+	p := &user.Profile{
+		KeyDerivationAlgorithm: crypto.ScryptAlgorithm,
+	}
+
+	if p.IsValidPassword("bar") {
+		t.Fatalf("password unexpectedly valid!")
+	}
+
+	p.SetPassword("foo")
+
+	if !p.IsValidPassword("foo") {
+		t.Fatalf("password not valid!")
+	}
+
+	if p.IsValidPassword("bar") {
+		t.Fatalf("password unexpectedly valid!")
+	}
+
+	// Different key derivation algorithm besides the original should fail
+	p.KeyDerivationAlgorithm = crypto.Pbkdf2Algorithm
+	if p.IsValidPassword("foo") {
 		t.Fatalf("password unexpectedly valid!")
 	}
 }
@@ -28,9 +64,15 @@ func TestUserProfile(t *testing.T) {
 func TestBadKeyDerivationAlgorithmPanic(t *testing.T) {
 	defer func() { _ = recover() }()
 	func() {
-		p := &user.Profile{}
-		p.SetPassword("foo", crypto.DefaultKeyDerivationAlgorithm)
-		p.IsValidPassword("foo", "bad algorithm")
+		// mock a valid password
+		p := &user.Profile{
+			KeyDerivationAlgorithm: crypto.ScryptAlgorithm,
+		}
+		p.SetPassword("foo")
+		// Assume the key derivation algorithm is bad. This will cause
+		// a panic when validating
+		p.KeyDerivationAlgorithm = "some bad algorithm"
+		p.IsValidPassword("foo")
 	}()
 	t.Errorf("should have panicked")
 }
@@ -38,7 +80,7 @@ func TestBadKeyDerivationAlgorithmPanic(t *testing.T) {
 func TestNilUserProfile(t *testing.T) {
 	var p *user.Profile
 
-	if p.IsValidPassword("bar", crypto.DefaultKeyDerivationAlgorithm) {
+	if p.IsValidPassword("bar") {
 		t.Fatalf("password unexpectedly valid!")
 	}
 }
@@ -51,7 +93,7 @@ func TestInvalidPasswordHash(t *testing.T) {
 
 	for _, tc := range cases {
 		p := &user.Profile{PasswordHash: tc}
-		if p.IsValidPassword("some-password", crypto.DefaultKeyDerivationAlgorithm) {
+		if p.IsValidPassword("some-password") {
 			t.Fatalf("password unexpectedly valid for %v", tc)
 		}
 	}

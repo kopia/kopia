@@ -10,31 +10,37 @@ import (
 	"github.com/kopia/kopia/internal/crypto"
 )
 
-// parameters for v1 hashing.
-const (
-	hashVersion1 = 1
-
-	v1SaltLength = 32
-)
-
 //nolint:gochecknoglobals
-var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+v1SaltLength)
+var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+crypto.V1SaltLength)
 
-func (p *Profile) setPasswordV1(password, keyDerivationAlgorithm string) error {
-	salt := make([]byte, v1SaltLength)
+func (p *Profile) setPassword(password string) error {
+	keyDerivationAlgorithm := p.KeyDerivationAlgorithm
+	if keyDerivationAlgorithm == "" {
+		if p.PasswordHashVersion == 0 {
+			return errors.New("key derivation algorithm and password hash version not set")
+		}
+		// Setup to handle legacy hashVersion.
+		if p.PasswordHashVersion == crypto.HashVersion1 {
+			keyDerivationAlgorithm = crypto.ScryptAlgorithm
+		}
+	}
+
+	saltLength, err := crypto.RecommendedSaltLength(keyDerivationAlgorithm)
+	if err != nil {
+		return errors.Wrap(err, "error getting recommended salt length")
+	}
+
+	salt := make([]byte, saltLength)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return errors.Wrap(err, "error generating salt")
 	}
 
-	var err error
-
-	p.PasswordHashVersion = 1
-	p.PasswordHash, err = computePasswordHashV1(password, salt, keyDerivationAlgorithm)
+	p.PasswordHash, err = computePasswordHash(password, salt, keyDerivationAlgorithm)
 
 	return err
 }
 
-func computePasswordHashV1(password string, salt []byte, keyDerivationAlgorithm string) ([]byte, error) {
+func computePasswordHash(password string, salt []byte, keyDerivationAlgorithm string) ([]byte, error) {
 	key, err := crypto.DeriveKeyFromPassword(password, salt, keyDerivationAlgorithm)
 	if err != nil {
 		return nil, errors.Wrap(err, "error deriving key from password")
@@ -45,14 +51,19 @@ func computePasswordHashV1(password string, salt []byte, keyDerivationAlgorithm 
 	return payload, nil
 }
 
-func isValidPasswordV1(password string, hashedPassword []byte, keyDerivationAlgorithm string) bool {
-	if len(hashedPassword) != v1SaltLength+crypto.MasterKeyLength {
+func isValidPassword(password string, hashedPassword []byte, keyDerivationAlgorithm string) bool {
+	saltLength, err := crypto.RecommendedSaltLength(keyDerivationAlgorithm)
+	if err != nil {
+		panic(err)
+	}
+
+	if len(hashedPassword) != saltLength+crypto.MasterKeyLength {
 		return false
 	}
 
-	salt := hashedPassword[0:v1SaltLength]
+	salt := hashedPassword[0:saltLength]
 
-	h, err := computePasswordHashV1(password, salt, keyDerivationAlgorithm)
+	h, err := computePasswordHash(password, salt, keyDerivationAlgorithm)
 	if err != nil {
 		panic(err)
 	}

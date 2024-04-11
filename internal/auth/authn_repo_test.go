@@ -19,13 +19,45 @@ func TestRepositoryAuthenticator(t *testing.T) {
 
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{},
 		func(ctx context.Context, w repo.RepositoryWriter) error {
-			p := &user.Profile{
-				Username: "user1@host1",
+			for _, tc := range []struct {
+				profile  *user.Profile
+				password string
+			}{
+				{
+					profile: &user.Profile{
+						Username:            "user1@host1",
+						PasswordHashVersion: crypto.HashVersion1,
+					},
+					password: "password1",
+				},
+				{
+					profile: &user.Profile{
+						Username:               "user2@host2",
+						KeyDerivationAlgorithm: crypto.ScryptAlgorithm,
+					},
+					password: "password2",
+				},
+				{
+					profile: &user.Profile{
+						Username: "user3@host3",
+					},
+					password: "password3",
+				},
+				{
+					profile: &user.Profile{
+						Username:               "user4@host4",
+						KeyDerivationAlgorithm: crypto.Pbkdf2Algorithm,
+					},
+					password: "password4",
+				},
+			} {
+				tc.profile.SetPassword(tc.password)
+				err := user.SetUserProfile(ctx, w, tc.profile)
+				if err != nil {
+					return err
+				}
 			}
-
-			p.SetPassword("password1", crypto.DefaultKeyDerivationAlgorithm)
-
-			return user.SetUserProfile(ctx, w, p)
+			return nil
 		}))
 
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user1@host1", "password1", true)
@@ -33,6 +65,15 @@ func TestRepositoryAuthenticator(t *testing.T) {
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user1@host1", "password11", false)
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user1@host1a", "password1", false)
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user1@host1a", "password1a", false)
+
+	// Test for password with KeyDerivationSet
+	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user2@host2", "password2", true)
+
+	// Test for User with neither key derivation or PasswordHashVersion set
+	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user3@host3", "password3", false)
+
+	// Test for PBKDF2 key derivation
+	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user4@host4", "password4", true)
 }
 
 func verifyRepoAuthenticator(ctx context.Context, t *testing.T, a auth.Authenticator, r repo.Repository, username, password string, want bool) {

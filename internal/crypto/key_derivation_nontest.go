@@ -4,38 +4,64 @@
 package crypto
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 )
 
 const (
 	// MasterKeyLength describes the length of the master key.
 	MasterKeyLength = 32
-
-	// ScryptAlgorithm is the key for the scrypt algorithm.
-	ScryptAlgorithm = "scrypt-65536-8-1"
-	// Pbkdf2Algorithm is the key for the pbkdf algorithm.
-	Pbkdf2Algorithm = "pbkdf2"
 )
 
 // DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
 const DefaultKeyDerivationAlgorithm = ScryptAlgorithm
 
-type keyDerivationFunc func(password string, salt []byte) ([]byte, error)
+// KeyDeriver is an interface that contains methods for deriving a key from a password.
+type KeyDeriver interface {
+	DeriveKeyFromPassword(password string, salt []byte) ([]byte, error)
+	RecommendedSaltLength() int
+}
 
 //nolint:gochecknoglobals
-var keyDerivers = map[string]keyDerivationFunc{}
+var keyDerivers = map[string]KeyDeriver{}
 
-// RegisterKeyDerivationFunc registers various key derivation functions.
-func RegisterKeyDerivationFunc(name string, keyDeriver keyDerivationFunc) {
+// RegisterKeyDerivers registers various key derivation functions.
+func RegisterKeyDerivers(name string, keyDeriver KeyDeriver) {
+	if _, ok := keyDerivers[name]; ok {
+		panic(fmt.Sprintf("key deriver (%s) is already registered", name))
+	}
+
 	keyDerivers[name] = keyDeriver
 }
 
 // DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
 func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]byte, error) {
-	kdFunc, ok := keyDerivers[algorithm]
+	kd, ok := keyDerivers[algorithm]
 	if !ok {
-		return nil, errors.Errorf("unsupported key algorithm: %v", algorithm)
+		return nil, errors.Errorf("unsupported key algorithm: %v, supported algorithms %v", algorithm, AllowedKeyDerivationAlgorithms())
 	}
 
-	return kdFunc(password, salt)
+	//nolint:wrapcheck
+	return kd.DeriveKeyFromPassword(password, salt)
+}
+
+// RecommendedSaltLength returns the recommended salt length of a given key derivation algorithm.
+func RecommendedSaltLength(algorithm string) (int, error) {
+	kd, ok := keyDerivers[algorithm]
+	if !ok {
+		return 0, errors.Errorf("unsupported key algorithm: %v, supported algorithms %v", algorithm, AllowedKeyDerivationAlgorithms())
+	}
+
+	return kd.RecommendedSaltLength(), nil
+}
+
+// AllowedKeyDerivationAlgorithms returns a slice of the allowed key derivation algorithms.
+func AllowedKeyDerivationAlgorithms() []string {
+	kdAlgorithms := make([]string, 0, len(keyDerivers))
+	for k := range keyDerivers {
+		kdAlgorithms = append(kdAlgorithms, k)
+	}
+
+	return kdAlgorithms
 }
