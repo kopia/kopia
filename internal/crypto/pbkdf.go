@@ -44,6 +44,7 @@ func (s *pbkdf2KeyDeriver) DeriveKeyFromPassword(password string, salt []byte) (
 	if len(salt) < s.minSaltLength {
 		return nil, errors.Errorf("required salt size is atleast %d bytes", s.minSaltLength)
 	}
+
 	return pbkdf2.Key([]byte(password), salt, s.iterations, MasterKeyLength, sha256.New), nil
 }
 
