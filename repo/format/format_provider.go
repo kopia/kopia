@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/ecc"
@@ -52,6 +53,7 @@ type Provider interface {
 	encryption.Parameters
 	hashing.Parameters
 	ecc.Parameters
+	crypto.Parameters
 
 	HashFunc() hashing.HashFunc
 	Encryptor() encryption.Encryptor

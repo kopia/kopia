@@ -57,7 +57,7 @@ type connectOptions struct {
 	connectDescription            string
 	connectEnableActions          bool
 
-	keyDerivationAlgorithm string
+	cacheKeyDerivationAlgorithm string
 
 	formatBlobCacheDuration time.Duration
 	disableFormatBlobCache  bool
@@ -82,7 +82,7 @@ func (c *connectOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("enable-actions", "Allow snapshot actions").BoolVar(&c.connectEnableActions)
 	cmd.Flag("repository-format-cache-duration", "Duration of kopia.repository format blob cache").Hidden().DurationVar(&c.formatBlobCacheDuration)
 	cmd.Flag("disable-repository-format-cache", "Disable caching of kopia.repository format blob").Hidden().BoolVar(&c.disableFormatBlobCache)
-	cmd.Flag("key-derivation-algorithm", "Key derivation algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.keyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
+	cmd.Flag("cache-key-derivation-algorithm", "Cache key derivation algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.cacheKeyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
 }
 
 func (c *connectOptions) getFormatBlobCacheDuration() time.Duration {
@@ -105,7 +105,7 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 			MinContentSweepAge:          content.DurationSeconds(c.contentMinSweepAge.Seconds()),
 			MinMetadataSweepAge:         content.DurationSeconds(c.metadataMinSweepAge.Seconds()),
 			MinIndexSweepAge:            content.DurationSeconds(c.indexMinSweepAge.Seconds()),
-			KeyDerivationAlgorithm:      c.keyDerivationAlgorithm,
+			KeyDerivationAlgorithm:      c.cacheKeyDerivationAlgorithm,
 		},
 		ClientOptions: repo.ClientOptions{
 			Hostname:                c.connectHostname,

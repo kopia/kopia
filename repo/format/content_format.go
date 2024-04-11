@@ -96,6 +96,10 @@ func (f *ContentFormat) GetEncryptionAlgorithm() string {
 	return f.Encryption
 }
 
+func (f *ContentFormat) GetKeyDerivationAlgorithm() string {
+	return f.KeyDerivationAlgorithm
+}
+
 // GetMasterKey implements encryption.Parameters.
 func (f *ContentFormat) GetMasterKey() []byte {
 	return f.MasterKey

@@ -213,6 +213,10 @@ func (m *Manager) GetECCAlgorithm() string {
 	return m.immutable.GetECCAlgorithm()
 }
 
+func (m *Manager) GetKeyDerivationAlgorithm() string {
+	return m.immutable.GetKeyDerivationAlgorithm()
+}
+
 // GetECCOverheadPercent returns the ECC overhead percent.
 func (m *Manager) GetECCOverheadPercent() int {
 	return m.immutable.GetECCOverheadPercent()
