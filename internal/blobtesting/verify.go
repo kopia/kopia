@@ -34,8 +34,6 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 	// First verify that blocks don't exist.
 	t.Run("VerifyBlobsNotFound", func(t *testing.T) {
 		for _, b := range blocks {
-			b := b
-
 			t.Run(string(b.blk), func(t *testing.T) {
 				t.Parallel()
 
@@ -57,9 +55,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 	// Now add blocks.
 	t.Run("AddBlobs", func(t *testing.T) {
 		for _, b := range blocks {
-			for i := 0; i < initialAddConcurrency; i++ {
-				b := b
-
+			for i := range initialAddConcurrency {
 				t.Run(fmt.Sprintf("%v-%v", b.blk, i), func(t *testing.T) {
 					t.Parallel()
 
@@ -73,8 +69,6 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 
 	t.Run("GetBlobs", func(t *testing.T) {
 		for _, b := range blocks {
-			b := b
-
 			t.Run(string(b.blk), func(t *testing.T) {
 				t.Parallel()
 
@@ -112,8 +106,6 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 		newContents := []byte{99}
 
 		for _, b := range blocks {
-			b := b
-
 			t.Run(string(b.blk), func(t *testing.T) {
 				t.Parallel()
 				err := r.PutBlob(ctx, b.blk, gather.FromSlice(newContents), opts)
@@ -150,8 +142,6 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 
 	t.Run("PutBlobsWithSetTime", func(t *testing.T) {
 		for _, b := range blocks {
-			b := b
-
 			t.Run(string(b.blk), func(t *testing.T) {
 				t.Parallel()
 
@@ -181,8 +171,6 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 
 	t.Run("PutBlobsWithGetTime", func(t *testing.T) {
 		for _, b := range blocks {
-			b := b
-
 			t.Run(string(b.blk), func(t *testing.T) {
 				t.Parallel()
 

@@ -114,8 +114,6 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		lastErr := make(chan error, 1)
 
 		for req, err := srv.Recv(); err == nil; req, err = srv.Recv() {
-			req := req
-
 			// propagate any error from the goroutines
 			select {
 			case err := <-lastErr:

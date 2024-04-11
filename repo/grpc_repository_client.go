@@ -842,7 +842,7 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		uri = "unix:" + u.Path
 	}
 
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		uri,
 		grpc.WithPerRPCCredentials(grpcCreds{par.cliOpts.Hostname, par.cliOpts.Username, password}),
 		grpc.WithTransportCredentials(transportCreds),
@@ -852,7 +852,7 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "dial error")
+		return nil, errors.Wrap(err, "gRPC client creation error")
 	}
 
 	par.refCountedCloser.registerEarlyCloseFunc(

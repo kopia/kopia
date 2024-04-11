@@ -183,7 +183,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	for blobID, v := range data {
 		for _, prefix := range content.PackBlobIDPrefixes {
 			if strings.HasPrefix(string(blobID), string(prefix)) {
-				for i := 0; i < len(v); i++ {
+				for i := range len(v) {
 					v[i] ^= 1
 				}
 			}
@@ -221,7 +221,6 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			err := tc.f()
 			if err == nil || !strings.Contains(err.Error(), "invalid checksum") {
@@ -378,7 +377,7 @@ func TestManifestAutoCompaction(t *testing.T) {
 
 	mgr := newManagerForTesting(ctx, t, data, ManagerOptions{})
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		item1 := map[string]int{"foo": 1, "bar": 2}
 		labels1 := map[string]string{"type": "item", "color": "red"}
 		found, err := mgr.Find(ctx, labels1)
@@ -408,7 +407,7 @@ func TestManifestConfigureAutoCompaction(t *testing.T) {
 
 	mgr := newManagerForTesting(ctx, t, data, ManagerOptions{AutoCompactionThreshold: compactionCount})
 
-	for i := 0; i < compactionCount-1; i++ {
+	for range compactionCount - 1 {
 		addAndVerify(ctx, t, mgr, labels1, item1)
 		require.NoError(t, mgr.Flush(ctx))
 		require.NoError(t, mgr.b.Flush(ctx))
@@ -468,7 +467,7 @@ func TestManifestAutoCompactionWithReadOnly(t *testing.T) {
 	mgr, err := NewManager(ctx, bm, ManagerOptions{}, nil)
 	require.NoError(t, err, "getting initial manifest manager")
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		item1 := map[string]int{"foo": 1, "bar": 2}
 		labels1 := map[string]string{"type": "item", "color": "red"}
 

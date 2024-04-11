@@ -504,7 +504,6 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			runner := testenv.NewInProcRunner(t)
 			e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)

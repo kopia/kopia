@@ -71,16 +71,12 @@ func TestSplitterStability(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
 			t.Parallel()
 
 			for name, getSplitPointsFunc := range getSplitPointsFunctions {
-				name := name
-				getSplitPointsFunc := getSplitPointsFunc
-
 				t.Run(name, func(t *testing.T) {
-					for repeat := 0; repeat < numRepeats; repeat++ {
+					for range numRepeats {
 						s := tc.factory()
 
 						if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {

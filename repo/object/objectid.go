@@ -82,7 +82,7 @@ func (i ID) String() string {
 
 // Append appends string representation of ObjectID that is suitable for displaying in the UI.
 func (i ID) Append(out []byte) []byte {
-	for j := 0; j < int(i.indirection); j++ {
+	for range i.indirection {
 		out = append(out, 'I')
 	}
 

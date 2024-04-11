@@ -32,7 +32,7 @@ func epochNumberFromBlobID(blobID blob.ID) (int, bool) {
 	return n, true
 }
 
-// epochNumberFromBlobID extracts the range epoch numbers from a string formatted as
+// epochRangeFromBlobID extracts the range epoch numbers from a string formatted as
 // <prefix><epochNumber>_<epochNumber2>_<remainder>.
 func epochRangeFromBlobID(blobID blob.ID) (min, max int, ok bool) {
 	parts := strings.Split(string(blobID), "_")

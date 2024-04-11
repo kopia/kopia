@@ -326,7 +326,7 @@ func TestCacheFailureToRead(t *testing.T) {
 	var v gather.WriteBuffer
 	defer v.Close()
 
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		require.NoError(t, cc.GetContent(ctx, "aa", "content-1", 0, 3, &v))
 
 		got, want := v.ToByteSlice(), []byte{1, 2, 3}

@@ -424,7 +424,6 @@ func TestUpload_ErrorEntries(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			u := NewUploader(th.repo)
 
@@ -657,8 +656,6 @@ func TestUploadWithCheckpointing(t *testing.T) {
 	}
 
 	for _, d := range dirsToCheckpointAt {
-		d := d
-
 		d.OnReaddir(func() {
 			t.Logf("onReadDir %v %s", d.Name(), debug.Stack())
 			// trigger checkpoint
@@ -1102,14 +1099,14 @@ func TestParallelUploadDedup(t *testing.T) {
 	// 10 identical non-compressible files, 50MB each
 	var files []*os.File
 
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		f, cerr := os.Create(filepath.Join(td, fmt.Sprintf("file-%v", i)))
 		require.NoError(t, cerr)
 
 		files = append(files, f)
 	}
 
-	for j := 0; j < 1000; j++ {
+	for range 1000 {
 		buf := make([]byte, 50000)
 		rand.Read(buf)
 
@@ -1163,14 +1160,14 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 	// Write 2 x 50MB files
 	var files []*os.File
 
-	for i := 0; i < 2; i++ {
+	for i := range 2 {
 		f, cerr := os.Create(filepath.Join(td, fmt.Sprintf("file-%v", i)))
 		require.NoError(t, cerr)
 
 		files = append(files, f)
 	}
 
-	for j := 0; j < 1000; j++ {
+	for range 1000 {
 		buf := make([]byte, 50000)
 
 		for _, f := range files {

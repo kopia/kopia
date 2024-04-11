@@ -37,7 +37,7 @@ func testPutAndGet(t *testing.T, opts *Options, originalSize,
 	require.NoError(t, err)
 
 	original := make([]byte, originalSize)
-	for i := 0; i < originalSize; i++ {
+	for i := range originalSize {
 		original[i] = byte(i%255) + 1
 	}
 

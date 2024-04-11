@@ -6,7 +6,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// shouldAdvanceEpoch determines if the current epoch should be advanced based on set of blobs in it.
+// shouldAdvance determines if the current epoch should be advanced based on set of blobs in it.
 //
 // Epoch will be advanced if it's been more than 'minEpochDuration' between earliest and
 // most recent write AND at least one of the criteria has been met:

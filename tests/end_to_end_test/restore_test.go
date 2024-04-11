@@ -297,7 +297,6 @@ func TestSnapshotRestore(t *testing.T) {
 
 	t.Run("modes", func(t *testing.T) {
 		for _, tc := range cases {
-			tc := tc
 			t.Run(tc.fname, func(t *testing.T) {
 				t.Parallel()
 				fname := filepath.Join(restoreArchiveDir, tc.fname)
@@ -688,8 +687,6 @@ func TestSnapshotSparseRestore(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
-
 		t.Run(c.name, func(t *testing.T) {
 			if c.name == "blk_hole_on_buf_boundary" && runtime.GOARCH == "arm64" {
 				t.Skip("skipping on arm64 due to a failure - https://github.com/kopia/kopia/issues/3178")

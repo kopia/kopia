@@ -582,7 +582,10 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 	}
 
 	if s.rep != nil {
-		s.sched.Stop()
+		// stop previous scheduler asynchronously to avoid deadlock when
+		// scheduler is inside s.getSchedulerItems which needs a lock, which we're holding right now.
+		go s.sched.Stop()
+
 		s.sched = nil
 
 		s.unmountAllLocked(ctx)
