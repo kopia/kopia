@@ -49,11 +49,13 @@ const (
 
 // Provider provides current formatting options. The options returned
 // should not be cached for more than a few seconds as they are subject to change.
+//
+//nolint:interfacebloat
 type Provider interface {
 	encryption.Parameters
 	hashing.Parameters
 	ecc.Parameters
-	crypto.Parameters
+	crypto.KeyDerivationParameters
 
 	HashFunc() hashing.HashFunc
 	Encryptor() encryption.Encryptor

@@ -24,7 +24,6 @@ import (
 type APIServerInfo struct {
 	BaseURL                             string `json:"url"`
 	TrustedServerCertificateFingerprint string `json:"serverCertFingerprint"`
-	PasswordKeyDerivationAlgorithm      string `json:passwordKeyDerivationAlgorithm`
 	DisableGRPC                         bool   `json:"disableGRPC,omitempty"`
 }
 

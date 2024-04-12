@@ -213,6 +213,7 @@ func (m *Manager) GetECCAlgorithm() string {
 	return m.immutable.GetECCAlgorithm()
 }
 
+// GetKeyDerivationAlgorithm returns the key derivation algorithm.
 func (m *Manager) GetKeyDerivationAlgorithm() string {
 	return m.immutable.GetKeyDerivationAlgorithm()
 }

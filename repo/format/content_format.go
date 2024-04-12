@@ -96,6 +96,7 @@ func (f *ContentFormat) GetEncryptionAlgorithm() string {
 	return f.Encryption
 }
 
+// GetKeyDerivationAlgorithm implements crypto.KeyDerivationParameters.
 func (f *ContentFormat) GetKeyDerivationAlgorithm() string {
 	return f.KeyDerivationAlgorithm
 }
