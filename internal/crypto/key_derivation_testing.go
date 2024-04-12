@@ -22,6 +22,10 @@ const (
 	Pbkdf2Algorithm = "pbkdf2"
 )
 
+type Parameters interface {
+	GetKeyDerivationAlgorithm() string
+}
+
 // DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
 func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]byte, error) {
 	const masterKeySize = 32

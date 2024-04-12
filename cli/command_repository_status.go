@@ -15,7 +15,6 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
 )
@@ -34,13 +33,12 @@ type RepositoryStatus struct {
 	ConfigFile  string `json:"configFile"`
 	UniqueIDHex string `json:"uniqueIDHex"`
 
-	ClientOptions  repo.ClientOptions              `json:"clientOptions"`
-	Storage        blob.ConnectionInfo             `json:"storage"`
-	Capacity       *blob.Capacity                  `json:"volume,omitempty"`
-	ContentFormat  format.ContentFormat            `json:"contentFormat"`
-	ObjectFormat   format.ObjectFormat             `json:"objectFormat"`
-	BlobRetention  format.BlobStorageConfiguration `json:"blobRetention"`
-	CachingOptions content.CachingOptions          `json:"cachingOptions"`
+	ClientOptions repo.ClientOptions              `json:"clientOptions"`
+	Storage       blob.ConnectionInfo             `json:"storage"`
+	Capacity      *blob.Capacity                  `json:"volume,omitempty"`
+	ContentFormat format.ContentFormat            `json:"contentFormat"`
+	ObjectFormat  format.ObjectFormat             `json:"objectFormat"`
+	BlobRetention format.BlobStorageConfiguration `json:"blobRetention"`
 }
 
 func (c *commandRepositoryStatus) setup(svc advancedAppServices, parent commandParent) {
@@ -68,7 +66,6 @@ func (c *commandRepositoryStatus) outputJSON(ctx context.Context, r repo.Reposit
 		s.BlobRetention, _ = dr.FormatManager().BlobCfgBlob(ctx)
 		s.Storage = scrubber.ScrubSensitiveData(reflect.ValueOf(ci)).Interface().(blob.ConnectionInfo) //nolint:forcetypeassert
 		s.ContentFormat = dr.FormatManager().ScrubbedContentFormat()
-		s.CachingOptions = dr.CachingOptions()
 
 		switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
 		case err == nil:
@@ -187,7 +184,6 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Hash:                %v\n", contentFormat.GetHashFunction())
 	c.out.printStdout("Encryption:          %v\n", contentFormat.GetEncryptionAlgorithm())
 	c.out.printStdout("Key Derivation:      %v\n", contentFormat.GetKeyDerivationAlgorithm())
-	c.out.printStdout("Caching Key Derivation: %v\n", dr.CachingOptions().KeyDerivationAlgorithm)
 	c.out.printStdout("Splitter:            %v\n", dr.ObjectFormat().Splitter)
 	c.out.printStdout("Format version:      %v\n", mp.Version)
 	c.out.printStdout("Content compression: %v\n", mp.IndexVersion >= index.Version2)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/repo"
 )
@@ -13,9 +14,10 @@ import (
 type commandRepositoryConnectServer struct {
 	co *connectOptions
 
-	connectAPIServerURL             string
-	connectAPIServerCertFingerprint string
-	connectAPIServerUseGRPCAPI      bool
+	connectAPIServerURL                    string
+	connectAPIServerCertFingerprint        string
+	connectAPIServerUseGRPCAPI             bool
+	connectAPIServerKeyDerivationAlgorithm string
 
 	svc advancedAppServices
 	out textOutput
@@ -30,6 +32,7 @@ func (c *commandRepositoryConnectServer) setup(svc advancedAppServices, parent c
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
 	cmd.Flag("grpc", "Use GRPC API").Default("true").BoolVar(&c.connectAPIServerUseGRPCAPI)
+	cmd.Flag("key-derivation-algorithm", "Content key derivation algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.connectAPIServerKeyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
 	cmd.Action(svc.noRepositoryAction(c.run))
 }
 
@@ -38,6 +41,7 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 		BaseURL:                             strings.TrimSuffix(c.connectAPIServerURL, "/"),
 		TrustedServerCertificateFingerprint: strings.ToLower(c.connectAPIServerCertFingerprint),
 		DisableGRPC:                         !c.connectAPIServerUseGRPCAPI,
+		PasswordKeyDerivationAlgorithm:      c.connectAPIServerKeyDerivationAlgorithm,
 	}
 
 	configFile := c.svc.repositoryConfigFileName()

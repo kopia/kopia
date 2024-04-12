@@ -68,7 +68,6 @@ type DirectRepository interface {
 	Repository
 
 	ObjectFormat() format.ObjectFormat
-	CachingOptions() content.CachingOptions
 	FormatManager() *format.Manager
 	BlobReader() blob.Reader
 	BlobVolume() blob.Volume
@@ -153,10 +152,6 @@ func (r *directRepository) DeriveKey(purpose []byte, keyLength int) []byte {
 // ClientOptions returns client options.
 func (r *directRepository) ClientOptions() ClientOptions {
 	return r.cliOpts
-}
-
-func (r *directRepository) CachingOptions() content.CachingOptions {
-	return r.cachingOptions
 }
 
 // BlobStorage returns the blob storage.

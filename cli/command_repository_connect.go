@@ -7,7 +7,6 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -57,8 +56,6 @@ type connectOptions struct {
 	connectDescription            string
 	connectEnableActions          bool
 
-	cacheKeyDerivationAlgorithm string
-
 	formatBlobCacheDuration time.Duration
 	disableFormatBlobCache  bool
 }
@@ -82,7 +79,6 @@ func (c *connectOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("enable-actions", "Allow snapshot actions").BoolVar(&c.connectEnableActions)
 	cmd.Flag("repository-format-cache-duration", "Duration of kopia.repository format blob cache").Hidden().DurationVar(&c.formatBlobCacheDuration)
 	cmd.Flag("disable-repository-format-cache", "Disable caching of kopia.repository format blob").Hidden().BoolVar(&c.disableFormatBlobCache)
-	cmd.Flag("cache-key-derivation-algorithm", "Cache key derivation algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.cacheKeyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
 }
 
 func (c *connectOptions) getFormatBlobCacheDuration() time.Duration {
@@ -105,7 +101,6 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 			MinContentSweepAge:          content.DurationSeconds(c.contentMinSweepAge.Seconds()),
 			MinMetadataSweepAge:         content.DurationSeconds(c.metadataMinSweepAge.Seconds()),
 			MinIndexSweepAge:            content.DurationSeconds(c.indexMinSweepAge.Seconds()),
-			KeyDerivationAlgorithm:      c.cacheKeyDerivationAlgorithm,
 		},
 		ClientOptions: repo.ClientOptions{
 			Hostname:                c.connectHostname,

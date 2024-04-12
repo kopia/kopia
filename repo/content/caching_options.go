@@ -29,7 +29,6 @@ type CachingOptions struct {
 	MinContentSweepAge          DurationSeconds `json:"minContentSweepAge,omitempty"`
 	MinIndexSweepAge            DurationSeconds `json:"minIndexSweepAge,omitempty"`
 	HMACSecret                  []byte          `json:"-"`
-	KeyDerivationAlgorithm      string          `json:"keyDerivationAlgorithm"`
 }
 
 // EffectiveMetadataCacheSizeBytes returns the effective metadata cache size.

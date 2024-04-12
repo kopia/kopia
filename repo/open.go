@@ -131,7 +131,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	return openDirect(ctx, configFile, lc, password, options)
 }
 
-func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
+func getContentCacheOrNil(ctx context.Context, si *APIServerInfo, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
 	opt = opt.CloneOrDefault()
 
 	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.ContentCacheSizeBytes, "server-contents")
@@ -143,7 +143,7 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 	// derive content cache key from the password & HMAC secret
 	saltWithPurpose := append([]byte("content-cache-protection"), opt.HMACSecret...)
 
-	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, saltWithPurpose, opt.KeyDerivationAlgorithm)
+	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, saltWithPurpose, si.PasswordKeyDerivationAlgorithm)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
 	}
@@ -171,7 +171,7 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 
 	mr := metrics.NewRegistry()
 
-	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, mr, options.TimeNowFunc)
+	contentCache, err := getContentCacheOrNil(ctx, si, cachingOptions, password, mr, options.TimeNowFunc)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening content cache")
 	}
