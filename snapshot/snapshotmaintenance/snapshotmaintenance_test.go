@@ -134,7 +134,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 
 	info, err := r2.(repo.DirectRepository).ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
-	require.False(t, info.GetDeleted(), "content must not be deleted")
+	require.False(t, info.Deleted, "content must not be deleted")
 
 	_, err = r2.VerifyObject(ctx, s2.RootObjectID())
 	require.NoError(t, err)
@@ -148,7 +148,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 
 	info, err = th.RepositoryWriter.ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
-	require.True(t, info.GetDeleted(), "content must be deleted")
+	require.True(t, info.Deleted, "content must be deleted")
 
 	_, err = th.RepositoryWriter.VerifyObject(ctx, s2.RootObjectID())
 	require.NoError(t, err)
@@ -162,7 +162,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 	// Was the previous root undeleted
 	info, err = th.RepositoryWriter.ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
-	require.False(t, info.GetDeleted(), "content must not be deleted")
+	require.False(t, info.Deleted, "content must not be deleted")
 
 	_, err = th.RepositoryWriter.VerifyObject(ctx, s2.RootObjectID())
 	require.NoError(t, err)
@@ -426,6 +426,6 @@ func checkContentDeletion(t *testing.T, r repo.Repository, cids []content.ID, de
 		ci, err := r.ContentInfo(ctx, cid)
 
 		require.NoErrorf(t, err, "i:%d cid:%s", i, cid)
-		require.Equalf(t, deleted, ci.GetDeleted(), "i:%d cid:%s", i, cid)
+		require.Equalf(t, deleted, ci.Deleted, "i:%d cid:%s", i, cid)
 	}
 }

@@ -215,14 +215,14 @@ func handleGetContentInfoRequest(ctx context.Context, dw repo.DirectRepositoryWr
 		Response: &grpcapi.SessionResponse_GetContentInfo{
 			GetContentInfo: &grpcapi.GetContentInfoResponse{
 				Info: &grpcapi.ContentInfo{
-					Id:               ci.GetContentID().String(),
-					PackedLength:     ci.GetPackedLength(),
-					TimestampSeconds: ci.GetTimestampSeconds(),
-					PackBlobId:       string(ci.GetPackBlobID()),
-					PackOffset:       ci.GetPackOffset(),
-					Deleted:          ci.GetDeleted(),
-					FormatVersion:    uint32(ci.GetFormatVersion()),
-					OriginalLength:   ci.GetOriginalLength(),
+					Id:               ci.ContentID.String(),
+					PackedLength:     ci.PackedLength,
+					TimestampSeconds: ci.TimestampSeconds,
+					PackBlobId:       string(ci.PackBlobID),
+					PackOffset:       ci.PackOffset,
+					Deleted:          ci.Deleted,
+					FormatVersion:    uint32(ci.FormatVersion),
+					OriginalLength:   ci.OriginalLength,
 				},
 			},
 		},
