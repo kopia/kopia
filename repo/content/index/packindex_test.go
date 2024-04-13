@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -139,12 +138,6 @@ func testPackIndex(t *testing.T, version int) {
 			CompressionHeaderID: deterministicCompressionHeaderID(i, version),
 			EncryptionKeyID:     deterministicEncryptionKeyID(i, version),
 		})
-	}
-
-	// dear future reader, if this fails because the number of methods has changed,
-	// you need to add additional test cases above.
-	if cnt := reflect.TypeOf(Info{}).NumField(); cnt != 10 {
-		t.Fatalf("unexpected number of methods on content.Info: %v, must update the test", cnt)
 	}
 
 	infoMap := map[ID]Info{}

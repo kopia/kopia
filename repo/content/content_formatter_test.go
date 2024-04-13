@@ -102,7 +102,6 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 	}
 
 	for _, b := range cases {
-		t.Logf("zzzz")
 		contentID, err := bm.WriteContent(ctx, b, "", NoCompression)
 		if err != nil {
 			t.Errorf("err: %v", err)

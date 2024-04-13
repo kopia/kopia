@@ -3,12 +3,13 @@ package repomodel
 import (
 	"context"
 	"math/rand"
+	"slices"
 	"sync"
 )
 
 // TrackingSet represents a set of items with built-in.
 type TrackingSet[T comparable] struct {
-	mut sync.Mutex
+	mu sync.Mutex
 
 	ids []T // +checklocksignore
 
@@ -17,8 +18,8 @@ type TrackingSet[T comparable] struct {
 
 // PickRandom picks one random manifest from the set or empty string.
 func (s *TrackingSet[T]) PickRandom(ctx context.Context) T {
-	s.mut.Lock()
-	defer s.mut.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if len(s.ids) == 0 {
 		var defT T
@@ -36,8 +37,8 @@ func (s *TrackingSet[T]) PickRandom(ctx context.Context) T {
 
 // Snapshot returns the snapshot of all IDs.
 func (s *TrackingSet[T]) Snapshot(name string) *TrackingSet[T] {
-	s.mut.Lock()
-	defer s.mut.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	return &TrackingSet[T]{
 		ids:   append([]T(nil), s.ids...),
@@ -47,8 +48,8 @@ func (s *TrackingSet[T]) Snapshot(name string) *TrackingSet[T] {
 
 // Replace replaces all elements in the set.
 func (s *TrackingSet[T]) Replace(ctx context.Context, ids []T) {
-	s.mut.Lock()
-	defer s.mut.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	log(ctx).Debugw("replacing set", "setID", s.setID, "ids", ids)
 	s.ids = append([]T(nil), ids...)
@@ -60,8 +61,8 @@ func (s *TrackingSet[T]) Add(ctx context.Context, d ...T) {
 		return
 	}
 
-	s.mut.Lock()
-	defer s.mut.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	log(ctx).Debugw("adding to set", "setID", s.setID, "ids", d)
 	s.ids = append(s.ids, d...)
@@ -73,27 +74,18 @@ func (s *TrackingSet[T]) RemoveAll(ctx context.Context, d ...T) {
 		return
 	}
 
-	s.mut.Lock()
-	defer s.mut.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	log(ctx).Debugw("removing from set", "setID", s.setID, "ids", d)
 	s.ids = removeAll(s.ids, d)
 }
 
-func removeAll[T comparable](a, b []T) []T {
+func removeAll[T comparable](original, toRemove []T) []T {
 	var result []T
 
-	for _, v := range a {
-		found := false
-
-		for _, v2 := range b {
-			if v2 == v {
-				found = true
-				break
-			}
-		}
-
-		if !found {
+	for _, v := range original {
+		if !slices.Contains(toRemove, v) {
 			result = append(result, v)
 		}
 	}
@@ -103,8 +95,8 @@ func removeAll[T comparable](a, b []T) []T {
 
 // Clear removes all elements from the set.
 func (s *TrackingSet[T]) Clear(ctx context.Context) TrackingSet[T] {
-	s.mut.Lock()
-	defer s.mut.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	old := s.ids
 	s.ids = nil
