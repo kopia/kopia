@@ -64,7 +64,7 @@ func (gcs *gcsStorage) listBlobVersions(ctx context.Context, prefix blob.ID, cal
 }
 
 func (gcs *gcsStorage) list(ctx context.Context, prefix blob.ID, onlyMatching bool, callback versionMetadataCallback) error {
-	fmt.Printf("in list\n")
+	fmt.Printf("in list per blob.ID: %s\n", prefix)
 	query := storage.Query{
 		Prefix: gcs.getObjectNameString(prefix),
 		// Versions true to output all generations of objects
@@ -93,7 +93,7 @@ func (gcs *gcsStorage) list(ctx context.Context, prefix blob.ID, onlyMatching bo
 		oi := attrs
 		om := infoToVersionMetadata(query.Prefix, oi)
 
-		fmt.Printf("Trovato attributo nel blob %s\n", oi.Name)
+		fmt.Printf("Trovato oggetto nel blob: %s -- om.BlobID: %s -- uery.Prefix: %s -- prefix: %s\n", oi.Name, om.BlobID, query.Prefix, prefix)
 
 		if errCallback := callback(om); errCallback != nil {
 			return errors.Wrapf(errCallback, "callback failed for %q", attrs.Name)
@@ -104,7 +104,7 @@ func (gcs *gcsStorage) list(ctx context.Context, prefix blob.ID, onlyMatching bo
 }
 
 func toBlobID(blobName, prefix string) blob.ID {
-	return blob.ID(strings.TrimPrefix(blobName, prefix))
+	return blob.ID(prefix + strings.TrimPrefix(blobName, prefix))
 }
 
 func infoToVersionMetadata(prefix string, oi *storage.ObjectAttrs) versionMetadata {

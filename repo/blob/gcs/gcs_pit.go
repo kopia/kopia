@@ -3,6 +3,7 @@ package gcs
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/kopia/kopia/repo/blob"
@@ -98,22 +99,20 @@ func (gcs *gcsPointInTimeStorage) getMetadata(ctx context.Context, b blob.ID) (v
 
 // newestAtUnlessDeleted returns the last version in the list older than the PIT.
 func newestAtUnlessDeleted(vs []versionMetadata, t time.Time) (v versionMetadata, found bool) {
-	fmt.Printf("newestAtUnlessDeleted del pit %s\n", t)
+	fmt.Printf("newestAtUnlessDeleted %s\n", t)
 
 	for _, xxx := range vs {
-		fmt.Printf("newestAtUnlessDeleted: found version %s del %s. deleted=%t\n", xxx.Version, xxx.Timestamp, xxx.IsDeleteMarker)
+		fmt.Printf("newestAtUnlessDeleted: PRE SORT: found version %s del %s. deleted=%t\n", xxx.Version, xxx.Timestamp, xxx.IsDeleteMarker)
 	}
 
-	/*
-		// Sort
-		sort.Slice(vs, func(i, j int) bool {
-			return vs[i].Timestamp.After(vs[j].Timestamp)
-		})
+	// Sort
+	sort.Slice(vs, func(i, j int) bool {
+		return vs[i].Timestamp.Before(vs[j].Timestamp)
+	})
 
-		for _, xxx := range vs {
-			fmt.Printf("POST: Versione %s del %s.\n", xxx.Version, xxx.Timestamp)
-		}
-	*/
+	for _, xxx := range vs {
+		fmt.Printf("newestAtUnlessDeleted POST SORT: found version %s del %s. deleted=%t\n", xxx.Version, xxx.Timestamp, xxx.IsDeleteMarker)
+	}
 
 	vs = getOlderThan(vs, t)
 
@@ -121,7 +120,7 @@ func newestAtUnlessDeleted(vs []versionMetadata, t time.Time) (v versionMetadata
 		return versionMetadata{}, false
 	}
 
-	// v = vs[0] // versione s3
+	//v = vs[0] // versione s3
 	v = vs[len(vs)-1] // versione azure
 
 	fmt.Printf("newestAtUnlessDeleted del pit %s deleted=%t\n", v.Timestamp, v.IsDeleteMarker)
@@ -134,16 +133,19 @@ func newestAtUnlessDeleted(vs []versionMetadata, t time.Time) (v versionMetadata
 // and uses the same slice storage as vs. Assumes entries in vs are in descending
 // timestamp order.
 func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
-	fmt.Printf("getOlderThan del pit %s \n", t)
+	fmt.Printf("getOlderThan %s \n", t)
+
+	sort.Slice(vs, func(i, j int) bool { return vs[i].Timestamp.Before(vs[j].Timestamp) })
 
 	for i := range vs {
-		if !vs[i].Timestamp.After(t) {
+		fmt.Printf("getOlderThan %s: vs[i].Timestamp: %s \n", t, vs[i].Timestamp)
+		if vs[i].Timestamp.After(t) {
 			fmt.Printf("  Skippo versione %s del %s. Troppo nuova.\n", vs[i].Version, vs[i].Timestamp)
 			return vs[i:]
 		}
 	}
 
-	return []versionMetadata{}
+	return vs
 }
 
 // maybePointInTimeStore wraps s with a point-in-time store when s is versioned
