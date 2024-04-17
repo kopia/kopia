@@ -54,8 +54,6 @@ func TestAPIServerRepository_RepositoryUsers(t *testing.T) {
 func testAPIServerRepository(t *testing.T, allowRepositoryUsers bool) {
 	ctx := testlogging.Context(t)
 
-	var connectArgs []string
-
 	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
@@ -206,14 +204,14 @@ func testAPIServerRepository(t *testing.T, allowRepositoryUsers bool) {
 
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	e2.RunAndExpectSuccess(t, append([]string{
+	e2.RunAndExpectSuccess(t,
 		"repo", "connect", "server",
-		"--url", sp.BaseURL + "/",
+		"--url", sp.BaseURL+"/",
 		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 		"--override-username", "foo",
 		"--override-hostname", "bar",
 		"--password", "baz",
-	}, connectArgs...)...)
+	)
 
 	// we are providing custom password to connect, make sure we won't be providing
 	// (different) default password via environment variable, as command-line password
