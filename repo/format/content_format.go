@@ -12,13 +12,12 @@ import (
 
 // ContentFormat describes the rules for formatting contents in repository.
 type ContentFormat struct {
-	Hash                   string `json:"hash,omitempty"`                        // identifier of the hash algorithm used
-	Encryption             string `json:"encryption,omitempty"`                  // identifier of the encryption algorithm used
-	ECC                    string `json:"ecc,omitempty"`                         // identifier of the ecc algorithm used
-	ECCOverheadPercent     int    `json:"eccOverheadPercent,omitempty"`          // space overhead for ecc
-	HMACSecret             []byte `json:"secret,omitempty" kopia:"sensitive"`    // HMAC secret used to generate encryption keys
-	MasterKey              []byte `json:"masterKey,omitempty" kopia:"sensitive"` // master encryption key (SIV-mode encryption only)
-	KeyDerivationAlgorithm string `json:"keyDerivationAlgorithm,omitempty"`      // key derivation algorith used to generate keys
+	Hash               string `json:"hash,omitempty"`                        // identifier of the hash algorithm used
+	Encryption         string `json:"encryption,omitempty"`                  // identifier of the encryption algorithm used
+	ECC                string `json:"ecc,omitempty"`                         // identifier of the ecc algorithm used
+	ECCOverheadPercent int    `json:"eccOverheadPercent,omitempty"`          // space overhead for ecc
+	HMACSecret         []byte `json:"secret,omitempty" kopia:"sensitive"`    // HMAC secret used to generate encryption keys
+	MasterKey          []byte `json:"masterKey,omitempty" kopia:"sensitive"` // master encryption key (SIV-mode encryption only)
 	MutableParameters
 
 	EnablePasswordChange bool `json:"enablePasswordChange"` // disables replication of kopia.repository blob in packs
@@ -94,11 +93,6 @@ func (v *MutableParameters) Validate() error {
 // GetEncryptionAlgorithm implements encryption.Parameters.
 func (f *ContentFormat) GetEncryptionAlgorithm() string {
 	return f.Encryption
-}
-
-// GetKeyDerivationAlgorithm implements crypto.KeyDerivationParameters.
-func (f *ContentFormat) GetKeyDerivationAlgorithm() string {
-	return f.KeyDerivationAlgorithm
 }
 
 // GetMasterKey implements encryption.Parameters.

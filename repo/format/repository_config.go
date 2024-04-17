@@ -14,6 +14,8 @@ type RepositoryConfig struct {
 	ContentFormat
 	ObjectFormat
 
+	KeyDerivationAlgorithm string `json:"keyDerivationAlgorithm,omitempty"`
+
 	UpgradeLock      *UpgradeLockIntent `json:"upgradeLock,omitempty"`
 	RequiredFeatures []feature.Required `json:"requiredFeatures,omitempty"`
 }

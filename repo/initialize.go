@@ -35,12 +35,13 @@ const (
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
-	UniqueID        []byte               `json:"uniqueID"` // force the use of particular unique ID
-	BlockFormat     format.ContentFormat `json:"blockFormat"`
-	DisableHMAC     bool                 `json:"disableHMAC"`
-	ObjectFormat    format.ObjectFormat  `json:"objectFormat"` // object format
-	RetentionMode   blob.RetentionMode   `json:"retentionMode,omitempty"`
-	RetentionPeriod time.Duration        `json:"retentionPeriod,omitempty"`
+	UniqueID               []byte               `json:"uniqueID"` // force the use of particular unique ID
+	BlockFormat            format.ContentFormat `json:"blockFormat"`
+	DisableHMAC            bool                 `json:"disableHMAC"`
+	ObjectFormat           format.ObjectFormat  `json:"objectFormat"` // object format
+	RetentionMode          blob.RetentionMode   `json:"retentionMode,omitempty"`
+	RetentionPeriod        time.Duration        `json:"retentionPeriod,omitempty"`
+	KeyDerivationAlgorithm string               `json:"keyDerivationAlgorithm,omitempty"`
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.
@@ -66,7 +67,7 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *format.KopiaRepositoryJSO
 		Tool:                   "https://github.com/kopia/kopia",
 		BuildInfo:              BuildInfo,
 		BuildVersion:           BuildVersion,
-		KeyDerivationAlgorithm: opt.BlockFormat.KeyDerivationAlgorithm,
+		KeyDerivationAlgorithm: opt.KeyDerivationAlgorithm,
 		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, format.UniqueIDLengthBytes),
 		EncryptionAlgorithm:    format.DefaultFormatEncryption,
 	}
@@ -108,12 +109,12 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 				IndexVersion:    applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
 				EpochParameters: opt.BlockFormat.EpochParameters,
 			},
-			EnablePasswordChange:   opt.BlockFormat.EnablePasswordChange,
-			KeyDerivationAlgorithm: opt.BlockFormat.KeyDerivationAlgorithm,
+			EnablePasswordChange: opt.BlockFormat.EnablePasswordChange,
 		},
 		ObjectFormat: format.ObjectFormat{
 			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, splitter.DefaultAlgorithm),
 		},
+		KeyDerivationAlgorithm: opt.KeyDerivationAlgorithm,
 	}
 
 	if opt.DisableHMAC {

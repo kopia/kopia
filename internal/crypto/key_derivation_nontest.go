@@ -17,11 +17,6 @@ const (
 // DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
 const DefaultKeyDerivationAlgorithm = ScryptAlgorithm
 
-// KeyDerivationParameters  encapsulates all Key Derivation parameters.
-type KeyDerivationParameters interface {
-	GetKeyDerivationAlgorithm() string
-}
-
 // KeyDeriver is an interface that contains methods for deriving a key from a password.
 type KeyDeriver interface {
 	DeriveKeyFromPassword(password string, salt []byte) ([]byte, error)
