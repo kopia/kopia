@@ -120,10 +120,18 @@ func TestRepoConnectKeyDerivationAlgorithm(t *testing.T) {
 		e.RunAndExpectSuccess(t, "repo", "disconnect")
 		e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
 
-		dat, err := os.ReadFile(filepath.Join(e.RepoDir, "kopia.repository.f"))
+		kopiaRepoPath := filepath.Join(e.RepoDir, "kopia.repository.f")
+		dat, err := os.ReadFile(kopiaRepoPath)
 		require.NoError(t, err)
 		var repoJSON format.KopiaRepositoryJSON
 		json.Unmarshal(dat, &repoJSON)
 		require.Equal(t, repoJSON.KeyDerivationAlgorithm, algorithm)
+
+		e.RunAndExpectSuccess(t, "repo", "disconnect")
+		repoJSON.KeyDerivationAlgorithm = "badalgorithm"
+
+		jsonString, _ := json.Marshal(repoJSON)
+		os.WriteFile(kopiaRepoPath, jsonString, os.ModePerm)
+		e.RunAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
 	}
 }
