@@ -111,7 +111,6 @@ func TestReconnectUsingToken(t *testing.T) {
 func TestRepoConnectKeyDerivationAlgorithm(t *testing.T) {
 	t.Parallel()
 	for _, algorithm := range crypto.AllowedKeyDerivationAlgorithms() {
-
 		runner := testenv.NewInProcRunner(t)
 		e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
