@@ -20,7 +20,7 @@ const (
 	minPbkdfSha256SaltSize = 32 // size in bytes == 128 bits
 
 	// The NIST recommended iterations for PBKDF2 with SHA256 hash is 600,000.
-	pbkdf2Sha256Iterations = 1<<20 - 1<<18 // 786,432
+	pbkdf2Sha256Iterations = 600_000
 
 	// Pbkdf2Algorithm is the key for the pbkdf algorithm.
 	Pbkdf2Algorithm = "pbkdf2"
