@@ -114,7 +114,6 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 		ObjectFormat: format.ObjectFormat{
 			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, splitter.DefaultAlgorithm),
 		},
-		KeyDerivationAlgorithm: opt.KeyDerivationAlgorithm,
 	}
 
 	if opt.DisableHMAC {
