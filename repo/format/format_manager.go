@@ -455,6 +455,8 @@ func Initialize(ctx context.Context, st blob.Storage, formatBlob *KopiaRepositor
 		formatBlob.EncryptionAlgorithm = DefaultFormatEncryption
 	}
 
+	// In legacy versions, the KeyDerivationAlgorithm may not be present in the
+	// KopiaRepositoryJson. In those cases default to using Scrypt.
 	if formatBlob.KeyDerivationAlgorithm == "" {
 		formatBlob.KeyDerivationAlgorithm = DefaultKeyDerivationAlgorithm
 	}

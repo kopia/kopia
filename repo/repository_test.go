@@ -876,6 +876,7 @@ func TestDeriveKey(t *testing.T) {
 			NewRepositoryOptions: func(nro *repo.NewRepositoryOptions) {
 				// do not set nro.BlockFormat.MasterKey
 				nro.UniqueID = uniqueID
+				nro.FormatBlockKeyDerivationAlgorithm = format.DefaultKeyDerivationAlgorithm
 			},
 		})
 
