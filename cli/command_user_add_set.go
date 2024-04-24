@@ -53,9 +53,14 @@ func (c *commandServerUserAddSet) getExistingOrNewUserProfile(ctx context.Contex
 			return nil, errors.Errorf("user %q already exists", username)
 
 		case errors.Is(err, user.ErrUserNotFound):
+			passwordHashVersion, err := user.GetPasswordHashVersion(c.userSetPasswordHashAlgorithm)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get password hash version")
+			}
+
 			return &user.Profile{
 				Username:            username,
-				PasswordHashVersion: crypto.GetPasswordHashVersion(c.userSetPasswordHashAlgorithm),
+				PasswordHashVersion: passwordHashVersion,
 			}, nil
 		}
 	}

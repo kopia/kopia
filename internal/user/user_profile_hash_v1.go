@@ -14,7 +14,10 @@ import (
 var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+crypto.V1SaltLength)
 
 func (p *Profile) setPassword(password string) error {
-	passwordHashAlgorithm := crypto.GetPasswordHashAlgorithm(p.PasswordHashVersion)
+	passwordHashAlgorithm, err := GetPasswordHashAlgorithm(p.PasswordHashVersion)
+	if err != nil {
+		return err
+	}
 
 	saltLength, err := crypto.RecommendedSaltLength(passwordHashAlgorithm)
 	if err != nil {
