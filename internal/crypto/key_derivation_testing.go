@@ -22,7 +22,7 @@ const (
 	ScryptAlgorithm   = "scrypt-65536-8-1"
 	ScryptHashVersion = 1
 
-	Pbkdf2Algorithm   = "pbkdf2"
+	Pbkdf2Algorithm   = "pbkdf2-sha256-600000"
 	Pbkdf2HashVersion = 2
 )
 
