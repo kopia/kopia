@@ -17,6 +17,9 @@ import (
 // DefaultFormatEncryption is the identifier of the default format blob encryption algorithm.
 const DefaultFormatEncryption = "AES256_GCM"
 
+// DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
+const DefaultKeyDerivationAlgorithm = crypto.DefaultKeyDerivationAlgorithm
+
 const (
 	aes256GcmEncryption             = "AES256_GCM"
 	lengthOfRecoverBlockLength      = 2 // number of bytes used to store recover block length

@@ -114,7 +114,7 @@ func TestRepoConnectKeyDerivationAlgorithm(t *testing.T) {
 		runner := testenv.NewInProcRunner(t)
 		e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
-		e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--key-derivation-algorithm", algorithm)
+		e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--format-block-key-derivation-algorithm", algorithm)
 
 		e.RunAndExpectSuccess(t, "repo", "disconnect")
 		e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
@@ -125,12 +125,27 @@ func TestRepoConnectKeyDerivationAlgorithm(t *testing.T) {
 		var repoJSON format.KopiaRepositoryJSON
 		json.Unmarshal(dat, &repoJSON)
 		require.Equal(t, repoJSON.KeyDerivationAlgorithm, algorithm)
-
-		e.RunAndExpectSuccess(t, "repo", "disconnect")
-		repoJSON.KeyDerivationAlgorithm = "badalgorithm"
-
-		jsonString, _ := json.Marshal(repoJSON)
-		os.WriteFile(kopiaRepoPath, jsonString, os.ModePerm)
-		e.RunAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
 	}
+}
+
+func TestRepoConnectBadKeyDerivationAlgorithm(t *testing.T) {
+	t.Parallel()
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--format-block-key-derivation-algorithm", crypto.DefaultKeyDerivationAlgorithm)
+	e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	kopiaRepoPath := filepath.Join(e.RepoDir, "kopia.repository.f")
+	dat, err := os.ReadFile(kopiaRepoPath)
+	require.NoError(t, err)
+	var repoJSON format.KopiaRepositoryJSON
+	json.Unmarshal(dat, &repoJSON)
+
+	repoJSON.KeyDerivationAlgorithm = "badalgorithm"
+
+	jsonString, _ := json.Marshal(repoJSON)
+	os.WriteFile(kopiaRepoPath, jsonString, os.ModePerm)
+
+	e.RunAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
 }

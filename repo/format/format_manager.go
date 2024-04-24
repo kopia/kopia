@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -459,7 +458,7 @@ func Initialize(ctx context.Context, st blob.Storage, formatBlob *KopiaRepositor
 	// In legacy versions, the KeyDerivationAlgorithm may not be present in the
 	// KopiaRepositoryJson. In those cases default to using Scrypt.
 	if formatBlob.KeyDerivationAlgorithm == "" {
-		formatBlob.KeyDerivationAlgorithm = crypto.ScryptAlgorithm
+		formatBlob.KeyDerivationAlgorithm = DefaultKeyDerivationAlgorithm
 	}
 
 	if len(formatBlob.UniqueID) == 0 {
