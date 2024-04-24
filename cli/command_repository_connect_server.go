@@ -15,7 +15,6 @@ type commandRepositoryConnectServer struct {
 
 	connectAPIServerURL             string
 	connectAPIServerCertFingerprint string
-	connectAPIServerUseGRPCAPI      bool
 
 	svc advancedAppServices
 	out textOutput
@@ -29,7 +28,6 @@ func (c *commandRepositoryConnectServer) setup(svc advancedAppServices, parent c
 	cmd := parent.Command("server", "Connect to a repository API Server.")
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
-	cmd.Flag("grpc", "Use GRPC API").Default("true").BoolVar(&c.connectAPIServerUseGRPCAPI)
 	cmd.Action(svc.noRepositoryAction(c.run))
 }
 
@@ -37,7 +35,6 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 	as := &repo.APIServerInfo{
 		BaseURL:                             strings.TrimSuffix(c.connectAPIServerURL, "/"),
 		TrustedServerCertificateFingerprint: strings.ToLower(c.connectAPIServerCertFingerprint),
-		DisableGRPC:                         !c.connectAPIServerUseGRPCAPI,
 	}
 
 	configFile := c.svc.repositoryConfigFileName()

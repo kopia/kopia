@@ -37,7 +37,7 @@ func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, i
 	cmd.Flag("ask-password", "Ask for user password").BoolVar(&c.userAskPassword)
 	cmd.Flag("user-password", "Password").StringVar(&c.userSetPassword)
 	cmd.Flag("user-password-hash", "Password hash").StringVar(&c.userSetPasswordHash)
-	cmd.Flag("key-derivation-algorithm", "Key derivation algorithm").Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.keyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
+	cmd.Flag("user-password-hashing-algorithm", "[Experimental] Password hashing algorithm").Hidden().Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.keyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
 	cmd.Arg("username", "Username").Required().StringVar(&c.userSetName)
 	cmd.Action(svc.repositoryWriterAction(c.runServerUserAddSet))
 

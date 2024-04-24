@@ -35,7 +35,7 @@ func (b Builder) Clone() Builder {
 
 // Add adds a new entry to the builder or conditionally replaces it if the timestamp is greater.
 func (b Builder) Add(i Info) {
-	cid := i.GetContentID()
+	cid := i.ContentID
 
 	old, found := b[cid]
 	if !found || contentInfoGreaterThanStruct(i, old) {
@@ -94,7 +94,7 @@ func (b Builder) sortedContents() []Info {
 					buck := buckets[i]
 
 					sort.Slice(buck, func(i, j int) bool {
-						return buck[i].GetContentID().less(buck[j].GetContentID())
+						return buck[i].ContentID.less(buck[j].ContentID)
 					})
 				}
 			}

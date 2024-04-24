@@ -76,8 +76,8 @@ func (v *Verifier) VerifyFile(ctx context.Context, oid object.ID, entryPath stri
 				return errors.Wrapf(err, "error verifying content %v", cid)
 			}
 
-			if _, ok := v.blobMap[ci.GetPackBlobID()]; !ok {
-				return errors.Errorf("object %v is backed by missing blob %v", oid, ci.GetPackBlobID())
+			if _, ok := v.blobMap[ci.PackBlobID]; !ok {
+				return errors.Errorf("object %v is backed by missing blob %v", oid, ci.PackBlobID)
 			}
 		}
 	}
