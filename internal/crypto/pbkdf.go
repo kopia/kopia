@@ -24,10 +24,13 @@ const (
 
 	// Pbkdf2Algorithm is the key for the pbkdf algorithm.
 	Pbkdf2Algorithm = "pbkdf2-sha256-600000"
+
+	// Pbkdf2HashVersion is the version representation of the pbkdf2 algorithm.
+	Pbkdf2HashVersion = 2
 )
 
 func init() {
-	RegisterKeyDerivers(Pbkdf2Algorithm, &pbkdf2KeyDeriver{
+	RegisterKeyDerivers(Pbkdf2Algorithm, Pbkdf2HashVersion, &pbkdf2KeyDeriver{
 		iterations:            pbkdf2Sha256Iterations,
 		recommendedSaltLength: minPbkdfSha256SaltSize,
 		minSaltLength:         minPbkdfSha256SaltSize,

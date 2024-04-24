@@ -12,14 +12,18 @@ import (
 const (
 	// DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
 	DefaultKeyDerivationAlgorithm = "testing-only-insecure"
+	DefaultHashVersion            = 99
 
 	// MasterKeyLength describes the length of the master key.
 	MasterKeyLength = 32
 
-	V1SaltLength    = 32
-	HashVersion1    = 1 // this translates to Scrypt KeyDerivationAlgorithm
-	ScryptAlgorithm = "scrypt-65536-8-1"
-	Pbkdf2Algorithm = "pbkdf2"
+	V1SaltLength = 32
+
+	ScryptAlgorithm   = "scrypt-65536-8-1"
+	ScryptHashVersion = 1
+
+	Pbkdf2Algorithm   = "pbkdf2"
+	Pbkdf2HashVersion = 2
 )
 
 // DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
@@ -47,4 +51,30 @@ func RecommendedSaltLength(algorithm string) (int, error) {
 
 func AllowedKeyDerivationAlgorithms() []string {
 	return []string{DefaultKeyDerivationAlgorithm}
+}
+
+func GetPasswordHashVersion(algorithm string) int {
+	switch algorithm {
+	case DefaultKeyDerivationAlgorithm:
+		return DefaultHashVersion
+	case ScryptAlgorithm:
+		return ScryptHashVersion
+	case Pbkdf2Algorithm:
+		return Pbkdf2HashVersion
+	default:
+		return 0
+	}
+}
+
+func GetPasswordHashAlgorithm(version int) string {
+	switch version {
+	case DefaultHashVersion:
+		return DefaultKeyDerivationAlgorithm
+	case ScryptHashVersion:
+		return ScryptAlgorithm
+	case Pbkdf2HashVersion:
+		return Pbkdf2Algorithm
+	default:
+		return ""
+	}
 }

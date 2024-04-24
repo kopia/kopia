@@ -13,11 +13,11 @@ import (
 )
 
 type commandServerUserAddSet struct {
-	userAskPassword        bool
-	userSetName            string
-	userSetPassword        string
-	keyDerivationAlgorithm string
-	userSetPasswordHash    string
+	userAskPassword              bool
+	userSetName                  string
+	userSetPassword              string
+	userSetPasswordHashAlgorithm string
+	userSetPasswordHash          string
 
 	isNew bool // true == 'add', false == 'update'
 	out   textOutput
@@ -37,7 +37,7 @@ func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, i
 	cmd.Flag("ask-password", "Ask for user password").BoolVar(&c.userAskPassword)
 	cmd.Flag("user-password", "Password").StringVar(&c.userSetPassword)
 	cmd.Flag("user-password-hash", "Password hash").StringVar(&c.userSetPasswordHash)
-	cmd.Flag("user-password-hashing-algorithm", "[Experimental] Password hashing algorithm").Hidden().Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.keyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
+	cmd.Flag("user-password-hashing-algorithm", "[Experimental] Password hashing algorithm").Hidden().Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.userSetPasswordHashAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
 	cmd.Arg("username", "Username").Required().StringVar(&c.userSetName)
 	cmd.Action(svc.repositoryWriterAction(c.runServerUserAddSet))
 
@@ -54,8 +54,8 @@ func (c *commandServerUserAddSet) getExistingOrNewUserProfile(ctx context.Contex
 
 		case errors.Is(err, user.ErrUserNotFound):
 			return &user.Profile{
-				Username:               username,
-				KeyDerivationAlgorithm: c.keyDerivationAlgorithm,
+				Username:            username,
+				PasswordHashVersion: crypto.GetPasswordHashVersion(c.userSetPasswordHashAlgorithm),
 			}, nil
 		}
 	}

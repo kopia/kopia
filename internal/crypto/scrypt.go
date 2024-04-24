@@ -22,16 +22,15 @@ const (
 	// ScryptAlgorithm is the key for the scrypt algorithm.
 	ScryptAlgorithm = "scrypt-65536-8-1"
 
+	// ScryptHashVersion is the version representation of the scrypto algorithm.
+	ScryptHashVersion = 1
+
 	// Legacy hash version salt length.
 	V1SaltLength = 32
-
-	// Legacy hash version system translates to KeyDerivationAlgorithm.
-	HashVersion1 = 1 // this translates to Scrypt KeyDerivationAlgorithm
-
 )
 
 func init() {
-	RegisterKeyDerivers(ScryptAlgorithm, &scryptKeyDeriver{
+	RegisterKeyDerivers(ScryptAlgorithm, ScryptHashVersion, &scryptKeyDeriver{
 		n:                     65536, //nolint:gomnd
 		r:                     8,     //nolint:gomnd
 		p:                     1,

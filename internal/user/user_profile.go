@@ -11,10 +11,9 @@ import (
 type Profile struct {
 	ManifestID manifest.ID `json:"-"`
 
-	Username               string `json:"username"`
-	PasswordHashVersion    int    `json:"passwordHashVersion,omitempty"` // indicates how password is hashed, deprecated in favor of KeyDerivationAlgorithm
-	KeyDerivationAlgorithm string `json:"keyDerivationAlgorithm,omitempty"`
-	PasswordHash           []byte `json:"passwordHash"`
+	Username            string `json:"username"`
+	PasswordHashVersion int    `json:"passwordHashVersion,omitempty"`
+	PasswordHash        []byte `json:"passwordHash"`
 }
 
 // SetPassword changes the password for a user profile.
@@ -33,14 +32,5 @@ func (p *Profile) IsValidPassword(password string) bool {
 		return false
 	}
 
-	// Legacy case where password hash version is set
-	if p.PasswordHashVersion == crypto.HashVersion1 {
-		return isValidPassword(password, p.PasswordHash, crypto.ScryptAlgorithm)
-	}
-
-	if p.KeyDerivationAlgorithm != "" {
-		return isValidPassword(password, p.PasswordHash, p.KeyDerivationAlgorithm)
-	}
-
-	return false
+	return isValidPassword(password, p.PasswordHash, crypto.GetPasswordHashAlgorithm(p.PasswordHashVersion))
 }

@@ -26,13 +26,22 @@ type KeyDeriver interface {
 //nolint:gochecknoglobals
 var keyDerivers = map[string]KeyDeriver{}
 
+//nolint:gochecknoglobals
+var passwordHashVersions = map[int]string{}
+
 // RegisterKeyDerivers registers various key derivation functions.
-func RegisterKeyDerivers(name string, keyDeriver KeyDeriver) {
+func RegisterKeyDerivers(name string, hashVersion int, keyDeriver KeyDeriver) {
 	if _, ok := keyDerivers[name]; ok {
 		panic(fmt.Sprintf("key deriver (%s) is already registered", name))
 	}
 
 	keyDerivers[name] = keyDeriver
+
+	if kdname, ok := passwordHashVersions[hashVersion]; ok {
+		panic(fmt.Sprintf("password hash version (%d) already registered for algorithm (%s)", hashVersion, kdname))
+	}
+
+	passwordHashVersions[hashVersion] = name
 }
 
 // DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
@@ -64,4 +73,20 @@ func AllowedKeyDerivationAlgorithms() []string {
 	}
 
 	return kdAlgorithms
+}
+
+// GetPasswordHashVersion returns the password hash version given an algorithm.
+func GetPasswordHashVersion(algorithm string) int {
+	for v, a := range passwordHashVersions {
+		if algorithm == a {
+			return v
+		}
+	}
+
+	panic("unsupported algorithm")
+}
+
+// GetPasswordHashAlgorithm returns the password hash algorithm given a version.
+func GetPasswordHashAlgorithm(version int) string {
+	return passwordHashVersions[version]
 }

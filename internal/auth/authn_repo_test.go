@@ -26,14 +26,14 @@ func TestRepositoryAuthenticator(t *testing.T) {
 				{
 					profile: &user.Profile{
 						Username:            "user1@host1",
-						PasswordHashVersion: crypto.HashVersion1,
+						PasswordHashVersion: crypto.ScryptHashVersion,
 					},
 					password: "password1",
 				},
 				{
 					profile: &user.Profile{
-						Username:               "user2@host2",
-						KeyDerivationAlgorithm: crypto.ScryptAlgorithm,
+						Username:            "user2@host2",
+						PasswordHashVersion: crypto.ScryptHashVersion,
 					},
 					password: "password2",
 				},
@@ -45,8 +45,8 @@ func TestRepositoryAuthenticator(t *testing.T) {
 				},
 				{
 					profile: &user.Profile{
-						Username:               "user4@host4",
-						KeyDerivationAlgorithm: crypto.Pbkdf2Algorithm,
+						Username:            "user4@host4",
+						PasswordHashVersion: crypto.Pbkdf2HashVersion,
 					},
 					password: "password4",
 				},
