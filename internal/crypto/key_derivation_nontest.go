@@ -39,7 +39,7 @@ func RegisterKeyDerivers(name string, keyDeriver KeyDeriver) {
 func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]byte, error) {
 	kd, ok := keyDerivers[algorithm]
 	if !ok {
-		return nil, errors.Errorf("unsupported key algorithm: %v, supported algorithms %v", algorithm, AllowedKeyDerivationAlgorithms())
+		return nil, errors.Errorf("unsupported key derivation algorithm: %v, supported algorithms %v", algorithm, AllowedKeyDerivationAlgorithms())
 	}
 
 	//nolint:wrapcheck
@@ -50,7 +50,7 @@ func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]by
 func RecommendedSaltLength(algorithm string) (int, error) {
 	kd, ok := keyDerivers[algorithm]
 	if !ok {
-		return 0, errors.Errorf("unsupported key algorithm: %v, supported algorithms %v", algorithm, AllowedKeyDerivationAlgorithms())
+		return 0, errors.Errorf("failed to get salt length for unsupported key derivation algorithm: %v, supported algorithms %v", algorithm, AllowedKeyDerivationAlgorithms())
 	}
 
 	return kd.RecommendedSaltLength(), nil

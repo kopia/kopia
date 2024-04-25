@@ -104,7 +104,6 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 			MinContentSweepAge:          content.DurationSeconds(c.contentMinSweepAge.Seconds()),
 			MinMetadataSweepAge:         content.DurationSeconds(c.metadataMinSweepAge.Seconds()),
 			MinIndexSweepAge:            content.DurationSeconds(c.indexMinSweepAge.Seconds()),
-			KeyDerivationAlgorithm:      c.connectCacheKeyDerivationAlgorithm,
 		},
 		ClientOptions: repo.ClientOptions{
 			Hostname:                c.connectHostname,
