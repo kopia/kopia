@@ -10,16 +10,17 @@ import (
 )
 
 const (
-	// DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
-	DefaultKeyDerivationAlgorithm = "testing-only-insecure"
-
 	// MasterKeyLength describes the length of the master key.
 	MasterKeyLength = 32
 
-	V1SaltLength    = 32
-	HashVersion1    = 1 // this translates to Scrypt KeyDerivationAlgorithm
+	V1SaltLength = 32
+
 	ScryptAlgorithm = "scrypt-65536-8-1"
-	Pbkdf2Algorithm = "pbkdf2"
+
+	Pbkdf2Algorithm = "pbkdf2-sha256-600000"
+
+	// DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
+	DefaultKeyDerivationAlgorithm = ScryptAlgorithm
 )
 
 // DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
@@ -27,7 +28,7 @@ func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]by
 	const masterKeySize = 32
 
 	switch algorithm {
-	case DefaultKeyDerivationAlgorithm, ScryptAlgorithm, Pbkdf2Algorithm:
+	case ScryptAlgorithm, Pbkdf2Algorithm:
 		h := sha256.New()
 		// Adjust password so that we get a different key for each algorithm
 		if _, err := h.Write([]byte(password + algorithm)); err != nil {

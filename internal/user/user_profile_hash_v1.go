@@ -14,18 +14,12 @@ import (
 var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+crypto.V1SaltLength)
 
 func (p *Profile) setPassword(password string) error {
-	keyDerivationAlgorithm := p.KeyDerivationAlgorithm
-	if keyDerivationAlgorithm == "" {
-		if p.PasswordHashVersion == 0 {
-			return errors.New("key derivation algorithm and password hash version not set")
-		}
-		// Setup to handle legacy hashVersion.
-		if p.PasswordHashVersion == crypto.HashVersion1 {
-			keyDerivationAlgorithm = crypto.ScryptAlgorithm
-		}
+	passwordHashAlgorithm, err := GetPasswordHashAlgorithm(p.PasswordHashVersion)
+	if err != nil {
+		return err
 	}
 
-	saltLength, err := crypto.RecommendedSaltLength(keyDerivationAlgorithm)
+	saltLength, err := crypto.RecommendedSaltLength(passwordHashAlgorithm)
 	if err != nil {
 		return errors.Wrap(err, "error getting recommended salt length")
 	}
@@ -35,7 +29,7 @@ func (p *Profile) setPassword(password string) error {
 		return errors.Wrap(err, "error generating salt")
 	}
 
-	p.PasswordHash, err = computePasswordHash(password, salt, keyDerivationAlgorithm)
+	p.PasswordHash, err = computePasswordHash(password, salt, passwordHashAlgorithm)
 
 	return err
 }

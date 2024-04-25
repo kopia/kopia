@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/auth"
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/user"
 	"github.com/kopia/kopia/repo"
@@ -26,14 +25,14 @@ func TestRepositoryAuthenticator(t *testing.T) {
 				{
 					profile: &user.Profile{
 						Username:            "user1@host1",
-						PasswordHashVersion: crypto.HashVersion1,
+						PasswordHashVersion: user.ScryptHashVersion,
 					},
 					password: "password1",
 				},
 				{
 					profile: &user.Profile{
-						Username:               "user2@host2",
-						KeyDerivationAlgorithm: crypto.ScryptAlgorithm,
+						Username:            "user2@host2",
+						PasswordHashVersion: user.ScryptHashVersion,
 					},
 					password: "password2",
 				},
@@ -45,8 +44,8 @@ func TestRepositoryAuthenticator(t *testing.T) {
 				},
 				{
 					profile: &user.Profile{
-						Username:               "user4@host4",
-						KeyDerivationAlgorithm: crypto.Pbkdf2Algorithm,
+						Username:            "user4@host4",
+						PasswordHashVersion: user.Pbkdf2HashVersion,
 					},
 					password: "password4",
 				},
