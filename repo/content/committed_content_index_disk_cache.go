@@ -93,7 +93,7 @@ func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(path string) (mmap.MM
 		}
 
 		return nil
-	}, errors.Wrap(err, "mmap() error")
+	}, nil
 }
 
 func (c *diskCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {

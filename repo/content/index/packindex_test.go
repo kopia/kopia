@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -141,19 +140,13 @@ func testPackIndex(t *testing.T, version int) {
 		})
 	}
 
-	// dear future reader, if this fails because the number of methods has changed,
-	// you need to add additional test cases above.
-	if cnt := reflect.TypeOf((*InfoReader)(nil)).Elem().NumMethod(); cnt != 11 {
-		t.Fatalf("unexpected number of methods on content.Info: %v, must update the test", cnt)
-	}
-
 	infoMap := map[ID]Info{}
 	b1 := make(Builder)
 	b2 := make(Builder)
 	b3 := make(Builder)
 
 	for _, info := range infos {
-		infoMap[info.GetContentID()] = info
+		infoMap[info.ContentID] = info
 		b1.Add(info)
 		b2.Add(info)
 		b3.Add(info)
@@ -195,30 +188,32 @@ func testPackIndex(t *testing.T, version int) {
 	}
 
 	for _, want := range infos {
-		info2, err := ndx.GetInfo(want.GetContentID())
-		if err != nil {
-			t.Errorf("unable to find %v", want.GetContentID())
+		var info2 Info
+
+		ok, err := ndx.GetInfo(want.ContentID, &info2)
+		if err != nil || !ok {
+			t.Errorf("unable to find %v", want.ContentID)
 			continue
 		}
 
 		if version == 1 {
 			// v1 does not preserve original length.
-			want = withOriginalLength(want, want.GetPackedLength()-fakeEncryptionOverhead)
+			want = withOriginalLength(want, want.PackedLength-fakeEncryptionOverhead)
 		}
 
-		require.Equal(t, want, ToInfoStruct(info2))
+		require.Equal(t, want, info2)
 	}
 
 	cnt := 0
 
-	require.NoError(t, ndx.Iterate(AllIDs, func(info2 InfoReader) error {
-		want := infoMap[info2.GetContentID()]
+	require.NoError(t, ndx.Iterate(AllIDs, func(info2 Info) error {
+		want := infoMap[info2.ContentID]
 		if version == 1 {
 			// v1 does not preserve original length.
-			want = withOriginalLength(want, want.GetPackedLength()-fakeEncryptionOverhead)
+			want = withOriginalLength(want, want.PackedLength-fakeEncryptionOverhead)
 		}
 
-		require.Equal(t, want, ToInfoStruct(info2))
+		require.Equal(t, want, info2)
 		cnt++
 		return nil
 	}))
@@ -232,22 +227,24 @@ func testPackIndex(t *testing.T, version int) {
 	for i := range 100 {
 		contentID := deterministicContentID(t, "no-such-content", i)
 
-		v, err := ndx.GetInfo(contentID)
+		var v Info
+
+		ok, err := ndx.GetInfo(contentID, &v)
 		if err != nil {
 			t.Errorf("unable to get content %v: %v", contentID, err)
 		}
 
-		if v != nil {
+		if ok {
 			t.Errorf("unexpected result when getting content %v: %v", contentID, v)
 		}
 	}
 
 	for _, prefix := range prefixes {
 		cnt2 := 0
-		require.NoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 InfoReader) error {
+		require.NoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 Info) error {
 			cnt2++
-			if !strings.HasPrefix(info2.GetContentID().String(), string(prefix)) {
-				t.Errorf("unexpected item %v when iterating prefix %v", info2.GetContentID(), prefix)
+			if !strings.HasPrefix(info2.ContentID.String(), string(prefix)) {
+				t.Errorf("unexpected item %v when iterating prefix %v", info2.ContentID, prefix)
 			}
 			return nil
 		}))
@@ -284,10 +281,13 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 			pi, err := Open(result.Bytes(), nil, func() int { return fakeEncryptionOverhead })
 			require.NoError(t, err)
 
-			got, err := pi.GetInfo(cid)
-			require.NoError(t, err)
+			var got Info
 
-			require.Equal(t, ToInfoStruct(got), tc.info)
+			ok, err := pi.GetInfo(cid, &got)
+			require.NoError(t, err)
+			require.True(t, ok)
+
+			require.Equal(t, got, tc.info)
 		} else {
 			err := b.buildV2(&result)
 			require.Error(t, err)
@@ -311,11 +311,11 @@ func TestSortedContents(t *testing.T) {
 
 	var last ID
 	for _, info := range got {
-		if info.GetContentID().less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		if info.ContentID.less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
 		}
 
-		last = info.GetContentID()
+		last = info.ContentID
 	}
 }
 
@@ -358,11 +358,11 @@ func TestSortedContents2(t *testing.T) {
 	var last ID
 
 	for _, info := range got {
-		if info.GetContentID().less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		if info.ContentID.less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
 		}
 
-		last = info.GetContentID()
+		last = info.ContentID
 	}
 }
 
@@ -404,9 +404,11 @@ func fuzzTestIndexOpen(originalData []byte) {
 			return
 		}
 		cnt := 0
-		_ = ndx.Iterate(AllIDs, func(cb InfoReader) error {
+		_ = ndx.Iterate(AllIDs, func(cb Info) error {
 			if cnt < 10 {
-				_, _ = ndx.GetInfo(cb.GetContentID())
+				var tmp Info
+
+				_, _ = ndx.GetInfo(cb.ContentID, &tmp)
 			}
 			cnt++
 			return nil
@@ -506,7 +508,7 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 		lens = append(lens, len(s))
 
 		for _, v := range s {
-			delete(m, v.GetContentID())
+			delete(m, v.ContentID)
 		}
 	}
 

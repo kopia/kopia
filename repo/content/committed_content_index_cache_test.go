@@ -75,19 +75,23 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 	ndx2, err := cache.openIndex(ctx, "ndx2")
 	require.NoError(t, err)
 
-	i, err := ndx1.GetInfo(mustParseID(t, "c1"))
+	var i Info
+
+	ok, err := ndx1.GetInfo(mustParseID(t, "c1"), &i)
+	require.True(t, ok)
 	require.NoError(t, err)
 
-	if got, want := i.GetPackBlobID(), blob.ID("p1234"); got != want {
+	if got, want := i.PackBlobID, blob.ID("p1234"); got != want {
 		t.Fatalf("unexpected pack blob ID: %v, want %v", got, want)
 	}
 
 	require.NoError(t, ndx1.Close())
 
-	i, err = ndx2.GetInfo(mustParseID(t, "c3"))
+	ok, err = ndx2.GetInfo(mustParseID(t, "c3"), &i)
+	require.True(t, ok)
 	require.NoError(t, err)
 
-	if got, want := i.GetPackBlobID(), blob.ID("p2345"); got != want {
+	if got, want := i.PackBlobID, blob.ID("p2345"); got != want {
 		t.Fatalf("unexpected pack blob ID: %v, want %v", got, want)
 	}
 

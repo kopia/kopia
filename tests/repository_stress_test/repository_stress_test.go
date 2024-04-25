@@ -257,16 +257,18 @@ func runStress(t *testing.T, opt *StressOptions) {
 
 	for _, configFile := range configFiles {
 		for i := range opt.OpenRepositoriesPerConfig {
+			openID := fmt.Sprintf("open-%v", i)
+
 			eg.Go(func() error {
 				log := testlogging.Printf(func(msg string, args ...interface{}) {
 					fmt.Fprintf(logFile, clock.Now().Format("2006-01-02T15:04:05.000000Z07:00")+" "+msg+"\n", args...)
-				}, "").With("worker", fmt.Sprintf("%v::o%v", filepath.Base(configFile), i))
+				}, "").With("cfg", fmt.Sprintf("%v::o%v", filepath.Base(configFile), i))
 
 				ctx2 := logging.WithLogger(ctx, func(module string) logging.Logger {
 					return log
 				})
 
-				return longLivedRepositoryTest(ctx2, t, configFile, rm, log, opt, &stop)
+				return longLivedRepositoryTest(ctx2, t, openID, configFile, rm, log, opt, &stop)
 			})
 		}
 	}
@@ -282,12 +284,12 @@ func runStress(t *testing.T, opt *StressOptions) {
 	require.NoError(t, eg.Wait())
 }
 
-func longLivedRepositoryTest(ctx context.Context, t *testing.T, configFile string, rm *repomodel.RepositoryData, log logging.Logger, opt *StressOptions, stop *atomic.Bool) error {
+func longLivedRepositoryTest(ctx context.Context, t *testing.T, openID, configFile string, rm *repomodel.RepositoryData, log logging.Logger, opt *StressOptions, stop *atomic.Bool) error {
 	t.Helper()
 
 	// important to call OpenRepository() before repo.Open() to ensure we're not seeing state
 	// added between repo.Open() and OpenRepository()
-	or := rm.OpenRepository()
+	or := rm.OpenRepository(openID)
 
 	rep, err := repo.Open(ctx, configFile, masterPassword, &repo.Options{})
 	if err != nil {
@@ -299,7 +301,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, configFile strin
 	eg, ctx := errgroup.WithContext(ctx)
 
 	for i := range opt.SessionsPerOpenRepository {
-		ors := or.NewSession()
+		ors := or.NewSession(fmt.Sprintf("session-%v", i))
 
 		_, w, err := rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{
 			Purpose: fmt.Sprintf("longLivedRepositoryTest-w%v", i),
@@ -365,13 +367,13 @@ func writeRandomContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *
 
 	log.Debugf("writeRandomContent(%v,%x)", contentID, data[0:16])
 
-	rs.WriteContent(contentID)
+	rs.WriteContent(ctx, contentID)
 
 	return errors.Wrapf(err, "writeRandomContent(%v)", contentID)
 }
 
 func readPendingContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
-	contentID := rs.WrittenContents.PickRandom()
+	contentID := rs.WrittenContents.PickRandom(ctx)
 	if contentID == content.EmptyID {
 		return errSkipped
 	}
@@ -387,7 +389,7 @@ func readPendingContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *
 }
 
 func readFlushedContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
-	contentID := rs.OpenRepo.Contents.PickRandom()
+	contentID := rs.OpenRepo.ReadableContents.PickRandom(ctx)
 	if contentID == content.EmptyID {
 		return errSkipped
 	}
@@ -419,7 +421,7 @@ func listAndReadAllContents(ctx context.Context, r repo.DirectRepositoryWriter, 
 		ctx,
 		content.IterateOptions{},
 		func(ci content.Info) error {
-			cid := ci.GetContentID()
+			cid := ci.ContentID
 			_, err := r.ContentReader().GetContent(ctx, cid)
 			if err != nil {
 				return errors.Wrapf(err, "error reading content %v", cid)
@@ -448,8 +450,8 @@ func flush(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.Rep
 	// this is necessary since operations can proceed in parallel to Flush() which might add more data
 	// to the model. It would be incorrect to flush the latest state of the model
 	// because we don't know for sure if the corresponding repository data has indeed been flushed.
-	wc := rs.WrittenContents.Snapshot()
-	wm := rs.WrittenManifests.Snapshot()
+	wc := rs.WrittenContents.Snapshot("")
+	wm := rs.WrittenManifests.Snapshot("")
 
 	if err := r.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing")
@@ -457,7 +459,7 @@ func flush(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.Rep
 
 	// flush model after flushing the repository to communicate to other sessions that they can expect
 	// to see flushed items now.
-	rs.Flush(&wc, &wm)
+	rs.Flush(ctx, wc, wm)
 
 	return nil
 }
@@ -467,17 +469,20 @@ func refresh(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.R
 
 	// refresh model before refreshing repository to guarantee that repository has at least all the items in
 	// the model (possibly more).
-	rs.Refresh()
+	cids := rs.OpenRepo.RepoData.CommittedContents.Snapshot("")
+	mids := rs.OpenRepo.RepoData.CommittedManifests.Snapshot("")
 
 	if err := r.Refresh(ctx); err != nil {
 		return errors.Wrap(err, "refresh error")
 	}
 
+	rs.Refresh(ctx, cids, mids)
+
 	return nil
 }
 
 func readPendingManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
-	manifestID := rs.WrittenManifests.PickRandom()
+	manifestID := rs.WrittenManifests.PickRandom(ctx)
 	if manifestID == "" {
 		return errSkipped
 	}
@@ -493,7 +498,7 @@ func readPendingManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs 
 }
 
 func readFlushedManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
-	manifestID := rs.OpenRepo.Manifests.PickRandom()
+	manifestID := rs.OpenRepo.ReadableManifests.PickRandom(ctx)
 	if manifestID == "" {
 		return errSkipped
 	}
@@ -531,7 +536,7 @@ func writeRandomManifest(ctx context.Context, r repo.DirectRepositoryWriter, rs 
 	}
 
 	log.Debugf("writeRandomManifest(%v)", mid)
-	rs.WriteManifest(mid)
+	rs.WriteManifest(ctx, mid)
 
 	return err
 }

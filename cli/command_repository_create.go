@@ -7,6 +7,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/ecc"
@@ -24,15 +25,16 @@ $ kopia repository validate-provider
 `
 
 type commandRepositoryCreate struct {
-	createBlockHashFormat         string
-	createBlockEncryptionFormat   string
-	createBlockECCFormat          string
-	createBlockECCOverheadPercent int
-	createSplitter                string
-	createOnly                    bool
-	createFormatVersion           int
-	retentionMode                 string
-	retentionPeriod               time.Duration
+	createBlockHashFormat             string
+	createBlockEncryptionFormat       string
+	createBlockECCFormat              string
+	createBlockECCOverheadPercent     int
+	createBlockKeyDerivationAlgorithm string
+	createSplitter                    string
+	createOnly                        bool
+	createFormatVersion               int
+	retentionMode                     string
+	retentionPeriod                   time.Duration
 
 	co  connectOptions
 	svc advancedAppServices
@@ -51,6 +53,8 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("format-version", "Force a particular repository format version (1, 2 or 3, 0==default)").IntVar(&c.createFormatVersion)
 	cmd.Flag("retention-mode", "Set the blob retention-mode for supported storage backends.").EnumVar(&c.retentionMode, blob.Governance.String(), blob.Compliance.String())
 	cmd.Flag("retention-period", "Set the blob retention-period for supported storage backends.").DurationVar(&c.retentionPeriod)
+	//nolint:lll
+	cmd.Flag("format-block-key-derivation-algorithm", "Algorithm to derive the encryption key for the format block from the repository password").Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.createBlockKeyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
 
 	c.co.setup(svc, cmd)
 	c.svc = svc
@@ -90,8 +94,9 @@ func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepos
 			Splitter: c.createSplitter,
 		},
 
-		RetentionMode:   blob.RetentionMode(c.retentionMode),
-		RetentionPeriod: c.retentionPeriod,
+		RetentionMode:                     blob.RetentionMode(c.retentionMode),
+		RetentionPeriod:                   c.retentionPeriod,
+		FormatBlockKeyDerivationAlgorithm: c.createBlockKeyDerivationAlgorithm,
 	}
 }
 
@@ -130,6 +135,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 
 	log(ctx).Infof("  block hash:          %v", options.BlockFormat.Hash)
 	log(ctx).Infof("  encryption:          %v", options.BlockFormat.Encryption)
+	log(ctx).Infof("  key derivation:      %v", options.FormatBlockKeyDerivationAlgorithm)
 
 	if options.BlockFormat.ECC != "" && options.BlockFormat.ECCOverheadPercent > 0 {
 		log(ctx).Infof("  ecc:                 %v with %v%% overhead", options.BlockFormat.ECC, options.BlockFormat.ECCOverheadPercent)

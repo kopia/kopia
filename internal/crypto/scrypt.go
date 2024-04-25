@@ -24,10 +24,6 @@ const (
 
 	// Legacy hash version salt length.
 	V1SaltLength = 32
-
-	// Legacy hash version system translates to KeyDerivationAlgorithm.
-	HashVersion1 = 1 // this translates to Scrypt KeyDerivationAlgorithm
-
 )
 
 func init() {

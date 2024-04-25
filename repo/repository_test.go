@@ -640,20 +640,10 @@ func TestWriteSessionFlushOnSuccess(t *testing.T) {
 	require.EqualValues(t, 2, afterFlushCount.Load())
 }
 
-func TestWriteSessionFlushOnSuccessClient_REST(t *testing.T) {
-	testWriteSessionFlushOnSuccessClient(t, true)
-}
-
-func TestWriteSessionFlushOnSuccessClient_GRPC(t *testing.T) {
-	testWriteSessionFlushOnSuccessClient(t, false)
-}
-
-//nolint:thelper
-func testWriteSessionFlushOnSuccessClient(t *testing.T, disableGRPC bool) {
+func TestWriteSessionFlushOnSuccessClient(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{})
 
 	apiServerInfo := servertesting.StartServer(t, env, true)
-	apiServerInfo.DisableGRPC = disableGRPC
 
 	var beforeFlushCount, afterFlushCount atomic.Int32
 
@@ -886,6 +876,7 @@ func TestDeriveKey(t *testing.T) {
 			NewRepositoryOptions: func(nro *repo.NewRepositoryOptions) {
 				// do not set nro.BlockFormat.MasterKey
 				nro.UniqueID = uniqueID
+				nro.FormatBlockKeyDerivationAlgorithm = format.DefaultKeyDerivationAlgorithm
 			},
 		})
 

@@ -195,10 +195,6 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 		beforeFlush:      options.BeforeFlush,
 	}
 
-	if si.DisableGRPC {
-		return openRestAPIRepository(ctx, si, password, par)
-	}
-
 	return openGRPCAPIRepository(ctx, si, password, par)
 }
 

@@ -105,7 +105,7 @@ func verifyContentDeletedState(ctx context.Context, t *testing.T, rep repo.Repos
 
 	info, err := rep.ContentInfo(ctx, cid)
 	require.NoError(t, err)
-	require.Equal(t, want, info.GetDeleted())
+	require.Equal(t, want, info.Deleted)
 }
 
 func verifyObjectReadable(ctx context.Context, t *testing.T, rep repo.Repository, objectID object.ID) {
