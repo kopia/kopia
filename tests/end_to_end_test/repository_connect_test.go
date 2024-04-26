@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/tests/testenv"
@@ -110,7 +109,7 @@ func TestReconnectUsingToken(t *testing.T) {
 
 func TestRepoConnectKeyDerivationAlgorithm(t *testing.T) {
 	t.Parallel()
-	for _, algorithm := range crypto.AllowedKeyDerivationAlgorithms() {
+	for _, algorithm := range format.SupportedFormatBlobKeyDerivationAlgorithms() {
 		runner := testenv.NewInProcRunner(t)
 		e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
