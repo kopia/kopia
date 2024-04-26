@@ -33,15 +33,15 @@ func registerPBKeyDeriver(name string, keyDeriver passwordBasedKeyDeriver) {
 func DeriveKeyFromPassword(password string, salt []byte, keySize int, algorithm string) ([]byte, error) {
 	kd, ok := keyDerivers[algorithm]
 	if !ok {
-		return nil, errors.Errorf("unsupported key derivation algorithm: %v, supported algorithms %v", algorithm, AllowedKeyDerivationAlgorithms())
+		return nil, errors.Errorf("unsupported key derivation algorithm: %v, supported algorithms %v", algorithm, supportedPBKeyDerivationAlgorithms())
 	}
 
 	//nolint:wrapcheck
 	return kd.deriveKeyFromPassword(password, salt, keySize)
 }
 
-// AllowedKeyDerivationAlgorithms returns a slice of the allowed key derivation algorithms.
-func AllowedKeyDerivationAlgorithms() []string {
+// supportedPBKeyDerivationAlgorithms returns a slice of the allowed key derivation algorithms.
+func supportedPBKeyDerivationAlgorithms() []string {
 	kdAlgorithms := make([]string, 0, len(keyDerivers))
 	for k := range keyDerivers {
 		kdAlgorithms = append(kdAlgorithms, k)

@@ -34,7 +34,3 @@ func DeriveKeyFromPassword(password string, salt []byte, keySize int, algorithm 
 		return nil, errors.Errorf("unsupported key algorithm: %v", algorithm)
 	}
 }
-
-func AllowedKeyDerivationAlgorithms() []string {
-	return []string{DefaultKeyDerivationAlgorithm}
-}
