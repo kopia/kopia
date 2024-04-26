@@ -11,7 +11,7 @@ import (
 )
 
 //nolint:gochecknoglobals
-var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+crypto.V1SaltLength)
+var dummyHashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+crypto.V1SaltLength)
 
 func (p *Profile) setPassword(password string) error {
 	passwordHashAlgorithm, err := GetPasswordHashAlgorithm(p.PasswordHashVersion)
