@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/repo"
 )
@@ -13,8 +14,9 @@ import (
 type commandRepositoryConnectServer struct {
 	co *connectOptions
 
-	connectAPIServerURL             string
-	connectAPIServerCertFingerprint string
+	connectAPIServerURL                              string
+	connectAPIServerCertFingerprint                  string
+	connectAPIServerLocalCacheKeyDerivationAlgorithm string
 
 	svc advancedAppServices
 	out textOutput
@@ -28,13 +30,21 @@ func (c *commandRepositoryConnectServer) setup(svc advancedAppServices, parent c
 	cmd := parent.Command("server", "Connect to a repository API Server.")
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
+	//nolint:lll
+	cmd.Flag("local-cache-key-derivation-algorithm", "Key derivation algorithm used to derive the local cache encryption key").Hidden().Default(repo.DefaultKeyDerivationAlgorithm).EnumVar(&c.connectAPIServerLocalCacheKeyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
 	cmd.Action(svc.noRepositoryAction(c.run))
 }
 
 func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
+	localCacheKeyDerivationAlgorithm := c.connectAPIServerLocalCacheKeyDerivationAlgorithm
+	if localCacheKeyDerivationAlgorithm == "" {
+		localCacheKeyDerivationAlgorithm = repo.DefaultKeyDerivationAlgorithm
+	}
+
 	as := &repo.APIServerInfo{
 		BaseURL:                             strings.TrimSuffix(c.connectAPIServerURL, "/"),
 		TrustedServerCertificateFingerprint: strings.ToLower(c.connectAPIServerCertFingerprint),
+		LocalCacheKeyDerivationAlgorithm:    localCacheKeyDerivationAlgorithm,
 	}
 
 	configFile := c.svc.repositoryConfigFileName()

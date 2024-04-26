@@ -136,6 +136,7 @@ func testAPIServerRepository(t *testing.T, allowRepositoryUsers bool) {
 	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx2, &repo.APIServerInfo{
 		BaseURL:                             sp.BaseURL,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
+		LocalCacheKeyDerivationAlgorithm:    repo.DefaultKeyDerivationAlgorithm,
 	}, repo.ClientOptions{
 		Username: "foo",
 		Hostname: "bar",
@@ -258,6 +259,7 @@ func testAPIServerRepository(t *testing.T, allowRepositoryUsers bool) {
 	servertesting.ConnectAndOpenAPIServer(t, ctx, &repo.APIServerInfo{
 		BaseURL:                             sp.BaseURL,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
+		LocalCacheKeyDerivationAlgorithm:    repo.DefaultKeyDerivationAlgorithm,
 	}, repo.ClientOptions{
 		Username: "foo",
 		Hostname: "bar",
@@ -328,6 +330,7 @@ func TestFindManifestsPaginationOverGRPC(t *testing.T) {
 	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx, &repo.APIServerInfo{
 		BaseURL:                             sp.BaseURL,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
+		LocalCacheKeyDerivationAlgorithm:    repo.DefaultKeyDerivationAlgorithm,
 	}, repo.ClientOptions{
 		Username: "foo",
 		Hostname: "bar",

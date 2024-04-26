@@ -79,6 +79,8 @@ func StartServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.API
 		asi.BaseURL = hs.URL
 	}
 
+	asi.LocalCacheKeyDerivationAlgorithm = repo.DefaultKeyDerivationAlgorithm
+
 	t.Cleanup(hs.Close)
 
 	return asi
