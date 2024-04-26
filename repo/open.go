@@ -58,9 +58,6 @@ const throttleBucketInitialFill = 0.1
 // localCacheIntegrityHMACSecretLength length of HMAC secret protecting local cache items.
 const localCacheIntegrityHMACSecretLength = 16
 
-// DefaultServerRepoCacheKeyDerivationAlgorithm is the default key derivation algorithm used to derive a cache encryption key.
-const DefaultServerRepoCacheKeyDerivationAlgorithm = crypto.DefaultKeyDerivationAlgorithm
-
 //nolint:gochecknoglobals
 var localCacheIntegrityPurpose = []byte("local-cache-integrity")
 
