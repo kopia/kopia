@@ -13,9 +13,6 @@ const (
 	ScryptAlgorithm = "scrypt-65536-8-1"
 
 	Pbkdf2Algorithm = "pbkdf2-sha256-600000"
-
-	// DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
-	DefaultKeyDerivationAlgorithm = ScryptAlgorithm
 )
 
 // DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
