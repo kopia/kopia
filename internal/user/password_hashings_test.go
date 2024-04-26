@@ -16,3 +16,17 @@ func TestPasswordHashingConstantMatchCryptoPackage(t *testing.T) {
 	require.Equal(t, crypto.ScryptAlgorithm, scryptHashAlgorithm)
 	require.Equal(t, crypto.Pbkdf2Algorithm, pbkdf2HashAlgorithm)
 }
+
+// The passwordHashSaltLength constant defines the salt length used in this
+// package for password hashing. This trivial test ensures that this hash length
+// meets the minimum requirement for the instantiations of the registered
+// password hashers (PB key derivers in the crypto package).
+func TestSaltLengthIsSupported(t *testing.T) {
+	const badPwd = "password"
+	var salt [passwordHashSaltLength]byte
+
+	for _, h := range PasswordHashingAlgorithms() {
+		_, err := computePasswordHash(badPwd, salt[:], h)
+		require.NoError(t, err)
+	}
+}
