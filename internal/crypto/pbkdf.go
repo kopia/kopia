@@ -11,25 +11,25 @@ import (
 )
 
 const (
+	// Pbkdf2Algorithm is the key for the pbkdf algorithm.
+	Pbkdf2Algorithm = "pbkdf2-sha256-600000"
+
 	// The NIST recommended minimum size for a salt for pbkdf2 is 16 bytes.
 	//
-	// TBD: However, a good rule of thumb is to use a salt that is the same size
+	// However, a good rule of thumb is to use a salt that is the same size
 	// as the output of the hash function. For example, the output of SHA256
 	// is 256 bits (32 bytes), so the salt should be at least 32 random bytes.
 	// See: https://crackstation.net/hashing-security.htm
-	minPbkdfSha256SaltSize = 32 // size in bytes == 128 bits
+	pbkdf2Sha256MinSaltLength = 32 // 256 bits
 
 	// The NIST recommended iterations for PBKDF2 with SHA256 hash is 600,000.
 	pbkdf2Sha256Iterations = 600_000
-
-	// Pbkdf2Algorithm is the key for the pbkdf algorithm.
-	Pbkdf2Algorithm = "pbkdf2-sha256-600000"
 )
 
 func init() {
 	RegisterKeyDerivers(Pbkdf2Algorithm, &pbkdf2KeyDeriver{
 		iterations:    pbkdf2Sha256Iterations,
-		minSaltLength: minPbkdfSha256SaltSize,
+		minSaltLength: pbkdf2Sha256MinSaltLength,
 	})
 }
 
