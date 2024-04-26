@@ -31,14 +31,14 @@ func (c *commandRepositoryConnectServer) setup(svc advancedAppServices, parent c
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
 	//nolint:lll
-	cmd.Flag("local-cache-key-derivation-algorithm", "Key derivation algorithm used to derive the local cache encryption key").Hidden().Default(repo.DefaultKeyDerivationAlgorithm).EnumVar(&c.connectAPIServerLocalCacheKeyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
+	cmd.Flag("local-cache-key-derivation-algorithm", "Key derivation algorithm used to derive the local cache encryption key").Hidden().Default(repo.DefaultServerRepoCacheKeyDerivationAlgorithm).EnumVar(&c.connectAPIServerLocalCacheKeyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
 	cmd.Action(svc.noRepositoryAction(c.run))
 }
 
 func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 	localCacheKeyDerivationAlgorithm := c.connectAPIServerLocalCacheKeyDerivationAlgorithm
 	if localCacheKeyDerivationAlgorithm == "" {
-		localCacheKeyDerivationAlgorithm = repo.DefaultKeyDerivationAlgorithm
+		localCacheKeyDerivationAlgorithm = repo.DefaultServerRepoCacheKeyDerivationAlgorithm
 	}
 
 	as := &repo.APIServerInfo{
