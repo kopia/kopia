@@ -17,16 +17,16 @@ const (
 // DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
 const DefaultKeyDerivationAlgorithm = ScryptAlgorithm
 
-// KeyDeriver is an interface that contains methods for deriving a key from a password.
-type KeyDeriver interface {
-	DeriveKeyFromPassword(password string, salt []byte) ([]byte, error)
+// passwordBasedKeyDeriver is an interface that contains methods for deriving a key from a password.
+type passwordBasedKeyDeriver interface {
+	deriveKeyFromPassword(password string, salt []byte) ([]byte, error)
 }
 
 //nolint:gochecknoglobals
-var keyDerivers = map[string]KeyDeriver{}
+var keyDerivers = map[string]passwordBasedKeyDeriver{}
 
-// RegisterKeyDerivers registers various key derivation functions.
-func RegisterKeyDerivers(name string, keyDeriver KeyDeriver) {
+// registerPBKeyDeriver registers a password-based key deriver.
+func registerPBKeyDeriver(name string, keyDeriver passwordBasedKeyDeriver) {
 	if _, ok := keyDerivers[name]; ok {
 		panic(fmt.Sprintf("key deriver (%s) is already registered", name))
 	}
@@ -42,7 +42,7 @@ func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]by
 	}
 
 	//nolint:wrapcheck
-	return kd.DeriveKeyFromPassword(password, salt)
+	return kd.deriveKeyFromPassword(password, salt)
 }
 
 // AllowedKeyDerivationAlgorithms returns a slice of the allowed key derivation algorithms.

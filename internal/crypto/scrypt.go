@@ -24,7 +24,7 @@ const (
 )
 
 func init() {
-	RegisterKeyDerivers(ScryptAlgorithm, &scryptKeyDeriver{
+	registerPBKeyDeriver(ScryptAlgorithm, &scryptKeyDeriver{
 		n:             65536, //nolint:gomnd
 		r:             8,     //nolint:gomnd
 		p:             1,
@@ -43,7 +43,7 @@ type scryptKeyDeriver struct {
 	minSaltLength int
 }
 
-func (s *scryptKeyDeriver) DeriveKeyFromPassword(password string, salt []byte) ([]byte, error) {
+func (s *scryptKeyDeriver) deriveKeyFromPassword(password string, salt []byte) ([]byte, error) {
 	if len(salt) < s.minSaltLength {
 		return nil, errors.Errorf("required salt size is at least %d bytes", s.minSaltLength)
 	}
