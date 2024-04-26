@@ -45,7 +45,7 @@ type scryptKeyDeriver struct {
 
 func (s *scryptKeyDeriver) DeriveKeyFromPassword(password string, salt []byte) ([]byte, error) {
 	if len(salt) < s.minSaltLength {
-		return nil, errors.Errorf("required salt size is atleast %d bytes", s.minSaltLength)
+		return nil, errors.Errorf("required salt size is at least %d bytes", s.minSaltLength)
 	}
 	//nolint:wrapcheck
 	return scrypt.Key([]byte(password), salt, s.n, s.r, s.p, MasterKeyLength)
