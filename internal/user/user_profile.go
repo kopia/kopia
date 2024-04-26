@@ -19,6 +19,8 @@ const (
 	Pbkdf2HashVersion = 2
 	// pbkdf2HashAlgorithm is the pbkdf2 password hashing algorithm. This must match crypto.Pbkdf2Algorithm.
 	pbkdf2HashAlgorithm = "pbkdf2-sha256-600000"
+
+	passwordHashSaltLength = 32
 )
 
 // Profile describes information about a single user.
