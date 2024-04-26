@@ -7,7 +7,6 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/user"
 	"github.com/kopia/kopia/repo"
 )
@@ -37,7 +36,7 @@ func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, i
 	cmd.Flag("ask-password", "Ask for user password").BoolVar(&c.userAskPassword)
 	cmd.Flag("user-password", "Password").StringVar(&c.userSetPassword)
 	cmd.Flag("user-password-hash", "Password hash").StringVar(&c.userSetPasswordHash)
-	cmd.Flag("user-password-hashing-algorithm", "[Experimental] Password hashing algorithm").Hidden().Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.userSetPasswordHashAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
+	cmd.Flag("user-password-hashing-algorithm", "[Experimental] Password hashing algorithm").Hidden().Default(user.DefaultPasswordHashingAlgorithm).EnumVar(&c.userSetPasswordHashAlgorithm, user.PasswordHashingAlgorithms()...)
 	cmd.Arg("username", "Username").Required().StringVar(&c.userSetName)
 	cmd.Action(svc.repositoryWriterAction(c.runServerUserAddSet))
 

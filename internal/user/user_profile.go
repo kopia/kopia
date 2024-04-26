@@ -3,7 +3,6 @@ package user
 import (
 	"math/rand"
 
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/repo/manifest"
 
 	"github.com/pkg/errors"
@@ -55,7 +54,7 @@ func (p *Profile) IsValidPassword(password string) bool {
 	}
 
 	if invalidProfile {
-		algorithms := crypto.AllowedKeyDerivationAlgorithms()
+		algorithms := PasswordHashingAlgorithms()
 		// if the user profile is invalid, either a non-existing user name or password
 		// hash version, then return false but use the same amount of time as when we
 		// compare against valid user to avoid revealing whether the user account exists.
