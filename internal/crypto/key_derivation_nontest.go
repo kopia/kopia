@@ -9,9 +9,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
-const DefaultKeyDerivationAlgorithm = ScryptAlgorithm
-
 // passwordBasedKeyDeriver is an interface that contains methods for deriving a key from a password.
 type passwordBasedKeyDeriver interface {
 	deriveKeyFromPassword(password string, salt []byte, keySize int) ([]byte, error)
