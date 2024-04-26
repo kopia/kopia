@@ -13,8 +13,6 @@ const (
 	// MasterKeyLength describes the length of the master key.
 	MasterKeyLength = 32
 
-	V1SaltLength = 32
-
 	ScryptAlgorithm = "scrypt-65536-8-1"
 
 	Pbkdf2Algorithm = "pbkdf2-sha256-600000"
@@ -40,10 +38,6 @@ func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]by
 	default:
 		return nil, errors.Errorf("unsupported key algorithm: %v", algorithm)
 	}
-}
-
-func RecommendedSaltLength(algorithm string) (int, error) {
-	return V1SaltLength, nil
 }
 
 func AllowedKeyDerivationAlgorithms() []string {

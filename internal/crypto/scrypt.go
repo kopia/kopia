@@ -21,18 +21,14 @@ const (
 
 	// ScryptAlgorithm is the key for the scrypt algorithm.
 	ScryptAlgorithm = "scrypt-65536-8-1"
-
-	// Legacy hash version salt length.
-	V1SaltLength = 32
 )
 
 func init() {
 	RegisterKeyDerivers(ScryptAlgorithm, &scryptKeyDeriver{
-		n:                     65536, //nolint:gomnd
-		r:                     8,     //nolint:gomnd
-		p:                     1,
-		recommendedSaltLength: V1SaltLength,
-		minSaltLength:         minScryptSha256SaltSize,
+		n:             65536, //nolint:gomnd
+		r:             8,     //nolint:gomnd
+		p:             1,
+		minSaltLength: minScryptSha256SaltSize,
 	})
 }
 
@@ -44,8 +40,7 @@ type scryptKeyDeriver struct {
 	// p scryptCostParameterP is scrypt's parallelization parameter.
 	p int
 
-	recommendedSaltLength int
-	minSaltLength         int
+	minSaltLength int
 }
 
 func (s *scryptKeyDeriver) DeriveKeyFromPassword(password string, salt []byte) ([]byte, error) {
@@ -54,8 +49,4 @@ func (s *scryptKeyDeriver) DeriveKeyFromPassword(password string, salt []byte) (
 	}
 	//nolint:wrapcheck
 	return scrypt.Key([]byte(password), salt, s.n, s.r, s.p, MasterKeyLength)
-}
-
-func (s *scryptKeyDeriver) RecommendedSaltLength() int {
-	return s.recommendedSaltLength
 }

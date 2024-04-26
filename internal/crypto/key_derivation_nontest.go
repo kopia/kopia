@@ -20,7 +20,6 @@ const DefaultKeyDerivationAlgorithm = ScryptAlgorithm
 // KeyDeriver is an interface that contains methods for deriving a key from a password.
 type KeyDeriver interface {
 	DeriveKeyFromPassword(password string, salt []byte) ([]byte, error)
-	RecommendedSaltLength() int
 }
 
 //nolint:gochecknoglobals
@@ -44,16 +43,6 @@ func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]by
 
 	//nolint:wrapcheck
 	return kd.DeriveKeyFromPassword(password, salt)
-}
-
-// RecommendedSaltLength returns the recommended salt length of a given key derivation algorithm.
-func RecommendedSaltLength(algorithm string) (int, error) {
-	kd, ok := keyDerivers[algorithm]
-	if !ok {
-		return 0, errors.Errorf("failed to get salt length for unsupported key derivation algorithm: %v, supported algorithms %v", algorithm, AllowedKeyDerivationAlgorithms())
-	}
-
-	return kd.RecommendedSaltLength(), nil
 }
 
 // AllowedKeyDerivationAlgorithms returns a slice of the allowed key derivation algorithms.

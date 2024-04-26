@@ -28,16 +28,14 @@ const (
 
 func init() {
 	RegisterKeyDerivers(Pbkdf2Algorithm, &pbkdf2KeyDeriver{
-		iterations:            pbkdf2Sha256Iterations,
-		recommendedSaltLength: minPbkdfSha256SaltSize,
-		minSaltLength:         minPbkdfSha256SaltSize,
+		iterations:    pbkdf2Sha256Iterations,
+		minSaltLength: minPbkdfSha256SaltSize,
 	})
 }
 
 type pbkdf2KeyDeriver struct {
-	iterations            int
-	recommendedSaltLength int
-	minSaltLength         int
+	iterations    int
+	minSaltLength int
 }
 
 func (s *pbkdf2KeyDeriver) DeriveKeyFromPassword(password string, salt []byte) ([]byte, error) {
@@ -46,8 +44,4 @@ func (s *pbkdf2KeyDeriver) DeriveKeyFromPassword(password string, salt []byte) (
 	}
 
 	return pbkdf2.Key([]byte(password), salt, s.iterations, MasterKeyLength, sha256.New), nil
-}
-
-func (s *pbkdf2KeyDeriver) RecommendedSaltLength() int {
-	return s.recommendedSaltLength
 }
