@@ -133,7 +133,7 @@ func TestRepoConnectBadKeyDerivationAlgorithm(t *testing.T) {
 	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--format-block-key-derivation-algorithm", crypto.DefaultKeyDerivationAlgorithm)
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--format-block-key-derivation-algorithm", format.DefaultKeyDerivationAlgorithm)
 	e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	kopiaRepoPath := filepath.Join(e.RepoDir, "kopia.repository.f")
