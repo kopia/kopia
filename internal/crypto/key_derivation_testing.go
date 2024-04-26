@@ -10,9 +10,6 @@ import (
 )
 
 const (
-	// MasterKeyLength describes the length of the master key.
-	MasterKeyLength = 32
-
 	ScryptAlgorithm = "scrypt-65536-8-1"
 
 	Pbkdf2Algorithm = "pbkdf2-sha256-600000"
@@ -22,9 +19,7 @@ const (
 )
 
 // DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
-func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]byte, error) {
-	const masterKeySize = 32
-
+func DeriveKeyFromPassword(password string, salt []byte, keySize int, algorithm string) ([]byte, error) {
 	switch algorithm {
 	case ScryptAlgorithm, Pbkdf2Algorithm:
 		h := sha256.New()

@@ -38,10 +38,10 @@ type pbkdf2KeyDeriver struct {
 	minSaltLength int
 }
 
-func (s *pbkdf2KeyDeriver) deriveKeyFromPassword(password string, salt []byte) ([]byte, error) {
+func (s *pbkdf2KeyDeriver) deriveKeyFromPassword(password string, salt []byte, keySize int) ([]byte, error) {
 	if len(salt) < s.minSaltLength {
 		return nil, errors.Errorf("required salt size is atleast %d bytes", s.minSaltLength)
 	}
 
-	return pbkdf2.Key([]byte(password), salt, s.iterations, MasterKeyLength, sha256.New), nil
+	return pbkdf2.Key([]byte(password), salt, s.iterations, keySize, sha256.New), nil
 }

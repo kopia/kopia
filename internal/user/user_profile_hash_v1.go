@@ -11,7 +11,7 @@ import (
 )
 
 //nolint:gochecknoglobals
-var dummyHashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+passwordHashSaltLength)
+var dummyHashThatNeverMatchesAnyPassword = make([]byte, passwordHashSaltLength+passwordHashLength)
 
 func (p *Profile) setPassword(password string) error {
 	passwordHashAlgorithm, err := getPasswordHashAlgorithm(p.PasswordHashVersion)
@@ -30,7 +30,7 @@ func (p *Profile) setPassword(password string) error {
 }
 
 func computePasswordHash(password string, salt []byte, keyDerivationAlgorithm string) ([]byte, error) {
-	key, err := crypto.DeriveKeyFromPassword(password, salt, keyDerivationAlgorithm)
+	key, err := crypto.DeriveKeyFromPassword(password, salt, passwordHashLength, keyDerivationAlgorithm)
 	if err != nil {
 		return nil, errors.Wrap(err, "error deriving key from password")
 	}
@@ -41,7 +41,7 @@ func computePasswordHash(password string, salt []byte, keyDerivationAlgorithm st
 }
 
 func isValidPassword(password string, hashedPassword []byte, keyDerivationAlgorithm string) bool {
-	if len(hashedPassword) != passwordHashSaltLength+crypto.MasterKeyLength {
+	if len(hashedPassword) != passwordHashSaltLength+passwordHashLength {
 		return false
 	}
 

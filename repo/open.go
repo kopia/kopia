@@ -146,7 +146,9 @@ func getContentCacheOrNil(ctx context.Context, si *APIServerInfo, opt *content.C
 	// derive content cache key from the password & HMAC secret
 	saltWithPurpose := append([]byte("content-cache-protection"), opt.HMACSecret...)
 
-	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, saltWithPurpose, si.LocalCacheKeyDerivationAlgorithm)
+	const cacheEncryptionKeySize = 32
+
+	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, saltWithPurpose, cacheEncryptionKeySize, si.LocalCacheKeyDerivationAlgorithm)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
 	}

@@ -9,17 +9,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-const (
-	// MasterKeyLength describes the length of the master key.
-	MasterKeyLength = 32
-)
-
 // DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
 const DefaultKeyDerivationAlgorithm = ScryptAlgorithm
 
 // passwordBasedKeyDeriver is an interface that contains methods for deriving a key from a password.
 type passwordBasedKeyDeriver interface {
-	deriveKeyFromPassword(password string, salt []byte) ([]byte, error)
+	deriveKeyFromPassword(password string, salt []byte, keySize int) ([]byte, error)
 }
 
 //nolint:gochecknoglobals
@@ -35,14 +30,14 @@ func registerPBKeyDeriver(name string, keyDeriver passwordBasedKeyDeriver) {
 }
 
 // DeriveKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
-func DeriveKeyFromPassword(password string, salt []byte, algorithm string) ([]byte, error) {
+func DeriveKeyFromPassword(password string, salt []byte, keySize int, algorithm string) ([]byte, error) {
 	kd, ok := keyDerivers[algorithm]
 	if !ok {
 		return nil, errors.Errorf("unsupported key derivation algorithm: %v, supported algorithms %v", algorithm, AllowedKeyDerivationAlgorithms())
 	}
 
 	//nolint:wrapcheck
-	return kd.deriveKeyFromPassword(password, salt)
+	return kd.deriveKeyFromPassword(password, salt, keySize)
 }
 
 // AllowedKeyDerivationAlgorithms returns a slice of the allowed key derivation algorithms.
