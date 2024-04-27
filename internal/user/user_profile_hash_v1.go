@@ -14,7 +14,7 @@ import (
 var dummyHashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+crypto.V1SaltLength)
 
 func (p *Profile) setPassword(password string) error {
-	passwordHashAlgorithm, err := GetPasswordHashAlgorithm(p.PasswordHashVersion)
+	passwordHashAlgorithm, err := getPasswordHashAlgorithm(p.PasswordHashVersion)
 	if err != nil {
 		return err
 	}

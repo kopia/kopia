@@ -46,7 +46,7 @@ func (p *Profile) IsValidPassword(password string) bool {
 	if p == nil {
 		invalidProfile = true
 	} else {
-		passwordHashAlgorithm, err = GetPasswordHashAlgorithm(p.PasswordHashVersion)
+		passwordHashAlgorithm, err = getPasswordHashAlgorithm(p.PasswordHashVersion)
 		if err != nil {
 			invalidProfile = true
 		}
@@ -65,8 +65,8 @@ func (p *Profile) IsValidPassword(password string) bool {
 	return isValidPassword(password, p.PasswordHash, passwordHashAlgorithm)
 }
 
-// GetPasswordHashAlgorithm returns the password hash algorithm given a version.
-func GetPasswordHashAlgorithm(passwordHashVersion int) (string, error) {
+// getPasswordHashAlgorithm returns the password hash algorithm given a version.
+func getPasswordHashAlgorithm(passwordHashVersion int) (string, error) {
 	switch passwordHashVersion {
 	case ScryptHashVersion:
 		return scryptHashAlgorithm, nil
