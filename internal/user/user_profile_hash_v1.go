@@ -19,12 +19,7 @@ func (p *Profile) setPassword(password string) error {
 		return err
 	}
 
-	saltLength, err := crypto.RecommendedSaltLength(passwordHashAlgorithm)
-	if err != nil {
-		return errors.Wrap(err, "error getting recommended salt length")
-	}
-
-	salt := make([]byte, saltLength)
+	salt := make([]byte, passwordHashSaltLength)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return errors.Wrap(err, "error generating salt")
 	}
@@ -46,16 +41,11 @@ func computePasswordHash(password string, salt []byte, keyDerivationAlgorithm st
 }
 
 func isValidPassword(password string, hashedPassword []byte, keyDerivationAlgorithm string) bool {
-	saltLength, err := crypto.RecommendedSaltLength(keyDerivationAlgorithm)
-	if err != nil {
-		panic(err)
-	}
-
-	if len(hashedPassword) != saltLength+crypto.MasterKeyLength {
+	if len(hashedPassword) != passwordHashSaltLength+crypto.MasterKeyLength {
 		return false
 	}
 
-	salt := hashedPassword[0:saltLength]
+	salt := hashedPassword[0:passwordHashSaltLength]
 
 	h, err := computePasswordHash(password, salt, keyDerivationAlgorithm)
 	if err != nil {
