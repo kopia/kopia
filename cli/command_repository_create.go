@@ -7,7 +7,6 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/ecc"
@@ -54,7 +53,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("retention-mode", "Set the blob retention-mode for supported storage backends.").EnumVar(&c.retentionMode, blob.Governance.String(), blob.Compliance.String())
 	cmd.Flag("retention-period", "Set the blob retention-period for supported storage backends.").DurationVar(&c.retentionPeriod)
 	//nolint:lll
-	cmd.Flag("format-block-key-derivation-algorithm", "Algorithm to derive the encryption key for the format block from the repository password").Default(crypto.DefaultKeyDerivationAlgorithm).EnumVar(&c.createBlockKeyDerivationAlgorithm, crypto.AllowedKeyDerivationAlgorithms()...)
+	cmd.Flag("format-block-key-derivation-algorithm", "Algorithm to derive the encryption key for the format block from the repository password").Default(format.DefaultKeyDerivationAlgorithm).EnumVar(&c.createBlockKeyDerivationAlgorithm, format.SupportedFormatBlobKeyDerivationAlgorithms()...)
 
 	c.co.setup(svc, cmd)
 	c.svc = svc

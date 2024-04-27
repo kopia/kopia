@@ -11,20 +11,15 @@ import (
 )
 
 //nolint:gochecknoglobals
-var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, crypto.MasterKeyLength+crypto.V1SaltLength)
+var dummyHashThatNeverMatchesAnyPassword = make([]byte, passwordHashSaltLength+passwordHashLength)
 
 func (p *Profile) setPassword(password string) error {
-	passwordHashAlgorithm, err := GetPasswordHashAlgorithm(p.PasswordHashVersion)
+	passwordHashAlgorithm, err := getPasswordHashAlgorithm(p.PasswordHashVersion)
 	if err != nil {
 		return err
 	}
 
-	saltLength, err := crypto.RecommendedSaltLength(passwordHashAlgorithm)
-	if err != nil {
-		return errors.Wrap(err, "error getting recommended salt length")
-	}
-
-	salt := make([]byte, saltLength)
+	salt := make([]byte, passwordHashSaltLength)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return errors.Wrap(err, "error generating salt")
 	}
@@ -35,7 +30,7 @@ func (p *Profile) setPassword(password string) error {
 }
 
 func computePasswordHash(password string, salt []byte, keyDerivationAlgorithm string) ([]byte, error) {
-	key, err := crypto.DeriveKeyFromPassword(password, salt, keyDerivationAlgorithm)
+	key, err := crypto.DeriveKeyFromPassword(password, salt, passwordHashLength, keyDerivationAlgorithm)
 	if err != nil {
 		return nil, errors.Wrap(err, "error deriving key from password")
 	}
@@ -46,16 +41,11 @@ func computePasswordHash(password string, salt []byte, keyDerivationAlgorithm st
 }
 
 func isValidPassword(password string, hashedPassword []byte, keyDerivationAlgorithm string) bool {
-	saltLength, err := crypto.RecommendedSaltLength(keyDerivationAlgorithm)
-	if err != nil {
-		panic(err)
-	}
-
-	if len(hashedPassword) != saltLength+crypto.MasterKeyLength {
+	if len(hashedPassword) != passwordHashSaltLength+passwordHashLength {
 		return false
 	}
 
-	salt := hashedPassword[0:saltLength]
+	salt := hashedPassword[0:passwordHashSaltLength]
 
 	h, err := computePasswordHash(password, salt, keyDerivationAlgorithm)
 	if err != nil {
