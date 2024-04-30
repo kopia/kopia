@@ -17,6 +17,10 @@ var (
 )
 
 func initCrypto(masterKey, salt []byte) (cipher.AEAD, []byte, error) {
+	if len(masterKey) == 0 {
+		return nil, nil, errors.Errorf("invalid master key length")
+	}
+
 	aesKey := DeriveKeyFromMasterKey(masterKey, salt, purposeAESKey, 32)     //nolint:gomnd
 	authData := DeriveKeyFromMasterKey(masterKey, salt, purposeAuthData, 32) //nolint:gomnd
 
