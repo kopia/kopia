@@ -39,9 +39,9 @@ func (s *formatSpecificTestSuite) TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			mustParseObjectID(t, "345acef0bcf82f1daf8e49fab7b7fac7ec296c518501eabea3645b99345a4e08"),
+			mustParseObjectID(t, "7f8f3efa67f773c01051a8b727f6426d2762e9556223479dc7d0ba5656924b77"),
 		},
-		{make([]byte, 100), mustParseObjectID(t, "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340")}, // 100 zero bytes
+		{make([]byte, 100), mustParseObjectID(t, "bba52aa885067beeae9f59b3adea64a654732ab887b8e2af45c302ba2f1390dd")}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -79,7 +79,7 @@ func (s *formatSpecificTestSuite) TestWriterCompleteChunkInTwoWrites(t *testing.
 	writer.Write(b[0:50])
 	result, err := writer.Result()
 
-	if result != mustParseObjectID(t, "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340") {
+	if result != mustParseObjectID(t, "bba52aa885067beeae9f59b3adea64a654732ab887b8e2af45c302ba2f1390dd") {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -163,7 +163,7 @@ func (s *formatSpecificTestSuite) TestHMAC(t *testing.T) {
 	w.Write(c)
 	result, err := w.Result()
 
-	if result.String() != "367352007ee6ca9fa755ce8352347d092c17a24077fd33c62f655574a8cf906d" {
+	if result.String() != "e097a8bd0a397b3c3e3ca2decb26e82dc82b646a2a5a7e8769c205c68a74f591" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
 }
@@ -252,8 +252,8 @@ func TestFormats(t *testing.T) {
 			format: func(n *repo.NewRepositoryOptions) {
 			},
 			oids: map[string]object.ID{
-				"": mustParseObjectID(t, "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad"),
-				"The quick brown fox jumps over the lazy dog": mustParseObjectID(t, "fb011e6154a19b9a4c767373c305275a5a69e8b68b0b4c9200c383dced19a416"),
+				"": mustParseObjectID(t, "f2b05c22b9314703b5f1745beec2b17545853003d1438cd961641f2369021e7e"),
+				"The quick brown fox jumps over the lazy dog": mustParseObjectID(t, "87b02856aa241c7501b63850942ee437b8cd0c9dbcedf9d4442d00275777eb52"),
 			},
 		},
 		{
