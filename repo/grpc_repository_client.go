@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/url"
 	"runtime"
 	"sync"
@@ -837,7 +838,7 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		return nil, errors.Errorf("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
 	}
 
-	uri := u.Hostname() + ":" + u.Port()
+	uri := net.JoinHostPort(u.Hostname(), u.Port())
 	if u.Scheme == "unix+https" {
 		uri = "unix:" + u.Path
 	}
