@@ -829,18 +829,9 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		transportCreds = credentials.NewClientTLSFromCert(nil, "")
 	}
 
-	u, err := url.Parse(si.BaseURL)
+	uri, err := BaseURLToURI(si.BaseURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to parse server URL")
-	}
-
-	if u.Scheme != "kopia" && u.Scheme != "https" && u.Scheme != "unix+https" {
-		return nil, errors.Errorf("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
-	}
-
-	uri := net.JoinHostPort(u.Hostname(), u.Port())
-	if u.Scheme == "unix+https" {
-		uri = "unix:" + u.Path
+		return nil, errors.Wrap(err, "parsing base URL")
 	}
 
 	conn, err := grpc.NewClient(
@@ -867,6 +858,26 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	}
 
 	return rep, nil
+}
+
+// BaseURLToURI parses the provided base URL and returns the URI. The
+// input scheme must be either "https", "unix+https", or "kopia".
+func BaseURLToURI(baseURL string) (uri string, err error) {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to parse server URL")
+	}
+
+	if u.Scheme != "kopia" && u.Scheme != "https" && u.Scheme != "unix+https" {
+		return "", errors.Errorf("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
+	}
+
+	uri = net.JoinHostPort(u.Hostname(), u.Port())
+	if u.Scheme == "unix+https" {
+		uri = "unix:" + u.Path
+	}
+
+	return uri, nil
 }
 
 func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (*grpcInnerSession, error) {
