@@ -6,8 +6,6 @@ package epoch
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/completeset"
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -187,8 +184,6 @@ type Manager struct {
 	compact  CompactionFunc
 	log      logging.Logger
 	timeFunc func() time.Time
-
-	allowCleanupWritesOnIndexLoad bool
 
 	// wait group that waits for all compaction and cleanup goroutines.
 	backgroundWork sync.WaitGroup
@@ -474,37 +469,7 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 		}
 	}
 
-	return e.maybeCompactAndCleanupLocked(ctx, p)
-}
-
-func (e *Manager) maybeCompactAndCleanupLocked(ctx context.Context, p *Parameters) error {
-	if !e.allowWritesOnLoad() {
-		e.log.Debug("not performing epoch index cleanup")
-
-		return nil
-	}
-
-	cs := e.lastKnownState
-
-	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
-		if err := e.advanceEpochMarker(ctx, cs); err != nil {
-			return errors.Wrap(err, "error advancing epoch")
-		}
-	}
-
-	e.maybeGenerateNextRangeCheckpointAsync(ctx, cs, p)
-	e.maybeStartCleanupAsync(ctx, cs, p)
-	e.maybeOptimizeRangeCheckpointsAsync(ctx, cs)
-
 	return nil
-}
-
-// allowWritesOnLoad returns whether writes for index cleanup operations,
-// such as index compaction, can be done during index reads.
-// These index cleanup operations are disabled when using read-only storage
-// since they will fail when they try to mutate the underlying storage.
-func (e *Manager) allowWritesOnLoad() bool {
-	return e.allowCleanupWritesOnIndexLoad && !e.st.IsReadOnly()
 }
 
 func (e *Manager) loadWriteEpoch(ctx context.Context, cs *CurrentSnapshot) error {
@@ -621,28 +586,6 @@ func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) error {
 	return nil
 }
 
-func (e *Manager) maybeGenerateNextRangeCheckpointAsync(ctx context.Context, cs CurrentSnapshot, p *Parameters) {
-	latestSettled, firstNonRangeCompacted, compact := getRangeToCompact(cs, *p)
-	if !compact {
-		e.log.Debug("not generating range checkpoint")
-
-		return
-	}
-
-	e.log.Debugf("generating range checkpoint")
-
-	e.backgroundWork.Add(1)
-
-	// we're starting background work, ignore parent cancellation signal.
-	ctxutil.GoDetached(ctx, func(ctx context.Context) {
-		defer e.backgroundWork.Done()
-
-		if err := e.generateRangeCheckpointFromCommittedState(ctx, cs, firstNonRangeCompacted, latestSettled); err != nil {
-			e.log.Errorf("unable to generate full checkpoint: %v, performance will be affected", err)
-		}
-	})
-}
-
 func getRangeToCompact(cs CurrentSnapshot, p Parameters) (low, high int, compactRange bool) {
 	latestSettled := cs.WriteEpoch - numUnsettledEpochs
 	if latestSettled < 0 {
@@ -659,24 +602,6 @@ func getRangeToCompact(cs CurrentSnapshot, p Parameters) (low, high int, compact
 	}
 
 	return latestSettled, firstNonRangeCompacted, true
-}
-
-func (e *Manager) maybeOptimizeRangeCheckpointsAsync(ctx context.Context, cs CurrentSnapshot) {
-	// TODO: implement me
-	_ = cs
-}
-
-func (e *Manager) maybeStartCleanupAsync(ctx context.Context, cs CurrentSnapshot, p *Parameters) {
-	e.backgroundWork.Add(1)
-
-	// we're starting background work, ignore parent cancellation signal.
-	ctxutil.GoDetached(ctx, func(ctx context.Context) {
-		defer e.backgroundWork.Done()
-
-		if err := e.cleanupInternal(ctx, cs, p); err != nil {
-			e.log.Errorf("error cleaning up index blobs: %v, performance may be affected", err)
-		}
-	})
 }
 
 func (e *Manager) loadUncompactedEpochs(ctx context.Context, min, max int) (map[int][]blob.Metadata, error) {
@@ -1077,21 +1002,6 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 		uncompactedBlobs = ue
 	}
 
-	if epochSettled && e.allowWritesOnLoad() {
-		e.backgroundWork.Add(1)
-
-		// we're starting background work, ignore parent cancellation signal.
-		ctxutil.GoDetached(ctx, func(ctx context.Context) {
-			defer e.backgroundWork.Done()
-
-			e.log.Debugf("starting single-epoch compaction of %v", epoch)
-
-			if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(epoch)); err != nil {
-				e.log.Errorf("unable to compact blobs for epoch %v: %v, performance will be affected", epoch, err)
-			}
-		})
-	}
-
 	// return uncompacted blobs to the caller while we're compacting them in background
 	return uncompactedBlobs, nil
 }
@@ -1128,23 +1038,16 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 	return blob.ID(fmt.Sprintf("%v%v_%v_", RangeCheckpointIndexBlobPrefix, epoch1, epoch2))
 }
 
-func allowWritesOnIndexLoad() bool {
-	v := strings.ToLower(os.Getenv("KOPIA_ALLOW_WRITE_ON_INDEX_LOAD"))
-
-	return v == "true" || v == "1"
-}
-
 // NewManager creates new epoch manager.
 func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log logging.Logger, timeNow func() time.Time) *Manager {
 	return &Manager{
-		st:                            st,
-		log:                           log,
-		compact:                       compactor,
-		timeFunc:                      timeNow,
-		paramProvider:                 paramProvider,
-		allowCleanupWritesOnIndexLoad: allowWritesOnIndexLoad(),
-		getCompleteIndexSetTooSlow:    new(int32),
-		committedStateRefreshTooSlow:  new(int32),
-		writeIndexTooSlow:             new(int32),
+		st:                           st,
+		log:                          log,
+		compact:                      compactor,
+		timeFunc:                     timeNow,
+		paramProvider:                paramProvider,
+		getCompleteIndexSetTooSlow:   new(int32),
+		committedStateRefreshTooSlow: new(int32),
+		writeIndexTooSlow:            new(int32),
 	}
 }
