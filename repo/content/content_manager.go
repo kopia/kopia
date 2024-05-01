@@ -377,13 +377,13 @@ func (bm *WriteManager) verifyInvariantsLocked(mp format.MutableParameters) {
 func (bm *WriteManager) verifyCurrentPackItemsLocked() {
 	for _, pp := range bm.pendingPacks {
 		for k, cpi := range pp.currentPackItems {
-			bm.assertInvariant(cpi.ContentID == k, "content ID entry has invalid key: %v %v", cpi.ContentID, k)
+			assertInvariant(cpi.ContentID == k, "content ID entry has invalid key: %v %v", cpi.ContentID, k)
 
 			if !cpi.Deleted {
-				bm.assertInvariant(cpi.PackBlobID == pp.packBlobID, "non-deleted pending pack item %q must be from the pending pack %q, was %q", cpi.ContentID, pp.packBlobID, cpi.PackBlobID)
+				assertInvariant(cpi.PackBlobID == pp.packBlobID, "non-deleted pending pack item %q must be from the pending pack %q, was %q", cpi.ContentID, pp.packBlobID, cpi.PackBlobID)
 			}
 
-			bm.assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ContentID)
+			assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ContentID)
 		}
 	}
 }
@@ -391,20 +391,20 @@ func (bm *WriteManager) verifyCurrentPackItemsLocked() {
 // +checklocks:bm.mu
 func (bm *WriteManager) verifyPackIndexBuilderLocked(mp format.MutableParameters) {
 	for k, cpi := range bm.packIndexBuilder {
-		bm.assertInvariant(cpi.ContentID == k, "content ID entry has invalid key: %v %v", cpi.ContentID, k)
+		assertInvariant(cpi.ContentID == k, "content ID entry has invalid key: %v %v", cpi.ContentID, k)
 
 		if cpi.Deleted {
-			bm.assertInvariant(cpi.PackBlobID == "", "content can't be both deleted and have a pack content: %v", cpi.ContentID)
+			assertInvariant(cpi.PackBlobID == "", "content can't be both deleted and have a pack content: %v", cpi.ContentID)
 		} else {
-			bm.assertInvariant(cpi.PackBlobID != "", "content that's not deleted must have a pack content: %+v", cpi)
-			bm.assertInvariant(cpi.FormatVersion == byte(mp.Version), "content that's not deleted must have a valid format version: %+v", cpi)
+			assertInvariant(cpi.PackBlobID != "", "content that's not deleted must have a pack content: %+v", cpi)
+			assertInvariant(cpi.FormatVersion == byte(mp.Version), "content that's not deleted must have a valid format version: %+v", cpi)
 		}
 
-		bm.assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ContentID)
+		assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ContentID)
 	}
 }
 
-func (bm *WriteManager) assertInvariant(ok bool, errorMsg string, arg ...interface{}) {
+func assertInvariant(ok bool, errorMsg string, arg ...interface{}) {
 	if ok {
 		return
 	}
