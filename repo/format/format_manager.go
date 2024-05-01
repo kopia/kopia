@@ -141,23 +141,18 @@ func (m *Manager) refresh(ctx context.Context) error {
 		return errors.Errorf("unable to add checksum")
 	}
 
-	var formatEncryptionKey []byte
-
-	// try decrypting using old key, if present to avoid deriving it, which is expensive
-	repoConfig, err := j.decryptRepositoryConfig(m.formatEncryptionKey)
-	if err == nil {
-		// still valid, no need to derive
-		formatEncryptionKey = m.formatEncryptionKey
-	} else {
+	// use old key, if present to avoid deriving it, which is expensive
+	formatEncryptionKey := m.formatEncryptionKey
+	if len(m.formatEncryptionKey) == 0 {
 		formatEncryptionKey, err = j.DeriveFormatEncryptionKeyFromPassword(m.password)
 		if err != nil {
 			return errors.Wrap(err, "derive format encryption key")
 		}
+	}
 
-		repoConfig, err = j.decryptRepositoryConfig(formatEncryptionKey)
-		if err != nil {
-			return ErrInvalidPassword
-		}
+	repoConfig, err := j.decryptRepositoryConfig(formatEncryptionKey)
+	if err != nil {
+		return ErrInvalidPassword
 	}
 
 	var blobCfg BlobStorageConfiguration
