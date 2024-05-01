@@ -6,8 +6,6 @@ package epoch
 import (
 	"context"
 	"fmt"
-	"os"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1128,23 +1126,16 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 	return blob.ID(fmt.Sprintf("%v%v_%v_", RangeCheckpointIndexBlobPrefix, epoch1, epoch2))
 }
 
-func allowWritesOnIndexLoad() bool {
-	v := strings.ToLower(os.Getenv("KOPIA_ALLOW_WRITE_ON_INDEX_LOAD"))
-
-	return v == "true" || v == "1"
-}
-
 // NewManager creates new epoch manager.
 func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log logging.Logger, timeNow func() time.Time) *Manager {
 	return &Manager{
-		st:                            st,
-		log:                           log,
-		compact:                       compactor,
-		timeFunc:                      timeNow,
-		paramProvider:                 paramProvider,
-		allowCleanupWritesOnIndexLoad: allowWritesOnIndexLoad(),
-		getCompleteIndexSetTooSlow:    new(int32),
-		committedStateRefreshTooSlow:  new(int32),
-		writeIndexTooSlow:             new(int32),
+		st:                           st,
+		log:                          log,
+		compact:                      compactor,
+		timeFunc:                     timeNow,
+		paramProvider:                paramProvider,
+		getCompleteIndexSetTooSlow:   new(int32),
+		committedStateRefreshTooSlow: new(int32),
+		writeIndexTooSlow:            new(int32),
 	}
 }
