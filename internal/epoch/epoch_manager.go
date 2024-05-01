@@ -1075,21 +1075,6 @@ func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSna
 		uncompactedBlobs = ue
 	}
 
-	if epochSettled && e.allowWritesOnLoad() {
-		e.backgroundWork.Add(1)
-
-		// we're starting background work, ignore parent cancellation signal.
-		ctxutil.GoDetached(ctx, func(ctx context.Context) {
-			defer e.backgroundWork.Done()
-
-			e.log.Debugf("starting single-epoch compaction of %v", epoch)
-
-			if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(epoch)); err != nil {
-				e.log.Errorf("unable to compact blobs for epoch %v: %v, performance will be affected", epoch, err)
-			}
-		})
-	}
-
 	// return uncompacted blobs to the caller while we're compacting them in background
 	return uncompactedBlobs, nil
 }
