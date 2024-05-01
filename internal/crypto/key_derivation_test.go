@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/crypto"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -19,28 +20,18 @@ func TestDeriveKeyFromMasterKey(t *testing.T) {
 
 		expected := "828769ee8969bc37f11dbaa32838f8db6c19daa6e3ae5f5eed2da2d94d8faddb"
 		got := fmt.Sprintf("%02x", key)
-		if got != expected {
-			t.Errorf("incorrect key\nexpected: %s\n     got: %s", expected, got)
-		}
+		require.Equal(t, expected, got)
 	})
 
 	t.Run("PanicsOnNilMasterKey", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("expected panic")
-			}
-		}()
-
-		crypto.DeriveKeyFromMasterKey(nil, TestSalt, TestPurpose, 32)
+		require.Panics(t, func() {
+			crypto.DeriveKeyFromMasterKey(nil, TestSalt, TestPurpose, 32)
+		})
 	})
 
 	t.Run("PanicsOnEmptyMasterKey", func(t *testing.T) {
-		defer func() {
-			if r := recover(); r == nil {
-				t.Error("expected panic")
-			}
-		}()
-
-		crypto.DeriveKeyFromMasterKey([]byte{}, TestSalt, TestPurpose, 32)
+		require.Panics(t, func() {
+			crypto.DeriveKeyFromMasterKey([]byte{}, TestSalt, TestPurpose, 32)
+		})
 	})
 }
