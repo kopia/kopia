@@ -4,8 +4,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/kopia/kopia/internal/crypto"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/internal/crypto"
 )
 
 var (
