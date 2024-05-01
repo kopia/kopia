@@ -43,8 +43,8 @@ type commandRepositoryCreate struct {
 func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("create", "Create new repository in a specified location.")
 
-	cmd.Flag("block-hash", "Content hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).EnumVar(&c.createBlockHashFormat, hashing.SupportedAlgorithms()...)
-	cmd.Flag("encryption", "Content encryption algorithm.").PlaceHolder("ALGO").Default(encryption.DefaultAlgorithm).EnumVar(&c.createBlockEncryptionFormat, encryption.SupportedAlgorithms(false)...)
+	cmd.Flag("block-hash", "Content hash algorithm.").Envar(svc.EnvName("BLOCK_HASH")).PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).EnumVar(&c.createBlockHashFormat, hashing.SupportedAlgorithms()...)
+	cmd.Flag("encryption", "Content encryption algorithm.").Envar(svc.EnvName("BLOCK_ENCRYPTION")).PlaceHolder("ALGO").Default(encryption.DefaultAlgorithm).EnumVar(&c.createBlockEncryptionFormat, encryption.SupportedAlgorithms(false)...)
 	cmd.Flag("ecc", "[EXPERIMENTAL] Error correction algorithm.").PlaceHolder("ALGO").Default(ecc.DefaultAlgorithm).EnumVar(&c.createBlockECCFormat, ecc.SupportedAlgorithms()...)
 	cmd.Flag("ecc-overhead-percent", "[EXPERIMENTAL] How much space overhead can be used for error correction, in percentage. Use 0 to disable ECC.").Default("0").IntVar(&c.createBlockECCOverheadPercent)
 	cmd.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).EnumVar(&c.createSplitter, splitter.SupportedAlgorithms()...)
@@ -53,7 +53,7 @@ func (c *commandRepositoryCreate) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("retention-mode", "Set the blob retention-mode for supported storage backends.").EnumVar(&c.retentionMode, blob.Governance.String(), blob.Compliance.String())
 	cmd.Flag("retention-period", "Set the blob retention-period for supported storage backends.").DurationVar(&c.retentionPeriod)
 	//nolint:lll
-	cmd.Flag("format-block-key-derivation-algorithm", "Algorithm to derive the encryption key for the format block from the repository password").Default(format.DefaultKeyDerivationAlgorithm).EnumVar(&c.createBlockKeyDerivationAlgorithm, format.SupportedFormatBlobKeyDerivationAlgorithms()...)
+	cmd.Flag("format-block-key-derivation-algorithm", "Algorithm to derive the encryption key for the format block from the repository password").Envar(svc.EnvName("FORMAT_BLOCK_KEY_DERIVATION_ALGORITHM")).Default(format.DefaultKeyDerivationAlgorithm).EnumVar(&c.createBlockKeyDerivationAlgorithm, format.SupportedFormatBlobKeyDerivationAlgorithms()...)
 
 	c.co.setup(svc, cmd)
 	c.svc = svc
