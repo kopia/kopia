@@ -185,8 +185,6 @@ type Manager struct {
 	log      logging.Logger
 	timeFunc func() time.Time
 
-	allowCleanupWritesOnIndexLoad bool
-
 	// wait group that waits for all compaction and cleanup goroutines.
 	backgroundWork sync.WaitGroup
 
