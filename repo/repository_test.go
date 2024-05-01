@@ -39,9 +39,9 @@ func (s *formatSpecificTestSuite) TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			mustParseObjectID(t, "7f8f3efa67f773c01051a8b727f6426d2762e9556223479dc7d0ba5656924b77"),
+			mustParseObjectID(t, "f65fc4107863281faaeb7087197c05ad59457362607330c665c86c852c5e5906"),
 		},
-		{make([]byte, 100), mustParseObjectID(t, "bba52aa885067beeae9f59b3adea64a654732ab887b8e2af45c302ba2f1390dd")}, // 100 zero bytes
+		{make([]byte, 100), mustParseObjectID(t, "bfa2b4b9421671ab2b5bfa8c90ee33607784a27e452b08556509ef9bd47a37c6")}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -79,7 +79,7 @@ func (s *formatSpecificTestSuite) TestWriterCompleteChunkInTwoWrites(t *testing.
 	writer.Write(b[0:50])
 	result, err := writer.Result()
 
-	if result != mustParseObjectID(t, "bba52aa885067beeae9f59b3adea64a654732ab887b8e2af45c302ba2f1390dd") {
+	if result != mustParseObjectID(t, "bfa2b4b9421671ab2b5bfa8c90ee33607784a27e452b08556509ef9bd47a37c6") {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -163,7 +163,7 @@ func (s *formatSpecificTestSuite) TestHMAC(t *testing.T) {
 	w.Write(c)
 	result, err := w.Result()
 
-	if result.String() != "e097a8bd0a397b3c3e3ca2decb26e82dc82b646a2a5a7e8769c205c68a74f591" {
+	if result.String() != "e37e93ba74e074ad1366ee2f032ee9c3a5b81ec82c140b053c1a4e6673d5d9d9" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
 }
@@ -252,8 +252,8 @@ func TestFormats(t *testing.T) {
 			format: func(n *repo.NewRepositoryOptions) {
 			},
 			oids: map[string]object.ID{
-				"": mustParseObjectID(t, "f2b05c22b9314703b5f1745beec2b17545853003d1438cd961641f2369021e7e"),
-				"The quick brown fox jumps over the lazy dog": mustParseObjectID(t, "87b02856aa241c7501b63850942ee437b8cd0c9dbcedf9d4442d00275777eb52"),
+				"": mustParseObjectID(t, "0c2d44dc80de21b71d4219623082f5dc253fe9bb54e48b0fc90e118f8e6cf419"),
+				"The quick brown fox jumps over the lazy dog": mustParseObjectID(t, "6bbb74fef0699e516fb96252d8280c1c7f3492e12de9ec6d79c3c9c39b7b0063"),
 			},
 		},
 		{

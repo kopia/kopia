@@ -68,7 +68,7 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 			MutableParameters: format.MutableParameters{
 				Version: version,
 			},
-			HMACSecret:           []byte("test-hmac-secret"),
+			HMACSecret:           []byte("a-repository-testing-hmac-secret"),
 			Hash:                 "HMAC-SHA256",
 			Encryption:           encryption.DefaultAlgorithm,
 			EnablePasswordChange: true,
