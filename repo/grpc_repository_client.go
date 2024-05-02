@@ -829,7 +829,7 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		transportCreds = credentials.NewClientTLSFromCert(nil, "")
 	}
 
-	uri, err := BaseURLToURI(si.BaseURL)
+	uri, err := baseURLToURI(si.BaseURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing base URL")
 	}
@@ -860,9 +860,7 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	return rep, nil
 }
 
-// BaseURLToURI parses the provided base URL and returns the URI. The
-// input scheme must be either "https", "unix+https", or "kopia".
-func BaseURLToURI(baseURL string) (uri string, err error) {
+func baseURLToURI(baseURL string) (uri string, err error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to parse server URL")

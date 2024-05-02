@@ -1,11 +1,10 @@
-package repo_test
+package repo
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -22,7 +21,7 @@ func TestMaxGRPCMessageSize(t *testing.T) {
 		}
 	}
 
-	if got, want := maxmax, repo.MaxGRPCMessageSize-maxGRPCMessageOverhead; got > want {
+	if got, want := maxmax, MaxGRPCMessageSize-maxGRPCMessageOverhead; got > want {
 		t.Fatalf("invalid constant MaxGRPCMessageSize: %v, want >=%v", got, want)
 	}
 }
@@ -72,7 +71,7 @@ func TestBaseURLToURI(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			gotURI, err := repo.BaseURLToURI(tc.baseURL)
+			gotURI, err := baseURLToURI(tc.baseURL)
 			if tc.expErrMsg != "" {
 				require.ErrorContains(t, err, tc.expErrMsg)
 				return
