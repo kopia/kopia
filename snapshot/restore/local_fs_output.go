@@ -54,7 +54,7 @@ func getStreamCopier(ctx context.Context, targetpath string, sparse bool) (strea
 	}, nil
 }
 
-// progressReportingReader is just a wrapper for fs.Reader which is used to capture and pass to cb number of bytes read
+// progressReportingReader is just a wrapper for fs.Reader which is used to capture and pass to cb number of bytes read.
 type progressReportingReader struct {
 	r fs.Reader
 
@@ -62,15 +62,15 @@ type progressReportingReader struct {
 }
 
 func (r *progressReportingReader) Entry() (fs.Entry, error) {
-	return r.Entry()
+	return r.r.Entry() //nolint:wrapcheck
 }
 
 func (r *progressReportingReader) Seek(offset int64, whence int) (int64, error) {
-	return r.r.Seek(offset, whence)
+	return r.r.Seek(offset, whence) //nolint:wrapcheck
 }
 
 func (r *progressReportingReader) Close() error {
-	return r.r.Close()
+	return r.r.Close() //nolint:wrapcheck
 }
 
 func (r *progressReportingReader) Read(p []byte) (int, error) {
@@ -79,7 +79,7 @@ func (r *progressReportingReader) Read(p []byte) (int, error) {
 		r.cb(int64(bytesRead))
 	}
 
-	return bytesRead, err
+	return bytesRead, err //nolint:wrapcheck
 }
 
 // FilesystemOutput contains the options for outputting a file system tree.
