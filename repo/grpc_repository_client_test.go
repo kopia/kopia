@@ -3,9 +3,10 @@ package repo_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/splitter"
-	"github.com/stretchr/testify/require"
 )
 
 const maxGRPCMessageOverhead = 1024
