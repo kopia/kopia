@@ -5,12 +5,10 @@ import (
 	"path"
 	"runtime"
 	"sync/atomic"
-	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
@@ -155,17 +153,6 @@ type copier struct {
 	cancel        chan struct{}
 
 	progressCallback ProgressCallback
-	nextReportTime   time.Time
-}
-
-func (c *copier) maybeReportProgress(ctx context.Context) {
-	if clock.Now().Before(c.nextReportTime) {
-		return
-	}
-
-	c.nextReportTime = clock.Now().Add(1 * time.Second)
-
-	c.reportProgress(ctx)
 }
 
 func (c *copier) reportProgress(ctx context.Context) {
@@ -234,7 +221,7 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 		progressCallback := func(chunkSize int64) {
 			bytesWritten += chunkSize
 			c.stats.RestoredTotalFileSize.Add(chunkSize)
-			c.maybeReportProgress(ctx)
+			c.reportProgress(ctx)
 		}
 
 		if currentdepth > maxdepth {

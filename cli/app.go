@@ -86,6 +86,8 @@ type appServices interface {
 	advancedCommand(ctx context.Context)
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
+	getRestoreProgress() *cliRestoreProgress
+
 	stdout() io.Writer
 	Stderr() io.Writer
 	stdin() io.Reader
@@ -117,6 +119,7 @@ type App struct {
 	enableAutomaticMaintenance    bool
 	pf                            profileFlags
 	progress                      *cliProgress
+	restoreProgress               *cliRestoreProgress
 	initialUpdateCheckDelay       time.Duration
 	updateCheckInterval           time.Duration
 	updateAvailableNotifyInterval time.Duration
@@ -179,6 +182,10 @@ func (c *App) enableTestOnlyFlags() bool {
 
 func (c *App) getProgress() *cliProgress {
 	return c.progress
+}
+
+func (c *App) getRestoreProgress() *cliRestoreProgress {
+	return c.restoreProgress
 }
 
 func (c *App) stdin() io.Reader {
@@ -279,6 +286,7 @@ func (c *App) setup(app *kingpin.Application) {
 
 	c.pf.setup(app)
 	c.progress.setup(c, app)
+	c.restoreProgress.setup(c, app)
 
 	c.blob.setup(c, app)
 	c.benchmark.setup(c, app)
@@ -308,7 +316,8 @@ type commandParent interface {
 // NewApp creates a new instance of App.
 func NewApp() *App {
 	return &App{
-		progress: &cliProgress{},
+		progress:        &cliProgress{},
+		restoreProgress: &cliRestoreProgress{},
 		cliStorageProviders: []StorageProvider{
 			{"from-config", "the provided configuration file", func() StorageFlags { return &storageFromConfigFlags{} }},
 
