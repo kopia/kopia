@@ -16,9 +16,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/alecthomas/kingpin/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/diff"
 	"github.com/kopia/kopia/internal/fshasher"
@@ -38,6 +40,39 @@ const (
 	overriddenFilePermissions = 0o651
 	overriddenDirPermissions  = 0o752
 )
+
+type restoreProgressInvocation struct {
+	enqueuedCount, restoredCount, skippedCount, ignoredErrors int32
+	enqueuedBytes, restoredBytes, skippedBytes                int64
+}
+
+type fakeRestoreProgress struct {
+	invocations          []restoreProgressInvocation
+	flushesCount         int
+	invocationAfterFlush bool
+}
+
+func (p *fakeRestoreProgress) SetCounters(
+	enqueuedCount, restoredCount, skippedCount, ignoredErrors int32,
+	enqueuedBytes, restoredBytes, skippedBytes int64,
+) {
+	p.invocations = append(p.invocations, restoreProgressInvocation{
+		enqueuedCount: enqueuedCount,
+		restoredCount: restoredCount,
+		skippedCount:  skippedCount,
+		ignoredErrors: ignoredErrors,
+		enqueuedBytes: enqueuedBytes,
+		restoredBytes: restoredBytes,
+		skippedBytes:  skippedBytes,
+	})
+	if p.flushesCount > 0 {
+		p.invocationAfterFlush = true
+	}
+}
+
+func (p *fakeRestoreProgress) Flush() {
+	p.flushesCount++
+}
 
 func TestRestoreCommand(t *testing.T) {
 	t.Parallel()
@@ -82,7 +117,26 @@ func TestRestoreCommand(t *testing.T) {
 
 	// Attempt to restore using snapshot ID
 	restoreFailDir := testutil.TempDirectory(t)
-	e.RunAndExpectSuccess(t, "restore", snapID, restoreFailDir)
+
+	// Remember original app cusomization
+	origCustomizeApp := runner.CustomizeApp
+
+	// Prepare fake restore progress and set it when needed
+	frp := &fakeRestoreProgress{}
+
+	runner.CustomizeApp = func(a *cli.App, kp *kingpin.Application) {
+		origCustomizeApp(a, kp)
+		a.SetRestoreProgress(frp)
+	}
+
+	e.RunAndExpectSuccess(t, "restore", snapID, restoreFailDir, "--progress-update-interval", "1ms")
+
+	runner.CustomizeApp = origCustomizeApp
+
+	// Expecting progress to be reported multiple times and flush to be invoked ad the end
+	require.Greater(t, len(frp.invocations), 2, "expected multiple reports of progress")
+	require.Equal(t, 1, frp.flushesCount, "expected to have progress flushed once")
+	require.False(t, frp.invocationAfterFlush, "expected not to have reports after flush")
 
 	// Restore last snapshot
 	restoreDir := testutil.TempDirectory(t)

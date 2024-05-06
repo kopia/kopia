@@ -185,6 +185,11 @@ func (c *App) getProgress() *cliProgress {
 	return c.progress
 }
 
+// SetRestoreProgress is used to set custom restore progress, purposed to be used in tests.
+func (c *App) SetRestoreProgress(p restore.Progress) {
+	c.restoreProgress = p
+}
+
 func (c *App) getRestoreProgress() restore.Progress {
 	return c.restoreProgress
 }
