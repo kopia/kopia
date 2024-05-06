@@ -35,6 +35,8 @@ type commandRepositorySetParameters struct {
 	removeRequiredFeature        string
 	warnOnMissingRequiredFeature bool
 
+	disableMetadataCompression bool
+
 	svc appServices
 }
 
@@ -55,6 +57,8 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 	cmd.Flag("epoch-advance-on-size-mb", "Advance epoch if the total size of indexes exceeds given threshold").Int64Var(&c.epochAdvanceOnSizeMB)
 	cmd.Flag("epoch-delete-parallelism", "Epoch delete parallelism").IntVar(&c.epochDeleteParallelism)
 	cmd.Flag("epoch-checkpoint-frequency", "Checkpoint frequency").IntVar(&c.epochCheckpointFrequency)
+
+	cmd.Flag("disable-metadata-compression", "Disable Metadata compression").BoolVar(&c.disableMetadataCompression)
 
 	if svc.enableTestOnlyFlags() {
 		cmd.Flag("add-required-feature", "Add required feature which must be present to open the repository").Hidden().StringVar(&c.addRequiredFeature)
@@ -94,6 +98,13 @@ func (c *commandRepositorySetParameters) setIntParameter(ctx context.Context, v 
 		return
 	}
 
+	*dst = v
+	*anyChange = true
+
+	log(ctx).Infof(" - setting %v to %v.\n", desc, v)
+}
+
+func (c *commandRepositorySetParameters) setBoolParameter(ctx context.Context, v bool, desc string, dst *bool, anyChange *bool) {
 	*dst = v
 	*anyChange = true
 
@@ -224,6 +235,8 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	c.setInt64SizeMBParameter(ctx, c.epochAdvanceOnSizeMB, "epoch advance on total size", &mp.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold, &anyChange)
 	c.setIntParameter(ctx, c.epochDeleteParallelism, "epoch delete parallelism", &mp.EpochParameters.DeleteParallelism, &anyChange)
 	c.setIntParameter(ctx, c.epochCheckpointFrequency, "epoch checkpoint frequency", &mp.EpochParameters.FullCheckpointFrequency, &anyChange)
+
+	c.setBoolParameter(ctx, c.disableMetadataCompression, "disable metadata compression", &mp.DisableMetadataCompression, &anyChange)
 
 	requiredFeatures = c.addRemoveUpdateRequiredFeatures(requiredFeatures, &anyChange)
 

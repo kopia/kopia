@@ -186,6 +186,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 	c.out.printStdout("Splitter:            %v\n", dr.ObjectFormat().Splitter)
 	c.out.printStdout("Format version:      %v\n", mp.Version)
 	c.out.printStdout("Content compression: %v\n", mp.IndexVersion >= index.Version2)
+	c.out.printStdout("Metadata compression: %v\n", !mp.DisableMetadataCompression)
 	c.out.printStdout("Password changes:    %v\n", contentFormat.SupportsPasswordChange())
 
 	c.outputRequiredFeatures(ctx, dr)
