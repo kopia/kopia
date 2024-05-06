@@ -23,6 +23,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
@@ -86,7 +87,7 @@ type appServices interface {
 	advancedCommand(ctx context.Context)
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
-	getRestoreProgress() *cliRestoreProgress
+	getRestoreProgress() restore.Progress
 
 	stdout() io.Writer
 	Stderr() io.Writer
@@ -119,7 +120,7 @@ type App struct {
 	enableAutomaticMaintenance    bool
 	pf                            profileFlags
 	progress                      *cliProgress
-	restoreProgress               *cliRestoreProgress
+	restoreProgress               restore.Progress
 	initialUpdateCheckDelay       time.Duration
 	updateCheckInterval           time.Duration
 	updateAvailableNotifyInterval time.Duration
@@ -184,7 +185,7 @@ func (c *App) getProgress() *cliProgress {
 	return c.progress
 }
 
-func (c *App) getRestoreProgress() *cliRestoreProgress {
+func (c *App) getRestoreProgress() restore.Progress {
 	return c.restoreProgress
 }
 
@@ -286,7 +287,10 @@ func (c *App) setup(app *kingpin.Application) {
 
 	c.pf.setup(app)
 	c.progress.setup(c, app)
-	c.restoreProgress.setup(c, app)
+
+	if rp, ok := c.restoreProgress.(*cliRestoreProgress); ok {
+		rp.setup(c, app)
+	}
 
 	c.blob.setup(c, app)
 	c.benchmark.setup(c, app)
