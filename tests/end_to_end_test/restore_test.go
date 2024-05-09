@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"runtime"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -47,6 +48,7 @@ type restoreProgressInvocation struct {
 }
 
 type fakeRestoreProgress struct {
+	mtx                  sync.Mutex
 	invocations          []restoreProgressInvocation
 	flushesCount         int
 	invocationAfterFlush bool
@@ -56,6 +58,8 @@ func (p *fakeRestoreProgress) SetCounters(
 	enqueuedCount, restoredCount, skippedCount, ignoredErrors int32,
 	enqueuedBytes, restoredBytes, skippedBytes int64,
 ) {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
 	p.invocations = append(p.invocations, restoreProgressInvocation{
 		enqueuedCount: enqueuedCount,
 		restoredCount: restoredCount,
