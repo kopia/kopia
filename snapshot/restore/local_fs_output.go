@@ -430,6 +430,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		return errors.Wrap(err, "unable to open snapshot file for "+targetPath)
 	}
 	defer r.Close() //nolint:errcheck
+
 	wr := &progressReportingReader{
 		r:  r,
 		cb: progressCb,
