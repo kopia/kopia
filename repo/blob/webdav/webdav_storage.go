@@ -164,19 +164,17 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 	b := buf.Bytes()
 
-	//nolint:wrapcheck
 	if err := retry.WithExponentialBackoffNoValue(ctx, "WriteTemporaryFileAndCreateParentDirs", func() error {
 		mkdirAttempted := false
 
 		for {
-			//nolint:wrapcheck
+
 			err := d.translateError(d.cli.Write(writePath, b, defaultFilePerm))
 			if err == nil {
 				if d.Options.AtomicWrites {
 					return nil
 				}
 
-				//nolint:wrapcheck
 				return d.cli.Rename(writePath, filePath, true)
 			}
 
@@ -216,7 +214,6 @@ func (d *davStorageImpl) DeleteBlobInPath(ctx context.Context, dirPath, filePath
 	_ = dirPath
 
 	err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "DeleteBlobInPath", func() error {
-		//nolint:wrapcheck
 		return d.cli.Remove(filePath)
 	}, isRetriable))
 	if errors.Is(err, blob.ErrBlobNotFound) {

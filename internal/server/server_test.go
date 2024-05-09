@@ -27,20 +27,9 @@ const (
 	maxCacheSizeBytes = 1e6
 )
 
-func TestServer_REST(t *testing.T) {
-	testServer(t, true)
-}
-
-func TestServer_GRPC(t *testing.T) {
-	testServer(t, false)
-}
-
-//nolint:thelper
-func testServer(t *testing.T, disableGRPC bool) {
+func TestServer(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	apiServerInfo := servertesting.StartServer(t, env, true)
-
-	apiServerInfo.DisableGRPC = disableGRPC
 
 	ctx2, cancel := context.WithCancel(ctx)
 
@@ -121,9 +110,6 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 	}
 
 	for urlSuffix, wantStatus := range getUrls {
-		urlSuffix := urlSuffix
-		wantStatus := wantStatus
-
 		t.Run(urlSuffix, func(t *testing.T) {
 			var hsr apiclient.HTTPStatusError
 

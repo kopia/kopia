@@ -1,6 +1,7 @@
 package endtoend_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -103,4 +105,46 @@ func TestReconnectUsingToken(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "disconnect")
 	e.RunAndExpectSuccess(t, reconnectArgs...)
 	e.RunAndExpectSuccess(t, "repo", "status")
+}
+
+func TestRepoConnectKeyDerivationAlgorithm(t *testing.T) {
+	t.Parallel()
+	for _, algorithm := range format.SupportedFormatBlobKeyDerivationAlgorithms() {
+		runner := testenv.NewInProcRunner(t)
+		e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+		e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--format-block-key-derivation-algorithm", algorithm)
+
+		e.RunAndExpectSuccess(t, "repo", "disconnect")
+		e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
+
+		kopiaRepoPath := filepath.Join(e.RepoDir, "kopia.repository.f")
+		dat, err := os.ReadFile(kopiaRepoPath)
+		require.NoError(t, err)
+		var repoJSON format.KopiaRepositoryJSON
+		json.Unmarshal(dat, &repoJSON)
+		require.Equal(t, repoJSON.KeyDerivationAlgorithm, algorithm)
+	}
+}
+
+func TestRepoConnectBadKeyDerivationAlgorithm(t *testing.T) {
+	t.Parallel()
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--format-block-key-derivation-algorithm", format.DefaultKeyDerivationAlgorithm)
+	e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	kopiaRepoPath := filepath.Join(e.RepoDir, "kopia.repository.f")
+	dat, err := os.ReadFile(kopiaRepoPath)
+	require.NoError(t, err)
+	var repoJSON format.KopiaRepositoryJSON
+	json.Unmarshal(dat, &repoJSON)
+
+	repoJSON.KeyDerivationAlgorithm = "badalgorithm"
+
+	jsonString, _ := json.Marshal(repoJSON)
+	os.WriteFile(kopiaRepoPath, jsonString, os.ModePerm)
+
+	e.RunAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e.RepoDir)
 }

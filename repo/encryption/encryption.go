@@ -94,7 +94,7 @@ var encryptors = map[string]*encryptorInfo{}
 // deriveKey uses HKDF to derive a key of a given length and a given purpose from parameters.
 func deriveKey(p Parameters, purpose []byte, length int) ([]byte, error) {
 	if length < minDerivedKeyLength {
-		return nil, errors.Errorf("derived key must be at least 32 bytes, was %v", length)
+		return nil, errors.Errorf("derived key must be at least %d bytes, was %v", minDerivedKeyLength, length)
 	}
 
 	key := make([]byte, length)

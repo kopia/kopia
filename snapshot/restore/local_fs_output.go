@@ -41,7 +41,7 @@ func getStreamCopier(ctx context.Context, targetpath string, sparse bool) (strea
 			}
 
 			return func(w io.WriteSeeker, r io.Reader) (int64, error) {
-				return sparsefile.Copy(w, r, s) //nolint:wrapcheck
+				return sparsefile.Copy(w, r, s)
 			}, nil
 		}
 
@@ -50,7 +50,7 @@ func getStreamCopier(ctx context.Context, targetpath string, sparse bool) (strea
 
 	// Wrap iocopy.Copy to conform to StreamCopier type.
 	return func(w io.WriteSeeker, r io.Reader) (int64, error) {
-		return iocopy.Copy(w, r) //nolint:wrapcheck
+		return iocopy.Copy(w, r)
 	}, nil
 }
 

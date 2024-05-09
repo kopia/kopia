@@ -54,11 +54,11 @@ func (c *commandContentList) run(ctx context.Context, rep repo.DirectRepository)
 			IncludeDeleted: c.includeDeleted || c.deletedOnly,
 		},
 		func(b content.Info) error {
-			if c.deletedOnly && !b.GetDeleted() {
+			if c.deletedOnly && !b.Deleted {
 				return nil
 			}
 
-			totalSize.Add(int64(b.GetPackedLength()))
+			totalSize.Add(int64(b.PackedLength))
 
 			switch {
 			case c.jo.jsonOutput:
@@ -68,7 +68,7 @@ func (c *commandContentList) run(ctx context.Context, rep repo.DirectRepository)
 			case c.long:
 				c.outputLong(b)
 			default:
-				c.out.printStdout("%v\n", b.GetContentID())
+				c.out.printStdout("%v\n", b.ContentID)
 			}
 
 			return nil
@@ -89,12 +89,12 @@ func (c *commandContentList) run(ctx context.Context, rep repo.DirectRepository)
 
 func (c *commandContentList) outputLong(b content.Info) {
 	c.out.printStdout("%v %v %v %v %v+%v%v %v\n",
-		b.GetContentID(),
-		b.GetOriginalLength(),
+		b.ContentID,
+		b.OriginalLength,
 		formatTimestamp(b.Timestamp()),
-		b.GetPackBlobID(),
-		b.GetPackOffset(),
-		maybeHumanReadableBytes(c.human, int64(b.GetPackedLength())),
+		b.PackBlobID,
+		b.PackOffset,
+		maybeHumanReadableBytes(c.human, int64(b.PackedLength)),
 		c.deletedInfoString(b),
 		c.compressionInfoStringString(b),
 	)
@@ -102,16 +102,16 @@ func (c *commandContentList) outputLong(b content.Info) {
 
 func (c *commandContentList) outputCompressed(b content.Info) {
 	c.out.printStdout("%v length %v packed %v %v %v\n",
-		b.GetContentID(),
-		maybeHumanReadableBytes(c.human, int64(b.GetOriginalLength())),
-		maybeHumanReadableBytes(c.human, int64(b.GetPackedLength())),
+		b.ContentID,
+		maybeHumanReadableBytes(c.human, int64(b.OriginalLength)),
+		maybeHumanReadableBytes(c.human, int64(b.PackedLength)),
 		c.compressionInfoStringString(b),
 		c.deletedInfoString(b),
 	)
 }
 
 func (*commandContentList) deletedInfoString(b content.Info) string {
-	if b.GetDeleted() {
+	if b.Deleted {
 		return " (deleted)"
 	}
 
@@ -119,7 +119,7 @@ func (*commandContentList) deletedInfoString(b content.Info) string {
 }
 
 func (*commandContentList) compressionInfoStringString(b content.Info) string {
-	h := b.GetCompressionHeaderID()
+	h := b.CompressionHeaderID
 	if h == content.NoCompression {
 		return "-"
 	}
@@ -129,8 +129,8 @@ func (*commandContentList) compressionInfoStringString(b content.Info) string {
 		s = fmt.Sprintf("compression-%x", h)
 	}
 
-	if b.GetOriginalLength() > 0 {
-		s += " " + formatCompressionPercentage(int64(b.GetOriginalLength()), int64(b.GetPackedLength()))
+	if b.OriginalLength > 0 {
+		s += " " + formatCompressionPercentage(int64(b.OriginalLength), int64(b.PackedLength))
 	}
 
 	return s

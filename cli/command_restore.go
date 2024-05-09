@@ -20,7 +20,6 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/restore"
@@ -149,7 +148,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
-	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").StringVar(&c.snapshotTime)
+	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").Default("latest").StringVar(&c.snapshotTime)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -436,7 +435,7 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 	pathElements := strings.Split(filepath.ToSlash(source), "/")
 
 	if pathElements[0] != "" {
-		_, err := index.ParseID(pathElements[0])
+		_, err := object.ParseID(pathElements[0])
 		if err == nil {
 			// source is an ID
 			return source, nil
@@ -493,13 +492,13 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 
 func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, int) bool, error) {
 	if timespec == "" || timespec == "latest" {
-		return func(m *snapshot.Manifest, i, total int) bool {
+		return func(_ *snapshot.Manifest, i, _ int) bool {
 			return i == 0
 		}, nil
 	}
 
 	if timespec == "oldest" {
-		return func(m *snapshot.Manifest, i, total int) bool {
+		return func(_ *snapshot.Manifest, i, total int) bool {
 			return i == total-1
 		}, nil
 	}
@@ -509,7 +508,7 @@ func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, in
 		return nil, err
 	}
 
-	return func(m *snapshot.Manifest, i, total int) bool {
+	return func(m *snapshot.Manifest, _, _ int) bool {
 		return m.StartTime.ToTime().Before(t)
 	}, nil
 }

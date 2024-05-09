@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/scrypt"
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cacheprot"
@@ -132,7 +131,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	return openDirect(ctx, configFile, lc, password, options)
 }
 
-func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
+func getContentCacheOrNil(ctx context.Context, si *APIServerInfo, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
 	opt = opt.CloneOrDefault()
 
 	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.ContentCacheSizeBytes, "server-contents")
@@ -141,11 +140,12 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 		return nil, errors.Wrap(err, "error opening storage")
 	}
 
-	// derive content cache key from the password & HMAC secret using scrypt.
-	salt := append([]byte("content-cache-protection"), opt.HMACSecret...)
+	// derive content cache key from the password & HMAC secret
+	saltWithPurpose := append([]byte("content-cache-protection"), opt.HMACSecret...)
 
-	//nolint:gomnd
-	cacheEncryptionKey, err := scrypt.Key([]byte(password), salt, 65536, 8, 1, 32)
+	const cacheEncryptionKeySize = 32
+
+	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, saltWithPurpose, cacheEncryptionKeySize, si.LocalCacheKeyDerivationAlgorithm)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
 	}
@@ -173,7 +173,7 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 
 	mr := metrics.NewRegistry()
 
-	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, mr, options.TimeNowFunc)
+	contentCache, err := getContentCacheOrNil(ctx, si, cachingOptions, password, mr, options.TimeNowFunc)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening content cache")
 	}
@@ -195,10 +195,6 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 		metricsRegistry:  mr,
 		refCountedCloser: closer,
 		beforeFlush:      options.BeforeFlush,
-	}
-
-	if si.DisableGRPC {
-		return openRestAPIRepository(ctx, si, password, par)
 	}
 
 	return openGRPCAPIRepository(ctx, si, password, par)
@@ -286,7 +282,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		return lc2.writeToFile(configFile)
 	})
 
-	blobcfg, err := fmgr.BlobCfgBlob()
+	blobcfg, err := fmgr.BlobCfgBlob(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "blob configuration")
 	}
@@ -296,8 +292,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	}
 
 	_, err = retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (interface{}, error) {
-		//nolint:govet
-		uli, err := fmgr.UpgradeLockIntent()
+		uli, err := fmgr.UpgradeLockIntent(ctx)
 		if err != nil {
 			//nolint:wrapcheck
 			return nil, err
@@ -377,7 +372,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 }
 
 func handleMissingRequiredFeatures(ctx context.Context, fmgr *format.Manager, ignoreErrors bool) error {
-	required, err := fmgr.RequiredFeatures()
+	required, err := fmgr.RequiredFeatures(ctx)
 	if err != nil {
 		return errors.Wrap(err, "required features")
 	}
@@ -407,9 +402,11 @@ func wrapLockingStorage(st blob.Storage, r format.BlobStorageConfiguration) blob
 			if strings.HasPrefix(string(id), prefix) {
 				opts.RetentionMode = r.RetentionMode
 				opts.RetentionPeriod = r.RetentionPeriod
+
 				break
 			}
 		}
+
 		return nil
 	})
 }
@@ -455,7 +452,7 @@ func upgradeLockMonitor(
 			return nil
 		}
 
-		uli, err := fmgr.UpgradeLockIntent()
+		uli, err := fmgr.UpgradeLockIntent(ctx)
 		if err != nil {
 			return errors.Wrap(err, "upgrade lock intent")
 		}

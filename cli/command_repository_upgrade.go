@@ -48,11 +48,12 @@ const (
 
 func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent commandParent) {
 	// override the parent, the upgrade sub-command becomes the new parent here-onwards
-	parent = parent.Command("upgrade", fmt.Sprintf("Upgrade repository format.\n\n%s", warningColor.Sprint(experimentalWarning))).Hidden().
-		Validate(func(tmpCmd *kingpin.CmdClause) error {
+	parent = parent.Command("upgrade", "Upgrade repository format.\n\n"+warningColor.Sprint(experimentalWarning)).Hidden().
+		Validate(func(_ *kingpin.CmdClause) error {
 			if v := os.Getenv(c.svc.EnvName(upgradeLockFeatureEnv)); v == "" {
 				return errors.Errorf("please set %q env variable to use this feature", upgradeLockFeatureEnv)
 			}
+
 			return nil
 		})
 
@@ -92,9 +93,9 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 
 // assign store the info struct in a map that can be used to compare indexes.
 func assign(iif content.Info, i int, m map[content.ID][2]content.Info) {
-	v := m[iif.GetContentID()]
+	v := m[iif.ContentID]
 	v[i] = iif
-	m[iif.GetContentID()] = v
+	m[iif.ContentID] = v
 }
 
 // loadIndexBlobs load index blobs into indexEntries map.  indexEntries map will allow comparison betweel two indexes (index at which == 0 and index at which == 1).
@@ -171,11 +172,11 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 		// one of iep0 or iep1 are nil .. find out which one and add an appropriate message.
 		if iep0 != zeroInfo {
-			msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep0.GetPackBlobID()))
+			msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep0.PackBlobID))
 			continue
 		}
 
-		msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep1.GetPackBlobID()))
+		msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep1.PackBlobID))
 	}
 
 	// no msgs means the check passed without finding anything wrong
@@ -200,24 +201,24 @@ func CheckIndexInfo(i0, i1 content.Info) []string {
 	var q []string
 
 	switch {
-	case i0.GetFormatVersion() != i1.GetFormatVersion():
-		q = append(q, fmt.Sprintf("mismatched FormatVersions: %v %v", i0.GetFormatVersion(), i1.GetFormatVersion()))
-	case i0.GetOriginalLength() != i1.GetOriginalLength():
-		q = append(q, fmt.Sprintf("mismatched OriginalLengths: %v %v", i0.GetOriginalLength(), i1.GetOriginalLength()))
-	case i0.GetPackBlobID() != i1.GetPackBlobID():
-		q = append(q, fmt.Sprintf("mismatched PackBlobIDs: %v %v", i0.GetPackBlobID(), i1.GetPackBlobID()))
-	case i0.GetPackedLength() != i1.GetPackedLength():
-		q = append(q, fmt.Sprintf("mismatched PackedLengths: %v %v", i0.GetPackedLength(), i1.GetPackedLength()))
-	case i0.GetPackOffset() != i1.GetPackOffset():
-		q = append(q, fmt.Sprintf("mismatched PackOffsets: %v %v", i0.GetPackOffset(), i1.GetPackOffset()))
-	case i0.GetEncryptionKeyID() != i1.GetEncryptionKeyID():
-		q = append(q, fmt.Sprintf("mismatched EncryptionKeyIDs: %v %v", i0.GetEncryptionKeyID(), i1.GetEncryptionKeyID()))
-	case i0.GetCompressionHeaderID() != i1.GetCompressionHeaderID():
-		q = append(q, fmt.Sprintf("mismatched GetCompressionHeaderID: %v %v", i0.GetCompressionHeaderID(), i1.GetCompressionHeaderID()))
-	case i0.GetDeleted() != i1.GetDeleted():
-		q = append(q, fmt.Sprintf("mismatched Deleted flags: %v %v", i0.GetDeleted(), i1.GetDeleted()))
-	case i0.GetTimestampSeconds() != i1.GetTimestampSeconds():
-		q = append(q, fmt.Sprintf("mismatched TimestampSeconds: %v %v", i0.GetTimestampSeconds(), i1.GetTimestampSeconds()))
+	case i0.FormatVersion != i1.FormatVersion:
+		q = append(q, fmt.Sprintf("mismatched FormatVersions: %v %v", i0.FormatVersion, i1.FormatVersion))
+	case i0.OriginalLength != i1.OriginalLength:
+		q = append(q, fmt.Sprintf("mismatched OriginalLengths: %v %v", i0.OriginalLength, i1.OriginalLength))
+	case i0.PackBlobID != i1.PackBlobID:
+		q = append(q, fmt.Sprintf("mismatched PackBlobIDs: %v %v", i0.PackBlobID, i1.PackBlobID))
+	case i0.PackedLength != i1.PackedLength:
+		q = append(q, fmt.Sprintf("mismatched PackedLengths: %v %v", i0.PackedLength, i1.PackedLength))
+	case i0.PackOffset != i1.PackOffset:
+		q = append(q, fmt.Sprintf("mismatched PackOffsets: %v %v", i0.PackOffset, i1.PackOffset))
+	case i0.EncryptionKeyID != i1.EncryptionKeyID:
+		q = append(q, fmt.Sprintf("mismatched EncryptionKeyIDs: %v %v", i0.EncryptionKeyID, i1.EncryptionKeyID))
+	case i0.CompressionHeaderID != i1.CompressionHeaderID:
+		q = append(q, fmt.Sprintf("mismatched GetCompressionHeaderID: %v %v", i0.CompressionHeaderID, i1.CompressionHeaderID))
+	case i0.Deleted != i1.Deleted:
+		q = append(q, fmt.Sprintf("mismatched Deleted flags: %v %v", i0.Deleted, i1.Deleted))
+	case i0.TimestampSeconds != i1.TimestampSeconds:
+		q = append(q, fmt.Sprintf("mismatched TimestampSeconds: %v %v", i0.TimestampSeconds, i1.TimestampSeconds))
 	}
 
 	if len(q) == 0 {
@@ -225,7 +226,7 @@ func CheckIndexInfo(i0, i1 content.Info) []string {
 	}
 
 	for i := range q {
-		q[i] = fmt.Sprintf("index blobs do not match: %q, %q: %s", i0.GetPackBlobID(), i1.GetPackBlobID(), q[i])
+		q[i] = fmt.Sprintf("index blobs do not match: %q, %q: %s", i0.PackBlobID, i1.PackBlobID, q[i])
 	}
 
 	return q
@@ -297,7 +298,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 
 	now := rep.Time()
 
-	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters()
+	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
@@ -355,7 +356,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	cf := rep.ContentReader().ContentFormat()
 
-	mp, mperr := cf.GetMutableParameters()
+	mp, mperr := cf.GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
@@ -363,7 +364,7 @@ func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.D
 	if mp.EpochParameters.Enabled {
 		log(ctx).Infof("Repository indices have already been migrated to the epoch format, no need to drain other clients")
 
-		l, err := rep.FormatManager().GetUpgradeLockIntent()
+		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
 		if err != nil {
 			return errors.Wrap(err, "failed to get upgrade lock intent")
 		}
@@ -406,7 +407,7 @@ func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur tim
 
 func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	for {
-		l, err := rep.FormatManager().GetUpgradeLockIntent()
+		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
 
 		upgradeTime := l.UpgradeTime()
 		now := rep.Time()
@@ -436,12 +437,12 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 // repository. This phase runs after the lock has been acquired in one of the
 // prior phases.
 func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters()
+	mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
 
-	rf, err := rep.FormatManager().RequiredFeatures()
+	rf, err := rep.FormatManager().RequiredFeatures(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error getting repository features")
 	}
@@ -460,7 +461,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 		return errors.Wrap(uerr, "error upgrading indices")
 	}
 
-	blobCfg, err := rep.FormatManager().BlobCfgBlob()
+	blobCfg, err := rep.FormatManager().BlobCfgBlob(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error getting blob configuration")
 	}

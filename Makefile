@@ -70,29 +70,29 @@ endif
 lint: $(linter)
 ifneq ($(GOOS)/$(GOARCH),linux/arm64)
 ifneq ($(GOOS)/$(GOARCH),linux/arm)
-	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	$(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
 endif
 endif
 
 lint-fix: $(linter)
 ifneq ($(GOOS)/$(GOARCH),linux/arm64)
 ifneq ($(GOOS)/$(GOARCH),linux/arm)
-	$(linter) --deadline $(LINTER_DEADLINE) run --fix $(linter_flags)
+	$(linter) --timeout $(LINTER_DEADLINE) run --fix $(linter_flags)
 endif
 endif
 
 lint-and-log: $(linter)
-	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
+	$(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
 
 lint-all: $(linter)
-	GOOS=windows GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=linux GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=linux GOARCH=arm64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=linux GOARCH=arm $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=darwin GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=darwin GOARCH=arm64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=openbsd GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=freebsd GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=windows GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=linux GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=linux GOARCH=arm64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=linux GOARCH=arm $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=darwin GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=darwin GOARCH=arm64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=openbsd GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=freebsd GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
 
 vet:
 	go vet -all .
@@ -197,6 +197,14 @@ endif
 kopia: $(kopia_ui_embedded_exe)
 
 ci-build:
+# install Apple API key needed to notarize Apple binaries
+ifeq ($(GOOS),darwin)
+ifneq ($(APPLE_API_KEY_BASE64),)
+ifneq ($(APPLE_API_KEY),)
+	@ echo "$(APPLE_API_KEY_BASE64)" | base64 -d > "$(APPLE_API_KEY)"
+endif
+endif
+endif
 	$(MAKE) kopia
 ifeq ($(GOARCH),amd64)
 	$(retry) $(MAKE) kopia-ui
@@ -206,6 +214,14 @@ ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	$(MAKE) generate-change-log
 	$(MAKE) download-rclone
 endif
+
+# remove API key
+ifeq ($(GOOS),darwin)
+ifneq ($(APPLE_API_KEY),)
+	@ rm -f "$(APPLE_API_KEY)"
+endif
+endif
+
 
 download-rclone:
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_amd64/ --goos=linux --goarch=amd64
@@ -252,6 +268,7 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 
 test-with-coverage: export KOPIA_COVERAGE_TEST=1
+test-with-coverage: export GOEXPERIMENT=nocoverageredesign
 test-with-coverage: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
 test-with-coverage: $(gotestsum) $(TESTING_ACTION_EXE)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -short -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout $(UNIT_TESTS_TIMEOUT) ./...

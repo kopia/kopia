@@ -91,7 +91,7 @@ func (c *commandIndexInspect) inspectAllBlobs(ctx context.Context, rep repo.Dire
 
 	var eg errgroup.Group
 
-	for i := 0; i < c.parallel; i++ {
+	for range c.parallel {
 		eg.Go(func() error {
 			for bm := range indexesCh {
 				if err := c.inspectSingleIndexBlob(ctx, rep, bm.BlobID, output); err != nil {
@@ -113,7 +113,7 @@ func (c *commandIndexInspect) dumpIndexBlobEntries(entries chan indexBlobPlusCon
 		bm := ent.indexBlob
 
 		state := "created"
-		if ci.GetDeleted() {
+		if ci.Deleted {
 			state = "deleted"
 		}
 
@@ -123,7 +123,7 @@ func (c *commandIndexInspect) dumpIndexBlobEntries(entries chan indexBlobPlusCon
 
 		c.out.printStdout("%v %v %v %v %v %v %v %v\n",
 			formatTimestampPrecise(bm.Timestamp), bm.BlobID,
-			ci.GetContentID(), state, formatTimestampPrecise(ci.Timestamp()), ci.GetPackBlobID(), ci.GetPackOffset(), ci.GetPackedLength())
+			ci.ContentID, state, formatTimestampPrecise(ci.Timestamp()), ci.PackBlobID, ci.PackOffset, ci.PackedLength)
 	}
 }
 
@@ -132,7 +132,7 @@ func (c *commandIndexInspect) shouldInclude(ci content.Info) bool {
 		return true
 	}
 
-	contentID := ci.GetContentID().String()
+	contentID := ci.ContentID.String()
 
 	for _, cid := range c.contentIDs {
 		if cid == contentID {

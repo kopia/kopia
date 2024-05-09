@@ -101,27 +101,27 @@ func writeRandomBytesToBuffer(b *gather.WriteBuffer, count int) error {
 func contentCacheKeyForInfo(bi Info) string {
 	// append format-specific information
 	// see https://github.com/kopia/kopia/issues/1843 for an explanation
-	return fmt.Sprintf("%v.%x.%x.%x", bi.GetContentID(), bi.GetCompressionHeaderID(), bi.GetFormatVersion(), bi.GetEncryptionKeyID())
+	return fmt.Sprintf("%v.%x.%x.%x", bi.ContentID, bi.CompressionHeaderID, bi.FormatVersion, bi.EncryptionKeyID)
 }
 
 func (sm *SharedManager) getContentDataReadLocked(ctx context.Context, pp *pendingPackInfo, bi Info, output *gather.WriteBuffer) error {
 	var payload gather.WriteBuffer
 	defer payload.Close()
 
-	if pp != nil && pp.packBlobID == bi.GetPackBlobID() {
+	if pp != nil && pp.packBlobID == bi.PackBlobID {
 		// we need to use a lock here in case somebody else writes to the pack at the same time.
-		if err := pp.currentPackData.AppendSectionTo(&payload, int(bi.GetPackOffset()), int(bi.GetPackedLength())); err != nil {
+		if err := pp.currentPackData.AppendSectionTo(&payload, int(bi.PackOffset), int(bi.PackedLength)); err != nil {
 			// should never happen
 			return errors.Wrap(err, "error appending pending content data to buffer")
 		}
-	} else if err := sm.getCacheForContentID(bi.GetContentID()).GetContent(ctx, contentCacheKeyForInfo(bi), bi.GetPackBlobID(), int64(bi.GetPackOffset()), int64(bi.GetPackedLength()), &payload); err != nil {
-		return errors.Wrap(err, "error getting cached content")
+	} else if err := sm.getCacheForContentID(bi.ContentID).GetContent(ctx, contentCacheKeyForInfo(bi), bi.PackBlobID, int64(bi.PackOffset), int64(bi.PackedLength), &payload); err != nil {
+		return errors.Wrapf(err, "error getting cached content from blob %q", bi.PackBlobID)
 	}
 
 	return sm.decryptContentAndVerify(payload.Bytes(), bi, output)
 }
 
-func (sm *SharedManager) preparePackDataContent(pp *pendingPackInfo) (index.Builder, error) {
+func (sm *SharedManager) preparePackDataContent(mp format.MutableParameters, pp *pendingPackInfo) (index.Builder, error) {
 	packFileIndex := index.Builder{}
 	haveContent := false
 
@@ -129,7 +129,7 @@ func (sm *SharedManager) preparePackDataContent(pp *pendingPackInfo) (index.Buil
 	defer sb.Release()
 
 	for _, info := range pp.currentPackItems {
-		if info.GetPackBlobID() == pp.packBlobID {
+		if info.PackBlobID == pp.packBlobID {
 			haveContent = true
 		}
 
@@ -137,13 +137,13 @@ func (sm *SharedManager) preparePackDataContent(pp *pendingPackInfo) (index.Buil
 		sb.AppendString("add-to-pack ")
 		sb.AppendString(string(pp.packBlobID))
 		sb.AppendString(" ")
-		info.GetContentID().AppendToLogBuffer(sb)
+		info.ContentID.AppendToLogBuffer(sb)
 		sb.AppendString(" p:")
-		sb.AppendString(string(info.GetPackBlobID()))
+		sb.AppendString(string(info.PackBlobID))
 		sb.AppendString(" ")
-		sb.AppendUint32(info.GetPackedLength())
+		sb.AppendUint32(info.PackedLength)
 		sb.AppendString(" d:")
-		sb.AppendBoolean(info.GetDeleted())
+		sb.AppendBoolean(info.Deleted)
 		sm.log.Debugf(sb.String())
 
 		packFileIndex.Add(info)
@@ -173,7 +173,7 @@ func (sm *SharedManager) preparePackDataContent(pp *pendingPackInfo) (index.Buil
 		}
 	}
 
-	err := sm.appendPackFileIndexRecoveryData(packFileIndex, pp.currentPackData)
+	err := sm.appendPackFileIndexRecoveryData(mp, packFileIndex, pp.currentPackData)
 
 	return packFileIndex, err
 }

@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -114,7 +113,7 @@ type FormatV2 struct {
 
 	Entries []struct {
 		Key   []byte // key bytes (KeySize)
-		Entry indexV2EntryInfo
+		Entry []byte // entry bytes (EntrySize)
 	}
 
 	// each entry contains offset+length of the name of the pack blob, so that each entry can refer to the index
@@ -136,95 +135,62 @@ type indexV2FormatInfo struct {
 	encryptionKeyID     byte
 }
 
-type indexV2EntryInfo struct {
-	data      []byte
-	contentID ID
-	b         *indexV2
+type indexV2 struct {
+	hdr         v2HeaderInfo
+	data        []byte
+	closer      func() error
+	formats     []indexV2FormatInfo
+	packBlobIDs []blob.ID
 }
 
-func (e indexV2EntryInfo) GetContentID() ID {
-	return e.contentID
-}
-
-func (e indexV2EntryInfo) GetTimestampSeconds() int64 {
-	return int64(decodeBigEndianUint32(e.data[v2EntryOffsetTimestampSeconds:])) + int64(e.b.hdr.baseTimestamp)
-}
-
-func (e indexV2EntryInfo) GetDeleted() bool {
-	return e.data[v2EntryOffsetPackOffsetAndFlags]&v2EntryDeletedFlag != 0
-}
-
-func (e indexV2EntryInfo) GetPackOffset() uint32 {
-	return decodeBigEndianUint32(e.data[v2EntryOffsetPackOffsetAndFlags:]) & v2EntryPackOffsetMask
-}
-
-func (e indexV2EntryInfo) GetOriginalLength() uint32 {
-	v := decodeBigEndianUint24(e.data[v2EntryOffsetOriginalLength:])
-	if len(e.data) > v2EntryOffsetHighLengthBits {
-		v |= uint32(e.data[v2EntryOffsetHighLengthBits]>>v2EntryHighLengthBitsOriginalLengthShift) << v2EntryHighLengthShift
+func (b *indexV2) entryToInfoStruct(contentID ID, data []byte, result *Info) error {
+	if len(data) < v2EntryMinLength {
+		return errors.Errorf("invalid entry length: %v", len(data))
 	}
 
-	return v
-}
+	result.ContentID = contentID
+	result.TimestampSeconds = int64(decodeBigEndianUint32(data[v2EntryOffsetTimestampSeconds:])) + int64(b.hdr.baseTimestamp)
+	result.Deleted = data[v2EntryOffsetPackOffsetAndFlags]&v2EntryDeletedFlag != 0
+	result.PackOffset = decodeBigEndianUint32(data[v2EntryOffsetPackOffsetAndFlags:]) & v2EntryPackOffsetMask
+	result.OriginalLength = decodeBigEndianUint24(data[v2EntryOffsetOriginalLength:])
 
-func (e indexV2EntryInfo) GetPackedLength() uint32 {
-	v := decodeBigEndianUint24(e.data[v2EntryOffsetPackedLength:])
-	if len(e.data) > v2EntryOffsetHighLengthBits {
-		v |= uint32(e.data[v2EntryOffsetHighLengthBits]&v2EntryHghLengthBitsPackedLengthMask) << v2EntryHighLengthShift
+	if len(data) > v2EntryOffsetHighLengthBits {
+		result.OriginalLength |= uint32(data[v2EntryOffsetHighLengthBits]>>v2EntryHighLengthBitsOriginalLengthShift) << v2EntryHighLengthShift
 	}
 
-	return v
+	result.PackedLength = decodeBigEndianUint24(data[v2EntryOffsetPackedLength:])
+	if len(data) > v2EntryOffsetHighLengthBits {
+		result.PackedLength |= uint32(data[v2EntryOffsetHighLengthBits]&v2EntryHghLengthBitsPackedLengthMask) << v2EntryHighLengthShift
+	}
+
+	fid := formatIDIndex(data)
+	if fid >= len(b.formats) {
+		result.FormatVersion = invalidFormatVersion
+		result.CompressionHeaderID = invalidCompressionHeaderID
+		result.EncryptionKeyID = invalidEncryptionKeyID
+	} else {
+		result.FormatVersion = b.formats[fid].formatVersion
+		result.CompressionHeaderID = b.formats[fid].compressionHeaderID
+		result.EncryptionKeyID = b.formats[fid].encryptionKeyID
+	}
+
+	packIDIndex := uint32(decodeBigEndianUint16(data[v2EntryOffsetPackBlobID:]))
+	if len(data) > v2EntryOffsetExtendedPackBlobID {
+		packIDIndex |= uint32(data[v2EntryOffsetExtendedPackBlobID]) << v2EntryExtendedPackBlobIDShift
+	}
+
+	result.PackBlobID = b.getPackBlobIDByIndex(packIDIndex)
+
+	return nil
 }
 
-func (e indexV2EntryInfo) formatIDIndex() int {
-	if len(e.data) > v2EntryOffsetFormatID {
-		return int(e.data[v2EntryOffsetFormatID])
+func formatIDIndex(data []byte) int {
+	if len(data) > v2EntryOffsetFormatID {
+		return int(data[v2EntryOffsetFormatID])
 	}
 
 	return 0
 }
-
-func (e indexV2EntryInfo) GetFormatVersion() byte {
-	fid := e.formatIDIndex()
-	if fid > len(e.b.formats) {
-		return invalidFormatVersion
-	}
-
-	return e.b.formats[fid].formatVersion
-}
-
-func (e indexV2EntryInfo) GetCompressionHeaderID() compression.HeaderID {
-	fid := e.formatIDIndex()
-	if fid > len(e.b.formats) {
-		return invalidCompressionHeaderID
-	}
-
-	return e.b.formats[fid].compressionHeaderID
-}
-
-func (e indexV2EntryInfo) GetEncryptionKeyID() byte {
-	fid := e.formatIDIndex()
-	if fid > len(e.b.formats) {
-		return invalidEncryptionKeyID
-	}
-
-	return e.b.formats[fid].encryptionKeyID
-}
-
-func (e indexV2EntryInfo) GetPackBlobID() blob.ID {
-	packIDIndex := uint32(decodeBigEndianUint16(e.data[v2EntryOffsetPackBlobID:]))
-	if len(e.data) > v2EntryOffsetExtendedPackBlobID {
-		packIDIndex |= uint32(e.data[v2EntryOffsetExtendedPackBlobID]) << v2EntryExtendedPackBlobIDShift
-	}
-
-	return e.b.getPackBlobIDByIndex(packIDIndex)
-}
-
-func (e indexV2EntryInfo) Timestamp() time.Time {
-	return time.Unix(e.GetTimestampSeconds(), 0)
-}
-
-var _ InfoReader = indexV2EntryInfo{}
 
 type v2HeaderInfo struct {
 	version       int
@@ -242,32 +208,12 @@ type v2HeaderInfo struct {
 	entryStride   int64 // guaranteed to be < v2MaxEntrySize
 }
 
-type indexV2 struct {
-	hdr     v2HeaderInfo
-	data    []byte
-	closer  func() error
-	formats []indexV2FormatInfo
-}
-
 func (b *indexV2) getPackBlobIDByIndex(ndx uint32) blob.ID {
 	if ndx >= uint32(b.hdr.packCount) {
 		return invalidBlobID
 	}
 
-	buf, err := safeSlice(b.data, b.hdr.packsOffset+int64(v2PackInfoSize*ndx), v2PackInfoSize)
-	if err != nil {
-		return invalidBlobID
-	}
-
-	nameLength := int(buf[0])
-	nameOffset := binary.BigEndian.Uint32(buf[1:])
-
-	nameBuf, err := safeSliceString(b.data, int64(nameOffset), nameLength)
-	if err != nil {
-		return invalidBlobID
-	}
-
-	return blob.ID(nameBuf)
+	return b.packBlobIDs[ndx]
 }
 
 func (b *indexV2) ApproximateCount() int {
@@ -277,11 +223,13 @@ func (b *indexV2) ApproximateCount() int {
 // Iterate invokes the provided callback function for a range of contents in the index, sorted alphabetically.
 // The iteration ends when the callback returns an error, which is propagated to the caller or when
 // all contents have been visited.
-func (b *indexV2) Iterate(r IDRange, cb func(InfoReader) error) error {
+func (b *indexV2) Iterate(r IDRange, cb func(Info) error) error {
 	startPos, err := b.findEntryPosition(r.StartID)
 	if err != nil {
 		return errors.Wrap(err, "could not find starting position")
 	}
+
+	var tmp Info
 
 	for i := startPos; i < b.hdr.entryCount; i++ {
 		entry, err := safeSlice(b.data, b.entryOffset(i), int(b.hdr.entryStride))
@@ -296,12 +244,11 @@ func (b *indexV2) Iterate(r IDRange, cb func(InfoReader) error) error {
 			break
 		}
 
-		i, err := b.entryToInfo(contentID, entry[b.hdr.keySize:])
-		if err != nil {
+		if err := b.entryToInfoStruct(contentID, entry[b.hdr.keySize:], &tmp); err != nil {
 			return errors.Wrap(err, "invalid index data")
 		}
 
-		if err := cb(i); err != nil {
+		if err := cb(tmp); err != nil {
 			return err
 		}
 	}
@@ -389,25 +336,21 @@ func (b *indexV2) findEntry(contentID ID) ([]byte, error) {
 }
 
 // GetInfo returns information about a given content. If a content is not found, nil is returned.
-func (b *indexV2) GetInfo(contentID ID) (InfoReader, error) {
+func (b *indexV2) GetInfo(contentID ID, result *Info) (bool, error) {
 	e, err := b.findEntry(contentID)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
 	if e == nil {
-		return nil, nil
+		return false, nil
 	}
 
-	return b.entryToInfo(contentID, e)
-}
-
-func (b *indexV2) entryToInfo(contentID ID, entryData []byte) (InfoReader, error) {
-	if len(entryData) < v2EntryMinLength {
-		return nil, errors.Errorf("invalid entry length: %v", len(entryData))
+	if err := b.entryToInfoStruct(contentID, e, result); err != nil {
+		return false, err
 	}
 
-	return indexV2EntryInfo{entryData, contentID, b}, nil
+	return true, nil
 }
 
 // Close closes the index.
@@ -432,9 +375,9 @@ type indexBuilderV2 struct {
 
 func indexV2FormatInfoFromInfo(v Info) indexV2FormatInfo {
 	return indexV2FormatInfo{
-		formatVersion:       v.GetFormatVersion(),
-		compressionHeaderID: v.GetCompressionHeaderID(),
-		encryptionKeyID:     v.GetEncryptionKeyID(),
+		formatVersion:       v.FormatVersion,
+		compressionHeaderID: v.CompressionHeaderID,
+		encryptionKeyID:     v.EncryptionKeyID,
 	}
 }
 
@@ -457,7 +400,7 @@ func buildPackIDToIndexMap(sortedInfos []Info) map[blob.ID]int {
 	result := map[blob.ID]int{}
 
 	for _, v := range sortedInfos {
-		blobID := v.GetPackBlobID()
+		blobID := v.PackBlobID
 		if _, ok := result[blobID]; !ok {
 			result[blobID] = len(result)
 		}
@@ -469,15 +412,15 @@ func buildPackIDToIndexMap(sortedInfos []Info) map[blob.ID]int {
 // maxContentLengths computes max content lengths in the builder.
 func maxContentLengths(sortedInfos []Info) (maxPackedLength, maxOriginalLength, maxPackOffset uint32) {
 	for _, v := range sortedInfos {
-		if l := v.GetPackedLength(); l > maxPackedLength {
+		if l := v.PackedLength; l > maxPackedLength {
 			maxPackedLength = l
 		}
 
-		if l := v.GetOriginalLength(); l > maxOriginalLength {
+		if l := v.OriginalLength; l > maxOriginalLength {
 			maxOriginalLength = l
 		}
 
-		if l := v.GetPackOffset(); l > maxPackOffset {
+		if l := v.PackOffset; l > maxPackOffset {
 			maxPackOffset = l
 		}
 	}
@@ -538,7 +481,7 @@ func newIndexBuilderV2(sortedInfos []Info) (*indexBuilderV2, error) {
 	if len(sortedInfos) > 0 {
 		var hashBuf [maxContentIDSize]byte
 
-		keyLength = len(contentIDToBytes(hashBuf[:0], sortedInfos[0].GetContentID()))
+		keyLength = len(contentIDToBytes(hashBuf[:0], sortedInfos[0].ContentID))
 	}
 
 	return &indexBuilderV2{
@@ -627,10 +570,10 @@ func (b *indexBuilderV2) prepareExtraData(sortedInfos []Info) []byte {
 	var extraData []byte
 
 	for _, it := range sortedInfos {
-		if it.GetPackBlobID() != "" {
-			if _, ok := b.packBlobIDOffsets[it.GetPackBlobID()]; !ok {
-				b.packBlobIDOffsets[it.GetPackBlobID()] = uint32(len(extraData))
-				extraData = append(extraData, []byte(it.GetPackBlobID())...)
+		if it.PackBlobID != "" {
+			if _, ok := b.packBlobIDOffsets[it.PackBlobID]; !ok {
+				b.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData))
+				extraData = append(extraData, []byte(it.PackBlobID)...)
 			}
 		}
 	}
@@ -646,7 +589,7 @@ func (b *indexBuilderV2) prepareExtraData(sortedInfos []Info) []byte {
 func (b *indexBuilderV2) writeIndexEntry(w io.Writer, it Info) error {
 	var hashBuf [maxContentIDSize]byte
 
-	k := contentIDToBytes(hashBuf[:0], it.GetContentID())
+	k := contentIDToBytes(hashBuf[:0], it.ContentID)
 
 	if len(k) != b.keyLength {
 		return errors.Errorf("inconsistent key length: %v vs %v", len(k), b.keyLength)
@@ -693,14 +636,14 @@ func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it Info) error {
 
 	binary.BigEndian.PutUint32(
 		buf[v2EntryOffsetTimestampSeconds:],
-		uint32(it.GetTimestampSeconds()-b.baseTimestamp))
+		uint32(it.TimestampSeconds-b.baseTimestamp))
 
 	//    4-7: pack offset bits 0..29
 	//         flags:
 	//            isDeleted                    (1 bit)
 
-	packOffsetAndFlags := it.GetPackOffset()
-	if it.GetDeleted() {
+	packOffsetAndFlags := it.PackOffset
+	if it.Deleted {
 		packOffsetAndFlags |= v2DeletedMarker
 	}
 
@@ -708,15 +651,15 @@ func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it Info) error {
 
 	//   8-10: original length bits 0..23
 
-	encodeBigEndianUint24(buf[v2EntryOffsetOriginalLength:], it.GetOriginalLength())
+	encodeBigEndianUint24(buf[v2EntryOffsetOriginalLength:], it.OriginalLength)
 
 	//  11-13: packed length bits 0..23
 
-	encodeBigEndianUint24(buf[v2EntryOffsetPackedLength:], it.GetPackedLength())
+	encodeBigEndianUint24(buf[v2EntryOffsetPackedLength:], it.PackedLength)
 
 	//  14-15: pack ID (lower 16 bits)- index into Packs[]
 
-	packBlobIndex := b.packID2Index[it.GetPackBlobID()]
+	packBlobIndex := b.packID2Index[it.PackBlobID]
 	binary.BigEndian.PutUint16(buf[v2EntryOffsetPackBlobID:], uint16(packBlobIndex))
 
 	//     16: format ID - index into Formats[] - 0 - present if not all formats are identical
@@ -729,7 +672,7 @@ func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it Info) error {
 	//     18: high-order bits - present if any content length is greater than 2^24 == 16MiB
 	//            original length bits 24..27  (4 hi bits)
 	//            packed length bits 24..27    (4 lo bits)
-	buf[v2EntryOffsetHighLengthBits] = byte(it.GetPackedLength()>>v2EntryHighLengthShift) | byte((it.GetOriginalLength()>>v2EntryHighLengthShift)<<v2EntryHighLengthBitsOriginalLengthShift)
+	buf[v2EntryOffsetHighLengthBits] = byte(it.PackedLength>>v2EntryHighLengthShift) | byte((it.OriginalLength>>v2EntryHighLengthShift)<<v2EntryHighLengthBitsOriginalLengthShift)
 
 	for i := b.entrySize; i < v2EntryMaxLength; i++ {
 		if buf[i] != 0 {
@@ -777,18 +720,38 @@ func openV2PackIndex(data []byte, closer func() error) (Index, error) {
 		return nil, errors.Errorf("unable to read formats section")
 	}
 
+	packIDs := make([]blob.ID, hi.packCount)
+
+	for i := range int(hi.packCount) {
+		buf, err := safeSlice(data, hi.packsOffset+int64(v2PackInfoSize*i), v2PackInfoSize)
+		if err != nil {
+			return nil, errors.Errorf("unable to read pack blob IDs section - 1")
+		}
+
+		nameLength := int(buf[0])
+		nameOffset := binary.BigEndian.Uint32(buf[1:])
+
+		nameBuf, err := safeSliceString(data, int64(nameOffset), nameLength)
+		if err != nil {
+			return nil, errors.Errorf("unable to read pack blob IDs section - 2")
+		}
+
+		packIDs[i] = blob.ID(nameBuf)
+	}
+
 	return &indexV2{
-		hdr:     hi,
-		data:    data,
-		closer:  closer,
-		formats: parseFormatsBuffer(formatsBuf, int(hi.formatCount)),
+		hdr:         hi,
+		data:        data,
+		closer:      closer,
+		formats:     parseFormatsBuffer(formatsBuf, int(hi.formatCount)),
+		packBlobIDs: packIDs,
 	}, nil
 }
 
 func parseFormatsBuffer(formatsBuf []byte, cnt int) []indexV2FormatInfo {
 	formats := make([]indexV2FormatInfo, cnt)
 
-	for i := 0; i < cnt; i++ {
+	for i := range cnt {
 		f := formatsBuf[v2FormatInfoSize*i:]
 
 		formats[i].compressionHeaderID = compression.HeaderID(binary.BigEndian.Uint32(f[v2FormatOffsetCompressionID:]))

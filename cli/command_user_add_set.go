@@ -12,11 +12,11 @@ import (
 )
 
 type commandServerUserAddSet struct {
-	userAskPassword            bool
-	userSetName                string
-	userSetPassword            string
-	userSetPasswordHashVersion int
-	userSetPasswordHash        string
+	userAskPassword              bool
+	userSetName                  string
+	userSetPassword              string
+	userSetPasswordHashAlgorithm string
+	userSetPasswordHash          string
 
 	isNew bool // true == 'add', false == 'update'
 	out   textOutput
@@ -36,7 +36,7 @@ func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, i
 	cmd.Flag("ask-password", "Ask for user password").BoolVar(&c.userAskPassword)
 	cmd.Flag("user-password", "Password").StringVar(&c.userSetPassword)
 	cmd.Flag("user-password-hash", "Password hash").StringVar(&c.userSetPasswordHash)
-	cmd.Flag("user-password-hash-version", "Password hash version").Default("1").IntVar(&c.userSetPasswordHashVersion)
+	cmd.Flag("user-password-hashing-algorithm", "[Experimental] Password hashing algorithm").Hidden().Default(user.DefaultPasswordHashingAlgorithm).EnumVar(&c.userSetPasswordHashAlgorithm, user.PasswordHashingAlgorithms()...)
 	cmd.Arg("username", "Username").Required().StringVar(&c.userSetName)
 	cmd.Action(svc.repositoryWriterAction(c.runServerUserAddSet))
 
@@ -52,8 +52,14 @@ func (c *commandServerUserAddSet) getExistingOrNewUserProfile(ctx context.Contex
 			return nil, errors.Errorf("user %q already exists", username)
 
 		case errors.Is(err, user.ErrUserNotFound):
+			passwordHashVersion, err := user.GetPasswordHashVersion(c.userSetPasswordHashAlgorithm)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get password hash version")
+			}
+
 			return &user.Profile{
-				Username: username,
+				Username:            username,
+				PasswordHashVersion: passwordHashVersion,
 			}, nil
 		}
 	}
@@ -85,7 +91,6 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 			return errors.Wrap(err, "invalid password hash, must be valid base64 string")
 		}
 
-		up.PasswordHashVersion = c.userSetPasswordHashVersion
 		up.PasswordHash = ph
 		changed = true
 	}

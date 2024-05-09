@@ -10,7 +10,6 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/passwordpersist"
-	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -27,29 +26,6 @@ import (
 
 const syncConnectWaitTime = 5 * time.Second
 
-func handleRepoParameters(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	dr, ok := rc.rep.(repo.DirectRepository)
-	if !ok {
-		return &serverapi.StatusResponse{
-			Connected: false,
-		}, nil
-	}
-
-	scc, err := dr.ContentReader().SupportsContentCompression()
-	if err != nil {
-		return nil, internalServerError(err)
-	}
-
-	rp := &remoterepoapi.Parameters{
-		HashFunction:               dr.ContentReader().ContentFormat().GetHashFunction(),
-		HMACSecret:                 dr.ContentReader().ContentFormat().GetHmacSecret(),
-		ObjectFormat:               dr.ObjectFormat(),
-		SupportsContentCompression: scc,
-	}
-
-	return rp, nil
-}
-
 func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	if rc.rep == nil {
 		return &serverapi.StatusResponse{
@@ -60,29 +36,24 @@ func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *api
 
 	dr, ok := rc.rep.(repo.DirectRepository)
 	if ok {
-		mp, mperr := dr.ContentReader().ContentFormat().GetMutableParameters()
-		if mperr != nil {
-			return nil, internalServerError(mperr)
-		}
+		contentFormat := dr.ContentReader().ContentFormat()
 
-		scc, err := dr.ContentReader().SupportsContentCompression()
-		if err != nil {
-			return nil, internalServerError(err)
-		}
+		// this gets potentially stale parameters
+		mp := contentFormat.GetCachedMutableParameters()
 
 		return &serverapi.StatusResponse{
 			Connected:                  true,
 			ConfigFile:                 dr.ConfigFilename(),
 			FormatVersion:              mp.Version,
-			Hash:                       dr.ContentReader().ContentFormat().GetHashFunction(),
-			Encryption:                 dr.ContentReader().ContentFormat().GetEncryptionAlgorithm(),
-			ECC:                        dr.ContentReader().ContentFormat().GetECCAlgorithm(),
-			ECCOverheadPercent:         dr.ContentReader().ContentFormat().GetECCOverheadPercent(),
+			Hash:                       contentFormat.GetHashFunction(),
+			Encryption:                 contentFormat.GetEncryptionAlgorithm(),
+			ECC:                        contentFormat.GetECCAlgorithm(),
+			ECCOverheadPercent:         contentFormat.GetECCOverheadPercent(),
 			MaxPackSize:                mp.MaxPackSize,
 			Splitter:                   dr.ObjectFormat().Splitter,
 			Storage:                    dr.BlobReader().ConnectionInfo().Type,
 			ClientOptions:              dr.ClientOptions(),
-			SupportsContentCompression: scc,
+			SupportsContentCompression: dr.ContentReader().SupportsContentCompression(),
 		}, nil
 	}
 

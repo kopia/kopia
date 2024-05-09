@@ -36,8 +36,6 @@ func TestAutoUpdateEnableTest(t *testing.T) {
 	os.Unsetenv("KOPIA_CHECK_FOR_UPDATES")
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 			runner := testenv.NewInProcRunner(t)

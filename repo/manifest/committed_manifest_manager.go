@@ -148,21 +148,23 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 			Range:    index.PrefixRange(ContentPrefix),
 			Parallel: manifestLoadParallelism,
 		}, func(ci content.Info) error {
-			man, err := loadManifestContent(ctx, m.b, ci.GetContentID())
+			man, err := loadManifestContent(ctx, m.b, ci.ContentID)
 			if err != nil {
 				// this can be used to allow corrupterd repositories to still open and see the
 				// (incomplete) list of manifests.
 				if os.Getenv("KOPIA_IGNORE_MALFORMED_MANIFEST_CONTENTS") != "" {
-					log(ctx).Warnf("ignoring malformed manifest content %v: %v", ci.GetContentID(), err)
+					log(ctx).Warnf("ignoring malformed manifest content %v: %v", ci.ContentID, err)
 
 					return nil
 				}
 
 				return err
 			}
+
 			mu.Lock()
-			manifests[ci.GetContentID()] = man
+			manifests[ci.ContentID] = man
 			mu.Unlock()
+
 			return nil
 		})
 		if err == nil {
@@ -181,7 +183,7 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 	m.loadManifestContentsLocked(manifests)
 
 	if err := m.maybeCompactLocked(ctx); err != nil {
-		return errors.Errorf("error auto-compacting contents")
+		return errors.Wrap(err, "error auto-compacting contents")
 	}
 
 	return nil

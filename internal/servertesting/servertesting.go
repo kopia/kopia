@@ -64,7 +64,6 @@ func StartServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.API
 
 	m := mux.NewRouter()
 	s.SetupHTMLUIAPIHandlers(m)
-	s.SetupRepositoryAPIHandlers(m)
 	s.SetupControlAPIHandlers(m)
 	s.ServeStaticFiles(m, server.AssetFile())
 
@@ -79,6 +78,8 @@ func StartServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.API
 		hs.Start()
 		asi.BaseURL = hs.URL
 	}
+
+	asi.LocalCacheKeyDerivationAlgorithm = repo.DefaultServerRepoCacheKeyDerivationAlgorithm
 
 	t.Cleanup(hs.Close)
 

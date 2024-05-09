@@ -152,7 +152,6 @@ func TestIndexEpochManager_Parallel(t *testing.T) {
 	endTimeReal := clock.Now().Add(30 * time.Second)
 
 	for worker := 1; worker <= 5; worker++ {
-		worker := worker
 		te2 := te.another()
 		indexNum := 1e6 * worker
 
@@ -290,7 +289,7 @@ func TestIndexEpochManager_CompactionAlwaysFails(t *testing.T) {
 
 	// set up test environment in which compactions never succeed for whatever reason.
 	te.mgr.compact = func(ctx context.Context, blobIDs []blob.ID, outputPrefix blob.ID) error {
-		return nil
+		return errors.New("testing compaction error")
 	}
 
 	verifySequentialWrites(t, te)
@@ -348,15 +347,15 @@ func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 		return nil
 	}
 
-	p, err := te.mgr.getParameters()
+	p, err := te.mgr.getParameters(ctx)
 	require.NoError(t, err)
 
 	// Write data to the index such that the next time it's opened it should
 	// attempt to compact things and advance the epoch. We want to write exactly
 	// the number of blobs that will cause it to advance so we can keep track of
 	// which epoch we're on and everything.
-	for j := 0; j < 10; j++ {
-		for i := 0; i < p.GetEpochAdvanceOnCountThreshold(); i++ {
+	for range 10 {
+		for i := range p.GetEpochAdvanceOnCountThreshold() {
 			// Advance the time so that the difference in times for writes will force
 			// new epochs.
 			te.ft.Advance(48 * time.Hour)
@@ -408,6 +407,89 @@ func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 	assert.Nil(t, loadedErr.Load(), "refreshing read-only index")
 }
 
+func TestNoEpochAdvanceOnIndexRead(t *testing.T) {
+	const epochs = 3
+
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	te := newTestEnv(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	count := p.GetEpochAdvanceOnCountThreshold()
+	minDuration := p.MinEpochDuration
+
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 0, cs.WriteEpoch, "write epoch mismatch")
+
+	// Write enough index blobs such that the next time the manager loads
+	// indexes it should attempt to advance the epoch.
+	// Write exactly the number of index blobs that will cause it to advance so
+	// we can keep track of which one is the current epoch.
+	for range epochs {
+		for i := range count - 1 {
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
+		}
+
+		te.ft.Advance(3*minDuration + time.Second)
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(count-1))
+		// this could advance the epoch on write
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(count-1))
+	}
+
+	te.mgr.Invalidate()
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+
+	te.mgr.Flush() // wait for background work
+
+	// get written lastWriteEpoch markers if any
+	var (
+		lastWriteEpoch int
+		epochMarkers   []blob.ID
+		deletedMarker  blob.ID
+	)
+
+	te.st.ListBlobs(ctx, EpochMarkerIndexBlobPrefix, func(bm blob.Metadata) error {
+		epochMarkers = append(epochMarkers, bm.BlobID)
+
+		return nil
+	})
+
+	t.Log("epoch marker blobs:", epochMarkers)
+
+	if emLen := len(epochMarkers); emLen > 0 {
+		var ok bool // to prevent shadowing 'lastWriteEpoch' below
+
+		deletedMarker = epochMarkers[emLen-1]
+		lastWriteEpoch, ok = epochNumberFromBlobID(deletedMarker)
+
+		require.True(t, ok, "could not parse epoch from marker blob")
+	}
+
+	require.Equal(t, 0, lastWriteEpoch, "epoch should NOT have advanced")
+
+	// reload indexes
+	te.mgr.Invalidate()
+
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+
+	// wait for any background work, there shouldn't be any
+	te.mgr.backgroundWork.Wait()
+
+	require.Equal(t, 0, cs.WriteEpoch, "epoch should NOT have advanced")
+
+	te.st.ListBlobs(ctx, EpochMarkerIndexBlobPrefix, func(bm blob.Metadata) error {
+		t.Fatal("deleted epoch marker should NOT be found in the store:", deletedMarker)
+
+		return nil
+	})
+}
+
 func TestRefreshRetriesIfTakingTooLong(t *testing.T) {
 	te := newTestEnv(t)
 
@@ -427,7 +509,7 @@ func TestGetCompleteIndexSetRetriesIfTookTooLong(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	// advance by 3 epochs to ensure GetCompleteIndexSet will be trying to list some blobs
+	// advance by 3 epochs to ensure GetCompleteIndexSet will be trying to list
 	// some blobs that were not fetched during Refresh().
 	te.mgr.forceAdvanceEpoch(ctx)
 	te.ft.Advance(1 * time.Hour)
@@ -527,6 +609,139 @@ func TestSlowWrite_MovesToNextEpochTwice(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "slow index write")
+}
+
+func TestMaybeAdvanceEpoch_Empty(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	te.verifyCurrentWriteEpoch(t, 0)
+
+	// this should be a no-op
+	err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
+
+	require.NoError(t, err)
+
+	// check current epoch again
+	te.verifyCurrentWriteEpoch(t, 0)
+}
+
+func TestMaybeAdvanceEpoch(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	te := newTestEnv(t)
+
+	// Disable automatic epoch advancement and compaction to build up state
+	te.mgr.compact = func(context.Context, []blob.ID, blob.ID) error {
+		return nil
+	}
+
+	te.verifyCurrentWriteEpoch(t, 0)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+	// Create sufficient indexes blobs and move clock forward to advance epoch.
+	for i := range idxCount {
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
+	}
+
+	te.verifyCurrentWriteEpoch(t, 0)
+
+	// Advance the time so that the difference in times for writes will force
+	// new epochs.
+	te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+
+	err = te.mgr.Refresh(ctx)
+	require.NoError(t, err)
+
+	te.verifyCurrentWriteEpoch(t, 0)
+
+	// one more to go over the threshold
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(idxCount))
+	err = te.mgr.Refresh(ctx)
+
+	require.NoError(t, err)
+	te.verifyCurrentWriteEpoch(t, 0)
+
+	err = te.mgr.MaybeAdvanceWriteEpoch(ctx)
+
+	require.NoError(t, err)
+
+	err = te.mgr.Refresh(ctx) // force state refresh
+
+	require.NoError(t, err)
+	te.verifyCurrentWriteEpoch(t, 1)
+}
+
+type faultyParamsProvider struct {
+	err error
+}
+
+func (p faultyParamsProvider) GetParameters(ctx context.Context) (*Parameters, error) {
+	return nil, p.err
+}
+
+func TestMaybeAdvanceEpoch_GetParametersError(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	paramsError := errors.New("no parameters error")
+	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
+
+	err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, paramsError)
+}
+
+func TestMaybeAdvanceEpoch_Error(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	te := newTestEnv(t)
+
+	// Disable automatic epoch advancement and compaction to build up state
+	te.mgr.compact = func(context.Context, []blob.ID, blob.ID) error {
+		return nil
+	}
+
+	te.verifyCurrentWriteEpoch(t, 0)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+	// Create sufficient indexes blobs and move clock forward to advance epoch.
+	for i := range idxCount {
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
+	}
+
+	// Advance the time so that the difference in times for writes will force
+	// new epochs.
+	te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+
+	// one more to go over the threshold
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(idxCount))
+	err = te.mgr.Refresh(ctx)
+
+	require.NoError(t, err)
+	te.verifyCurrentWriteEpoch(t, 0)
+
+	berr := errors.New("advance epoch put blob error")
+	te.faultyStorage.AddFaults(blobtesting.MethodPutBlob,
+		fault.New().ErrorInstead(berr))
+
+	err = te.mgr.MaybeAdvanceWriteEpoch(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, berr)
 }
 
 func TestForceAdvanceEpoch(t *testing.T) {
@@ -665,6 +880,362 @@ func TestIndexEpochManager_RefreshContextCanceled(t *testing.T) {
 	require.ErrorIs(t, err, ctx.Err())
 }
 
+func TestMaybeCompactSingleEpoch_Empty(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	// this should be a no-op
+	err := te.mgr.MaybeCompactSingleEpoch(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestMaybeCompactSingleEpoch_GetParametersError(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	paramsError := errors.New("no parameters error")
+	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
+
+	err := te.mgr.MaybeCompactSingleEpoch(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, paramsError)
+}
+
+func TestMaybeCompactSingleEpoch_CompactionError(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+	// Create sufficient indexes blobs and move clock forward to advance epoch.
+	for range 4 {
+		for i := range idxCount {
+			if i == idxCount-1 {
+				// Advance the time so that the difference in times for writes will force
+				// new epochs.
+				te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+			}
+
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
+		}
+
+		require.NoError(t, te.mgr.MaybeAdvanceWriteEpoch(ctx))
+	}
+
+	compactionError := errors.New("test compaction error")
+	te.mgr.compact = func(context.Context, []blob.ID, blob.ID) error {
+		return compactionError
+	}
+
+	err = te.mgr.MaybeCompactSingleEpoch(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, compactionError)
+}
+
+func TestMaybeCompactSingleEpoch(t *testing.T) {
+	const epochsToWrite = 5
+
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+
+	var k int
+
+	// Create sufficient indexes blobs and move clock forward to advance current epoch
+	for j := range epochsToWrite {
+		for i := range idxCount {
+			if i == idxCount-1 {
+				// Advance the time so that the difference in times for writes will force
+				// new epochs.
+				te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+			}
+
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(k))
+			k++
+		}
+
+		te.verifyCurrentWriteEpoch(t, j)
+
+		err = te.mgr.MaybeAdvanceWriteEpoch(ctx)
+		require.NoError(t, err)
+
+		err = te.mgr.Refresh(ctx) // force state refresh
+
+		require.NoError(t, err)
+		te.verifyCurrentWriteEpoch(t, j+1)
+	}
+
+	cs, err := te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, epochsToWrite, cs.WriteEpoch)
+
+	// no epochs have been compacted, so the compacted set should be empty and
+	// the uncompacted epoch set should have all the epochs
+	require.Empty(t, cs.LongestRangeCheckpointSets)
+	require.Empty(t, cs.SingleEpochCompactionSets)
+
+	// perform single-epoch compaction for settled epochs
+	newestEpochToCompact := cs.WriteEpoch - numUnsettledEpochs + 1
+	for j := range newestEpochToCompact {
+		err = te.mgr.MaybeCompactSingleEpoch(ctx)
+		require.NoError(t, err)
+
+		err = te.mgr.Refresh(ctx) // force state refresh
+		require.NoError(t, err)
+
+		cs, err = te.mgr.Current(ctx)
+		require.NoError(t, err)
+
+		require.Len(t, cs.SingleEpochCompactionSets, j+1)
+	}
+
+	require.Len(t, cs.SingleEpochCompactionSets, newestEpochToCompact)
+
+	// no more epochs should be compacted at this point
+	err = te.mgr.MaybeCompactSingleEpoch(ctx)
+	require.NoError(t, err)
+
+	err = te.mgr.Refresh(ctx)
+	require.NoError(t, err)
+
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+
+	require.Len(t, cs.SingleEpochCompactionSets, newestEpochToCompact)
+}
+
+func TestMaybeGenerateRangeCheckpoint_Empty(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	// this should be a no-op
+	err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestMaybeGenerateRangeCheckpoint_GetParametersError(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	paramsError := errors.New("no parameters error")
+	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
+
+	err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, paramsError)
+}
+
+func TestMaybeGenerateRangeCheckpoint_FailToReadState(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	ctx, cancel := context.WithCancel(ctx)
+
+	cancel()
+
+	err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+
+	require.Error(t, err)
+}
+
+func TestMaybeGenerateRangeCheckpoint_CompactionError(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	epochsToWrite := p.FullCheckpointFrequency + 3
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+
+	var k int
+
+	// Create sufficient indexes blobs and move clock forward to advance epoch.
+	for range epochsToWrite {
+		for i := range idxCount {
+			if i == idxCount-1 {
+				// Advance the time so that the difference in times for writes will force
+				// new epochs.
+				te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+			}
+
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(k))
+			k++
+		}
+
+		err = te.mgr.MaybeAdvanceWriteEpoch(ctx)
+		require.NoError(t, err)
+
+		err = te.mgr.Refresh(ctx)
+		require.NoError(t, err)
+	}
+
+	cs, err := te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, epochsToWrite, cs.WriteEpoch)
+
+	compactionError := errors.New("test compaction error")
+	te.mgr.compact = func(context.Context, []blob.ID, blob.ID) error {
+		return compactionError
+	}
+
+	err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, compactionError)
+}
+
+func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	var k int
+
+	epochsToWrite := p.FullCheckpointFrequency + 3
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+	// Create sufficient indexes blobs and move clock forward to advance epoch.
+	for range epochsToWrite {
+		for i := range idxCount {
+			if i == idxCount-1 {
+				// Advance the time so that the difference in times for writes will force
+				// new epochs.
+				te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+			}
+
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(k))
+		}
+
+		err = te.mgr.MaybeAdvanceWriteEpoch(ctx)
+		require.NoError(t, err)
+
+		err = te.mgr.Refresh(ctx)
+		require.NoError(t, err)
+	}
+
+	cs, err := te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, epochsToWrite, cs.WriteEpoch)
+	require.Empty(t, cs.LongestRangeCheckpointSets)
+
+	err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	require.NoError(t, err)
+
+	err = te.mgr.Refresh(ctx)
+	require.NoError(t, err)
+
+	cs, err = te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, epochsToWrite, cs.WriteEpoch)
+	require.Len(t, cs.LongestRangeCheckpointSets, 1)
+}
+
+func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	var k int
+
+	epochsToWrite := p.FullCheckpointFrequency + 3
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+	// Create sufficient indexes blobs and move clock forward to advance epoch.
+	for range epochsToWrite {
+		for i := range idxCount {
+			if i == idxCount-1 {
+				// Advance the time so that the difference in times for writes will force
+				// new epochs.
+				te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+			}
+
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(k))
+		}
+
+		err = te.mgr.MaybeAdvanceWriteEpoch(ctx)
+		require.NoError(t, err)
+
+		err = te.mgr.Refresh(ctx)
+		require.NoError(t, err)
+	}
+
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+
+	require.Equal(t, epochsToWrite, cs.WriteEpoch)
+
+	// perform single-epoch compaction for settled epochs
+	newestEpochToCompact := cs.WriteEpoch - numUnsettledEpochs + 1
+	for j := range newestEpochToCompact {
+		err = te.mgr.MaybeCompactSingleEpoch(ctx)
+		require.NoError(t, err)
+
+		err = te.mgr.Refresh(ctx) // force state refresh
+		require.NoError(t, err)
+
+		cs, err = te.mgr.Current(ctx)
+		require.NoError(t, err)
+
+		require.Len(t, cs.SingleEpochCompactionSets, j+1)
+	}
+
+	cs, err = te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, epochsToWrite, cs.WriteEpoch)
+	require.Empty(t, cs.LongestRangeCheckpointSets)
+
+	err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	require.NoError(t, err)
+
+	err = te.mgr.Refresh(ctx)
+	require.NoError(t, err)
+
+	cs, err = te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, epochsToWrite, cs.WriteEpoch)
+	require.Len(t, cs.LongestRangeCheckpointSets, 1)
+}
+
 func TestValidateParameters(t *testing.T) {
 	cases := []struct {
 		p       Parameters
@@ -739,6 +1310,112 @@ func TestValidateParameters(t *testing.T) {
 	}
 }
 
+func TestCleanupMarkers_Empty(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	// this should be a no-op
+	err := te.mgr.CleanupMarkers(ctx)
+
+	require.NoError(t, err)
+}
+
+func TestCleanupMarkers_GetParametersError(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	paramsError := errors.New("no parameters error")
+	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
+
+	err := te.mgr.CleanupMarkers(ctx)
+
+	require.Error(t, err)
+	require.ErrorIs(t, err, paramsError)
+}
+
+func TestCleanupMarkers_FailToReadState(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx, cancel := context.WithCancel(testlogging.Context(t))
+
+	te.ft.Advance(1 * time.Hour) // force state refresh in CleanupMarkers
+
+	cancel()
+	err := te.mgr.CleanupMarkers(ctx)
+
+	require.Error(t, err)
+}
+
+func TestCleanupMarkers_AvoidCleaningUpSingleEpochMarker(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	te.mgr.forceAdvanceEpoch(ctx)
+	te.ft.Advance(1 * time.Hour)
+
+	require.NoError(t, te.mgr.Refresh(ctx))
+
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, cs.WriteEpoch)
+
+	err = te.mgr.CleanupMarkers(ctx)
+	require.NoError(t, err)
+
+	require.NoError(t, te.mgr.Refresh(ctx))
+
+	// is the epoch marker preserved?
+	te.verifyCurrentWriteEpoch(t, 1)
+
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Len(t, cs.EpochMarkerBlobs, 1)
+}
+
+func TestCleanupMarkers_CleanUpManyMarkers(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	const epochsToAdvance = 5
+
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(0))
+	for i := range epochsToAdvance {
+		te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+		te.mgr.forceAdvanceEpoch(ctx)
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i+1))
+	}
+
+	require.NoError(t, te.mgr.Refresh(ctx))
+	te.verifyCurrentWriteEpoch(t, epochsToAdvance)
+
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Len(t, cs.EpochMarkerBlobs, epochsToAdvance)
+
+	err = te.mgr.CleanupMarkers(ctx)
+	require.NoError(t, err)
+
+	// is the epoch marker preserved?
+	require.NoError(t, te.mgr.Refresh(ctx))
+	te.verifyCurrentWriteEpoch(t, epochsToAdvance)
+
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Len(t, cs.EpochMarkerBlobs, 2) // at least 2 epoch markers are kept
+}
+
 func randomTime(min, max time.Duration) time.Duration {
 	return time.Duration(float64(max-min)*rand.Float64() + float64(min))
 }
@@ -806,7 +1483,7 @@ type parameterProvider struct {
 	*Parameters
 }
 
-func (p parameterProvider) GetParameters() (*Parameters, error) {
+func (p parameterProvider) GetParameters(ctx context.Context) (*Parameters, error) {
 	return p.Parameters, nil
 }
 
@@ -824,4 +1501,29 @@ func (e *Manager) forceAdvanceEpoch(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (te *epochManagerTestEnv) verifyCurrentWriteEpoch(t *testing.T, expectedEpoch int) {
+	t.Helper()
+
+	// load current epoch directly from index blobs in the backend storage
+	cs := CurrentSnapshot{
+		WriteEpoch:                0,
+		EpochStartTime:            map[int]time.Time{},
+		UncompactedEpochSets:      map[int][]blob.Metadata{},
+		SingleEpochCompactionSets: map[int][]blob.Metadata{},
+	}
+
+	ctx := testlogging.Context(t)
+	err := te.mgr.loadWriteEpoch(ctx, &cs)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedEpoch, cs.WriteEpoch)
+
+	// check current epoch via the epoch manager, this may or may not cause
+	// a refresh from storage.
+	cs, err = te.mgr.Current(ctx)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedEpoch, cs.WriteEpoch)
 }

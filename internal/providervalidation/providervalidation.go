@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -67,7 +67,7 @@ func (st equivalentBlobStorageConnections) closeAdditional(ctx context.Context) 
 	var err error
 
 	for i := 1; i < len(st); i++ {
-		err = multierr.Combine(err, st[i].Close(ctx))
+		err = stderrors.Join(err, st[i].Close(ctx))
 	}
 
 	return errors.Wrap(err, "error closing additional connections")
@@ -459,19 +459,19 @@ func (c *concurrencyTest) listBlobWorker(ctx context.Context, worker int) func()
 func (c *concurrencyTest) run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
-	for worker := 0; worker < c.opt.NumPutBlobWorkers; worker++ {
+	for worker := range c.opt.NumPutBlobWorkers {
 		eg.Go(c.putBlobWorker(ctx, worker))
 	}
 
-	for worker := 0; worker < c.opt.NumGetBlobWorkers; worker++ {
+	for worker := range c.opt.NumGetBlobWorkers {
 		eg.Go(c.getBlobWorker(ctx, worker))
 	}
 
-	for worker := 0; worker < c.opt.NumGetMetadataWorkers; worker++ {
+	for worker := range c.opt.NumGetMetadataWorkers {
 		eg.Go(c.getMetadataWorker(ctx, worker))
 	}
 
-	for worker := 0; worker < c.opt.NumListBlobsWorkers; worker++ {
+	for worker := range c.opt.NumListBlobsWorkers {
 		eg.Go(c.listBlobWorker(ctx, worker))
 	}
 

@@ -17,9 +17,6 @@ import (
 // DefaultFormatEncryption is the identifier of the default format blob encryption algorithm.
 const DefaultFormatEncryption = "AES256_GCM"
 
-// DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
-const DefaultKeyDerivationAlgorithm = crypto.DefaultKeyDerivationAlgorithm
-
 const (
 	aes256GcmEncryption             = "AES256_GCM"
 	lengthOfRecoverBlockLength      = 2 // number of bytes used to store recover block length
@@ -27,6 +24,7 @@ const (
 	maxRecoverChunkLength           = 65536
 	minRecoverableChunkLength       = lengthOfRecoverBlockLength + 2
 	formatBlobChecksumSize          = sha256.Size
+	formatBlobEncryptionKeySize     = 32
 )
 
 // KopiaRepositoryBlobID is the identifier of a BLOB that describes repository format.
@@ -72,7 +70,7 @@ func ParseKopiaRepositoryJSON(b []byte) (*KopiaRepositoryJSON, error) {
 
 // DeriveFormatEncryptionKeyFromPassword derives encryption key using the provided password and per-repository unique ID.
 func (f *KopiaRepositoryJSON) DeriveFormatEncryptionKeyFromPassword(password string) ([]byte, error) {
-	res, err := crypto.DeriveKeyFromPassword(password, f.UniqueID, f.KeyDerivationAlgorithm)
+	res, err := crypto.DeriveKeyFromPassword(password, f.UniqueID, formatBlobEncryptionKeySize, f.KeyDerivationAlgorithm)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to derive format encryption key")
 	}

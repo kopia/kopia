@@ -27,7 +27,7 @@ func (c *commandCacheSync) run(ctx context.Context, rep repo.DirectRepositoryWri
 	ch := make(chan blob.ID, c.parallel)
 
 	// workers that will prefetch blobs.
-	for i := 0; i < c.parallel; i++ {
+	for range c.parallel {
 		eg.Go(func() error {
 			for blobID := range ch {
 				if err := rep.ContentManager().MetadataCache().PrefetchBlob(ctx, blobID); err != nil {
@@ -43,7 +43,6 @@ func (c *commandCacheSync) run(ctx context.Context, rep repo.DirectRepositoryWri
 	eg.Go(func() error {
 		defer close(ch)
 
-		//nolint:wrapcheck
 		return rep.BlobReader().ListBlobs(ctx, content.PackBlobIDPrefixSpecial, func(bm blob.Metadata) error {
 			ch <- bm.BlobID
 

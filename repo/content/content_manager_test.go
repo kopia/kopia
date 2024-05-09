@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -140,7 +141,7 @@ func (s *contentManagerSuite) TestContentManagerSmallContentWrites(t *testing.T)
 	defer bm.CloseShared(ctx)
 
 	itemCount := maxPackCapacity / (10 + encryptionOverhead)
-	for i := 0; i < itemCount; i++ {
+	for i := range itemCount {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 10))
 	}
 
@@ -162,7 +163,7 @@ func (s *contentManagerSuite) TestContentManagerDedupesPendingContents(t *testin
 
 	defer bm.CloseShared(ctx)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(0, maxPackCapacity/2))
 	}
 
@@ -263,7 +264,7 @@ func (s *contentManagerSuite) TestContentManagerInternalFlush(t *testing.T) {
 	defer bm.CloseShared(ctx)
 
 	itemsToOverflow := (maxPackCapacity)/(25+encryptionOverhead) + 2
-	for i := 0; i < itemsToOverflow; i++ {
+	for range itemsToOverflow {
 		b := make([]byte, 25)
 		cryptorand.Read(b)
 		writeContentAndVerify(ctx, t, bm, b)
@@ -273,7 +274,7 @@ func (s *contentManagerSuite) TestContentManagerInternalFlush(t *testing.T) {
 	verifyBlobCount(t, data, map[blob.ID]int{"s": 1, "p": 1})
 
 	// do it again - should be 2 blobs + some bytes pending.
-	for i := 0; i < itemsToOverflow; i++ {
+	for range itemsToOverflow {
 		b := make([]byte, 25)
 		cryptorand.Read(b)
 		writeContentAndVerify(ctx, t, bm, b)
@@ -309,7 +310,7 @@ func (s *contentManagerSuite) TestContentManagerWriteMultiple(t *testing.T) {
 		repeatCount = 500
 	}
 
-	for i := 0; i < repeatCount; i++ {
+	for i := range repeatCount {
 		b := seededRandomData(i, i%113)
 
 		blkID, err := bm.WriteContent(ctx, gather.FromSlice(b), "", NoCompression)
@@ -739,15 +740,15 @@ func (s *contentManagerSuite) TestUndeleteContentSimple(t *testing.T) {
 
 		got, want := getContentInfo(t, bm, tc.cid), tc.info
 
-		if got.GetDeleted() {
+		if got.Deleted {
 			t.Error("Content marked as deleted:", got)
 		}
 
-		if got.GetPackBlobID() == "" {
+		if got.PackBlobID == "" {
 			t.Error("Empty pack id for undeleted content:", tc.cid)
 		}
 
-		if got.GetPackOffset() == 0 {
+		if got.PackOffset == 0 {
 			t.Error("0 offset for undeleted content:", tc.cid)
 		}
 
@@ -787,15 +788,15 @@ func (s *contentManagerSuite) TestUndeleteContentSimple(t *testing.T) {
 		t.Log("case name:", tc.name)
 		got := getContentInfo(t, bm, tc.cid)
 
-		if got.GetDeleted() {
+		if got.Deleted {
 			t.Error("Content marked as deleted:", got)
 		}
 
-		if got.GetPackBlobID() == "" {
+		if got.PackBlobID == "" {
 			t.Error("Empty pack id for undeleted content:", tc.cid)
 		}
 
-		if got.GetPackOffset() == 0 {
+		if got.PackOffset == 0 {
 			t.Error("0 offset for undeleted content:", tc.cid)
 		}
 
@@ -889,7 +890,7 @@ func (s *contentManagerSuite) TestUndeleteContent(t *testing.T) {
 			t.Fatalf("unable to get content info for %v: %v", id, err)
 		}
 
-		if got, want := ci.GetDeleted(), false; got != want {
+		if got, want := ci.Deleted, false; got != want {
 			t.Fatalf("content %v was not undeleted: %v", id, ci)
 		}
 	}
@@ -905,7 +906,7 @@ func (s *contentManagerSuite) TestUndeleteContent(t *testing.T) {
 			t.Fatalf("unable to get content info for %v: %v", id, err)
 		}
 
-		if got, want := ci.GetDeleted(), false; got != want {
+		if got, want := ci.Deleted, false; got != want {
 			t.Fatalf("content %v was not undeleted: %v", id, ci)
 		}
 	}
@@ -920,7 +921,7 @@ func (s *contentManagerSuite) TestUndeleteContent(t *testing.T) {
 			t.Fatalf("unable to get content info for %v: %v", id, err)
 		}
 
-		if got, want := ci.GetDeleted(), false; got != want {
+		if got, want := ci.Deleted, false; got != want {
 			t.Fatalf("content %v was not undeleted: %v", id, ci)
 		}
 	}
@@ -979,7 +980,7 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 	deleteContent(ctx, t, bm, id)
 
 	got := getContentInfo(t, bm, id)
-	if !got.GetDeleted() {
+	if !got.Deleted {
 		t.Fatalf("Expected content %q to be deleted, got: %#v", id, got)
 	}
 
@@ -993,7 +994,7 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 
 	// check c1 again
 	got = getContentInfo(t, bm, id)
-	if !got.GetDeleted() {
+	if !got.Deleted {
 		t.Fatal("Expected content to be deleted, got: ", got)
 	}
 
@@ -1035,9 +1036,7 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	workerWritten := make([][]ID, numWorkers)
 
 	// start numWorkers, each writing random block and recording it
-	for workerID := 0; workerID < numWorkers; workerID++ {
-		workerID := workerID
-
+	for workerID := range numWorkers {
 		workersWG.Add(1)
 
 		go func() {
@@ -1227,8 +1226,9 @@ func (s *contentManagerSuite) verifyAllDataPresent(ctx context.Context, t *testi
 
 	bm := s.newTestContentManagerWithCustomTime(t, st, nil)
 	defer bm.CloseShared(ctx)
+
 	_ = bm.IterateContents(ctx, IterateOptions{}, func(ci Info) error {
-		delete(contentIDs, ci.GetContentID())
+		delete(contentIDs, ci.ContentID)
 		return nil
 	})
 
@@ -1285,8 +1285,6 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 	}
 
 	for n, tc := range cases {
-		tc := tc
-
 		t.Run(fmt.Sprintf("case-%v", n), func(t *testing.T) {
 			ctx := testlogging.Context(t)
 			data := blobtesting.DataMap{}
@@ -1332,11 +1330,8 @@ func (s *contentManagerSuite) TestRewriteNonDeleted(t *testing.T) {
 
 	// perform a sequence WriteContent() <action1> RewriteContent() <action2> GetContent()
 	// where actionX can be (0=flush and reopen, 1=flush, 2=nothing)
-	for action1 := 0; action1 < stepBehaviors; action1++ {
-		for action2 := 0; action2 < stepBehaviors; action2++ {
-			action1 := action1
-			action2 := action2
-
+	for action1 := range stepBehaviors {
+		for action2 := range stepBehaviors {
 			t.Run(fmt.Sprintf("case-%v-%v", action1, action2), func(t *testing.T) {
 				ctx := testlogging.Context(t)
 				data := blobtesting.DataMap{}
@@ -1382,7 +1377,7 @@ func (s *contentManagerSuite) TestDisableFlush(t *testing.T) {
 	bm.DisableIndexFlush(ctx)
 	bm.DisableIndexFlush(ctx)
 
-	for i := 0; i < 500; i++ {
+	for i := range 500 {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 100))
 	}
 	bm.Flush(ctx) // flush will not have effect
@@ -1402,12 +1397,9 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 
 	// perform a sequence WriteContent() <action1> Delete() <action2> RewriteContent() <action3> GetContent()
 	// where actionX can be (0=flush and reopen, 1=flush, 2=nothing)
-	for action1 := 0; action1 < stepBehaviors; action1++ {
-		for action2 := 0; action2 < stepBehaviors; action2++ {
-			for action3 := 0; action3 < stepBehaviors; action3++ {
-				action1 := action1
-				action2 := action2
-				action3 := action3
+	for action1 := range stepBehaviors {
+		for action2 := range stepBehaviors {
+			for action3 := range stepBehaviors {
 				t.Run(fmt.Sprintf("case-%v-%v-%v", action1, action2, action3), func(t *testing.T) {
 					ctx := testlogging.Context(t)
 					data := blobtesting.DataMap{}
@@ -1468,7 +1460,6 @@ func (s *contentManagerSuite) TestDeleteAndRecreate(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			// write a content
 			data := blobtesting.DataMap{}
@@ -1633,7 +1624,6 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			var mu sync.Mutex
 			got := map[ID]bool{}
@@ -1648,7 +1638,7 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 				}
 
 				mu.Lock()
-				got[ci.GetContentID()] = true
+				got[ci.ContentID] = true
 				mu.Unlock()
 				return nil
 			})
@@ -1830,10 +1820,10 @@ func (s *contentManagerSuite) TestAutoCompressionOfMetadata(t *testing.T) {
 	info, err := bm.ContentInfo(ctx, contentID)
 	require.NoError(t, err)
 
-	if scc, _ := bm.SupportsContentCompression(); scc {
-		require.Equal(t, compression.HeaderZstdFastest, info.GetCompressionHeaderID())
+	if bm.SupportsContentCompression() {
+		require.Equal(t, compression.HeaderZstdFastest, info.CompressionHeaderID)
 	} else {
-		require.Equal(t, NoCompression, info.GetCompressionHeaderID())
+		require.Equal(t, NoCompression, info.CompressionHeaderID)
 	}
 }
 
@@ -1863,7 +1853,6 @@ func (s *contentManagerSuite) TestContentReadAliasing(t *testing.T) {
 
 func (s *contentManagerSuite) TestVersionCompatibility(t *testing.T) {
 	for writeVer := format.MinSupportedReadVersion; writeVer <= format.CurrentWriteVersion; writeVer++ {
-		writeVer := writeVer
 		t.Run(fmt.Sprintf("version-%v", writeVer), func(t *testing.T) {
 			s.verifyVersionCompat(t, writeVer)
 		})
@@ -1982,10 +1971,10 @@ func (s *contentManagerSuite) verifyReadsOwnWrites(t *testing.T, st blob.Storage
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) {
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
-		for j := 0; j < i; j++ {
+		for j := range i {
 			// verify all contents written so far
 			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
 		}
@@ -2003,7 +1992,7 @@ func (s *contentManagerSuite) verifyReadsOwnWrites(t *testing.T, st blob.Storage
 	require.NoError(t, bm.CloseShared(ctx))
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) {
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }
@@ -2057,9 +2046,9 @@ func (s *contentManagerSuite) TestCompression_CompressibleData(t *testing.T) {
 	require.NoError(t, err)
 
 	// gzip-compressed length
-	require.Equal(t, uint32(79), ci.GetPackedLength())
-	require.Equal(t, uint32(len(compressibleData)), ci.GetOriginalLength())
-	require.Equal(t, headerID, ci.GetCompressionHeaderID())
+	require.Equal(t, uint32(79), ci.PackedLength)
+	require.Equal(t, uint32(len(compressibleData)), ci.OriginalLength)
+	require.Equal(t, headerID, ci.CompressionHeaderID)
 
 	verifyContent(ctx, t, bm, cid, compressibleData)
 
@@ -2094,9 +2083,9 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	require.NoError(t, err)
 
 	// verify compression did not occur
-	require.Greater(t, ci.GetPackedLength(), ci.GetOriginalLength())
-	require.Equal(t, uint32(len(nonCompressibleData)), ci.GetOriginalLength())
-	require.Equal(t, NoCompression, ci.GetCompressionHeaderID())
+	require.Greater(t, ci.PackedLength, ci.OriginalLength)
+	require.Equal(t, uint32(len(nonCompressibleData)), ci.OriginalLength)
+	require.Equal(t, NoCompression, ci.CompressionHeaderID)
 
 	require.NoError(t, bm.Flush(ctx))
 	verifyContent(ctx, t, bm, cid, nonCompressibleData)
@@ -2184,12 +2173,12 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	id6 := writeContentAndVerify(ctx, t, bm, bytes.Repeat([]byte{6, 7, 8, 9, 10, 11}, 1e6))
 	require.NoError(t, bm.Flush(ctx))
 
-	blob1 := getContentInfo(t, bm, id1).GetPackBlobID()
-	require.Equal(t, blob1, getContentInfo(t, bm, id2).GetPackBlobID())
-	require.Equal(t, blob1, getContentInfo(t, bm, id3).GetPackBlobID())
-	blob2 := getContentInfo(t, bm, id4).GetPackBlobID()
-	require.Equal(t, blob2, getContentInfo(t, bm, id5).GetPackBlobID())
-	require.Equal(t, blob2, getContentInfo(t, bm, id6).GetPackBlobID())
+	blob1 := getContentInfo(t, bm, id1).PackBlobID
+	require.Equal(t, blob1, getContentInfo(t, bm, id2).PackBlobID)
+	require.Equal(t, blob1, getContentInfo(t, bm, id3).PackBlobID)
+	blob2 := getContentInfo(t, bm, id4).PackBlobID
+	require.Equal(t, blob2, getContentInfo(t, bm, id5).PackBlobID)
+	require.Equal(t, blob2, getContentInfo(t, bm, id6).PackBlobID)
 
 	ccd := bm.contentCache
 	ccm := bm.metadataCache
@@ -2255,12 +2244,8 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	}
 
 	for _, hint := range hints {
-		hint := hint
-
 		t.Run("hint:"+hint, func(t *testing.T) {
 			for _, tc := range cases {
-				tc := tc
-
 				t.Run(tc.name, func(t *testing.T) {
 					wipeCache(t, ccd.CacheStorage())
 					wipeCache(t, ccm.CacheStorage())
@@ -2300,10 +2285,10 @@ func (s *contentManagerSuite) TestContentPermissiveCacheLoading(t *testing.T) {
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := 0; i < len(ids); i++ {
+	for i := range ids {
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
-		for j := 0; j < i; j++ {
+		for j := range i {
 			// verify all contents written so far
 			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
 		}
@@ -2329,7 +2314,7 @@ func (s *contentManagerSuite) TestContentPermissiveCacheLoading(t *testing.T) {
 
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := 0; i < len(ids); i++ {
+	for i := range ids {
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }
@@ -2351,10 +2336,10 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) {
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
-		for j := 0; j < i; j++ {
+		for j := range i {
 			// verify all contents written so far
 			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
 		}
@@ -2382,7 +2367,7 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) {
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }
@@ -2504,7 +2489,7 @@ func verifyDeletedContentRead(ctx context.Context, t *testing.T, bm *WriteManage
 		return
 	}
 
-	if !ci.GetDeleted() {
+	if !ci.Deleted {
 		t.Errorf("Expected content to be deleted, but it is not: %#v", ci)
 	}
 }
@@ -2514,7 +2499,8 @@ func verifyContent(ctx context.Context, t *testing.T, bm *WriteManager, contentI
 
 	b2, err := bm.GetContent(ctx, contentID)
 	if err != nil {
-		t.Fatalf("unable to read content %q: %v", contentID, err)
+		t.Errorf("unable to read content %q: %v", contentID, err)
+
 		return
 	}
 
@@ -2533,6 +2519,8 @@ func writeContentAndVerify(ctx context.Context, t *testing.T, bm *WriteManager, 
 	contentID, err := bm.WriteContent(ctx, gather.FromSlice(b), "", NoCompression)
 	if err != nil {
 		t.Errorf("err: %v", err)
+
+		return contentID
 	}
 
 	if got, want := contentID, hashValue(t, b); got != want {
@@ -2606,7 +2594,7 @@ func hashValue(t *testing.T, b []byte) ID {
 	h.Write(b)
 
 	id, err := IDFromHash("", h.Sum(nil))
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	return id
 }

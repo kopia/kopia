@@ -31,7 +31,7 @@ func TestDefaultGlobalPolicy(t *testing.T) {
 		t.Fatalf("unexpected number of contents %v, want %v", got, want)
 	}
 
-	globalPolicyContentID := contents[0].GetContentID()
+	globalPolicyContentID := contents[0].ContentID
 	e.RunAndExpectSuccess(t, "content", "show", "-jz", globalPolicyContentID.String())
 
 	// make sure the policy is visible in the manifest list

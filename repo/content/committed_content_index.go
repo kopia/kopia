@@ -63,13 +63,15 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	info, err := c.merged.GetInfo(contentID)
-	if info != nil {
+	var info Info
+
+	ok, err := c.merged.GetInfo(contentID, &info)
+	if ok {
 		if shouldIgnore(info, c.deletionWatermark) {
 			return index.Info{}, ErrContentNotFound
 		}
 
-		return index.ToInfoStruct(info), nil
+		return info, nil
 	}
 
 	if err == nil {
@@ -79,8 +81,8 @@ func (c *committedContentIndex) getContent(contentID ID) (Info, error) {
 	return index.Info{}, errors.Wrap(err, "error getting content info from index")
 }
 
-func shouldIgnore(id index.InfoReader, deletionWatermark time.Time) bool {
-	if !id.GetDeleted() {
+func shouldIgnore(id index.Info, deletionWatermark time.Time) bool {
+	if !id.Deleted {
 		return false
 	}
 
@@ -131,12 +133,12 @@ func (c *committedContentIndex) listContents(r IDRange, cb func(i Info) error) e
 	c.mu.RUnlock()
 
 	//nolint:wrapcheck
-	return m.Iterate(r, func(i index.InfoReader) error {
+	return m.Iterate(r, func(i index.Info) error {
 		if shouldIgnore(i, deletionWatermark) {
 			return nil
 		}
 
-		return cb(index.ToInfoStruct(i))
+		return cb(i)
 	})
 }
 
@@ -186,7 +188,7 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 		newUsedMap[e] = ndx
 	}
 
-	mergedAndCombined, err := c.combineSmallIndexes(newMerged)
+	mergedAndCombined, err := c.combineSmallIndexes(ctx, newMerged)
 	if err != nil {
 		newlyOpened.Close() //nolint:errcheck
 
@@ -239,7 +241,7 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID, i
 	return nil
 }
 
-func (c *committedContentIndex) combineSmallIndexes(m index.Merged) (index.Merged, error) {
+func (c *committedContentIndex) combineSmallIndexes(ctx context.Context, m index.Merged) (index.Merged, error) {
 	var toKeep, toMerge index.Merged
 
 	for _, ndx := range m {
@@ -257,15 +259,15 @@ func (c *committedContentIndex) combineSmallIndexes(m index.Merged) (index.Merge
 	b := index.Builder{}
 
 	for _, ndx := range toMerge {
-		if err := ndx.Iterate(index.AllIDs, func(i index.InfoReader) error {
-			b.Add(index.ToInfoStruct(i))
+		if err := ndx.Iterate(index.AllIDs, func(i index.Info) error {
+			b.Add(i)
 			return nil
 		}); err != nil {
 			return nil, errors.Wrap(err, "unable to iterate index entries")
 		}
 	}
 
-	mp, mperr := c.formatProvider.GetMutableParameters()
+	mp, mperr := c.formatProvider.GetMutableParameters(ctx)
 	if mperr != nil {
 		return nil, errors.Wrap(mperr, "error getting mutable parameters")
 	}
@@ -311,7 +313,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 
 	eg, ctx := errgroup.WithContext(ctx)
 
-	for i := 0; i < parallelFetches; i++ {
+	for range parallelFetches {
 		eg.Go(func() error {
 			var data gather.WriteBuffer
 			defer data.Close()
@@ -324,6 +326,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 						c.log.Errorf("skipping bad read of index blob %v", indexBlobID)
 						continue
 					}
+
 					return errors.Wrapf(err, "error loading index blob %v", indexBlobID)
 				}
 
@@ -331,6 +334,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 					return errors.Wrap(err, "unable to add to committed content cache")
 				}
 			}
+
 			return nil
 		})
 	}

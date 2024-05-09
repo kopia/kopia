@@ -73,7 +73,6 @@ func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version s
 			return nil
 		}
 
-		//nolint:wrapcheck
 		return iocopy.JustCopy(output, o)
 	}
 
@@ -378,7 +377,6 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 	var err error
 
 	minioOpts.Transport, err = getCustomTransport(opt)
-
 	if err != nil {
 		return nil, err
 	}

@@ -40,12 +40,13 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	if !opt.DryRun {
 		// start goroutines to delete blobs as they come.
-		for i := 0; i < opt.Parallel; i++ {
+		for range opt.Parallel {
 			eg.Go(func() error {
 				for bm := range unused {
 					if err := rep.BlobStorage().DeleteBlob(ctx, bm.BlobID); err != nil {
 						return errors.Wrapf(err, "unable to delete blob %q", bm.BlobID)
 					}
+
 					cnt, del := deleted.Add(bm.Length)
 					if cnt%100 == 0 {
 						log(ctx).Infof("  deleted %v unreferenced blobs (%v)", cnt, units.BytesString(del))

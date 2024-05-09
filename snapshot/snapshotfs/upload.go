@@ -3,6 +3,7 @@ package snapshotfs
 import (
 	"bytes"
 	"context"
+	stderrors "errors"
 	"io"
 	"math/rand"
 	"os"
@@ -18,7 +19,6 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/multierr"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -178,11 +178,10 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	var wg workshare.AsyncGroup[*uploadWorkItem]
 	defer wg.Close()
 
-	for i := 0; i < len(parts); i++ {
-		i := i
+	for i := range parts {
 		offset := int64(i) * chunkSize
 
-		length := chunkSize
+		length := chunkSize //nolint:copyloopvar
 		if i == len(parts)-1 {
 			// last part has unknown length to accommodate the file that may be growing as we're snapshotting it
 			length = -1
@@ -190,7 +189,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 
 		if wg.CanShareWork(u.workerPool) {
 			// another goroutine is available, delegate to them
-			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], request *uploadWorkItem) {
+			wg.RunAsync(u.workerPool, func(_ *workshare.Pool[*uploadWorkItem], _ *uploadWorkItem) {
 				parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp)
 			}, nil)
 		} else {
@@ -202,7 +201,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	wg.Wait()
 
 	// see if we got any errors
-	if err := multierr.Combine(partErrors...); err != nil {
+	if err := stderrors.Join(partErrors...); err != nil {
 		return nil, errors.Wrap(err, "error uploading parts")
 	}
 
@@ -249,7 +248,6 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 	defer writer.Close() //nolint:errcheck
 
 	parentCheckpointRegistry.addCheckpointCallback(fname, func() (*snapshot.DirEntry, error) {
-		//nolint:govet
 		checkpointID, err := writer.Checkpoint()
 		if err != nil {
 			return nil, errors.Wrap(err, "checkpoint error")
@@ -809,7 +807,7 @@ func (u *Uploader) processDirectoryEntries(
 		entryRelativePath := path.Join(dirRelativePath, entry2.Name())
 
 		if wg.CanShareWork(u.workerPool) {
-			wg.RunAsync(u.workerPool, func(c *workshare.Pool[*uploadWorkItem], wi *uploadWorkItem) {
+			wg.RunAsync(u.workerPool, func(_ *workshare.Pool[*uploadWorkItem], wi *uploadWorkItem) {
 				wi.err = u.processSingle(ctx, entry2, entryRelativePath, parentDirBuilder, policyTree, prevDirs, localDirPathOrEmpty, parentCheckpointRegistry)
 			}, &uploadWorkItem{})
 		} else {
@@ -1154,6 +1152,7 @@ func uploadDirInternal(
 		}
 
 		checkpointManifest := thisCheckpointBuilder.Build(fs.UTCTimestampFromTime(directory.ModTime()), IncompleteReasonCheckpoint)
+
 		oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, checkpointManifest)
 		if err != nil {
 			return nil, errors.Wrap(err, "error writing dir manifest")

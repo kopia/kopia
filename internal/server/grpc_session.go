@@ -114,8 +114,6 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		lastErr := make(chan error, 1)
 
 		for req, err := srv.Recv(); err == nil; req, err = srv.Recv() {
-			req := req
-
 			// propagate any error from the goroutines
 			select {
 			case err := <-lastErr:
@@ -217,14 +215,14 @@ func handleGetContentInfoRequest(ctx context.Context, dw repo.DirectRepositoryWr
 		Response: &grpcapi.SessionResponse_GetContentInfo{
 			GetContentInfo: &grpcapi.GetContentInfoResponse{
 				Info: &grpcapi.ContentInfo{
-					Id:               ci.GetContentID().String(),
-					PackedLength:     ci.GetPackedLength(),
-					TimestampSeconds: ci.GetTimestampSeconds(),
-					PackBlobId:       string(ci.GetPackBlobID()),
-					PackOffset:       ci.GetPackOffset(),
-					Deleted:          ci.GetDeleted(),
-					FormatVersion:    uint32(ci.GetFormatVersion()),
-					OriginalLength:   ci.GetOriginalLength(),
+					Id:               ci.ContentID.String(),
+					PackedLength:     ci.PackedLength,
+					TimestampSeconds: ci.TimestampSeconds,
+					PackBlobId:       string(ci.PackBlobID),
+					PackOffset:       ci.PackOffset,
+					Deleted:          ci.Deleted,
+					FormatVersion:    uint32(ci.FormatVersion),
+					OriginalLength:   ci.OriginalLength,
 				},
 			},
 		},
@@ -551,10 +549,7 @@ func (s *Server) handleInitialSessionHandshake(srv grpcapi.KopiaRepository_Sessi
 		return repo.WriteSessionOptions{}, errors.Errorf("missing initialization request")
 	}
 
-	scc, err := dr.ContentReader().SupportsContentCompression()
-	if err != nil {
-		return repo.WriteSessionOptions{}, errors.Wrap(err, "supports content compression")
-	}
+	scc := dr.ContentReader().SupportsContentCompression()
 
 	if err := s.send(srv, initializeReq.GetRequestId(), &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_InitializeSession{

@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/format"
 )
 
 // RecoverIndexFromPackBlob attempts to recover index blob entries from a given pack file.
@@ -29,12 +30,7 @@ func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile b
 
 	var recovered []Info
 
-	err = ndx.Iterate(index.AllIDs, func(i index.InfoReader) error {
-		// 'i' is ephemeral and will depend on temporary buffers which
-		// won't be available when this function returns, we need to
-		// convert it to durable struct.
-		is := index.ToInfoStruct(i)
-
+	err = ndx.Iterate(index.AllIDs, func(is index.Info) error {
 		recovered = append(recovered, is)
 
 		return nil
@@ -42,7 +38,7 @@ func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile b
 
 	if commit {
 		bm.lock()
-		defer bm.unlock()
+		defer bm.unlock(ctx)
 
 		for _, is := range recovered {
 			bm.packIndexBuilder.Add(is)
@@ -170,12 +166,7 @@ func decodePostamble(payload []byte) *packContentPostamble {
 	}
 }
 
-func (sm *SharedManager) buildLocalIndex(pending index.Builder, output *gather.WriteBuffer) error {
-	mp, mperr := sm.format.GetMutableParameters()
-	if mperr != nil {
-		return errors.Wrap(mperr, "mutable parameters")
-	}
-
+func (sm *SharedManager) buildLocalIndex(mp format.MutableParameters, pending index.Builder, output *gather.WriteBuffer) error {
 	if err := pending.Build(output, mp.IndexVersion); err != nil {
 		return errors.Wrap(err, "unable to build local index")
 	}
@@ -184,14 +175,14 @@ func (sm *SharedManager) buildLocalIndex(pending index.Builder, output *gather.W
 }
 
 // appendPackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (sm *SharedManager) appendPackFileIndexRecoveryData(pending index.Builder, output *gather.WriteBuffer) error {
+func (sm *SharedManager) appendPackFileIndexRecoveryData(mp format.MutableParameters, pending index.Builder, output *gather.WriteBuffer) error {
 	// build, encrypt and append local index
 	localIndexOffset := output.Length()
 
 	var localIndex gather.WriteBuffer
 	defer localIndex.Close()
 
-	if err := sm.buildLocalIndex(pending, &localIndex); err != nil {
+	if err := sm.buildLocalIndex(mp, pending, &localIndex); err != nil {
 		return err
 	}
 

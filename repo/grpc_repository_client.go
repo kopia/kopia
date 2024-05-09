@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/url"
 	"runtime"
 	"sync"
@@ -682,8 +683,8 @@ func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID)
 	return nil, errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) SupportsContentCompression() (bool, error) {
-	return r.serverSupportsContentCompression, nil
+func (r *grpcRepositoryClient) SupportsContentCompression() bool {
+	return r.serverSupportsContentCompression
 }
 
 func (r *grpcRepositoryClient) doWriteAsync(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID) error {
@@ -828,21 +829,12 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		transportCreds = credentials.NewClientTLSFromCert(nil, "")
 	}
 
-	u, err := url.Parse(si.BaseURL)
+	uri, err := baseURLToURI(si.BaseURL)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to parse server URL")
+		return nil, errors.Wrap(err, "parsing base URL")
 	}
 
-	if u.Scheme != "kopia" && u.Scheme != "https" && u.Scheme != "unix+https" {
-		return nil, errors.Errorf("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
-	}
-
-	uri := u.Hostname() + ":" + u.Port()
-	if u.Scheme == "unix+https" {
-		uri = "unix:" + u.Path
-	}
-
-	conn, err := grpc.Dial(
+	conn, err := grpc.NewClient(
 		uri,
 		grpc.WithPerRPCCredentials(grpcCreds{par.cliOpts.Hostname, par.cliOpts.Username, password}),
 		grpc.WithTransportCredentials(transportCreds),
@@ -852,7 +844,7 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		),
 	)
 	if err != nil {
-		return nil, errors.Wrap(err, "dial error")
+		return nil, errors.Wrap(err, "gRPC client creation error")
 	}
 
 	par.refCountedCloser.registerEarlyCloseFunc(
@@ -866,6 +858,24 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	}
 
 	return rep, nil
+}
+
+func baseURLToURI(baseURL string) (uri string, err error) {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to parse server URL")
+	}
+
+	if u.Scheme != "kopia" && u.Scheme != "https" && u.Scheme != "unix+https" {
+		return "", errors.Errorf("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
+	}
+
+	uri = net.JoinHostPort(u.Hostname(), u.Port())
+	if u.Scheme == "unix+https" {
+		uri = "unix:" + u.Path
+	}
+
+	return uri, nil
 }
 
 func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (*grpcInnerSession, error) {
@@ -939,7 +949,7 @@ func newGRPCAPIRepositoryForConnection(
 	par *immutableServerRepositoryParameters,
 ) (*grpcRepositoryClient, error) {
 	if opt.OnUpload == nil {
-		opt.OnUpload = func(i int64) {}
+		opt.OnUpload = func(_ int64) {}
 	}
 
 	rr := &grpcRepositoryClient{
@@ -954,6 +964,7 @@ func newGRPCAPIRepositoryForConnection(
 
 	return inSessionWithoutRetry(ctx, rr, func(ctx context.Context, sess *grpcInnerSession) (*grpcRepositoryClient, error) {
 		p := sess.repoParams
+
 		hf, err := hashing.CreateHashFunc(p)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create hash function")
