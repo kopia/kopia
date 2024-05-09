@@ -137,7 +137,7 @@ func TestRestoreCommand(t *testing.T) {
 
 	runner.CustomizeApp = origCustomizeApp
 
-	// Expecting progress to be reported multiple times and flush to be invoked ad the end
+	// Expecting progress to be reported multiple times and flush to be invoked at the end
 	require.Greater(t, len(frp.invocations), 2, "expected multiple reports of progress")
 	require.Equal(t, 1, frp.flushesCount, "expected to have progress flushed once")
 	require.False(t, frp.invocationAfterFlush, "expected not to have reports after flush")
