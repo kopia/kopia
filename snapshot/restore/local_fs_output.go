@@ -54,6 +54,34 @@ func getStreamCopier(ctx context.Context, targetpath string, sparse bool) (strea
 	}, nil
 }
 
+// progressReportingReader is just a wrapper for fs.Reader which is used to capture and pass to cb number of bytes read.
+type progressReportingReader struct {
+	r fs.Reader
+
+	cb FileWriteProgress
+}
+
+func (r *progressReportingReader) Entry() (fs.Entry, error) {
+	return r.r.Entry() //nolint:wrapcheck
+}
+
+func (r *progressReportingReader) Seek(offset int64, whence int) (int64, error) {
+	return r.r.Seek(offset, whence) //nolint:wrapcheck
+}
+
+func (r *progressReportingReader) Close() error {
+	return r.r.Close() //nolint:wrapcheck
+}
+
+func (r *progressReportingReader) Read(p []byte) (int, error) {
+	bytesRead, err := r.r.Read(p)
+	if err == nil && r.cb != nil {
+		r.cb(int64(bytesRead))
+	}
+
+	return bytesRead, err //nolint:wrapcheck
+}
+
 // FilesystemOutput contains the options for outputting a file system tree.
 type FilesystemOutput struct {
 	// TargetPath for restore.
@@ -147,11 +175,11 @@ func (o *FilesystemOutput) Close(ctx context.Context) error {
 }
 
 // WriteFile implements restore.Output interface.
-func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
+func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File, progressCb FileWriteProgress) error {
 	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
-	if err := o.copyFileContent(ctx, path, f); err != nil {
+	if err := o.copyFileContent(ctx, path, f, progressCb); err != nil {
 		return errors.Wrap(err, "error creating file")
 	}
 
@@ -384,7 +412,7 @@ func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
 	return nil
 }
 
-func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
+func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File, progressCb FileWriteProgress) error {
 	switch _, err := os.Stat(targetPath); {
 	case os.IsNotExist(err): // copy file below
 	case err == nil:
@@ -403,15 +431,20 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 	}
 	defer r.Close() //nolint:errcheck
 
+	wr := &progressReportingReader{
+		r:  r,
+		cb: progressCb,
+	}
+
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
 	targetPath = atomicfile.MaybePrefixLongFilenameOnWindows(targetPath)
 
 	if o.WriteFilesAtomically {
 		//nolint:wrapcheck
-		return atomicfile.Write(targetPath, r)
+		return atomicfile.Write(targetPath, wr)
 	}
 
-	return write(targetPath, r, f.Size(), o.copier)
+	return write(targetPath, wr, f.Size(), o.copier)
 }
 
 func isEmptyDirectory(name string) (bool, error) {

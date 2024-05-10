@@ -23,6 +23,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
@@ -86,6 +87,8 @@ type appServices interface {
 	advancedCommand(ctx context.Context)
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
+	getRestoreProgress() restore.Progress
+
 	stdout() io.Writer
 	Stderr() io.Writer
 	stdin() io.Reader
@@ -117,6 +120,7 @@ type App struct {
 	enableAutomaticMaintenance    bool
 	pf                            profileFlags
 	progress                      *cliProgress
+	restoreProgress               restore.Progress
 	initialUpdateCheckDelay       time.Duration
 	updateCheckInterval           time.Duration
 	updateAvailableNotifyInterval time.Duration
@@ -179,6 +183,15 @@ func (c *App) enableTestOnlyFlags() bool {
 
 func (c *App) getProgress() *cliProgress {
 	return c.progress
+}
+
+// SetRestoreProgress is used to set custom restore progress, purposed to be used in tests.
+func (c *App) SetRestoreProgress(p restore.Progress) {
+	c.restoreProgress = p
+}
+
+func (c *App) getRestoreProgress() restore.Progress {
+	return c.restoreProgress
 }
 
 func (c *App) stdin() io.Reader {
@@ -280,6 +293,10 @@ func (c *App) setup(app *kingpin.Application) {
 	c.pf.setup(app)
 	c.progress.setup(c, app)
 
+	if rp, ok := c.restoreProgress.(*cliRestoreProgress); ok {
+		rp.setup(c, app)
+	}
+
 	c.blob.setup(c, app)
 	c.benchmark.setup(c, app)
 	c.cache.setup(c, app)
@@ -308,7 +325,8 @@ type commandParent interface {
 // NewApp creates a new instance of App.
 func NewApp() *App {
 	return &App{
-		progress: &cliProgress{},
+		progress:        &cliProgress{},
+		restoreProgress: &cliRestoreProgress{},
 		cliStorageProviders: []StorageProvider{
 			{"from-config", "the provided configuration file", func() StorageFlags { return &storageFromConfigFlags{} }},
 
