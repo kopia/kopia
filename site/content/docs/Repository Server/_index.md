@@ -274,7 +274,7 @@ server {
 }
 ```
 
-Make sure you use a recent nginx version (>=1.16) and you start your kopia server with a certificate (`--insecure` does not work), e.g.
+Make sure you use a recent nginx version (>=1.16) and you start your kopia server with a certificate (`--insecure` does not work, as GRPC needs TLS, which is used by Repository Server), e.g.
 
 ```shell
 kopia server start --address 0.0.0.0:51515 --tls-cert-file ~/my.cert --tls-key-file ~/my.key
