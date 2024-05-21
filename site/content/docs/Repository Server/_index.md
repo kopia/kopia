@@ -54,6 +54,7 @@ kopia server start \
   --address 0.0.0.0:51515 \
   --server-control-username control \
   --server-control-password PASSWORD_HERE
+  --password REPO_PASSWORD
 ```
 
 This will generate TLS certificate and key files and store them in the provided paths (`~/my.cert` and `~/my.key` respectively). It will also print certificate SHA256 fingerprint, which will be used later:
