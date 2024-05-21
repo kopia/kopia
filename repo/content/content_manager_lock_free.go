@@ -31,9 +31,13 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 
 	// If the content is prefixed (which represents Kopia's own metadata as opposed to user data),
 	// and we're on V2 format or greater, enable internal compression even when not requested.
-	if contentID.HasPrefix() && comp == NoCompression && mp.IndexVersion >= index.Version2 {
-		// 'zstd-fastest' has a good mix of being fast, low memory usage and high compression for JSON.
-		comp = compression.HeaderZstdFastest
+	if contentID.HasPrefix() && mp.IndexVersion >= index.Version2 {
+		mp := sm.format.GetCachedMutableParameters()
+		if mp.MetadataCompression == "" || mp.MetadataCompression == "none" {
+			comp = NoCompression
+		} else {
+			comp = compression.ByName[mp.MetadataCompression].HeaderID()
+		}
 	}
 
 	//nolint:nestif

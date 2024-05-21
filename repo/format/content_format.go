@@ -7,8 +7,12 @@ import (
 
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/index"
 )
+
+// 'zstd-fastest' has a good mix of being fast, low memory usage and high compression for JSON.
+var DefaultMetadataCompressionAlgorithm = compression.HeaderIDToName[compression.HeaderZstdFastest]
 
 // ContentFormat describes the rules for formatting contents in repository.
 type ContentFormat struct {
@@ -63,10 +67,11 @@ func (f *ContentFormat) SupportsPasswordChange() bool {
 // MutableParameters represents parameters of the content manager that can be mutated after the repository
 // is created.
 type MutableParameters struct {
-	Version         Version          `json:"version,omitempty"`         // version number, must be "1", "2" or "3"
-	MaxPackSize     int              `json:"maxPackSize,omitempty"`     // maximum size of a pack object
-	IndexVersion    int              `json:"indexVersion,omitempty"`    // force particular index format version (1,2,..)
-	EpochParameters epoch.Parameters `json:"epochParameters,omitempty"` // epoch manager parameters
+	Version             Version          `json:"version,omitempty"`             // version number, must be "1", "2" or "3"
+	MaxPackSize         int              `json:"maxPackSize,omitempty"`         // maximum size of a pack object
+	IndexVersion        int              `json:"indexVersion,omitempty"`        // force particular index format version (1,2,..)
+	EpochParameters     epoch.Parameters `json:"epochParameters,omitempty"`     // epoch manager parameters
+	MetadataCompression compression.Name `json:"metadataCompression,omitempty"` // metadata compression algorithm name
 }
 
 // Validate validates the parameters.

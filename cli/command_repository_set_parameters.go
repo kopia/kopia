@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/maintenance"
 )
@@ -35,6 +36,8 @@ type commandRepositorySetParameters struct {
 	removeRequiredFeature        string
 	warnOnMissingRequiredFeature bool
 
+	metadataCompression string
+
 	svc appServices
 }
 
@@ -55,6 +58,10 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 	cmd.Flag("epoch-advance-on-size-mb", "Advance epoch if the total size of indexes exceeds given threshold").Int64Var(&c.epochAdvanceOnSizeMB)
 	cmd.Flag("epoch-delete-parallelism", "Epoch delete parallelism").IntVar(&c.epochDeleteParallelism)
 	cmd.Flag("epoch-checkpoint-frequency", "Checkpoint frequency").IntVar(&c.epochCheckpointFrequency)
+
+	cmd.Flag("metadata-compression", "Metadata Compression algorithm").EnumVar(
+		&c.metadataCompression,
+		supportedCompressionAlgorithms()[1:]...) // Do not show `inherit` as an valid flag
 
 	if svc.enableTestOnlyFlags() {
 		cmd.Flag("add-required-feature", "Add required feature which must be present to open the repository").Hidden().StringVar(&c.addRequiredFeature)
@@ -95,6 +102,17 @@ func (c *commandRepositorySetParameters) setIntParameter(ctx context.Context, v 
 	}
 
 	*dst = v
+	*anyChange = true
+
+	log(ctx).Infof(" - setting %v to %v.\n", desc, v)
+}
+
+func (c *commandRepositorySetParameters) setMetadataCompressionParameter(ctx context.Context, v string, desc string, dst *compression.Name, anyChange *bool) {
+	if v == "" {
+		return
+	}
+
+	*dst = compression.Name(v)
 	*anyChange = true
 
 	log(ctx).Infof(" - setting %v to %v.\n", desc, v)
@@ -224,6 +242,8 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	c.setInt64SizeMBParameter(ctx, c.epochAdvanceOnSizeMB, "epoch advance on total size", &mp.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold, &anyChange)
 	c.setIntParameter(ctx, c.epochDeleteParallelism, "epoch delete parallelism", &mp.EpochParameters.DeleteParallelism, &anyChange)
 	c.setIntParameter(ctx, c.epochCheckpointFrequency, "epoch checkpoint frequency", &mp.EpochParameters.FullCheckpointFrequency, &anyChange)
+
+	c.setMetadataCompressionParameter(ctx, c.metadataCompression, "metadata compression algorithm", &mp.MetadataCompression, &anyChange)
 
 	requiredFeatures = c.addRemoveUpdateRequiredFeatures(requiredFeatures, &anyChange)
 

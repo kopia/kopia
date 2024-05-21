@@ -81,7 +81,8 @@ func (c *commandRepositoryCreate) newRepositoryOptionsFromFlags() *repo.NewRepos
 	return &repo.NewRepositoryOptions{
 		BlockFormat: format.ContentFormat{
 			MutableParameters: format.MutableParameters{
-				Version: format.Version(c.createFormatVersion),
+				Version:             format.Version(c.createFormatVersion),
+				MetadataCompression: format.DefaultMetadataCompressionAlgorithm,
 			},
 			Hash:               c.createBlockHashFormat,
 			Encryption:         c.createBlockEncryptionFormat,
