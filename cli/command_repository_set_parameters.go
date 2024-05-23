@@ -61,7 +61,7 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 
 	cmd.Flag("metadata-compression", "Metadata Compression algorithm").EnumVar(
 		&c.metadataCompression,
-		supportedCompressionAlgorithms()[1:]...) // Do not show `inherit` as an valid flag
+		supportedCompressionAlgorithms()[1:]...) // Do not show `inherit` as a valid flag
 
 	if svc.enableTestOnlyFlags() {
 		cmd.Flag("add-required-feature", "Add required feature which must be present to open the repository").Hidden().StringVar(&c.addRequiredFeature)
