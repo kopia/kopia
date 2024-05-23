@@ -12,7 +12,7 @@ import (
 )
 
 // 'zstd-fastest' has a good mix of being fast, low memory usage and high compression for JSON.
-var DefaultMetadataCompressionAlgorithm = compression.HeaderIDToName[compression.HeaderZstdFastest]
+const DefaultMetadataCompressionAlgorithmName = "zstd-fastest"
 
 // ContentFormat describes the rules for formatting contents in repository.
 type ContentFormat struct {

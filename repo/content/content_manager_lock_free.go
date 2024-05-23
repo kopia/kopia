@@ -33,10 +33,14 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 	// and we're on V2 format or greater, enable internal compression even when not requested.
 	if contentID.HasPrefix() && mp.IndexVersion >= index.Version2 {
 		mp := sm.format.GetCachedMutableParameters()
-		if mp.MetadataCompression == "" || mp.MetadataCompression == "none" {
+		switch {
+		case mp.MetadataCompression == "none":
 			comp = NoCompression
-		} else {
+		case mp.MetadataCompression != "":
 			comp = compression.ByName[mp.MetadataCompression].HeaderID()
+		default:
+			// For older repo where MetadataCompression is not set, use ZstdFastest algorithm by default
+			comp = compression.ByName[format.DefaultMetadataCompressionAlgorithmName].HeaderID()
 		}
 	}
 
