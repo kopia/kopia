@@ -1,11 +1,9 @@
 package user
 
 import (
-	"math/rand"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/manifest"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -39,32 +37,16 @@ func (p *Profile) SetPassword(password string) error {
 
 // IsValidPassword determines whether the password is valid for a given user.
 func (p *Profile) IsValidPassword(password string) (bool, error) {
-	var invalidProfile bool
-
-	var passwordHashAlgorithm string
-
-	var err error
-
 	if p == nil {
-		invalidProfile = true
-	} else {
-		passwordHashAlgorithm, err = getPasswordHashAlgorithm(p.PasswordHashVersion)
-		if err != nil {
-			invalidProfile = true
-		}
-	}
-
-	if invalidProfile {
-		algorithms := PasswordHashingAlgorithms()
-		// if the user profile is invalid, either a non-existing user name or password
-		// hash version, then return false but use the same amount of time as when we
+		// if the user profile is invalid, either a non-existing user name, then
+		// return false but use the same amount of time as when we
 		// compare against valid user to avoid revealing whether the user account exists.
-		_, err := isValidPassword(password, dummyHashThatNeverMatchesAnyPassword, algorithms[rand.Intn(len(algorithms))]) //nolint:gosec
+		_, err := isValidPassword(password, dummyHashThatNeverMatchesAnyPassword, defaultPasswordHashVersion)
 
 		return false, err
 	}
 
-	return isValidPassword(password, p.PasswordHash, passwordHashAlgorithm)
+	return isValidPassword(password, p.PasswordHash, p.PasswordHashVersion)
 }
 
 // GetPasswordHashVersion returns the password hash version given an algorithm.
