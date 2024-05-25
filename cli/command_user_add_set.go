@@ -44,25 +44,13 @@ func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, i
 }
 
 func (c *commandServerUserAddSet) getExistingOrNewUserProfile(ctx context.Context, rep repo.Repository, username string) (*user.Profile, error) {
-	up, err := user.GetUserProfile(ctx, rep, username)
-
 	if c.isNew {
-		switch {
-		case err == nil:
-			return nil, errors.Errorf("user %q already exists", username)
+		up, err := user.GetNewProfile(ctx, rep, username)
 
-		case errors.Is(err, user.ErrUserNotFound):
-			passwordHashVersion, err := user.GetPasswordHashVersion(c.userSetPasswordHashAlgorithm)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to get password hash version")
-			}
-
-			return &user.Profile{
-				Username:            username,
-				PasswordHashVersion: passwordHashVersion,
-			}, nil
-		}
+		return up, errors.Wrap(err, "error getting new user profile")
 	}
+
+	up, err := user.GetUserProfile(ctx, rep, username)
 
 	return up, errors.Wrap(err, "error getting user profile")
 }
