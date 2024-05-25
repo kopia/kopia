@@ -11,7 +11,17 @@ import (
 )
 
 //nolint:gochecknoglobals
-var dummyHashThatNeverMatchesAnyPassword = make([]byte, passwordHashSaltLength+passwordHashLength)
+var dummyHashThatNeverMatchesAnyPassword = initDummyHash()
+
+func initDummyHash() []byte {
+	s := make([]byte, passwordHashSaltLength+passwordHashLength)
+
+	for i := range s {
+		s[i] = 0xFF
+	}
+
+	return s
+}
 
 func (p *Profile) setPassword(password string) error {
 	passwordHashAlgorithm, err := getPasswordHashAlgorithm(p.PasswordHashVersion)
