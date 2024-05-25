@@ -47,13 +47,14 @@ Other commands are also available:
 To start repository server with auto-generated TLS certificate for the first time:
 
 ```shell
-kopia server start \
-  --tls-generate-cert \
-  --tls-cert-file ~/my.cert \
-  --tls-key-file ~/my.key \
-  --address 0.0.0.0:51515 \
-  --server-control-username control \
-  --server-control-password PASSWORD_HERE
+KOPIA_PASSWORD="<password-for-the-repository>" \
+KOPIA_SERVER_CONTROL_PASSWORD="<server-control-password>" \
+  kopia server start \
+    --tls-generate-cert \
+    --tls-cert-file ~/my.cert \
+    --tls-key-file ~/my.key \
+    --address 0.0.0.0:51515 \
+    --server-control-username control
 ```
 
 This will generate TLS certificate and key files and store them in the provided paths (`~/my.cert` and `~/my.key` respectively). It will also print certificate SHA256 fingerprint, which will be used later:
