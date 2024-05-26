@@ -52,7 +52,7 @@ func DirectoryWebDAV(ctx context.Context, entry fs.Directory) (Controller, error
 	}
 
 	srv := &http.Server{
-		ReadHeaderTimeout: 15 * time.Second, //nolint:gomnd
+		ReadHeaderTimeout: 15 * time.Second, //nolint:mnd
 		Handler:           mux,
 	}
 

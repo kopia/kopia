@@ -28,7 +28,7 @@ func (s *sourceSnapshots) Name() string {
 }
 
 func (s *sourceSnapshots) Mode() os.FileMode {
-	return 0o555 | os.ModeDir //nolint:gomnd
+	return 0o555 | os.ModeDir //nolint:mnd
 }
 
 func (s *sourceSnapshots) Size() int64 {
@@ -83,7 +83,7 @@ func (s *sourceSnapshots) Iterate(ctx context.Context) (fs.DirectoryIterator, er
 
 		de := &snapshot.DirEntry{
 			Name:        name,
-			Permissions: 0o555, //nolint:gomnd
+			Permissions: 0o555, //nolint:mnd
 			Type:        snapshot.EntryTypeDirectory,
 			ModTime:     m.StartTime,
 			ObjectID:    m.RootObjectID(),

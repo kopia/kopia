@@ -217,7 +217,7 @@ func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.St
 
 // TestValidationOptions is the set of options used when running providing validation from tests.
 //
-//nolint:gomnd
+//nolint:mnd
 var TestValidationOptions = providervalidation.Options{
 	MaxClockDrift:                   3 * time.Minute,
 	ConcurrencyTestDuration:         15 * time.Second,

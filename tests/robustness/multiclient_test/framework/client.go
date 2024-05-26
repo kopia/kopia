@@ -38,7 +38,7 @@ func NewClientContext(ctx context.Context) context.Context {
 func NewClientContexts(ctx context.Context, n int) []context.Context {
 	ctxs := make([]context.Context, n)
 	for i := range ctxs {
-		ctxs[i] = NewClientContext(ctx)
+		ctxs[i] = NewClientContext(ctx) //nolint:fatcontext
 	}
 
 	return ctxs

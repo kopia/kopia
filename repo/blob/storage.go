@@ -331,28 +331,28 @@ func TotalLength(mds []Metadata) int64 {
 
 // MinTimestamp returns minimum timestamp for blobs in Metadata slice.
 func MinTimestamp(mds []Metadata) time.Time {
-	min := time.Time{}
+	minTime := time.Time{}
 
 	for _, md := range mds {
-		if min.IsZero() || md.Timestamp.Before(min) {
-			min = md.Timestamp
+		if minTime.IsZero() || md.Timestamp.Before(minTime) {
+			minTime = md.Timestamp
 		}
 	}
 
-	return min
+	return minTime
 }
 
 // MaxTimestamp returns maximum timestamp for blobs in Metadata slice.
 func MaxTimestamp(mds []Metadata) time.Time {
-	max := time.Time{}
+	maxTime := time.Time{}
 
 	for _, md := range mds {
-		if md.Timestamp.After(max) {
-			max = md.Timestamp
+		if md.Timestamp.After(maxTime) {
+			maxTime = md.Timestamp
 		}
 	}
 
-	return max
+	return maxTime
 }
 
 // DeleteMultiple deletes multiple blobs in parallel.

@@ -700,9 +700,9 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	// measure concurrency of PutBlob calls
 	th.faulty.AddFault(blobtesting.MethodPutBlob).Repeat(10).Before(func() {
 		v := currentParallelCalls.Add(1)
-		max := maxParallelCalls.Load()
-		if v > max {
-			maxParallelCalls.CompareAndSwap(max, v)
+		maxParallelism := maxParallelCalls.Load()
+		if v > maxParallelism {
+			maxParallelCalls.CompareAndSwap(maxParallelism, v)
 		}
 
 		time.Sleep(100 * time.Millisecond)
@@ -1217,7 +1217,7 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 	})
 
 	// make sure we actually tested something
-	require.Greater(t, successCount, 0)
+	require.Positive(t, successCount)
 }
 
 func verifyFileContent(t *testing.T, f1Entry fs.File, f2Name string) {

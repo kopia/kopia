@@ -34,10 +34,10 @@ func epochNumberFromBlobID(blobID blob.ID) (int, bool) {
 
 // epochRangeFromBlobID extracts the range epoch numbers from a string formatted as
 // <prefix><epochNumber>_<epochNumber2>_<remainder>.
-func epochRangeFromBlobID(blobID blob.ID) (min, max int, ok bool) {
+func epochRangeFromBlobID(blobID blob.ID) (minEpoch, maxEpoch int, ok bool) {
 	parts := strings.Split(string(blobID), "_")
 
-	//nolint:gomnd
+	//nolint:mnd
 	if len(parts) < 3 {
 		return 0, 0, false
 	}
@@ -118,7 +118,7 @@ var errNonContiguousRange = errors.New("non-contiguous range")
 
 // constants from the standard math package.
 const (
-	//nolint:gomnd
+	//nolint:mnd
 	intSize = 32 << (^uint(0) >> 63) // 32 or 64
 
 	maxInt = 1<<(intSize-1) - 1

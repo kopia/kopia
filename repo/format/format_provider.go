@@ -100,7 +100,7 @@ func NewFormattingOptionsProvider(f0 *ContentFormat, formatBytes []byte) (Provid
 	// apply default
 	if f.MaxPackSize == 0 {
 		// legacy only, apply default
-		f.MaxPackSize = 20 << 20 //nolint:gomnd
+		f.MaxPackSize = 20 << 20 //nolint:mnd
 	}
 
 	h, err := hashing.CreateHashFunc(f)

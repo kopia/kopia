@@ -21,21 +21,21 @@ var (
 
 	defaultAllocator = &chunkAllocator{
 		name:            "default",
-		chunkSize:       1 << 16, //nolint:gomnd
-		maxFreeListSize: 2048,    //nolint:gomnd
+		chunkSize:       1 << 16, //nolint:mnd
+		maxFreeListSize: 2048,    //nolint:mnd
 	}
 
 	// typicalContiguousAllocator is used for short-term buffers for encryption.
 	typicalContiguousAllocator = &chunkAllocator{
 		name:            "mid-size contiguous",
-		chunkSize:       8<<20 + 128, //nolint:gomnd
+		chunkSize:       8<<20 + 128, //nolint:mnd
 		maxFreeListSize: runtime.NumCPU(),
 	}
 
 	// maxContiguousAllocator is used for short-term buffers for encryption.
 	maxContiguousAllocator = &chunkAllocator{
 		name:            "contiguous",
-		chunkSize:       16<<20 + 128, //nolint:gomnd
+		chunkSize:       16<<20 + 128, //nolint:mnd
 		maxFreeListSize: runtime.NumCPU(),
 	}
 )

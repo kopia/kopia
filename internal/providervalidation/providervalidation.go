@@ -40,7 +40,7 @@ type Options struct {
 
 // DefaultOptions is the default set of options.
 //
-//nolint:gomnd,gochecknoglobals
+//nolint:mnd,gochecknoglobals
 var DefaultOptions = Options{
 	MaxClockDrift:                   3 * time.Minute,
 	ConcurrencyTestDuration:         30 * time.Second,
@@ -102,7 +102,7 @@ func openEquivalentStorageConnections(ctx context.Context, st blob.Storage, n in
 // ValidateProvider runs a series of tests against provided storage to validate that
 // it can be used with Kopia.
 //
-//nolint:gomnd,funlen,gocyclo,cyclop
+//nolint:mnd,funlen,gocyclo,cyclop
 func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error {
 	if os.Getenv("KOPIA_SKIP_PROVIDER_VALIDATION") != "" {
 		return nil
@@ -350,7 +350,7 @@ func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() 
 }
 
 func (c *concurrencyTest) randomSleep() {
-	time.Sleep(time.Duration(rand.Intn(int(500 * time.Millisecond)))) //nolint:gosec,gomnd
+	time.Sleep(time.Duration(rand.Intn(int(500 * time.Millisecond)))) //nolint:gosec,mnd
 }
 
 func (c *concurrencyTest) pickBlob() (blob.ID, int64, bool) {

@@ -38,7 +38,7 @@ func GetInterestingTempDirectoryName() (string, error) {
 			td = filepath.Join(td, strings.Repeat("f", targetLen-n))
 		}
 
-		//nolint:gomnd
+		//nolint:mnd
 		if err := os.MkdirAll(td, 0o700); err != nil {
 			return "", errors.Wrap(err, "unable to create temp directory")
 		}
@@ -161,9 +161,9 @@ func trimOutput(s string) string {
 		return s
 	}
 
-	lines2 := append([]string(nil), lines[0:(maxOutputLinesToLog/2)]...) //nolint:gomnd
+	lines2 := append([]string(nil), lines[0:(maxOutputLinesToLog/2)]...) //nolint:mnd
 	lines2 = append(lines2, fmt.Sprintf("/* %v lines removed */", len(lines)-maxOutputLinesToLog))
-	lines2 = append(lines2, lines[len(lines)-(maxOutputLinesToLog/2):]...) //nolint:gomnd
+	lines2 = append(lines2, lines[len(lines)-(maxOutputLinesToLog/2):]...) //nolint:mnd
 
 	return strings.Join(lines2, "\n")
 }

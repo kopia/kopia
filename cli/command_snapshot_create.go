@@ -207,7 +207,7 @@ func validateStartEndTime(st, et string) error {
 
 func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
 	u := snapshotfs.NewUploader(rep)
-	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
+	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:mnd
 
 	if c.snapshotCreateForceEnableActions {
 		u.EnableActions = true

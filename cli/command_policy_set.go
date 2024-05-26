@@ -229,7 +229,7 @@ func applyOptionalInt64MiB(ctx context.Context, desc string, val **policy.Option
 	}
 
 	// convert MiB to bytes
-	v *= 1 << 20 //nolint:gomnd
+	v *= 1 << 20 //nolint:mnd
 
 	i := policy.OptionalInt64(v)
 	*changeCount++

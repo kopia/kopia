@@ -253,7 +253,7 @@ func (c *commandBlobShardsModify) renameBlobs(ctx context.Context, dir, prefix s
 				if !c.dryRun {
 					err := os.Rename(srcFile, destFile)
 					if os.IsNotExist(err) {
-						//nolint:gomnd
+						//nolint:mnd
 						if err2 := os.MkdirAll(destDir, 0o700); err2 != nil {
 							return errors.Wrap(err2, "error creating directory")
 						}

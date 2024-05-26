@@ -79,7 +79,7 @@ func (c *commandMaintenanceSet) setLogCleanupParametersFromFlags(ctx context.Con
 
 	if v := c.maxTotalRetainedLogSizeMB; v != -1 {
 		cl := p.LogRetention.OrDefault()
-		cl.MaxTotalSize = v << 20 //nolint:gomnd
+		cl.MaxTotalSize = v << 20 //nolint:mnd
 		p.LogRetention = cl
 		*changed = true
 

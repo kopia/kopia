@@ -194,7 +194,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	}
 
 	httpServer := &http.Server{
-		ReadHeaderTimeout: 15 * time.Second, //nolint:gomnd
+		ReadHeaderTimeout: 15 * time.Second, //nolint:mnd
 		Addr:              stripProtocol(c.sf.serverAddress),
 		BaseContext: func(_ net.Listener) context.Context {
 			return ctx
@@ -330,7 +330,7 @@ func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authent
 		randomPassword := hex.EncodeToString(b)
 
 		// print it to the stderr bypassing any log file so that the user or calling process can connect
-		fmt.Fprintln(c.out.stderr(), "SERVER PASSWORD:", randomPassword)
+		fmt.Fprintln(c.out.stderr(), "SERVER PASSWORD:", randomPassword) //nolint:errcheck
 
 		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.sf.serverUsername, randomPassword))
 	}
@@ -348,7 +348,7 @@ func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authent
 		randomPassword := hex.EncodeToString(b)
 
 		// print it to the stderr bypassing any log file so that the user or calling process can connect
-		fmt.Fprintln(c.out.stderr(), "SERVER CONTROL PASSWORD:", randomPassword)
+		fmt.Fprintln(c.out.stderr(), "SERVER CONTROL PASSWORD:", randomPassword) //nolint:errcheck
 
 		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.serverControlUsername, randomPassword))
 	}

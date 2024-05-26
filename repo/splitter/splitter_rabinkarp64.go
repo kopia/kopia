@@ -84,7 +84,7 @@ func (rs *rabinKarp64Splitter) MaxSegmentSize() int {
 
 func newRabinKarp64SplitterFactory(avgSize int) Factory {
 	mask := uint64(avgSize - 1)
-	minSize, maxSize := avgSize/2, avgSize*2 //nolint:gomnd
+	minSize, maxSize := avgSize/2, avgSize*2 //nolint:mnd
 
 	return func() Splitter {
 		s := rabinkarp64.New()

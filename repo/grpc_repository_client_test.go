@@ -15,8 +15,8 @@ func TestMaxGRPCMessageSize(t *testing.T) {
 	var maxmax int
 
 	for _, s := range splitter.SupportedAlgorithms() {
-		if max := splitter.GetFactory(s)().MaxSegmentSize(); max > maxmax {
-			maxmax = max
+		if m := splitter.GetFactory(s)().MaxSegmentSize(); m > maxmax {
+			maxmax = m
 		}
 	}
 
