@@ -44,9 +44,9 @@ type contentManager interface {
 type Manager struct {
 	Format format.ObjectFormat
 
-	contentMgr  contentManager
-	newSplitter splitter.Factory
-	writerPool  sync.Pool
+	contentMgr         contentManager
+	newDefaultSplitter splitter.Factory
+	writerPool         sync.Pool
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
@@ -54,7 +54,19 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 	w, _ := om.writerPool.Get().(*objectWriter)
 	w.ctx = ctx
 	w.om = om
-	w.splitter = om.newSplitter()
+
+	var splitFactory splitter.Factory
+
+	if opt.Splitter != "" {
+		splitFactory = splitter.GetFactory(opt.Splitter)
+	}
+
+	if splitFactory == nil {
+		splitFactory = om.newDefaultSplitter
+	}
+
+	w.splitter = splitFactory()
+
 	w.description = opt.Description
 	w.prefix = opt.Prefix
 	w.compressor = compression.ByName[opt.Compressor]
@@ -223,7 +235,7 @@ func NewObjectManager(ctx context.Context, bm contentManager, f format.ObjectFor
 		return nil, errors.Errorf("unsupported splitter %q", f.Splitter)
 	}
 
-	om.newSplitter = os
+	om.newDefaultSplitter = os
 
 	return om, nil
 }

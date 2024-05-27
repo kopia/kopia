@@ -187,6 +187,56 @@ func TestCompression_ContentCompressionEnabled(t *testing.T) {
 	require.Equal(t, compression.ByName["gzip"].HeaderID(), cmap[cid])
 }
 
+func TestCompression_CustomSplitters(t *testing.T) {
+	cases := []struct {
+		wo          WriterOptions
+		wantLengths []int64
+	}{
+		{
+			wo:          WriterOptions{Splitter: ""},
+			wantLengths: []int64{1048576, 393216}, // uses default FIXED-1M
+		},
+		{
+			wo:          WriterOptions{Splitter: "nosuchsplitter"},
+			wantLengths: []int64{1048576, 393216}, // falls back to default FIXED-1M
+		},
+		{
+			wo:          WriterOptions{Splitter: "FIXED-128K"},
+			wantLengths: []int64{131072, 131072, 131072, 131072, 131072, 131072, 131072, 131072, 131072, 131072, 131072},
+		},
+		{
+			wo:          WriterOptions{Splitter: "FIXED-256K"},
+			wantLengths: []int64{262144, 262144, 262144, 262144, 262144, 131072},
+		},
+	}
+
+	ctx := testlogging.Context(t)
+
+	for _, tc := range cases {
+		cmap := map[content.ID]compression.HeaderID{}
+		_, fcm, om := setupTest(t, cmap)
+
+		w := om.NewWriter(ctx, tc.wo)
+
+		w.Write(bytes.Repeat([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11}, 128<<10))
+		oid, err := w.Result()
+		require.NoError(t, err)
+
+		ndx, ok := oid.IndexObjectID()
+		require.True(t, ok)
+
+		entries, err := LoadIndexObject(ctx, fcm, ndx)
+		require.NoError(t, err)
+
+		var gotLengths []int64
+		for _, e := range entries {
+			gotLengths = append(gotLengths, e.Length)
+		}
+
+		require.Equal(t, tc.wantLengths, gotLengths)
+	}
+}
+
 func TestCompression_ContentCompressionDisabled(t *testing.T) {
 	ctx := testlogging.Context(t)
 
