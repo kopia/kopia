@@ -223,7 +223,7 @@ func NewObjectManager(ctx context.Context, bm contentManager, f format.ObjectFor
 		return nil, errors.Errorf("unsupported splitter %q", f.Splitter)
 	}
 
-	om.newSplitter = splitter.Pooled(os)
+	om.newSplitter = os
 
 	return om, nil
 }
