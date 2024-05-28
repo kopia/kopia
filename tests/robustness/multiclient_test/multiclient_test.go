@@ -66,21 +66,17 @@ func TestManySmallFiles(t *testing.T) {
 
 func TestOneLargeFile(t *testing.T) {
 	const (
-		fileSize    = 40 * 1024 * 1024
-		numFiles    = 1
-		numClients  = 4
-		maxDirDepth = 1
+		fileSize   = 40 * 128 * 10 // 40 * 1024 * 1024
+		numFiles   = 1
+		numClients = 4
 	)
 
 	fileWriteOpts := map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
 		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
-	}
-	deleteDirOpts := map[string]string{
-		fiofilewriter.MaxDirDepthField: strconv.Itoa(maxDirDepth),
 	}
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
@@ -94,9 +90,6 @@ func TestOneLargeFile(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
-		require.NoError(t, err)
-
-		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
 		require.NoError(t, err)
 	}
 
