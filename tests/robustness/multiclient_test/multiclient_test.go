@@ -26,20 +26,22 @@ var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set
 
 func TestManySmallFiles(t *testing.T) {
 	const (
-		fileSize   = 4096
-		numFiles   = 10000
-		numClients = 4
+		fileSize    = 4096
+		numFiles    = 10000
+		numClients  = 4
+		maxDirDepth = 1
 	)
 
 	fileWriteOpts := map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
 		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
-	opts := map[string]string{}
-	opts[string(engine.DeleteRandomSubdirectoryActionKey)] = strconv.Itoa(8)
+	deleteDirOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField: strconv.Itoa(maxDirDepth),
+	}
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
@@ -54,7 +56,7 @@ func TestManySmallFiles(t *testing.T) {
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		require.NoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, opts)
+		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
 		require.NoError(t, err)
 	}
 
@@ -64,20 +66,22 @@ func TestManySmallFiles(t *testing.T) {
 
 func TestOneLargeFile(t *testing.T) {
 	const (
-		fileSize   = 40 * 1024 * 1024
-		numFiles   = 1
-		numClients = 4
+		fileSize    = 40 * 1024 * 1024
+		numFiles    = 1
+		numClients  = 4
+		maxDirDepth = 1
 	)
 
 	fileWriteOpts := map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
 		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
-	opts := map[string]string{}
-	opts[string(engine.DeleteRandomSubdirectoryActionKey)] = strconv.Itoa(8)
+	deleteDirOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField: strconv.Itoa(maxDirDepth),
+	}
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
@@ -92,7 +96,7 @@ func TestOneLargeFile(t *testing.T) {
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		require.NoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, opts)
+		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
 		require.NoError(t, err)
 	}
 
@@ -108,18 +112,20 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		filesPerWrite = 10
 		actionRepeats = numFiles / filesPerWrite
 		numClients    = 4
+		maxDirDepth   = 15
 	)
 
 	fileWriteOpts := map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(15),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
 		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
 		engine.ActionRepeaterField:             strconv.Itoa(actionRepeats),
 	}
-	opts := map[string]string{}
-	opts[string(engine.DeleteRandomSubdirectoryActionKey)] = strconv.Itoa(8)
+	deleteDirOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField: strconv.Itoa(maxDirDepth),
+	}
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
@@ -134,7 +140,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		require.NoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, opts)
+		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
 		require.NoError(t, err)
 	}
 
@@ -153,7 +159,7 @@ func TestRandomizedSmall(t *testing.T) {
 			string(engine.RestoreSnapshotActionKey):          strconv.Itoa(2),
 			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(4),
 			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(8),
-			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(8),
+			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(1),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
 			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(512 * 1024 * 1024),
