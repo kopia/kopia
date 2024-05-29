@@ -24,6 +24,7 @@ func MergePolicies(policies []*Policy, si snapshot.SourceInfo) (*Policy, *Defini
 		merged.SchedulingPolicy.Merge(p.SchedulingPolicy, &def.SchedulingPolicy, p.Target())
 		merged.UploadPolicy.Merge(p.UploadPolicy, &def.UploadPolicy, p.Target())
 		merged.CompressionPolicy.Merge(p.CompressionPolicy, &def.CompressionPolicy, p.Target())
+		merged.SplitterPolicy.Merge(p.SplitterPolicy, &def.SplitterPolicy, p.Target())
 		merged.Actions.Merge(p.Actions, &def.Actions, p.Target())
 		merged.OSSnapshotPolicy.Merge(p.OSSnapshotPolicy, &def.OSSnapshotPolicy, p.Target())
 		merged.LoggingPolicy.Merge(p.LoggingPolicy, &def.LoggingPolicy, p.Target())
@@ -40,6 +41,7 @@ func MergePolicies(policies []*Policy, si snapshot.SourceInfo) (*Policy, *Defini
 	merged.SchedulingPolicy.Merge(defaultSchedulingPolicy, &def.SchedulingPolicy, GlobalPolicySourceInfo)
 	merged.UploadPolicy.Merge(defaultUploadPolicy, &def.UploadPolicy, GlobalPolicySourceInfo)
 	merged.CompressionPolicy.Merge(defaultCompressionPolicy, &def.CompressionPolicy, GlobalPolicySourceInfo)
+	merged.SplitterPolicy.Merge(defaultSplitterPolicy, &def.SplitterPolicy, GlobalPolicySourceInfo)
 	merged.Actions.Merge(defaultActionsPolicy, &def.Actions, GlobalPolicySourceInfo)
 	merged.OSSnapshotPolicy.Merge(defaultOSSnapshotPolicy, &def.OSSnapshotPolicy, GlobalPolicySourceInfo)
 	merged.LoggingPolicy.Merge(defaultLoggingPolicy, &def.LoggingPolicy, GlobalPolicySourceInfo)
@@ -114,6 +116,13 @@ func mergeStrings(target *[]string, targetNoParent *bool, src []string, noParent
 	if noParent {
 		// prevent future merges.
 		*targetNoParent = noParent
+	}
+}
+
+func mergeString(target *string, src string, def *snapshot.SourceInfo, si snapshot.SourceInfo) {
+	if *target == "" && src != "" {
+		*target = src
+		*def = si
 	}
 }
 

@@ -126,6 +126,8 @@ func printPolicy(out *textOutput, p *policy.Policy, def *policy.Definition) {
 	rows = append(rows, policyTableRow{})
 	rows = appendCompressionPolicyRows(rows, p, def)
 	rows = append(rows, policyTableRow{})
+	rows = appendSplitterPolicyRows(rows, p, def)
+	rows = append(rows, policyTableRow{})
 	rows = appendActionsPolicyRows(rows, p, def)
 	rows = append(rows, policyTableRow{})
 	rows = appendOSSnapshotPolicyRows(rows, p, def)
@@ -382,6 +384,19 @@ func appendCompressionPolicyRows(rows []policyTableRow, p *policy.Policy, def *p
 	default:
 		rows = append(rows, policyTableRow{"  Compress files of all sizes.", "", ""})
 	}
+
+	return rows
+}
+
+func appendSplitterPolicyRows(rows []policyTableRow, p *policy.Policy, def *policy.Definition) []policyTableRow {
+	algorithm := p.SplitterPolicy.Algorithm
+	if algorithm == "" {
+		algorithm = "(repository default)"
+	}
+
+	rows = append(rows,
+		policyTableRow{"Splitter:", "", ""},
+		policyTableRow{"  Algorithm override:", algorithm, definitionPointToString(p.Target(), def.SplitterPolicy.Algorithm)})
 
 	return rows
 }

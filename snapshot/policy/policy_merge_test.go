@@ -156,6 +156,10 @@ func testPolicyMergeSingleField(t *testing.T, fieldName string, typ reflect.Type
 		v0 = reflect.ValueOf((*policy.OSSnapshotMode)(nil))
 		v1 = reflect.ValueOf(policy.NewOSSnapshotMode(policy.OSSnapshotNever))
 		v2 = reflect.ValueOf(policy.NewOSSnapshotMode(policy.OSSnapshotAlways))
+	case "string":
+		v0 = reflect.ValueOf("")
+		v1 = reflect.ValueOf("FIXED-2M")
+		v2 = reflect.ValueOf("FIXED-4M")
 
 	default:
 		t.Fatalf("unhandled case: %v - %v - please update test", fieldName, typ)
