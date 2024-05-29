@@ -30,7 +30,7 @@ func TestManySmallFiles(t *testing.T) {
 		numFiles                 = 10000
 		numClients               = 4
 		maxDirDepth              = 1
-		deleteContentsPercentage = 50
+		deleteContentsPercentage = 80
 	)
 
 	fileWriteOpts := map[string]string{
@@ -111,7 +111,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		actionRepeats            = numFiles / filesPerWrite
 		numClients               = 4
 		maxDirDepth              = 15
-		deleteContentsPercentage = 50
+		deleteContentsPercentage = 80
 	)
 
 	fileWriteOpts := map[string]string{
@@ -157,7 +157,7 @@ func TestRandomizedSmall(t *testing.T) {
 	st := timetrack.StartTimer()
 
 	maxDirDepth := 3
-	deleteContentsPercentage := 50
+	deleteContentsPercentage := 80
 
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
