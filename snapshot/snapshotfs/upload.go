@@ -161,11 +161,12 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	}
 
 	comp := pol.CompressionPolicy.CompressorForFile(f)
+	splitterName := pol.SplitterPolicy.SplitterForFile(f)
 
 	chunkSize := pol.UploadPolicy.ParallelUploadAboveSize.OrDefault(-1)
 	if chunkSize < 0 || f.Size() <= chunkSize {
 		// all data fits in 1 full chunks, upload directly
-		return u.uploadFileData(ctx, parentCheckpointRegistry, f, f.Name(), 0, -1, comp)
+		return u.uploadFileData(ctx, parentCheckpointRegistry, f, f.Name(), 0, -1, comp, splitterName)
 	}
 
 	// we always have N+1 parts, first N are exactly chunkSize, last one has undetermined length
@@ -190,11 +191,11 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 		if wg.CanShareWork(u.workerPool) {
 			// another goroutine is available, delegate to them
 			wg.RunAsync(u.workerPool, func(_ *workshare.Pool[*uploadWorkItem], _ *uploadWorkItem) {
-				parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp)
+				parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp, splitterName)
 			}, nil)
 		} else {
 			// just do the work in the current goroutine
-			parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp)
+			parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp, splitterName)
 		}
 	}
 
@@ -233,7 +234,7 @@ func concatenateParts(ctx context.Context, rep repo.RepositoryWriter, name strin
 	return de, nil
 }
 
-func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, f fs.File, fname string, offset, length int64, compressor compression.Name) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, f fs.File, fname string, offset, length int64, compressor compression.Name, splitterName string) (*snapshot.DirEntry, error) {
 	file, err := f.Open(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open file")
@@ -243,6 +244,7 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "FILE:" + fname,
 		Compressor:  compressor,
+		Splitter:    splitterName,
 		AsyncWrites: 1, // upload chunk in parallel to writing another chunk
 	})
 	defer writer.Close() //nolint:errcheck
@@ -351,9 +353,11 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 	}()
 
 	comp := pol.CompressionPolicy.CompressorForFile(f)
+
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "STREAMFILE:" + f.Name(),
 		Compressor:  comp,
+		Splitter:    pol.SplitterPolicy.SplitterForFile(f),
 	})
 
 	defer writer.Close() //nolint:errcheck
