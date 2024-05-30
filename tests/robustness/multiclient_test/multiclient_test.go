@@ -22,7 +22,7 @@ import (
 
 const (
 	defaultTestDur           = 5 * time.Minute
-	deleteContentsPercentage = 100
+	deleteContentsPercentage = 50
 )
 
 var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
@@ -65,6 +65,9 @@ func TestManySmallFiles(t *testing.T) {
 
 		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 		require.NoError(t, err)
+
+		_, err = eng.ExecAction(ctx, engine.GCActionKey, nil)
+		require.NoError(t, err)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
@@ -97,6 +100,9 @@ func TestOneLargeFile(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+		require.NoError(t, err)
+
+		_, err = eng.ExecAction(ctx, engine.GCActionKey, nil)
 		require.NoError(t, err)
 	}
 
@@ -146,6 +152,9 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 		require.NoError(t, err)
+
+		_, err = eng.ExecAction(ctx, engine.GCActionKey, nil)
+		require.NoError(t, err)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
@@ -166,6 +175,7 @@ func TestRandomizedSmall(t *testing.T) {
 			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(4),
 			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(8),
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(maxDirDepth),
+			string(engine.GCActionKey):                       strconv.Itoa(0),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
 			fiofilewriter.IOLimitPerWriteAction:        strconv.Itoa(512 * 1024 * 1024),
