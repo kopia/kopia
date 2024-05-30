@@ -73,7 +73,7 @@ func getLogSessions(ctx context.Context, st blob.Reader) ([]*logSessionInfo, err
 	if err := st.ListBlobs(ctx, repodiag.LogBlobPrefix, func(bm blob.Metadata) error {
 		parts := strings.Split(string(bm.BlobID), "_")
 
-		//nolint:gomnd
+		//nolint:mnd
 		if len(parts) < 8 {
 			log(ctx).Errorf("invalid part count: %v skipping unrecognized log: %v", len(parts), bm.BlobID)
 			return nil

@@ -37,7 +37,7 @@ func DefaultParams() Params {
 	return Params{
 		FullCycle: CycleParams{
 			Enabled:  true,
-			Interval: 24 * time.Hour, //nolint:gomnd
+			Interval: 24 * time.Hour, //nolint:mnd
 		},
 		QuickCycle: CycleParams{
 			Enabled:  true,

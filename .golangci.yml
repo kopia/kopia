@@ -65,34 +65,26 @@ linters-settings:
 linters:
   enable-all: true
   disable:
-    - deadcode
     - depguard
-    - exhaustivestruct
+    - execinquery
     - exhaustruct
     - gochecknoinits
-    - golint
+    - gomnd
     - gci
-    - ifshort
-    - interfacer
     - ireturn # this one may be interesting to control allocations
     - gosmopolitan
-    - maligned
     - musttag
     - nilnil
     - nlreturn
     - nonamedreturns
-    - nosnakecase
     - paralleltest
     - prealloc
     - rowserrcheck
-    - scopelint
     - sqlclosecheck
-    - structcheck
     - tagalign
     - tagliatelle
     - testpackage
     - tparallel
-    - varcheck
     - varnamelen # this one may be interesting, but too much churn
     - wastedassign
     - whitespace
@@ -116,7 +108,7 @@ issues:
       - gochecknoglobals
       - gocognit
       - goconst
-      - gomnd
+      - mnd
       - gosec
       - musttag
       - nestif
@@ -137,7 +129,7 @@ issues:
       - revive
     - text: "Magic number: 1e"
       linters:
-      - gomnd
+      - mnd
     - text: "unnecessaryDefer"
       linters:
       - gocritic
@@ -164,7 +156,7 @@ issues:
         - gocritic
     - text: ".*Magic number\\: [01],"
       linters:
-        - gomnd
+        - mnd
     - text: "Errors unhandled"
       linters:
         - gosec

@@ -159,12 +159,12 @@ func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
 	}
 
 	if e1 == nil {
-		fmt.Fprintln(out, fullpath, "does not exist in source directory")
+		fmt.Fprintln(out, fullpath, "does not exist in source directory") //nolint:errcheck
 		return false
 	}
 
 	if e2 == nil {
-		fmt.Fprintln(out, fullpath, "does not exist in destination directory")
+		fmt.Fprintln(out, fullpath, "does not exist in destination directory") //nolint:errcheck
 		return false
 	}
 
@@ -173,32 +173,32 @@ func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "modes differ: ", m1, m2)
+		fmt.Fprintln(out, fullpath, "modes differ: ", m1, m2) //nolint:errcheck
 	}
 
 	if s1, s2 := e1.Size(), e2.Size(); s1 != s2 {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "sizes differ: ", s1, s2)
+		fmt.Fprintln(out, fullpath, "sizes differ: ", s1, s2) //nolint:errcheck
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "modification times differ: ", mt1, mt2)
+		fmt.Fprintln(out, fullpath, "modification times differ: ", mt1, mt2) //nolint:errcheck
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "owner users differ: ", o1.UserID, o2.UserID)
+		fmt.Fprintln(out, fullpath, "owner users differ: ", o1.UserID, o2.UserID) //nolint:errcheck
 	}
 
 	if o1.GroupID != o2.GroupID {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "owner groups differ: ", o1.GroupID, o2.GroupID)
+		fmt.Fprintln(out, fullpath, "owner groups differ: ", o1.GroupID, o2.GroupID) //nolint:errcheck
 	}
 
 	// don't compare filesystem boundaries (e1.Device()), it's pretty useless and is not stored in backups
@@ -298,7 +298,7 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 }
 
 func (c *Comparer) output(msg string, args ...interface{}) {
-	fmt.Fprintf(c.out, msg, args...)
+	fmt.Fprintf(c.out, msg, args...) //nolint:errcheck
 }
 
 // NewComparer creates a comparer for a given repository that will output the results to a given writer.

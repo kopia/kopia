@@ -448,7 +448,7 @@ func handleApplyRetentionPolicyRequest(ctx context.Context, rep repo.RepositoryW
 	defer span.End()
 
 	parts := strings.Split(usernameAtHostname, "@")
-	if len(parts) != 2 { //nolint:gomnd
+	if len(parts) != 2 { //nolint:mnd
 		return errorResponse(errors.Errorf("invalid username@hostname: %q", usernameAtHostname))
 	}
 
@@ -578,7 +578,7 @@ func (s *Server) RegisterGRPCHandlers(r grpc.ServiceRegistrar) {
 
 func makeGRPCServerState(maxConcurrency int) grpcServerState {
 	if maxConcurrency == 0 {
-		maxConcurrency = 2 * runtime.NumCPU() //nolint:gomnd
+		maxConcurrency = 2 * runtime.NumCPU() //nolint:mnd
 	}
 
 	return grpcServerState{

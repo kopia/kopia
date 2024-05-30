@@ -21,7 +21,7 @@ import (
 
 func deprecatedFlag(w io.Writer, help string) func(_ *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
-		fmt.Fprintf(w, "DEPRECATED: %v\n", help)
+		fmt.Fprintf(w, "DEPRECATED: %v\n", help) //nolint:errcheck
 		return nil
 	}
 }

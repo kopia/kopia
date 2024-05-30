@@ -64,11 +64,11 @@ func (o *textOutput) stderr() io.Writer {
 }
 
 func (o *textOutput) printStdout(msg string, args ...interface{}) {
-	fmt.Fprintf(o.stdout(), msg, args...)
+	fmt.Fprintf(o.stdout(), msg, args...) //nolint:errcheck
 }
 
 func (o *textOutput) printStderr(msg string, args ...interface{}) {
-	fmt.Fprintf(o.stderr(), msg, args...)
+	fmt.Fprintf(o.stderr(), msg, args...) //nolint:errcheck
 }
 
 // appServices are the methods of *App that command handles are allowed to call.

@@ -59,6 +59,6 @@ func TestThrottlingSemaphore(t *testing.T) {
 
 		// Equal() would probably work here due to Sleep(), but not risking a flake.
 		require.LessOrEqual(t, maxConcurrency, lim)
-		require.Greater(t, maxConcurrency, 0)
+		require.Positive(t, maxConcurrency)
 	}
 }

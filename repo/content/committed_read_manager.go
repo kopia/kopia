@@ -201,7 +201,7 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 
 // +checklocks:sm.indexesLock
 func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
-	nextSleepTime := 100 * time.Millisecond //nolint:gomnd
+	nextSleepTime := 100 * time.Millisecond //nolint:mnd
 
 	for i := range indexLoadAttempts {
 		ibm, err0 := sm.indexBlobManager(ctx)
