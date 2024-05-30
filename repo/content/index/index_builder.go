@@ -55,8 +55,8 @@ func init() {
 	}
 
 	for i := range 26 {
-		base36Value['a'+i] = byte(i + 10) //nolint:gomnd
-		base36Value['A'+i] = byte(i + 10) //nolint:gomnd
+		base36Value['a'+i] = byte(i + 10) //nolint:mnd
+		base36Value['A'+i] = byte(i + 10) //nolint:mnd
 	}
 }
 
@@ -70,10 +70,10 @@ func (b Builder) sortedContents() []Info {
 	// by first [0-9a-z] and second character [0-9a-f].
 	for cid, v := range b {
 		first := int(base36Value[cid.prefix])
-		second := int(cid.data[0] >> 4) //nolint:gomnd
+		second := int(cid.data[0] >> 4) //nolint:mnd
 
 		// first: 0..35, second: 0..15
-		buck := first<<4 + second //nolint:gomnd
+		buck := first<<4 + second //nolint:mnd
 
 		buckets[buck] = append(buckets[buck], v)
 	}

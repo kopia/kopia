@@ -100,12 +100,12 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 			Hash:               applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
 			Encryption:         applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
 			ECC:                applyDefaultString(opt.BlockFormat.ECC, ecc.DefaultAlgorithm),
-			ECCOverheadPercent: applyDefaultIntRange(opt.BlockFormat.ECCOverheadPercent, 0, 100), //nolint:gomnd
+			ECCOverheadPercent: applyDefaultIntRange(opt.BlockFormat.ECCOverheadPercent, 0, 100), //nolint:mnd
 			HMACSecret:         applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
 			MasterKey:          applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
 			MutableParameters: format.MutableParameters{
 				Version:         fv,
-				MaxPackSize:     applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:gomnd
+				MaxPackSize:     applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:mnd
 				IndexVersion:    applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
 				EpochParameters: opt.BlockFormat.EpochParameters,
 			},
@@ -140,11 +140,11 @@ func applyDefaultInt(v, def int) int {
 	return v
 }
 
-func applyDefaultIntRange(v, min, max int) int {
-	if v < min {
-		return min
-	} else if v > max {
-		return max
+func applyDefaultIntRange(v, minValue, maxValue int) int {
+	if v < minValue {
+		return minValue
+	} else if v > maxValue {
+		return maxValue
 	}
 
 	return v

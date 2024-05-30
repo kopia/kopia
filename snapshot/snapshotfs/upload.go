@@ -182,7 +182,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	for i := range parts {
 		offset := int64(i) * chunkSize
 
-		length := chunkSize //nolint:copyloopvar
+		length := chunkSize
 		if i == len(parts)-1 {
 			// last part has unknown length to accommodate the file that may be growing as we're snapshotting it
 			length = -1
@@ -773,9 +773,9 @@ func (u *Uploader) effectiveParallelFileReads(pol *policy.Policy) int {
 	}
 
 	// use policy setting or number of CPUs.
-	max := pol.UploadPolicy.MaxParallelFileReads.OrDefault(runtime.NumCPU())
-	if p < 1 || p > max {
-		return max
+	maxParallelism := pol.UploadPolicy.MaxParallelFileReads.OrDefault(runtime.NumCPU())
+	if p < 1 || p > maxParallelism {
+		return maxParallelism
 	}
 
 	return p

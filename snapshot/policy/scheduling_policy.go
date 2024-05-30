@@ -288,5 +288,5 @@ func ValidateSchedulingPolicy(p SchedulingPolicy) error {
 }
 
 func stripCronComment(s string) string {
-	return strings.TrimSpace(strings.SplitN(s, "#", 2)[0]) //nolint:gomnd
+	return strings.TrimSpace(strings.SplitN(s, "#", 2)[0]) //nolint:mnd
 }

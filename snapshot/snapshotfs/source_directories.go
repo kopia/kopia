@@ -30,7 +30,7 @@ func (s *sourceDirectories) Name() string {
 }
 
 func (s *sourceDirectories) Mode() os.FileMode {
-	return 0o555 | os.ModeDir //nolint:gomnd
+	return 0o555 | os.ModeDir //nolint:mnd
 }
 
 func (s *sourceDirectories) ModTime() time.Time {

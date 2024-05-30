@@ -44,13 +44,13 @@ func newReedSolomonCrcECC(opts *Options) (*ReedSolomonCrcECC, error) {
 		case opts.OverheadPercent == 1:
 			result.MaxShardSize = 1024
 
-		case opts.OverheadPercent == 2: //nolint:gomnd
+		case opts.OverheadPercent == 2: //nolint:mnd
 			result.MaxShardSize = 512
 
-		case opts.OverheadPercent == 3: //nolint:gomnd
+		case opts.OverheadPercent == 3: //nolint:mnd
 			result.MaxShardSize = 256
 
-		case opts.OverheadPercent <= 6: //nolint:gomnd
+		case opts.OverheadPercent <= 6: //nolint:mnd
 			result.MaxShardSize = 128
 
 		default:
@@ -60,11 +60,11 @@ func newReedSolomonCrcECC(opts *Options) (*ReedSolomonCrcECC, error) {
 
 	// Remove the space used for the crc from the allowed space overhead, if possible
 	freeSpaceOverhead := float32(opts.OverheadPercent) - 100*crcSize/float32(result.MaxShardSize)
-	freeSpaceOverhead = maxFloat32(freeSpaceOverhead, 0.01) //nolint:gomnd
+	freeSpaceOverhead = maxFloat32(freeSpaceOverhead, 0.01) //nolint:mnd
 	result.DataShards, result.ParityShards = computeShards(freeSpaceOverhead)
 
 	// Bellow this threshold the data will be split in less shards
-	result.ThresholdParityInput = 2 * crcSize * (result.DataShards + result.ParityShards) //nolint:gomnd
+	result.ThresholdParityInput = 2 * crcSize * (result.DataShards + result.ParityShards) //nolint:mnd
 	result.ThresholdParityOutput = computeFinalFileSizeWithPadding(smallFilesDataShards, smallFilesParityShards, ceilInt(result.ThresholdParityInput, smallFilesDataShards), 1)
 
 	// Bellow this threshold the shard size will shrink to the smallest possible
@@ -280,7 +280,7 @@ func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, _ []byte, output *gather
 
 	for b := range sizes.Blocks {
 		for i := range sizes.DataShards {
-			initialDataPos := dataPos //nolint:copyloopvar
+			initialDataPos := dataPos
 
 			crc := binary.BigEndian.Uint32(dataBytes[dataPos : dataPos+crcSize])
 			dataPos += crcSize
@@ -355,21 +355,21 @@ func readLength(shards [][]byte, sizes *sizesInfo) (originalSize, startShard, st
 			lengthBuffer[i] = shards[i][0]
 		}
 
-	case 2: //nolint:gomnd
+	case 2: //nolint:mnd
 		startShard = 2
 		startByte = 0
 
 		copy(lengthBuffer[0:2], shards[0])
 		copy(lengthBuffer[2:4], shards[1])
 
-	case 3: //nolint:gomnd
+	case 3: //nolint:mnd
 		startShard = 1
 		startByte = 1
 
 		copy(lengthBuffer[0:3], shards[0])
 		copy(lengthBuffer[3:4], shards[1])
 
-	case 4: //nolint:gomnd
+	case 4: //nolint:mnd
 		startShard = 1
 		startByte = 0
 

@@ -69,8 +69,8 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 		enc, err := encryption.CreateEncryptor(&format.ContentFormat{
 			Encryption: ea,
 			Hash:       hashing.DefaultAlgorithm,
-			MasterKey:  make([]byte, 32), //nolint:gomnd
-			HMACSecret: make([]byte, 32), //nolint:gomnd
+			MasterKey:  make([]byte, 32), //nolint:mnd
+			HMACSecret: make([]byte, 32), //nolint:mnd
 		})
 		if err != nil {
 			continue

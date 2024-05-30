@@ -345,8 +345,8 @@ func TestIndexBlobManagerPreventsResurrectOfDeletedContents_RandomizedTimings(t 
 	}
 }
 
-func randomDuration(max time.Duration) time.Duration {
-	return time.Duration(float64(max) * rand.Float64())
+func randomDuration(maxDuration time.Duration) time.Duration {
+	return time.Duration(float64(maxDuration) * rand.Float64())
 }
 
 func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, delay1, delay2, delay3, delay4, delay5 time.Duration) {

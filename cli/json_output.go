@@ -96,7 +96,7 @@ func (l *jsonList) begin(o *jsonOutput) {
 	l.o = o
 
 	if o.jsonOutput {
-		fmt.Fprintf(l.o.out, "[")
+		fmt.Fprintf(l.o.out, "[") //nolint:errcheck
 
 		if !o.jsonIndent {
 			l.separator = "\n "
@@ -107,16 +107,16 @@ func (l *jsonList) begin(o *jsonOutput) {
 func (l *jsonList) end() {
 	if l.o.jsonOutput {
 		if !l.o.jsonIndent {
-			fmt.Fprintf(l.o.out, "\n")
+			fmt.Fprintf(l.o.out, "\n") //nolint:errcheck
 		}
 
-		fmt.Fprintf(l.o.out, "]")
+		fmt.Fprintf(l.o.out, "]") //nolint:errcheck
 	}
 }
 
 func (l *jsonList) emit(v interface{}) {
-	fmt.Fprintf(l.o.out, l.separator)
-	fmt.Fprintf(l.o.out, "%s", l.o.jsonBytes(v))
+	fmt.Fprintf(l.o.out, l.separator)            //nolint:errcheck
+	fmt.Fprintf(l.o.out, "%s", l.o.jsonBytes(v)) //nolint:errcheck
 
 	if l.o.jsonIndent {
 		l.separator = ","

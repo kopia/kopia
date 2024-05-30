@@ -491,11 +491,11 @@ func (s *Server) requestShutdown(ctx context.Context) {
 	}
 }
 
-func (s *Server) setMaxParallelSnapshotsLocked(max int) {
+func (s *Server) setMaxParallelSnapshotsLocked(maxParallel int) {
 	s.parallelSnapshotsMutex.Lock()
 	defer s.parallelSnapshotsMutex.Unlock()
 
-	s.maxParallelSnapshots = max
+	s.maxParallelSnapshots = maxParallel
 	s.parallelSnapshotsChanged.Broadcast()
 }
 

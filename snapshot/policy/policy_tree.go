@@ -66,7 +66,7 @@ var (
 		MaxParallelFileReads: nil, // defaults to runtime.NumCPUs()
 
 		// upload large files in chunks of 2 GiB
-		ParallelUploadAboveSize: newOptionalInt64(2 << 30), //nolint:gomnd
+		ParallelUploadAboveSize: newOptionalInt64(2 << 30), //nolint:mnd
 	}
 
 	// DefaultPolicy is a default policy returned by policy tree in absence of other policies.

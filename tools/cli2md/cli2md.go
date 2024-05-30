@@ -42,8 +42,8 @@ func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 		return
 	}
 
-	fmt.Fprintf(w, "| Flag | Short | Default | Help |\n")
-	fmt.Fprintf(w, "| ---- | ----- | --- | --- |\n")
+	fmt.Fprintf(w, "| Flag | Short | Default | Help |\n") //nolint:errcheck
+	fmt.Fprintf(w, "| ---- | ----- | --- | --- |\n")      //nolint:errcheck
 
 	for _, f := range sortFlags(flags) {
 		maybeAdvanced := ""
@@ -75,13 +75,13 @@ func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 				defaultValue = "`false`"
 			}
 
-			fmt.Fprintf(w, "| `--[no-]%v` | %v | %v | %v%v |\n", f.Name, shortFlag, defaultValue, maybeAdvanced, f.Help)
+			fmt.Fprintf(w, "| `--[no-]%v` | %v | %v | %v%v |\n", f.Name, shortFlag, defaultValue, maybeAdvanced, f.Help) //nolint:errcheck
 		} else {
-			fmt.Fprintf(w, "| `--%v` | %v | %v | %v%v |\n", f.Name, shortFlag, defaultValue, maybeAdvanced, f.Help)
+			fmt.Fprintf(w, "| `--%v` | %v | %v | %v%v |\n", f.Name, shortFlag, defaultValue, maybeAdvanced, f.Help) //nolint:errcheck
 		}
 	}
 
-	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "\n") //nolint:errcheck
 }
 
 func combineFlags(lists ...[]*kingpin.FlagModel) []*kingpin.FlagModel {
@@ -113,8 +113,8 @@ func emitArgs(w io.Writer, args []*kingpin.ArgModel) {
 		return
 	}
 
-	fmt.Fprintf(w, "| Argument | Help |\n")
-	fmt.Fprintf(w, "| -------- | ---  |\n")
+	fmt.Fprintf(w, "| Argument | Help |\n") //nolint:errcheck
+	fmt.Fprintf(w, "| -------- | ---  |\n") //nolint:errcheck
 
 	args2 := append([]*kingpin.ArgModel(nil), args...)
 	sort.Slice(args2, func(i, j int) bool {
@@ -122,10 +122,10 @@ func emitArgs(w io.Writer, args []*kingpin.ArgModel) {
 	})
 
 	for _, f := range args2 {
-		fmt.Fprintf(w, "| `%v` | %v |\n", f.Name, f.Help)
+		fmt.Fprintf(w, "| `%v` | %v |\n", f.Name, f.Help) //nolint:errcheck
 	}
 
-	fmt.Fprintf(w, "\n")
+	fmt.Fprintf(w, "\n") //nolint:errcheck
 }
 
 func generateAppFlags(app *kingpin.ApplicationModel) error {
@@ -136,6 +136,8 @@ func generateAppFlags(app *kingpin.ApplicationModel) error {
 	defer f.Close() //nolint:errcheck
 
 	title := "Flags"
+
+	//nolint:errcheck
 	fmt.Fprintf(f, `---
 title: %q
 linkTitle: %q
@@ -161,6 +163,8 @@ func generateCommands(app *kingpin.ApplicationModel, section string, weight int,
 	defer f.Close() //nolint:errcheck
 
 	title := section + " Commands"
+
+	//nolint:errcheck
 	fmt.Fprintf(f, `---
 title: %q
 linkTitle: %q
@@ -242,15 +246,15 @@ func generateSubcommands(w io.Writer, dir, sectionTitle string, cmds []*kingpin.
 		}
 
 		if first {
-			fmt.Fprintf(w, "\n### %v\n\n", strings.TrimSuffix(sectionTitle, "."))
+			fmt.Fprintf(w, "\n### %v\n\n", strings.TrimSuffix(sectionTitle, ".")) //nolint:errcheck
 
 			first = false
 		}
 
 		subcommandSlug := strings.Replace(c.FullCommand, " ", "-", -1)
-		helpSummary := strings.SplitN(c.Help, "\n", 2)[0] //nolint:gomnd
+		helpSummary := strings.SplitN(c.Help, "\n", 2)[0] //nolint:mnd
 		helpSummary = strings.TrimSuffix(helpSummary, ".")
-		fmt.Fprintf(w, "* [`%v`](%v) - %v\n", c.FullCommand, subcommandSlug+"/", helpSummary)
+		fmt.Fprintf(w, "* [`%v`](%v) - %v\n", c.FullCommand, subcommandSlug+"/", helpSummary) //nolint:errcheck
 		generateSubcommandPage(filepath.Join(dir, subcommandSlug+".md"), c)
 	}
 }
@@ -263,6 +267,8 @@ func generateSubcommandPage(fname string, cmd *kingpin.CmdModel) {
 	defer f.Close() //nolint:errcheck
 
 	title := cmd.FullCommand
+
+	//nolint:errcheck
 	fmt.Fprintf(f, `---
 title: %q
 linkTitle: %q
@@ -290,8 +296,8 @@ hide_summary: true
 		}
 	}
 
-	fmt.Fprintf(f, "```shell\n$ kopia %v%v%v\n```\n\n", cmd.FullCommand, flagSummary, argSummary)
-	fmt.Fprintf(f, "%v\n\n", cmd.Help)
+	fmt.Fprintf(f, "```shell\n$ kopia %v%v%v\n```\n\n", cmd.FullCommand, flagSummary, argSummary) //nolint:errcheck
+	fmt.Fprintf(f, "%v\n\n", cmd.Help)                                                            //nolint:errcheck
 
 	emitFlags(f, cmd.Flags)
 	emitArgs(f, cmd.Args)

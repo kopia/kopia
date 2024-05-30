@@ -179,7 +179,7 @@ func (m *internalMap) Get(buf, key []byte) ([]byte, bool) {
 }
 
 func (m *internalMap) hashValue(key []byte) uint64 {
-	if len(key) < 8 { //nolint:gomnd
+	if len(key) < 8 { //nolint:mnd
 		return uint64(binary.BigEndian.Uint32(key))
 	}
 
@@ -188,7 +188,7 @@ func (m *internalMap) hashValue(key []byte) uint64 {
 
 // h2 returns the secondary hash value used for double hashing.
 func (m *internalMap) h2(key []byte) uint64 {
-	if len(key) < 16 { //nolint:gomnd
+	if len(key) < 16 { //nolint:mnd
 		// use linear scan.
 		return 1
 	}

@@ -546,9 +546,9 @@ func computeMaxTime(timespec string) (time.Time, error) {
 	}
 
 	// Just used as markers, the value does not really matter
-	day := 24 * time.Hour //nolint:gomnd
-	month := 30 * day     //nolint:gomnd
-	year := 12 * month    //nolint:gomnd
+	day := 24 * time.Hour //nolint:mnd
+	month := 30 * day     //nolint:mnd
+	year := 12 * month    //nolint:mnd
 
 	formats := []struct {
 		format    string

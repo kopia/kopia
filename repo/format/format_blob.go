@@ -224,9 +224,9 @@ func addFormatBlobChecksumAndLength(fb []byte) ([]byte, error) {
 	}
 
 	// return <length><checksummed-bytes><length>
-	result := append([]byte(nil), byte(l), byte(l>>8)) //nolint:gomnd
+	result := append([]byte(nil), byte(l), byte(l>>8)) //nolint:mnd
 	result = append(result, checksummedFormatBytes...)
-	result = append(result, byte(l), byte(l>>8)) //nolint:gomnd
+	result = append(result, byte(l), byte(l>>8)) //nolint:mnd
 
 	return result, nil
 }

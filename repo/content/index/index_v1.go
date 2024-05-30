@@ -89,7 +89,7 @@ func (b *indexV1) entryToInfoStruct(contentID ID, data []byte, result *Info) err
 	result.PackBlobID = b.packBlobIDForOffset(nameOffset, nameLength)
 
 	// entry bytes 12..15 - deleted flag (MSBit), 31 lower bits encode pack offset.
-	result.Deleted = data[12]&0x80 != 0 //nolint:gomnd
+	result.Deleted = data[12]&0x80 != 0 //nolint:mnd
 
 	const packOffsetMask = 1<<31 - 1
 	result.PackOffset = decodeBigEndianUint32(data[12:]) & packOffsetMask
@@ -367,7 +367,7 @@ func (b *indexBuilderV1) formatEntry(entry []byte, it Info) error {
 	entryPackFileOffset := entry[8:12]
 	entryPackedOffset := entry[12:16]
 	entryPackedLength := entry[16:20]
-	timestampAndFlags := uint64(it.TimestampSeconds) << 16 //nolint:gomnd
+	timestampAndFlags := uint64(it.TimestampSeconds) << 16 //nolint:mnd
 
 	packBlobID := it.PackBlobID
 	if len(packBlobID) == 0 {
@@ -383,7 +383,7 @@ func (b *indexBuilderV1) formatEntry(entry []byte, it Info) error {
 	}
 
 	binary.BigEndian.PutUint32(entryPackedLength, it.PackedLength)
-	timestampAndFlags |= uint64(it.FormatVersion) << 8 //nolint:gomnd
+	timestampAndFlags |= uint64(it.FormatVersion) << 8 //nolint:mnd
 	timestampAndFlags |= uint64(len(packBlobID))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)
 

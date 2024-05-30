@@ -89,7 +89,7 @@ func (c *commandServerStart) maybeGenerateTLS(ctx context.Context) error {
 	}
 
 	fingerprint := sha256.Sum256(cert.Raw)
-	fmt.Fprintf(c.out.stderr(), "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:]))
+	fmt.Fprintf(c.out.stderr(), "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:])) //nolint:errcheck
 
 	log(ctx).Infof("writing TLS certificate to %v", c.serverStartTLSCertFile)
 
@@ -119,7 +119,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 	switch {
 	case c.serverStartTLSCertFile != "" && c.serverStartTLSKeyFile != "":
 		// PEM files provided
-		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr)
+		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
 		c.showServerUIPrompt(ctx)
 
 		return errors.Wrap(httpServer.ServeTLS(listener, c.serverStartTLSCertFile, c.serverStartTLSKeyFile), "error starting TLS server")
@@ -142,7 +142,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		}
 
 		fingerprint := sha256.Sum256(cert.Raw)
-		fmt.Fprintf(c.out.stderr(), "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:]))
+		fmt.Fprintf(c.out.stderr(), "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:])) //nolint:errcheck
 
 		if c.serverStartTLSPrintFullServerCert {
 			// dump PEM-encoded server cert, only used by KopiaUI to securely connect.
@@ -152,10 +152,10 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 				return errors.Wrap(err, "Failed to write data")
 			}
 
-			fmt.Fprintf(c.out.stderr(), "SERVER CERTIFICATE: %v\n", base64.StdEncoding.EncodeToString(b.Bytes()))
+			fmt.Fprintf(c.out.stderr(), "SERVER CERTIFICATE: %v\n", base64.StdEncoding.EncodeToString(b.Bytes())) //nolint:errcheck
 		}
 
-		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr)
+		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
 		c.showServerUIPrompt(ctx)
 
 		return errors.Wrap(httpServer.ServeTLS(listener, "", ""), "error starting TLS server")
@@ -165,7 +165,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 			return errors.Errorf("TLS not configured. To start server without encryption pass --insecure")
 		}
 
-		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttp://%v\n", udsPfx, httpServer.Addr)
+		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttp://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
 		c.showServerUIPrompt(ctx)
 
 		return errors.Wrap(httpServer.Serve(listener), "error starting server")

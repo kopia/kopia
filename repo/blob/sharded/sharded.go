@@ -72,7 +72,7 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 	pw := parallelwork.NewQueue()
 
 	// channel to which pw will write blob.Metadata, some buf
-	result := make(chan blob.Metadata, 128) //nolint:gomnd
+	result := make(chan blob.Metadata, 128) //nolint:mnd
 
 	finished := make(chan struct{})
 	defer close(finished)

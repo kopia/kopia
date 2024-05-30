@@ -99,12 +99,12 @@ func (b *Buffer) AppendBoolean(val bool) *Buffer {
 
 // AppendInt32 appends int32 value formatted as a decimal string.
 func (b *Buffer) AppendInt32(val int32) *Buffer {
-	return b.AppendInt(int64(val), 10) //nolint:gomnd
+	return b.AppendInt(int64(val), 10) //nolint:mnd
 }
 
 // AppendInt64 appends int64 value formatted as a decimal string.
 func (b *Buffer) AppendInt64(val int64) *Buffer {
-	return b.AppendInt(val, 10) //nolint:gomnd
+	return b.AppendInt(val, 10) //nolint:mnd
 }
 
 // AppendInt appends integer value formatted as a string in a given base.
@@ -116,12 +116,12 @@ func (b *Buffer) AppendInt(val int64, base int) *Buffer {
 
 // AppendUint32 appends uint32 value formatted as a decimal string.
 func (b *Buffer) AppendUint32(val uint32) *Buffer {
-	return b.AppendUint(uint64(val), 10) //nolint:gomnd
+	return b.AppendUint(uint64(val), 10) //nolint:mnd
 }
 
 // AppendUint64 appends uint64 value formatted as a decimal string.
 func (b *Buffer) AppendUint64(val uint64) *Buffer {
-	return b.AppendUint(val, 10) //nolint:gomnd
+	return b.AppendUint(val, 10) //nolint:mnd
 }
 
 // AppendUint appends unsigned integer value formatted as a string in a given base.
