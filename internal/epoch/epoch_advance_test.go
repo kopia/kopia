@@ -52,6 +52,14 @@ func TestShouldAdvanceEpoch(t *testing.T) {
 			want: false,
 		},
 		{
+			desc: "two blobs, not enough time passed, hard size enough to advance",
+			bms: []blob.Metadata{
+				{Timestamp: t0.Add(def.MinEpochDuration - 1), Length: epochAdvanceOnTotalSizeBytesThresholdHard},
+				{Timestamp: t0, Length: 1},
+			},
+			want: true,
+		},
+		{
 			desc: "two blobs, enough time passed, total size enough to advance",
 			bms: []blob.Metadata{
 				{Timestamp: t0, Length: 1},
@@ -84,7 +92,7 @@ func TestShouldAdvanceEpoch(t *testing.T) {
 
 	for _, tc := range cases {
 		require.Equal(t, tc.want,
-			shouldAdvance(tc.bms, def.MinEpochDuration, def.EpochAdvanceOnCountThreshold, def.EpochAdvanceOnTotalSizeBytesThreshold),
+			shouldAdvance(tc.bms, def.MinEpochDuration, def.EpochAdvanceOnCountThreshold, def.EpochAdvanceOnTotalSizeBytesThreshold, epochAdvanceOnTotalSizeBytesThresholdHard),
 			tc.desc)
 	}
 }

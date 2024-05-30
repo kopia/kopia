@@ -13,7 +13,8 @@ import (
 //
 // - number of blobs in the epoch exceeds 'countThreshold'
 // - total size of blobs in the epoch exceeds 'totalSizeBytesThreshold'.
-func shouldAdvance(bms []blob.Metadata, minEpochDuration time.Duration, countThreshold int, totalSizeBytesThreshold int64) bool {
+// Or the total index blob size in the current epoch eceeds 'totalSizeBytesThresholdHard'.
+func shouldAdvance(bms []blob.Metadata, minEpochDuration time.Duration, countThreshold int, totalSizeBytesThreshold int64, totalSizeBytesThresholdHard int64) bool {
 	if len(bms) == 0 {
 		return false
 	}
@@ -34,6 +35,10 @@ func shouldAdvance(bms []blob.Metadata, minEpochDuration time.Duration, countThr
 		}
 
 		totalSize += bm.Length
+	}
+
+	if totalSize >= totalSizeBytesThresholdHard {
+		return true
 	}
 
 	// not enough time between first and last write in an epoch.

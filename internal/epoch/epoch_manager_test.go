@@ -1297,6 +1297,17 @@ func TestValidateParameters(t *testing.T) {
 				EpochAdvanceOnCountThreshold: 10,
 			}, "epoch advance on size too low",
 		},
+		{
+			Parameters{
+				Enabled:                               true,
+				MinEpochDuration:                      1 * time.Hour,
+				EpochRefreshFrequency:                 10 * time.Minute,
+				FullCheckpointFrequency:               5,
+				CleanupSafetyMargin:                   time.Hour,
+				EpochAdvanceOnCountThreshold:          10,
+				EpochAdvanceOnTotalSizeBytesThreshold: 101 << 20,
+			}, "epoch advance on size too high",
+		},
 	}
 
 	for _, tc := range cases {
