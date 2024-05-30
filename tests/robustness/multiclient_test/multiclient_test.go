@@ -20,17 +20,19 @@ import (
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 )
 
-const defaultTestDur = 5 * time.Minute
+const (
+	defaultTestDur           = 5 * time.Minute
+	deleteContentsPercentage = 100
+)
 
 var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
 
 func TestManySmallFiles(t *testing.T) {
 	const (
-		fileSize                 = 4096
-		numFiles                 = 10000
-		numClients               = 4
-		maxDirDepth              = 1
-		deleteContentsPercentage = 80
+		fileSize    = 4096
+		numFiles    = 10000
+		numClients  = 4
+		maxDirDepth = 1
 	)
 
 	fileWriteOpts := map[string]string{
@@ -105,13 +107,12 @@ func TestOneLargeFile(t *testing.T) {
 func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	// TODO: Test takes too long - need to address performance issues with fio writes
 	const (
-		fileSize                 = 4096
-		numFiles                 = 1000
-		filesPerWrite            = 10
-		actionRepeats            = numFiles / filesPerWrite
-		numClients               = 4
-		maxDirDepth              = 15
-		deleteContentsPercentage = 80
+		fileSize      = 4096
+		numFiles      = 1000
+		filesPerWrite = 10
+		actionRepeats = numFiles / filesPerWrite
+		numClients    = 4
+		maxDirDepth   = 15
 	)
 
 	fileWriteOpts := map[string]string{
@@ -157,7 +158,6 @@ func TestRandomizedSmall(t *testing.T) {
 	st := timetrack.StartTimer()
 
 	maxDirDepth := 3
-	deleteContentsPercentage := 80
 
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
