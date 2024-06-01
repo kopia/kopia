@@ -4,11 +4,11 @@
   "repository": "github:kopia/kopia",
   "dependencies": {
     "auto-launch": "^5.0.6",
-    "electron-log": "^5.1.2",
+    "electron-log": "^5.1.5",
     "electron-updater": "^6.1.8",
-    "electron-store": "^8.2.0",
+    "electron-store": "^9.0.0",
     "minimist": "^1.2.8",
-    "semver": "^7.6.0",
+    "semver": "^7.6.2",
     "uuid": "^9.0.1"
   },
   "author": {
@@ -110,13 +110,13 @@
     "afterSign": "notarize.js"
   },
   "devDependencies": {
-    "@electron/notarize": "^2.3.0",
-    "@playwright/test": "^1.42.1",
+    "@electron/notarize": "^2.3.2",
+    "@playwright/test": "^1.44.1",
     "asar": "^3.2.0",
     "concurrently": "^8.2.2",
     "dotenv": "^16.4.5",
-    "electron": "^29.1.6",
-    "electron-store": "^8.2.0",
+    "electron": "^30.0.9",
+    "electron-store": "^9.0.0",
     "electron-builder": "^24.13.3",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1"
