@@ -73,7 +73,7 @@ func TestManySmallFiles(t *testing.T) {
 
 func TestOneLargeFile(t *testing.T) {
 	const (
-		fileSize   = 40 * 128 * 10 // 40 * 1024 * 1024
+		fileSize   = 40 * 1024 * 1024
 		numFiles   = 1
 		numClients = 4
 	)
