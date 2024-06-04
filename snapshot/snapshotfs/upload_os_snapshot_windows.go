@@ -48,7 +48,7 @@ func createOSSnapshot(ctx context.Context, root fs.Directory, _ *policy.OSSnapsh
 		}
 
 		// Retry "Another shadow copy operation is already in progress" in 5-10s
-		//nolint:gosec,gomnd
+		//nolint:gosec,mnd
 		delay := 5*time.Second + time.Duration(rand.Int63n(int64(5*time.Second)))
 		if !clock.SleepInterruptibly(ctx, delay) {
 			return nil, nil, ctx.Err()

@@ -22,8 +22,8 @@ const (
 
 func init() {
 	registerPBKeyDeriver(ScryptAlgorithm, &scryptKeyDeriver{
-		n:             65536, //nolint:gomnd
-		r:             8,     //nolint:gomnd
+		n:             65536, //nolint:mnd
+		r:             8,     //nolint:mnd
 		p:             1,
 		minSaltLength: scryptMinSaltLength,
 	})

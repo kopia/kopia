@@ -50,12 +50,12 @@ func (c *storageFilesystemFlags) Connect(ctx context.Context, isCreate bool, for
 	}
 
 	if v := c.connectOwnerUID; v != "" {
-		//nolint:gomnd
+		//nolint:mnd
 		fso.FileUID = getIntPtrValue(v, 10)
 	}
 
 	if v := c.connectOwnerGID; v != "" {
-		//nolint:gomnd
+		//nolint:mnd
 		fso.FileGID = getIntPtrValue(v, 10)
 	}
 

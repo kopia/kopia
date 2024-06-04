@@ -187,7 +187,7 @@ func main() {
 	for _, toolNameVersion := range strings.Split(*tool, ",") {
 		parts := strings.Split(toolNameVersion, ":")
 
-		//nolint:gomnd
+		//nolint:mnd
 		if len(parts) != 2 {
 			log.Fatalf("invalid tool spec, must be tool:version[,tool:version]")
 		}
@@ -238,7 +238,7 @@ func writeLinesToFile(lines []string) error {
 	defer f.Close() //nolint:errcheck
 
 	for _, l := range lines {
-		fmt.Fprintln(f, l)
+		fmt.Fprintln(f, l) //nolint:errcheck
 	}
 
 	return nil

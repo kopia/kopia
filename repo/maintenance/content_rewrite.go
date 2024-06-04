@@ -138,7 +138,7 @@ func getContentToRewrite(ctx context.Context, rep repo.DirectRepository, opt *Re
 		if opt.ShortPacks {
 			mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters(ctx)
 			if mperr == nil {
-				threshold := int64(mp.MaxPackSize * shortPackThresholdPercent / 100) //nolint:gomnd
+				threshold := int64(mp.MaxPackSize * shortPackThresholdPercent / 100) //nolint:mnd
 				findContentInShortPacks(ctx, rep, ch, threshold, opt)
 			}
 		}
@@ -213,7 +213,7 @@ func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch 
 				return nil
 			}
 
-			//nolint:gomnd
+			//nolint:mnd
 			if packNumberByPrefix[prefix] == 2 {
 				// when we encounter the 2nd pack, emit contents from the first one too.
 				for _, ci := range firstPackByPrefix[prefix].ContentInfos {

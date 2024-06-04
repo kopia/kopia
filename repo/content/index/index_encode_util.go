@@ -22,7 +22,7 @@ func decodeBigEndianUint16(d []byte) uint16 {
 
 func encodeBigEndianUint24(b []byte, v uint32) {
 	_ = b[2]             // early bounds check
-	b[0] = byte(v >> 16) //nolint:gomnd
-	b[1] = byte(v >> 8)  //nolint:gomnd
+	b[0] = byte(v >> 16) //nolint:mnd
+	b[1] = byte(v >> 8)  //nolint:mnd
 	b[2] = byte(v)
 }

@@ -324,7 +324,7 @@ func cleanupOldData(t *testing.T, rcloneExe, remotePath string) {
 
 		configFile = filepath.Join(tmpDir, "rclone.conf")
 
-		//nolint:gomnd
+		//nolint:mnd
 		if err = os.WriteFile(configFile, b, 0o600); err != nil {
 			t.Fatalf("unable to write config file: %v", err)
 		}

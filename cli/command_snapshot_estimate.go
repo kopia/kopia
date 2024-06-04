@@ -128,7 +128,7 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 		c.out.printStdout("Encountered %v error(s).\n", ep.stats.ErrorCount)
 	}
 
-	megabits := float64(ep.stats.TotalFileSize) * 8 / 1000000 //nolint:gomnd
+	megabits := float64(ep.stats.TotalFileSize) * 8 / 1000000 //nolint:mnd
 	seconds := megabits / c.snapshotEstimateUploadSpeed
 
 	c.out.printStdout("\n")

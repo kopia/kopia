@@ -384,7 +384,7 @@ func (gdrive *gdriveStorage) getFileByBlobID(ctx context.Context, blobID blob.ID
 		IncludeItemsFromAllDrives(true).
 		Q(fmt.Sprintf("'%s' in parents and name = '%s' and mimeType = '%s' and trashed = false", gdrive.folderID, toFileName(blobID), blobMimeType)).
 		Fields(fields).
-		PageSize(2). //nolint:gomnd
+		PageSize(2). //nolint:mnd
 		Context(ctx).
 		Do()
 

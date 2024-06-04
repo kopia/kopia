@@ -1416,8 +1416,8 @@ func TestCleanupMarkers_CleanUpManyMarkers(t *testing.T) {
 	require.Len(t, cs.EpochMarkerBlobs, 2) // at least 2 epoch markers are kept
 }
 
-func randomTime(min, max time.Duration) time.Duration {
-	return time.Duration(float64(max-min)*rand.Float64() + float64(min))
+func randomTime(minTime, maxTime time.Duration) time.Duration {
+	return time.Duration(float64(maxTime-minTime)*rand.Float64() + float64(minTime))
 }
 
 func (te *epochManagerTestEnv) verifyCompleteIndexSet(ctx context.Context, t *testing.T, maxEpoch int, want *fakeIndex, wantDeletionWatermark time.Time) {

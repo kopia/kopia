@@ -109,7 +109,7 @@ func (p *Parameters) GetEpochDeleteParallelism() int {
 
 // Validate validates epoch parameters.
 //
-//nolint:gomnd
+//nolint:mnd
 func (p *Parameters) Validate() error {
 	if !p.Enabled {
 		return nil
@@ -144,7 +144,7 @@ func (p *Parameters) Validate() error {
 
 // DefaultParameters contains default epoch manager parameters.
 //
-//nolint:gomnd
+//nolint:mnd
 func DefaultParameters() Parameters {
 	return Parameters{
 		Enabled:                               true,
@@ -419,8 +419,8 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
 }
 
 func blobSetWrittenEarlyEnough(replacementSet []blob.Metadata, maxReplacementTime time.Time) bool {
-	max := blob.MaxTimestamp(replacementSet)
-	if max.IsZero() {
+	maxTime := blob.MaxTimestamp(replacementSet)
+	if maxTime.IsZero() {
 		return false
 	}
 
@@ -604,14 +604,14 @@ func getRangeToCompact(cs CurrentSnapshot, p Parameters) (low, high int, compact
 	return latestSettled, firstNonRangeCompacted, true
 }
 
-func (e *Manager) loadUncompactedEpochs(ctx context.Context, min, max int) (map[int][]blob.Metadata, error) {
+func (e *Manager) loadUncompactedEpochs(ctx context.Context, first, last int) (map[int][]blob.Metadata, error) {
 	var mu sync.Mutex
 
 	result := map[int][]blob.Metadata{}
 
 	eg, ctx := errgroup.WithContext(ctx)
 
-	for n := min; n <= max; n++ {
+	for n := first; n <= last; n++ {
 		if n < 0 {
 			continue
 		}
@@ -791,7 +791,7 @@ func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.By
 		}
 
 		// make sure we have at least 75% of remaining time
-		//nolint:gomnd
+		//nolint:mnd
 		cs, err := e.committedState(ctx, 3*p.EpochRefreshFrequency/4)
 		if err != nil {
 			return nil, errors.Wrap(err, "error getting committed state")

@@ -78,7 +78,7 @@ func netUseUnmount(ctx context.Context, driveLetter string) error {
 }
 
 func isWindowsDrive(s string) bool {
-	if len(s) != 2 { //nolint:gomnd
+	if len(s) != 2 { //nolint:mnd
 		return false
 	}
 

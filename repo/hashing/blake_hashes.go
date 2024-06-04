@@ -6,8 +6,8 @@ import (
 )
 
 func init() {
-	Register("BLAKE2S-128", truncatedKeyedHashFuncFactory(blake2s.New128, 16))     //nolint:gomnd
-	Register("BLAKE2S-256", truncatedKeyedHashFuncFactory(blake2s.New256, 32))     //nolint:gomnd
-	Register("BLAKE2B-256-128", truncatedKeyedHashFuncFactory(blake2b.New256, 16)) //nolint:gomnd
-	Register("BLAKE2B-256", truncatedKeyedHashFuncFactory(blake2b.New256, 32))     //nolint:gomnd
+	Register("BLAKE2S-128", truncatedKeyedHashFuncFactory(blake2s.New128, 16))     //nolint:mnd
+	Register("BLAKE2S-256", truncatedKeyedHashFuncFactory(blake2s.New256, 32))     //nolint:mnd
+	Register("BLAKE2B-256-128", truncatedKeyedHashFuncFactory(blake2b.New256, 16)) //nolint:mnd
+	Register("BLAKE2B-256", truncatedKeyedHashFuncFactory(blake2b.New256, 32))     //nolint:mnd
 }

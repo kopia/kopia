@@ -197,7 +197,7 @@ func daysAgo(base time.Time, n int) time.Time {
 }
 
 func weeksAgo(base time.Time, n int) time.Time {
-	return base.AddDate(0, 0, -n*7) //nolint:gomnd
+	return base.AddDate(0, 0, -n*7) //nolint:mnd
 }
 
 func hoursAgo(base time.Time, n int) time.Time {
@@ -317,11 +317,11 @@ func CompactPins(pins []string) []string {
 func SortRetentionTags(tags []string) {
 	retentionPrefixSortValue := map[string]int{
 		"latest":  1,
-		"hourly":  2, //nolint:gomnd
-		"daily":   3, //nolint:gomnd
-		"weekly":  4, //nolint:gomnd
-		"monthly": 5, //nolint:gomnd
-		"annual":  6, //nolint:gomnd
+		"hourly":  2, //nolint:mnd
+		"daily":   3, //nolint:mnd
+		"weekly":  4, //nolint:mnd
+		"monthly": 5, //nolint:mnd
+		"annual":  6, //nolint:mnd
 	}
 
 	sort.Slice(tags, func(i, j int) bool {

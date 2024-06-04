@@ -323,7 +323,7 @@ func parseSnapshotListForSnapshotIDs(output string) []string {
 
 		for _, f := range fields {
 			spl := strings.Split(f, "manifest:")
-			if len(spl) == 2 { //nolint:gomnd
+			if len(spl) == 2 { //nolint:mnd
 				ret = append(ret, spl[1])
 			}
 		}

@@ -274,7 +274,7 @@ func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
 func DirectoryEntry(rep repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
 	d := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        "/",
-		Permissions: 0o555, //nolint:gomnd
+		Permissions: 0o555, //nolint:mnd
 		Type:        snapshot.EntryTypeDirectory,
 		ObjectID:    objectID,
 		DirSummary:  dirSummary,
@@ -325,7 +325,7 @@ func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid o
 
 	f := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        maybeName,
-		Permissions: 0o644, //nolint:gomnd
+		Permissions: 0o644, //nolint:mnd
 		Type:        snapshot.EntryTypeFile,
 		ObjectID:    oid,
 		FileSize:    fileSize,

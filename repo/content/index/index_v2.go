@@ -428,14 +428,6 @@ func maxContentLengths(sortedInfos []Info) (maxPackedLength, maxOriginalLength, 
 	return
 }
 
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
-}
-
 func newIndexBuilderV2(sortedInfos []Info) (*indexBuilderV2, error) {
 	entrySize := v2EntryOffsetFormatID
 

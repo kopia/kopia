@@ -369,7 +369,7 @@ func NewDirectory() *Directory {
 	return &Directory{
 		entry: entry{
 			name:    "<root>",
-			mode:    0o777 | os.ModeDir, //nolint:gomnd
+			mode:    0o777 | os.ModeDir, //nolint:mnd
 			modTime: DefaultModTime,
 		},
 	}

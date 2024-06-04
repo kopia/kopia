@@ -123,7 +123,7 @@ func (e *Entry) Validate() error {
 	}
 
 	parts := strings.Split(e.User, "@")
-	if len(parts) != 2 { //nolint:gomnd
+	if len(parts) != 2 { //nolint:mnd
 		return errors.Errorf("user must be 'username@hostname' possibly including wildcards")
 	}
 

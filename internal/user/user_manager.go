@@ -77,6 +77,7 @@ func ListUserProfiles(ctx context.Context, rep repo.Repository) ([]*Profile, err
 }
 
 // GetUserProfile returns the user profile with a given username.
+// Returns ErrUserNotFound when the user does not exist.
 func GetUserProfile(ctx context.Context, r repo.Repository, username string) (*Profile, error) {
 	manifests, err := r.FindManifests(ctx, map[string]string{
 		manifest.TypeLabelKey:   ManifestType,
