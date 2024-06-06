@@ -23,9 +23,10 @@ import (
 const LatestEpoch = -1
 
 const (
-	initiaRefreshAttemptSleep      = 100 * time.Millisecond
-	maxRefreshAttemptSleep         = 15 * time.Second
-	maxRefreshAttemptSleepExponent = 1.5
+	initiaRefreshAttemptSleep                 = 100 * time.Millisecond
+	maxRefreshAttemptSleep                    = 15 * time.Second
+	maxRefreshAttemptSleepExponent            = 1.5
+	epochAdvanceOnTotalSizeBytesThresholdHard = 100 << 20
 )
 
 // ParametersProvider provides epoch manager parameters.
@@ -137,6 +138,10 @@ func (p *Parameters) Validate() error {
 
 	if p.EpochAdvanceOnTotalSizeBytesThreshold < 1<<20 {
 		return errors.New("epoch advance on size too low")
+	}
+
+	if p.EpochAdvanceOnTotalSizeBytesThreshold > epochAdvanceOnTotalSizeBytesThresholdHard {
+		return errors.New("epoch advance on size too high")
 	}
 
 	return nil
@@ -712,7 +717,7 @@ func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) error {
 	cs := e.lastKnownState
 	e.mu.Unlock()
 
-	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
+	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold, epochAdvanceOnTotalSizeBytesThresholdHard) {
 		return errors.Wrap(e.advanceEpochMarker(ctx, cs), "error advancing epoch")
 	}
 
@@ -975,7 +980,7 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
 		uncompactedBlobs = ue
 	}
 
-	e.log.Debugf("starting single-epoch compaction of %v")
+	e.log.Debugf("starting single-epoch compaction of %v", uncompacted)
 
 	if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(uncompacted)); err != nil {
 		return errors.Wrapf(err, "unable to compact blobs for epoch %v: performance will be affected", uncompacted)

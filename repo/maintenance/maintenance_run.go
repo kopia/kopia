@@ -252,19 +252,24 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 }
 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
+	s, err := GetSchedule(ctx, runParams.rep)
+	if err != nil {
+		return errors.Wrap(err, "unable to get schedule")
+	}
+
 	_, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if ok {
-		log(ctx).Debugf("quick maintenance not required for epoch manager")
+		log(ctx).Debugf("Epoch manager is available, run epoch maintenance only for quick maintenance")
+
+		if err := runTaskEpochMaintenanceQuick(ctx, runParams, s); err != nil {
+			return errors.Wrap(err, "error running quick epoch maintenance tasks")
+		}
+
 		return nil
 	}
 
 	if emerr != nil {
 		return errors.Wrap(emerr, "epoch manager")
-	}
-
-	s, err := GetSchedule(ctx, runParams.rep)
-	if err != nil {
-		return errors.Wrap(err, "unable to get schedule")
 	}
 
 	if shouldQuickRewriteContents(s, safety) {
@@ -297,10 +302,6 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		}
 	} else {
 		notDeletingOrphanedBlobs(ctx, s, safety)
-	}
-
-	if err := runTaskEpochMaintenanceQuick(ctx, runParams, s); err != nil {
-		return errors.Wrap(err, "error running quick epoch maintenance tasks")
 	}
 
 	// consolidate many smaller indexes into fewer larger ones.
