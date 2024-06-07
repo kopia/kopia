@@ -44,15 +44,14 @@ func TestBadPasswordHashVersion(t *testing.T) {
 	require.True(t, isValid, "password not valid!")
 	require.NoError(t, err)
 
-	// Different key derivation algorithm besides the original should fail
+	// A password hashing algorithm different from the original should fail
 	p.PasswordHashVersion = user.Pbkdf2HashVersion
 	isValid, err = p.IsValidPassword("foo")
 
 	require.False(t, isValid, "password unexpectedly valid!")
 	require.NoError(t, err)
 
-	// Assume the key derivation algorithm is bad. This will cause
-	// a panic when validating
+	// Invalid password hashing algorithm
 	p.PasswordHashVersion = 0
 
 	isValid, err = p.IsValidPassword("foo")
