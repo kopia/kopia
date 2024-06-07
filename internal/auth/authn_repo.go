@@ -51,7 +51,14 @@ func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Rep
 
 	// IsValidPassword can be safely called on nil and the call will take as much time as for a valid user
 	// thus not revealing anything about whether the user exists.
-	return ac.userProfiles[username].IsValidPassword(password)
+	valid, err := ac.userProfiles[username].IsValidPassword(password)
+	if err != nil {
+		log(ctx).Debugf("password error for user '%s': %v", username, err)
+
+		return false
+	}
+
+	return valid
 }
 
 func (ac *repositoryUserAuthenticator) Refresh(ctx context.Context) error {

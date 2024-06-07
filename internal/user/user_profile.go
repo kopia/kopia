@@ -38,7 +38,7 @@ func (p *Profile) SetPassword(password string) error {
 }
 
 // IsValidPassword determines whether the password is valid for a given user.
-func (p *Profile) IsValidPassword(password string) bool {
+func (p *Profile) IsValidPassword(password string) (bool, error) {
 	var invalidProfile bool
 
 	var passwordHashAlgorithm string
@@ -61,10 +61,10 @@ func (p *Profile) IsValidPassword(password string) bool {
 		// compare against valid user to avoid revealing whether the user account exists.
 		isValidPassword(password, dummyHashThatNeverMatchesAnyPassword, algorithms[rand.Intn(len(algorithms))]) //nolint:gosec
 
-		return false
+		return false, nil
 	}
 
-	return isValidPassword(password, p.PasswordHash, passwordHashAlgorithm)
+	return isValidPassword(password, p.PasswordHash, passwordHashAlgorithm), nil
 }
 
 // getPasswordHashAlgorithm returns the password hash algorithm given a version.

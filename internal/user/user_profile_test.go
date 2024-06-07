@@ -13,19 +13,22 @@ func TestUserProfile(t *testing.T) {
 		PasswordHashVersion: user.ScryptHashVersion,
 	}
 
-	isValid := p.IsValidPassword("bar")
+	isValid, err := p.IsValidPassword("bar")
 
 	require.False(t, isValid, "password unexpectedly valid!")
+	require.NoError(t, err)
 
 	p.SetPassword("foo")
 
-	isValid = p.IsValidPassword("foo")
+	isValid, err = p.IsValidPassword("foo")
 
 	require.True(t, isValid, "password not valid!")
+	require.NoError(t, err)
 
-	isValid = p.IsValidPassword("bar")
+	isValid, err = p.IsValidPassword("bar")
 
 	require.False(t, isValid, "password unexpectedly valid!")
+	require.NoError(t, err)
 }
 
 func TestBadPasswordHashVersion(t *testing.T) {
@@ -36,31 +39,35 @@ func TestBadPasswordHashVersion(t *testing.T) {
 
 	p.SetPassword("foo")
 
-	isValid := p.IsValidPassword("foo")
+	isValid, err := p.IsValidPassword("foo")
 
 	require.True(t, isValid, "password not valid!")
+	require.NoError(t, err)
 
 	// Different key derivation algorithm besides the original should fail
 	p.PasswordHashVersion = user.Pbkdf2HashVersion
-	isValid = p.IsValidPassword("foo")
+	isValid, err = p.IsValidPassword("foo")
 
 	require.False(t, isValid, "password unexpectedly valid!")
+	require.NoError(t, err)
 
 	// Assume the key derivation algorithm is bad. This will cause
 	// a panic when validating
 	p.PasswordHashVersion = 0
 
-	isValid = p.IsValidPassword("foo")
+	isValid, err = p.IsValidPassword("foo")
 
 	require.False(t, isValid, "password unexpectedly valid!")
+	require.NoError(t, err)
 }
 
 func TestNilUserProfile(t *testing.T) {
 	var p *user.Profile
 
-	isValid := p.IsValidPassword("bar")
+	isValid, err := p.IsValidPassword("bar")
 
 	require.False(t, isValid, "password unexpectedly valid!")
+	require.NoError(t, err)
 }
 
 func TestInvalidPasswordHash(t *testing.T) {
@@ -72,10 +79,11 @@ func TestInvalidPasswordHash(t *testing.T) {
 	for _, tc := range cases {
 		p := &user.Profile{
 			PasswordHash:        tc,
-			PasswordHashVersion: 1,
+			PasswordHashVersion: user.ScryptHashVersion,
 		}
-		isValid := p.IsValidPassword("some-password")
+		isValid, err := p.IsValidPassword("some-password")
 
 		require.False(t, isValid, "password unexpectedly valid for %v", tc)
+		require.NoError(t, err)
 	}
 }
