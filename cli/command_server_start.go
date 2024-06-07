@@ -214,7 +214,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 			return errors.Wrap(httpServer.Close(), "close")
 		}
 
-		log(ctx2).Debugf("graceful shutdown succeeded")
+		log(ctx2).Debug("graceful shutdown succeeded")
 
 		return nil
 	}

@@ -418,7 +418,7 @@ func getSigner(opt *Options) (ssh.Signer, error) {
 }
 
 func createSSHConfig(ctx context.Context, opt *Options) (*ssh.ClientConfig, error) {
-	log(ctx).Debugf("using internal SSH client")
+	log(ctx).Debug("using internal SSH client")
 
 	hostKeyCallback, err := getHostKeyCallback(opt)
 	if err != nil {

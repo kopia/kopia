@@ -465,7 +465,7 @@ func (m *ManagerV0) getBlobsToCompact(indexBlobs []Metadata, opt CompactOptions,
 
 	if len(nonCompactedBlobs) < opt.MaxSmallBlobs {
 		// current count is below min allowed - nothing to do
-		m.log.Debugf("no small contents to Compact")
+		m.log.Debug("no small contents to Compact")
 		return nil
 	}
 

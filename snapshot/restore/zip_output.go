@@ -93,7 +93,7 @@ func (o *ZipOutput) FileExists(ctx context.Context, relativePath string, l fs.Fi
 //
 //nolint:revive
 func (o *ZipOutput) CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error {
-	log(ctx).Debugf("create symlink not implemented yet")
+	log(ctx).Debug("create symlink not implemented yet")
 	return nil
 }
 

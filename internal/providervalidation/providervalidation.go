@@ -484,7 +484,7 @@ func cleanupAllBlobs(ctx context.Context, st blob.Storage, prefix blob.ID) {
 	if err := st.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
 		return errors.Wrapf(st.DeleteBlob(ctx, bm.BlobID), "error deleting blob %v", bm.BlobID)
 	}); err != nil {
-		log(ctx).Debugf("error cleaning up")
+		log(ctx).Debug("error cleaning up")
 	}
 }
 

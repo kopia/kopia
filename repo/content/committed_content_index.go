@@ -343,7 +343,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 		return errors.Wrap(err, "error downloading indexes")
 	}
 
-	c.log.Debugf("Index blobs downloaded.")
+	c.log.Debug("Index blobs downloaded.")
 
 	return nil
 }

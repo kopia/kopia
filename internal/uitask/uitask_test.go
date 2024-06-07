@@ -75,8 +75,8 @@ func testUITaskInternal(t *testing.T, ctx context.Context, m *uitask.Manager) {
 		})
 
 		verifyTaskLog(t, m, tid1a, nil)
-		log(ctx).Debugf("first")
-		ignoredLog(ctx).Debugf("this is ignored")
+		log(ctx).Debug("first")
+		ignoredLog(ctx).Debug("this is ignored")
 		log(ctx).Infof("iii")
 		verifyTaskLog(t, m, tid1a, []string{
 			"first",

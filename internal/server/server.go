@@ -552,9 +552,9 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 		s.unmountAllLocked(ctx)
 
 		// close previous source managers
-		log(ctx).Debugf("stopping all source managers")
+		log(ctx).Debug("stopping all source managers")
 		s.stopAllSourceManagersLocked(ctx)
-		log(ctx).Debugf("stopped all source managers")
+		log(ctx).Debug("stopped all source managers")
 
 		if err := s.rep.Close(ctx); err != nil {
 			return errors.Wrap(err, "unable to close previous repository")
