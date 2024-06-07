@@ -13,6 +13,8 @@ var (
 		CompressorName: "none",
 	}
 
+	defaultSplitterPolicy = SplitterPolicy{}
+
 	// defaultErrorHandlingPolicy is the default error handling policy.
 	defaultErrorHandlingPolicy = ErrorHandlingPolicy{
 		IgnoreFileErrors:      NewOptionalBool(false),
