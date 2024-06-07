@@ -50,17 +50,17 @@ func computePasswordHash(password string, salt []byte, keyDerivationAlgorithm st
 	return payload, nil
 }
 
-func isValidPassword(password string, hashedPassword []byte, keyDerivationAlgorithm string) bool {
+func isValidPassword(password string, hashedPassword []byte, keyDerivationAlgorithm string) (bool, error) {
 	if len(hashedPassword) != passwordHashSaltLength+passwordHashLength {
-		return false
+		return false, nil
 	}
 
 	salt := hashedPassword[0:passwordHashSaltLength]
 
 	h, err := computePasswordHash(password, salt, keyDerivationAlgorithm)
 	if err != nil {
-		panic(err)
+		return false, err
 	}
 
-	return subtle.ConstantTimeCompare(h, hashedPassword) != 0
+	return subtle.ConstantTimeCompare(h, hashedPassword) != 0, nil
 }
