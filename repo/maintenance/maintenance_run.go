@@ -259,7 +259,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 
 	_, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if ok {
-		log(ctx).Debugf("running quick epoch maintenance only")
+		log(ctx).Debug("running quick epoch maintenance only")
 
 		err := runTaskEpochMaintenanceQuick(ctx, runParams, s)
 
