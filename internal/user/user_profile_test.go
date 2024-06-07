@@ -26,12 +26,6 @@ func TestUserProfile(t *testing.T) {
 	isValid = p.IsValidPassword("bar")
 
 	require.False(t, isValid, "password unexpectedly valid!")
-
-	// Different key derivation algorithm besides the original should fail
-	p.PasswordHashVersion = user.Pbkdf2HashVersion
-	isValid = p.IsValidPassword("foo")
-
-	require.False(t, isValid, "password unexpectedly valid!")
 }
 
 func TestBadPasswordHashVersion(t *testing.T) {
@@ -41,11 +35,22 @@ func TestBadPasswordHashVersion(t *testing.T) {
 	}
 
 	p.SetPassword("foo")
+
+	isValid := p.IsValidPassword("foo")
+
+	require.True(t, isValid, "password not valid!")
+
+	// Different key derivation algorithm besides the original should fail
+	p.PasswordHashVersion = user.Pbkdf2HashVersion
+	isValid = p.IsValidPassword("foo")
+
+	require.False(t, isValid, "password unexpectedly valid!")
+
 	// Assume the key derivation algorithm is bad. This will cause
 	// a panic when validating
 	p.PasswordHashVersion = 0
 
-	isValid := p.IsValidPassword("foo")
+	isValid = p.IsValidPassword("foo")
 
 	require.False(t, isValid, "password unexpectedly valid!")
 }
