@@ -51,6 +51,12 @@ func TestManySmallFiles(t *testing.T) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
 
+		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
+		require.NoError(t, err)
+
+		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
+		require.NoError(t, err)
+
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
 
@@ -58,12 +64,6 @@ func TestManySmallFiles(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
-		require.NoError(t, err)
-
-		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
-		require.NoError(t, err)
-
-		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 		require.NoError(t, err)
 	}
 
@@ -132,6 +132,12 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
 
+		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
+		require.NoError(t, err)
+
+		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
+		require.NoError(t, err)
+
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
 
@@ -139,12 +145,6 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
-		require.NoError(t, err)
-
-		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
-		require.NoError(t, err)
-
-		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 		require.NoError(t, err)
 	}
 
@@ -166,7 +166,6 @@ func TestRandomizedSmall(t *testing.T) {
 			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(4),
 			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(8),
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(maxDirDepth),
-			string(engine.GCActionKey):                       strconv.Itoa(1),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
 			fiofilewriter.IOLimitPerWriteAction:        strconv.Itoa(512 * 1024 * 1024),
