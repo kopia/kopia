@@ -296,7 +296,7 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 		om:          w.om,
 		compressor:  nil,
 		description: "LIST(" + w.description + ")",
-		splitter:    w.om.newSplitter(),
+		splitter:    w.om.newDefaultSplitter(),
 		prefix:      w.prefix,
 	}
 
@@ -337,5 +337,6 @@ type WriterOptions struct {
 	Description string
 	Prefix      content.IDPrefix // empty string or a single-character ('g'..'z')
 	Compressor  compression.Name
-	AsyncWrites int // allow up to N content writes to be asynchronous
+	Splitter    string // use particular splitter instead of default
+	AsyncWrites int    // allow up to N content writes to be asynchronous
 }

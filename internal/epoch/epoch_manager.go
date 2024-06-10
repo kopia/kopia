@@ -975,7 +975,7 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
 		uncompactedBlobs = ue
 	}
 
-	e.log.Debugf("starting single-epoch compaction of %v")
+	e.log.Debugf("starting single-epoch compaction for epoch %v", uncompacted)
 
 	if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(uncompacted)); err != nil {
 		return errors.Wrapf(err, "unable to compact blobs for epoch %v: performance will be affected", uncompacted)
