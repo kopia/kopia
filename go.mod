@@ -46,7 +46,7 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/studio-b12/gowebdav v0.9.0
 	github.com/tg123/go-htpasswd v1.2.2
-	github.com/zalando/go-keyring v0.2.4
+	github.com/zalando/go-keyring v0.2.5
 	github.com/zeebo/blake3 v0.2.3
 	go.opentelemetry.io/otel v1.27.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.27.0
