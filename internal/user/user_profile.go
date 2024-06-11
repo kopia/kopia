@@ -4,8 +4,6 @@ import (
 	"math/rand"
 
 	"github.com/kopia/kopia/repo/manifest"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -65,16 +63,4 @@ func (p *Profile) IsValidPassword(password string) (bool, error) {
 	}
 
 	return isValidPassword(password, p.PasswordHash, passwordHashAlgorithm)
-}
-
-// GetPasswordHashVersion returns the password hash version given an algorithm.
-func GetPasswordHashVersion(passwordHashAlgorithm string) (int, error) {
-	switch passwordHashAlgorithm {
-	case scryptHashAlgorithm:
-		return ScryptHashVersion, nil
-	case pbkdf2HashAlgorithm:
-		return Pbkdf2HashVersion, nil
-	default:
-		return 0, errors.Errorf("unsupported hash algorithm (%s)", passwordHashAlgorithm)
-	}
 }
