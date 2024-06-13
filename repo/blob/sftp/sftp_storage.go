@@ -228,13 +228,36 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 			return errors.Wrap(err, "can't close temporary file")
 		}
 
-		err = sftpClientFromConnection(conn).PosixRename(tempFile, fullPath)
-		if err != nil {
-			if removeErr := sftpClientFromConnection(conn).Remove(tempFile); removeErr != nil {
-				log(ctx).Warnf("can't remove temp file: %v", removeErr)
+		if _, ok := sftpClientFromConnection(conn).HasExtension("posix-rename@openssh.com"); ok {
+			err = sftpClientFromConnection(conn).PosixRename(tempFile, fullPath)
+			if err != nil {
+				if removeErr := sftpClientFromConnection(conn).Remove(tempFile); removeErr != nil {
+					log(ctx).Warnf("can't remove temp file: %v", removeErr)
+				}
+
+				return errors.Wrap(err, "unexpected error renaming file on SFTP")
+			}
+		} else {
+			_, err = sftpClientFromConnection(conn).Stat(fullPath)
+			if err != nil {
+				if !isNotExist(err) {
+					return errors.Wrap(err, "can't check if old backup folder exists")
+				}
+				log(ctx).Infof("no old backup folder exists: %v", err)
+			} else {
+				if err = sftpClientFromConnection(conn).Remove(fullPath); err != nil {
+					return errors.Wrap(err, "can't remove leftover backup path file")
+				}
 			}
 
-			return errors.Wrap(err, "unexpected error renaming file on SFTP")
+			err = sftpClientFromConnection(conn).Rename(tempFile, fullPath)
+			if err != nil {
+				if removeErr := sftpClientFromConnection(conn).Remove(tempFile); removeErr != nil {
+					log(ctx).Warnf("can't remove temp file: %v", removeErr)
+				}
+
+				return errors.Wrap(err, "unexpected error renaming file on SFTP")
+			}
 		}
 
 		if t := opts.SetModTime; !t.IsZero() {
