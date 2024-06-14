@@ -320,6 +320,8 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 		expectedEpoch int
 		wantErr       error
 	}{
+		// cases with non-contiguous single epoch compaction sets are needed for
+		// compatibility with older clients.
 		{
 			input: CurrentSnapshot{
 				SingleEpochCompactionSets: map[int][]blob.Metadata{},
@@ -358,6 +360,51 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 			},
 			expectedEpoch: 1,
 		},
+		{
+			input: CurrentSnapshot{
+				// non-contiguous single epoch compaction set
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 4}),
+			},
+			expectedEpoch: 1,
+		},
+
+		{
+			input: CurrentSnapshot{
+				// non-contiguous single epoch compaction set
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 3}),
+			},
+			expectedEpoch: 2,
+		},
+
+		{
+			input: CurrentSnapshot{
+				// non-contiguous single epoch compaction set
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 4}),
+			},
+			expectedEpoch: 2,
+		},
+		{
+			input: CurrentSnapshot{
+				// non-contiguous single epoch compaction set
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 4, 5}),
+			},
+			expectedEpoch: 2,
+		},
+		{
+			input: CurrentSnapshot{
+				// non-contiguous single epoch compaction set
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 2, 4}),
+			},
+			expectedEpoch: 3,
+		},
+		{
+			input: CurrentSnapshot{
+				// non-contiguous single epoch compaction set
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 2, 4, 6, 9}),
+			},
+			expectedEpoch: 3,
+		},
+
 		{
 			input: CurrentSnapshot{
 				LongestRangeCheckpointSets: []*RangeMetadata{
