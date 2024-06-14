@@ -328,36 +328,26 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 		},
 		{
 			input: CurrentSnapshot{
-				WriteEpoch: 0,
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					0: {blob.Metadata{BlobID: compactedEpochBlobPrefix(0) + "foo0"}},
-				},
+				WriteEpoch:                0,
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0}),
 			},
 			expectedEpoch: 1,
 		},
 		{
 			input: CurrentSnapshot{
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					0: {blob.Metadata{BlobID: compactedEpochBlobPrefix(0) + "foo0"}},
-					1: {blob.Metadata{BlobID: compactedEpochBlobPrefix(1) + "foo1"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1}),
 			},
 			expectedEpoch: 2,
 		},
 		{
 			input: CurrentSnapshot{
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					1: {blob.Metadata{BlobID: compactedEpochBlobPrefix(1) + "foo1"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{1}),
 			},
 			expectedEpoch: 0,
 		},
 		{
 			input: CurrentSnapshot{
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					0: {blob.Metadata{BlobID: compactedEpochBlobPrefix(0) + "foo0"}},
-					2: {blob.Metadata{BlobID: compactedEpochBlobPrefix(2) + "foo2"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 2}),
 			},
 			expectedEpoch: -1,
 			wantErr:       errNonContiguousRange,
@@ -387,10 +377,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 						},
 					},
 				},
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					0: {blob.Metadata{BlobID: compactedEpochBlobPrefix(0) + "foo0"}},
-					1: {blob.Metadata{BlobID: compactedEpochBlobPrefix(1) + "foo1"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1}),
 			},
 			expectedEpoch: 3,
 		},
@@ -405,10 +392,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 						},
 					},
 				},
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					1: {blob.Metadata{BlobID: compactedEpochBlobPrefix(1) + "foo1"}},
-					2: {blob.Metadata{BlobID: compactedEpochBlobPrefix(2) + "foo2"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{1, 2}),
 			},
 			expectedEpoch: 3,
 		},
@@ -423,9 +407,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 						},
 					},
 				},
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					1: {blob.Metadata{BlobID: compactedEpochBlobPrefix(1) + "foo1"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{1}),
 			},
 			expectedEpoch: 3,
 		},
@@ -441,10 +423,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 						},
 					},
 				},
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					4: {blob.Metadata{BlobID: compactedEpochBlobPrefix(4) + "foo4"}},
-					5: {blob.Metadata{BlobID: compactedEpochBlobPrefix(5) + "foo5"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{4, 5}),
 			},
 			expectedEpoch: 3,
 		},
@@ -459,10 +438,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 						},
 					},
 				},
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					2: {blob.Metadata{BlobID: compactedEpochBlobPrefix(2) + "foo2"}},
-					3: {blob.Metadata{BlobID: compactedEpochBlobPrefix(3) + "foo3"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{2, 3}),
 			},
 			expectedEpoch: 4,
 		},
@@ -477,10 +453,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 						},
 					},
 				},
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					3: {blob.Metadata{BlobID: compactedEpochBlobPrefix(3) + "foo3"}},
-					4: {blob.Metadata{BlobID: compactedEpochBlobPrefix(4) + "foo4"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{3, 4}),
 			},
 			expectedEpoch: 5,
 		},
@@ -495,10 +468,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 						},
 					},
 				},
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					3: {blob.Metadata{BlobID: compactedEpochBlobPrefix(3) + "foo3"}},
-					4: {blob.Metadata{BlobID: compactedEpochBlobPrefix(4) + "foo4"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{3, 4}),
 			},
 			expectedEpoch: -1,
 			wantErr:       errInvalidCompactedRange,
@@ -514,10 +484,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 						},
 					},
 				},
-				SingleEpochCompactionSets: map[int][]blob.Metadata{
-					3: {blob.Metadata{BlobID: compactedEpochBlobPrefix(3) + "foo3"}},
-					5: {blob.Metadata{BlobID: compactedEpochBlobPrefix(5) + "foo5"}},
-				},
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{3, 5}),
 			},
 			expectedEpoch: -1,
 			wantErr:       errNonContiguousRange,
