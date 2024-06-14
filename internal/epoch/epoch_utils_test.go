@@ -527,7 +527,9 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 		t.Run(fmt.Sprint("case:", i), func(t *testing.T) {
 			got, err := oldestUncompactedEpoch(tc.input)
 
-			if tc.wantErr != nil {
+			if tc.wantErr == nil {
+				require.NoError(t, err)
+			} else {
 				require.Error(t, err)
 			}
 
