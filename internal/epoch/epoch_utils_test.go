@@ -3,6 +3,7 @@ package epoch
 import (
 	"fmt"
 	"math"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -536,4 +537,13 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 			require.Equal(t, tc.expectedEpoch, got, "input: %#v", tc.input)
 		})
 	}
+}
+
+func makeSingleCompactionEpochSets(epochs []int) map[int][]blob.Metadata {
+	es := make(map[int][]blob.Metadata, len(epochs))
+	for _, e := range epochs {
+		es[e] = []blob.Metadata{{BlobID: compactedEpochBlobPrefix(e) + "foo_" + blob.ID(strconv.Itoa(e))}}
+	}
+
+	return es
 }
