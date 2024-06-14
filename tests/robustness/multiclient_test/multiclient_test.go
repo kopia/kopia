@@ -41,16 +41,24 @@ func TestManySmallFiles(t *testing.T) {
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
+		err2 := eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+		err2 = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+		err2 = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+		err2 = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
@@ -74,16 +82,24 @@ func TestOneLargeFile(t *testing.T) {
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
+		err2 := eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+		err2 = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+		err2 = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+		err2 = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
@@ -111,16 +127,24 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
+		err2 := eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+		err2 = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+		err2 = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+		err2 = eng.CheckErrRecovery(ctx, err, engine.ActionOpts{})
 		require.NoError(t, err)
+		require.NoError(t, err2)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
