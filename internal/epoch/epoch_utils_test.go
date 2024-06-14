@@ -323,6 +323,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 			input: CurrentSnapshot{
 				SingleEpochCompactionSets: map[int][]blob.Metadata{},
 			},
+			expectedEpoch: 0,
 		},
 		{
 			input: CurrentSnapshot{
