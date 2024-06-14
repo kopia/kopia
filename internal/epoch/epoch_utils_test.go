@@ -347,6 +347,12 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 		},
 		{
 			input: CurrentSnapshot{
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{23}),
+			},
+			expectedEpoch: 0,
+		},
+		{
+			input: CurrentSnapshot{
 				// non-contiguous single epoch compaction set
 				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 2}),
 			},
