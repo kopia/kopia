@@ -314,6 +314,7 @@ func TestGetKeyRange(t *testing.T) {
 	}
 }
 
+//nolint:maintidx
 func TestOldestUncompactedEpoch(t *testing.T) {
 	cases := []struct {
 		input         CurrentSnapshot
