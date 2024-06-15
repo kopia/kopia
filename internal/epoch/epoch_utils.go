@@ -194,8 +194,8 @@ func getFirstContiguousKeyRange[E any](m map[int]E) closedIntRange {
 	return closedIntRange{lo: lo, hi: hi}
 }
 
-func getCompactedEpochRange(cs CurrentSnapshot) (closedIntRange, error) {
-	return getContiguousKeyRange(cs.SingleEpochCompactionSets)
+func getCompactedEpochRange(cs CurrentSnapshot) closedIntRange {
+	return getFirstContiguousKeyRange(cs.SingleEpochCompactionSets)
 }
 
 var errInvalidCompactedRange = errors.New("invalid compacted epoch range")
@@ -227,10 +227,7 @@ func oldestUncompactedEpoch(cs CurrentSnapshot) (int, error) {
 		oldestUncompacted = rangeCompacted.hi + 1
 	}
 
-	singleCompacted, err := getCompactedEpochRange(cs)
-	if err != nil {
-		return -1, errors.Wrap(err, "could not get latest single-compacted epoch")
-	}
+	singleCompacted := getCompactedEpochRange(cs)
 
 	if singleCompacted.isEmpty() || oldestUncompacted < singleCompacted.lo {
 		return oldestUncompacted, nil
