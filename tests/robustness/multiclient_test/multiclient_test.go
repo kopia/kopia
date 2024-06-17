@@ -20,27 +20,41 @@ import (
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 )
 
-const defaultTestDur = 5 * time.Minute
+const (
+	defaultTestDur           = 5 * time.Minute
+	deleteContentsPercentage = 50
+)
 
 var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
 
 func TestManySmallFiles(t *testing.T) {
 	const (
-		fileSize   = 4096
-		numFiles   = 10000
-		numClients = 4
+		fileSize    = 4096
+		numFiles    = 10000
+		numClients  = 4
+		maxDirDepth = 1
 	)
 
 	fileWriteOpts := map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
 		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
+	deleteDirOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField:             strconv.Itoa(maxDirDepth),
+		fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage),
+	}
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
+		require.NoError(t, err)
+
+		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
+		require.NoError(t, err)
+
+		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
@@ -98,19 +112,30 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		filesPerWrite = 10
 		actionRepeats = numFiles / filesPerWrite
 		numClients    = 4
+		maxDirDepth   = 15
 	)
 
 	fileWriteOpts := map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(15),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
 		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
 		engine.ActionRepeaterField:             strconv.Itoa(actionRepeats),
 	}
+	deleteDirOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField:             strconv.Itoa(maxDirDepth),
+		fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage),
+	}
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
+		require.NoError(t, err)
+
+		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
+		require.NoError(t, err)
+
+		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
@@ -132,6 +157,8 @@ func TestRandomizedSmall(t *testing.T) {
 
 	st := timetrack.StartTimer()
 
+	maxDirDepth := 3
+
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
 			string(engine.SnapshotDirActionKey):              strconv.Itoa(2),
@@ -139,12 +166,16 @@ func TestRandomizedSmall(t *testing.T) {
 			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(1),
 			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(8),
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(1),
+			string(engine.DeleteDirectoryContentsActionKey):  strconv.Itoa(1),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
 			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(512 * 1024 * 1024),
 			fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(100),
 			fiofilewriter.MaxFileSizeField:         strconv.Itoa(64 * 1024 * 1024),
-			fiofilewriter.MaxDirDepthField:         strconv.Itoa(3),
+			fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
+		},
+		engine.DeleteDirectoryContentsActionKey: map[string]string{
+			fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage),
 		},
 	}
 
