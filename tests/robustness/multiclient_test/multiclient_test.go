@@ -166,6 +166,7 @@ func TestRandomizedSmall(t *testing.T) {
 			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(1),
 			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(8),
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(1),
+			string(engine.DeleteDirectoryContentsActionKey):  strconv.Itoa(1),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
 			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(512 * 1024 * 1024),
