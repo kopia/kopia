@@ -163,17 +163,19 @@ func TestRandomizedSmall(t *testing.T) {
 		engine.ActionControlActionKey: map[string]string{
 			string(engine.SnapshotDirActionKey):              strconv.Itoa(2),
 			string(engine.RestoreSnapshotActionKey):          strconv.Itoa(2),
-			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(4),
+			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(1),
 			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(8),
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(maxDirDepth),
-			string(engine.DeleteDirectoryContentsActionKey):  strconv.Itoa(maxDirDepth),
+			string(engine.DeleteDirectoryContentsActionKey):  strconv.Itoa(1),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
-			fiofilewriter.IOLimitPerWriteAction:        strconv.Itoa(512 * 1024 * 1024),
-			fiofilewriter.MaxNumFilesPerWriteField:     strconv.Itoa(100),
-			fiofilewriter.MaxFileSizeField:             strconv.Itoa(64 * 1024 * 1024),
-			fiofilewriter.MaxDirDepthField:             strconv.Itoa(maxDirDepth),
-			fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage), // used in DeleteDirectoryContentsAction
+			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(512 * 1024 * 1024),
+			fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(100),
+			fiofilewriter.MaxFileSizeField:         strconv.Itoa(64 * 1024 * 1024),
+			fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
+		},
+		engine.DeleteDirectoryContentsActionKey: map[string]string{
+			fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage),
 		},
 	}
 
