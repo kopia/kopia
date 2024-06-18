@@ -124,26 +124,6 @@ const (
 	minInt = -1 << (intSize - 1)
 )
 
-// Returns a range for the keys in m. It returns an empty range when m is empty.
-func getKeyRange[E any](m map[int]E) closedIntRange {
-	if len(m) == 0 {
-		return closedIntRange{lo: 0, hi: -1}
-	}
-
-	lo, hi := maxInt, minInt
-	for k := range m {
-		if k < lo {
-			lo = k
-		}
-
-		if k > hi {
-			hi = k
-		}
-	}
-
-	return closedIntRange{lo: lo, hi: hi}
-}
-
 func getFirstContiguousKeyRange[E any](m map[int]E) closedIntRange {
 	if len(m) == 0 {
 		return closedIntRange{lo: 0, hi: -1}
