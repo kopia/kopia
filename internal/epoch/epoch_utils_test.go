@@ -401,7 +401,7 @@ func makeSingleCompactionEpochSets(epochs []int) map[int][]blob.Metadata {
 	return es
 }
 
-func TestGetFirstContiguosKeyRange(t *testing.T) {
+func TestGetFirstContiguousKeyRange(t *testing.T) {
 	cases := []struct {
 		input   map[int]bool
 		want    closedIntRange
