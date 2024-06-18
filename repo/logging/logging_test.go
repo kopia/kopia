@@ -24,7 +24,7 @@ func TestBroadcast(t *testing.T) {
 	}, "[second] ")
 
 	l := logging.Broadcast(l0, l1)
-	l.Debugf("A")
+	l.Debug("A")
 	l.Debugw("S", "b", 123)
 	l.Infof("B")
 	l.Errorf("C")
@@ -48,7 +48,7 @@ func TestWriter(t *testing.T) {
 	var buf bytes.Buffer
 
 	l := logging.ToWriter(&buf)("module1")
-	l.Debugf("A")
+	l.Debug("A")
 	l.Debugw("S", "b", 123)
 	l.Infof("B")
 	l.Errorf("C")
@@ -60,7 +60,7 @@ func TestWriter(t *testing.T) {
 func TestNullWriterModule(t *testing.T) {
 	l := logging.Module("mod1")(context.Background())
 
-	l.Debugf("A")
+	l.Debug("A")
 	l.Debugw("S", "b", 123)
 	l.Infof("B")
 	l.Errorf("C")
@@ -73,7 +73,7 @@ func TestNonNullWriterModule(t *testing.T) {
 	ctx := logging.WithLogger(context.Background(), logging.ToWriter(&buf))
 	l := logging.Module("mod1")(ctx)
 
-	l.Debugf("A")
+	l.Debug("A")
 	l.Debugw("S", "b", 123)
 	l.Infof("B")
 	l.Errorf("C")
@@ -89,7 +89,7 @@ func TestWithAdditionalLogger(t *testing.T) {
 	ctx = logging.WithAdditionalLogger(ctx, logging.ToWriter(&buf2))
 	l := logging.Module("mod1")(ctx)
 
-	l.Debugf("A")
+	l.Debug("A")
 	l.Debugw("S", "b", 123)
 	l.Infof("B")
 	l.Errorf("C")
