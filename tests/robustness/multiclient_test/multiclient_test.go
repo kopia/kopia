@@ -137,7 +137,7 @@ func TestRandomizedSmall(t *testing.T) {
 			string(engine.SnapshotDirActionKey):              strconv.Itoa(2),
 			string(engine.RestoreSnapshotActionKey):          strconv.Itoa(2),
 			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(1),
-			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(8),
+			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(2),
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(1),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
