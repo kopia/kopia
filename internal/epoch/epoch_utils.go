@@ -115,8 +115,6 @@ func (r closedIntRange) isEmpty() bool {
 	return r.length() == 0
 }
 
-var errNonContiguousRange = errors.New("non-contiguous range")
-
 // constants from the standard math package.
 const (
 	//nolint:mnd
@@ -144,22 +142,6 @@ func getKeyRange[E any](m map[int]E) closedIntRange {
 	}
 
 	return closedIntRange{lo: lo, hi: hi}
-}
-
-// Returns a contiguous range for the keys in m.
-// When the range is not continuous an error is returned.
-func getContiguousKeyRange[E any](m map[int]E) (closedIntRange, error) {
-	r := getKeyRange(m)
-
-	// r.hi and r.lo are from unique map keys, so for the range to be continuous
-	// then the range length must be exactly the same as the size of the map.
-	// For example, if lo==2, hi==4, and len(m) == 3, the range must be
-	// contiguous => {2, 3, 4}
-	if r.length() != uint(len(m)) {
-		return closedIntRange{-1, -2}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", r.lo, r.hi, len(m))
-	}
-
-	return r, nil
 }
 
 func getFirstContiguousKeyRange[E any](m map[int]E) closedIntRange {
