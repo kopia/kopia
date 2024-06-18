@@ -152,7 +152,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	th.RunN(ctx, t, numClients, f)
 
 	// Run gc action once
-	runGCFcn := func(ctx context.Context, t *testing.T) {
+	runGCFcn := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		t.Log("run maintenance")
 		_, err := eng.ExecAction(ctx, engine.GCActionKey, nil)
 		require.NoError(t, err)
