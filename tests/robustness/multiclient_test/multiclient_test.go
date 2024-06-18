@@ -150,6 +150,14 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
+
+	// Run gc action once
+	runGCFcn := func(ctx context.Context, t *testing.T) {
+		t.Log("run maintenance")
+		_, err := eng.ExecAction(ctx, engine.GCActionKey, nil)
+		require.NoError(t, err)
+	}
+	th.RunN(ctx, t, 1, runGCFcn)
 }
 
 func TestRandomizedSmall(t *testing.T) {
