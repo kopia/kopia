@@ -1,6 +1,7 @@
 package epoch
 
 import (
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -114,8 +115,6 @@ func (r closedIntRange) isEmpty() bool {
 	return r.length() == 0
 }
 
-var errNonContiguousRange = errors.New("non-contiguous range")
-
 // constants from the standard math package.
 const (
 	//nolint:mnd
@@ -125,44 +124,40 @@ const (
 	minInt = -1 << (intSize - 1)
 )
 
-// Returns a range for the keys in m. It returns an empty range when m is empty.
-func getKeyRange[E any](m map[int]E) closedIntRange {
+func getFirstContiguousKeyRange[E any](m map[int]E) closedIntRange {
 	if len(m) == 0 {
 		return closedIntRange{lo: 0, hi: -1}
 	}
 
-	lo, hi := maxInt, minInt
+	keys := make([]int, 0, len(m))
+
 	for k := range m {
-		if k < lo {
-			lo = k
+		keys = append(keys, k)
+	}
+
+	slices.Sort(keys)
+
+	lo := keys[0]
+	if hi := keys[len(keys)-1]; hi-lo+1 == len(m) {
+		// the difference between the largest and smallest key is the same as
+		// the length of the key set, then the range is contiguous
+		return closedIntRange{lo: lo, hi: hi}
+	}
+
+	hi := lo
+	for _, v := range keys[1:] {
+		if v != hi+1 {
+			break
 		}
 
-		if k > hi {
-			hi = k
-		}
+		hi = v
 	}
 
 	return closedIntRange{lo: lo, hi: hi}
 }
 
-// Returns a contiguous range for the keys in m.
-// When the range is not continuous an error is returned.
-func getContiguousKeyRange[E any](m map[int]E) (closedIntRange, error) {
-	r := getKeyRange(m)
-
-	// r.hi and r.lo are from unique map keys, so for the range to be continuous
-	// then the range length must be exactly the same as the size of the map.
-	// For example, if lo==2, hi==4, and len(m) == 3, the range must be
-	// contiguous => {2, 3, 4}
-	if r.length() != uint(len(m)) {
-		return closedIntRange{-1, -2}, errors.Wrapf(errNonContiguousRange, "[lo: %d, hi: %d], length: %d", r.lo, r.hi, len(m))
-	}
-
-	return r, nil
-}
-
-func getCompactedEpochRange(cs CurrentSnapshot) (closedIntRange, error) {
-	return getContiguousKeyRange(cs.SingleEpochCompactionSets)
+func getCompactedEpochRange(cs CurrentSnapshot) closedIntRange {
+	return getFirstContiguousKeyRange(cs.SingleEpochCompactionSets)
 }
 
 var errInvalidCompactedRange = errors.New("invalid compacted epoch range")
@@ -194,10 +189,7 @@ func oldestUncompactedEpoch(cs CurrentSnapshot) (int, error) {
 		oldestUncompacted = rangeCompacted.hi + 1
 	}
 
-	singleCompacted, err := getCompactedEpochRange(cs)
-	if err != nil {
-		return -1, errors.Wrap(err, "could not get latest single-compacted epoch")
-	}
+	singleCompacted := getCompactedEpochRange(cs)
 
 	if singleCompacted.isEmpty() || oldestUncompacted < singleCompacted.lo {
 		return oldestUncompacted, nil
