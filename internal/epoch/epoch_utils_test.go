@@ -83,7 +83,6 @@ func TestAssertMinMaxIntConstants(t *testing.T) {
 	require.Equal(t, math.MaxInt, maxInt)
 }
 
-//nolint:maintidx
 func TestOldestUncompactedEpoch(t *testing.T) {
 	cases := []struct {
 		input         CurrentSnapshot
@@ -177,136 +176,64 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 2,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
-						},
-					},
-				},
+				LongestRangeCheckpointSets: makeLongestRange(0, 2),
 			},
 			expectedEpoch: 3,
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 2,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
-						},
-					},
-				},
-				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1}),
+				LongestRangeCheckpointSets: makeLongestRange(0, 2),
+				SingleEpochCompactionSets:  makeSingleCompactionEpochSets([]int{0, 1}),
 			},
 			expectedEpoch: 3,
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 2,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
-						},
-					},
-				},
-				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{1, 2}),
+				LongestRangeCheckpointSets: makeLongestRange(0, 2),
+				SingleEpochCompactionSets:  makeSingleCompactionEpochSets([]int{1, 2}),
 			},
 			expectedEpoch: 3,
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 2,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
-						},
-					},
-				},
-				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{1}),
+				LongestRangeCheckpointSets: makeLongestRange(0, 2),
+				SingleEpochCompactionSets:  makeSingleCompactionEpochSets([]int{1}),
 			},
 			expectedEpoch: 3,
 		},
 
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 2,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
-						},
-					},
-				},
-				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{4, 5}),
+				LongestRangeCheckpointSets: makeLongestRange(0, 2),
+				SingleEpochCompactionSets:  makeSingleCompactionEpochSets([]int{4, 5}),
 			},
 			expectedEpoch: 3,
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 2,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
-						},
-					},
-				},
-				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{2, 3}),
+				LongestRangeCheckpointSets: makeLongestRange(0, 2),
+				SingleEpochCompactionSets:  makeSingleCompactionEpochSets([]int{2, 3}),
 			},
 			expectedEpoch: 4,
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 2,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
-						},
-					},
-				},
-				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{3, 4}),
+				LongestRangeCheckpointSets: makeLongestRange(0, 2),
+				SingleEpochCompactionSets:  makeSingleCompactionEpochSets([]int{3, 4}),
 			},
 			expectedEpoch: 5,
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 1,
-						MaxEpoch: 2,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(1, 2) + "foo-1-2"},
-						},
-					},
-				},
-				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{3, 4}),
+				LongestRangeCheckpointSets: makeLongestRange(1, 2),
+				SingleEpochCompactionSets:  makeSingleCompactionEpochSets([]int{3, 4}),
 			},
 			expectedEpoch: -1,
 			wantErr:       errInvalidCompactedRange,
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 2,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 2) + "foo-0-2"},
-						},
-					},
-				},
+				LongestRangeCheckpointSets: makeLongestRange(0, 2),
 				// non-contiguous single epoch compaction set
 				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{3, 5}),
 			},
@@ -314,15 +241,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 7,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 7) + "foo-0-7"},
-						},
-					},
-				},
+				LongestRangeCheckpointSets: makeLongestRange(0, 7),
 				// non-contiguous single epoch compaction set, but most of the set overlaps with the compacted range
 				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 2, 4, 6, 9}),
 			},
@@ -330,30 +249,14 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 7,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 7) + "foo-0-7"},
-						},
-					},
-				},
-				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{9, 10}),
+				LongestRangeCheckpointSets: makeLongestRange(0, 7),
+				SingleEpochCompactionSets:  makeSingleCompactionEpochSets([]int{9, 10}),
 			},
 			expectedEpoch: 8,
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 7,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 7) + "foo-0-7"},
-						},
-					},
-				},
+				LongestRangeCheckpointSets: makeLongestRange(0, 7),
 				// non-contiguous single epoch compaction set
 				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{8, 10}),
 			},
@@ -361,15 +264,7 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 		},
 		{
 			input: CurrentSnapshot{
-				LongestRangeCheckpointSets: []*RangeMetadata{
-					{
-						MinEpoch: 0,
-						MaxEpoch: 7,
-						Blobs: []blob.Metadata{
-							{BlobID: rangeCheckpointBlobPrefix(0, 7) + "foo-0-7"},
-						},
-					},
-				},
+				LongestRangeCheckpointSets: makeLongestRange(0, 7),
 				// non-contiguous single epoch compaction set
 				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{8, 9, 12}),
 			},
@@ -399,6 +294,18 @@ func makeSingleCompactionEpochSets(epochs []int) map[int][]blob.Metadata {
 	}
 
 	return es
+}
+
+func makeLongestRange(minEpoch, maxEpoch int) []*RangeMetadata {
+	return []*RangeMetadata{
+		{
+			MinEpoch: minEpoch,
+			MaxEpoch: maxEpoch,
+			Blobs: []blob.Metadata{
+				{BlobID: blob.ID(fmt.Sprintf("%sfoo-%v-%v", rangeCheckpointBlobPrefix(minEpoch, maxEpoch), minEpoch, maxEpoch))},
+			},
+		},
+	}
 }
 
 func TestGetFirstContiguousKeyRange(t *testing.T) {
