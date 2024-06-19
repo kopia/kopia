@@ -28,7 +28,7 @@ func TestBroadcast(t *testing.T) {
 	l.Debugw("S", "b", 123)
 	l.Info("B")
 	l.Errorf("C")
-	l.Warnf("W")
+	l.Warn("W")
 
 	require.Equal(t, []string{
 		"[first] A",
@@ -52,7 +52,7 @@ func TestWriter(t *testing.T) {
 	l.Debugw("S", "b", 123)
 	l.Info("B")
 	l.Errorf("C")
-	l.Warnf("W")
+	l.Warn("W")
 
 	require.Equal(t, "A\nS\t{\"b\":123}\nB\nC\nW\n", buf.String())
 }
@@ -64,7 +64,7 @@ func TestNullWriterModule(t *testing.T) {
 	l.Debugw("S", "b", 123)
 	l.Info("B")
 	l.Errorf("C")
-	l.Warnf("W")
+	l.Warn("W")
 }
 
 func TestNonNullWriterModule(t *testing.T) {
@@ -77,7 +77,7 @@ func TestNonNullWriterModule(t *testing.T) {
 	l.Debugw("S", "b", 123)
 	l.Info("B")
 	l.Errorf("C")
-	l.Warnf("W")
+	l.Warn("W")
 
 	require.Equal(t, "A\nS\t{\"b\":123}\nB\nC\nW\n", buf.String())
 }
@@ -93,7 +93,7 @@ func TestWithAdditionalLogger(t *testing.T) {
 	l.Debugw("S", "b", 123)
 	l.Info("B")
 	l.Errorf("C")
-	l.Warnf("W")
+	l.Warn("W")
 
 	require.Equal(t, "A\nS\t{\"b\":123}\nB\nC\nW\n", buf.String())
 	require.Equal(t, "A\nS\t{\"b\":123}\nB\nC\nW\n", buf2.String())
