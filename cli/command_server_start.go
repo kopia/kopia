@@ -266,7 +266,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 }
 
 func shutdownHTTPServer(ctx context.Context, httpServer *http.Server) {
-	log(ctx).Infof("Shutting down HTTP server ...")
+	log(ctx).Info("Shutting down HTTP server ...")
 
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log(ctx).Errorln("unable to shut down HTTP server:", err)

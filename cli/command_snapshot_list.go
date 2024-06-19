@@ -233,7 +233,7 @@ func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo
 	}
 
 	if !anyOutput && !c.snapshotListShowAll && len(manifests) > 0 {
-		log(ctx).Infof("No snapshots found. Pass --all to show snapshots from all users/hosts.\n")
+		log(ctx).Info("No snapshots found. Pass --all to show snapshots from all users/hosts.\n")
 	}
 
 	return nil

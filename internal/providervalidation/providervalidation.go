@@ -125,7 +125,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 	prefix1 := uberPrefix + "a"
 	prefix2 := uberPrefix + "b"
 
-	log(ctx).Infof("Validating storage capacity and usage")
+	log(ctx).Info("Validating storage capacity and usage")
 
 	c, err := st.pickOne().GetCapacity(ctx)
 
@@ -138,13 +138,13 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Wrapf(err, "unexpected error")
 	}
 
-	log(ctx).Infof("Validating blob list responses")
+	log(ctx).Info("Validating blob list responses")
 
 	if err := verifyBlobCount(ctx, st.pickOne(), uberPrefix, 0); err != nil {
 		return errors.Wrap(err, "invalid blob count")
 	}
 
-	log(ctx).Infof("Validating non-existent blob responses")
+	log(ctx).Info("Validating non-existent blob responses")
 
 	var out gather.WriteBuffer
 	defer out.Close()
@@ -173,7 +173,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Wrap(err, "error writing blob #1")
 	}
 
-	log(ctx).Infof("Validating conditional creates...")
+	log(ctx).Info("Validating conditional creates...")
 
 	err2 := st.pickOne().PutBlob(ctx, prefix1+"1", gather.FromSlice([]byte{99}), blob.PutOptions{DoNotRecreate: true})
 
@@ -187,7 +187,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Errorf("unexpected error returned from PutBlob with DoNotRecreate: %v", err2)
 	}
 
-	log(ctx).Infof("Validating list responses...")
+	log(ctx).Info("Validating list responses...")
 
 	if err := verifyBlobCount(ctx, st.pickOne(), uberPrefix, 1); err != nil {
 		return errors.Wrap(err, "invalid uber blob count")
@@ -201,7 +201,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Wrap(err, "invalid blob count with prefix 2")
 	}
 
-	log(ctx).Infof("Validating partial reads...")
+	log(ctx).Info("Validating partial reads...")
 
 	partialBlobCases := []struct {
 		offset int64
@@ -225,7 +225,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		}
 	}
 
-	log(ctx).Infof("Validating full reads...")
+	log(ctx).Info("Validating full reads...")
 
 	// read full blob
 	err2 = st.pickOne().GetBlob(ctx, prefix1+"1", 0, -1, &out)
@@ -237,7 +237,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Errorf("got unexpected data after reading partial blob: %x, wanted %x", got, want)
 	}
 
-	log(ctx).Infof("Validating metadata...")
+	log(ctx).Info("Validating metadata...")
 
 	// get metadata for non-existent blob
 	bm, err2 := st.pickOne().GetMetadata(ctx, prefix1+"1")
@@ -272,7 +272,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Wrap(err, "error validating concurrency")
 	}
 
-	log(ctx).Infof("All good.")
+	log(ctx).Info("All good.")
 
 	return nil
 }
@@ -479,7 +479,7 @@ func (c *concurrencyTest) run(ctx context.Context) error {
 }
 
 func cleanupAllBlobs(ctx context.Context, st blob.Storage, prefix blob.ID) {
-	log(ctx).Infof("Cleaning up temporary data...")
+	log(ctx).Info("Cleaning up temporary data...")
 
 	if err := st.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
 		return errors.Wrapf(st.DeleteBlob(ctx, bm.BlobID), "error deleting blob %v", bm.BlobID)

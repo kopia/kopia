@@ -77,12 +77,12 @@ func testUITaskInternal(t *testing.T, ctx context.Context, m *uitask.Manager) {
 		verifyTaskLog(t, m, tid1a, nil)
 		log(ctx).Debug("first")
 		ignoredLog(ctx).Debug("this is ignored")
-		log(ctx).Infof("iii")
+		log(ctx).Info("iii")
 		verifyTaskLog(t, m, tid1a, []string{
 			"first",
 			"iii",
 		})
-		log(ctx).Infof("www")
+		log(ctx).Info("www")
 		log(ctx).Errorf("eee")
 
 		// 'first' has aged out

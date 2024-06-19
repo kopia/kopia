@@ -56,7 +56,7 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *bigmap.
 
 	defer w.Close(ctx)
 
-	log(ctx).Infof("Looking for active contents...")
+	log(ctx).Info("Looking for active contents...")
 
 	for _, m := range manifests {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
@@ -111,7 +111,7 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 		return errors.Wrap(err, "unable to find in-use content ID")
 	}
 
-	log(ctx).Infof("Looking for unreferenced contents...")
+	log(ctx).Info("Looking for unreferenced contents...")
 
 	// Ensure that the iteration includes deleted contents, so those can be
 	// undeleted (recovered).

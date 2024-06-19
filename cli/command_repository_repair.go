@@ -55,13 +55,13 @@ func packBlockPrefixes() []string {
 func (c *commandRepositoryRepair) runRepairCommandWithStorage(ctx context.Context, st blob.Storage) error {
 	switch c.repairCommandRecoverFormatBlob {
 	case "auto":
-		log(ctx).Infof("looking for format blob...")
+		log(ctx).Info("looking for format blob...")
 
 		var tmp gather.WriteBuffer
 		defer tmp.Close()
 
 		if err := st.GetBlob(ctx, format.KopiaRepositoryBlobID, 0, -1, &tmp); err == nil {
-			log(ctx).Infof("format blob already exists, not recovering, pass --recover-format=yes")
+			log(ctx).Info("format blob already exists, not recovering, pass --recover-format=yes")
 			return nil
 		}
 

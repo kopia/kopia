@@ -131,7 +131,7 @@ func updateRepositoryParameters(
 	requiredFeatures []feature.Required,
 ) error {
 	if upgradeToEpochManager {
-		log(ctx).Infof("migrating current indexes to epoch format")
+		log(ctx).Info("migrating current indexes to epoch format")
 
 		if err := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx); err != nil {
 			return errors.Wrap(err, "error upgrading indexes")
@@ -166,7 +166,7 @@ func updateEpochParameters(mp *format.MutableParameters, anyChange, upgradeToEpo
 }
 
 func (c *commandRepositorySetParameters) disableBlobRetention(ctx context.Context, blobcfg *format.BlobStorageConfiguration, anyChange *bool) {
-	log(ctx).Infof("disabling blob retention")
+	log(ctx).Info("disabling blob retention")
 
 	blobcfg.RetentionMode = ""
 	blobcfg.RetentionPeriod = 0
@@ -247,7 +247,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		return errors.Wrap(err, "error updating repository parameters")
 	}
 
-	log(ctx).Infof("NOTE: Repository parameters updated, you must disconnect and re-connect all other Kopia clients.")
+	log(ctx).Info("NOTE: Repository parameters updated, you must disconnect and re-connect all other Kopia clients.")
 
 	return nil
 }

@@ -474,7 +474,7 @@ func handleFlush(ctx context.Context, rc requestContext) (interface{}, *apiError
 }
 
 func handleShutdown(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	log(ctx).Infof("shutting down due to API request")
+	log(ctx).Info("shutting down due to API request")
 
 	rc.srv.requestShutdown(ctx)
 
@@ -856,7 +856,7 @@ func (s *Server) InitRepositoryAsync(ctx context.Context, mode string, initializ
 		}
 
 		if rep == nil {
-			log(ctx).Infof("Repository not configured.")
+			log(ctx).Info("Repository not configured.")
 		}
 
 		if err = s.SetRepository(ctx, rep); err != nil {

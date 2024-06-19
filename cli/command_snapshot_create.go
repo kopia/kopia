@@ -129,7 +129,7 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
-			log(ctx).Infof("Upload canceled")
+			log(ctx).Info("Upload canceled")
 			break
 		}
 
@@ -311,7 +311,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, fsEntr
 	ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
 	if ignoreIdenticalSnapshot && len(previous) > 0 {
 		if previous[0].RootObjectID() == manifest.RootObjectID() {
-			log(ctx).Infof("\n Not saving snapshot because no files have been changed since previous snapshot")
+			log(ctx).Info("\n Not saving snapshot because no files have been changed since previous snapshot")
 			return nil
 		}
 	}

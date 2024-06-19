@@ -250,7 +250,7 @@ func (s *sourceManager) cancel(ctx context.Context) serverapi.SourceActionRespon
 	log(ctx).Debugw("cancel triggered via API", "source", s.src)
 
 	if u := s.currentUploader(); u != nil {
-		log(ctx).Infof("canceling current upload")
+		log(ctx).Info("canceling current upload")
 		u.Cancel()
 	}
 
@@ -265,7 +265,7 @@ func (s *sourceManager) pause(ctx context.Context) serverapi.SourceActionRespons
 	s.sourceMutex.Unlock()
 
 	if u := s.currentUploader(); u != nil {
-		log(ctx).Infof("canceling current upload")
+		log(ctx).Info("canceling current upload")
 		u.Cancel()
 	}
 

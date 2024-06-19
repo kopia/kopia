@@ -9,7 +9,7 @@ import (
 // runTaskIndexCompactionQuick rewrites index blobs to reduce their count but does not drop any contents.
 func runTaskIndexCompactionQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return ReportRun(ctx, runParams.rep, TaskIndexCompaction, s, func() error {
-		log(ctx).Infof("Compacting indexes...")
+		log(ctx).Info("Compacting indexes...")
 
 		const maxSmallBlobsForIndexCompaction = 8
 
