@@ -316,7 +316,7 @@ func (c *commandRepositorySyncTo) syncCopyBlob(ctx context.Context, m blob.Metad
 			// run again without SetModTime, emit a warning
 			opt.SetModTime = time.Time{}
 
-			log(ctx).Warnf("destination repository does not support preserving modification times")
+			log(ctx).Warn("destination repository does not support preserving modification times")
 
 			c.repositorySyncTimes = false
 

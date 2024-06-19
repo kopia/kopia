@@ -437,7 +437,7 @@ func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []co
 		}
 	}
 
-	log(ctx).Warnf("missing response to PrefetchContents")
+	log(ctx).Warn("missing response to PrefetchContents")
 
 	return nil
 }
