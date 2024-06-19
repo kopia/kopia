@@ -26,7 +26,7 @@ func TestBroadcast(t *testing.T) {
 	l := logging.Broadcast(l0, l1)
 	l.Debug("A")
 	l.Debugw("S", "b", 123)
-	l.Infof("B")
+	l.Info("B")
 	l.Errorf("C")
 	l.Warnf("W")
 
@@ -50,7 +50,7 @@ func TestWriter(t *testing.T) {
 	l := logging.ToWriter(&buf)("module1")
 	l.Debug("A")
 	l.Debugw("S", "b", 123)
-	l.Infof("B")
+	l.Info("B")
 	l.Errorf("C")
 	l.Warnf("W")
 
@@ -62,7 +62,7 @@ func TestNullWriterModule(t *testing.T) {
 
 	l.Debug("A")
 	l.Debugw("S", "b", 123)
-	l.Infof("B")
+	l.Info("B")
 	l.Errorf("C")
 	l.Warnf("W")
 }
@@ -75,7 +75,7 @@ func TestNonNullWriterModule(t *testing.T) {
 
 	l.Debug("A")
 	l.Debugw("S", "b", 123)
-	l.Infof("B")
+	l.Info("B")
 	l.Errorf("C")
 	l.Warnf("W")
 
@@ -91,7 +91,7 @@ func TestWithAdditionalLogger(t *testing.T) {
 
 	l.Debug("A")
 	l.Debugw("S", "b", 123)
-	l.Infof("B")
+	l.Info("B")
 	l.Errorf("C")
 	l.Warnf("W")
 
