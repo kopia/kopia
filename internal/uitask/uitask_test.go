@@ -83,7 +83,7 @@ func testUITaskInternal(t *testing.T, ctx context.Context, m *uitask.Manager) {
 			"iii",
 		})
 		log(ctx).Info("www")
-		log(ctx).Errorf("eee")
+		log(ctx).Error("eee")
 
 		// 'first' has aged out
 		verifyTaskLog(t, m, tid1a, []string{
