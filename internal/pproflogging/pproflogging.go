@@ -220,7 +220,7 @@ func setupProfileFractions(ctx context.Context, profileBuffers map[ProfileName]*
 
 		n1, err := strconv.Atoi(s)
 		if err != nil {
-			log(ctx).With("cause", err).Warnf("invalid PPROF rate, %q, for %s: %v", s, k)
+			log(ctx).With("cause", err).Warnf("invalid PPROF rate, %q, for '%s'", s, k)
 			continue
 		}
 

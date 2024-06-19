@@ -290,7 +290,7 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 
 		ohid, ok := ent.(object.HasObjectID)
 		if !ok {
-			log(ctx).Errorf("entry does not have object ID: %v", ent, err)
+			log(ctx).Errorf("entry for '%s' does not have object ID: %v", ent.Name(), err)
 			return nil
 		}
 

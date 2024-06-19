@@ -99,7 +99,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 
 	maintenanceLock := configFile + ".mlock"
 	if err := os.RemoveAll(maintenanceLock); err != nil {
-		log(ctx).Errorf("unable to remove maintenance lock file", maintenanceLock)
+		log(ctx).Error("unable to remove maintenance lock file", maintenanceLock)
 	}
 
 	//nolint:wrapcheck
