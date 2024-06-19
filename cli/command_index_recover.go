@@ -49,7 +49,7 @@ func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepository
 
 	defer func() {
 		if recoveredContentCount.Load() == 0 {
-			log(ctx).Infof("No contents recovered.")
+			log(ctx).Info("No contents recovered.")
 			return
 		}
 

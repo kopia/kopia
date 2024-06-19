@@ -236,7 +236,7 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 
 	defer usedPacks.Close(ctx)
 
-	bm.log.Debugf("determining blobs in use")
+	bm.log.Debug("determining blobs in use")
 	// find packs in use
 	if err := bm.IteratePacks(
 		ctx,

@@ -25,7 +25,7 @@ func maybeAutoUpgradeRepository(ctx context.Context, r repo.Repository) error {
 		return nil
 	}
 
-	log(ctx).Debugf("Setting default maintenance parameters...")
+	log(ctx).Debug("Setting default maintenance parameters...")
 
 	//nolint:wrapcheck
 	return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{

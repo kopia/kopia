@@ -132,7 +132,7 @@ func (rw *DirRewriter) getCachedReplacement(ctx context.Context, parentPath stri
 }
 
 func (rw *DirRewriter) processDirectory(ctx context.Context, pathFromRoot string, entry *snapshot.DirEntry) (*snapshot.DirEntry, error) {
-	dirRewriterLog(ctx).Debugf("processDirectory", "path", pathFromRoot)
+	dirRewriterLog(ctx).Debugw("processDirectory", "path", pathFromRoot)
 
 	r, err := rw.rep.OpenObject(ctx, entry.ObjectID)
 	if err != nil {

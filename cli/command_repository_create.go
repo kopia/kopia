@@ -126,7 +126,7 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 		return errors.Wrap(err, "getting password")
 	}
 
-	log(ctx).Infof("Initializing repository with:")
+	log(ctx).Info("Initializing repository with:")
 
 	if options.BlockFormat.Version != 0 {
 		log(ctx).Infof("  format version:      %v", options.BlockFormat.Version)

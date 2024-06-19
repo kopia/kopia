@@ -22,7 +22,7 @@ func (c *policySplitterFlags) setup(cmd *kingpin.CmdClause) {
 func (c *policySplitterFlags) setSplitterPolicyFromFlags(ctx context.Context, p *policy.SplitterPolicy, changeCount *int) error {
 	if v := c.policySetSplitterAlgorithmOverride; v != "" {
 		if v == inheritPolicyString {
-			log(ctx).Infof(" - resetting splitter algorithm override to default value inherited from parent")
+			log(ctx).Info(" - resetting splitter algorithm override to default value inherited from parent")
 
 			p.Algorithm = ""
 		} else {

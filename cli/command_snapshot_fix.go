@@ -132,7 +132,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 	}
 
 	if updatedSnapshots == 0 {
-		log(ctx).Infof("No changes.")
+		log(ctx).Info("No changes.")
 	}
 
 	return nil
@@ -183,7 +183,7 @@ func (c *commonRewriteSnapshots) listManifestIDs(ctx context.Context, rep repo.R
 	}
 
 	if len(manifests) == 0 {
-		log(ctx).Infof("Listing all snapshots...")
+		log(ctx).Info("Listing all snapshots...")
 
 		m, err := snapshot.ListSnapshotManifests(ctx, rep, nil, nil)
 		if err != nil {

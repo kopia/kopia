@@ -233,7 +233,7 @@ func (c *commandSnapshotList) outputManifestGroups(ctx context.Context, rep repo
 	}
 
 	if !anyOutput && !c.snapshotListShowAll && len(manifests) > 0 {
-		log(ctx).Infof("No snapshots found. Pass --all to show snapshots from all users/hosts.\n")
+		log(ctx).Info("No snapshots found. Pass --all to show snapshots from all users/hosts.\n")
 	}
 
 	return nil
@@ -290,7 +290,7 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 
 		ohid, ok := ent.(object.HasObjectID)
 		if !ok {
-			log(ctx).Errorf("entry does not have object ID: %v", ent, err)
+			log(ctx).Errorf("entry for '%s' does not have object ID: %v", ent.Name(), err)
 			return nil
 		}
 

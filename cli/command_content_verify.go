@@ -75,7 +75,7 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 		c.getTotalContentCount(subctx, rep, &totalCount)
 	}()
 
-	log(ctx).Infof("Verifying all contents...")
+	log(ctx).Info("Verifying all contents...")
 
 	rep.DisableIndexRefresh()
 

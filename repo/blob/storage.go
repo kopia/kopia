@@ -396,7 +396,7 @@ func PutBlobAndGetMetadata(ctx context.Context, st Storage, blobID ID, data Byte
 func ReadBlobMap(ctx context.Context, br Reader) (map[ID]Metadata, error) {
 	blobMap := map[ID]Metadata{}
 
-	log(ctx).Infof("Listing blobs...")
+	log(ctx).Info("Listing blobs...")
 
 	if err := br.ListBlobs(ctx, "", func(bm Metadata) error {
 		blobMap[bm.BlobID] = bm

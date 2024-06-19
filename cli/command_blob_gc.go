@@ -45,7 +45,7 @@ func (c *commandBlobGC) run(ctx context.Context, rep repo.DirectRepositoryWriter
 	}
 
 	if opts.DryRun && n > 0 {
-		log(ctx).Infof("Pass --delete=yes to delete.")
+		log(ctx).Info("Pass --delete=yes to delete.")
 	}
 
 	return nil

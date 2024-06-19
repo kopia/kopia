@@ -260,7 +260,7 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 	if SafelySuffixablePath(targetPath) && currentdepth > maxdepth {
 		de, ok := d.(snapshot.HasDirEntry)
 		if !ok {
-			return errors.Errorf("fs.Directory object is not HasDirEntry?")
+			return errors.Errorf("fs.Directory '%s' object is not HasDirEntry?", d.Name())
 		}
 
 		if err := c.shallowoutput.WriteDirEntry(ctx, targetPath, de.DirEntry(), d); err != nil {

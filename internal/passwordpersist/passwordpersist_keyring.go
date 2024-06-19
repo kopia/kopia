@@ -38,13 +38,13 @@ func (keyringStrategy) GetPassword(ctx context.Context, configFile string) (stri
 }
 
 func (keyringStrategy) PersistPassword(ctx context.Context, configFile, password string) error {
-	log(ctx).Debugf("saving password to OS keyring...")
+	log(ctx).Debug("saving password to OS keyring...")
 
 	err := keyring.Set(getKeyringItemID(configFile), keyringUsername(ctx), password)
 
 	switch {
 	case err == nil:
-		log(ctx).Debugf("Saved password in OS keyring")
+		log(ctx).Debug("Saved password in OS keyring")
 		return nil
 
 	case errors.Is(err, keyring.ErrUnsupportedPlatform):
