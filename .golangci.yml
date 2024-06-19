@@ -55,8 +55,20 @@ linters-settings:
     local-prefixes: github.com/kopia/kopia
   govet:
     shadow: true
+    settings:
+      printf:
+        funcs:
+          - (*go.uber.org/zap.SugaredLogger).Debugf
+          - (*go.uber.org/zap.SugaredLogger).Infof
+          - (*go.uber.org/zap.SugaredLogger).Warnf
+          - (*go.uber.org/zap.SugaredLogger).Errorf
   lll:
     line-length: 256
+  loggercheck:
+    zap: true
+    no-printf-like: true
+    rules:
+      - (*go.uber.org/zap.SugaredLogger).With
   maligned:
     suggest-new: true
   misspell:
