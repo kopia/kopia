@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/base64"
+	"io"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
@@ -96,18 +97,9 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 	}
 
 	if up.PasswordHash == nil || c.userAskPassword {
-		pwd, err := askPass(c.out.stdout(), "Enter new password for user "+username+": ")
+		pwd, err := askConfirmPass(c.out.stdout(), "Enter new password for user "+username+": ")
 		if err != nil {
-			return errors.Wrap(err, "error asking for password")
-		}
-
-		pwd2, err := askPass(c.out.stdout(), "Re-enter new password for verification: ")
-		if err != nil {
-			return errors.Wrap(err, "error asking for password")
-		}
-
-		if pwd != pwd2 {
-			return errors.Wrap(err, "passwords don't match")
+			return err
 		}
 
 		changed = true
@@ -131,4 +123,22 @@ To refresh credentials in a running server use 'kopia server refresh' command.
 `)
 
 	return nil
+}
+
+func askConfirmPass(out io.Writer, initialPrompt string) (string, error) {
+	pwd, err := askPass(out, initialPrompt)
+	if err != nil {
+		return "", errors.Wrap(err, "error asking for password")
+	}
+
+	pwd2, err := askPass(out, "Re-enter password for verification: ")
+	if err != nil {
+		return "", errors.Wrap(err, "error asking for password")
+	}
+
+	if pwd != pwd2 {
+		return "", errors.Wrap(err, "passwords don't match")
+	}
+
+	return pwd, nil
 }
