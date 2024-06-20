@@ -214,7 +214,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 			return errors.Wrap(httpServer.Close(), "close")
 		}
 
-		log(ctx2).Debugf("graceful shutdown succeeded")
+		log(ctx2).Debug("graceful shutdown succeeded")
 
 		return nil
 	}
@@ -266,7 +266,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 }
 
 func shutdownHTTPServer(ctx context.Context, httpServer *http.Server) {
-	log(ctx).Infof("Shutting down HTTP server ...")
+	log(ctx).Info("Shutting down HTTP server ...")
 
 	if err := httpServer.Shutdown(ctx); err != nil {
 		log(ctx).Errorln("unable to shut down HTTP server:", err)

@@ -770,7 +770,7 @@ func (e *Manager) GetCompleteIndexSet(ctx context.Context, maxEpoch int) ([]blob
 		// indexes that are still treated as authoritative according to old committed state.
 		//
 		// Retrying will re-examine the state of the world and re-do the logic.
-		e.log.Debugf("GetCompleteIndexSet took too long, retrying to ensure correctness")
+		e.log.Debug("GetCompleteIndexSet took too long, retrying to ensure correctness")
 		atomic.AddInt32(e.getCompleteIndexSetTooSlow, 1)
 	}
 }

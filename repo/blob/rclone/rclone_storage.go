@@ -105,7 +105,7 @@ func (r *rcloneStorage) Close(ctx context.Context) error {
 
 	// this will kill rclone process if any
 	if r.cmd != nil && r.cmd.Process != nil {
-		log(ctx).Debugf("killing rclone")
+		log(ctx).Debug("killing rclone")
 		r.cmd.Process.Kill() //nolint:errcheck
 		r.cmd.Wait()         //nolint:errcheck
 	}

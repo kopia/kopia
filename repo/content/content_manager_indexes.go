@@ -18,7 +18,7 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 	sm.indexesLock.Lock()
 	defer sm.indexesLock.Unlock()
 
-	sm.log.Debugf("Refresh started")
+	sm.log.Debug("Refresh started")
 
 	ibm, err := sm.indexBlobManager(ctx)
 	if err != nil {

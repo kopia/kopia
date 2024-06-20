@@ -75,15 +75,15 @@ func testUITaskInternal(t *testing.T, ctx context.Context, m *uitask.Manager) {
 		})
 
 		verifyTaskLog(t, m, tid1a, nil)
-		log(ctx).Debugf("first")
-		ignoredLog(ctx).Debugf("this is ignored")
-		log(ctx).Infof("iii")
+		log(ctx).Debug("first")
+		ignoredLog(ctx).Debug("this is ignored")
+		log(ctx).Info("iii")
 		verifyTaskLog(t, m, tid1a, []string{
 			"first",
 			"iii",
 		})
-		log(ctx).Infof("www")
-		log(ctx).Errorf("eee")
+		log(ctx).Info("www")
+		log(ctx).Error("eee")
 
 		// 'first' has aged out
 		verifyTaskLog(t, m, tid1a, []string{

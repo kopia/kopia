@@ -81,19 +81,19 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 const syncProgressInterval = 300 * time.Millisecond
 
 func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src blob.Reader, dst blob.Storage) error {
-	log(ctx).Infof("Synchronizing repositories:")
+	log(ctx).Info("Synchronizing repositories:")
 	log(ctx).Infof("  Source:      %v", src.DisplayName())
 	log(ctx).Infof("  Destination: %v", dst.DisplayName())
 
 	if !c.repositorySyncDelete {
-		log(ctx).Infof("NOTE: By default no BLOBs are deleted, pass --delete to allow it.")
+		log(ctx).Info("NOTE: By default no BLOBs are deleted, pass --delete to allow it.")
 	}
 
 	if err := c.ensureRepositoriesHaveSameFormatBlob(ctx, src, dst); err != nil {
 		return err
 	}
 
-	log(ctx).Infof("Looking for BLOBs to synchronize...")
+	log(ctx).Info("Looking for BLOBs to synchronize...")
 
 	var (
 		inSyncBlobs int
@@ -162,7 +162,7 @@ func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src bl
 		return nil
 	}
 
-	log(ctx).Infof("Copying...")
+	log(ctx).Info("Copying...")
 
 	c.beginSyncProgress()
 
@@ -316,7 +316,7 @@ func (c *commandRepositorySyncTo) syncCopyBlob(ctx context.Context, m blob.Metad
 			// run again without SetModTime, emit a warning
 			opt.SetModTime = time.Time{}
 
-			log(ctx).Warnf("destination repository does not support preserving modification times")
+			log(ctx).Warn("destination repository does not support preserving modification times")
 
 			c.repositorySyncTimes = false
 

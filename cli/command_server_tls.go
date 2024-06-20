@@ -174,6 +174,6 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 
 func (c *commandServerStart) showServerUIPrompt(ctx context.Context) {
 	if c.serverStartUI {
-		log(ctx).Infof("Open the address above in a web browser to use the UI.")
+		log(ctx).Info("Open the address above in a web browser to use the UI.")
 	}
 }

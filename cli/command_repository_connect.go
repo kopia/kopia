@@ -131,7 +131,7 @@ func (c *App) runConnectCommandWithStorageAndPassword(ctx context.Context, co *c
 		return errors.Wrap(err, "error connecting to repository")
 	}
 
-	log(ctx).Infof("Connected to repository.")
+	log(ctx).Info("Connected to repository.")
 	c.maybeInitializeUpdateCheck(ctx, co)
 
 	return nil
