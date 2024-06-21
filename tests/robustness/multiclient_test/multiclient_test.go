@@ -150,14 +150,6 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
-
-	// Run gc action once
-	runGCFcn := func(ctx context.Context, t *testing.T) { //nolint:thelper
-		t.Log("run maintenance")
-		_, err := eng.ExecAction(ctx, engine.GCActionKey, nil)
-		require.NoError(t, err)
-	}
-	th.RunN(ctx, t, 1, runGCFcn)
 }
 
 func TestRandomizedSmall(t *testing.T) {
@@ -200,6 +192,19 @@ func TestRandomizedSmall(t *testing.T) {
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
+}
+
+func TestMaintenanceAction(t *testing.T) {
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	numClients := 1
+	// Run gc action onc
+	runGCFcn := func(ctx context.Context, t *testing.T) { //nolint:thelper
+		t.Log("run maintenance")
+		_, err := eng.ExecAction(ctx, engine.GCActionKey, nil)
+		require.NoError(t, err)
+	}
+	th.RunN(ctx, t, numClients, runGCFcn)
 }
 
 // tryRestoreIntoDataDirectory runs eng.ExecAction on the given parameters and masks no-op errors.
