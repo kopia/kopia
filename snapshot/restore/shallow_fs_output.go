@@ -54,7 +54,7 @@ func (o *ShallowFilesystemOutput) WriteFile(ctx context.Context, relativePath st
 
 	mde, ok := f.(snapshot.HasDirEntry)
 	if !ok {
-		return errors.Errorf("fs object is not HasDirEntry?")
+		return errors.Errorf("fs object '%s' is not HasDirEntry?", f.Name())
 	}
 
 	de := mde.DirEntry()

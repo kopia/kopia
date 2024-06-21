@@ -45,7 +45,7 @@ func getStreamCopier(ctx context.Context, targetpath string, sparse bool) (strea
 			}, nil
 		}
 
-		log(ctx).Debugf("sparse copying is not supported on Windows, falling back to regular copying")
+		log(ctx).Debug("sparse copying is not supported on Windows, falling back to regular copying")
 	}
 
 	// Wrap iocopy.Copy to conform to StreamCopier type.

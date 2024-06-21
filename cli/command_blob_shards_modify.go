@@ -139,7 +139,7 @@ func (c *commandBlobShardsModify) run(ctx context.Context) error {
 
 	dotShardsFile := filepath.Join(c.rootPath, sharded.ParametersFile)
 
-	log(ctx).Infof("Reading .shards file.")
+	log(ctx).Info("Reading .shards file.")
 
 	srcPar, err := c.getParameters(dotShardsFile)
 	if err != nil {
@@ -152,7 +152,7 @@ func (c *commandBlobShardsModify) run(ctx context.Context) error {
 		return err2
 	}
 
-	log(ctx).Infof("Moving files...")
+	log(ctx).Info("Moving files...")
 
 	if err2 := c.renameBlobs(ctx, c.rootPath, "", dstPar, &numMoved, &numUnchanged); err2 != nil {
 		return errors.Wrap(err2, "error processing directory")
@@ -165,14 +165,14 @@ func (c *commandBlobShardsModify) run(ctx context.Context) error {
 	}
 
 	log(ctx).Infof("Moved %v files, %v unchanged.", numMoved, numUnchanged)
-	log(ctx).Infof("Removing empty directories...")
+	log(ctx).Info("Removing empty directories...")
 
 	if _, err2 := c.removeEmptyDirs(ctx, c.rootPath, &numRemoved); err2 != nil {
 		return errors.Wrap(err2, "error removing empty directories")
 	}
 
 	log(ctx).Infof("Removed %v empty directories...", numRemoved)
-	log(ctx).Infof("Writing new .shards file.")
+	log(ctx).Info("Writing new .shards file.")
 
 	of, err := os.Create(dotShardsFile) //nolint:gosec
 	if err != nil {

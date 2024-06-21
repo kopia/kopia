@@ -137,7 +137,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 	}
 
 	if len(indexBlobInfos0) == 0 && len(indexBlobInfos1) > 0 {
-		log(ctx).Infof("old index is empty (possibly due to upgrade), nothing to compare against")
+		log(ctx).Info("old index is empty (possibly due to upgrade), nothing to compare against")
 		return nil
 	}
 
@@ -181,7 +181,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 	// no msgs means the check passed without finding anything wrong
 	if len(msgs) == 0 {
-		log(ctx).Infof("index validation succeeded")
+		log(ctx).Info("index validation succeeded")
 		return nil
 	}
 
@@ -241,7 +241,7 @@ func (c *commandRepositoryUpgrade) forceRollbackAction(ctx context.Context, rep 
 		return errors.Wrap(err, "failed to rollback the upgrade")
 	}
 
-	log(ctx).Infof("Repository upgrade lock has been revoked.")
+	log(ctx).Info("Repository upgrade lock has been revoked.")
 
 	return nil
 }
@@ -340,7 +340,7 @@ func (c *commandRepositoryUpgrade) setLockIntent(ctx context.Context, rep repo.D
 		return nil
 	}
 
-	log(ctx).Infof("Repository upgrade lock intent has been placed.")
+	log(ctx).Info("Repository upgrade lock intent has been placed.")
 
 	// skip all other phases after this step
 	if c.lockOnly {
@@ -362,7 +362,7 @@ func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.D
 	}
 
 	if mp.EpochParameters.Enabled {
-		log(ctx).Infof("Repository indices have already been migrated to the epoch format, no need to drain other clients")
+		log(ctx).Info("Repository indices have already been migrated to the epoch format, no need to drain other clients")
 
 		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
 		if err != nil {
@@ -374,7 +374,7 @@ func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.D
 			return nil
 		}
 
-		log(ctx).Infof("Continuing to drain since advance notice has been set")
+		log(ctx).Info("Continuing to drain since advance notice has been set")
 	}
 
 	if err := c.drainAllClients(ctx, rep); err != nil {
@@ -382,7 +382,7 @@ func (c *commandRepositoryUpgrade) drainOrCommit(ctx context.Context, rep repo.D
 	}
 	// we need to reopen the repository after this point
 
-	log(ctx).Infof("Successfully drained all repository clients, the lock has been fully-established now.")
+	log(ctx).Info("Successfully drained all repository clients, the lock has been fully-established now.")
 
 	return nil
 }
@@ -455,7 +455,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 	mp.EpochParameters = epoch.DefaultParameters()
 	mp.IndexVersion = 2
 
-	log(ctx).Infof("migrating current indices to epoch format")
+	log(ctx).Info("migrating current indices to epoch format")
 
 	if uerr := rep.ContentManager().PrepareUpgradeToIndexBlobManagerV1(ctx); uerr != nil {
 		return errors.Wrap(uerr, "error upgrading indices")
@@ -473,7 +473,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 
 	// we need to reopen the repository after this point
 
-	log(ctx).Infof("Repository indices have been upgraded.")
+	log(ctx).Info("Repository indices have been upgraded.")
 
 	return nil
 }
@@ -485,7 +485,7 @@ func (c *commandRepositoryUpgrade) upgrade(ctx context.Context, rep repo.DirectR
 // after this phase.
 func (c *commandRepositoryUpgrade) commitUpgrade(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	if c.commitMode == commitModeNeverCommit {
-		log(ctx).Infof("Commit mode is set to 'never'.  Skipping commit.")
+		log(ctx).Info("Commit mode is set to 'never'.  Skipping commit.")
 		return nil
 	}
 
@@ -494,7 +494,7 @@ func (c *commandRepositoryUpgrade) commitUpgrade(ctx context.Context, rep repo.D
 	}
 	// we need to reopen the repository after this point
 
-	log(ctx).Infof("Repository has been successfully upgraded.")
+	log(ctx).Info("Repository has been successfully upgraded.")
 
 	return nil
 }

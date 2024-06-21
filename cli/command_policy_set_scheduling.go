@@ -69,7 +69,7 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 		sp.TimesOfDay = policy.SortAndDedupeTimesOfDay(timesOfDay)
 
 		if timesOfDay == nil {
-			log(ctx).Infof(" - resetting snapshot times of day to default")
+			log(ctx).Info(" - resetting snapshot times of day to default")
 		} else {
 			log(ctx).Infof(" - setting snapshot times to %v", timesOfDay)
 		}
@@ -79,7 +79,7 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 		ce := splitCronExpressions(c.policySetCron)
 
 		if ce == nil {
-			log(ctx).Infof(" - resetting cron snapshot times to default")
+			log(ctx).Info(" - resetting cron snapshot times to default")
 		} else {
 			log(ctx).Infof(" - setting cron snapshot times to %v", ce)
 		}
@@ -102,7 +102,7 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 
 		sp.Manual = false
 
-		log(ctx).Infof(" - resetting manual snapshot field to false\n")
+		log(ctx).Info(" - resetting manual snapshot field to false\n")
 	}
 
 	return nil
@@ -152,7 +152,7 @@ func (c *policySchedulingFlags) setManualFromFlags(ctx context.Context, sp *poli
 
 		sp.IntervalSeconds = 0
 
-		log(ctx).Infof(" - resetting snapshot interval to default\n")
+		log(ctx).Info(" - resetting snapshot interval to default\n")
 	}
 
 	if len(sp.TimesOfDay) > 0 {
@@ -160,7 +160,7 @@ func (c *policySchedulingFlags) setManualFromFlags(ctx context.Context, sp *poli
 
 		sp.TimesOfDay = nil
 
-		log(ctx).Infof(" - resetting snapshot times of day to default\n")
+		log(ctx).Info(" - resetting snapshot times of day to default\n")
 	}
 
 	if len(sp.Cron) > 0 {
@@ -168,7 +168,7 @@ func (c *policySchedulingFlags) setManualFromFlags(ctx context.Context, sp *poli
 
 		sp.Cron = nil
 
-		log(ctx).Infof(" - resetting cron snapshot times to default\n")
+		log(ctx).Info(" - resetting cron snapshot times to default\n")
 	}
 
 	*changeCount++

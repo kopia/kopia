@@ -228,7 +228,7 @@ func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context
 
 	// do not start new uploads while flushing
 	for bm.flushing {
-		bm.log.Debugf("wait-before-retry")
+		bm.log.Debug("wait-before-retry")
 		bm.cond.Wait()
 	}
 
@@ -280,7 +280,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 
 	// do not start new uploads while flushing
 	for bm.flushing {
-		bm.log.Debugf("wait-before-flush")
+		bm.log.Debug("wait-before-flush")
 		bm.cond.Wait()
 	}
 
@@ -351,7 +351,7 @@ func (bm *WriteManager) DisableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock(ctx)
 
-	bm.log.Debugf("DisableIndexFlush()")
+	bm.log.Debug("DisableIndexFlush()")
 
 	bm.disableIndexFlushCount++
 }
@@ -362,7 +362,7 @@ func (bm *WriteManager) EnableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock(ctx)
 
-	bm.log.Debugf("EnableIndexFlush()")
+	bm.log.Debug("EnableIndexFlush()")
 
 	bm.disableIndexFlushCount--
 }
@@ -444,7 +444,7 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context, mp format.Mu
 	defer span.End()
 
 	if bm.disableIndexFlushCount > 0 {
-		bm.log.Debugf("not flushing index because flushes are currently disabled")
+		bm.log.Debug("not flushing index because flushes are currently disabled")
 		return nil
 	}
 
@@ -607,7 +607,7 @@ func (bm *WriteManager) Flush(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock(ctx)
 
-	bm.log.Debugf("flush")
+	bm.log.Debug("flush")
 
 	// when finished flushing, notify goroutines that were waiting for it.
 	defer bm.cond.Broadcast()

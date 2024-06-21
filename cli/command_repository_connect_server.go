@@ -72,7 +72,7 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 		return errors.Wrap(err, "error connecting to API server")
 	}
 
-	log(ctx).Infof("Connected to repository API Server.")
+	log(ctx).Info("Connected to repository API Server.")
 	c.svc.maybeInitializeUpdateCheck(ctx, c.co)
 
 	return nil

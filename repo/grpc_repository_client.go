@@ -138,7 +138,7 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 		r.sendStreamBrokenAndClose(r.getAndDeleteResponseChannelLocked(id), err)
 	}
 
-	log(ctx).Debugf("finished closing active requests")
+	log(ctx).Debug("finished closing active requests")
 }
 
 // sendRequest sends the provided request to the server and returns a channel on which the
@@ -437,7 +437,7 @@ func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []co
 		}
 	}
 
-	log(ctx).Warnf("missing response to PrefetchContents")
+	log(ctx).Warn("missing response to PrefetchContents")
 
 	return nil
 }

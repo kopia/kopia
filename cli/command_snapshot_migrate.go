@@ -131,7 +131,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	wg.Wait()
 	c.svc.getProgress().FinishShared()
 	c.out.printStderr("\r\n")
-	log(ctx).Infof("Migration finished.")
+	log(ctx).Info("Migration finished.")
 
 	return nil
 }

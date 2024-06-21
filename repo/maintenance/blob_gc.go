@@ -59,7 +59,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	}
 
 	// iterate unreferenced blobs and count them + optionally send to the channel to be deleted
-	log(ctx).Infof("Looking for unreferenced blobs...")
+	log(ctx).Info("Looking for unreferenced blobs...")
 
 	var prefixes []blob.ID
 	if p := opt.Prefix; p != "" {

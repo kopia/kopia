@@ -43,9 +43,9 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	}
 
 	if opt.ShortPacks {
-		log(ctx).Infof("Rewriting contents from short packs...")
+		log(ctx).Info("Rewriting contents from short packs...")
 	} else {
-		log(ctx).Infof("Rewriting contents...")
+		log(ctx).Info("Rewriting contents...")
 	}
 
 	cnt := getContentToRewrite(ctx, rep, opt)

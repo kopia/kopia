@@ -68,25 +68,25 @@ func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode,
 	// check full cycle first, as it does more than the quick cycle
 	if p.FullCycle.Enabled {
 		if !rep.Time().Before(s.NextFullMaintenanceTime) {
-			log(ctx).Debugf("due for full maintenance cycle")
+			log(ctx).Debug("due for full maintenance cycle")
 			return ModeFull, nil
 		}
 
 		log(ctx).Debugf("not due for full maintenance cycle until %v", s.NextFullMaintenanceTime)
 	} else {
-		log(ctx).Debugf("full maintenance cycle not enabled")
+		log(ctx).Debug("full maintenance cycle not enabled")
 	}
 
 	// no time for full cycle, check quick cycle
 	if p.QuickCycle.Enabled {
 		if !rep.Time().Before(s.NextQuickMaintenanceTime) {
-			log(ctx).Debugf("due for quick maintenance cycle")
+			log(ctx).Debug("due for quick maintenance cycle")
 			return ModeQuick, nil
 		}
 
 		log(ctx).Debugf("not due for quick maintenance cycle until %v", s.NextQuickMaintenanceTime)
 	} else {
-		log(ctx).Debugf("quick maintenance cycle not enabled")
+		log(ctx).Debug("quick maintenance cycle not enabled")
 	}
 
 	return ModeNone, nil
@@ -170,7 +170,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	}
 
 	if mode == ModeNone {
-		log(ctx).Debugf("not due for maintenance")
+		log(ctx).Debug("not due for maintenance")
 		return nil
 	}
 
@@ -186,7 +186,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	}
 
 	if !ok {
-		log(ctx).Debugf("maintenance is already in progress locally")
+		log(ctx).Debug("maintenance is already in progress locally")
 		return nil
 	}
 
@@ -254,7 +254,7 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
 	_, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if ok {
-		log(ctx).Debugf("quick maintenance not required for epoch manager")
+		log(ctx).Debug("quick maintenance not required for epoch manager")
 		return nil
 	}
 
@@ -285,10 +285,10 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		// running full orphaned blob deletion, otherwise next quick maintenance will start a quick rewrite
 		// and we'd never delete blobs orphaned by full rewrite.
 		if hadRecentFullRewrite(s) {
-			log(ctx).Debugf("Had recent full rewrite - performing full blob deletion.")
+			log(ctx).Debug("Had recent full rewrite - performing full blob deletion.")
 			err = runTaskDeleteOrphanedBlobsFull(ctx, runParams, s, safety)
 		} else {
-			log(ctx).Debugf("Performing quick blob deletion.")
+			log(ctx).Debug("Performing quick blob deletion.")
 			err = runTaskDeleteOrphanedBlobsQuick(ctx, runParams, s, safety)
 		}
 
@@ -317,7 +317,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 }
 
 func notRewritingContents(ctx context.Context) {
-	log(ctx).Infof("Previous content rewrite has not been finalized yet, waiting until the next blob deletion.")
+	log(ctx).Info("Previous content rewrite has not been finalized yet, waiting until the next blob deletion.")
 }
 
 func notDeletingOrphanedBlobs(ctx context.Context, s *Schedule, safety SafetyParameters) {
@@ -338,7 +338,7 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 
 func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
 	return ReportRun(ctx, runParams.rep, TaskEpochAdvance, s, func() error {
-		log(ctx).Infof("Cleaning up no-longer-needed epoch markers...")
+		log(ctx).Info("Cleaning up no-longer-needed epoch markers...")
 		return errors.Wrap(em.MaybeAdvanceWriteEpoch(ctx), "error advancing epoch marker")
 	})
 }
@@ -354,7 +354,7 @@ func runTaskEpochMaintenanceQuick(ctx context.Context, runParams RunParameters, 
 	}
 
 	err := ReportRun(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
-		log(ctx).Infof("Compacting an eligible uncompacted epoch...")
+		log(ctx).Info("Compacting an eligible uncompacted epoch...")
 		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
 	})
 	if err != nil {
@@ -376,7 +376,7 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 
 	// compact a single epoch
 	if err := ReportRun(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
-		log(ctx).Infof("Compacting an eligible uncompacted epoch...")
+		log(ctx).Info("Compacting an eligible uncompacted epoch...")
 		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
 	}); err != nil {
 		return err
@@ -388,7 +388,7 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 
 	// compact range
 	if err := ReportRun(ctx, runParams.rep, TaskEpochGenerateRange, s, func() error {
-		log(ctx).Infof("Attempting to compact a range of epoch indexes ...")
+		log(ctx).Info("Attempting to compact a range of epoch indexes ...")
 
 		return errors.Wrap(em.MaybeGenerateRangeCheckpoint(ctx), "error creating epoch range indexes")
 	}); err != nil {
@@ -397,7 +397,7 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 
 	// clean up epoch markers
 	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() error {
-		log(ctx).Infof("Cleaning up unneeded epoch markers...")
+		log(ctx).Info("Cleaning up unneeded epoch markers...")
 
 		return errors.Wrap(em.CleanupMarkers(ctx), "error removing epoch markers")
 	})
@@ -406,7 +406,7 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	}
 
 	return ReportRun(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() error {
-		log(ctx).Infof("Cleaning up old index blobs which have already been compacted...")
+		log(ctx).Info("Cleaning up old index blobs which have already been compacted...")
 		return errors.Wrap(em.CleanupSupersededIndexes(ctx), "error removing superseded epoch index blobs")
 	})
 }
@@ -421,7 +421,7 @@ func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters
 	}
 
 	if safeDropTime.IsZero() {
-		log(ctx).Infof("Not enough time has passed since previous successful Snapshot GC. Will try again next time.")
+		log(ctx).Info("Not enough time has passed since previous successful Snapshot GC. Will try again next time.")
 		return nil
 	}
 

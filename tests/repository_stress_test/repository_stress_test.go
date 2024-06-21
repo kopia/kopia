@@ -405,7 +405,7 @@ func readFlushedContent(ctx context.Context, r repo.DirectRepositoryWriter, rs *
 }
 
 func listContents(ctx context.Context, r repo.DirectRepositoryWriter, _ *repomodel.RepositorySession, log logging.Logger) error {
-	log.Debugf("listContents()")
+	log.Debug("listContents()")
 
 	return errors.Wrapf(r.ContentReader().IterateContents(
 		ctx,
@@ -415,7 +415,7 @@ func listContents(ctx context.Context, r repo.DirectRepositoryWriter, _ *repomod
 }
 
 func listAndReadAllContents(ctx context.Context, r repo.DirectRepositoryWriter, _ *repomodel.RepositorySession, log logging.Logger) error {
-	log.Debugf("listAndReadAllContents()")
+	log.Debug("listAndReadAllContents()")
 
 	return errors.Wrapf(r.ContentReader().IterateContents(
 		ctx,
@@ -436,7 +436,7 @@ func compact(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.R
 		return errSkipped
 	}
 
-	log.Debugf("compact()")
+	log.Debug("compact()")
 
 	return errors.Wrapf(
 		r.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}),
@@ -444,7 +444,7 @@ func compact(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.R
 }
 
 func flush(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
-	log.Debugf("flush()")
+	log.Debug("flush()")
 
 	// capture contents and manifests we had before we start flushing.
 	// this is necessary since operations can proceed in parallel to Flush() which might add more data
@@ -465,7 +465,7 @@ func flush(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.Rep
 }
 
 func refresh(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
-	log.Debugf("refresh()")
+	log.Debug("refresh()")
 
 	// refresh model before refreshing repository to guarantee that repository has at least all the items in
 	// the model (possibly more).

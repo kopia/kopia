@@ -88,7 +88,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	}
 
 	// iterate all relevant (active, extendable) blobs and count them + optionally send to the channel to be extended
-	log(ctx).Infof("Extending retention time for blobs...")
+	log(ctx).Info("Extending retention time for blobs...")
 
 	err = blob.IterateAllPrefixesInParallel(ctx, opt.Parallel, rep.BlobStorage(), prefixes, func(bm blob.Metadata) error {
 		if !opt.DryRun {
