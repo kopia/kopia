@@ -97,3 +97,27 @@ The configuration file stores the connection parameters, for example:
 ```
 
 The password to the repository is stored in operating-system specific credential storage (KeyChain on macOS, Credential Manager on Windows or KeyRing on Linux).
+
+#### Set command line arguments when using KopiaUI
+
+
+
+KopiaUI starts the kopia server processes for for each configured repository. Additional arguments for the server process can be configured by creating a special config file.
+
+>NOTE: additional command line options might prevent kopia server from starting up. Please ensure you know what you are doing.
+
+The special config file is located here:
+
+* `%APPDATA%\kopia\server_args-<RepositoryID>.conf` on Windows
+* `$HOME/Library/Application Support/kopia/server_args-<RepositoryID>.conf` on macOS
+* `$HOME/.config/kopia/server_args-<RepositoryID>.conf` on Linux
+
+whereas `<RepositoryID>` is to be replaced with the ID of the repository you want to configure the arguments for.
+
+The file has to contain exactly one argument per line. Example:
+
+```
+--refresh-interval=12h
+--log-level=info
+```
+
