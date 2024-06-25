@@ -1,10 +1,13 @@
 const fs = require('fs');
 const path = require('path');
+const util = require('util');
 const Electron = require('electron');
 const log = require("electron-log");
 
 let configs = {};
 const configFileSuffix = ".config";
+// Uses primisify to read the file
+const readFile = util.promisify(fs.readFile);
 
 let configDir = "";
 let isPortable = false;
@@ -106,6 +109,16 @@ function deleteConfigIfDisconnected(repoID) {
     return false;
 }
 
+/**
+ * Returns the config as json for a given repository
+ * @param {string} repoID 
+ * The id specifying this repository
+ */
+function readConfig(repoID) {
+    let configPath = path.resolve(globalConfigDir(), repoID + ".config")
+    return readFile(configPath);
+}
+
 module.exports = {
     loadConfigs() {
         fs.mkdirSync(globalConfigDir(), { recursive: true, mode: 0700 });
@@ -140,6 +153,8 @@ module.exports = {
     deleteConfigIfDisconnected,
 
     addNewConfig,
+
+    readConfig,
 
     allConfigs,
 
