@@ -3,15 +3,14 @@ package gcs
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
+	"strconv"
+	"time"
 
+	"cloud.google.com/go/storage"
 	gcsclient "cloud.google.com/go/storage"
 	"github.com/pkg/errors"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -26,6 +25,7 @@ import (
 const (
 	gcsStorageType  = "gcs"
 	writerChunkSize = 1 << 20
+	latestVersionID = ""
 
 	timeMapKey = "Kopia-Mtime" // case is important, first letter must be capitalized.
 )
@@ -39,13 +39,28 @@ type gcsStorage struct {
 }
 
 func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
+	return gcs.getBlobWithVersion(ctx, b, latestVersionID, offset, length, output)
+}
+
+// getBlobWithVersion returns full or partial contents of a blob with given ID and version.
+func (gcs *gcsStorage) getBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64, output blob.OutputBuffer) error {
+	fmt.Printf("getBlobWithVersion: blob %s versione %s\n", b, version)
 	if offset < 0 {
 		return blob.ErrInvalidRange
 	}
 
+	objName := gcs.getObjectNameString(b)
+
 	attempt := func() error {
-		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(ctx, offset, length)
+		obj := gcs.bucket.Object(objName)
+		if version != "" {
+			gen, _ := strconv.ParseInt(version, 10, 64)
+			obj = obj.Generation(gen)
+		}
+
+		reader, err := obj.NewRangeReader(ctx, offset, length)
 		if err != nil {
+			fmt.Printf("getBlobWithVersion: errore\n")
 			return errors.Wrap(err, "NewRangeReader")
 		}
 		defer reader.Close() //nolint:errcheck
@@ -62,9 +77,23 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 }
 
 func (gcs *gcsStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
-	attrs, err := gcs.bucket.Object(gcs.getObjectNameString(b)).Attrs(ctx)
+	bm, err := gcs.getVersionMetadata(ctx, b, "")
+
+	return bm.Metadata, err
+}
+
+func (gcs *gcsStorage) getVersionMetadata(ctx context.Context, b blob.ID, version string) (versionMetadata, error) {
+	fmt.Printf("getVersionMetadata per %s#%s", b, version)
+	objName := gcs.getObjectNameString(b)
+	obj := gcs.bucket.Object(objName)
+	if version != "" {
+		gen, _ := strconv.ParseInt(version, 10, 64)
+		obj = obj.Generation(gen)
+	}
+
+	attrs, err := obj.Attrs(ctx)
 	if err != nil {
-		return blob.Metadata{}, errors.Wrap(translateError(err), "Attrs")
+		return versionMetadata{}, errors.Wrap(translateError(err), "Attrs")
 	}
 
 	bm := blob.Metadata{
@@ -77,7 +106,7 @@ func (gcs *gcsStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadat
 		bm.Timestamp = t
 	}
 
-	return bm, nil
+	return infoToVersionMetadata(attrs.Name, attrs), nil
 }
 
 func translateError(err error) error {
@@ -103,10 +132,21 @@ func translateError(err error) error {
 }
 
 func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
-	if opts.HasRetentionOptions() {
-		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
+	_, err := gcs.putBlob(ctx, b, data, opts)
+
+	if opts.GetModTime != nil {
+		bm, err2 := gcs.GetMetadata(ctx, b)
+		if err2 != nil {
+			return err2
+		}
+
+		*opts.GetModTime = bm.Timestamp
 	}
 
+	return err
+}
+
+func (gcs *gcsStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) (versionMetadata, error) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	obj := gcs.bucket.Object(gcs.getObjectNameString(b))
@@ -121,6 +161,14 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, 
 	writer.ContentType = "application/x-kopia"
 	writer.ObjectAttrs.Metadata = timestampmeta.ToMap(opts.SetModTime, timeMapKey)
 
+	if opts.RetentionPeriod != 0 {
+		retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
+		writer.ObjectAttrs.Retention = &storage.ObjectRetention{
+			Mode:        "Unlocked",
+			RetainUntil: retainUntilDate,
+		}
+	}
+
 	err := iocopy.JustCopy(writer, data.Reader())
 	if err != nil {
 		// cancel context before closing the writer causes it to abandon the upload.
@@ -128,21 +176,21 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, 
 
 		_ = writer.Close() // failing already, ignore the error
 
-		return translateError(err)
+		return versionMetadata{}, translateError(err)
 	}
 
 	defer cancel()
 
 	// calling close before cancel() causes it to commit the upload.
 	if err := writer.Close(); err != nil {
-		return translateError(err)
+		return versionMetadata{}, translateError(err)
 	}
 
 	if opts.GetModTime != nil {
 		*opts.GetModTime = writer.Attrs().Updated
 	}
 
-	return nil
+	return versionMetadata{}, nil
 }
 
 func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
@@ -152,6 +200,26 @@ func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	}
 
 	return err
+}
+
+func (gcs *gcsStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
+	retentionMode := "Unlocked" // TODO: properly handle lock mode
+
+	retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC().Truncate(time.Second)
+
+	ObjectRetention := &storage.ObjectRetention{
+		Mode:        retentionMode,
+		RetainUntil: retainUntilDate,
+	}
+
+	_, err := gcs.bucket.Object(gcs.getObjectNameString(b)).Update(ctx, storage.ObjectAttrsToUpdate{Retention: ObjectRetention})
+
+	if err != nil {
+		fmt.Printf("failed to add retention to object: %v\n", err)
+		return errors.Wrap(err, "unable to extend retention period to "+retainUntilDate.String())
+	}
+
+	return nil
 }
 
 func (gcs *gcsStorage) getObjectNameString(blobID blob.ID) string {
@@ -204,24 +272,6 @@ func (gcs *gcsStorage) Close(ctx context.Context) error {
 	return errors.Wrap(gcs.storageClient.Close(), "error closing GCS storage")
 }
 
-func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
-	data, err := os.ReadFile(fn) //nolint:gosec
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading credentials file")
-	}
-
-	return tokenSourceFromCredentialsJSON(ctx, data, scopes...)
-}
-
-func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, scopes ...string) (oauth2.TokenSource, error) {
-	creds, err := google.CredentialsFromJSON(ctx, data, scopes...)
-	if err != nil {
-		return nil, errors.Wrap(err, "google.CredentialsFromJSON")
-	}
-
-	return creds.TokenSource, nil
-}
-
 // New creates new Google Cloud Storage-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.
@@ -231,30 +281,14 @@ func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, s
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	_ = isCreate
 
-	var ts oauth2.TokenSource
-
-	var err error
-
-	scope := gcsclient.ScopeReadWrite
-	if opt.ReadOnly {
-		scope = gcsclient.ScopeReadOnly
-	}
-
+	var clientOption option.ClientOption
 	if sa := opt.ServiceAccountCredentialJSON; len(sa) > 0 {
-		ts, err = tokenSourceFromCredentialsJSON(ctx, sa, scope)
+		clientOption = option.WithCredentialsJSON(sa)
 	} else if sa := opt.ServiceAccountCredentialsFile; sa != "" {
-		ts, err = tokenSourceFromCredentialsFile(ctx, sa, scope)
-	} else {
-		ts, err = google.DefaultTokenSource(ctx, scope)
+		clientOption = option.WithCredentialsFile(sa)
 	}
 
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize token source")
-	}
-
-	hc := oauth2.NewClient(ctx, ts)
-
-	cli, err := gcsclient.NewClient(ctx, option.WithHTTPClient(hc))
+	cli, err := gcsclient.NewClient(ctx, clientOption)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create GCS client")
 	}
@@ -263,10 +297,16 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, errors.New("bucket name must be specified")
 	}
 
-	gcs := &gcsStorage{
+	st := &gcsStorage{
 		Options:       *opt,
 		storageClient: cli,
 		bucket:        cli.Bucket(opt.BucketName),
+	}
+
+	fmt.Println("Provo il PIT")
+	gcs, err := maybePointInTimeStore(ctx, st, opt.PointInTime)
+	if err != nil {
+		return nil, err
 	}
 
 	// verify GCS connection is functional by listing blobs in a bucket, which will fail if the bucket
@@ -280,6 +320,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, errors.Wrap(err, "unable to list from the bucket")
 	}
 
+	fmt.Println("Ritorno il wrapper")
 	return retrying.NewWrapper(gcs), nil
 }
 

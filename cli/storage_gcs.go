@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
@@ -26,6 +27,24 @@ func (c *storageGCSFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClaus
 	cmd.Flag("embed-credentials", "Embed GCS credentials JSON in Kopia configuration").BoolVar(&c.embedCredentials)
 
 	commonThrottlingFlags(cmd, &c.options.Limits)
+
+	var pointInTimeStr string
+
+	pitPreAction := func(pc *kingpin.ParseContext) error {
+		if pointInTimeStr != "" {
+			t, err := time.Parse(time.RFC3339, pointInTimeStr)
+			if err != nil {
+				return errors.Wrap(err, "invalid point-in-time argument")
+			}
+
+			c.options.PointInTime = &t
+		}
+
+		return nil
+	}
+
+	cmd.Flag("point-in-time", "Use a point-in-time view of the storage repository when supported").PlaceHolder(time.RFC3339).PreAction(pitPreAction).StringVar(&pointInTimeStr)
+
 }
 
 func (c *storageGCSFlags) Connect(ctx context.Context, isCreate bool, formatVersion int) (blob.Storage, error) {
