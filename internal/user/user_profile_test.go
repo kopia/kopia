@@ -57,7 +57,7 @@ func TestBadPasswordHashVersion(t *testing.T) {
 	isValid, err = p.IsValidPassword("foo")
 
 	require.False(t, isValid, "password unexpectedly valid!")
-	require.NoError(t, err)
+	require.Error(t, err)
 }
 
 func TestNilUserProfile(t *testing.T) {
