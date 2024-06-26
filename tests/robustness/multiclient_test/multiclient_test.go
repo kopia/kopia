@@ -198,7 +198,7 @@ func TestMaintenanceAction(t *testing.T) {
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 
 	numClients := 1
-	// Run gc action onc
+	// Run gc action once for the repository under test.
 	runGCFcn := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		t.Log("run maintenance")
 		_, err := eng.ExecAction(ctx, engine.GCActionKey, nil)
