@@ -52,10 +52,16 @@ func TestManySmallFiles(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
-		require.NoError(t, err)
+		// ignore the dir-not-found errors
+		if err != robustness.ErrNoOp {
+			require.NoError(t, err)
+		}
 
 		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
-		require.NoError(t, err)
+		// ignore the dir-not-found errors
+		if err != robustness.ErrNoOp {
+			require.NoError(t, err)
+		}
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
@@ -133,10 +139,16 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
-		require.NoError(t, err)
+		// ignore the dir-not-found errors
+		if err != robustness.ErrNoOp {
+			require.NoError(t, err)
+		}
 
 		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
-		require.NoError(t, err)
+		// ignore the dir-not-found errors
+		if err != robustness.ErrNoOp {
+			require.NoError(t, err)
+		}
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
@@ -186,7 +198,10 @@ func TestRandomizedSmall(t *testing.T) {
 		//nolint:forbidigo
 		for st.Elapsed() <= *randomizedTestDur {
 			err := tryRandomAction(ctx, t, opts)
-			require.NoError(t, err)
+			// ignore the dir-not-found errors
+			if err != robustness.ErrNoOp {
+				require.NoError(t, err)
+			}
 		}
 	}
 
