@@ -67,6 +67,17 @@ func (mcs *MultiClientSnapshotter) ConnectOrCreateRepo(repoPath string) error {
 	return err
 }
 
+// SetCacheSizeLimits sets the cache size limits for an existing repository
+// the repository server is connected to.
+func (mcs *MultiClientSnapshotter) SetCacheSizeLimits(cacheArgs string) error {
+	_, _, err := mcs.server.Run("cache", "set",
+		cacheArgs)
+
+	// _, _, err = mcs.server.Run("cache", "info")
+
+	return err
+}
+
 // ServerCmd returns the server command.
 func (mcs *MultiClientSnapshotter) ServerCmd() *exec.Cmd {
 	return mcs.server.ServerCmd()

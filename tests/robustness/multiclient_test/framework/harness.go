@@ -145,6 +145,13 @@ func (th *TestHarness) getSnapshotter() bool {
 		return false
 	}
 
+	contentCacheLimitMB := "--content-cache-size-limit-mb=500"
+	metadataCacheLimitMB := "--metadata-cache-size-limit-mb=500"
+	if err = s.SetCacheSizeLimits(contentCacheLimitMB + metadataCacheLimitMB); err != nil {
+		log.Println("Error setting cache size limits for kopia Snapshotter:", err)
+		return false
+	}
+
 	return true
 }
 
