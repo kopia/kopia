@@ -51,17 +51,11 @@ func TestManySmallFiles(t *testing.T) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
-		// ignore the dir-not-found errors
-		if err != robustness.ErrNoOp {
-			require.NoError(t, err)
-		}
+		err = tryExecAction(ctx, t, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
+		require.NoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
-		// ignore the dir-not-found errors
-		if err != robustness.ErrNoOp {
-			require.NoError(t, err)
-		}
+		err = tryExecAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
+		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
@@ -138,17 +132,11 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
-		// ignore the dir-not-found errors
-		if err != robustness.ErrNoOp {
-			require.NoError(t, err)
-		}
+		err = tryExecAction(ctx, t, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
+		require.NoError(t, err)
 
-		_, err = eng.ExecAction(ctx, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
-		// ignore the dir-not-found errors
-		if err != robustness.ErrNoOp {
-			require.NoError(t, err)
-		}
+		err = tryExecAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
+		require.NoError(t, err)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
@@ -198,10 +186,7 @@ func TestRandomizedSmall(t *testing.T) {
 		//nolint:forbidigo
 		for st.Elapsed() <= *randomizedTestDur {
 			err := tryRandomAction(ctx, t, opts)
-			// ignore the dir-not-found errors
-			if err != robustness.ErrNoOp {
-				require.NoError(t, err)
-			}
+			require.NoError(t, err)
 		}
 	}
 
@@ -225,6 +210,18 @@ func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) 
 	err := eng.RandomAction(ctx, opts)
 	if errors.Is(err, robustness.ErrNoOp) {
 		t.Log("Random action resulted in no-op")
+		return nil
+	}
+
+	return err
+}
+
+// tryExecAction runs the given engine action with options and masks no-op errors.
+func tryExecAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) error {
+	_, err := eng.ExecAction(ctx, action, actionOpts)
+	// Ignore the dir-not-found error, wrapped as no-op error.
+	if errors.Is(err, robustness.ErrNoOp) {
+		t.Log("Delete action resulted in no-op")
 		return nil
 	}
 
