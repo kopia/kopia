@@ -217,7 +217,7 @@ func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) 
 }
 
 // tryExecAction runs the given engine action with options and masks no-op errors.
-func tryExecAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) error {
+func tryExecAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) error { //nolint:thelper
 	_, err := eng.ExecAction(ctx, action, actionOpts)
 	// Ignore the dir-not-found error, wrapped as no-op error.
 	if errors.Is(err, robustness.ErrNoOp) {
