@@ -73,8 +73,6 @@ func (mcs *MultiClientSnapshotter) SetCacheSizeLimits(cacheArgs string) error {
 	_, _, err := mcs.server.Run("cache", "set",
 		cacheArgs)
 
-	// _, _, err = mcs.server.Run("cache", "info")
-
 	return err
 }
 
