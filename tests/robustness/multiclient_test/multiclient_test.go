@@ -216,8 +216,10 @@ func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) 
 // with options and masks no-op errors, and asserts when called for any other action.
 func tryDeleteAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) {
 	t.Helper()
-	eligibleActionsList := []engine.ActionKey{engine.DeleteDirectoryContentsActionKey,
-		engine.DeleteRandomSubdirectoryActionKey}
+	eligibleActionsList := []engine.ActionKey{
+		engine.DeleteDirectoryContentsActionKey,
+		engine.DeleteRandomSubdirectoryActionKey,
+	}
 	require.Contains(t, eligibleActionsList, action)
 
 	_, err := eng.ExecAction(ctx, action, actionOpts)
