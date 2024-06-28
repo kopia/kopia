@@ -51,11 +51,9 @@ func TestManySmallFiles(t *testing.T) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
 
-		err = tryExecAction(ctx, t, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
-		require.NoError(t, err)
+		tryDeleteAction(ctx, t, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
 
-		err = tryExecAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
-		require.NoError(t, err)
+		tryDeleteAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
@@ -132,11 +130,9 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
 
-		err = tryExecAction(ctx, t, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
-		require.NoError(t, err)
+		tryDeleteAction(ctx, t, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
 
-		err = tryExecAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
-		require.NoError(t, err)
+		tryDeleteAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
@@ -216,14 +212,20 @@ func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) 
 	return err
 }
 
-// tryExecAction runs the given engine action with options and masks no-op errors.
-func tryExecAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) error { //nolint:thelper
+// tryDeleteAction runs the given delete action, either delete-files or delete-random-subdirectory
+// with options and masks no-op errors, and asserts when called for any other action.
+func tryDeleteAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) {
+	t.Helper()
+	eligibleActionsList := []engine.ActionKey{engine.DeleteDirectoryContentsActionKey,
+		engine.DeleteRandomSubdirectoryActionKey}
+	require.Contains(t, eligibleActionsList, action)
+
 	_, err := eng.ExecAction(ctx, action, actionOpts)
 	// Ignore the dir-not-found error, wrapped as no-op error.
 	if errors.Is(err, robustness.ErrNoOp) {
 		t.Log("Delete action resulted in no-op")
-		return nil
+		return
 	}
 
-	return err
+	require.NoError(t, err)
 }
