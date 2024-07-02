@@ -11,6 +11,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
@@ -22,6 +23,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/blob/s3"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -71,6 +73,43 @@ func (kc *KopiaClient) CreateOrConnectRepo(ctx context.Context, repoDir, bucketN
 	}
 
 	return errors.Wrap(err, "unable to open repository")
+}
+
+// ConnectRepo connects to an existing one if possible.
+func (kc *KopiaClient) ConnectRepo(ctx context.Context, repoDir, bucketName string) error {
+	st, err := kc.getStorage(ctx, repoDir, bucketName)
+	if err != nil {
+		return err
+	}
+
+	if iErr := repo.Connect(ctx, kc.configPath, st, kc.pw, &repo.ConnectOptions{}); iErr != nil {
+		return errors.Wrap(iErr, "error connecting to repository")
+	}
+
+	return errors.Wrap(err, "unable to open repository")
+}
+
+// SetCacheLimits connects to an existing one if possible.
+func (kc *KopiaClient) SetCacheLimits(ctx context.Context, repoDir, bucketName string, cacheOpts *content.CachingOptions) error {
+	err := kc.ConnectRepo(context.Background(), repoDir, bucketName)
+	if err != nil {
+		return err
+	}
+
+	err = repo.SetCachingOptions(ctx, kc.configPath, cacheOpts)
+	if err != nil {
+		return err
+	}
+
+	cacheOptsObtained, err := repo.GetCachingOptions(ctx, kc.configPath)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("content cache size" + strconv.FormatInt(cacheOptsObtained.ContentCacheSizeLimitBytes, 10))
+	log.Printf("metadata cache size " + strconv.FormatInt(cacheOptsObtained.MetadataCacheSizeLimitBytes, 10))
+
+	return errors.Wrap(err, "unable to set the cache repository")
 }
 
 // SnapshotCreate creates a snapshot for the given path.
