@@ -22,7 +22,7 @@ import (
 
 const (
 	defaultTestDur           = 1 * time.Minute
-	deleteContentsPercentage = 50
+	deleteContentsPercentage = 100
 )
 
 var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
