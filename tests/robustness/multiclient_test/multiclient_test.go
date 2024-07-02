@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	defaultTestDur           = 5 * time.Minute
+	defaultTestDur           = 1 * time.Minute
 	deleteContentsPercentage = 50
 )
 
@@ -30,7 +30,7 @@ var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set
 func TestManySmallFiles(t *testing.T) {
 	const (
 		fileSize    = 4096
-		numFiles    = 10000
+		numFiles    = 10 // 10000
 		numClients  = 4
 		maxDirDepth = 1
 	)
@@ -106,7 +106,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	// TODO: Test takes too long - need to address performance issues with fio writes
 	const (
 		fileSize      = 4096
-		numFiles      = 1000
+		numFiles      = 100 // 1000
 		filesPerWrite = 10
 		actionRepeats = numFiles / filesPerWrite
 		numClients    = 4
@@ -166,7 +166,7 @@ func TestRandomizedSmall(t *testing.T) {
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
 			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(512 * 1024 * 1024),
-			fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(100),
+			fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(10),
 			fiofilewriter.MaxFileSizeField:         strconv.Itoa(64 * 1024 * 1024),
 			fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
 		},

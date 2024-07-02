@@ -188,7 +188,7 @@ func (fw *FileWriter) DeleteRandomSubdirectory(ctx context.Context, opts map[str
 
 	err := fw.Runner.DeleteDirAtDepth("", dirDepth)
 	if errors.Is(err, fio.ErrNoDirFound) {
-		log.Print(err)
+		log.Print(err.Error() + " in DeleteDirAtDepth")
 		err = robustness.ErrNoOp
 	}
 
