@@ -22,8 +22,12 @@ import (
 )
 
 const (
-	dataSubPath     = "robustness-data"
-	metadataSubPath = "robustness-metadata"
+	dataSubPath              = "robustness-data"
+	metadataSubPath          = "robustness-metadata"
+	contentCacheLimitMBFlag  = "--content-cache-size-limit-mb"
+	contentCacheLimitMB      = "500"
+	metadataCacheLimitMBFlag = "--metadata-cache-size-limit-mb"
+	metadataCacheLimitMB     = "500"
 )
 
 var repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
@@ -142,6 +146,16 @@ func (th *TestHarness) getSnapshotter() bool {
 
 	if err = s.ConnectOrCreateRepo(th.dataRepoPath); err != nil {
 		log.Println("Error initializing kopia Snapshotter:", err)
+		return false
+	}
+
+	// Set size limits for content cache and metadata cache for repository under test.
+	if err = s.SetCacheSizeLimits(contentCacheLimitMBFlag, contentCacheLimitMB); err != nil {
+		log.Println("Error setting content cache size limits for kopia Snapshotter:", err)
+		return false
+	}
+	if err = s.SetCacheSizeLimits(metadataCacheLimitMBFlag, metadataCacheLimitMB); err != nil {
+		log.Println("Error setting metadata cache size limits for kopia Snapshotter:", err)
 		return false
 	}
 
