@@ -5,11 +5,13 @@ package framework
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/kopia/kopia/tests/robustness"
@@ -69,9 +71,14 @@ func (mcs *MultiClientSnapshotter) ConnectOrCreateRepo(repoPath string) error {
 
 // SetCacheSizeLimits sets the cache size limits for an existing repository
 // the repository server is connected to.
-func (mcs *MultiClientSnapshotter) SetCacheSizeLimits(cacheArgs string) error {
+// Allowed flags: content-cache-size-limit-mb, metadata-cache-size-limit-mb
+func (mcs *MultiClientSnapshotter) SetCacheSizeLimits(cacheFlag, cacheFlagValue string) error {
+	if !strings.Contains(cacheFlag, contentCacheLimitMBFlag) && !strings.Contains(cacheFlag, metadataCacheLimitMBFlag) {
+		return errors.New("unsupported flag used for cache set")
+	}
+
 	_, _, err := mcs.server.Run("cache", "set",
-		cacheArgs)
+		cacheFlag, cacheFlagValue)
 
 	return err
 }
