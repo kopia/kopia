@@ -294,6 +294,29 @@ func TestDirPrefix(t *testing.T) {
 	}
 }
 
+func TestIsWindowsVSSVolume(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("non-Windows platform")
+	}
+
+	var (
+		goodPrefix = `\\?\GLOBALROOT\Device\`
+		goodName   = "HarddiskVolumeShadowCopy05"
+	)
+
+	cases := map[*filesystemEntry]bool{
+		{}:                                   false,
+		{prefix: goodPrefix, name: goodName}: true,
+		{prefix: `C:\`, name: goodName}:      false,
+		{prefix: goodPrefix, name: "HarddiskVolume"}:                false,
+		{prefix: goodPrefix + goodName + `\`, name: "subdirectory"}: false,
+	}
+
+	for entry, want := range cases {
+		require.Equal(t, want, entry.isWindowsVSSVolume(), entry.prefix+entry.name)
+	}
+}
+
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
 
