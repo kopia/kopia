@@ -190,6 +190,19 @@ func TestRandomizedSmall(t *testing.T) {
 	th.RunN(ctx, t, numClients, f)
 }
 
+func TestMaintenanceAction(t *testing.T) {
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	numClients := 1
+	// Run gc action once for the repository under test.
+	runGCFcn := func(ctx context.Context, t *testing.T) { //nolint:thelper
+		t.Log("run maintenance")
+		_, err := eng.ExecAction(ctx, engine.GCActionKey, nil)
+		require.NoError(t, err)
+	}
+	th.RunN(ctx, t, numClients, runGCFcn)
+}
+
 // tryRestoreIntoDataDirectory runs eng.ExecAction on the given parameters and masks no-op errors.
 func tryRestoreIntoDataDirectory(ctx context.Context, t *testing.T) error { //nolint:thelper
 	_, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil)
