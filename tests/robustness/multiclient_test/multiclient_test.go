@@ -18,16 +18,21 @@ import (
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
+	"github.com/kopia/kopia/tests/robustness/multiclient_test/framework"
 )
 
 const (
-	defaultTestDur           = 1 * time.Minute
+	defaultTestDur           = 10 * time.Second
 	deleteContentsPercentage = 100
 )
 
 var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
 
 func TestManySmallFiles(t *testing.T) {
+	t.Log("before test TestManySmallFiles")
+	ctx2 := framework.NewClientContext(context.Background())
+	getStorageStats(ctx2)
+
 	const (
 		fileSize    = 4096
 		numFiles    = 10 // 10000
@@ -35,13 +40,13 @@ func TestManySmallFiles(t *testing.T) {
 		maxDirDepth = 1
 	)
 
-	// fileWriteOpts := map[string]string{
-	// 	fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
-	// 	fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
-	// 	fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
-	// 	fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
-	// 	fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
-	// }
+	fileWriteOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
+		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
+		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
+	}
 	deleteDirOpts := map[string]string{
 		fiofilewriter.MaxDirDepthField:             strconv.Itoa(maxDirDepth),
 		fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage),
@@ -55,8 +60,8 @@ func TestManySmallFiles(t *testing.T) {
 
 		tryDeleteAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 
-		// _, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
-		// require.NoError(t, err)
+		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+		require.NoError(t, err)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
 		require.NoError(t, err)
@@ -67,9 +72,16 @@ func TestManySmallFiles(t *testing.T) {
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
+
+	t.Log("after test TestManySmallFiles")
+	getStorageStats(ctx2)
 }
 
 func TestOneLargeFile(t *testing.T) {
+	t.Log("before test TestOneLargeFile")
+	ctx2 := framework.NewClientContext(context.Background())
+	getStorageStats(ctx2)
+
 	const (
 		fileSize   = 40 * 1024 * 1024
 		numFiles   = 1
@@ -100,9 +112,16 @@ func TestOneLargeFile(t *testing.T) {
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
+
+	t.Log("after test TestOneLargeFile")
+	getStorageStats(ctx2)
 }
 
 func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
+	t.Log("before test TestManySmallFilesAcrossDirecoryTree")
+	ctx2 := framework.NewClientContext(context.Background())
+	getStorageStats(ctx2)
+
 	// TODO: Test takes too long - need to address performance issues with fio writes
 	const (
 		fileSize      = 4096
@@ -113,14 +132,14 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		maxDirDepth   = 15
 	)
 
-	// fileWriteOpts := map[string]string{
-	// 	fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
-	// 	fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
-	// 	fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
-	// 	fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
-	// 	fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
-	// 	engine.ActionRepeaterField:             strconv.Itoa(actionRepeats),
-	// }
+	fileWriteOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
+		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
+		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
+		engine.ActionRepeaterField:             strconv.Itoa(actionRepeats),
+	}
 	deleteDirOpts := map[string]string{
 		fiofilewriter.MaxDirDepthField:             strconv.Itoa(maxDirDepth),
 		fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage),
@@ -134,8 +153,8 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 		tryDeleteAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 
-		// _, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
-		// require.NoError(t, err)
+		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+		require.NoError(t, err)
 
 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
 		require.NoError(t, err)
@@ -146,9 +165,15 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
+
+	getStorageStats(ctx2)
 }
 
 func TestRandomizedSmall(t *testing.T) {
+	t.Log("before test TestRandomizedSmall")
+	ctx2 := framework.NewClientContext(context.Background())
+	getStorageStats(ctx2)
+
 	const numClients = 4
 
 	st := timetrack.StartTimer()
@@ -157,10 +182,10 @@ func TestRandomizedSmall(t *testing.T) {
 
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
-			string(engine.SnapshotDirActionKey):          strconv.Itoa(2),
-			string(engine.RestoreSnapshotActionKey):      strconv.Itoa(2),
-			string(engine.DeleteRandomSnapshotActionKey): strconv.Itoa(1),
-			// string(engine.WriteRandomFilesActionKey):         strconv.Itoa(2),
+			string(engine.SnapshotDirActionKey):              strconv.Itoa(2),
+			string(engine.RestoreSnapshotActionKey):          strconv.Itoa(2),
+			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(1),
+			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(2),
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(1),
 			string(engine.DeleteDirectoryContentsActionKey):  strconv.Itoa(1),
 		},
@@ -188,6 +213,9 @@ func TestRandomizedSmall(t *testing.T) {
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
+
+	t.Log("after test TestRandomizedSmall")
+	getStorageStats(ctx2)
 }
 
 // tryRestoreIntoDataDirectory runs eng.ExecAction on the given parameters and masks no-op errors.
