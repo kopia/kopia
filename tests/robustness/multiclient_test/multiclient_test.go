@@ -96,6 +96,8 @@ func TestOneLargeFile(t *testing.T) {
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		require.NoError(t, err)
+
+		tryDeleteAction(ctx, t, engine.DeleteRandomSnapshotActionKey, nil)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
@@ -212,20 +214,23 @@ func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) 
 	return err
 }
 
-// tryDeleteAction runs the given delete action, either delete-files or delete-random-subdirectory
+// tryDeleteAction runs the given delete action,
+// delete-files or delete-random-subdirectory or delete-random-snapID
 // with options and masks no-op errors, and asserts when called for any other action.
 func tryDeleteAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) {
 	t.Helper()
 	eligibleActionsList := []engine.ActionKey{
 		engine.DeleteDirectoryContentsActionKey,
 		engine.DeleteRandomSubdirectoryActionKey,
+		engine.DeleteRandomSnapshotActionKey,
 	}
 	require.Contains(t, eligibleActionsList, action)
 
 	_, err := eng.ExecAction(ctx, action, actionOpts)
-	// Ignore the dir-not-found error, wrapped as no-op error.
+	// Ignore the dir-not-found error or no-snapshots-to-delete error
+	// wrapped as no-op error.
 	if errors.Is(err, robustness.ErrNoOp) {
-		t.Log("Delete action resulted in no-op")
+		t.Log("Delete action ", action, " resulted in no-op")
 		return
 	}
 
