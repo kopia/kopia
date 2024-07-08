@@ -192,6 +192,21 @@ func TestRandomizedSmall(t *testing.T) {
 	th.RunN(ctx, t, numClients, f)
 }
 
+func TestMaintenanceAction(t *testing.T) {
+	t.Log("running maintenance directly on the repository under test")
+
+	// bypass the server to directly run maintenance on the repository
+	// under test.
+	// It launches a kopia process that directly accesses the repository
+	// under test using the repo configuration for the server. The
+	// server is concurrently running, since the framework starts
+	// the server at the beginning of an execution of the framework.
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+	_, err := eng.ExecAction(ctx, engine.GCActionKey, nil)
+
+	require.NoError(t, err)
+}
+
 // tryRestoreIntoDataDirectory runs eng.ExecAction on the given parameters and masks no-op errors.
 func tryRestoreIntoDataDirectory(ctx context.Context, t *testing.T) error { //nolint:thelper
 	_, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil)
