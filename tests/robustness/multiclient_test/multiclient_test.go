@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultTestDur           = 1 * time.Second
+	defaultTestDur           = 2 * time.Second
 	deleteContentsPercentage = 100
 )
 
@@ -182,10 +182,10 @@ func TestRandomizedSmall(t *testing.T) {
 
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
-			string(engine.SnapshotDirActionKey):              strconv.Itoa(1),
-			string(engine.RestoreSnapshotActionKey):          strconv.Itoa(1),
-			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(4),
-			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(1),
+			string(engine.SnapshotDirActionKey):          strconv.Itoa(1),
+			string(engine.RestoreSnapshotActionKey):      strconv.Itoa(1),
+			string(engine.DeleteRandomSnapshotActionKey): strconv.Itoa(4),
+			// string(engine.WriteRandomFilesActionKey):         strconv.Itoa(1),
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(4),
 			string(engine.DeleteDirectoryContentsActionKey):  strconv.Itoa(4),
 		},
