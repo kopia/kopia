@@ -18,7 +18,10 @@ import (
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
 )
 
-var ErrUnsupportFlagsForCacheSet = errors.New("unsupported flag used for cache set")
+// ErrUnsupportedFlagsForCacheSet is returned when an unsupported flag
+// is used with cache set command on the repository under test
+// in multiclient robustness test.
+var ErrUnsupportedFlagsForCacheSet = errors.New("unsupported flag used for cache set")
 
 // MultiClientSnapshotter manages a set of client Snapshotter instances and
 // implements the Snapshotter interface itself. Snapshotter methods must be
@@ -76,7 +79,7 @@ func (mcs *MultiClientSnapshotter) ConnectOrCreateRepo(repoPath string) error {
 // Allowed flags: content-cache-size-limit-mb, metadata-cache-size-limit-mb.
 func (mcs *MultiClientSnapshotter) SetCacheSizeLimits(cacheFlag, cacheFlagValue string) error {
 	if !strings.Contains(cacheFlag, contentCacheLimitMBFlag) && !strings.Contains(cacheFlag, metadataCacheLimitMBFlag) {
-		return ErrUnsupportFlagsForCacheSet
+		return ErrUnsupportedFlagsForCacheSet
 	}
 
 	_, _, err := mcs.server.Run("cache", "set",
