@@ -41,3 +41,31 @@ func HashPassword(password string) (string, error) {
 
 	return base64.StdEncoding.EncodeToString(j), nil
 }
+
+func decodeHashedPassword(encodedHash string) (*passwordHash, error) {
+	var h passwordHash
+
+	passwordHashJSON, err := base64.StdEncoding.DecodeString(encodedHash)
+	if err != nil {
+		return nil, errors.Wrap(err, "decoding password hash")
+	}
+
+	if err := json.Unmarshal(passwordHashJSON, &h); err != nil {
+		return nil, errors.Wrap(err, "unmarshalling password hash")
+	}
+
+	return &h, nil
+}
+
+// validates hashing algorithm and password hash length.
+func (h *passwordHash) validate() error {
+	if _, err := getPasswordHashAlgorithm(h.PasswordHashVersion); err != nil {
+		return errors.Wrap(err, "invalid password hash version")
+	}
+
+	if len(h.PasswordHash) != passwordHashSaltLength+passwordHashLength {
+		return errors.Errorf("invalid hash length: %v", len(h.PasswordHash))
+	}
+
+	return nil
+}

@@ -1,8 +1,7 @@
 package user
 
 import (
-	"encoding/base64"
-	"encoding/json"
+	"strconv"
 	"testing"
 
 	petname "github.com/dustinkirkland/golang-petname"
@@ -16,17 +15,11 @@ func TestHashPassword_encoding(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, h)
 
-	// test encoding implementation details
-	j, err := base64.StdEncoding.DecodeString(h)
+	// roundtrip
+	ph, err := decodeHashedPassword(h)
 
 	require.NoError(t, err)
-	require.NotEmpty(t, j)
-
-	var ph passwordHash
-
-	err = json.Unmarshal(j, &ph)
-
-	require.NoError(t, err)
+	require.NotEmpty(t, ph)
 	require.NotZero(t, ph.PasswordHashVersion)
 	require.NotEmpty(t, ph.PasswordHash)
 
@@ -39,4 +32,55 @@ func TestHashPassword_encoding(t *testing.T) {
 
 	require.NoError(t, err)
 	require.True(t, valid)
+}
+
+func TestPasswordHashValidate(t *testing.T) {
+	cases := []struct {
+		ph          passwordHash
+		expectError bool
+	}{
+		{
+			expectError: true,
+		},
+		{
+			ph: passwordHash{
+				PasswordHashVersion: -3,
+			},
+			expectError: true,
+		},
+		{
+			ph: passwordHash{
+				PasswordHashVersion: defaultPasswordHashVersion,
+				// empty PasswordHash
+			},
+			expectError: true,
+		},
+		{
+			ph: passwordHash{
+				PasswordHashVersion: defaultPasswordHashVersion,
+				// PasswordHash with invalid length
+				PasswordHash: []byte{'z', 'a'},
+			},
+			expectError: true,
+		},
+		{
+			ph: passwordHash{
+				PasswordHashVersion: defaultPasswordHashVersion,
+				// PasswordHash with invalid length
+				PasswordHash: make([]byte, passwordHashSaltLength+passwordHashLength),
+			},
+			expectError: false,
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run("i_"+strconv.Itoa(i), func(t *testing.T) {
+			gotErr := tc.ph.validate()
+			if tc.expectError {
+				require.Error(t, gotErr)
+			} else {
+				require.NoError(t, gotErr)
+			}
+		})
+	}
 }

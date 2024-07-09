@@ -35,6 +35,24 @@ func (p *Profile) SetPassword(password string) error {
 	return p.setPassword(password)
 }
 
+// SetPasswordHash decodes and validates encodedhash, if it is a valid hash
+// then it sets it as the password hash for the user profile.
+func (p *Profile) SetPasswordHash(encodedHash string) error {
+	ph, err := decodeHashedPassword(encodedHash)
+	if err != nil {
+		return err
+	}
+
+	if err := ph.validate(); err != nil {
+		return err
+	}
+
+	p.PasswordHashVersion = ph.PasswordHashVersion
+	p.PasswordHash = ph.PasswordHash
+
+	return nil
+}
+
 // IsValidPassword determines whether the password is valid for a given user.
 func (p *Profile) IsValidPassword(password string) (bool, error) {
 	if p == nil {
