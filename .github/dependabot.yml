@@ -20,6 +20,8 @@ updates:
         - "github.com/minio/minio-go/*"
         - "golang.org/x/*"
         - "google.golang.org/*"
+      telemetry-dependencies:
+        patterns:
         - "github.com/prometheus/*"
         - "go.opentelemetry.io/*"
   - package-ecosystem: github-actions
