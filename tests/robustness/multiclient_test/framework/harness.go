@@ -25,12 +25,12 @@ const (
 	dataSubPath              = "robustness-data"
 	metadataSubPath          = "robustness-metadata"
 	contentCacheLimitMBFlag  = "--content-cache-size-limit-mb"
-	contentCacheLimitMB      = "500"
+	contentCacheLimitMB      = 500
 	metadataCacheLimitMBFlag = "--metadata-cache-size-limit-mb"
-	metadataCacheLimitMB     = "500"
+	metadataCacheLimitMB     = 500
 )
 
-var repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
+var repoPathPrefix = flag.String("repo-path-prefix", "/Users/chaitali.gondhalekar/Work/kopia_dummy_repo", "Point the robustness tests at this path prefix")
 
 // NewHarness returns a test harness. It requires a context that contains a client.
 func NewHarness(ctx context.Context) *TestHarness {
@@ -150,11 +150,11 @@ func (th *TestHarness) getSnapshotter() bool {
 	}
 
 	// Set size limits for content cache and metadata cache for repository under test.
-	if err = s.SetCacheSizeLimits(contentCacheLimitMBFlag, contentCacheLimitMB); err != nil {
+	if err = s.SetCacheSizeLimits(contentCacheLimitMBFlag, strconv.FormatInt(contentCacheLimitMB, 10)); err != nil {
 		log.Println("Error setting content cache size limits for kopia Snapshotter:", err)
 		return false
 	}
-	if err = s.SetCacheSizeLimits(metadataCacheLimitMBFlag, metadataCacheLimitMB); err != nil {
+	if err = s.SetCacheSizeLimits(metadataCacheLimitMBFlag, strconv.FormatInt(metadataCacheLimitMB, 10)); err != nil {
 		log.Println("Error setting metadata cache size limits for kopia Snapshotter:", err)
 		return false
 	}
