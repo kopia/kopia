@@ -65,32 +65,12 @@ func SetupStorageStats(ctx context.Context, eng *engine.Engine) []DirDetails {
 		desc:    checkerRestoreDirDesc,
 	})
 
-	// ss.kopiaCacheDir.dirPath = "/root/.cache/kopia"
-	dirDetails = append(dirDetails, DirDetails{
-		dirPath: "/root/.cache/kopia",
-		desc:    cacheDirDesc,
-	})
-
-	// ss.logsDir.dirPath = "/root/.cache/kopia/cli-logs"
-	dirDetails = append(dirDetails, DirDetails{
-		dirPath: "/root/.cache/kopia/cli-logs",
-		desc:    cliLogsDirDesc,
-	})
-
-	// /root/.cache/kopia/content-logs
-	dirDetails = append(dirDetails, DirDetails{
-		dirPath: "/root/.cache/kopia/content-logs",
-		desc:    contentLogsDirDesc,
-	})
-
 	return dirDetails
 }
 
 // LogStorageStats prints memory usage of file writer data dir, test-repo,
 // robustness-data and robustness-metadata paths.
 func LogStorageStats(ctx context.Context, dd []DirDetails) {
-	// print storage stats
-	// cache, logs,
 	log.Printf("Logging storage stats")
 
 	for _, d := range dd {
@@ -98,36 +78,6 @@ func LogStorageStats(ctx context.Context, dd []DirDetails) {
 		d.dirSize = dirSize
 		logDirDetails(d, err)
 	}
-
-	// LocalFioDataPathEnvKey
-	// baseDirSize, err := getDirSize(ss.baseDataDir.dirPath)
-	// ss.baseDataDir.dirSize = baseDirSize
-	// logDirDetails(ss.baseDataDir, err)
-
-	// // kopia-persistence-root-
-	// ss.persistDir.dirSize, err = getDirSize(ss.persistDir.dirPath)
-	// log.Printf("persist dir %s, persist dir size %d\n", ss.persistDir, ss.persistDir.dirSize)
-
-	// // engine-data-*/restore-data-*
-	// checkerRestoreDirSize, err := getDirSize(ss.checkerRestoreDir)
-	// log.Printf("checkerRestore dir %s, checkerRestore dir size %d\n", ss.checkerRestoreDir, checkerRestoreDirSize)
-
-	// engineDataDirSize, err := getDirSize(ss.checkerRestoreDir + "/../")
-	// log.Printf("engineData dir %s, engineData dir size %d\n", ss.checkerRestoreDir+"/../", engineDataDirSize)
-
-	// kopiaCacheDirSize, err := getDirSize(ss.kopiaCacheDir)
-	// log.Printf("kopia cache dir %s, kopia cache dir size %d\n", ss.kopiaCacheDir, kopiaCacheDirSize)
-
-	// dirsUnderKopiaCacheDir, err := findDirs(ss.kopiaCacheDir)
-	// log.Printf("dirs under cache dir")
-	// for _, d := range dirsUnderKopiaCacheDir {
-	// 	log.Print(d)
-	// 	dSize, _ := getDirSize(d)
-	// 	log.Printf("size %d\n", dSize)
-	// }
-
-	// logsDirSize, err := getDirSize(ss.logsDir)
-	// log.Printf("logs dir %s, logs dir size %d\n", ss.logsDir, logsDirSize)
 }
 
 func logDirDetails(dd DirDetails, err error) {
