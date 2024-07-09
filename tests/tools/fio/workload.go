@@ -104,12 +104,9 @@ func (fr *Runner) DeleteRelDir(relDirPath string) error {
 func (fr *Runner) DeleteDirAtDepth(relBasePath string, depth int) error {
 	lock, err := fr.PathLock.Lock(relBasePath)
 	if err != nil {
-		log.Printf("could not lock dir to delete")
 		return err
 	}
 	defer lock.Unlock()
-
-	log.Printf("locked " + relBasePath)
 
 	if depth == 0 {
 		return ErrCanNotDeleteRoot
@@ -133,8 +130,6 @@ func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth int, prob floa
 	defer lock.Unlock()
 
 	fullBasePath := filepath.Join(fr.LocalDataDir, relBasePath)
-
-	log.Printf("locked " + fullBasePath)
 
 	return fr.operateAtDepth(fullBasePath, depth, func(dirPath string) error {
 		dirEntries, err := os.ReadDir(dirPath)
@@ -173,14 +168,11 @@ func (fr *Runner) operateAtDepth(path string, depth int, f func(string) error) e
 		return errors.Wrapf(err, "unable to read dir at path %v", path)
 	}
 
-	log.Printf("read path " + path)
-
 	var dirList []string
 
 	for _, entry := range dirEntries {
 		if entry.IsDir() {
 			dirList = append(dirList, filepath.Join(path, entry.Name()))
-			log.Printf("adding dir " + entry.Name())
 		}
 	}
 
@@ -194,8 +186,6 @@ func (fr *Runner) operateAtDepth(path string, depth int, f func(string) error) e
 			return err
 		}
 	}
-
-	log.Printf("erroring out after recursion")
 
 	return ErrNoDirFound
 }
