@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	defaultTestDur           = 3 * time.Second
-	deleteContentsPercentage = 100
+	defaultTestDur           = 5 * time.Minute
+	deleteContentsPercentage = 50
 )
 
 var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
@@ -30,18 +30,18 @@ var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set
 func TestManySmallFiles(t *testing.T) {
 	const (
 		fileSize    = 4096
-		numFiles    = 10 // 10000
+		numFiles    = 10000
 		numClients  = 4
 		maxDirDepth = 1
 	)
 
-	// fileWriteOpts := map[string]string{
-	// 	fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
-	// 	fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
-	// 	fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
-	// 	fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
-	// 	fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
-	// }
+	fileWriteOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
+		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
+		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
+	}
 	deleteDirOpts := map[string]string{
 		fiofilewriter.MaxDirDepthField:             strconv.Itoa(maxDirDepth),
 		fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage),
@@ -55,52 +55,52 @@ func TestManySmallFiles(t *testing.T) {
 
 		tryDeleteAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 
-		// _, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
-		// require.NoError(t, err)
+		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+		require.NoError(t, err)
 
-		// snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
-		// require.NoError(t, err)
+		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+		require.NoError(t, err)
 
-		// _, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
-		// require.NoError(t, err)
+		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+		require.NoError(t, err)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
 	th.RunN(ctx, t, numClients, f)
 }
 
-// func TestOneLargeFile(t *testing.T) {
-// 	const (
-// 		fileSize   = 40 * 1024 * 1024
-// 		numFiles   = 1
-// 		numClients = 4
-// 	)
+func TestOneLargeFile(t *testing.T) {
+	const (
+		fileSize   = 40 * 1024 * 1024
+		numFiles   = 1
+		numClients = 4
+	)
 
-// 	fileWriteOpts := map[string]string{
-// 		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
-// 		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
-// 		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
-// 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
-// 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
-// 	}
+	fileWriteOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
+		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
+		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
+	}
 
-// 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
-// 		err := tryRestoreIntoDataDirectory(ctx, t)
-// 		require.NoError(t, err)
+	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
+		err := tryRestoreIntoDataDirectory(ctx, t)
+		require.NoError(t, err)
 
-// 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
-// 		require.NoError(t, err)
+		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
+		require.NoError(t, err)
 
-// 		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
-// 		require.NoError(t, err)
+		snapOut, err := eng.ExecAction(ctx, engine.SnapshotDirActionKey, nil)
+		require.NoError(t, err)
 
-// 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
-// 		require.NoError(t, err)
-// 	}
+		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
+		require.NoError(t, err)
+	}
 
-// 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
-// 	th.RunN(ctx, t, numClients, f)
-// }
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+	th.RunN(ctx, t, numClients, f)
+}
 
 func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	// TODO: Test takes too long - need to address performance issues with fio writes
@@ -157,16 +157,16 @@ func TestRandomizedSmall(t *testing.T) {
 
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
-			// string(engine.SnapshotDirActionKey):          strconv.Itoa(1),
-			// string(engine.RestoreSnapshotActionKey):      strconv.Itoa(1),
-			string(engine.DeleteRandomSnapshotActionKey): strconv.Itoa(4),
-			// string(engine.WriteRandomFilesActionKey):         strconv.Itoa(1),
-			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(4),
-			string(engine.DeleteDirectoryContentsActionKey):  strconv.Itoa(4),
+			string(engine.SnapshotDirActionKey):              strconv.Itoa(2),
+			string(engine.RestoreSnapshotActionKey):          strconv.Itoa(2),
+			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(1),
+			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(2),
+			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(1),
+			string(engine.DeleteDirectoryContentsActionKey):  strconv.Itoa(1),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
 			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(512 * 1024 * 1024),
-			fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(10),
+			fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(100),
 			fiofilewriter.MaxFileSizeField:         strconv.Itoa(64 * 1024 * 1024),
 			fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
 		},
