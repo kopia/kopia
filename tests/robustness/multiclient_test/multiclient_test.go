@@ -106,7 +106,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	// TODO: Test takes too long - need to address performance issues with fio writes
 	const (
 		fileSize      = 4096
-		numFiles      = 10 // 1000
+		numFiles      = 1000
 		filesPerWrite = 10
 		actionRepeats = numFiles / filesPerWrite
 		numClients    = 4
