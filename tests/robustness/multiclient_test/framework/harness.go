@@ -30,7 +30,7 @@ const (
 	metadataCacheLimitMB     = 500
 )
 
-var repoPathPrefix = flag.String("repo-path-prefix", "/Users/chaitali.gondhalekar/Work/kopia_dummy_repo", "Point the robustness tests at this path prefix")
+var repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
 
 // NewHarness returns a test harness. It requires a context that contains a client.
 func NewHarness(ctx context.Context) *TestHarness {
