@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	defaultTestDur           = 1 * time.Second
+	defaultTestDur           = 3 * time.Second
 	deleteContentsPercentage = 100
 )
 
