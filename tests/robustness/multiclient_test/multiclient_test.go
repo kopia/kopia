@@ -178,6 +178,7 @@ func TestRandomizedSmall(t *testing.T) {
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
+
 		//nolint:forbidigo
 		for st.Elapsed() <= *randomizedTestDur {
 			err := tryRandomAction(ctx, t, opts)
