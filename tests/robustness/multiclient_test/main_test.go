@@ -19,7 +19,7 @@ import (
 var (
 	eng *engine.Engine
 	th  *framework.TestHarness
-	dd  []storagestats.DirDetails
+	dd  []*storagestats.DirDetails
 )
 
 func TestMain(m *testing.M) {
