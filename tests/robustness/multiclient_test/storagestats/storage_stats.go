@@ -6,6 +6,7 @@ package storagestats
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -28,9 +29,9 @@ const (
 
 // DirDetails ...
 type DirDetails struct {
-	dirPath string
-	dirSize int64
-	desc    string
+	DirPath string `json:"dirPath,omitempty"`
+	DirSize int64  `json:"dirSize,omitempty"`
+	Desc    string `json:"desc,omitempty"`
 }
 
 // StorageStats ...
@@ -49,20 +50,20 @@ func SetupStorageStats(ctx context.Context, eng *engine.Engine) []DirDetails {
 
 	// LocalFioDataPathEnvKey
 	dirDetails = append(dirDetails, DirDetails{
-		dirPath: path.Join(eng.FileWriter.DataDirectory(ctx), ".."),
-		desc:    generatedDataBaseDirDesc,
+		DirPath: path.Join(eng.FileWriter.DataDirectory(ctx), ".."),
+		Desc:    generatedDataBaseDirDesc,
 	})
 
 	// kopia-persistence-root-
 	dirDetails = append(dirDetails, DirDetails{
-		dirPath: eng.MetaStore.GetPersistDir(),
-		desc:    persistDirDesc,
+		DirPath: eng.MetaStore.GetPersistDir(),
+		Desc:    persistDirDesc,
 	})
 
 	// engine-data-*/restore-data-*
 	dirDetails = append(dirDetails, DirDetails{
-		dirPath: eng.Checker.RestoreDir,
-		desc:    checkerRestoreDirDesc,
+		DirPath: eng.Checker.RestoreDir,
+		Desc:    checkerRestoreDirDesc,
 	})
 
 	return dirDetails
@@ -74,18 +75,45 @@ func LogStorageStats(ctx context.Context, dd []DirDetails) {
 	log.Printf("Logging storage stats")
 
 	for _, d := range dd {
-		dirSize, err := getDirSize(d.dirPath)
-		d.dirSize = dirSize
+		dirSize, err := getDirSize(d.DirPath)
+		d.DirSize = dirSize
 		logDirDetails(d, err)
+	}
+
+	// JSON
+	jsonData, err := json.Marshal(dd)
+	if err != nil {
+		log.Printf("Error marshalling to JSON", err)
+		return
+	}
+
+	var ddtmp []DirDetails
+	err = json.Unmarshal(jsonData, &ddtmp)
+	log.Printf("logging after unmarshal")
+	for _, t := range ddtmp {
+		log.Printf("dir %s, dir size %d\n", t.DirPath, t.DirSize)
+	}
+
+	file, err := os.Create("multiclient_logs.json")
+	if err != nil {
+		log.Printf("Error creating file", err)
+		return
+	}
+	defer file.Close()
+
+	_, err = file.Write(jsonData)
+	if err != nil {
+		log.Printf("Error writing to file", err)
+		return
 	}
 }
 
 func logDirDetails(dd DirDetails, err error) {
 	if err != nil {
-		log.Printf("error when getting dir size for %s %v", dd.dirPath, err)
+		log.Printf("error when getting dir size for %s %v", dd.DirPath, err)
 		return
 	}
-	log.Printf("dir %s, dir size %d\n", dd.dirPath, dd.dirSize)
+	log.Printf("dir %s, dir size %d\n", dd.DirPath, dd.DirSize)
 }
 
 func getDirSize(path string) (int64, error) {
