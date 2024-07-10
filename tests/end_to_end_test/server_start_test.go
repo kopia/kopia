@@ -533,7 +533,7 @@ func TestServerStartInsecure(t *testing.T) {
 	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--tls-generate-cert", "--without-password")
 
 	// server fails to start with TLS but without password.
-	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--password=foo")
+	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0")
 	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--without-password")
 }
 
