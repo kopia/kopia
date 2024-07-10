@@ -12,12 +12,14 @@ import (
 
 	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/robustness/multiclient_test/framework"
+	"github.com/kopia/kopia/tests/robustness/multiclient_test/storagestats"
 )
 
 // Variables for use in the test functions.
 var (
 	eng *engine.Engine
 	th  *framework.TestHarness
+	dd  []*storagestats.DirDetails
 )
 
 func TestMain(m *testing.M) {
@@ -30,8 +32,15 @@ func TestMain(m *testing.M) {
 
 	eng = th.Engine()
 
+	// Perform setup needed to get storage stats.
+	dd = storagestats.SetupStorageStats(ctx, eng)
+	storagestats.LogStorageStats(ctx, dd)
+
 	// run the tests
 	result := m.Run()
+
+	// Log storage stats after the test run.
+	storagestats.LogStorageStats(ctx, dd)
 
 	err := th.Cleanup(ctx)
 	if err != nil {
