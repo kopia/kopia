@@ -83,7 +83,7 @@ func (mcs *MultiClientSnapshotter) SetCacheSizeLimits(cacheFlag string, cacheSiz
 	}
 
 	_, _, err := mcs.server.Run("cache", "set",
-		cacheFlag, cacheFlagValue)
+		cacheFlag, strconv.Itoa(cacheSize))
 
 	return err
 }
