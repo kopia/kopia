@@ -45,23 +45,23 @@ type StorageStats struct {
 }
 
 // SetupStorageStats ...
-func SetupStorageStats(ctx context.Context, eng *engine.Engine) []DirDetails {
-	dirDetails := []DirDetails{}
+func SetupStorageStats(ctx context.Context, eng *engine.Engine) []*DirDetails {
+	dirDetails := []*DirDetails{}
 
 	// LocalFioDataPathEnvKey
-	dirDetails = append(dirDetails, DirDetails{
+	dirDetails = append(dirDetails, &DirDetails{
 		DirPath: path.Join(eng.FileWriter.DataDirectory(ctx), ".."),
 		Desc:    generatedDataBaseDirDesc,
 	})
 
 	// kopia-persistence-root-
-	dirDetails = append(dirDetails, DirDetails{
+	dirDetails = append(dirDetails, &DirDetails{
 		DirPath: eng.MetaStore.GetPersistDir(),
 		Desc:    persistDirDesc,
 	})
 
 	// engine-data-*/restore-data-*
-	dirDetails = append(dirDetails, DirDetails{
+	dirDetails = append(dirDetails, &DirDetails{
 		DirPath: eng.Checker.RestoreDir,
 		Desc:    checkerRestoreDirDesc,
 	})
@@ -71,7 +71,7 @@ func SetupStorageStats(ctx context.Context, eng *engine.Engine) []DirDetails {
 
 // LogStorageStats prints memory usage of file writer data dir, test-repo,
 // robustness-data and robustness-metadata paths.
-func LogStorageStats(ctx context.Context, dd []DirDetails) {
+func LogStorageStats(ctx context.Context, dd []*DirDetails) {
 	log.Printf("Logging storage stats")
 
 	for _, d := range dd {
@@ -83,7 +83,7 @@ func LogStorageStats(ctx context.Context, dd []DirDetails) {
 	// JSON
 	jsonData, err := json.Marshal(dd)
 	if err != nil {
-		log.Printf("Error marshalling to JSON", err)
+		log.Printf("Error marshalling to JSON %s", err)
 		return
 	}
 
@@ -96,19 +96,19 @@ func LogStorageStats(ctx context.Context, dd []DirDetails) {
 
 	file, err := os.Create("multiclient_logs.json")
 	if err != nil {
-		log.Printf("Error creating file", err)
+		log.Printf("Error creating file %s", err)
 		return
 	}
 	defer file.Close()
 
 	_, err = file.Write(jsonData)
 	if err != nil {
-		log.Printf("Error writing to file", err)
+		log.Printf("Error writing to file %s", err)
 		return
 	}
 }
 
-func logDirDetails(dd DirDetails, err error) {
+func logDirDetails(dd *DirDetails, err error) {
 	if err != nil {
 		log.Printf("error when getting dir size for %s %v", dd.DirPath, err)
 		return
