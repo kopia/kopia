@@ -59,6 +59,9 @@ jobs:
     - name: Install macOS-specific packages
       run: "sudo xcode-select -r"
       if: ${{ contains(matrix.os, 'macos') }}
+    - name: Install Linux-specific packages
+      run: "sudo apt-get install -y createrepo-c"
+      if: ${{ contains(matrix.os, 'ubuntu') }}
     - name: Setup
       run: make -j4 ci-setup
     - name: Install macOS certificates
