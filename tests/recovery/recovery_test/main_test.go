@@ -17,10 +17,10 @@ const (
 	dataPath    = "crash-consistency-data"
 )
 
-var repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
+var RepoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
 
 func TestMain(m *testing.M) {
-	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
+	dataRepoPath := path.Join(*RepoPathPrefix, dataSubPath)
 
 	th := &kopiaRecoveryTestHarness{}
 	th.init(dataRepoPath)

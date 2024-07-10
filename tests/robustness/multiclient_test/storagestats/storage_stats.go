@@ -13,8 +13,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/kopia/kopia/tests/robustness/engine"
+	"github.com/kopia/kopia/tests/robustness/multiclient_test/framework"
 )
 
 const (
@@ -27,11 +29,13 @@ const (
 	contentLogsDirDesc       = "content logs dir"
 )
 
+var logFilePath string
+
 // DirDetails ...
 type DirDetails struct {
-	DirPath string `json:"dirPath,omitempty"`
-	DirSize int64  `json:"dirSize,omitempty"`
-	Desc    string `json:"desc,omitempty"`
+	DirPath string `json:"dirPath"`
+	DirSize int64  `json:"dirSize"`
+	Desc    string `json:"desc"`
 }
 
 // StorageStats ...
@@ -72,6 +76,10 @@ func SetupStorageStats(ctx context.Context, eng *engine.Engine) []*DirDetails {
 // LogStorageStats prints memory usage of file writer data dir, test-repo,
 // robustness-data and robustness-metadata paths.
 func LogStorageStats(ctx context.Context, dd []*DirDetails) {
+	if logFilePath == "" {
+		logFilePath = getLogFilePath()
+		log.Printf("log file path %s", logFilePath)
+	}
 	log.Printf("Logging storage stats")
 
 	for _, d := range dd {
@@ -80,21 +88,14 @@ func LogStorageStats(ctx context.Context, dd []*DirDetails) {
 		logDirDetails(d, err)
 	}
 
-	// JSON
+	// write logs into a JSON file
 	jsonData, err := json.Marshal(dd)
 	if err != nil {
 		log.Printf("Error marshalling to JSON %s", err)
 		return
 	}
 
-	var ddtmp []DirDetails
-	err = json.Unmarshal(jsonData, &ddtmp)
-	log.Printf("logging after unmarshal")
-	for _, t := range ddtmp {
-		log.Printf("dir %s, dir size %d\n", t.DirPath, t.DirSize)
-	}
-
-	file, err := os.Create("multiclient_logs.json")
+	file, err := os.Create(logFilePath)
 	if err != nil {
 		log.Printf("Error creating file %s", err)
 		return
@@ -181,4 +182,11 @@ func catFilesInDir(dirPath string) error {
 	})
 
 	return err
+}
+
+func getLogFilePath() string {
+	logFileSubpath := fmt.Sprint("multiclient_logs_", time.Now().UTC().Format("20060102_150405"), ".json")
+	filePath := path.Join(*framework.RepoPathPrefix, logFileSubpath)
+	log.Printf("filepath %s", filePath)
+	return filePath
 }

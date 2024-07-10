@@ -26,7 +26,8 @@ const (
 	metadataSubPath = "robustness-metadata"
 )
 
-var repoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
+// RepoPathPrefix is used by robustness tests as a base dir for repository under test.
+var RepoPathPrefix = flag.String("repo-path-prefix", "", "Point the robustness tests at this path prefix")
 
 // NewHarness returns a test harness. It requires a context that contains a client.
 func NewHarness(ctx context.Context) *TestHarness {
@@ -51,13 +52,13 @@ type TestHarness struct {
 }
 
 func (th *TestHarness) init(ctx context.Context) {
-	if *repoPathPrefix == "" {
+	if *RepoPathPrefix == "" {
 		log.Printf("Skipping robustness tests because repo-path-prefix is not set")
 		os.Exit(0)
 	}
 
-	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
-	metaRepoPath := path.Join(*repoPathPrefix, metadataSubPath)
+	dataRepoPath := path.Join(*RepoPathPrefix, dataSubPath)
+	metaRepoPath := path.Join(*RepoPathPrefix, metadataSubPath)
 
 	th.dataRepoPath = dataRepoPath
 	th.metaRepoPath = metaRepoPath
