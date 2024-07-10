@@ -529,12 +529,12 @@ func TestServerStartInsecure(t *testing.T) {
 
 	waitUntilServerStarted(ctx, t, cli)
 
-	// server fails to start without a password but with TLS.
-	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--tls-generate-cert", "--without-password")
+	// server fails to start with --without-password when `--insecure` is not specified
+	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--without-password")                        // without TLS
+	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--without-password", "--tls-generate-cert") // with TLS
 
-	// server fails to start with TLS but without password.
+	// server fails to start when TLS is not configured and `--insecure` is not specified
 	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0")
-	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--without-password")
 }
 
 func verifyServerConnected(t *testing.T, cli *apiclient.KopiaAPIClient, want bool) *serverapi.StatusResponse {
