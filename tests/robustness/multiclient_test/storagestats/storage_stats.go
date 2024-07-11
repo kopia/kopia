@@ -21,9 +21,11 @@ import (
 )
 
 const (
-	generatedDataBaseDirDesc = "Base dir for fio generated data"
-	persistDirDesc           = "Dir used to persist metadata about the repo under test"
-	checkerRestoreDirDesc    = "Engine checker restore data dir"
+	generatedDataBaseDirDesc   = "Base dir for fio generated data"
+	persistDirDesc             = "Dir used to persist metadata about the repo under test"
+	checkerRestoreDirDesc      = "Engine checker restore data dir"
+	repositoryUnderTestDirDesc = "Repository under test base dir"
+	metadataRepoDirDesc        = "Metadata repository base dir"
 )
 
 var logFilePath string
@@ -41,6 +43,16 @@ func SetupStorageStats(ctx context.Context, eng *engine.Engine) []*DirDetails {
 	dirDetails := []*DirDetails{}
 
 	dirDetails = append(dirDetails,
+		// repository under test
+		&DirDetails{
+			DirPath: path.Join(*framework.RepoPathPrefix, framework.DataSubPath),
+			Desc:    repositoryUnderTestDirDesc,
+		},
+		// metadata repository
+		&DirDetails{
+			DirPath: path.Join(*framework.RepoPathPrefix, framework.MetadataSubPath),
+			Desc:    metadataRepoDirDesc,
+		},
 		// LocalFioDataPathEnvKey
 		&DirDetails{
 			DirPath: path.Join(eng.FileWriter.DataDirectory(ctx), ".."),

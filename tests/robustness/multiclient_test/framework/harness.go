@@ -22,8 +22,10 @@ import (
 )
 
 const (
-	dataSubPath     = "robustness-data"
-	metadataSubPath = "robustness-metadata"
+	// DataSubPath represents the base dir for repository under test.
+	DataSubPath = "robustness-data"
+	// MetadataSubPath represents the base dir for metadata repository.
+	MetadataSubPath = "robustness-metadata"
 )
 
 // RepoPathPrefix is used by robustness tests as a base dir for repository under test.
@@ -57,8 +59,8 @@ func (th *TestHarness) init(ctx context.Context) {
 		os.Exit(0)
 	}
 
-	dataRepoPath := path.Join(*RepoPathPrefix, dataSubPath)
-	metaRepoPath := path.Join(*RepoPathPrefix, metadataSubPath)
+	dataRepoPath := path.Join(*RepoPathPrefix, DataSubPath)
+	metaRepoPath := path.Join(*RepoPathPrefix, MetadataSubPath)
 
 	th.dataRepoPath = dataRepoPath
 	th.metaRepoPath = metaRepoPath
