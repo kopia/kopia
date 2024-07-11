@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/base64"
 	"io"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -86,13 +85,11 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 		}
 	}
 
-	if p := c.userSetPasswordHash; p != "" {
-		ph, err := base64.StdEncoding.DecodeString(p)
-		if err != nil {
-			return errors.Wrap(err, "invalid password hash, must be valid base64 string")
+	if ph := c.userSetPasswordHash; ph != "" {
+		if err := up.SetPasswordHash(ph); err != nil {
+			return errors.Wrap(err, "error setting password hash")
 		}
 
-		up.PasswordHash = ph
 		changed = true
 	}
 
