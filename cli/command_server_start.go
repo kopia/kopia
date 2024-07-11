@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net"
@@ -178,7 +179,7 @@ func (c *commandServerStart) initRepositoryPossiblyAsync(ctx context.Context, sr
 	return nil
 }
 
-func (c *commandServerStart) run(ctx context.Context) error {
+func (c *commandServerStart) run(ctx context.Context) (reterr error) {
 	opts, err := c.serverStartOptions(ctx)
 	if err != nil {
 		return err
@@ -192,6 +193,13 @@ func (c *commandServerStart) run(ctx context.Context) error {
 	if err = c.initRepositoryPossiblyAsync(ctx, srv); err != nil {
 		return errors.Wrap(err, "unable to initialize repository")
 	}
+
+	defer func() {
+		// cleanup: disconnect repository
+		if err := srv.SetRepository(ctx, nil); err != nil {
+			reterr = stderrors.Join(reterr, errors.Wrap(err, "error disconnecting repository"))
+		}
+	}()
 
 	httpServer := &http.Server{
 		ReadHeaderTimeout: 15 * time.Second, //nolint:mnd
@@ -262,7 +270,7 @@ func (c *commandServerStart) run(ctx context.Context) error {
 		return err
 	}
 
-	return errors.Wrap(srv.SetRepository(ctx, nil), "error setting active repository")
+	return nil
 }
 
 func shutdownHTTPServer(ctx context.Context, httpServer *http.Server) {
