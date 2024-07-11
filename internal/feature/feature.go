@@ -6,9 +6,6 @@ import (
 	"fmt"
 )
 
-// Behavior specifies how kopia should behave if it encounters a Feature it does not understand.
-type Behavior string
-
 // IfNotUnderstood describes the behavior of Kopia when a required feature is not understood.
 type IfNotUnderstood struct {
 	Warn             bool   `json:"warn"`                       // warn instead of failing
