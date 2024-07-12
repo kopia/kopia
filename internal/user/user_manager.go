@@ -21,6 +21,9 @@ const UsernameAtHostnameLabel = "username"
 // ErrUserNotFound is returned to indicate that a user was not found in the system.
 var ErrUserNotFound = errors.New("user not found")
 
+// ErrUserAlreadyExists indicates that a user already exist in the system when attempting to create a new one.
+var ErrUserAlreadyExists = errors.New("user already exists")
+
 // LoadProfileMap returns the map of all users profiles in the repository by username, using old map as a cache.
 func LoadProfileMap(ctx context.Context, rep repo.Repository, old map[string]*Profile) (map[string]*Profile, error) {
 	if rep == nil {
@@ -97,6 +100,32 @@ func GetUserProfile(ctx context.Context, r repo.Repository, username string) (*P
 	}
 
 	return p, nil
+}
+
+// GetNewProfile returns a profile for a new user with the given username.
+// Returns ErrUserAlreadyExists when the user already exists.
+func GetNewProfile(ctx context.Context, r repo.Repository, username string) (*Profile, error) {
+	if err := ValidateUsername(username); err != nil {
+		return nil, err
+	}
+
+	manifests, err := r.FindManifests(ctx, map[string]string{
+		manifest.TypeLabelKey:   ManifestType,
+		UsernameAtHostnameLabel: username,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "error looking for user profile")
+	}
+
+	if len(manifests) != 0 {
+		return nil, errors.Wrap(ErrUserAlreadyExists, username)
+	}
+
+	return &Profile{
+			Username:            username,
+			PasswordHashVersion: defaultPasswordHashVersion,
+		},
+		nil
 }
 
 // validUsernameRegexp matches username@hostname where both username and hostname consist of
