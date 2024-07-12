@@ -75,20 +75,6 @@ func (kc *KopiaClient) CreateOrConnectRepo(ctx context.Context, repoDir, bucketN
 	return errors.Wrap(err, "unable to open repository")
 }
 
-// ConnectRepo connects to an existing one if possible.
-func (kc *KopiaClient) ConnectRepo(ctx context.Context, repoDir, bucketName string) error {
-	st, err := kc.getStorage(ctx, repoDir, bucketName)
-	if err != nil {
-		return err
-	}
-
-	if iErr := repo.Connect(ctx, kc.configPath, st, kc.pw, &repo.ConnectOptions{}); iErr != nil {
-		return errors.Wrap(iErr, "error connecting to repository")
-	}
-
-	return nil
-}
-
 // SetCacheLimits sets cache size limits to the already connected repository.
 func (kc *KopiaClient) SetCacheLimits(ctx context.Context, repoDir, bucketName string, cacheOpts *content.CachingOptions) error {
 	err := repo.SetCachingOptions(ctx, kc.configPath, cacheOpts)
