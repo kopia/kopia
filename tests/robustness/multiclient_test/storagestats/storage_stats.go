@@ -22,20 +22,19 @@ import (
 var logFilePath string
 
 // DirDetails represents details about a directory,
-// path, size and description.
+// path, and size.
 type DirDetails struct {
 	DirPath string `json:"dirPath"`
 	DirSize int64  `json:"dirSize"`
 }
 
-// LogStorageStats logs disk space usage of file writer data dir, test-repo,
-// robustness-data and robustness-metadata paths.
+// LogStorageStats logs disk space usage of provided dir paths.
 func LogStorageStats(ctx context.Context, dirs []string) {
 	log.Printf("Logging storage stats")
 
 	dd := collectDirDetails(dirs)
 
-	// write logs into a JSON file
+	// write dir details into a JSON file
 	jsonData, err := json.Marshal(dd)
 	if err != nil {
 		log.Printf("Error marshaling to JSON %s", err)

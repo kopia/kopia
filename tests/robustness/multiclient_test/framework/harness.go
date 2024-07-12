@@ -23,8 +23,7 @@ import (
 )
 
 const (
-	dataSubPath = "robustness-data"
-	// MetadataSubPath represents the base dir for metadata repository.
+	dataSubPath     = "robustness-data"
 	metadataSubPath = "robustness-metadata"
 )
 
