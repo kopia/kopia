@@ -33,8 +33,9 @@ func TestSaltLengthIsSupported(t *testing.T) {
 	const badPwd = "password"
 	var salt [passwordHashSaltLength]byte
 
-	for _, h := range PasswordHashingAlgorithms() {
-		_, err := computePasswordHash(badPwd, salt[:], h)
+	for _, v := range []int{ScryptHashVersion, Pbkdf2HashVersion} {
+		h, err := computePasswordHash(badPwd, salt[:], v)
 		require.NoError(t, err)
+		require.NotEmpty(t, h)
 	}
 }

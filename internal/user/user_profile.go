@@ -1,11 +1,7 @@
 package user
 
 import (
-	"math/rand"
-
 	"github.com/kopia/kopia/repo/manifest"
-
-	"github.com/pkg/errors"
 )
 
 const (
@@ -37,56 +33,34 @@ func (p *Profile) SetPassword(password string) error {
 	return p.setPassword(password)
 }
 
-// IsValidPassword determines whether the password is valid for a given user.
-func (p *Profile) IsValidPassword(password string) (bool, error) {
-	var invalidProfile bool
-
-	var passwordHashAlgorithm string
-
-	var err error
-
-	if p == nil {
-		invalidProfile = true
-	} else {
-		passwordHashAlgorithm, err = getPasswordHashAlgorithm(p.PasswordHashVersion)
-		if err != nil {
-			invalidProfile = true
-		}
+// SetPasswordHash decodes and validates encodedhash, if it is a valid hash
+// then it sets it as the password hash for the user profile.
+func (p *Profile) SetPasswordHash(encodedHash string) error {
+	ph, err := decodeHashedPassword(encodedHash)
+	if err != nil {
+		return err
 	}
 
-	if invalidProfile {
-		algorithms := PasswordHashingAlgorithms()
-		// if the user profile is invalid, either a non-existing user name or password
-		// hash version, then return false but use the same amount of time as when we
-		// compare against valid user to avoid revealing whether the user account exists.
-		_, err := isValidPassword(password, dummyHashThatNeverMatchesAnyPassword, algorithms[rand.Intn(len(algorithms))]) //nolint:gosec
+	if err := ph.validate(); err != nil {
+		return err
+	}
+
+	p.PasswordHashVersion = ph.PasswordHashVersion
+	p.PasswordHash = ph.PasswordHash
+
+	return nil
+}
+
+// IsValidPassword determines whether the password is valid for a given user.
+func (p *Profile) IsValidPassword(password string) (bool, error) {
+	if p == nil {
+		// return false when the user profile does not exist,
+		// but use the same amount of time as when checking the password for a
+		// valid user to avoid revealing whether the account exists.
+		_, err := isValidPassword(password, dummyHashThatNeverMatchesAnyPassword, defaultPasswordHashVersion)
 
 		return false, err
 	}
 
-	return isValidPassword(password, p.PasswordHash, passwordHashAlgorithm)
-}
-
-// getPasswordHashAlgorithm returns the password hash algorithm given a version.
-func getPasswordHashAlgorithm(passwordHashVersion int) (string, error) {
-	switch passwordHashVersion {
-	case ScryptHashVersion:
-		return scryptHashAlgorithm, nil
-	case Pbkdf2HashVersion:
-		return pbkdf2HashAlgorithm, nil
-	default:
-		return "", errors.Errorf("unsupported hash version (%d)", passwordHashVersion)
-	}
-}
-
-// GetPasswordHashVersion returns the password hash version given an algorithm.
-func GetPasswordHashVersion(passwordHashAlgorithm string) (int, error) {
-	switch passwordHashAlgorithm {
-	case scryptHashAlgorithm:
-		return ScryptHashVersion, nil
-	case pbkdf2HashAlgorithm:
-		return Pbkdf2HashVersion, nil
-	default:
-		return 0, errors.Errorf("unsupported hash algorithm (%s)", passwordHashAlgorithm)
-	}
+	return isValidPassword(password, p.PasswordHash, p.PasswordHashVersion)
 }
