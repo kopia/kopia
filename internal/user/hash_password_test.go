@@ -66,8 +66,7 @@ func TestPasswordHashValidate(t *testing.T) {
 		{
 			ph: passwordHash{
 				PasswordHashVersion: defaultPasswordHashVersion,
-				// PasswordHash with invalid length
-				PasswordHash: make([]byte, passwordHashSaltLength+passwordHashLength),
+				PasswordHash:        make([]byte, passwordHashSaltLength+passwordHashLength),
 			},
 			expectError: false,
 		},
