@@ -54,9 +54,9 @@ func (p *Profile) SetPasswordHash(encodedHash string) error {
 // IsValidPassword determines whether the password is valid for a given user.
 func (p *Profile) IsValidPassword(password string) (bool, error) {
 	if p == nil {
-		// if the user profile is invalid, either a non-existing user name, then
-		// return false but use the same amount of time as when we
-		// compare against valid user to avoid revealing whether the user account exists.
+		// return false when the user profile does not exist,
+		// but use the same amount of time as when checking the password for a
+		// valid user to avoid revealing whether the account exists.
 		_, err := isValidPassword(password, dummyHashThatNeverMatchesAnyPassword, defaultPasswordHashVersion)
 
 		return false, err
