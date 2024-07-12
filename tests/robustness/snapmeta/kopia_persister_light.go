@@ -49,12 +49,7 @@ func (kpl *KopiaPersisterLight) ConnectOrCreateRepo(repoPath string) error {
 // SetCacheLimits sets to an existing one if possible.
 func (kpl *KopiaPersisterLight) SetCacheLimits(repoPath string, cacheOpts *content.CachingOptions) error {
 	bucketName := os.Getenv(S3BucketNameEnvKey)
-	err := kpl.kc.ConnectRepo(context.Background(), repoPath, bucketName)
-	if err != nil {
-		return err
-	}
-
-	err = kpl.kc.SetCacheLimits(context.Background(), repoPath, bucketName, cacheOpts)
+	err := kpl.kc.SetCacheLimits(context.Background(), repoPath, bucketName, cacheOpts)
 	if err != nil {
 		return err
 	}

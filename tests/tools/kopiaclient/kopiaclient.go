@@ -86,17 +86,12 @@ func (kc *KopiaClient) ConnectRepo(ctx context.Context, repoDir, bucketName stri
 		return errors.Wrap(iErr, "error connecting to repository")
 	}
 
-	return errors.Wrap(err, "unable to open repository")
+	return nil
 }
 
-// SetCacheLimits connects to an existing one if possible.
+// SetCacheLimits sets cache size limits to the already connected repository.
 func (kc *KopiaClient) SetCacheLimits(ctx context.Context, repoDir, bucketName string, cacheOpts *content.CachingOptions) error {
-	err := kc.ConnectRepo(context.Background(), repoDir, bucketName)
-	if err != nil {
-		return err
-	}
-
-	err = repo.SetCachingOptions(ctx, kc.configPath, cacheOpts)
+	err := repo.SetCachingOptions(ctx, kc.configPath, cacheOpts)
 	if err != nil {
 		return err
 	}
@@ -109,7 +104,7 @@ func (kc *KopiaClient) SetCacheLimits(ctx context.Context, repoDir, bucketName s
 	log.Printf("content cache size" + strconv.FormatInt(cacheOptsObtained.ContentCacheSizeLimitBytes, 10))
 	log.Printf("metadata cache size " + strconv.FormatInt(cacheOptsObtained.MetadataCacheSizeLimitBytes, 10))
 
-	return errors.Wrap(err, "unable to set the cache repository")
+	return nil
 }
 
 // SnapshotCreate creates a snapshot for the given path.
