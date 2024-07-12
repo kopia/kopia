@@ -22,7 +22,7 @@ const UsernameAtHostnameLabel = "username"
 var ErrUserNotFound = errors.New("user not found")
 
 // ErrUserAlreadyExists indicates that a user already exist in the system when attempting to create a new one.
-var ErrUserAlreadyExists = errors.New("user already exists found")
+var ErrUserAlreadyExists = errors.New("user already exists")
 
 // LoadProfileMap returns the map of all users profiles in the repository by username, using old map as a cache.
 func LoadProfileMap(ctx context.Context, rep repo.Repository, old map[string]*Profile) (map[string]*Profile, error) {
