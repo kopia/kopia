@@ -28,8 +28,8 @@ func (c *commandServerUserHashPassword) setup(svc appServices, parent commandPar
 // The current implementation does not require a connected repository, thus the
 // RepositoryWriter parameter is not used. Future implementations will need a
 // connected repository. To avoid a future incompatible change where the
-// 'hash-password' command stops working without a connected repository, then
-// the a connected repository is required now.
+// 'hash-password' command stops working without a connected repository,
+// a connected repository is required now.
 func (c *commandServerUserHashPassword) runServerUserHashPassword(ctx context.Context, _ repo.RepositoryWriter) error {
 	if c.password == "" {
 		// when password hash is empty, ask for password
