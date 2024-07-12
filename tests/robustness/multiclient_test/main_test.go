@@ -33,15 +33,22 @@ func TestMain(m *testing.M) {
 
 	// Perform setup needed to get storage stats.
 	dirs := th.GetDirsToLog(ctx)
-	storagestats.LogStorageStats(ctx, dirs)
+	log.Printf("Logging storage stats")
+	err := storagestats.LogStorageStats(ctx, dirs)
+	if err != nil {
+		log.Printf("Error collecting the logs: %s\n", err.Error())
+	}
 
 	// run the tests
 	result := m.Run()
 
 	// Log storage stats after the test run.
-	storagestats.LogStorageStats(ctx, dirs)
+	err = storagestats.LogStorageStats(ctx, dirs)
+	if err != nil {
+		log.Printf("Error collecting the logs: %s\n", err.Error())
+	}
 
-	err := th.Cleanup(ctx)
+	err = th.Cleanup(ctx)
 	if err != nil {
 		log.Printf("Error cleaning up the engine: %s\n", err.Error())
 		os.Exit(2)

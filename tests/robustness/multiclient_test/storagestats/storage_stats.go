@@ -29,29 +29,30 @@ type DirDetails struct {
 }
 
 // LogStorageStats logs disk space usage of provided dir paths.
-func LogStorageStats(ctx context.Context, dirs []string) {
-	log.Printf("Logging storage stats")
-
+func LogStorageStats(ctx context.Context, dirs []string) error {
 	dd := collectDirDetails(dirs)
 
 	// write dir details into a JSON file
 	jsonData, err := json.Marshal(dd)
 	if err != nil {
 		log.Printf("Error marshaling to JSON %s", err)
-		return
+		return err
 	}
 
 	file, err := createLogFile()
 	if err != nil {
 		log.Printf("Error creating log file %s", err)
+		return err
 	}
 	defer file.Close()
 
 	_, err = file.Write(jsonData)
 	if err != nil {
 		log.Printf("Error writing to file %s", err)
-		return
+		return err
 	}
+
+	return nil
 }
 
 func logDirDetails(dd *DirDetails, err error) {
