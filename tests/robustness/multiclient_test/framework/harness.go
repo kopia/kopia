@@ -293,7 +293,8 @@ func (th *TestHarness) GetDirsToLog(ctx context.Context) []string {
 
 	cacheDir, _, err := th.snapshotter.GetCacheDirInfo()
 	if err == nil {
-		dirList = append(dirList, strings.Trim(cacheDir, "\n")) // cache dir for repo under test
+		cacheDir = strings.Trim(cacheDir, "\n")
+		dirList = append(dirList, cacheDir) // cache dir for repo under test
 	}
 	allCacheDirs := getAllCacheDirs(cacheDir)
 	dirList = append(dirList, allCacheDirs...)
@@ -317,7 +318,7 @@ func getAllCacheDirs(dir string) []string {
 	// own-writes, blob-list, server-contents
 	cacheDirSubpaths := []string{"metadata", "contents", "indexes", "own-writes", "server-contents"}
 	for _, s := range cacheDirSubpaths {
-		dirs = append(dirs, path.Join(strings.Trim(dir, "\n"), s))
+		dirs = append(dirs, path.Join(dir, s))
 	}
 
 	return dirs
