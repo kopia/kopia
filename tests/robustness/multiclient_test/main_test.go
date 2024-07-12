@@ -19,7 +19,6 @@ import (
 var (
 	eng *engine.Engine
 	th  *framework.TestHarness
-	dd  []*storagestats.DirDetails
 )
 
 func TestMain(m *testing.M) {
@@ -33,14 +32,14 @@ func TestMain(m *testing.M) {
 	eng = th.Engine()
 
 	// Perform setup needed to get storage stats.
-	dd = storagestats.SetupStorageStats(ctx, eng)
-	storagestats.LogStorageStats(ctx, dd)
+	dirs := th.GetDirsToLog(ctx)
+	storagestats.LogStorageStats(ctx, dirs)
 
 	// run the tests
 	result := m.Run()
 
 	// Log storage stats after the test run.
-	storagestats.LogStorageStats(ctx, dd)
+	storagestats.LogStorageStats(ctx, dirs)
 
 	err := th.Cleanup(ctx)
 	if err != nil {

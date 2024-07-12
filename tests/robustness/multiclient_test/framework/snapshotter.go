@@ -221,3 +221,11 @@ func (mcs *MultiClientSnapshotter) createOrGetSnapshotter(ctx context.Context) (
 
 	return cs, nil
 }
+
+// GetCacheDirInfo runs cache info command to get cache dir path for
+// the repository.
+func (mcs *MultiClientSnapshotter) GetCacheDirInfo() (stdout, stderr string, err error) {
+	stdout, stderr, err = mcs.server.Run("cache", "info", "--path")
+
+	return stdout, stderr, err
+}

@@ -16,16 +16,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/robustness/multiclient_test/framework"
-)
-
-const (
-	generatedDataBaseDirDesc   = "Base dir for fio generated data"
-	persistDirDesc             = "Dir used to persist metadata about the repo under test"
-	checkerRestoreDirDesc      = "Engine checker restore data dir"
-	repositoryUnderTestDirDesc = "Repository under test base dir"
-	metadataRepoDirDesc        = "Metadata repository base dir"
 )
 
 var logFilePath string
@@ -35,57 +26,14 @@ var logFilePath string
 type DirDetails struct {
 	DirPath string `json:"dirPath"`
 	DirSize int64  `json:"dirSize"`
-	Desc    string `json:"desc"`
-}
-
-// SetupStorageStats populates the directory details to be logged later.
-func SetupStorageStats(ctx context.Context, eng *engine.Engine) []*DirDetails {
-	dirDetails := []*DirDetails{}
-
-	dirDetails = append(dirDetails,
-		// repository under test
-		&DirDetails{
-			DirPath: path.Join(*framework.RepoPathPrefix, framework.DataSubPath),
-			Desc:    repositoryUnderTestDirDesc,
-		},
-		// metadata repository
-		&DirDetails{
-			DirPath: path.Join(*framework.RepoPathPrefix, framework.MetadataSubPath),
-			Desc:    metadataRepoDirDesc,
-		},
-		// LocalFioDataPathEnvKey
-		&DirDetails{
-			DirPath: path.Join(eng.FileWriter.DataDirectory(ctx), ".."),
-			Desc:    generatedDataBaseDirDesc,
-		},
-		// kopia-persistence-root-
-		&DirDetails{
-			DirPath: eng.MetaStore.GetPersistDir(),
-			Desc:    persistDirDesc,
-		},
-		// engine-data-*/restore-data-*
-		&DirDetails{
-			DirPath: eng.Checker.RestoreDir,
-			Desc:    checkerRestoreDirDesc,
-		})
-
-	return dirDetails
 }
 
 // LogStorageStats logs disk space usage of file writer data dir, test-repo,
 // robustness-data and robustness-metadata paths.
-func LogStorageStats(ctx context.Context, dd []*DirDetails) {
-	if logFilePath == "" {
-		logFilePath = getLogFilePath()
-		log.Printf("log file path %s", logFilePath)
-	}
+func LogStorageStats(ctx context.Context, dirs []string) {
 	log.Printf("Logging storage stats")
 
-	for _, d := range dd {
-		dirSize, err := getDirSize(d.DirPath)
-		d.DirSize = dirSize
-		logDirDetails(d, err)
-	}
+	dd := collectDirDetails(dirs)
 
 	// write logs into a JSON file
 	jsonData, err := json.Marshal(dd)
@@ -94,10 +42,9 @@ func LogStorageStats(ctx context.Context, dd []*DirDetails) {
 		return
 	}
 
-	file, err := os.Create(logFilePath)
+	file, err := createLogFile()
 	if err != nil {
-		log.Printf("Error creating file %s", err)
-		return
+		log.Printf("Error creating log file %s", err)
 	}
 	defer file.Close()
 
@@ -136,8 +83,35 @@ func getDirSize(dirPath string) (int64, error) {
 }
 
 func getLogFilePath() string {
-	logFileSubpath := fmt.Sprint("multiclient_logs_", time.Now().UTC(), ".json") //nolint:forbidigo
+	logFileSubpath := fmt.Sprint("multiclient_logs_", time.Now().UTC().Format("20060102_150405"), ".json") //nolint:forbidigo
 	filePath := path.Join(*framework.RepoPathPrefix, logFileSubpath)
-	log.Printf("filepath %s", filePath)
 	return filePath
+}
+
+func collectDirDetails(dirs []string) []*DirDetails {
+	var dd []*DirDetails
+	for _, dir := range dirs {
+		dirSize, err := getDirSize(dir)
+		if err != nil {
+			dirSize = -1
+		}
+		d := &DirDetails{
+			DirPath: dir,
+			DirSize: dirSize,
+		}
+		dd = append(dd, d)
+		// Useful if JSON marshaling errors out later.
+		logDirDetails(d, err)
+	}
+
+	return dd
+}
+
+func createLogFile() (*os.File, error) {
+	// Create a fresh log file.
+	logFilePath = getLogFilePath()
+	log.Printf("log file path %s", logFilePath)
+	file, err := os.Create(logFilePath)
+
+	return file, err
 }

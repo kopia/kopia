@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -22,10 +23,9 @@ import (
 )
 
 const (
-	// DataSubPath represents the base dir for repository under test.
-	DataSubPath = "robustness-data"
+	dataSubPath = "robustness-data"
 	// MetadataSubPath represents the base dir for metadata repository.
-	MetadataSubPath = "robustness-metadata"
+	metadataSubPath = "robustness-metadata"
 )
 
 // RepoPathPrefix is used by robustness tests as a base dir for repository under test.
@@ -58,9 +58,8 @@ func (th *TestHarness) init(ctx context.Context) {
 		log.Printf("Skipping robustness tests because repo-path-prefix is not set")
 		os.Exit(0)
 	}
-
-	dataRepoPath := path.Join(*RepoPathPrefix, DataSubPath)
-	metaRepoPath := path.Join(*RepoPathPrefix, MetadataSubPath)
+	dataRepoPath := path.Join(*RepoPathPrefix, dataSubPath)
+	metaRepoPath := path.Join(*RepoPathPrefix, metadataSubPath)
 
 	th.dataRepoPath = dataRepoPath
 	th.metaRepoPath = metaRepoPath
@@ -276,4 +275,51 @@ func (th *TestHarness) Cleanup(ctx context.Context) (retErr error) {
 	}
 
 	return retErr
+}
+
+// GetDirsToLog collects the directory paths to log.
+func (th *TestHarness) GetDirsToLog(ctx context.Context) []string {
+	if th.snapshotter == nil {
+		return nil
+	}
+
+	var dirList []string
+	dirList = append(dirList,
+		th.dataRepoPath, // repo under test base dir
+		th.metaRepoPath, // metadata repository base dir
+		path.Join(th.fileWriter.DataDirectory(ctx), ".."), // LocalFioDataPathEnvKey
+		th.engine.MetaStore.GetPersistDir(),               // kopia-persistence-root-
+		th.baseDirPath,                                    // engine-data dir
+	)
+
+	cacheDir, _, err := th.snapshotter.GetCacheDirInfo()
+	if err == nil {
+		dirList = append(dirList, strings.Trim(cacheDir, "\n")) // cache dir for repo under test
+	}
+	allCacheDirs := getAllCacheDirs(cacheDir)
+	dirList = append(dirList, allCacheDirs...)
+
+	log.Printf("in GetDirsToLog")
+	for _, d := range dirList {
+		log.Printf("dir %s", d)
+	}
+
+	return dirList
+}
+
+func getAllCacheDirs(dir string) []string {
+	if dir == "" {
+		return nil
+	}
+	var dirs []string
+	// Collect all cache dirs
+	// There are six types of caches, and corresponding dirs.
+	// metadata, contents, indexes,
+	// own-writes, blob-list, server-contents
+	cacheDirSubpaths := []string{"metadata", "contents", "indexes", "own-writes", "server-contents"}
+	for _, s := range cacheDirSubpaths {
+		dirs = append(dirs, path.Join(strings.Trim(dir, "\n"), s))
+	}
+
+	return dirs
 }
