@@ -409,7 +409,7 @@ app.on('ready', () => {
   if (isPortableConfig()) {
     const logDir = path.join(configDir(), "logs");
 
-    log.transports.file.resolvePath = (variables) => path.join(logDir, variables.fileName);
+    log.transports.file.resolvePathFn = (variables) => path.join(logDir, variables.fileName);
   }
 
   log.transports.console.level = "warn"
@@ -486,12 +486,12 @@ function updateTrayContextMenu() {
     let desc = "";
 
     if (sd.startingUp) {
-      desc = "<starting up>";
+      desc = sd.description + " <starting up>";
     } else if (!sd.connected) {
       if (sd.initTaskID) {
-        desc = "<initializing>";
+        desc = sd.description + " <initializing>";
       } else {
-        desc = "<not connected>";
+        desc = sd.description + " <not connected>";
       }
     } else {
       desc = sd.description;
