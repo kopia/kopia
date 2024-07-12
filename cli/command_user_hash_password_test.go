@@ -49,6 +49,7 @@ func TestServerUserHashPassword(t *testing.T) {
 		"server", "start",
 		"--address=localhost:0",
 		"--tls-generate-cert",
+		"--random-server-control-password",
 		"--shutdown-grace-period", "100ms",
 	)
 
@@ -64,13 +65,40 @@ func TestServerUserHashPassword(t *testing.T) {
 	cr := testenv.NewInProcRunner(t)
 	clientEnv := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, cr)
 
-	clientEnv.Environment["KOPIA_PASSWORD"] = userPassword
+	delete(clientEnv.Environment, "KOPIA_PASSWORD")
+
 	clientEnv.RunAndExpectSuccess(t, "repo", "connect", "server",
 		"--url", sp.BaseURL,
 		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 		"--override-username", userName,
 		"--override-hostname", userHost,
 		"--password", userPassword)
+
+	clientEnv.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	userPassword2 := "bad-password-" + strconv.Itoa(int(rand.Int31()))
+
+	out = e.RunAndExpectSuccess(t, "server", "users", "hash-password", "--user-password", userPassword2)
+
+	require.Len(t, out, 1)
+
+	passwordHash2 := out[0]
+	require.NotEmpty(t, passwordHash2)
+
+	// set new user password using the password hash and refresh the server
+	e.RunAndExpectSuccess(t, "server", "users", "set", userFull, "--user-password-hash", passwordHash2)
+	e.RunAndExpectSuccess(t, "server", "refresh",
+		"--address", sp.BaseURL,
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
+		"--server-control-password", sp.ServerControlPassword)
+
+	// attempt connecting with the new password
+	clientEnv.RunAndExpectSuccess(t, "repo", "connect", "server",
+		"--url", sp.BaseURL,
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
+		"--override-username", userName,
+		"--override-hostname", userHost,
+		"--password", userPassword2)
 
 	clientEnv.RunAndExpectSuccess(t, "repo", "disconnect")
 }
