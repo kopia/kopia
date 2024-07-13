@@ -1,11 +1,11 @@
-const { ipcMain } = require('electron');
-const path = require('path');
-const https = require('https');
+import { ipcMain } from 'electron';
+const path = await import('path');
+const https = await import('https');
 
-const { defaultServerBinary } = require('./utils');
-const { spawn } = require('child_process');
-const log = require("electron-log")
-const { configDir, isPortableConfig } = require('./config');
+import { defaultServerBinary } from './utils.js';
+import { spawn } from 'child_process';
+import log from "electron-log";
+import { configDir, isPortableConfig } from './config.js';
 
 let servers = {};
 
@@ -242,8 +242,7 @@ ipcMain.on('status-fetch', (event, args) => {
     }
 })
 
-module.exports = {
-    serverForRepo(repoID) {
+export function serverForRepo(repoID) {
         let s = servers[repoID];
         if (s) {
             return s;
@@ -253,4 +252,4 @@ module.exports = {
         servers[repoID] = s;
         return s;
     }
-}
+
