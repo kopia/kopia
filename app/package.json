@@ -71,7 +71,7 @@
           ]
         }
       ],
-      "sign": "./sign.js",
+      "sign": "./sign.cjs",
       "signingHashAlgorithms": [
         "sha256"
       ]
@@ -108,7 +108,7 @@
         }
       ]
     },
-    "afterSign": "notarize.js"
+    "afterSign": "notarize.cjs"
   },
   "devDependencies": {
     "@electron/notarize": "^2.3.2",
