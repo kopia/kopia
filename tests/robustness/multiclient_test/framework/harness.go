@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
@@ -159,6 +160,15 @@ func (th *TestHarness) getPersister() bool {
 
 	if err = kp.ConnectOrCreateRepo(th.metaRepoPath); err != nil {
 		log.Println("Error initializing kopia Persister:", err)
+		return false
+	}
+
+	// Set cache size limits for metadata repository.
+	if err = kp.SetCacheLimits(th.metaRepoPath, &content.CachingOptions{
+		ContentCacheSizeLimitBytes:  500,
+		MetadataCacheSizeLimitBytes: 500,
+	}); err != nil {
+		log.Println("Error setting cache size limits for kopia Persister:", err)
 		return false
 	}
 

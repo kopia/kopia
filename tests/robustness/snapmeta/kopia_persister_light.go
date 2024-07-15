@@ -9,6 +9,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/tools/kopiaclient"
 )
@@ -43,6 +44,17 @@ func NewPersisterLight(baseDir string) (*KopiaPersisterLight, error) {
 func (kpl *KopiaPersisterLight) ConnectOrCreateRepo(repoPath string) error {
 	bucketName := os.Getenv(S3BucketNameEnvKey)
 	return kpl.kc.CreateOrConnectRepo(context.Background(), repoPath, bucketName)
+}
+
+// SetCacheLimits sets to an existing one if possible.
+func (kpl *KopiaPersisterLight) SetCacheLimits(repoPath string, cacheOpts *content.CachingOptions) error {
+	bucketName := os.Getenv(S3BucketNameEnvKey)
+	err := kpl.kc.SetCacheLimits(context.Background(), repoPath, bucketName, cacheOpts)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Store pushes the key value pair to the Kopia repository.
