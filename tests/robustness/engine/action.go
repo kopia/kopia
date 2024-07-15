@@ -213,7 +213,8 @@ func deleteRandomSnapshotAction(ctx context.Context, e *Engine, opts map[string]
 	// grows over long term.
 	snapIDList := e.Checker.GetLiveSnapIDs()
 	if len(snapIDList) <= 1 {
-		log.Printf("No snapshots available for deletion\n")
+		log.Println("No snapshots available for deletion")
+
 		return nil, robustness.ErrNoOp
 	}
 
