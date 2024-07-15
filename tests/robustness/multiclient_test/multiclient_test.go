@@ -63,8 +63,6 @@ func TestManySmallFiles(t *testing.T) {
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		require.NoError(t, err)
-
-		tryDeleteAction(ctx, t, engine.DeleteRandomSnapshotActionKey, nil)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
@@ -98,8 +96,6 @@ func TestOneLargeFile(t *testing.T) {
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		require.NoError(t, err)
-
-		tryDeleteAction(ctx, t, engine.DeleteRandomSnapshotActionKey, nil)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
@@ -146,8 +142,6 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		require.NoError(t, err)
-
-		tryDeleteAction(ctx, t, engine.DeleteRandomSnapshotActionKey, nil)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
@@ -209,6 +203,17 @@ func TestMaintenanceAction(t *testing.T) {
 	_, err := eng.ExecAction(ctx, engine.GCActionKey, nil)
 
 	require.NoError(t, err)
+}
+
+func TestDeleteRandomSnapshotAction(t *testing.T) {
+	const numClients = 4
+
+	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
+		tryDeleteAction(ctx, t, engine.DeleteRandomSnapshotActionKey, nil)
+	}
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+	th.RunN(ctx, t, numClients, f)
 }
 
 // tryRestoreIntoDataDirectory runs eng.ExecAction on the given parameters and masks no-op errors.
