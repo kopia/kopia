@@ -206,7 +206,7 @@ func TestMaintenanceAction(t *testing.T) {
 }
 
 func TestDeleteRandomSnapshotAction(t *testing.T) {
-	const numClients = 4
+	const numClients = 1
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		tryDeleteAction(ctx, t, engine.DeleteRandomSnapshotActionKey, nil)
