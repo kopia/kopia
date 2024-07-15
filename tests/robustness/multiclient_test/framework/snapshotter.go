@@ -87,8 +87,7 @@ func (mcs *MultiClientSnapshotter) setContentCacheSizeLimit(contentCacheSize int
 	return err
 }
 
-// setCacheSizeLimits sets the metadata cache size limits for an existing repository
-// the repository server is connected to.
+// setMetadataCacheSizeLimit sets the metadata cache size limits for an existing repository, the repository server is connected to.
 func (mcs *MultiClientSnapshotter) setMetadataCacheSizeLimit(metadataCacheSize int) error {
 	_, _, err := mcs.server.Run("cache", "set",
 		metadataCacheLimitMBFlag, strconv.Itoa(metadataCacheSize))
