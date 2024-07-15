@@ -1,7 +1,7 @@
-const { ipcMain } = require('electron');
-const log = require("electron-log");
+import { ipcMain } from 'electron';
+import log from "electron-log";
 
-const AutoLaunch = require('auto-launch');
+import AutoLaunch from 'auto-launch';
 
 const autoLauncher = new AutoLaunch({
     name: 'Kopia',
@@ -12,11 +12,11 @@ const autoLauncher = new AutoLaunch({
 
 let enabled = false;
 
-module.exports = {
-    willLaunchAtStartup() {
+    export function willLaunchAtStartup() {
         return enabled;
-    },
-    toggleLaunchAtStartup() {
+    }
+
+    export function toggleLaunchAtStartup() {
         if (enabled) {
             log.info('disabling autorun');
             autoLauncher.disable()
@@ -28,8 +28,8 @@ module.exports = {
                 .then(() => { enabled = true; ipcMain.emit('launch-at-startup-updated'); })
                 .catch((err) => log.info(err));
         }
-    },
-    refreshWillLaunchAtStartup() {
+    }
+    export function refreshWillLaunchAtStartup() {
         autoLauncher.isEnabled()
             .then((isEnabled) => {
                 enabled = isEnabled;
@@ -38,5 +38,4 @@ module.exports = {
             .catch(function (err) {
                 log.info('unable to get autoLauncher state', err);
             });
-    },
-}
+    }
