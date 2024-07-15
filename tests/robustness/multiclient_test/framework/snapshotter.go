@@ -16,6 +16,11 @@ import (
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
 )
 
+const (
+	contentCacheLimitMBFlag  = "--content-cache-size-limit-mb"
+	metadataCacheLimitMBFlag = "--metadata-cache-size-limit-mb"
+)
+
 // MultiClientSnapshotter manages a set of client Snapshotter instances and
 // implements the Snapshotter interface itself. Snapshotter methods must be
 // provided with a client-wrapped context so the MultiClientSnapshotter can
@@ -63,6 +68,24 @@ func (mcs *MultiClientSnapshotter) ConnectOrCreateRepo(repoPath string) error {
 	}
 
 	_, _, err := mcs.server.Run("policy", "set", "--global", "--keep-latest", strconv.Itoa(1<<31-1), "--compression", "s2-default")
+
+	return err
+}
+
+// setCacheSizeLimits sets the content cache size limits for an existing repository
+// the repository server is connected to.
+func (mcs *MultiClientSnapshotter) setContentCacheSizeLimit(contentCacheSizeLimitMB int) error {
+	_, _, err := mcs.server.Run("cache", "set",
+		contentCacheLimitMBFlag, strconv.Itoa(contentCacheSizeLimitMB),
+	)
+
+	return err
+}
+
+// setMetadataCacheSizeLimit sets the metadata cache size limits for an existing repository, the repository server is connected to.
+func (mcs *MultiClientSnapshotter) setMetadataCacheSizeLimit(metadataCacheSizeLimitMB int) error {
+	_, _, err := mcs.server.Run("cache", "set",
+		metadataCacheLimitMBFlag, strconv.Itoa(metadataCacheSizeLimitMB))
 
 	return err
 }
