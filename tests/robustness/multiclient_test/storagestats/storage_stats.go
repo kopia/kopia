@@ -19,6 +19,10 @@ import (
 	"github.com/kopia/kopia/tests/robustness/multiclient_test/framework"
 )
 
+const (
+	logFileSubpath = "logs"
+)
+
 var logFilePath string
 
 // DirDetails represents details about a directory,
@@ -80,8 +84,8 @@ func getDirSize(dirPath string) (int64, error) {
 }
 
 func getLogFilePath() string {
-	logFileSubpath := fmt.Sprint("multiclient_logs_", time.Now().UTC().Format("20060102_150405"), ".json") //nolint:forbidigo
-	filePath := path.Join(*framework.RepoPathPrefix, logFileSubpath)
+	logFileName := fmt.Sprint("multiclient_logs_", time.Now().UTC().Format("20060102_150405"), ".json") //nolint:forbidigo
+	filePath := path.Join(*framework.RepoPathPrefix, logFileSubpath, logFileName)
 	return filePath
 }
 
