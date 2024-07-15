@@ -87,8 +87,8 @@ func (kc *KopiaClient) SetCacheLimits(ctx context.Context, repoDir, bucketName s
 		return err
 	}
 
-	log.Printf("content cache size" + strconv.FormatInt(cacheOptsObtained.ContentCacheSizeLimitBytes, 10))
-	log.Printf("metadata cache size " + strconv.FormatInt(cacheOptsObtained.MetadataCacheSizeLimitBytes, 10))
+	log.Print("content cache size:", cacheOptsObtained.ContentCacheSizeLimitBytes)
+	log.Print("metadata cache size:", cacheOptsObtained.MetadataCacheSizeLimitBytes)
 
 	return nil
 }
