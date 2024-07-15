@@ -35,21 +35,18 @@ func LogStorageStats(ctx context.Context, dirs []string) error {
 	// write dir details into a JSON file
 	jsonData, err := json.Marshal(dd)
 	if err != nil {
-		log.Printf("Error marshaling to JSON %s", err)
-		return err
+		return fmt.Errorf("error marshaling to JSON: %w", err)
 	}
 
 	file, err := createLogFile()
 	if err != nil {
-		log.Printf("Error creating log file %s", err)
-		return err
+		return fmt.Errorf("error creating log file: %w", err)
 	}
 	defer file.Close()
 
 	_, err = file.Write(jsonData)
 	if err != nil {
-		log.Printf("Error writing to file %s", err)
-		return err
+		return fmt.Errorf("error writing to log file: %w", err)
 	}
 
 	return nil
