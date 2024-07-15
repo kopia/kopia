@@ -5,7 +5,6 @@ package framework
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log"
 	"os"
@@ -21,11 +20,6 @@ const (
 	contentCacheLimitMBFlag  = "--content-cache-size-limit-mb"
 	metadataCacheLimitMBFlag = "--metadata-cache-size-limit-mb"
 )
-
-// ErrUnsupportedFlagsForCacheSet is returned when an unsupported flag
-// is used with cache set command on the repository under test
-// in multiclient robustness test.
-var ErrUnsupportedFlagsForCacheSet = errors.New("unsupported flag used for cache set")
 
 // MultiClientSnapshotter manages a set of client Snapshotter instances and
 // implements the Snapshotter interface itself. Snapshotter methods must be
