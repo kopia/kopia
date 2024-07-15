@@ -63,6 +63,8 @@ func TestManySmallFiles(t *testing.T) {
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		require.NoError(t, err)
+
+		tryDeleteAction(ctx, t, engine.DeleteRandomSnapshotActionKey, nil)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
@@ -144,6 +146,8 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 
 		_, err = eng.ExecAction(ctx, engine.RestoreSnapshotActionKey, snapOut)
 		require.NoError(t, err)
+
+		tryDeleteAction(ctx, t, engine.DeleteRandomSnapshotActionKey, nil)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
