@@ -239,14 +239,13 @@ func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) 
 }
 
 // tryDeleteAction runs the given delete action,
-// delete-files or delete-random-subdirectory or delete-random-snapID
+// delete-files or delete-random-subdirectory
 // with options and masks no-op errors, and asserts when called for any other action.
 func tryDeleteAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) {
 	t.Helper()
 	eligibleActionsList := []engine.ActionKey{
 		engine.DeleteDirectoryContentsActionKey,
 		engine.DeleteRandomSubdirectoryActionKey,
-		engine.DeleteRandomSnapshotActionKey,
 	}
 	require.Contains(t, eligibleActionsList, action)
 
