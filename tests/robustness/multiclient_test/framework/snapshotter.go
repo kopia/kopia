@@ -11,11 +11,15 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
+)
+
+const (
+	contentCacheLimitMBFlag  = "--content-cache-size-limit-mb"
+	metadataCacheLimitMBFlag = "--metadata-cache-size-limit-mb"
 )
 
 // ErrUnsupportedFlagsForCacheSet is returned when an unsupported flag
@@ -74,16 +78,20 @@ func (mcs *MultiClientSnapshotter) ConnectOrCreateRepo(repoPath string) error {
 	return err
 }
 
-// SetCacheSizeLimits sets the cache size limits for an existing repository
+// setCacheSizeLimits sets the content cache size limits for an existing repository
 // the repository server is connected to.
-// Allowed flags: content-cache-size-limit-mb, metadata-cache-size-limit-mb.
-func (mcs *MultiClientSnapshotter) SetCacheSizeLimits(cacheFlag string, cacheSize int) error {
-	if !strings.Contains(cacheFlag, contentCacheLimitMBFlag) && !strings.Contains(cacheFlag, metadataCacheLimitMBFlag) {
-		return ErrUnsupportedFlagsForCacheSet
-	}
-
+func (mcs *MultiClientSnapshotter) setContentCacheSizeLimit(contentCacheSize int) error {
 	_, _, err := mcs.server.Run("cache", "set",
-		cacheFlag, strconv.Itoa(cacheSize))
+		contentCacheLimitMBFlag, strconv.Itoa(contentCacheSize))
+
+	return err
+}
+
+// setCacheSizeLimits sets the metadata cache size limits for an existing repository
+// the repository server is connected to.
+func (mcs *MultiClientSnapshotter) setMetadataCacheSizeLimit(metadataCacheSize int) error {
+	_, _, err := mcs.server.Run("cache", "set",
+		metadataCacheLimitMBFlag, strconv.Itoa(metadataCacheSize))
 
 	return err
 }
