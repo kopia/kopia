@@ -11,7 +11,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
@@ -87,8 +86,8 @@ func (kc *KopiaClient) SetCacheLimits(ctx context.Context, repoDir, bucketName s
 		return err
 	}
 
-	log.Print("content cache size:", cacheOptsObtained.ContentCacheSizeLimitBytes)
-	log.Print("metadata cache size:", cacheOptsObtained.MetadataCacheSizeLimitBytes)
+	log.Println("content cache size:", cacheOptsObtained.ContentCacheSizeLimitBytes)
+	log.Println("metadata cache size:", cacheOptsObtained.MetadataCacheSizeLimitBytes)
 
 	return nil
 }
