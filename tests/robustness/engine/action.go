@@ -336,7 +336,8 @@ func (e *Engine) getSnapIDOptOrRandLive(opts map[string]string) (snapID string, 
 
 	snapIDList := e.Checker.GetLiveSnapIDs()
 	if len(snapIDList) == 0 {
-		log.Printf("No snapshots available for deletion\n")
+		log.Println("No snapshots available for deletion")
+
 		return "", robustness.ErrNoOp
 	}
 
