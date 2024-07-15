@@ -245,7 +245,7 @@ func tryDeleteAction(ctx context.Context, t *testing.T, action engine.ActionKey,
 	// Ignore the dir-not-found error or no-snapshots-to-delete error
 	// wrapped as no-op error.
 	if errors.Is(err, robustness.ErrNoOp) {
-		t.Log("Delete action ", action, " resulted in no-op")
+		t.Logf("Delete action '%s' resulted in no-op", action)
 		return
 	}
 
