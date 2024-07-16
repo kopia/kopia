@@ -205,6 +205,17 @@ func TestMaintenanceAction(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestDeleteRandomSnapshotAction(t *testing.T) {
+	const numClients = 1
+
+	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
+		tryDeleteAction(ctx, t, engine.DeleteRandomSnapshotActionKey, nil)
+	}
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+	th.RunN(ctx, t, numClients, f)
+}
+
 // tryRestoreIntoDataDirectory runs eng.ExecAction on the given parameters and masks no-op errors.
 func tryRestoreIntoDataDirectory(ctx context.Context, t *testing.T) error { //nolint:thelper
 	_, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil)
@@ -227,7 +238,8 @@ func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) 
 	return err
 }
 
-// tryDeleteAction runs the given delete action, either delete-files or delete-random-subdirectory
+// tryDeleteAction runs the given delete action,
+// delete-files or delete-random-subdirectory
 // with options and masks no-op errors, and asserts when called for any other action.
 func tryDeleteAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) {
 	t.Helper()
@@ -238,9 +250,9 @@ func tryDeleteAction(ctx context.Context, t *testing.T, action engine.ActionKey,
 	require.Contains(t, eligibleActionsList, action)
 
 	_, err := eng.ExecAction(ctx, action, actionOpts)
-	// Ignore the dir-not-found error, wrapped as no-op error.
+	// Ignore the dir-not-found error wrapped as no-op error.
 	if errors.Is(err, robustness.ErrNoOp) {
-		t.Log("Delete action resulted in no-op")
+		t.Logf("Delete action '%s' resulted in no-op", action)
 		return
 	}
 
