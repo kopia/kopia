@@ -208,6 +208,16 @@ func restoreSnapshotAction(ctx context.Context, e *Engine, opts map[string]strin
 }
 
 func deleteRandomSnapshotAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+	// Do not delete snapshot when it is the only available snapshot.
+	// This will ensure that the repository under test in robustness tests
+	// grows over long term.
+	snapIDList := e.Checker.GetLiveSnapIDs()
+	if len(snapIDList) <= 1 {
+		log.Println("No snapshots available for deletion")
+
+		return nil, robustness.ErrNoOp
+	}
+
 	snapID, err := e.getSnapIDOptOrRandLive(opts)
 	if err != nil {
 		return nil, err
@@ -327,6 +337,8 @@ func (e *Engine) getSnapIDOptOrRandLive(opts map[string]string) (snapID string, 
 
 	snapIDList := e.Checker.GetLiveSnapIDs()
 	if len(snapIDList) == 0 {
+		log.Println("No snapshots available for deletion")
+
 		return "", robustness.ErrNoOp
 	}
 
