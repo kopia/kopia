@@ -72,20 +72,12 @@ func (mcs *MultiClientSnapshotter) ConnectOrCreateRepo(repoPath string) error {
 	return err
 }
 
-// setCacheSizeLimits sets the content cache size limits for an existing repository
-// the repository server is connected to.
-func (mcs *MultiClientSnapshotter) setContentCacheSizeLimit(contentCacheSizeLimitMB int) error {
+// setCacheSizeLimits sets hard size limits for the content and metadata caches
+// on an already connected repository.
+func (mcs *MultiClientSnapshotter) setCacheSizeHardLimit(contentLimitSizeMB, metadataLimitSizeMB int) error {
 	_, _, err := mcs.server.Run("cache", "set",
-		contentCacheLimitMBFlag, strconv.Itoa(contentCacheSizeLimitMB),
-	)
-
-	return err
-}
-
-// setMetadataCacheSizeLimit sets the metadata cache size limits for an existing repository, the repository server is connected to.
-func (mcs *MultiClientSnapshotter) setMetadataCacheSizeLimit(metadataCacheSizeLimitMB int) error {
-	_, _, err := mcs.server.Run("cache", "set",
-		metadataCacheLimitMBFlag, strconv.Itoa(metadataCacheSizeLimitMB))
+		metadataCacheLimitMBFlag, strconv.Itoa(metadataLimitSizeMB),
+		contentCacheLimitMBFlag, strconv.Itoa(contentLimitSizeMB))
 
 	return err
 }
