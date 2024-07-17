@@ -6,7 +6,7 @@ toolchain go1.22.5
 
 require (
 	cloud.google.com/go/storage v1.43.0
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.12.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.13.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.7.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.3.2
 	github.com/alecthomas/kingpin/v2 v2.4.0
@@ -29,7 +29,7 @@ require (
 	github.com/hashicorp/cronexpr v1.1.2
 	github.com/klauspost/compress v1.17.9
 	github.com/klauspost/pgzip v1.2.6
-	github.com/klauspost/reedsolomon v1.12.2
+	github.com/klauspost/reedsolomon v1.12.3
 	github.com/kopia/htmluibuild v0.0.1-0.20240701232248-2fbad5a561f8
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.13
@@ -76,7 +76,7 @@ require (
 	cloud.google.com/go/auth/oauth2adapt v0.2.2 // indirect
 	cloud.google.com/go/compute/metadata v0.4.0 // indirect
 	cloud.google.com/go/iam v1.1.10 // indirect
-	github.com/Azure/azure-sdk-for-go/sdk/internal v1.9.0 // indirect
+	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2 // indirect
 	github.com/GehirnInc/crypt v0.0.0-20230320061759-8cc1b52080c5 // indirect
 	github.com/alessio/shellescape v1.4.1 // indirect
