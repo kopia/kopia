@@ -150,7 +150,7 @@ func (th *TestHarness) getSnapshotter() bool {
 	}
 
 	// Set size limits for content cache and metadata cache for repository under test.
-	if err = s.setCacheSizeHardLimit(contentCacheLimitMB, metadataCacheLimitMB); err != nil {
+	if err = s.setCacheSizeLimits(contentCacheLimitMB, metadataCacheLimitMB); err != nil {
 		log.Println("Error setting hard cache size limits for kopia snapshotter:", err)
 
 		return false

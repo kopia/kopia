@@ -74,7 +74,7 @@ func (mcs *MultiClientSnapshotter) ConnectOrCreateRepo(repoPath string) error {
 
 // setCacheSizeLimits sets hard size limits for the content and metadata caches
 // on an already connected repository.
-func (mcs *MultiClientSnapshotter) setCacheSizeHardLimit(contentLimitSizeMB, metadataLimitSizeMB int) error {
+func (mcs *MultiClientSnapshotter) setCacheSizeLimits(contentLimitSizeMB, metadataLimitSizeMB int) error {
 	_, _, err := mcs.server.Run("cache", "set",
 		metadataCacheLimitMBFlag, strconv.Itoa(metadataLimitSizeMB),
 		contentCacheLimitMBFlag, strconv.Itoa(contentLimitSizeMB))
