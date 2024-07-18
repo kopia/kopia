@@ -11,7 +11,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"strings"
 	"syscall"
 	"testing"
 
@@ -315,7 +314,6 @@ func (th *TestHarness) GetDirsToLog(ctx context.Context) []string {
 
 	cacheDir, _, err := th.snapshotter.GetCacheDirInfo()
 	if err == nil {
-		cacheDir = strings.Trim(cacheDir, "\n")
 		dirList = append(dirList, cacheDir) // cache dir for repo under test
 	}
 	allCacheDirs := getAllCacheDirs(cacheDir)
@@ -338,7 +336,7 @@ func getAllCacheDirs(dir string) []string {
 	// There are six types of caches, and corresponding dirs.
 	// metadata, contents, indexes,
 	// own-writes, blob-list, server-contents
-	cacheDirSubpaths := []string{"metadata", "contents", "indexes", "own-writes", "server-contents"}
+	cacheDirSubpaths := []string{"metadata", "contents", "indexes", "own-writes", "blob-list", "server-contents"}
 	for _, s := range cacheDirSubpaths {
 		dirs = append(dirs, path.Join(dir, s))
 	}

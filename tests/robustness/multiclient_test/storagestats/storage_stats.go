@@ -46,7 +46,13 @@ func LogStorageStats(ctx context.Context, dirs []string) error {
 	if err != nil {
 		return fmt.Errorf("error creating log file: %w", err)
 	}
-	defer file.Close()
+	defer func() error {
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("error closing the log file: %w", err)
+		}
+
+		return nil
+	}()
 
 	_, err = file.Write(jsonData)
 	if err != nil {
