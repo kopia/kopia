@@ -60,9 +60,9 @@ func logDirectorySize(dd DirectorySize, err error) {
 	log.Printf("dir %s, dir size %d\n", dd.Path, dd.Size)
 }
 
-func getSize(Path string) (int64, error) {
+func getSize(dirPath string) (int64, error) {
 	var size int64
-	err := filepath.WalkDir(Path, func(_ string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(dirPath, func(_ string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -102,13 +102,4 @@ func collectDirectorySize(dirs []string) []DirectorySize {
 	}
 
 	return dd
-}
-
-func createLogFile() (*os.File, error) {
-	// Create a fresh log file.
-	logFilePath = getLogFilePath()
-	log.Printf("log file path %s", logFilePath)
-	file, err := os.Create(logFilePath)
-
-	return file, err
 }
