@@ -25,16 +25,16 @@ const (
 
 var logFilePath string
 
-// DirDetails represents details about a directory,
+// DirectorySize represents details about a directory,
 // path, and size.
-type DirDetails struct {
-	DirPath string `json:"dirPath"`
-	DirSize int64  `json:"dirSize"`
+type DirectorySize struct {
+	Path string `json:"Path"`
+	Size int64  `json:"Size"`
 }
 
 // LogStorageStats logs disk space usage of provided dir paths.
 func LogStorageStats(ctx context.Context, dirs []string) error {
-	dd := collectDirDetails(dirs)
+	dd := collectDirectorySize(dirs)
 
 	// write dir details into a JSON file
 	jsonData, err := json.Marshal(dd)
@@ -42,37 +42,27 @@ func LogStorageStats(ctx context.Context, dirs []string) error {
 		return fmt.Errorf("error marshaling to JSON: %w", err)
 	}
 
-	file, err := createLogFile()
+	logFilePath = getLogFilePath()
+	log.Printf("log file path %s", logFilePath)
+	err = os.WriteFile(logFilePath, jsonData, 0o644)
 	if err != nil {
-		return fmt.Errorf("error creating log file: %w", err)
-	}
-	defer func() error {
-		if err := file.Close(); err != nil {
-			return fmt.Errorf("error closing the log file: %w", err)
-		}
-
-		return nil
-	}()
-
-	_, err = file.Write(jsonData)
-	if err != nil {
-		return fmt.Errorf("error writing to log file: %w", err)
+		return fmt.Errorf("error writing log file: %w", err)
 	}
 
 	return nil
 }
 
-func logDirDetails(dd *DirDetails, err error) {
+func logDirectorySize(dd DirectorySize, err error) {
 	if err != nil {
-		log.Printf("error when getting dir size for %s %v", dd.DirPath, err)
+		log.Printf("error when getting dir size for %s %v", dd.Path, err)
 		return
 	}
-	log.Printf("dir %s, dir size %d\n", dd.DirPath, dd.DirSize)
+	log.Printf("dir %s, dir size %d\n", dd.Path, dd.Size)
 }
 
-func getDirSize(dirPath string) (int64, error) {
+func getSize(Path string) (int64, error) {
 	var size int64
-	err := filepath.WalkDir(dirPath, func(_ string, d os.DirEntry, err error) error {
+	err := filepath.WalkDir(Path, func(_ string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -90,25 +80,25 @@ func getDirSize(dirPath string) (int64, error) {
 }
 
 func getLogFilePath() string {
-	logFileName := fmt.Sprint("multiclient_logs_", time.Now().UTC().Format("20060102_150405"), ".json") //nolint:forbidigo
+	logFileName := fmt.Sprint("multiclient_kopia_cache_dir_usage_", time.Now().UTC().Format("20060102_150405"), ".json") //nolint:forbidigo
 	filePath := path.Join(*framework.RepoPathPrefix, logFileSubpath, logFileName)
 	return filePath
 }
 
-func collectDirDetails(dirs []string) []*DirDetails {
-	var dd []*DirDetails
+func collectDirectorySize(dirs []string) []DirectorySize {
+	var dd []DirectorySize
 	for _, dir := range dirs {
-		dirSize, err := getDirSize(dir)
+		Size, err := getSize(dir)
 		if err != nil {
-			dirSize = -1
+			Size = -1
 		}
-		d := &DirDetails{
-			DirPath: dir,
-			DirSize: dirSize,
+		d := DirectorySize{
+			Path: dir,
+			Size: Size,
 		}
 		dd = append(dd, d)
 		// Useful if JSON marshaling errors out later.
-		logDirDetails(d, err)
+		logDirectorySize(d, err)
 	}
 
 	return dd
