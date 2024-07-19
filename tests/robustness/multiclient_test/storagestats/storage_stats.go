@@ -34,7 +34,7 @@ type DirectorySize struct {
 
 // LogStorageStats logs disk space usage of provided dir paths.
 func LogStorageStats(ctx context.Context, dirs []string) error {
-	dd := collectDirectorySize(dirs)
+	dd := collectDirectorySizes(dirs)
 
 	// write dir details into a JSON file
 	jsonData, err := json.Marshal(dd)
