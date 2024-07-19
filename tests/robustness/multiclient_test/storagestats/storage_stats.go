@@ -28,8 +28,8 @@ var logFilePath string
 // DirectorySize represents details about a directory,
 // path, and size.
 type DirectorySize struct {
-	Path string `json:"Path"`
-	Size int64  `json:"Size"`
+	Path string `json:"path"`
+	Size int64  `json:"size"`
 }
 
 // LogStorageStats logs disk space usage of provided dir paths.
