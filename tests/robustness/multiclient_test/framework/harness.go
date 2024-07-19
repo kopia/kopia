@@ -319,10 +319,6 @@ func (th *TestHarness) GetDirsToLog(ctx context.Context) []string {
 	allCacheDirs := getAllCacheDirs(cacheDir)
 	dirList = append(dirList, allCacheDirs...)
 
-	for _, d := range dirList {
-		log.Printf("dir %s", d)
-	}
-
 	return dirList
 }
 
