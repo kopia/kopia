@@ -85,7 +85,7 @@ func getLogFilePath() string {
 	return filePath
 }
 
-func collectDirectorySize(dirs []string) []DirectorySize {
+func collectDirectorySizes(dirs []string) []DirectorySize {
 	var dd []DirectorySize
 	for _, dir := range dirs {
 		Size, err := getSize(dir)
