@@ -52,14 +52,6 @@ func LogStorageStats(ctx context.Context, dirs []string) error {
 	return nil
 }
 
-func logDirectorySize(dd DirectorySize, err error) {
-	if err != nil {
-		log.Printf("error when getting dir size for %s %v", dd.Path, err)
-		return
-	}
-	log.Printf("dir %s, dir size %d\n", dd.Path, dd.Size)
-}
-
 func getSize(dirPath string) (int64, error) {
 	var size int64
 	err := filepath.WalkDir(dirPath, func(_ string, d os.DirEntry, err error) error {
@@ -88,17 +80,21 @@ func getLogFilePath() string {
 func collectDirectorySizes(dirs []string) []DirectorySize {
 	var dd []DirectorySize
 	for _, dir := range dirs {
-		Size, err := getSize(dir)
+		s, err := getSize(dir)
 		if err != nil {
-			Size = -1
+			s = -1
+			
+			log.Printf("error getting dir size for '%s' %v", dir, err)
+		} else {
+			log.Printf("dir: '%s', size: %d", dir, s)
 		}
+		
 		d := DirectorySize{
 			Path: dir,
-			Size: Size,
+			Size: s,
 		}
 		dd = append(dd, d)
 		// Useful if JSON marshaling errors out later.
-		logDirectorySize(d, err)
 	}
 
 	return dd
