@@ -74,7 +74,7 @@ func getSize(dirPath string) (int64, error) {
 }
 
 func getLogFilePath() string {
-	logFileName := fmt.Sprint("multiclient_kopia_cache_dir_usage_", time.Now().UTC().Format("20060102_150405"), ".json") //nolint:forbidigo
+	logFileName := "multiclient_kopia_cache_dir_usage_" + time.Now().UTC().Format("20060102_150405") + ".json" //nolint:forbidigo
 	filePath := path.Join(*framework.RepoPathPrefix, logFileSubpath, logFileName)
 
 	return filePath
