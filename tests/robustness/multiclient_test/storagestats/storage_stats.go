@@ -94,7 +94,6 @@ func collectDirectorySizes(dirs []string) []DirectorySize {
 			Size: s,
 		}
 		dd = append(dd, d)
-		// Useful if JSON marshaling errors out later.
 	}
 
 	return dd
