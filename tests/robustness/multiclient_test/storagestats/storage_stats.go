@@ -54,6 +54,7 @@ func LogStorageStats(ctx context.Context, dirs []string) error {
 
 func getSize(dirPath string) (int64, error) {
 	var size int64
+
 	err := filepath.WalkDir(dirPath, func(_ string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -68,12 +69,14 @@ func getSize(dirPath string) (int64, error) {
 		}
 		return nil
 	})
+
 	return size, err
 }
 
 func getLogFilePath() string {
 	logFileName := fmt.Sprint("multiclient_kopia_cache_dir_usage_", time.Now().UTC().Format("20060102_150405"), ".json") //nolint:forbidigo
 	filePath := path.Join(*framework.RepoPathPrefix, logFileSubpath, logFileName)
+
 	return filePath
 }
 
@@ -83,12 +86,12 @@ func collectDirectorySizes(dirs []string) []DirectorySize {
 		s, err := getSize(dir)
 		if err != nil {
 			s = -1
-			
+
 			log.Printf("error getting dir size for '%s' %v", dir, err)
 		} else {
 			log.Printf("dir: '%s', size: %d", dir, s)
 		}
-		
+
 		d := DirectorySize{
 			Path: dir,
 			Size: s,
