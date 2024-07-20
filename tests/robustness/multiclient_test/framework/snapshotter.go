@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/kopia/kopia/tests/robustness"
@@ -235,4 +236,17 @@ func (mcs *MultiClientSnapshotter) createOrGetSnapshotter(ctx context.Context) (
 	mcs.clients[c.ID] = cs
 
 	return cs, nil
+}
+
+// GetCacheDirInfo runs cache info command to get cache dir path for
+// the repository.
+func (mcs *MultiClientSnapshotter) GetCacheDirInfo() (stdout, stderr string, err error) {
+	stdout, stderr, err = mcs.server.Run("cache", "info", "--path")
+	if err == nil {
+		// The current output of the cache info command contains a new line
+		// at the end of the cache directory path.
+		stdout = strings.Trim(stdout, "\n")
+	}
+
+	return stdout, stderr, err
 }

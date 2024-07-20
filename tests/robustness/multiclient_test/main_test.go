@@ -12,6 +12,7 @@ import (
 
 	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/robustness/multiclient_test/framework"
+	"github.com/kopia/kopia/tests/robustness/multiclient_test/storagestats"
 )
 
 // Variables for use in the test functions.
@@ -30,10 +31,24 @@ func TestMain(m *testing.M) {
 
 	eng = th.Engine()
 
+	// Perform setup needed to get storage stats.
+	dirs := th.GetDirsToLog(ctx)
+	log.Printf("Logging storage stats for %v", dirs)
+	err := storagestats.LogStorageStats(ctx, dirs)
+	if err != nil {
+		log.Printf("Error collecting the logs: %s", err.Error())
+	}
+
 	// run the tests
 	result := m.Run()
 
-	err := th.Cleanup(ctx)
+	// Log storage stats after the test run.
+	err = storagestats.LogStorageStats(ctx, dirs)
+	if err != nil {
+		log.Printf("Error collecting the logs: %s", err.Error())
+	}
+
+	err = th.Cleanup(ctx)
 	if err != nil {
 		log.Printf("Error cleaning up the engine: %s\n", err.Error())
 		os.Exit(2)
