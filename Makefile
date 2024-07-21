@@ -206,7 +206,7 @@ endif
 endif
 endif
 	$(MAKE) kopia
-ifeq ($(GOARCH),amd64)
+ifneq ($(GOOS)/$(GOARCH),linux/arm64)
 	$(retry) $(MAKE) kopia-ui
 	$(retry) $(MAKE) kopia-ui-test
 endif
