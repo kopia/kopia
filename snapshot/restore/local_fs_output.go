@@ -418,7 +418,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 	}
 	defer r.Close() //nolint:errcheck
 
-	wr := &progressReportingReader{
+	rr := &progressReportingReader{
 		Reader: r,
 		cb:     progressCb,
 	}
@@ -428,10 +428,10 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 
 	if o.WriteFilesAtomically {
 		//nolint:wrapcheck
-		return atomicfile.Write(targetPath, wr)
+		return atomicfile.Write(targetPath, rr)
 	}
 
-	return write(targetPath, wr, f.Size(), o.copier)
+	return write(targetPath, rr, f.Size(), o.copier)
 }
 
 func isEmptyDirectory(name string) (bool, error) {
