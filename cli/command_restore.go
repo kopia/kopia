@@ -95,6 +95,15 @@ followed by the path of the directory for the contents to be restored.
 	unlimitedDepth = math.MaxInt32
 )
 
+// RestoreProgress is invoked to report progress during a restore.
+type RestoreProgress interface {
+	SetCounters(
+		enqueuedCount, restoredCount, skippedCount, ignoredErrors int32,
+		enqueuedBytes, restoredBytes, skippedBytes int64,
+	)
+	Flush()
+}
+
 type restoreSourceTarget struct {
 	source        string
 	target        string
