@@ -7,8 +7,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/alecthomas/kingpin/v2"
-
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 )
@@ -26,28 +24,13 @@ type cliRestoreProgress struct {
 	progressUpdateInterval time.Duration
 	enableProgress         bool
 
-	svc            appServices
 	outputThrottle timetrack.Throttle
 	outputMutex    sync.Mutex
-	out            textOutput
-	eta            timetrack.Estimator
+	out            textOutput          // +checklocksignore: outputMutex just happens to be held always.
+	eta            timetrack.Estimator // +checklocksignore: outputMutex just happens to be held always.
 
 	// +checklocks:outputMutex
 	lastLineLength int
-}
-
-func (p *cliRestoreProgress) setup(svc appServices, _ *kingpin.Application) {
-	cp := svc.getProgress()
-	if cp == nil {
-		return
-	}
-
-	p.progressUpdateInterval = cp.progressUpdateInterval
-	p.enableProgress = cp.enableProgress
-	p.out = cp.out
-	p.svc = svc
-
-	p.eta = timetrack.Start()
 }
 
 func (p *cliRestoreProgress) SetCounters(
@@ -74,13 +57,13 @@ func (p *cliRestoreProgress) Flush() {
 }
 
 func (p *cliRestoreProgress) maybeOutput() {
-	if p.outputThrottle.ShouldOutput(p.svc.getProgress().progressUpdateInterval) {
+	if p.outputThrottle.ShouldOutput(p.progressUpdateInterval) {
 		p.output("")
 	}
 }
 
 func (p *cliRestoreProgress) output(suffix string) {
-	if !p.svc.getProgress().enableProgress {
+	if !p.enableProgress {
 		return
 	}
 

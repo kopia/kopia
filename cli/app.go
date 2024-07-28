@@ -292,10 +292,6 @@ func (c *App) setup(app *kingpin.Application) {
 	c.pf.setup(app)
 	c.progress.setup(c, app)
 
-	if rp, ok := c.restoreProgress.(*cliRestoreProgress); ok {
-		rp.setup(c, app)
-	}
-
 	c.blob.setup(c, app)
 	c.benchmark.setup(c, app)
 	c.cache.setup(c, app)
@@ -324,8 +320,7 @@ type commandParent interface {
 // NewApp creates a new instance of App.
 func NewApp() *App {
 	return &App{
-		progress:        &cliProgress{},
-		restoreProgress: &cliRestoreProgress{},
+		progress: &cliProgress{},
 		cliStorageProviders: []StorageProvider{
 			{"from-config", "the provided configuration file", func() StorageFlags { return &storageFromConfigFlags{} }},
 

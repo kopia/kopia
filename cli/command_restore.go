@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
@@ -375,6 +376,21 @@ func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo
 	return rootEntry, nil
 }
 
+func (c *commandRestore) getRestoreProgress() RestoreProgress {
+	if rp := c.svc.getRestoreProgress(); rp != nil {
+		return rp
+	}
+
+	pf := c.svc.getProgress().progressFlags
+
+	return &cliRestoreProgress{
+		enableProgress:         pf.enableProgress,
+		out:                    pf.out,
+		progressUpdateInterval: pf.progressUpdateInterval,
+		eta:                    timetrack.Start(),
+	}
+}
+
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 	output, oerr := c.restoreOutput(ctx, rep)
 	if oerr != nil {
@@ -405,7 +421,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 			rootEntry = re
 		}
 
-		restoreProgress := c.svc.getRestoreProgress()
+		restoreProgress := c.getRestoreProgress()
 		progressCallback := func(ctx context.Context, stats restore.Stats) {
 			restoreProgress.SetCounters(
 				stats.EnqueuedFileCount+stats.EnqueuedDirCount+stats.EnqueuedSymlinkCount,
