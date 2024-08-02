@@ -18,6 +18,7 @@ type commandPolicy struct {
 	delete commandPolicyDelete
 	set    commandPolicySet
 	show   commandPolicyShow
+	export commandPolicyExport
 }
 
 func (c *commandPolicy) setup(svc appServices, parent commandParent) {
@@ -28,6 +29,7 @@ func (c *commandPolicy) setup(svc appServices, parent commandParent) {
 	c.delete.setup(svc, cmd)
 	c.set.setup(svc, cmd)
 	c.show.setup(svc, cmd)
+	c.export.setup(svc, cmd)
 }
 
 type policyTargetFlags struct {
