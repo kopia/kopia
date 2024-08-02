@@ -13,11 +13,13 @@ import (
 )
 
 type commandPolicy struct {
-	edit   commandPolicyEdit
-	list   commandPolicyList
-	delete commandPolicyDelete
-	set    commandPolicySet
-	show   commandPolicyShow
+	edit    commandPolicyEdit
+	list    commandPolicyList
+	delete  commandPolicyDelete
+	set     commandPolicySet
+	show    commandPolicyShow
+	export  commandPolicyExport
+	pImport commandPolicyImport
 }
 
 func (c *commandPolicy) setup(svc appServices, parent commandParent) {
@@ -28,6 +30,8 @@ func (c *commandPolicy) setup(svc appServices, parent commandParent) {
 	c.delete.setup(svc, cmd)
 	c.set.setup(svc, cmd)
 	c.show.setup(svc, cmd)
+	c.export.setup(svc, cmd)
+	c.pImport.setup(svc, cmd)
 }
 
 type policyTargetFlags struct {

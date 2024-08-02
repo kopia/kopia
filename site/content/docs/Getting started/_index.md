@@ -325,13 +325,50 @@ Files policy:
     .kopiaignore                   inherited from (global)
 ```
 
-Finally, to list all policies for a `repository`, we can use [`kopia policy list`](../reference/command-line/common/policy-list/):
+To list all policies for a `repository`, we can use [`kopia policy list`](../reference/command-line/common/policy-list/):
 
 ```
 $ kopia policy list
 7898f47e36bad80a6d5d90f06ef16de6 (global)
 63fc854c283ad63cafbca54eaa4509e9 jarek@jareks-mbp:/Users/jarek/Projects/Kopia/site
 2339ab4739bb29688bf26a3a841cf68f jarek@jareks-mbp:/Users/jarek/Projects/Kopia/site/node_modules
+```
+
+Finally, you can also import and export policies using the [`kopia policy import`](../reference/command-line/common/policy-import/) and [`kopia policy export`](../reference/command-line/common/policy-export/) commands:
+
+```
+$ kopia policy import --from-file import.json
+$ kopia policy export --to-file export.json
+```
+
+In the above example, `import.json` and `export.json` share the same format, which is a JSON map of policy identifiers to defined policies, for example:
+
+```
+{
+  "(global)": {
+    "retention": {
+      "keepLatest": 10,
+      "keepHourly": 48,
+      ...
+    },
+    ...
+  },
+  "foo@bar:/home/foobar": {
+     "retention": {
+      "keepLatest": 5,
+      "keepHourly": 24,
+      ...
+    },
+    ...
+  }
+}
+```
+
+You can optionally limit which policies are imported or exported by specifying the policy identifiers as arguments to the `kopia policy import` and `kopia policy export` commands:
+
+```
+$ kopia policy import --from-file import.json "(global)" "foo@bar:/home/foobar"
+$ kopia policy export --to-file export.json "(global)" "foo@bar:/home/foobar"
 ```
 
 #### Examining Repository Structure
