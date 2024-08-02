@@ -14,7 +14,6 @@ import (
 )
 
 type commandPolicyImport struct {
-	// policyTargetFlags
 	filePath string
 
 	stdin io.Reader
