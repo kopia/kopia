@@ -366,8 +366,6 @@ func (c *App) Attach(app *kingpin.Application) {
 
 // safetyFlagVar defines c --safety=none|full flag that sets the SafetyParameters.
 func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters) {
-	var str string
-
 	*result = maintenance.SafetyFull
 
 	safetyByName := map[string]maintenance.SafetyParameters{
@@ -375,8 +373,13 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 		"full": maintenance.SafetyFull,
 	}
 
-	cmd.Flag("safety", "Safety level").Default("full").PreAction(func(_ *kingpin.ParseContext) error {
-		r, ok := safetyByName[str]
+	str := cmd.Flag("safety", "Safety level").Default("full").Enum("full", "none")
+
+	// Set an Action callback instead of PreAction so it is only called after parsing and validation succeeds.
+	// Set callback on cmd before the actual "run" callback for the command so
+	// this callback is executed before the command "runs".
+	cmd.Action(func(_ *kingpin.ParseContext) error {
+		r, ok := safetyByName[*str]
 		if !ok {
 			return errors.New("unhandled safety level")
 		}
@@ -384,7 +387,7 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 		*result = r
 
 		return nil
-	}).EnumVar(&str, "full", "none")
+	})
 }
 
 func (c *App) currentActionName() string {
