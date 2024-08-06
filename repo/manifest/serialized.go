@@ -18,7 +18,15 @@ type manifestEntry struct {
 	Labels  map[string]string `json:"labels"`
 	ModTime time.Time         `json:"modified"`
 	Deleted bool              `json:"deleted,omitempty"`
-	Content json.RawMessage   `json:"data"`
+	Content json.RawMessage   `json:"data,omitempty"`
+	// For index versions 1 and above, this is the content ID the manifest data
+	// resides at.
+	ContentID string `json:"contentID,omitempty"`
+	// Version if the serialization format used to store this data. Version 0
+	// stores all manifest content in the Content field. Versions >= 1 store
+	// manifest content as separate content blobs in the content manager and add
+	// the content ID in ContentID.
+	Version int `json:"version,omitempty"`
 }
 
 const (

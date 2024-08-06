@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -33,6 +34,7 @@ var ErrNotFound = errors.New("not found")
 // ContentPrefix is the prefix of the content id for manifests.
 const (
 	ContentPrefix                     = "m"
+	IndirectContentPrefix             = "n"
 	autoCompactionContentCountDefault = 16
 )
 
@@ -116,12 +118,45 @@ func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetad
 	}
 
 	if data != nil {
-		if err := json.Unmarshal([]byte(e.Content), data); err != nil {
-			return nil, errors.Wrapf(err, "unable to unmashal %q", id)
+		switch e.Version {
+		case 0:
+			if err := json.Unmarshal([]byte(e.Content), data); err != nil {
+				return nil, errors.Wrapf(err, "unable to unmashal %q", id)
+			}
+
+		case 1:
+			if err := m.getV1Manifest(ctx, e.ContentID, data); err != nil {
+				return nil, errors.Wrap(err, "getting v1 manifest content")
+			}
+
+		default:
+			return nil, errors.Errorf("unsupported format version: %d", e.Version)
 		}
 	}
 
 	return cloneEntryMetadata(e), nil
+}
+
+func (m *Manager) getV1Manifest(
+	ctx context.Context,
+	contentID string,
+	data interface{},
+) error {
+	id, err := index.ParseID(contentID)
+	if err != nil {
+		return errors.Wrap(err, "parsing manifest content ID")
+	}
+
+	contentBytes, err := m.b.GetContent(ctx, id)
+	if err != nil {
+		return errors.Wrap(err, "getting manifest content")
+	}
+
+	if err := json.Unmarshal(contentBytes, data); err != nil {
+		return errors.Wrap(err, "deserializing manifest content")
+	}
+
+	return nil
 }
 
 func (m *Manager) getPendingOrCommitted(ctx context.Context, id ID) (*manifestEntry, error) {
@@ -288,6 +323,7 @@ func copyLabels(m map[string]string) map[string]string {
 type ManagerOptions struct {
 	TimeNow                 func() time.Time // Time provider
 	AutoCompactionThreshold int
+	FormatVersion           int
 }
 
 // NewManager returns new manifest manager for the provided content manager.
@@ -308,7 +344,11 @@ func NewManager(ctx context.Context, b contentManager, options ManagerOptions, m
 		b:              b,
 		pendingEntries: map[ID]*manifestEntry{},
 		timeNow:        timeNow,
-		committed:      newCommittedManager(b, autoCompactionThreshold),
+		committed: newCommittedManager(
+			b,
+			autoCompactionThreshold,
+			options.FormatVersion,
+		),
 	}
 
 	return m, nil

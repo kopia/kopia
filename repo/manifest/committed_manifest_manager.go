@@ -38,6 +38,12 @@ type committedManifestManager struct {
 	// manifest contents
 	// +checklocks:cmmu
 	autoCompactionThreshold int
+
+	// formatVersion is the serialization version that these manifests have.
+	// Version 0 stored all manifest content inline with metadata. Version 1 adds
+	// a level of indirection to store manifest content as separate content blobs
+	// and has the metadata point to the content blob.
+	formatVersion int
 }
 
 func (m *committedManifestManager) getCommittedEntryOrNil(ctx context.Context, id ID) (*manifestEntry, error) {
@@ -103,12 +109,32 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 		return nil, nil
 	}
 
-	man := manifest{}
+	switch m.formatVersion {
+	case 0:
+		res, err := m.writeEntriesLockedV0(ctx, entries)
+		if err != nil {
+			return nil, errors.Wrap(err, "writing manifests in v0 format")
+		}
 
-	for _, e := range entries {
-		man.Entries = append(man.Entries, e)
+		return res, nil
+
+	case 1:
+		res, err := m.writeEntriesLockedV1(ctx, entries)
+		if err != nil {
+			return nil, errors.Wrap(err, "writing manifests in v1 format")
+		}
+
+		return res, nil
 	}
 
+	return nil, errors.Errorf("unsupported format version: %d", m.formatVersion)
+}
+
+// +checklocks:m.cmmu
+func (m *committedManifestManager) writeManifestLocked(
+	ctx context.Context,
+	man manifest,
+) (content.ID, error) {
 	var buf gather.WriteBuffer
 	defer buf.Close()
 
@@ -119,7 +145,99 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 
 	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), ContentPrefix, content.NoCompression)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to write content")
+		return content.EmptyID, errors.Wrap(err, "unable to write content")
+	}
+
+	return contentID, nil
+}
+
+// +checklocks:m.cmmu
+func (m *committedManifestManager) writeEntriesLockedV0(
+	ctx context.Context,
+	entries map[ID]*manifestEntry,
+) (map[content.ID]bool, error) {
+	man := manifest{}
+
+	for _, e := range entries {
+		// Additional safety, make sure that all manifests we write are marked as
+		// version 0.
+		e.Version = 0
+		man.Entries = append(man.Entries, e)
+	}
+
+	contentID, err := m.writeManifestLocked(ctx, man)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, e := range entries {
+		m.committedEntries[e.ID] = e
+		delete(entries, e.ID)
+	}
+
+	m.committedContentIDs[contentID] = true
+
+	return map[content.ID]bool{contentID: true}, nil
+}
+
+// +checklocks:m.cmmu
+func (m *committedManifestManager) writeEntriesLockedV1(
+	ctx context.Context,
+	entries map[ID]*manifestEntry,
+) (map[content.ID]bool, error) {
+	var (
+		buf gather.WriteBuffer
+		man manifest
+	)
+
+	defer buf.Close()
+
+	// Write all manifest contents to the content manager and store the generated
+	// content IDs in the manifestEntries.
+	for _, e := range entries {
+		var (
+			contentID content.ID
+			err       error
+		)
+
+		// Deleted manifests don't need to be written out since they're just
+		// tombstones that exist until the next manifest index compaction.
+		//
+		// TODO(ashmrtn): Have a better mechanisms to see if the content for a
+		// manifest has been changed.
+		if !e.Deleted && len(e.Content) > 0 {
+			buf.Append([]byte(e.Content))
+
+			// TODO(ashmrtn): Pick a content prefix and compression mode.
+			contentID, err = m.b.WriteContent(
+				ctx,
+				buf.Bytes(),
+				IndirectContentPrefix,
+				content.NoCompression,
+			)
+			if err != nil {
+				return nil, errors.Wrapf(
+					err,
+					"writing manifest content for manifest ID %s",
+					e.ID,
+				)
+			}
+		}
+
+		e.Version = 1
+		e.ContentID = contentID.String()
+		// Don't write out the manifest content in the index blob. Also allows us to
+		// free up the memory the manifest content was using.
+		e.Content = json.RawMessage("")
+
+		man.Entries = append(man.Entries, e)
+
+		buf.Reset()
+	}
+
+	contentID, err := m.writeManifestLocked(ctx, man)
+	if err != nil {
+		return nil, err
 	}
 
 	for _, e := range entries {
@@ -364,7 +482,11 @@ func loadManifestContent(ctx context.Context, b contentManager, contentID conten
 	return man, errors.Wrapf(err, "unable to parse manifest %q", contentID)
 }
 
-func newCommittedManager(b contentManager, autoCompactionThreshold int) *committedManifestManager {
+func newCommittedManager(
+	b contentManager,
+	autoCompactionThreshold int,
+	formatVersion int,
+) *committedManifestManager {
 	debugID := ""
 	if os.Getenv("KOPIA_DEBUG_MANIFEST_MANAGER") != "" {
 		debugID = fmt.Sprintf("%x", rand.Int63()) //nolint:gosec
@@ -376,5 +498,6 @@ func newCommittedManager(b contentManager, autoCompactionThreshold int) *committ
 		committedEntries:        map[ID]*manifestEntry{},
 		committedContentIDs:     map[content.ID]bool{},
 		autoCompactionThreshold: autoCompactionThreshold,
+		formatVersion:           formatVersion,
 	}
 }
