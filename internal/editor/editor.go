@@ -21,7 +21,7 @@ var log = logging.Module("editor")
 // EditLoop launches OS-specific editor (VI, notepad.exe or another editor configured through environment variables)
 // It creates a temporary file with 'initial' contents and repeatedly invokes the editor until the provided 'parse' function
 // returns nil result indicating success. The 'parse' function is passed the contents of edited files without # line comments.
-func EditLoop(ctx context.Context, fname, initial string, parse func(updated string) error) error {
+func EditLoop(ctx context.Context, fname, initial string, withComments bool, parse func(updated string) error) error {
 	tmpDir, err := os.MkdirTemp("", "kopia")
 	if err != nil {
 		return errors.Wrap(err, "unable to create temp directory")
@@ -36,11 +36,11 @@ func EditLoop(ctx context.Context, fname, initial string, parse func(updated str
 	}
 
 	for {
-		if err := editFile(ctx, tmpFile); err != nil {
+		if err := EditFile(ctx, tmpFile); err != nil {
 			return errors.Wrap(err, "error launching editor")
 		}
 
-		txt, err := readAndStripComments(tmpFile)
+		txt, err := readAndStripComments(tmpFile, withComments)
 		if err != nil {
 			return errors.Wrap(err, "error parsing edited file")
 		}
@@ -63,7 +63,13 @@ func EditLoop(ctx context.Context, fname, initial string, parse func(updated str
 	}
 }
 
-func readAndStripComments(fname string) (string, error) {
+func readAndStripComments(fname string, withComments bool) (string, error) {
+	if !withComments {
+		b, err := os.ReadFile(fname) //nolint:gosec
+
+		return string(b), errors.Wrap(err, "error reading file")
+	}
+
 	f, err := os.Open(fname) //nolint:gosec
 	if err != nil {
 		return "", errors.Wrap(err, "error opening edited file")
@@ -75,6 +81,7 @@ func readAndStripComments(fname string) (string, error) {
 	s := bufio.NewScanner(f)
 	for s.Scan() {
 		l := s.Text()
+
 		if strings.HasPrefix(strings.TrimSpace(l), "#") {
 			continue
 		}
@@ -87,7 +94,11 @@ func readAndStripComments(fname string) (string, error) {
 	return strings.Join(result, "\n"), nil
 }
 
-func editFile(ctx context.Context, file string) error {
+// EditFile launches the OS-specific editor (VI, notepad.exe or another editor configured through environment variables)
+// to edit the specified file and waits for it to complete.
+//
+//nolint:gochecknoglobals
+var EditFile = func(ctx context.Context, file string) error {
 	editor, editorArgs := getEditorCommand()
 
 	var args []string

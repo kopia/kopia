@@ -469,6 +469,38 @@ func (r *grpcInnerSession) ApplyRetentionPolicy(ctx context.Context, sourcePath 
 	return nil, errNoSessionResponse()
 }
 
+func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, importance int32) error {
+	_, err := maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (struct{}, error) {
+		return sess.SendNotification(ctx, templateName, templateDataJSON, importance)
+	})
+
+	return err
+}
+
+var _ RemoteNotifications = (*grpcRepositoryClient)(nil)
+
+func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, severity int32) (struct{}, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+		Request: &apipb.SessionRequest_SendNotification{
+			SendNotification: &apipb.SendNotificationRequest{
+				TemplateName: templateName,
+				EventArgs:    templateDataJSON,
+				Severity:     severity,
+			},
+		},
+	}) {
+		switch resp.GetResponse().(type) {
+		case *apipb.SessionResponse_SendNotification:
+			return struct{}{}, nil
+
+		default:
+			return struct{}{}, unhandledSessionResponse(resp)
+		}
+	}
+
+	return struct{}{}, errNoSessionResponse()
+}
+
 func (r *grpcRepositoryClient) Time() time.Time {
 	return clock.Now()
 }

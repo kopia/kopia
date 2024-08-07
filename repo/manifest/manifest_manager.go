@@ -117,7 +117,7 @@ func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetad
 
 	if data != nil {
 		if err := json.Unmarshal([]byte(e.Content), data); err != nil {
-			return nil, errors.Wrapf(err, "unable to unmashal %q", id)
+			return nil, errors.Wrapf(err, "unable to unmarshal %q", id)
 		}
 	}
 
