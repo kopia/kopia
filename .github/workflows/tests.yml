@@ -59,6 +59,8 @@ jobs:
       if: ${{ contains(matrix.os, 'macos') }}
     - name: Setup
       run: make -j4 ci-setup
+    - name: Test Blob Index Manager V0
+      run: make test-index-blob-v0
     - name: Tests
       run: make ci-tests
     - name: Integration Tests
