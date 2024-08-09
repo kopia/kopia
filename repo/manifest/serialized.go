@@ -97,6 +97,32 @@ func decodeManifestArray(r io.Reader) (manifest, error) {
 	return res, expectDelimToken(dec, objectClose)
 }
 
+// forEachDeserializedEntry deserializes json data from the provided reader and
+// calls the provided callback for each *manifestEntry. Note that the callback
+// may be called on entries even if an error is later encountered while
+// deserializing entries.
+func forEachDeserializedEntry(
+	r io.Reader,
+	callback func(*manifestEntry) bool,
+) error {
+	dec := json.NewDecoder(r)
+
+	if err := expectDelimToken(dec, objectOpen); err != nil {
+		return err
+	}
+
+	if allProcessed, err := parseFields(dec, callback); err != nil {
+		return err
+	} else if allProcessed {
+		// We can only check for a closing object brace if we actually traversed the
+		// full set objects in the stream. This is more of a sanity check than
+		// anything.
+		return expectDelimToken(dec, objectClose)
+	}
+
+	return nil
+}
+
 func parseFields(
 	dec *json.Decoder,
 	callback func(*manifestEntry) bool,

@@ -364,6 +364,38 @@ func loadManifestContent(ctx context.Context, b contentManager, contentID conten
 	return man, errors.Wrapf(err, "unable to parse manifest %q", contentID)
 }
 
+// forEachManifestEntry loads the content piece with manifests and calls the
+// callback for each manifestEntry. If the callback returns false then it stops
+// loading manifests and returns. In cases where the callback returns false,
+// content with invalid formatting may not return parse errors.
+func forEachManifestEntry(
+	ctx context.Context,
+	b contentManager,
+	contentID content.ID,
+	callback func(e *manifestEntry) bool,
+) error {
+	blk, err := b.GetContent(ctx, contentID)
+	if err != nil {
+		return errors.Wrapf(err, "error loading manifest content %q", contentID)
+	}
+
+	gz, err := gzip.NewReader(bytes.NewReader(blk))
+	if err != nil {
+		return errors.Wrapf(err, "unable to unpack manifest data %q", contentID)
+	}
+
+	// Will be GC-ed even if we don't close it?
+	//nolint:errcheck
+	defer gz.Close()
+
+	err = forEachDeserializedEntry(gz, callback)
+	if err != nil {
+		return errors.Wrapf(err, "unable to iterate manifests in content %q", contentID)
+	}
+
+	return nil
+}
+
 func newCommittedManager(b contentManager, autoCompactionThreshold int) *committedManifestManager {
 	debugID := ""
 	if os.Getenv("KOPIA_DEBUG_MANIFEST_MANAGER") != "" {

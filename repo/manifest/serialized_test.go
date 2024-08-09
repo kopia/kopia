@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -62,6 +63,91 @@ func TestManifestDecode_BadInput(t *testing.T) {
 			t.Logf("%v", err)
 
 			require.Error(t, err)
+		})
+	}
+}
+
+func TestManifestDecode_StopEarly(t *testing.T) {
+	table := []struct {
+		name        string
+		input       string
+		expectEntry *manifestEntry
+		expectErr   bool
+	}{
+		{
+			name:  "EntryFoundLast_CompleteObject",
+			input: `{"entries":[{"id":"efg"},{"id":"abcd"}]}`,
+			expectEntry: &manifestEntry{
+				ID: "abcd",
+			},
+		},
+		{
+			name:  "EntryFoundFirst_CompleteObject",
+			input: `{"entries":[{"id":"abcd"},{"id":"efg"}]}`,
+			expectEntry: &manifestEntry{
+				ID: "abcd",
+			},
+		},
+		{
+			name:  "EntryFound_FirstInstanceWins",
+			input: `{"entries":[{"id":"abcd"},{"id":"abcd","deleted":true}]}`,
+			expectEntry: &manifestEntry{
+				ID: "abcd",
+			},
+		},
+		{
+			name:  "EntryNotFound_CompleteObject",
+			input: `{"entries":[{"id":"abcde"},{"id":"efg","deleted":true}]}`,
+		},
+		{
+			name:  "EntryNotFound_CompleteObjectWithOtherFields",
+			input: `{"foo":"bar"}`,
+		},
+		{
+			name:  "EntryNotFound_CompleteObjectNoEntries",
+			input: `{}`,
+		},
+		{
+			name:      "EntryNotFound_IncompleteObject",
+			input:     `{"foo":"bar"`,
+			expectErr: true,
+		},
+		{
+			name:      "EntryNotFound_IncompleteObject",
+			input:     `{"entries":[{"id":"abcde"},{"id":"efg","deleted":true}]`,
+			expectErr: true,
+		},
+		{
+			name:      "EntryFoundLast_IncompleteObject",
+			input:     `{"entries":[{"id":"efg",{"id":"abcd"}]}`,
+			expectErr: true,
+		},
+	}
+
+	for _, test := range table {
+		t.Run(test.name, func(t *testing.T) {
+			var found *manifestEntry
+
+			r := strings.NewReader(test.input)
+			err := forEachDeserializedEntry(
+				r,
+				func(e *manifestEntry) bool {
+					if e.ID == "abcd" {
+						found = e
+						return false
+					}
+
+					return true
+				},
+			)
+
+			assert.Equal(t, test.expectEntry, found)
+
+			if test.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
