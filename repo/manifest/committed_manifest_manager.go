@@ -137,20 +137,43 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 	m.verifyLocked()
 
 	var (
-		mu        sync.Mutex
-		manifests map[content.ID]manifest
+		mu sync.Mutex
+
+		// Temporary set of mappings that we can swap with what's currently in the
+		// manager once we're done. This ensures we don't clobber existing data if
+		// we fail to load manifests.
+		committedEntries    = map[ID]*manifestEntry{}
+		committedContentIDs = map[content.ID]bool{}
 	)
 
 	for {
-		manifests = map[content.ID]manifest{}
-
 		err := m.b.IterateContents(ctx, content.IterateOptions{
 			Range:    index.PrefixRange(ContentPrefix),
 			Parallel: manifestLoadParallelism,
 		}, func(ci content.Info) error {
-			man, err := loadManifestContent(ctx, m.b, ci.ContentID)
+			mu.Lock()
+			committedContentIDs[ci.ContentID] = true
+			mu.Unlock()
+
+			err := forEachManifestEntry(
+				ctx,
+				m.b,
+				ci.ContentID,
+				func(e *manifestEntry) bool {
+					mu.Lock()
+					defer mu.Unlock()
+
+					prev := committedEntries[e.ID]
+					if prev == nil || e.ModTime.After(prev.ModTime) {
+						committedEntries[e.ID] = e
+					}
+
+					// Continue iteration.
+					return true
+				},
+			)
 			if err != nil {
-				// this can be used to allow corrupterd repositories to still open and see the
+				// this can be used to allow corrupted repositories to still open and see the
 				// (incomplete) list of manifests.
 				if os.Getenv("KOPIA_IGNORE_MALFORMED_MANIFEST_CONTENTS") != "" {
 					log(ctx).Warnf("ignoring malformed manifest content %v: %v", ci.ContentID, err)
@@ -160,10 +183,6 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 
 				return err
 			}
-
-			mu.Lock()
-			manifests[ci.ContentID] = man
-			mu.Unlock()
 
 			return nil
 		})
@@ -180,7 +199,17 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 		return errors.Wrap(err, "unable to load manifest contents")
 	}
 
-	m.loadManifestContentsLocked(manifests)
+	// Remove deleted manifests from the new list. We have to do this last because
+	// removing entries from the list while loading would lose mod time info
+	// that's used to determine if a tombstone is newer than a populated entry.
+	for id, e := range committedEntries {
+		if e.Deleted {
+			delete(committedEntries, id)
+		}
+	}
+
+	m.committedEntries = committedEntries
+	m.committedContentIDs = committedContentIDs
 
 	if err := m.maybeCompactLocked(ctx); err != nil {
 		return errors.Wrap(err, "error auto-compacting contents")
@@ -190,6 +219,8 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 }
 
 // +checklocks:m.cmmu
+//
+//nolint:unused
 func (m *committedManifestManager) loadManifestContentsLocked(manifests map[content.ID]manifest) {
 	m.committedEntries = map[ID]*manifestEntry{}
 	m.committedContentIDs = map[content.ID]bool{}
@@ -285,6 +316,8 @@ func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 }
 
 // +checklocks:m.cmmu
+//
+//nolint:unused
 func (m *committedManifestManager) mergeEntryLocked(e *manifestEntry) {
 	m.verifyLocked()
 
@@ -342,6 +375,7 @@ func (m *committedManifestManager) verifyLocked() {
 	}
 }
 
+//nolint:unused
 func loadManifestContent(ctx context.Context, b contentManager, contentID content.ID) (manifest, error) {
 	man := manifest{}
 
