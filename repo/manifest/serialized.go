@@ -76,8 +76,19 @@ func decodeManifestArray(r io.Reader) (manifest, error) {
 
 	// Need to manually decode fields here since we can't reuse the stdlib
 	// decoder due to memory issues.
-	if err := parseFields(dec, &res); err != nil {
+	allProcessed, err := parseFields(
+		dec,
+		func(e *manifestEntry) bool {
+			res.Entries = append(res.Entries, e)
+			return true
+		},
+	)
+	if err != nil {
 		return res, err
+	}
+
+	if !allProcessed {
+		return res, errors.New("didn't see all entries for serialized manifest")
 	}
 
 	// Consumes closing object curly brace after we're done. Don't need to check
@@ -86,13 +97,26 @@ func decodeManifestArray(r io.Reader) (manifest, error) {
 	return res, expectDelimToken(dec, objectClose)
 }
 
-func parseFields(dec *json.Decoder, res *manifest) error {
-	var seen bool
+func parseFields(
+	dec *json.Decoder,
+	callback func(*manifestEntry) bool,
+) (bool, error) {
+	var (
+		seen bool
+		err  error
+
+		// Start with true since in general we can't expect the presence of the
+		// "entries" field in the json. This allows us to check for a closing object
+		// brace even if the field isn't present.
+		allProcessed = true
+	)
 
 	for dec.More() {
-		l, err := stringToken(dec)
+		var l string
+
+		l, err = stringToken(dec)
 		if err != nil {
-			return err
+			return false, err
 		}
 
 		// Only have `entries` field right now. Skip other fields.
@@ -101,28 +125,41 @@ func parseFields(dec *json.Decoder, res *manifest) error {
 		}
 
 		if seen {
-			return errors.New("repeated Entries field")
+			return false, errors.New("repeated Entries field")
 		}
 
 		seen = true
 
-		if err := decodeArray(dec, &res.Entries); err != nil {
-			return err
+		allProcessed, err = forEachArrayEntry(dec, callback)
+		if err != nil {
+			return allProcessed, err
+		}
+
+		if !allProcessed {
+			return allProcessed, nil
 		}
 	}
 
-	return nil
+	return allProcessed, nil
 }
 
-// decodeArray decodes an array of *manifestEntry and returns them in output. If
-// an error occurs output may contain intermediate state.
+// decodeArray decodes *manifestEntry in a json array and calls the provided
+// callback on each one. The callback may still be called for some entries even
+// if an error occurs later in the stream. Returns true if all array entries
+// were processed.
+//
+// If the callback returns false then this function stops deserializing the
+// array and returns false.
 //
 // This can be made into a generic function pretty easily if it's needed in
 // other places.
-func decodeArray(dec *json.Decoder, output *[]*manifestEntry) error {
+func forEachArrayEntry(
+	dec *json.Decoder,
+	callback func(*manifestEntry) bool,
+) (bool, error) {
 	// Consume starting bracket.
 	if err := expectDelimToken(dec, arrayOpen); err != nil {
-		return err
+		return false, err
 	}
 
 	// Read elements.
@@ -130,12 +167,14 @@ func decodeArray(dec *json.Decoder, output *[]*manifestEntry) error {
 		var tmp *manifestEntry
 
 		if err := dec.Decode(&tmp); err != nil {
-			return errors.Wrap(err, "decoding array element")
+			return false, errors.Wrap(err, "decoding array element")
 		}
 
-		*output = append(*output, tmp)
+		if !callback(tmp) {
+			return false, nil
+		}
 	}
 
 	// Consume ending bracket.
-	return expectDelimToken(dec, arrayClose)
+	return true, expectDelimToken(dec, arrayClose)
 }
