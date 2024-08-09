@@ -161,11 +161,13 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 				ci.ContentID,
 				func(e *manifestEntry) bool {
 					mu.Lock()
-					defer mu.Unlock()
-
 					prev := committedEntries[e.ID]
+					mu.Unlock()
+
 					if prev == nil || e.ModTime.After(prev.ModTime) {
+						mu.Lock()
 						committedEntries[e.ID] = e
+						mu.Unlock()
 					}
 
 					// Continue iteration.
