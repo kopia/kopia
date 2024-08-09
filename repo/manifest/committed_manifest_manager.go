@@ -218,31 +218,6 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 	return nil
 }
 
-// +checklocks:m.cmmu
-//
-//nolint:unused
-func (m *committedManifestManager) loadManifestContentsLocked(manifests map[content.ID]manifest) {
-	m.committedEntries = map[ID]*manifestEntry{}
-	m.committedContentIDs = map[content.ID]bool{}
-
-	for contentID := range manifests {
-		m.committedContentIDs[contentID] = true
-	}
-
-	for _, man := range manifests {
-		for _, e := range man.Entries {
-			m.mergeEntryLocked(e)
-		}
-	}
-
-	// after merging, remove contents marked as deleted.
-	for k, e := range m.committedEntries {
-		if e.Deleted {
-			delete(m.committedEntries, k)
-		}
-	}
-}
-
 func (m *committedManifestManager) compact(ctx context.Context) error {
 	m.lock()
 	defer m.unlock()
@@ -316,23 +291,6 @@ func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 }
 
 // +checklocks:m.cmmu
-//
-//nolint:unused
-func (m *committedManifestManager) mergeEntryLocked(e *manifestEntry) {
-	m.verifyLocked()
-
-	prev := m.committedEntries[e.ID]
-	if prev == nil {
-		m.committedEntries[e.ID] = e
-		return
-	}
-
-	if e.ModTime.After(prev.ModTime) {
-		m.committedEntries[e.ID] = e
-	}
-}
-
-// +checklocks:m.cmmu
 func (m *committedManifestManager) ensureInitializedLocked(ctx context.Context) error {
 	rev := m.b.Revision()
 	if m.lastRevision == rev {
@@ -373,29 +331,6 @@ func (m *committedManifestManager) verifyLocked() {
 	if !m.locked {
 		panic("not locked")
 	}
-}
-
-//nolint:unused
-func loadManifestContent(ctx context.Context, b contentManager, contentID content.ID) (manifest, error) {
-	man := manifest{}
-
-	blk, err := b.GetContent(ctx, contentID)
-	if err != nil {
-		return man, errors.Wrap(err, "error loading manifest content")
-	}
-
-	gz, err := gzip.NewReader(bytes.NewReader(blk))
-	if err != nil {
-		return man, errors.Wrapf(err, "unable to unpack manifest data %q", contentID)
-	}
-
-	// Will be GC-ed even if we don't close it?
-	//nolint:errcheck
-	defer gz.Close()
-
-	man, err = decodeManifestArray(gz)
-
-	return man, errors.Wrapf(err, "unable to parse manifest %q", contentID)
 }
 
 // forEachManifestEntry loads the content piece with manifests and calls the

@@ -3,6 +3,7 @@ package manifest
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"reflect"
 	"strings"
 	"testing"
@@ -12,6 +13,20 @@ import (
 
 	"github.com/kopia/kopia/repo/manifest/testdata"
 )
+
+func decodeManifestArray(r io.Reader) (manifest, error) {
+	var res manifest
+
+	err := forEachDeserializedEntry(
+		r,
+		func(e *manifestEntry) bool {
+			res.Entries = append(res.Entries, e)
+			return true
+		},
+	)
+
+	return res, err
+}
 
 func TestManifestDecode_GoodInput(t *testing.T) {
 	table := []struct {

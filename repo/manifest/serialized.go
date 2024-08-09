@@ -64,39 +64,6 @@ func stringToken(dec *json.Decoder) (string, error) {
 	return l, nil
 }
 
-func decodeManifestArray(r io.Reader) (manifest, error) {
-	var (
-		dec = json.NewDecoder(r)
-		res = manifest{}
-	)
-
-	if err := expectDelimToken(dec, objectOpen); err != nil {
-		return res, err
-	}
-
-	// Need to manually decode fields here since we can't reuse the stdlib
-	// decoder due to memory issues.
-	allProcessed, err := parseFields(
-		dec,
-		func(e *manifestEntry) bool {
-			res.Entries = append(res.Entries, e)
-			return true
-		},
-	)
-	if err != nil {
-		return res, err
-	}
-
-	if !allProcessed {
-		return res, errors.New("didn't see all entries for serialized manifest")
-	}
-
-	// Consumes closing object curly brace after we're done. Don't need to check
-	// for EOF because json.Decode only guarantees decoding the next JSON item in
-	// the stream so this follows that.
-	return res, expectDelimToken(dec, objectClose)
-}
-
 // forEachDeserializedEntry deserializes json data from the provided reader and
 // calls the provided callback for each *manifestEntry. Note that the callback
 // may be called on entries even if an error is later encountered while
