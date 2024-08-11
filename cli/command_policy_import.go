@@ -14,15 +14,17 @@ import (
 )
 
 type commandPolicyImport struct {
+	policyTargetFlags
 	filePath string
 
 	stdin io.Reader
 }
 
 func (c *commandPolicyImport) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("import", "Import snapshot policy from json.")
-	cmd.Flag("from-file", "Reads the policy from the specified file. Uses stdin otherwise").StringVar(&c.filePath)
+	cmd := parent.Command("import", "Imports policies from a specified file, or stdin if no file is specified.")
+	cmd.Flag("from-file", "File path to import from").StringVar(&c.filePath)
 
+	c.policyTargetFlags.setup(cmd)
 	c.stdin = svc.stdin()
 
 	cmd.Action(svc.repositoryWriterAction(c.run))
@@ -54,10 +56,30 @@ func (c *commandPolicyImport) run(ctx context.Context, rep repo.RepositoryWriter
 		return errors.Wrap(err, "unable to decode policy file as valid json")
 	}
 
+	//var targetLimit []snapshot.SourceInfo
+	targetLimit := make(map[snapshot.SourceInfo]struct{})
+
+	if c.policyTargetFlags.global || len(c.policyTargetFlags.targets) > 0 {
+		targetLimitSrc, err := c.policyTargets(ctx, rep)
+		if err != nil {
+			return err
+		}
+
+		for _, target := range targetLimitSrc {
+			targetLimit[target] = struct{}{}
+		}
+	}
+
 	for ts, newPolicy := range policies {
 		target, err := snapshot.ParseSourceInfo(ts, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 		if err != nil {
 			return errors.Wrapf(err, "unable to parse source info: %q", ts)
+		}
+
+		if len(targetLimit) > 0 {
+			if _, ok := targetLimit[target]; !ok {
+				continue
+			}
 		}
 
 		if err := policy.SetPolicy(ctx, rep, target, newPolicy); err != nil {
