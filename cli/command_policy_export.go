@@ -24,8 +24,8 @@ type commandPolicyExport struct {
 }
 
 func (c *commandPolicyExport) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("export", "Export snapshot policy as json.")
-	cmd.Flag("to-file", "Writes the policy to the specified file. Uses stdout otherwise").StringVar(&c.filePath)
+	cmd := parent.Command("export", "Exports the policy to the specified file, or to stdout if none is specified.")
+	cmd.Flag("to-file", "File path to export to").StringVar(&c.filePath)
 	cmd.Flag("overwrite", "Overwrite the file if it exists").BoolVar(&c.overwrite)
 
 	cmd.Flag("json-indent", "Output result in indented JSON format").Hidden().BoolVar(&c.jsonIndent)
