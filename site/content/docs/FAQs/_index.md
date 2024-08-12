@@ -20,6 +20,7 @@ weight: 55
 * [How Do I Decrease Kopia's Memory (RAM) Usage?](#how-do-i-decrease-kopias-memory-ram-usage)
 * [What are Incomplete Snapshots?](#what-are-incomplete-snapshots)
 * [What is a Kopia Repository Server?](#what-is-a-kopia-repository-server)
+* [How does the KopiaUI handle multiple repositories?](#kopiaUI-and-multiple-repositories)
 
 **Is your question not answered here? Please ask in the [Kopia discussion forums](https://kopia.discourse.group/) for help!**
 
@@ -129,3 +130,11 @@ For more information on the `checkpoint interval`, please refer to the [command-
 #### What is a Kopia Repository Server?
 
 See the [Kopia Repository Server help docs](../repository-server) for more information.
+
+#### KopiaUI and Multiple Repositories
+
+When you start up KopiaUI, it looks for configuration files in Kopia's configuration directory (`%APPDATA%\kopia` on Windows, `$HOME/.config/kopia` on linux, and `$HOME/Library/Application Support/kopia` on macOS).  Kopia will look for all files ending in `*.config`
+
+It will always look for a `repository.config file, and even if that file does not exist, it will try to start up a connection which will never succeed.
+It will also look for any files ending in “.config” and will try to start up connections to those as well.
+So if you are like me and created multiple config files for testing purposes (eg, repository.orig.config, repository.test1.config, repository.test2.config, etc), KopiaUI will try to connect to ALL of them at startup, even if they are not intended to be valid.
