@@ -133,8 +133,8 @@ See the [Kopia Repository Server help docs](../repository-server) for more infor
 
 #### KopiaUI and Multiple Repositories
 
-When you start up KopiaUI, it looks for configuration files in Kopia's configuration directory (`%APPDATA%\kopia` on Windows, `$HOME/.config/kopia` on linux, and `$HOME/Library/Application Support/kopia` on macOS).  Kopia will look for all files ending in `*.config`
+When KopiaUI starts up, it will look for configuration files in Kopia's configuration directory (`%APPDATA%\kopia` on Windows; `$HOME/.config/kopia` on linux; `$HOME/Library/Application Support/kopia` on macOS).  KopiaUI will look for all files ending in `*.config` and use these configurations to determine the set of repositories to connect to.
 
-It will always look for a `repository.config file, and even if that file does not exist, it will try to start up a connection which will never succeed.
-It will also look for any files ending in “.config” and will try to start up connections to those as well.
-So if you are like me and created multiple config files for testing purposes (eg, repository.orig.config, repository.test1.config, repository.test2.config, etc), KopiaUI will try to connect to ALL of them at startup, even if they are not intended to be valid.
+KopiaUI will always look for a `repository.config` file,  even if that file does not exist, in which case it will try to start up a connection which will never succeed.
+
+Be aware that if you create multiple config files for testing purposes, eg, `repository.orig.config`, `repository.test1.config`, `repository.test2.config`, etc., KopiaUI will try to connect to ALL of them at startup, even if they are not intended to be valid.  Thus, if you don't want KopiaUI to use a config file, make sure it ends in something other than `.config`.
