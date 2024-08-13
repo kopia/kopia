@@ -20,7 +20,7 @@ weight: 55
 * [How Do I Decrease Kopia's Memory (RAM) Usage?](#how-do-i-decrease-kopias-memory-ram-usage)
 * [What are Incomplete Snapshots?](#what-are-incomplete-snapshots)
 * [What is a Kopia Repository Server?](#what-is-a-kopia-repository-server)
-* [How does the KopiaUI handle multiple repositories?](#kopiaUI-and-multiple-repositories)
+* [How does the KopiaUI handle multiple repositories?](#kopiaui-and-multiple-repositories)
 
 **Is your question not answered here? Please ask in the [Kopia discussion forums](https://kopia.discourse.group/) for help!**
 
