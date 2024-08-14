@@ -9,6 +9,7 @@ import (
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/snapshot/restore"
 )
 
 type cliRestoreProgress struct {
@@ -33,20 +34,17 @@ type cliRestoreProgress struct {
 	lastLineLength int
 }
 
-func (p *cliRestoreProgress) SetCounters(
-	enqueuedCount, restoredCount, skippedCount, ignoredErrors int32,
-	enqueuedBytes, restoredBytes, skippedBytes int64,
-) {
-	p.enqueuedCount.Store(enqueuedCount)
-	p.enqueuedTotalFileSize.Store(enqueuedBytes)
+func (p *cliRestoreProgress) SetCounters(s restore.Stats) {
+	p.enqueuedCount.Store(s.EnqueuedFileCount + s.EnqueuedDirCount + s.EnqueuedSymlinkCount)
+	p.enqueuedTotalFileSize.Store(s.EnqueuedTotalFileSize)
 
-	p.restoredCount.Store(restoredCount)
-	p.restoredTotalFileSize.Store(restoredBytes)
+	p.restoredCount.Store(s.RestoredFileCount + s.RestoredDirCount + s.RestoredSymlinkCount)
+	p.restoredTotalFileSize.Store(s.RestoredTotalFileSize)
 
-	p.skippedCount.Store(skippedCount)
-	p.skippedTotalFileSize.Store(skippedBytes)
+	p.skippedCount.Store(s.SkippedCount)
+	p.skippedTotalFileSize.Store(s.SkippedTotalFileSize)
 
-	p.ignoredErrorsCount.Store(ignoredErrors)
+	p.ignoredErrorsCount.Store(s.IgnoredErrorCount)
 
 	p.maybeOutput()
 }

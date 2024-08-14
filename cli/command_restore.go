@@ -98,10 +98,7 @@ followed by the path of the directory for the contents to be restored.
 
 // RestoreProgress is invoked to report progress during a restore.
 type RestoreProgress interface {
-	SetCounters(
-		enqueuedCount, restoredCount, skippedCount, ignoredErrors int32,
-		enqueuedBytes, restoredBytes, skippedBytes int64,
-	)
+	SetCounters(s restore.Stats)
 	Flush()
 }
 
@@ -423,15 +420,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 
 		restoreProgress := c.getRestoreProgress()
 		progressCallback := func(ctx context.Context, stats restore.Stats) {
-			restoreProgress.SetCounters(
-				stats.EnqueuedFileCount+stats.EnqueuedDirCount+stats.EnqueuedSymlinkCount,
-				stats.RestoredFileCount+stats.RestoredDirCount+stats.RestoredSymlinkCount,
-				stats.SkippedCount,
-				stats.IgnoredErrorCount,
-				stats.EnqueuedTotalFileSize,
-				stats.RestoredTotalFileSize,
-				stats.SkippedTotalFileSize,
-			)
+			restoreProgress.SetCounters(stats)
 		}
 
 		st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
