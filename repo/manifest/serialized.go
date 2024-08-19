@@ -21,7 +21,7 @@ type manifestEntry struct {
 	Deleted bool              `json:"deleted,omitempty"`
 	Content json.RawMessage   `json:"data,omitempty"`
 	// For index versions 1 and above, this is the content ID the manifest data
-	// resides at.
+	// resides in.
 	ContentID string `json:"contentID,omitempty"`
 }
 
@@ -33,6 +33,16 @@ type inMemManifestEntry struct {
 	// this out to be for every in-memory struct but not persisted struct allows
 	// us to save some space when serializing content.
 	formatVersion int
+}
+
+type contentSet struct {
+	Contents []*manifestContent
+	Version  int `json:"version,omitempty"`
+}
+
+type manifestContent struct {
+	ID      ID              `json:"id"`
+	Content json.RawMessage `json:"data"`
 }
 
 const (
