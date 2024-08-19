@@ -62,7 +62,7 @@ type Manager struct {
 	b  contentManager
 
 	// +checklocks:mu
-	pendingEntries map[ID]*manifestEntry
+	pendingEntries map[ID]*inMemManifestEntry
 
 	committed *committedManifestManager
 
@@ -85,11 +85,15 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 		return "", errors.Wrap(err, "marshal error")
 	}
 
-	e := &manifestEntry{
-		ID:      ID(hex.EncodeToString(random)),
-		ModTime: m.timeNow().UTC(),
-		Labels:  copyLabels(labels),
-		Content: b,
+	// Leave format version as 0 while in the pending set so subsequent Gets load
+	// manifest data from the entry itself.
+	e := &inMemManifestEntry{
+		manifestEntry: &manifestEntry{
+			ID:      ID(hex.EncodeToString(random)),
+			ModTime: m.timeNow().UTC(),
+			Labels:  copyLabels(labels),
+			Content: b,
+		},
 	}
 
 	m.mu.Lock()
@@ -118,7 +122,7 @@ func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetad
 	}
 
 	if data != nil {
-		switch e.Version {
+		switch e.formatVersion {
 		case 0:
 			if err := json.Unmarshal([]byte(e.Content), data); err != nil {
 				return nil, errors.Wrapf(err, "unable to unmashal %q", id)
@@ -130,7 +134,7 @@ func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetad
 			}
 
 		default:
-			return nil, errors.Errorf("unsupported format version: %d", e.Version)
+			return nil, errors.Errorf("unsupported format version: %d", e.formatVersion)
 		}
 	}
 
@@ -159,7 +163,7 @@ func (m *Manager) getV1Manifest(
 	return nil
 }
 
-func (m *Manager) getPendingOrCommitted(ctx context.Context, id ID) (*manifestEntry, error) {
+func (m *Manager) getPendingOrCommitted(ctx context.Context, id ID) (*inMemManifestEntry, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -180,8 +184,8 @@ func (m *Manager) getPendingOrCommitted(ctx context.Context, id ID) (*manifestEn
 	return e, nil
 }
 
-func findEntriesMatchingLabels(m map[ID]*manifestEntry, labels map[string]string) map[ID]*manifestEntry {
-	matches := map[ID]*manifestEntry{}
+func findEntriesMatchingLabels(m map[ID]*inMemManifestEntry, labels map[string]string) map[ID]*inMemManifestEntry {
+	matches := map[ID]*inMemManifestEntry{}
 
 	for id, e := range m {
 		if matchesLabels(e.Labels, labels) {
@@ -224,7 +228,7 @@ func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryM
 	return matches, nil
 }
 
-func cloneEntryMetadata(e *manifestEntry) *EntryMetadata {
+func cloneEntryMetadata(e *inMemManifestEntry) *EntryMetadata {
 	return &EntryMetadata{
 		ID:      e.ID,
 		Labels:  copyLabels(e.Labels),
@@ -274,10 +278,12 @@ func (m *Manager) Delete(ctx context.Context, id ID) error {
 		return nil
 	}
 
-	m.pendingEntries[id] = &manifestEntry{
-		ID:      id,
-		ModTime: m.timeNow().UTC(),
-		Deleted: true,
+	m.pendingEntries[id] = &inMemManifestEntry{
+		manifestEntry: &manifestEntry{
+			ID:      id,
+			ModTime: m.timeNow().UTC(),
+			Deleted: true,
+		},
 	}
 
 	return nil
@@ -342,7 +348,7 @@ func NewManager(ctx context.Context, b contentManager, options ManagerOptions, m
 
 	m := &Manager{
 		b:              b,
-		pendingEntries: map[ID]*manifestEntry{},
+		pendingEntries: map[ID]*inMemManifestEntry{},
 		timeNow:        timeNow,
 		committed: newCommittedManager(
 			b,

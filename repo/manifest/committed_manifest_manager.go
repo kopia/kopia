@@ -30,7 +30,7 @@ type committedManifestManager struct {
 	// +checklocks:cmmu
 	locked bool
 	// +checklocks:cmmu
-	committedEntries map[ID]*manifestEntry
+	committedEntries map[ID]*inMemManifestEntry
 	// +checklocks:cmmu
 	committedContentIDs map[content.ID]bool
 
@@ -46,7 +46,7 @@ type committedManifestManager struct {
 	formatVersion int
 }
 
-func (m *committedManifestManager) getCommittedEntryOrNil(ctx context.Context, id ID) (*manifestEntry, error) {
+func (m *committedManifestManager) getCommittedEntryOrNil(ctx context.Context, id ID) (*inMemManifestEntry, error) {
 	m.lock()
 	defer m.unlock()
 
@@ -74,7 +74,7 @@ func (m *committedManifestManager) dump(ctx context.Context, prefix string) {
 	log(ctx).Debugf(prefix+"["+m.debugID+"] committed keys %v: %v rev=%v", len(keys), keys, m.lastRevision)
 }
 
-func (m *committedManifestManager) findCommittedEntries(ctx context.Context, labels map[string]string) (map[ID]*manifestEntry, error) {
+func (m *committedManifestManager) findCommittedEntries(ctx context.Context, labels map[string]string) (map[ID]*inMemManifestEntry, error) {
 	m.lock()
 	defer m.unlock()
 
@@ -85,7 +85,7 @@ func (m *committedManifestManager) findCommittedEntries(ctx context.Context, lab
 	return findEntriesMatchingLabels(m.committedEntries, labels), nil
 }
 
-func (m *committedManifestManager) commitEntries(ctx context.Context, entries map[ID]*manifestEntry) (map[content.ID]bool, error) {
+func (m *committedManifestManager) commitEntries(ctx context.Context, entries map[ID]*inMemManifestEntry) (map[content.ID]bool, error) {
 	if len(entries) == 0 {
 		return nil, nil
 	}
@@ -104,7 +104,7 @@ func (m *committedManifestManager) commitEntries(ctx context.Context, entries ma
 // the lock via commitEntries()) and to compact existing committed entries during compaction
 // where the lock is already being held.
 // +checklocks:m.cmmu
-func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entries map[ID]*manifestEntry) (map[content.ID]bool, error) {
+func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entries map[ID]*inMemManifestEntry) (map[content.ID]bool, error) {
 	if len(entries) == 0 {
 		return nil, nil
 	}
@@ -154,15 +154,14 @@ func (m *committedManifestManager) writeManifestLocked(
 // +checklocks:m.cmmu
 func (m *committedManifestManager) writeEntriesLockedV0(
 	ctx context.Context,
-	entries map[ID]*manifestEntry,
+	entries map[ID]*inMemManifestEntry,
 ) (map[content.ID]bool, error) {
-	man := manifest{}
+	man := manifest{
+		Version: 0,
+	}
 
 	for _, e := range entries {
-		// Additional safety, make sure that all manifests we write are marked as
-		// version 0.
-		e.Version = 0
-		man.Entries = append(man.Entries, e)
+		man.Entries = append(man.Entries, e.manifestEntry)
 	}
 
 	contentID, err := m.writeManifestLocked(ctx, man)
@@ -171,6 +170,7 @@ func (m *committedManifestManager) writeEntriesLockedV0(
 	}
 
 	for _, e := range entries {
+		e.formatVersion = 0
 		m.committedEntries[e.ID] = e
 		delete(entries, e.ID)
 	}
@@ -183,11 +183,13 @@ func (m *committedManifestManager) writeEntriesLockedV0(
 // +checklocks:m.cmmu
 func (m *committedManifestManager) writeEntriesLockedV1(
 	ctx context.Context,
-	entries map[ID]*manifestEntry,
+	entries map[ID]*inMemManifestEntry,
 ) (map[content.ID]bool, error) {
 	var (
 		buf gather.WriteBuffer
-		man manifest
+		man = manifest{
+			Version: 1,
+		}
 	)
 
 	defer buf.Close()
@@ -203,9 +205,11 @@ func (m *committedManifestManager) writeEntriesLockedV1(
 		// Deleted manifests don't need to be written out since they're just
 		// tombstones that exist until the next manifest index compaction.
 		//
-		// TODO(ashmrtn): Have a better mechanisms to see if the content for a
-		// manifest has been changed.
-		if !e.Deleted && len(e.Content) > 0 {
+		// Manifests from version 0, regardless of whether they've been previously
+		// persisted or not, will need written out. That will ensure migration
+		// occurs as well as ensuring new entries are persisted since they piggyback
+		// on the v0 specifier.
+		if !e.Deleted && e.formatVersion == 0 {
 			buf.Append([]byte(e.Content))
 
 			// TODO(ashmrtn): Pick a content prefix and compression mode.
@@ -224,13 +228,12 @@ func (m *committedManifestManager) writeEntriesLockedV1(
 			}
 		}
 
-		e.Version = 1
 		e.ContentID = contentID.String()
 		// Don't write out the manifest content in the index blob. Also allows us to
 		// free up the memory the manifest content was using.
 		e.Content = json.RawMessage("")
 
-		man.Entries = append(man.Entries, e)
+		man.Entries = append(man.Entries, e.manifestEntry)
 
 		buf.Reset()
 	}
@@ -241,6 +244,7 @@ func (m *committedManifestManager) writeEntriesLockedV1(
 	}
 
 	for _, e := range entries {
+		e.formatVersion = 1
 		m.committedEntries[e.ID] = e
 		delete(entries, e.ID)
 	}
@@ -309,7 +313,7 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 
 // +checklocks:m.cmmu
 func (m *committedManifestManager) loadManifestContentsLocked(manifests map[content.ID]manifest) {
-	m.committedEntries = map[ID]*manifestEntry{}
+	m.committedEntries = map[ID]*inMemManifestEntry{}
 	m.committedContentIDs = map[content.ID]bool{}
 
 	for contentID := range manifests {
@@ -318,7 +322,7 @@ func (m *committedManifestManager) loadManifestContentsLocked(manifests map[cont
 
 	for _, man := range manifests {
 		for _, e := range man.Entries {
-			m.mergeEntryLocked(e)
+			m.mergeEntryLocked(e, man.Version)
 		}
 	}
 
@@ -375,7 +379,7 @@ func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 	m.b.DisableIndexFlush(ctx)
 	defer m.b.EnableIndexFlush(ctx)
 
-	tmp := map[ID]*manifestEntry{}
+	tmp := map[ID]*inMemManifestEntry{}
 	for k, v := range m.committedEntries {
 		tmp[k] = v
 	}
@@ -403,17 +407,27 @@ func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 }
 
 // +checklocks:m.cmmu
-func (m *committedManifestManager) mergeEntryLocked(e *manifestEntry) {
+func (m *committedManifestManager) mergeEntryLocked(
+	e *manifestEntry,
+	formatVersion int,
+) {
 	m.verifyLocked()
 
 	prev := m.committedEntries[e.ID]
 	if prev == nil {
-		m.committedEntries[e.ID] = e
+		m.committedEntries[e.ID] = &inMemManifestEntry{
+			manifestEntry: e,
+			formatVersion: formatVersion,
+		}
+
 		return
 	}
 
 	if e.ModTime.After(prev.ModTime) {
-		m.committedEntries[e.ID] = e
+		m.committedEntries[e.ID] = &inMemManifestEntry{
+			manifestEntry: e,
+			formatVersion: formatVersion,
+		}
 	}
 }
 
@@ -495,7 +509,7 @@ func newCommittedManager(
 	return &committedManifestManager{
 		b:                       b,
 		debugID:                 debugID,
-		committedEntries:        map[ID]*manifestEntry{},
+		committedEntries:        map[ID]*inMemManifestEntry{},
 		committedContentIDs:     map[content.ID]bool{},
 		autoCompactionThreshold: autoCompactionThreshold,
 		formatVersion:           formatVersion,

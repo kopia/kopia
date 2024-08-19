@@ -11,6 +11,7 @@ import (
 
 type manifest struct {
 	Entries []*manifestEntry `json:"entries"`
+	Version int              `json:"version,omitempty"`
 }
 
 type manifestEntry struct {
@@ -22,11 +23,16 @@ type manifestEntry struct {
 	// For index versions 1 and above, this is the content ID the manifest data
 	// resides at.
 	ContentID string `json:"contentID,omitempty"`
-	// Version if the serialization format used to store this data. Version 0
-	// stores all manifest content in the Content field. Versions >= 1 store
-	// manifest content as separate content blobs in the content manager and add
-	// the content ID in ContentID.
-	Version int `json:"version,omitempty"`
+}
+
+// inMemManifestEntry is the in-memory version of manifests. It adds a few
+// additional fields like a dirty flag and a format version.
+type inMemManifestEntry struct {
+	*manifestEntry
+	// formatVersion is the version this manifest was serialized with. Separating
+	// this out to be for every in-memory struct but not persisted struct allows
+	// us to save some space when serializing content.
+	formatVersion int
 }
 
 const (
@@ -95,7 +101,7 @@ func decodeManifestArray(r io.Reader) (manifest, error) {
 }
 
 func parseFields(dec *json.Decoder, res *manifest) error {
-	var seen bool
+	seenFields := map[string]struct{}{}
 
 	for dec.More() {
 		l, err := stringToken(dec)
@@ -103,19 +109,26 @@ func parseFields(dec *json.Decoder, res *manifest) error {
 			return err
 		}
 
+		if _, ok := seenFields[l]; ok {
+			return errors.Errorf("repeated fieldi %q", l)
+		}
+
 		// Only have `entries` field right now. Skip other fields.
-		if !strings.EqualFold("entries", l) {
+		switch {
+		case strings.EqualFold("entries", l):
+			seenFields[l] = struct{}{}
+
+			if err := decodeArray(dec, &res.Entries); err != nil {
+				return err
+			}
+
+		case strings.EqualFold("version", l):
+			if err := dec.Decode(&res.Version); err != nil {
+				return errors.Wrap(err, "decoding manifest serialization version")
+			}
+
+		default:
 			continue
-		}
-
-		if seen {
-			return errors.New("repeated Entries field")
-		}
-
-		seen = true
-
-		if err := decodeArray(dec, &res.Entries); err != nil {
-			return err
 		}
 	}
 

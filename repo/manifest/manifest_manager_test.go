@@ -683,7 +683,7 @@ func TestManifestAutoCompactionConvertsFormat(t *testing.T) {
 				t,
 				expectIndirect,
 				foundContents,
-				"expected number of  indirect manifest contents",
+				"expected number of indirect manifest contents",
 			)
 		})
 	}
