@@ -36,8 +36,8 @@ type inMemManifestEntry struct {
 }
 
 type contentSet struct {
-	Contents []*manifestContent
-	Version  int `json:"version,omitempty"`
+	Contents []*manifestContent `json:"contents"`
+	Version  int                `json:"version,omitempty"`
 }
 
 type manifestContent struct {

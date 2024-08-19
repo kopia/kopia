@@ -18,6 +18,8 @@ import (
 	"github.com/kopia/kopia/repo/content/index"
 )
 
+const contentChunkLimit = 10000
+
 // committedManifestManager manages committed manifest entries stored in 'm' contents.
 type committedManifestManager struct {
 	b contentManager
@@ -131,19 +133,18 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 }
 
 // +checklocks:m.cmmu
-func (m *committedManifestManager) writeManifestLocked(
+func (m *committedManifestManager) writeContentLocked(
 	ctx context.Context,
-	man manifest,
+	prefix content.IDPrefix,
+	data interface{},
+	buf *gather.WriteBuffer,
 ) (content.ID, error) {
-	var buf gather.WriteBuffer
-	defer buf.Close()
-
-	gz := gzip.NewWriter(&buf)
-	mustSucceed(json.NewEncoder(gz).Encode(man))
+	gz := gzip.NewWriter(buf)
+	mustSucceed(json.NewEncoder(gz).Encode(data))
 	mustSucceed(gz.Flush())
 	mustSucceed(gz.Close())
 
-	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), ContentPrefix, content.NoCompression)
+	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), prefix, content.NoCompression)
 	if err != nil {
 		return content.EmptyID, errors.Wrap(err, "unable to write content")
 	}
@@ -164,7 +165,10 @@ func (m *committedManifestManager) writeEntriesLockedV0(
 		man.Entries = append(man.Entries, e.manifestEntry)
 	}
 
-	contentID, err := m.writeManifestLocked(ctx, man)
+	buf := &gather.WriteBuffer{}
+	defer buf.Close()
+
+	contentID, err := m.writeContentLocked(ctx, ContentPrefix, man, buf)
 	if err != nil {
 		return nil, err
 	}
@@ -181,15 +185,50 @@ func (m *committedManifestManager) writeEntriesLockedV0(
 }
 
 // +checklocks:m.cmmu
+func (m *committedManifestManager) writeContentChunkLocked(
+	ctx context.Context,
+	entries []*inMemManifestEntry,
+	buf *gather.WriteBuffer,
+) error {
+	contents := contentSet{
+		Version: 1,
+	}
+
+	for _, e := range entries {
+		contents.Contents = append(
+			contents.Contents,
+			&manifestContent{
+				ID:      e.ID,
+				Content: e.Content,
+			},
+		)
+	}
+
+	contentID, err := m.writeContentLocked(
+		ctx,
+		IndirectContentPrefix,
+		contents,
+		buf,
+	)
+	if err != nil {
+		return errors.Wrapf(err, "writing manifest content chunk")
+	}
+
+	for _, e := range entries {
+		e.ContentID = contentID.String()
+	}
+
+	return nil
+}
+
+// +checklocks:m.cmmu
 func (m *committedManifestManager) writeEntriesLockedV1(
 	ctx context.Context,
 	entries map[ID]*inMemManifestEntry,
 ) (map[content.ID]bool, error) {
 	var (
-		buf gather.WriteBuffer
-		man = manifest{
-			Version: 1,
-		}
+		staged []*inMemManifestEntry
+		buf    = &gather.WriteBuffer{}
 	)
 
 	defer buf.Close()
@@ -197,11 +236,6 @@ func (m *committedManifestManager) writeEntriesLockedV1(
 	// Write all manifest contents to the content manager and store the generated
 	// content IDs in the manifestEntries.
 	for _, e := range entries {
-		var (
-			contentID content.ID
-			err       error
-		)
-
 		// Deleted manifests don't need to be written out since they're just
 		// tombstones that exist until the next manifest index compaction.
 		//
@@ -210,35 +244,54 @@ func (m *committedManifestManager) writeEntriesLockedV1(
 		// occurs as well as ensuring new entries are persisted since they piggyback
 		// on the v0 specifier.
 		if !e.Deleted && e.formatVersion == 0 {
-			buf.Append([]byte(e.Content))
+			staged = append(staged, e)
 
-			// TODO(ashmrtn): Pick a content prefix and compression mode.
-			contentID, err = m.b.WriteContent(
-				ctx,
-				buf.Bytes(),
-				IndirectContentPrefix,
-				content.NoCompression,
-			)
-			if err != nil {
-				return nil, errors.Wrapf(
-					err,
-					"writing manifest content for manifest ID %s",
-					e.ID,
-				)
+			// TODO(ashmrtn): Pick some cutoff metric. This is a number out of a hat
+			// based on an easily available metric, the number of contents we have in
+			// this group.
+			//
+			// If every snapshot manifest is ~2KB of data, then 10k of them is ~10MB
+			// of uncompressed content.
+			if len(staged) >= contentChunkLimit {
+				if err := m.writeContentChunkLocked(ctx, staged, buf); err != nil {
+					return nil, err
+				}
+
+				buf.Reset()
+
+				staged = nil
 			}
 		}
-
-		e.ContentID = contentID.String()
-		// Don't write out the manifest content in the index blob. Also allows us to
-		// free up the memory the manifest content was using.
-		e.Content = json.RawMessage("")
-
-		man.Entries = append(man.Entries, e.manifestEntry)
-
-		buf.Reset()
 	}
 
-	contentID, err := m.writeManifestLocked(ctx, man)
+	// Write out any remaining manifest contents that may not have met the limit
+	// above.
+	if len(staged) > 0 {
+		if err := m.writeContentChunkLocked(ctx, staged, buf); err != nil {
+			return nil, errors.Wrap(err, "writing final manifest content chunk")
+		}
+	}
+
+	buf.Reset()
+
+	man := manifest{
+		Entries: make([]*manifestEntry, 0, len(entries)),
+		Version: 1,
+	}
+
+	// Now that all content pieces are safely persisted, go through and clear them
+	// so we don't persist the contents in the manifest metadata chunk. Deleted
+	// manifests still won't have a content ID associated with them, but that's
+	// alright since they're tombstones.
+	//
+	// Each manifestEntry that did have content written out should already have a
+	// content ID associated with it since we're working with pointers.
+	for _, e := range entries {
+		e.Content = json.RawMessage("")
+		man.Entries = append(man.Entries, e.manifestEntry)
+	}
+
+	contentID, err := m.writeContentLocked(ctx, ContentPrefix, man, buf)
 	if err != nil {
 		return nil, err
 	}
