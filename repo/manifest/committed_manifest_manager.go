@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"os"
 	"sort"
@@ -305,6 +306,88 @@ func (m *committedManifestManager) writeEntriesLockedV1(
 	m.committedContentIDs[contentID] = true
 
 	return map[content.ID]bool{contentID: true}, nil
+}
+
+func (m *committedManifestManager) getV1Manifest(
+	ctx context.Context,
+	e *inMemManifestEntry,
+) (json.RawMessage, error) {
+	id, err := index.ParseID(e.ContentID)
+	if err != nil {
+		return json.RawMessage{},
+			errors.Wrapf(
+				err,
+				"parsing manifest content ID %q",
+				e.ContentID,
+			)
+	}
+
+	blk, err := m.b.GetContent(ctx, id)
+	if err != nil {
+		return json.RawMessage{},
+			errors.Wrapf(
+				err,
+				"error loading manifest content chunk %q",
+				e.ContentID,
+			)
+	}
+
+	gz, err := gzip.NewReader(bytes.NewReader(blk))
+	if err != nil {
+		return json.RawMessage{},
+			errors.Wrapf(
+				err,
+				"unable to unpack manifest content chunk data %q",
+				e.ContentID,
+			)
+	}
+
+	// Will be GC-ed even if we don't close it?
+	//nolint:errcheck
+	defer gz.Close()
+
+	readData, err := io.ReadAll(gz)
+	if err != nil {
+		return json.RawMessage{},
+			errors.Wrapf(
+				err,
+				"reading data from manifest content chunk %q",
+				e.ContentID,
+			)
+	}
+
+	contents := &contentSet{}
+
+	err = json.Unmarshal(readData, contents)
+	if err != nil {
+		return json.RawMessage{},
+			errors.Wrapf(
+				err,
+				"deserializing data from manifest content chunk %q",
+				e.ContentID,
+			)
+	}
+
+	if contents.Version != 1 {
+		return json.RawMessage{},
+			errors.Errorf(
+				"unexpected manifest content chunk version %d",
+				contents.Version,
+			)
+	}
+
+	for _, entry := range contents.Contents {
+		if entry.ID == e.ID {
+			return entry.Content, nil
+		}
+	}
+
+	return json.RawMessage{},
+		errors.Errorf(
+			"unable to find manifest %q in manifest content chunk %q",
+			e.ID,
+			e.ContentID,
+		)
 }
 
 // +checklocks:m.cmmu

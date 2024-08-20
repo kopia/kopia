@@ -442,7 +442,7 @@ func TestManifestConfigureAutoCompaction(t *testing.T) {
 
 			expectIndirect := 0
 			if formatVersion == 1 {
-				expectIndirect = 1
+				expectIndirect = compactionCount - 1
 			}
 
 			mgr := newManagerForTesting(
@@ -468,8 +468,9 @@ func TestManifestConfigureAutoCompaction(t *testing.T) {
 			foundContents := getManifestContentCount(ctx, t, mgr, ContentPrefix)
 			assert.Equal(t, compactionCount-1, foundContents, "unexpected number of manifest contents")
 
-			// There should only be at most one indirect manifest content piece
-			// because the data never changes.
+			// Although the content for every manifest is the same, the stored content
+			// has the manifest ID embedded in it, so the content hashes differ, thus
+			// there's no content manager dedupe.
 			foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
 			assert.Equal(
 				t,
@@ -491,8 +492,10 @@ func TestManifestConfigureAutoCompaction(t *testing.T) {
 			foundContents = getManifestContentCount(ctx, t, mgr, ContentPrefix)
 			assert.Equal(t, 1, foundContents, "unexpected number of manifest contents")
 
-			// There should only be at most one indirect manifest content piece
-			// because the data never changes.
+			if formatVersion == 1 {
+				expectIndirect = compactionCount
+			}
+
 			foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
 			assert.Equal(
 				t,
@@ -649,7 +652,7 @@ func TestManifestAutoCompactionConvertsFormat(t *testing.T) {
 			var expectIndirect int
 
 			if test.startingFormat == 1 {
-				expectIndirect = numManifests
+				expectIndirect = 100
 			}
 
 			foundContents := getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
@@ -661,8 +664,8 @@ func TestManifestAutoCompactionConvertsFormat(t *testing.T) {
 			)
 
 			// Opening another instance of the manager should cause the manifest manager
-			// to attempt to compact things. Since this is running in v1 mode, it should
-			// make all the manifests indirect references.
+			// to attempt to compact things. If this is running in v1 mode, it should
+			// place all the manifest contents into a single content piece.
 			mgr, err = NewManager(
 				ctx,
 				bm,
@@ -675,7 +678,7 @@ func TestManifestAutoCompactionConvertsFormat(t *testing.T) {
 			require.NoError(t, err, "forcing reload of manifest manager")
 
 			if test.compactionFormat == 1 {
-				expectIndirect = numManifests
+				expectIndirect = 1
 			}
 
 			foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)

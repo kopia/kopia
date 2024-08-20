@@ -122,45 +122,28 @@ func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetad
 	}
 
 	if data != nil {
+		var manContent json.RawMessage
+
 		switch e.formatVersion {
 		case 0:
-			if err := json.Unmarshal([]byte(e.Content), data); err != nil {
-				return nil, errors.Wrapf(err, "unable to unmashal %q", id)
-			}
+			manContent = e.Content
 
 		case 1:
-			if err := m.getV1Manifest(ctx, e.ContentID, data); err != nil {
+			manContent, err = m.committed.getV1Manifest(ctx, e)
+			if err != nil {
 				return nil, errors.Wrap(err, "getting v1 manifest content")
 			}
 
 		default:
 			return nil, errors.Errorf("unsupported format version: %d", e.formatVersion)
 		}
+
+		if err := json.Unmarshal([]byte(manContent), data); err != nil {
+			return nil, errors.Wrapf(err, "unable to unmashal %q", id)
+		}
 	}
 
 	return cloneEntryMetadata(e), nil
-}
-
-func (m *Manager) getV1Manifest(
-	ctx context.Context,
-	contentID string,
-	data interface{},
-) error {
-	id, err := index.ParseID(contentID)
-	if err != nil {
-		return errors.Wrap(err, "parsing manifest content ID")
-	}
-
-	contentBytes, err := m.b.GetContent(ctx, id)
-	if err != nil {
-		return errors.Wrap(err, "getting manifest content")
-	}
-
-	if err := json.Unmarshal(contentBytes, data); err != nil {
-		return errors.Wrap(err, "deserializing manifest content")
-	}
-
-	return nil
 }
 
 func (m *Manager) getPendingOrCommitted(ctx context.Context, id ID) (*inMemManifestEntry, error) {
