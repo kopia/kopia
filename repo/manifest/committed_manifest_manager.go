@@ -251,7 +251,7 @@ func (m *committedManifestManager) writeEntriesLockedV1(
 			// based on an easily available metric, the number of contents we have in
 			// this group.
 			//
-			// If every snapshot manifest is ~2KB of data, then 10k of them is ~10MB
+			// If every snapshot manifest is ~1KB of data, then 10k of them is ~10MB
 			// of uncompressed content.
 			if len(staged) >= contentChunkLimit {
 				if err := m.writeContentChunkLocked(ctx, staged, buf); err != nil {

@@ -17,7 +17,6 @@ import (
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
 )
 

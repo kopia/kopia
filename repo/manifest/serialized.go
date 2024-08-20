@@ -26,7 +26,7 @@ type manifestEntry struct {
 }
 
 // inMemManifestEntry is the in-memory version of manifests. It adds a few
-// additional fields like a dirty flag and a format version.
+// additional fields like a format version.
 type inMemManifestEntry struct {
 	*manifestEntry
 	// formatVersion is the version this manifest was serialized with. Separating
