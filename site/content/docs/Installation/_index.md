@@ -209,7 +209,7 @@ yay -S kopia-bin
 
 ### OpenBSD installation via ports
 
-OpenBSD now has kopia in -current ports, which means it gets built as packages in snapshots for several platforms (amd64, arm64, mips64 and i386) and will appear as a package for OpenBSD 7.1 and later releases.
+OpenBSD has kopia in ports, which means it gets built as packages in snapshots for several platforms (amd64, arm64, mips64 and i386).
 
 To install the kopia package, run:
 
