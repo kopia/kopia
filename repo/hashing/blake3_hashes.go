@@ -3,7 +3,7 @@ package hashing
 import (
 	"hash"
 
-	"github.com/zeebo/blake3"
+	"lukechampine.com/blake3"
 )
 
 const blake3KeySize = 32
@@ -13,12 +13,11 @@ func newBlake3(key []byte) (hash.Hash, error) {
 	if len(key) < blake3KeySize {
 		var xKey [blake3KeySize]byte
 
-		blake3.DeriveKey("kopia blake3 derived key v1", key, xKey[:blake3KeySize])
+		blake3.DeriveKey(xKey[:blake3KeySize], "kopia blake3 derived key v1", key)
 		key = xKey[:blake3KeySize]
 	}
 
-	//nolint:wrapcheck
-	return blake3.NewKeyed(key[:blake3KeySize])
+	return blake3.New(blake3KeySize, key[:blake3KeySize]), nil
 }
 
 func init() {
