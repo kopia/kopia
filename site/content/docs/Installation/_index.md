@@ -48,7 +48,7 @@ The following options are available if you like to test the beta and unreleased 
 
 CLI and GUI packages are available for:
 
-* Windows 7 or later, 64-bit (CLI binary, GUI installer {`KopiaUI`}, and Scoop package)
+* Windows 10 or later, 64-bit (CLI binary, GUI installer {`KopiaUI`}, and Scoop package)
 * macOS 10.11 or later, 64-bit (CLI binary, GUI installer {`KopiaUI`}, and Homebrew package)
 * Linux - `amd64`, `armhf` or `arm64` (CLI binary and `KopiaUI` available via RPM and DEB repositories)
 
