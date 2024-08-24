@@ -67,7 +67,7 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 	c.svc = svc
 }
 
-func (c *commandRepositorySetParameters) setSizeMBParameter(ctx context.Context, v int, desc string, dst *int, anyChange *bool) {
+func setSizeMBParameter[I ~int | ~int32 | ~int64 | ~uint | ~uint32 | ~uint64](ctx context.Context, v I, desc string, dst *I, anyChange *bool) {
 	if v == 0 {
 		return
 	}
@@ -75,18 +75,7 @@ func (c *commandRepositorySetParameters) setSizeMBParameter(ctx context.Context,
 	*dst = v << 20 //nolint:mnd
 	*anyChange = true
 
-	log(ctx).Infof(" - setting %v to %v.\n", desc, units.BytesString(*dst)) //nolint:mnd
-}
-
-func (c *commandRepositorySetParameters) setInt64SizeMBParameter(ctx context.Context, v int64, desc string, dst *int64, anyChange *bool) {
-	if v == 0 {
-		return
-	}
-
-	*dst = v << 20 //nolint:mnd
-	*anyChange = true
-
-	log(ctx).Infof(" - setting %v to %v.\n", desc, units.BytesString(v<<20)) //nolint:mnd
+	log(ctx).Infof(" - setting %v to %v.\n", desc, units.BytesString(*dst))
 }
 
 func (c *commandRepositorySetParameters) setIntParameter(ctx context.Context, v int, desc string, dst *int, anyChange *bool) {
@@ -196,7 +185,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		updateEpochParameters(&mp, &anyChange, &upgradeToEpochManager)
 	}
 
-	c.setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)
+	setSizeMBParameter(ctx, c.maxPackSizeMB, "maximum pack size", &mp.MaxPackSize, &anyChange)
 
 	// prevent downgrade of index format
 	if c.indexFormatVersion != 0 && c.indexFormatVersion != mp.IndexVersion {
@@ -221,7 +210,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	c.setDurationParameter(ctx, c.epochRefreshFrequency, "epoch refresh frequency", &mp.EpochParameters.EpochRefreshFrequency, &anyChange)
 	c.setDurationParameter(ctx, c.epochCleanupSafetyMargin, "epoch cleanup safety margin", &mp.EpochParameters.CleanupSafetyMargin, &anyChange)
 	c.setIntParameter(ctx, c.epochAdvanceOnCount, "epoch advance on count", &mp.EpochParameters.EpochAdvanceOnCountThreshold, &anyChange)
-	c.setInt64SizeMBParameter(ctx, c.epochAdvanceOnSizeMB, "epoch advance on total size", &mp.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold, &anyChange)
+	setSizeMBParameter(ctx, c.epochAdvanceOnSizeMB, "epoch advance on total size", &mp.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold, &anyChange)
 	c.setIntParameter(ctx, c.epochDeleteParallelism, "epoch delete parallelism", &mp.EpochParameters.DeleteParallelism, &anyChange)
 	c.setIntParameter(ctx, c.epochCheckpointFrequency, "epoch checkpoint frequency", &mp.EpochParameters.FullCheckpointFrequency, &anyChange)
 
