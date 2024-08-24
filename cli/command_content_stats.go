@@ -48,7 +48,7 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 		return errors.Wrap(err, "error calculating totals")
 	}
 
-	sizeToString := units.BytesString
+	sizeToString := units.BytesString[int64]
 	if c.raw {
 		sizeToString = func(l int64) string {
 			return strconv.FormatInt(l, 10)
