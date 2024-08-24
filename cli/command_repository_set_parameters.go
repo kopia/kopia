@@ -78,7 +78,7 @@ func setSizeMBParameter[I ~int | ~int32 | ~int64 | ~uint | ~uint32 | ~uint64](ct
 	log(ctx).Infof(" - setting %v to %v.\n", desc, units.BytesString(*dst))
 }
 
-func (c *commandRepositorySetParameters) setIntParameter(ctx context.Context, v int, desc string, dst *int, anyChange *bool) {
+func setIntParameter(ctx context.Context, v int, desc string, dst *int, anyChange *bool) {
 	if v == 0 {
 		return
 	}
@@ -89,7 +89,7 @@ func (c *commandRepositorySetParameters) setIntParameter(ctx context.Context, v 
 	log(ctx).Infof(" - setting %v to %v.\n", desc, v)
 }
 
-func (c *commandRepositorySetParameters) setDurationParameter(ctx context.Context, v time.Duration, desc string, dst *time.Duration, anyChange *bool) {
+func setDurationParameter(ctx context.Context, v time.Duration, desc string, dst *time.Duration, anyChange *bool) {
 	if v == 0 {
 		return
 	}
@@ -100,7 +100,7 @@ func (c *commandRepositorySetParameters) setDurationParameter(ctx context.Contex
 	log(ctx).Infof(" - setting %v to %v.\n", desc, v)
 }
 
-func (c *commandRepositorySetParameters) setRetentionModeParameter(ctx context.Context, v blob.RetentionMode, desc string, dst *blob.RetentionMode, anyChange *bool) {
+func setRetentionModeParameter(ctx context.Context, v blob.RetentionMode, desc string, dst *blob.RetentionMode, anyChange *bool) {
 	if !v.IsValid() {
 		return
 	}
@@ -154,7 +154,7 @@ func updateEpochParameters(mp *format.MutableParameters, anyChange, upgradeToEpo
 	}
 }
 
-func (c *commandRepositorySetParameters) disableBlobRetention(ctx context.Context, blobcfg *format.BlobStorageConfiguration, anyChange *bool) {
+func disableBlobRetention(ctx context.Context, blobcfg *format.BlobStorageConfiguration, anyChange *bool) {
 	log(ctx).Info("disabling blob retention")
 
 	blobcfg.RetentionMode = ""
@@ -190,7 +190,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	// prevent downgrade of index format
 	if c.indexFormatVersion != 0 && c.indexFormatVersion != mp.IndexVersion {
 		if c.indexFormatVersion > mp.IndexVersion {
-			c.setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
+			setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
 		} else {
 			return errors.Errorf("index format version can only be upgraded")
 		}
@@ -199,20 +199,20 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 	if c.retentionMode == "none" {
 		if blobcfg.IsRetentionEnabled() {
 			// disable blob retention if already enabled
-			c.disableBlobRetention(ctx, &blobcfg, &anyChange)
+			disableBlobRetention(ctx, &blobcfg, &anyChange)
 		}
 	} else {
-		c.setRetentionModeParameter(ctx, blob.RetentionMode(c.retentionMode), "storage backend blob retention mode", &blobcfg.RetentionMode, &anyChange)
-		c.setDurationParameter(ctx, c.retentionPeriod, "storage backend blob retention period", &blobcfg.RetentionPeriod, &anyChange)
+		setRetentionModeParameter(ctx, blob.RetentionMode(c.retentionMode), "storage backend blob retention mode", &blobcfg.RetentionMode, &anyChange)
+		setDurationParameter(ctx, c.retentionPeriod, "storage backend blob retention period", &blobcfg.RetentionPeriod, &anyChange)
 	}
 
-	c.setDurationParameter(ctx, c.epochMinDuration, "minimum epoch duration", &mp.EpochParameters.MinEpochDuration, &anyChange)
-	c.setDurationParameter(ctx, c.epochRefreshFrequency, "epoch refresh frequency", &mp.EpochParameters.EpochRefreshFrequency, &anyChange)
-	c.setDurationParameter(ctx, c.epochCleanupSafetyMargin, "epoch cleanup safety margin", &mp.EpochParameters.CleanupSafetyMargin, &anyChange)
-	c.setIntParameter(ctx, c.epochAdvanceOnCount, "epoch advance on count", &mp.EpochParameters.EpochAdvanceOnCountThreshold, &anyChange)
+	setDurationParameter(ctx, c.epochMinDuration, "minimum epoch duration", &mp.EpochParameters.MinEpochDuration, &anyChange)
+	setDurationParameter(ctx, c.epochRefreshFrequency, "epoch refresh frequency", &mp.EpochParameters.EpochRefreshFrequency, &anyChange)
+	setDurationParameter(ctx, c.epochCleanupSafetyMargin, "epoch cleanup safety margin", &mp.EpochParameters.CleanupSafetyMargin, &anyChange)
+	setIntParameter(ctx, c.epochAdvanceOnCount, "epoch advance on count", &mp.EpochParameters.EpochAdvanceOnCountThreshold, &anyChange)
 	setSizeMBParameter(ctx, c.epochAdvanceOnSizeMB, "epoch advance on total size", &mp.EpochParameters.EpochAdvanceOnTotalSizeBytesThreshold, &anyChange)
-	c.setIntParameter(ctx, c.epochDeleteParallelism, "epoch delete parallelism", &mp.EpochParameters.DeleteParallelism, &anyChange)
-	c.setIntParameter(ctx, c.epochCheckpointFrequency, "epoch checkpoint frequency", &mp.EpochParameters.FullCheckpointFrequency, &anyChange)
+	setIntParameter(ctx, c.epochDeleteParallelism, "epoch delete parallelism", &mp.EpochParameters.DeleteParallelism, &anyChange)
+	setIntParameter(ctx, c.epochCheckpointFrequency, "epoch checkpoint frequency", &mp.EpochParameters.FullCheckpointFrequency, &anyChange)
 
 	requiredFeatures = c.addRemoveUpdateRequiredFeatures(requiredFeatures, &anyChange)
 
