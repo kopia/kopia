@@ -75,7 +75,7 @@ func (c *commandRepositorySetParameters) setSizeMBParameter(ctx context.Context,
 	*dst = v << 20 //nolint:mnd
 	*anyChange = true
 
-	log(ctx).Infof(" - setting %v to %v.\n", desc, units.BytesString(int64(v)<<20)) //nolint:mnd
+	log(ctx).Infof(" - setting %v to %v.\n", desc, units.BytesString(*dst)) //nolint:mnd
 }
 
 func (c *commandRepositorySetParameters) setInt64SizeMBParameter(ctx context.Context, v int64, desc string, dst *int64, anyChange *bool) {

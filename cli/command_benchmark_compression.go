@@ -136,7 +136,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 		}
 	}
 
-	log(ctx).Infof("Will repeat each benchmark %v times per compression method (total %v). Override with --repeat=N.", repeatCount, units.BytesString(int64(repeatCount*len(data))))
+	log(ctx).Infof("Will repeat each benchmark %v times per compression method (total %v). Override with --repeat=N.", repeatCount, units.BytesString(repeatCount*len(data)))
 
 	switch c.operations {
 	case "compress":
@@ -168,7 +168,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data []byte, repeatCount int, algorithms map[compression.Name]compression.Compressor) error {
 	var results []compressionBechmarkResult
 
-	log(ctx).Infof("Compressing input file %q (%v) using %v compression methods.", c.dataFile, units.BytesString(int64(len(data))), len(algorithms))
+	log(ctx).Infof("Compressing input file %q (%v) using %v compression methods.", c.dataFile, units.BytesString(len(data)), len(algorithms))
 
 	for name, comp := range algorithms {
 		log(ctx).Infof("Benchmarking compressor '%v'...", name)
@@ -243,7 +243,7 @@ func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data [
 func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data []byte, repeatCount int, algorithms map[compression.Name]compression.Compressor) error {
 	var results []compressionBechmarkResult
 
-	log(ctx).Infof("Decompressing input file %q (%v) using %v compression methods.", c.dataFile, units.BytesString(int64(len(data))), len(algorithms))
+	log(ctx).Infof("Decompressing input file %q (%v) using %v compression methods.", c.dataFile, units.BytesString(len(data)), len(algorithms))
 
 	var compressedInput gather.WriteBuffer
 	defer compressedInput.Close()
@@ -335,11 +335,11 @@ func (c *commandBenchmarkCompression) printResults(results []compressionBechmark
 			maybeDeprecated = " (deprecated)"
 		}
 
-		c.out.printStdout("%3d. %-26v %-12v %-12v %-8v %v%v",
+		c.out.printStdout("%3d. %-26v %-12v %-12v/s %-8v %v%v",
 			ndx,
 			r.compression,
 			units.BytesString(r.compressedSize),
-			units.BytesString(int64(r.throughput))+"/s",
+			units.BytesString(r.throughput),
 			r.allocations,
 			units.BytesString(r.allocBytes),
 			maybeDeprecated,

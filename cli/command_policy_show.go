@@ -488,5 +488,5 @@ func valueOrNotSetOptionalInt64Bytes(p *policy.OptionalInt64) string {
 		return "-"
 	}
 
-	return units.BytesString(int64(*p))
+	return units.BytesString(*p)
 }
