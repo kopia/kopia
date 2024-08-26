@@ -34,9 +34,9 @@ func applyPercent(val int, percent float32) int {
 	return int(math.Floor(float64(val) * float64(percent)))
 }
 
-func clear(bytes []byte) {
-	for i := range bytes {
-		bytes[i] = 0
+func fillWithZeros(b []byte) {
+	for i := range b {
+		b[i] = 0
 	}
 }
 

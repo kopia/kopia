@@ -833,7 +833,7 @@ func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, pre
 		logbuf.AppendInt64(previousWriteTime)
 	}
 
-	bm.log.Debugf(logbuf.String())
+	bm.log.Debug(logbuf.String())
 
 	return contentID, bm.addToPackUnlocked(ctx, contentID, data, false, comp, previousWriteTime, mp)
 }
