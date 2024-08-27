@@ -47,10 +47,10 @@ func (c *commandBenchmarkEcc) run(ctx context.Context) error {
 
 	for ndx, r := range results {
 		c.out.printStdout("%3d. %-30v %12v/s %12v/s   %6v%% [%v]", ndx, r.ecc,
-			units.BytesString(int64(r.throughputEncoding)),
-			units.BytesString(int64(r.throughputDecoding)),
+			units.BytesString(r.throughputEncoding),
+			units.BytesString(r.throughputDecoding),
 			int(math.Round(r.growth*100)), //nolint:mnd
-			units.BytesString(int64(r.size)),
+			units.BytesString(r.size),
 		)
 
 		if c.optionPrint {
