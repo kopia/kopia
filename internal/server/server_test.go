@@ -210,7 +210,8 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		mustReadObject(ctx, t, w, result, written)
 
 		ow := w.NewObjectWriter(ctx, object.WriterOptions{
-			Prefix: manifest.ContentPrefix,
+			Prefix:             content.ManifestContentPrefix,
+			MetadataCompressor: "zstd-fastest",
 		})
 
 		_, err := ow.Write([]byte{2, 3, 4})
@@ -258,7 +259,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 func mustWriteObject(ctx context.Context, t *testing.T, w repo.RepositoryWriter, data []byte) object.ID {
 	t.Helper()
 
-	ow := w.NewObjectWriter(ctx, object.WriterOptions{})
+	ow := w.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 
 	_, err := ow.Write(data)
 	require.NoError(t, err)

@@ -125,7 +125,7 @@ func TestManifest(t *testing.T) {
 
 	if err := mgr.b.IterateContents(
 		ctx,
-		content.IterateOptions{Range: index.PrefixRange(ContentPrefix)},
+		content.IterateOptions{Range: index.PrefixRange(content.ManifestContentPrefix)},
 		func(ci content.Info) error {
 			foundContents++
 			return nil
@@ -447,7 +447,7 @@ func getManifestContentCount(ctx context.Context, t *testing.T, mgr *Manager) in
 
 	if err := mgr.b.IterateContents(
 		ctx,
-		content.IterateOptions{Range: index.PrefixRange(ContentPrefix)},
+		content.IterateOptions{Range: index.PrefixRange(content.ManifestContentPrefix)},
 		func(ci content.Info) error {
 			foundContents++
 			return nil

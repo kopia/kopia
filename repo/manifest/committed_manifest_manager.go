@@ -117,7 +117,7 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 	mustSucceed(gz.Flush())
 	mustSucceed(gz.Close())
 
-	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), ContentPrefix, content.NoCompression)
+	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), content.ManifestContentPrefix, content.NoCompression)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to write content")
 	}
@@ -145,7 +145,7 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 		manifests = map[content.ID]manifest{}
 
 		err := m.b.IterateContents(ctx, content.IterateOptions{
-			Range:    index.PrefixRange(ContentPrefix),
+			Range:    index.PrefixRange(content.ManifestContentPrefix),
 			Parallel: manifestLoadParallelism,
 		}, func(ci content.Info) error {
 			man, err := loadManifestContent(ctx, m.b, ci.ContentID)

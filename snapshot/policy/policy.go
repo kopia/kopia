@@ -21,33 +21,35 @@ type TargetWithPolicy struct {
 
 // Policy describes snapshot policy for a single source.
 type Policy struct {
-	Labels              map[string]string   `json:"-"`
-	RetentionPolicy     RetentionPolicy     `json:"retention,omitempty"`
-	FilesPolicy         FilesPolicy         `json:"files,omitempty"`
-	ErrorHandlingPolicy ErrorHandlingPolicy `json:"errorHandling,omitempty"`
-	SchedulingPolicy    SchedulingPolicy    `json:"scheduling,omitempty"`
-	CompressionPolicy   CompressionPolicy   `json:"compression,omitempty"`
-	SplitterPolicy      SplitterPolicy      `json:"splitter,omitempty"`
-	Actions             ActionsPolicy       `json:"actions,omitempty"`
-	OSSnapshotPolicy    OSSnapshotPolicy    `json:"osSnapshots,omitempty"`
-	LoggingPolicy       LoggingPolicy       `json:"logging,omitempty"`
-	UploadPolicy        UploadPolicy        `json:"upload,omitempty"`
-	NoParent            bool                `json:"noParent,omitempty"`
+	Labels                    map[string]string         `json:"-"`
+	RetentionPolicy           RetentionPolicy           `json:"retention,omitempty"`
+	FilesPolicy               FilesPolicy               `json:"files,omitempty"`
+	ErrorHandlingPolicy       ErrorHandlingPolicy       `json:"errorHandling,omitempty"`
+	SchedulingPolicy          SchedulingPolicy          `json:"scheduling,omitempty"`
+	CompressionPolicy         CompressionPolicy         `json:"compression,omitempty"`
+	MetadataCompressionPolicy MetadataCompressionPolicy `json:"metadataCompression,omitempty"`
+	SplitterPolicy            SplitterPolicy            `json:"splitter,omitempty"`
+	Actions                   ActionsPolicy             `json:"actions,omitempty"`
+	OSSnapshotPolicy          OSSnapshotPolicy          `json:"osSnapshots,omitempty"`
+	LoggingPolicy             LoggingPolicy             `json:"logging,omitempty"`
+	UploadPolicy              UploadPolicy              `json:"upload,omitempty"`
+	NoParent                  bool                      `json:"noParent,omitempty"`
 }
 
 // Definition corresponds 1:1 to Policy and each field specifies the snapshot.SourceInfo
 // where a particular policy field was specified.
 type Definition struct {
-	RetentionPolicy     RetentionPolicyDefinition     `json:"retention,omitempty"`
-	FilesPolicy         FilesPolicyDefinition         `json:"files,omitempty"`
-	ErrorHandlingPolicy ErrorHandlingPolicyDefinition `json:"errorHandling,omitempty"`
-	SchedulingPolicy    SchedulingPolicyDefinition    `json:"scheduling,omitempty"`
-	CompressionPolicy   CompressionPolicyDefinition   `json:"compression,omitempty"`
-	SplitterPolicy      SplitterPolicyDefinition      `json:"splitter,omitempty"`
-	Actions             ActionsPolicyDefinition       `json:"actions,omitempty"`
-	OSSnapshotPolicy    OSSnapshotPolicyDefinition    `json:"osSnapshots,omitempty"`
-	LoggingPolicy       LoggingPolicyDefinition       `json:"logging,omitempty"`
-	UploadPolicy        UploadPolicyDefinition        `json:"upload,omitempty"`
+	RetentionPolicy           RetentionPolicyDefinition           `json:"retention,omitempty"`
+	FilesPolicy               FilesPolicyDefinition               `json:"files,omitempty"`
+	ErrorHandlingPolicy       ErrorHandlingPolicyDefinition       `json:"errorHandling,omitempty"`
+	SchedulingPolicy          SchedulingPolicyDefinition          `json:"scheduling,omitempty"`
+	CompressionPolicy         CompressionPolicyDefinition         `json:"compression,omitempty"`
+	MetadataCompressionPolicy MetadataCompressionPolicyDefinition `json:"metadataCompression,omitempty"`
+	SplitterPolicy            SplitterPolicyDefinition            `json:"splitter,omitempty"`
+	Actions                   ActionsPolicyDefinition             `json:"actions,omitempty"`
+	OSSnapshotPolicy          OSSnapshotPolicyDefinition          `json:"osSnapshots,omitempty"`
+	LoggingPolicy             LoggingPolicyDefinition             `json:"logging,omitempty"`
+	UploadPolicy              UploadPolicyDefinition              `json:"upload,omitempty"`
 }
 
 func (p *Policy) String() string {

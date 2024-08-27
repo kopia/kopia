@@ -14,9 +14,11 @@ import (
 	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/internal/workshare"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 var dirRewriterLog = logging.Module("dirRewriter")
@@ -59,17 +61,18 @@ type DirRewriter struct {
 }
 
 type dirRewriterRequest struct {
-	ctx        context.Context //nolint:containedctx
-	parentPath string
-	input      *snapshot.DirEntry
-	result     *snapshot.DirEntry
-	err        error
+	ctx                 context.Context //nolint:containedctx
+	parentPath          string
+	input               *snapshot.DirEntry
+	result              *snapshot.DirEntry
+	metadataCompression compression.Name
+	err                 error
 }
 
 func (rw *DirRewriter) processRequest(pool *workshare.Pool[*dirRewriterRequest], req *dirRewriterRequest) {
 	_ = pool
 
-	req.result, req.err = rw.getCachedReplacement(req.ctx, req.parentPath, req.input)
+	req.result, req.err = rw.getCachedReplacement(req.ctx, req.parentPath, req.input, req.metadataCompression)
 }
 
 func (rw *DirRewriter) getCacheKey(input *snapshot.DirEntry) dirRewriterCacheKey {
@@ -87,7 +90,7 @@ func (rw *DirRewriter) getCacheKey(input *snapshot.DirEntry) dirRewriterCacheKey
 	return out
 }
 
-func (rw *DirRewriter) getCachedReplacement(ctx context.Context, parentPath string, input *snapshot.DirEntry) (*snapshot.DirEntry, error) {
+func (rw *DirRewriter) getCachedReplacement(ctx context.Context, parentPath string, input *snapshot.DirEntry, metadataComp compression.Name) (*snapshot.DirEntry, error) {
 	key := rw.getCacheKey(input)
 
 	// see if we already processed this exact directory entry
@@ -113,7 +116,7 @@ func (rw *DirRewriter) getCachedReplacement(ctx context.Context, parentPath stri
 
 	// the rewriter returned a directory, we must recursively process it.
 	if result.Type == snapshot.EntryTypeDirectory {
-		rep2, subdirErr := rw.processDirectory(ctx, parentPath, result)
+		rep2, subdirErr := rw.processDirectory(ctx, parentPath, result, metadataComp)
 		if rep2 == nil {
 			return nil, errors.Wrap(subdirErr, input.Name)
 		}
@@ -131,7 +134,7 @@ func (rw *DirRewriter) getCachedReplacement(ctx context.Context, parentPath stri
 	return result, nil
 }
 
-func (rw *DirRewriter) processDirectory(ctx context.Context, pathFromRoot string, entry *snapshot.DirEntry) (*snapshot.DirEntry, error) {
+func (rw *DirRewriter) processDirectory(ctx context.Context, pathFromRoot string, entry *snapshot.DirEntry, metadataComp compression.Name) (*snapshot.DirEntry, error) {
 	dirRewriterLog(ctx).Debugw("processDirectory", "path", pathFromRoot)
 
 	r, err := rw.rep.OpenObject(ctx, entry.ObjectID)
@@ -145,10 +148,10 @@ func (rw *DirRewriter) processDirectory(ctx context.Context, pathFromRoot string
 		return rw.opts.OnDirectoryReadFailure(ctx, pathFromRoot, entry, errors.Wrap(err, "unable to read directory entries"))
 	}
 
-	return rw.processDirectoryEntries(ctx, pathFromRoot, entry, entries)
+	return rw.processDirectoryEntries(ctx, pathFromRoot, entry, entries, metadataComp)
 }
 
-func (rw *DirRewriter) processDirectoryEntries(ctx context.Context, parentPath string, entry *snapshot.DirEntry, entries []*snapshot.DirEntry) (*snapshot.DirEntry, error) {
+func (rw *DirRewriter) processDirectoryEntries(ctx context.Context, parentPath string, entry *snapshot.DirEntry, entries []*snapshot.DirEntry, metadataComp compression.Name) (*snapshot.DirEntry, error) {
 	var (
 		builder DirManifestBuilder
 		wg      workshare.AsyncGroup[*dirRewriterRequest]
@@ -165,6 +168,7 @@ func (rw *DirRewriter) processDirectoryEntries(ctx context.Context, parentPath s
 				path.Join(parentPath, child.Name),
 				child,
 				nil,
+				metadataComp,
 				nil,
 			})
 
@@ -172,7 +176,7 @@ func (rw *DirRewriter) processDirectoryEntries(ctx context.Context, parentPath s
 		}
 
 		// run in current goroutine
-		replacement, repErr := rw.getCachedReplacement(ctx, path.Join(parentPath, child.Name), child)
+		replacement, repErr := rw.getCachedReplacement(ctx, path.Join(parentPath, child.Name), child, metadataComp)
 		if repErr != nil {
 			return nil, errors.Wrap(repErr, child.Name)
 		}
@@ -194,7 +198,7 @@ func (rw *DirRewriter) processDirectoryEntries(ctx context.Context, parentPath s
 
 	dm := builder.Build(entry.ModTime, entry.DirSummary.IncompleteReason)
 
-	oid, err := writeDirManifest(ctx, rw.rep, entry.ObjectID.String(), dm)
+	oid, err := writeDirManifest(ctx, rw.rep, entry.ObjectID.String(), dm, metadataComp)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to write directory manifest")
 	}
@@ -219,8 +223,8 @@ func (rw *DirRewriter) equalEntries(e1, e2 *snapshot.DirEntry) bool {
 }
 
 // RewriteSnapshotManifest rewrites the directory tree starting at a given manifest.
-func (rw *DirRewriter) RewriteSnapshotManifest(ctx context.Context, man *snapshot.Manifest) (bool, error) {
-	newEntry, err := rw.getCachedReplacement(ctx, ".", man.RootEntry)
+func (rw *DirRewriter) RewriteSnapshotManifest(ctx context.Context, man *snapshot.Manifest, metadataComp compression.Name) (bool, error) {
+	newEntry, err := rw.getCachedReplacement(ctx, ".", man.RootEntry, metadataComp)
 	if err != nil {
 		return false, errors.Wrapf(err, "error processing snapshot %v", man.ID)
 	}
@@ -273,7 +277,13 @@ func RewriteAsStub(rep repo.RepositoryWriter) RewriteFailedEntryCallback {
 			return nil, errors.Wrap(err, "error writing stub contents")
 		}
 
-		w := rep.NewObjectWriter(ctx, object.WriterOptions{})
+		pol, _, _, err := policy.GetEffectivePolicy(ctx, rep, policy.GlobalPolicySourceInfo)
+		if err != nil {
+			return nil, errors.Wrap(err, "error getting policy")
+		}
+
+		metadataCompressor := pol.MetadataCompressionPolicy.MetadataCompressor()
+		w := rep.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: metadataCompressor})
 
 		n, err := buf.WriteTo(w)
 		if err != nil {

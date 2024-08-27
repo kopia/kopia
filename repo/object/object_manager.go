@@ -70,6 +70,7 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 	w.description = opt.Description
 	w.prefix = opt.Prefix
 	w.compressor = compression.ByName[opt.Compressor]
+	w.metadataCompressor = compression.ByName[opt.MetadataCompressor]
 	w.totalLength = 0
 	w.currentPosition = 0
 
@@ -106,7 +107,7 @@ func (om *Manager) closedWriter(ow *objectWriter) {
 // in parallel utilizing more CPU cores. Because some split points now start at fixed boundaries and not content-specific,
 // this causes some slight loss of deduplication at concatenation points (typically 1-2 contents, usually <10MB),
 // so this method should only be used for very large files where this overhead is relatively small.
-func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) {
+func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID, metadataComp compression.Name) (ID, error) {
 	if len(objectIDs) == 0 {
 		return EmptyID, errors.Errorf("empty list of objects")
 	}
@@ -131,8 +132,10 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) 
 	log(ctx).Debugf("concatenated: %v total: %v", concatenatedEntries, totalLength)
 
 	w := om.NewWriter(ctx, WriterOptions{
-		Prefix:      indirectContentPrefix,
-		Description: "CONCATENATED INDEX",
+		Prefix:             indirectContentPrefix,
+		Description:        "CONCATENATED INDEX",
+		Compressor:         metadataComp,
+		MetadataCompressor: metadataComp,
 	})
 	defer w.Close() //nolint:errcheck
 

@@ -40,6 +40,11 @@ const (
 	DefaultIndexVersion = 2
 )
 
+// ManifestContentPrefix is the prefix of the content id for manifests.
+const (
+	ManifestContentPrefix = "m"
+)
+
 var tracer = otel.Tracer("kopia/content")
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.

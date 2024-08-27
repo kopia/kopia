@@ -264,7 +264,7 @@ func handleWriteContentRequest(ctx context.Context, dw repo.DirectRepositoryWrit
 		return accessDeniedResponse()
 	}
 
-	if strings.HasPrefix(req.GetPrefix(), manifest.ContentPrefix) {
+	if strings.HasPrefix(req.GetPrefix(), content.ManifestContentPrefix) {
 		// it's not allowed to create contents prefixed with 'm' since those could be mistaken for manifest contents.
 		return accessDeniedResponse()
 	}

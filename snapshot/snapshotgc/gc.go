@@ -15,7 +15,6 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
-	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -116,7 +115,7 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 	// Ensure that the iteration includes deleted contents, so those can be
 	// undeleted (recovered).
 	err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{IncludeDeleted: true}, func(ci content.Info) error {
-		if manifest.ContentPrefix == ci.ContentID.Prefix() {
+		if content.ManifestContentPrefix == ci.ContentID.Prefix() {
 			system.Add(int64(ci.PackedLength))
 			return nil
 		}

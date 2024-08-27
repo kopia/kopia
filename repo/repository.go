@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
@@ -47,7 +48,7 @@ type RepositoryWriter interface {
 	Repository
 
 	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
-	ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error)
+	ConcatenateObjects(ctx context.Context, objectIDs []object.ID, comp compression.Name) (object.ID, error)
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	ReplaceManifests(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
@@ -180,9 +181,9 @@ func (r *directRepository) NewObjectWriter(ctx context.Context, opt object.Write
 }
 
 // ConcatenateObjects creates a concatenated objects from the provided object IDs.
-func (r *directRepository) ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error) {
+func (r *directRepository) ConcatenateObjects(ctx context.Context, objectIDs []object.ID, comp compression.Name) (object.ID, error) {
 	//nolint:wrapcheck
-	return r.omgr.Concatenate(ctx, objectIDs)
+	return r.omgr.Concatenate(ctx, objectIDs, comp)
 }
 
 // DisableIndexRefresh disables index refresh for the duration of the write session.

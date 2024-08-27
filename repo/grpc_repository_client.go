@@ -529,9 +529,9 @@ func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOp
 }
 
 // ConcatenateObjects creates a concatenated objects from the provided object IDs.
-func (r *grpcRepositoryClient) ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error) {
+func (r *grpcRepositoryClient) ConcatenateObjects(ctx context.Context, objectIDs []object.ID, comp compression.Name) (object.ID, error) {
 	//nolint:wrapcheck
-	return r.omgr.Concatenate(ctx, objectIDs)
+	return r.omgr.Concatenate(ctx, objectIDs, comp)
 }
 
 // maybeRetry executes the provided callback with or without automatic retries depending on how
@@ -721,7 +721,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 	}
 
 	// we will be writing asynchronously and server will reject this write, fail early.
-	if prefix == manifest.ContentPrefix {
+	if prefix == content.ManifestContentPrefix {
 		return content.EmptyID, errors.Errorf("writing manifest contents not allowed")
 	}
 
