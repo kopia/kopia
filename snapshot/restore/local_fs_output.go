@@ -389,7 +389,7 @@ func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
 	defer f.Close() //nolint:errcheck
 
 	if _, err := c(f, r); err != nil {
-		return errors.Wrap(err, "cannot write data to file %q "+f.Name())
+		return errors.Wrapf(err, "cannot write data to file %q", f.Name())
 	}
 
 	if err := f.Close(); err != nil {
