@@ -154,7 +154,7 @@ func parseFields(dec *json.Decoder, res *manifest) error {
 		}
 
 		if _, ok := seenFields[l]; ok {
-			return errors.Errorf("repeated fieldi %q", l)
+			return errors.Errorf("repeated field %q", l)
 		}
 
 		// Only have `entries` field right now. Skip other fields.

@@ -51,6 +51,8 @@ type committedManifestManager struct {
 	// Version 0 stored all manifest content inline with metadata. Version 1 adds
 	// a level of indirection to store manifest content as separate content blobs
 	// and has the metadata point to the content blob.
+	//
+	// +checklocks:cmmu
 	formatVersion int
 }
 
@@ -126,7 +128,9 @@ func (m *committedManifestManager) writeEntriesLocked(
 	}
 
 	// If we're just writing out dirty manifests, then allow writing them out in
-	// the v0 format if there's only a few of them.
+	// the v0 format if there's only a few of them. This is a simple check and
+	// won't catch cases like deleting a bunch of manifests and creating only a
+	// few new ones.
 	if m.formatVersion == 0 ||
 		(!isCompaction &&
 			//nolint:mnd
