@@ -313,34 +313,16 @@ func (m *committedManifestManager) getV1Manifest(
 	ctx context.Context,
 	e *inMemManifestEntry,
 ) (json.RawMessage, error) {
-	id, err := index.ParseID(e.ContentID)
+	contentID, err := e.contentID()
 	if err != nil {
 		return json.RawMessage{},
-			errors.Wrapf(
-				err,
-				"parsing manifest content ID %q",
-				e.ContentID,
-			)
+			errors.Wrap(err, "fetching manifest from indirect chunk")
 	}
 
-	blk, err := m.b.GetContent(ctx, id)
+	gz, err := getContentReader(ctx, m.b, contentID)
 	if err != nil {
 		return json.RawMessage{},
-			errors.Wrapf(
-				err,
-				"error loading manifest content chunk %q",
-				e.ContentID,
-			)
-	}
-
-	gz, err := gzip.NewReader(bytes.NewReader(blk))
-	if err != nil {
-		return json.RawMessage{},
-			errors.Wrapf(
-				err,
-				"unable to unpack manifest content chunk data %q",
-				e.ContentID,
-			)
+			errors.Wrap(err, "loading indirect manifest content chunk data")
 	}
 
 	// Will be GC-ed even if we don't close it?
@@ -353,7 +335,7 @@ func (m *committedManifestManager) getV1Manifest(
 			errors.Wrapf(
 				err,
 				"reading data from manifest content chunk %q",
-				e.ContentID,
+				contentID,
 			)
 	}
 
@@ -365,7 +347,7 @@ func (m *committedManifestManager) getV1Manifest(
 			errors.Wrapf(
 				err,
 				"deserializing data from manifest content chunk %q",
-				e.ContentID,
+				contentID,
 			)
 	}
 
@@ -387,7 +369,7 @@ func (m *committedManifestManager) getV1Manifest(
 		errors.Errorf(
 			"unable to find manifest %q in manifest content chunk %q",
 			e.ID,
-			e.ContentID,
+			contentID,
 		)
 }
 
@@ -611,17 +593,30 @@ func (m *committedManifestManager) verifyLocked() {
 	}
 }
 
-func loadManifestContent(ctx context.Context, b contentManager, contentID content.ID) (manifest, error) {
-	man := manifest{}
-
+func getContentReader(
+	ctx context.Context,
+	b contentManager,
+	contentID content.ID,
+) (io.ReadCloser, error) {
 	blk, err := b.GetContent(ctx, contentID)
 	if err != nil {
-		return man, errors.Wrap(err, "error loading manifest content")
+		return nil, errors.Wrapf(err, "error loading content piece %q", contentID)
 	}
 
 	gz, err := gzip.NewReader(bytes.NewReader(blk))
 	if err != nil {
-		return man, errors.Wrapf(err, "unable to unpack manifest data %q", contentID)
+		return nil, errors.Wrapf(err, "unable to unpack content data %q", contentID)
+	}
+
+	return gz, nil
+}
+
+func loadManifestContent(ctx context.Context, b contentManager, contentID content.ID) (manifest, error) {
+	man := manifest{}
+
+	gz, err := getContentReader(ctx, b, contentID)
+	if err != nil {
+		return man, errors.Wrap(err, "loading manifest data")
 	}
 
 	// Will be GC-ed even if we don't close it?

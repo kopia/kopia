@@ -7,6 +7,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/index"
 )
 
 type manifest struct {
@@ -35,6 +38,35 @@ type inMemManifestEntry struct {
 	// this out to be for every in-memory struct but not persisted struct allows
 	// us to save some space when serializing content.
 	formatVersion int
+}
+
+func (m inMemManifestEntry) contentID() (content.ID, error) {
+	if m.formatVersion != 1 {
+		return content.EmptyID, errors.Errorf(
+			"manifest format %d doesn't embed content IDs",
+			m.formatVersion,
+		)
+	}
+
+	var contentIDStr string
+
+	err := json.Unmarshal(m.Content, &contentIDStr)
+	if err != nil {
+		return content.EmptyID,
+			errors.Wrap(err, "unable to deserialize content ID")
+	}
+
+	id, err := index.ParseID(contentIDStr)
+	if err != nil {
+		return content.EmptyID,
+			errors.Wrapf(
+				err,
+				"parsing manifest content ID %q",
+				contentIDStr,
+			)
+	}
+
+	return id, nil
 }
 
 type contentSet struct {
