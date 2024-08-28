@@ -21,6 +21,8 @@ import (
 
 const contentChunkLimit = 10000
 
+var errPersistentVersionMismatch = errors.New("unsupported persisted manifest version")
+
 // committedManifestManager manages committed manifest entries stored in 'm' contents.
 type committedManifestManager struct {
 	b contentManager
@@ -163,6 +165,18 @@ func (m *committedManifestManager) writeEntriesLockedV0(
 	}
 
 	for _, e := range entries {
+		// Don't allow downgrading. We also can't just propagate this entry because
+		// the Version field is associated with groups of manifestEntries instead of
+		// individual entries.
+		if e.formatVersion != 0 {
+			return nil, errors.Wrapf(
+				errPersistentVersionMismatch,
+				"manifest version %d, manager version %d",
+				e.formatVersion,
+				m.formatVersion,
+			)
+		}
+
 		man.Entries = append(man.Entries, e.manifestEntry)
 	}
 
