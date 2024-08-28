@@ -215,8 +215,13 @@ func (m *committedManifestManager) writeContentChunkLocked(
 		return errors.Wrapf(err, "writing manifest content chunk")
 	}
 
+	contentIDBytes, err := json.Marshal(contentID.String())
+	if err != nil {
+		return errors.Wrap(err, "serializing content ID")
+	}
+
 	for _, e := range entries {
-		e.ContentID = contentID.String()
+		e.Content = contentIDBytes
 	}
 
 	return nil
@@ -245,6 +250,8 @@ func (m *committedManifestManager) writeEntriesLockedV1(
 		// occurs as well as ensuring new entries are persisted since they piggyback
 		// on the v0 specifier.
 		if !e.Deleted && e.formatVersion == 0 {
+			e.Size = int32(len(e.Content))
+
 			staged = append(staged, e)
 
 			// TODO(ashmrtn): Pick some cutoff metric. This is a number out of a hat
@@ -280,15 +287,9 @@ func (m *committedManifestManager) writeEntriesLockedV1(
 		Version: 1,
 	}
 
-	// Now that all content pieces are safely persisted, go through and clear them
-	// so we don't persist the contents in the manifest metadata chunk. Deleted
-	// manifests still won't have a content ID associated with them, but that's
-	// alright since they're tombstones.
-	//
 	// Each manifestEntry that did have content written out should already have a
 	// content ID associated with it since we're working with pointers.
 	for _, e := range entries {
-		e.Content = json.RawMessage("")
 		man.Entries = append(man.Entries, e.manifestEntry)
 	}
 

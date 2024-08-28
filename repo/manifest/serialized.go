@@ -18,11 +18,13 @@ type manifestEntry struct {
 	ID      ID                `json:"id"`
 	Labels  map[string]string `json:"labels"`
 	ModTime time.Time         `json:"modified"`
+	Size    int32             `json:"size,omitempty"`
 	Deleted bool              `json:"deleted,omitempty"`
-	Content json.RawMessage   `json:"data,omitempty"`
-	// For index versions 1 and above, this is the content ID the manifest data
-	// resides in.
-	ContentID string `json:"contentID,omitempty"`
+	// Content contains either the acutal content of the manifest or the content
+	// ID of the content piece that contains the manifest's content. How to
+	// interpret this field should be determined by the version the manifest was
+	// stored with.
+	Content json.RawMessage `json:"data,omitempty"`
 }
 
 // inMemManifestEntry is the in-memory version of manifests. It adds a few

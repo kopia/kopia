@@ -211,12 +211,20 @@ func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryM
 }
 
 func cloneEntryMetadata(e *inMemManifestEntry) *EntryMetadata {
-	return &EntryMetadata{
+	res := &EntryMetadata{
 		ID:      e.ID,
 		Labels:  copyLabels(e.Labels),
 		Length:  len(e.Content),
 		ModTime: e.ModTime,
 	}
+
+	// It's technically possible for manifestEntries to have no content so we
+	// can't just check if the Length field is 0.
+	if e.formatVersion != 0 {
+		res.Length = int(e.Size)
+	}
+
+	return res
 }
 
 // matchesLabels returns true when all entries in 'b' are found in the 'a'.
