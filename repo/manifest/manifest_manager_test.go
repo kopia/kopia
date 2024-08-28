@@ -42,7 +42,7 @@ func TestManifest(t *testing.T) {
 		t.Run(fmt.Sprintf("ManifestFormat%d", formatVersion), func(t *testing.T) {
 			ctx := testlogging.Context(t)
 			data := blobtesting.DataMap{}
-			mgr := newManagerForTesting(ctx, t, data, ManagerOptions{})
+			mgr := newManagerForTesting(ctx, t, data, ManagerOptions{FormatVersion: formatVersion})
 
 			id1 := addAndVerify(ctx, t, mgr, labels1, item1)
 			id2 := addAndVerify(ctx, t, mgr, labels2, item2)
@@ -209,7 +209,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 
 			t.Cleanup(func() { bm.CloseShared(ctx) })
 
-			mgr, err = NewManager(ctx, bm, ManagerOptions{}, nil)
+			mgr, err = NewManager(ctx, bm, ManagerOptions{FormatVersion: formatVersion}, nil)
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
@@ -561,7 +561,7 @@ func TestManifestAutoCompactionWithReadOnly(t *testing.T) {
 			// to attempt to compact things.
 			bm = newContentManagerForTesting(ctx, t, data, contentManagerOpts{readOnly: true})
 
-			mgr, err = NewManager(ctx, bm, ManagerOptions{}, nil)
+			mgr, err = NewManager(ctx, bm, ManagerOptions{FormatVersion: formatVersion}, nil)
 			require.NoError(t, err, "getting other instance of manifest manager")
 
 			_, err = mgr.Find(ctx, map[string]string{"color": "red"})
@@ -609,6 +609,7 @@ func TestManifestAutoCompactionConvertsFormat(t *testing.T) {
 		name             string
 		startingFormat   int
 		compactionFormat int
+		expectErr        bool
 	}{
 		{
 			name:             "V0ToV1",
@@ -619,6 +620,7 @@ func TestManifestAutoCompactionConvertsFormat(t *testing.T) {
 			name:             "V1ToV0",
 			startingFormat:   1,
 			compactionFormat: 0,
+			expectErr:        true,
 		},
 	}
 
@@ -675,6 +677,11 @@ func TestManifestAutoCompactionConvertsFormat(t *testing.T) {
 			require.NoError(t, err, "getting other instance of manifest manager")
 
 			_, err = mgr.Find(ctx, map[string]string{"color": "red"})
+			if test.expectErr {
+				assert.ErrorIs(t, err, errPersistentVersionMismatch)
+				return
+			}
+
 			require.NoError(t, err, "forcing reload of manifest manager")
 
 			if test.compactionFormat == 1 {
