@@ -19,7 +19,10 @@ import (
 	"github.com/kopia/kopia/repo/content/index"
 )
 
-const contentChunkLimit = 10000
+const (
+	contentChunkLimit     = 10000
+	contentChunkFillRatio = 60
+)
 
 var errPersistentVersionMismatch = errors.New("unsupported persisted manifest version")
 
@@ -98,7 +101,7 @@ func (m *committedManifestManager) commitEntries(ctx context.Context, entries ma
 	m.lock()
 	defer m.unlock()
 
-	return m.writeEntriesLocked(ctx, entries)
+	return m.writeEntriesLocked(ctx, entries, false)
 }
 
 // writeEntriesLocked writes entries in the provided map as manifest contents
@@ -109,30 +112,39 @@ func (m *committedManifestManager) commitEntries(ctx context.Context, entries ma
 // the lock via commitEntries()) and to compact existing committed entries during compaction
 // where the lock is already being held.
 // +checklocks:m.cmmu
-func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entries map[ID]*inMemManifestEntry) (map[content.ID]bool, error) {
+func (m *committedManifestManager) writeEntriesLocked(
+	ctx context.Context,
+	entries map[ID]*inMemManifestEntry,
+	isCompaction bool,
+) (map[content.ID]bool, error) {
 	if len(entries) == 0 {
 		return nil, nil
 	}
 
-	switch m.formatVersion {
-	case 0:
+	if m.formatVersion > 1 || m.formatVersion < 0 {
+		return nil, errors.Errorf("unsupported format version: %d", m.formatVersion)
+	}
+
+	// If we're just writing out dirty manifests, then allow writing them out in
+	// the v0 format if there's only a few of them.
+	if m.formatVersion == 0 ||
+		(!isCompaction &&
+			//nolint:mnd
+			(len(entries)*100)/contentChunkLimit < contentChunkFillRatio/2) {
 		res, err := m.writeEntriesLockedV0(ctx, entries)
 		if err != nil {
 			return nil, errors.Wrap(err, "writing manifests in v0 format")
 		}
 
-		return res, nil
-
-	case 1:
-		res, err := m.writeEntriesLockedV1(ctx, entries)
-		if err != nil {
-			return nil, errors.Wrap(err, "writing manifests in v1 format")
-		}
-
-		return res, nil
+		return res, err
 	}
 
-	return nil, errors.Errorf("unsupported format version: %d", m.formatVersion)
+	res, err := m.writeEntriesLockedV1(ctx, entries)
+	if err != nil {
+		return nil, errors.Wrap(err, "writing manifests in v1 format")
+	}
+
+	return res, nil
 }
 
 // +checklocks:m.cmmu
@@ -256,6 +268,15 @@ func (m *committedManifestManager) writeEntriesLockedV1(
 	// Write all manifest contents to the content manager and store the generated
 	// content IDs in the manifestEntries.
 	for _, e := range entries {
+		if e.formatVersion != 0 && e.formatVersion != 1 {
+			return nil, errors.Wrapf(
+				errPersistentVersionMismatch,
+				"manifest version %d, manager version %d",
+				e.formatVersion,
+				m.formatVersion,
+			)
+		}
+
 		// Deleted manifests don't need to be written out since they're just
 		// tombstones that exist until the next manifest index compaction.
 		//
@@ -517,7 +538,7 @@ func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 		tmp[k] = v
 	}
 
-	written, err := m.writeEntriesLocked(ctx, tmp)
+	written, err := m.writeEntriesLocked(ctx, tmp, true)
 	if err != nil {
 		return err
 	}
