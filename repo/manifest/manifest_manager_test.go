@@ -468,16 +468,10 @@ func TestManifestConfigureAutoCompaction(t *testing.T) {
 			foundContents := getManifestContentCount(ctx, t, mgr, ContentPrefix)
 			assert.Equal(t, compactionCount-1, foundContents, "unexpected number of manifest contents")
 
-			// Although the content for every manifest is the same, the stored content
-			// has the manifest ID embedded in it, so the content hashes differ, thus
-			// there's no content manager dedupe.
+			// We're only writing one manifest at a time so they always get written in
+			// v0 format.
 			foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
-			assert.Equal(
-				t,
-				expectIndirect,
-				foundContents,
-				"unexpected number of indirect contents",
-			)
+			assert.Zero(t, foundContents, "unexpected number of indirect contents")
 
 			// Add another manifest
 			addAndVerify(ctx, t, mgr, labels1, item1)
@@ -492,8 +486,10 @@ func TestManifestConfigureAutoCompaction(t *testing.T) {
 			foundContents = getManifestContentCount(ctx, t, mgr, ContentPrefix)
 			assert.Equal(t, 1, foundContents, "unexpected number of manifest contents")
 
+			// When running in v1 mode compaction groups manifests together where
+			// possible.
 			if formatVersion == 1 {
-				expectIndirect = compactionCount
+				expectIndirect = 1
 			}
 
 			foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
@@ -602,25 +598,188 @@ func TestLoadV1ManifestWhenRunningV0(t *testing.T) {
 	assert.Equal(t, item1, returnedItem)
 }
 
-func TestManifestAutoCompactionConvertsFormat(t *testing.T) {
+func TestManifestAutoCompactionFailsToConvertToV0(t *testing.T) {
+	const (
+		numManifests    = 3000
+		compactionCount = 2
+	)
+
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+
+	bm := newContentManagerForTesting(ctx, t, data, contentManagerOpts{})
+
+	// Write enough manifest entries that it triggers compaction.
+	mgr, err := NewManager(
+		ctx,
+		bm,
+		ManagerOptions{FormatVersion: 1},
+		nil,
+	)
+	require.NoError(t, err, "getting initial manifest manager")
+
+	labels := map[string]string{"type": "item", "color": "red"}
+
+	for i := range numManifests {
+		item1 := map[string]int{"foo": i, "bar": 2}
+
+		_, err = mgr.Put(ctx, labels, item1)
+		require.NoError(t, err, "adding item to manifest manager")
+	}
+
+	require.NoError(t, mgr.Flush(ctx))
+	require.NoError(t, mgr.b.Flush(ctx))
+
+	for i := range compactionCount - 1 {
+		item1 := map[string]int{"bar": i, "foo": 2}
+
+		_, err = mgr.Put(ctx, labels, item1)
+		require.NoError(t, err, "adding item to manifest manager")
+
+		require.NoError(t, mgr.Flush(ctx))
+		require.NoError(t, mgr.b.Flush(ctx))
+	}
+
+	foundContents := getManifestContentCount(ctx, t, mgr, ContentPrefix)
+	assert.Equal(
+		t,
+		compactionCount,
+		foundContents,
+		"expected number of manifest contents",
+	)
+
+	foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
+	assert.Equal(
+		t,
+		1,
+		foundContents,
+		"expected number of indirect manifest contents",
+	)
+
+	// Opening another instance of the manager should cause the manifest manager
+	// to attempt to compact things. If this is running in v1 mode, it should
+	// place all the manifest contents into a single content piece.
+	mgr, err = NewManager(
+		ctx,
+		bm,
+		ManagerOptions{
+			FormatVersion:           0,
+			AutoCompactionThreshold: compactionCount,
+		},
+		nil,
+	)
+	require.NoError(t, err, "getting other instance of manifest manager")
+
+	_, err = mgr.Find(ctx, map[string]string{"color": "red"})
+	require.ErrorIs(t, err, errPersistentVersionMismatch)
+
+	foundContents = getManifestContentCount(ctx, t, mgr, ContentPrefix)
+	assert.Equal(
+		t,
+		2,
+		foundContents,
+		"expected number of manifest contents after failed compaction",
+	)
+
+	foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
+	assert.Equal(
+		t,
+		1,
+		foundContents,
+		"expected number of indirect manifest contents after failed compaction",
+	)
+}
+
+func TestManifestAutoCompactionConvertsToV1(t *testing.T) {
 	const numManifests = 100
 
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+
+	bm := newContentManagerForTesting(ctx, t, data, contentManagerOpts{})
+
+	// Write enough manifest entries that it triggers compaction.
+	mgr, err := NewManager(
+		ctx,
+		bm,
+		ManagerOptions{FormatVersion: 0},
+		nil,
+	)
+	require.NoError(t, err, "getting initial manifest manager")
+
+	labels := map[string]string{"type": "item", "color": "red"}
+
+	for i := range numManifests {
+		item1 := map[string]int{"foo": i, "bar": 2}
+
+		_, err = mgr.Put(ctx, labels, item1)
+		require.NoError(t, err, "adding item to manifest manager")
+
+		require.NoError(t, mgr.Flush(ctx))
+		require.NoError(t, mgr.b.Flush(ctx))
+	}
+
+	foundContents := getManifestContentCount(ctx, t, mgr, ContentPrefix)
+	assert.Equal(
+		t,
+		numManifests,
+		foundContents,
+		"expected number of manifest contents",
+	)
+
+	foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
+	assert.Zero(
+		t,
+		foundContents,
+		"expected number of indirect manifest contents",
+	)
+
+	// Opening another instance of the manager should cause the manifest manager
+	// to attempt to compact things. If this is running in v1 mode, it should
+	// place all the manifest contents into a single content piece.
+	mgr, err = NewManager(
+		ctx,
+		bm,
+		ManagerOptions{FormatVersion: 1},
+		nil,
+	)
+	require.NoError(t, err, "getting other instance of manifest manager")
+
+	_, err = mgr.Find(ctx, map[string]string{"color": "red"})
+	require.NoError(t, err, "forcing reload of manifest manager")
+
+	foundContents = getManifestContentCount(ctx, t, mgr, ContentPrefix)
+	assert.Equal(
+		t,
+		1,
+		foundContents,
+		"expected number of manifest contents after compaction",
+	)
+
+	foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
+	assert.Equal(
+		t,
+		1,
+		foundContents,
+		"expected number of indirect manifest contents after compaction",
+	)
+}
+
+func TestManifestV1UsesIndirectBlocksOnWrite(t *testing.T) {
 	cases := []struct {
-		name             string
-		startingFormat   int
-		compactionFormat int
-		expectErr        bool
+		name              string
+		numManifests      int
+		expectNumIndirect int
 	}{
 		{
-			name:             "V0ToV1",
-			startingFormat:   0,
-			compactionFormat: 1,
+			name:              "SingleIndirect",
+			numManifests:      3000,
+			expectNumIndirect: 1,
 		},
 		{
-			name:             "V1ToV0",
-			startingFormat:   1,
-			compactionFormat: 0,
-			expectErr:        true,
+			name:              "MultipleIndirect",
+			numManifests:      10001,
+			expectNumIndirect: 2,
 		},
 	}
 
@@ -635,63 +794,56 @@ func TestManifestAutoCompactionConvertsFormat(t *testing.T) {
 			mgr, err := NewManager(
 				ctx,
 				bm,
-				ManagerOptions{FormatVersion: test.startingFormat},
+				ManagerOptions{FormatVersion: 1},
 				nil,
 			)
-			require.NoError(t, err, "getting initial manifest manager")
+			require.NoError(t, err, "getting manifest manager")
 
-			for i := range numManifests {
+			var (
+				ids    []ID
+				labels = map[string]string{"type": "item", "color": "red"}
+			)
+
+			for i := range test.numManifests {
 				item1 := map[string]int{"foo": i, "bar": 2}
-				labels1 := map[string]string{"type": "item", "color": "red"}
 
-				_, err = mgr.Put(ctx, labels1, item1)
+				id, err := mgr.Put(ctx, labels, item1)
 				require.NoError(t, err, "adding item to manifest manager")
 
-				require.NoError(t, mgr.Flush(ctx))
-				require.NoError(t, mgr.b.Flush(ctx))
+				ids = append(ids, id)
 			}
 
-			var expectIndirect int
+			require.NoError(t, mgr.Flush(ctx))
+			require.NoError(t, mgr.b.Flush(ctx))
 
-			if test.startingFormat == 1 {
-				expectIndirect = 100
-			}
-
-			foundContents := getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
-			assert.Equal(
-				t,
-				expectIndirect,
-				foundContents,
-				"expected number of indirect manifest contents",
-			)
-
-			// Opening another instance of the manager should cause the manifest manager
-			// to attempt to compact things. If this is running in v1 mode, it should
-			// place all the manifest contents into a single content piece.
-			mgr, err = NewManager(
-				ctx,
-				bm,
-				ManagerOptions{FormatVersion: test.compactionFormat},
-				nil,
-			)
-			require.NoError(t, err, "getting other instance of manifest manager")
-
-			_, err = mgr.Find(ctx, map[string]string{"color": "red"})
-			if test.expectErr {
-				assert.ErrorIs(t, err, errPersistentVersionMismatch)
-				return
-			}
-
-			require.NoError(t, err, "forcing reload of manifest manager")
-
-			if test.compactionFormat == 1 {
-				expectIndirect = 1
-			}
+			foundContents := getManifestContentCount(ctx, t, mgr, ContentPrefix)
+			assert.Equal(t, 1, foundContents, "expected number of manifest contents")
 
 			foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
 			assert.Equal(
 				t,
-				expectIndirect,
+				test.expectNumIndirect,
+				foundContents,
+				"expected number of indirect manifest contents",
+			)
+
+			for _, id := range ids {
+				err := mgr.Delete(ctx, id)
+				require.NoError(t, err, "deleting manifest")
+			}
+
+			require.NoError(t, mgr.Flush(ctx))
+			require.NoError(t, mgr.b.Flush(ctx))
+
+			// Deleted manifests have no content so there shouldn't be any additional
+			// indirect content pieces generated.
+			foundContents = getManifestContentCount(ctx, t, mgr, ContentPrefix)
+			assert.Equal(t, 2, foundContents, "expected number of manifest contents")
+
+			foundContents = getManifestContentCount(ctx, t, mgr, IndirectContentPrefix)
+			assert.Equal(
+				t,
+				test.expectNumIndirect,
 				foundContents,
 				"expected number of indirect manifest contents",
 			)
