@@ -215,6 +215,9 @@ func (m *Manager) Flush(ctx context.Context) error {
 	defer m.mu.Unlock()
 
 	_, err := m.committed.commitEntries(ctx, m.pendingEntries)
+	if err == nil {
+		m.pendingEntries = map[ID]*manifestEntry{}
+	}
 
 	return err
 }

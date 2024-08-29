@@ -124,7 +124,6 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 
 	for _, e := range entries {
 		m.committedEntries[e.ID] = e
-		delete(entries, e.ID)
 	}
 
 	m.committedContentIDs[contentID] = struct{}{}
@@ -257,12 +256,7 @@ func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 	m.b.DisableIndexFlush(ctx)
 	defer m.b.EnableIndexFlush(ctx)
 
-	tmp := map[ID]*manifestEntry{}
-	for k, v := range m.committedEntries {
-		tmp[k] = v
-	}
-
-	written, err := m.writeEntriesLocked(ctx, tmp)
+	written, err := m.writeEntriesLocked(ctx, m.committedEntries)
 	if err != nil {
 		return err
 	}
