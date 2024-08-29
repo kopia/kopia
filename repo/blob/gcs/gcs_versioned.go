@@ -111,12 +111,12 @@ func infoToVersionMetadata(prefix string, oi *storage.ObjectAttrs) versionMetada
 	bm := blob.Metadata{
 		BlobID:    toBlobID(oi.Name, prefix),
 		Length:    oi.Size,
-		Timestamp: oi.Updated,
+		Timestamp: oi.Created,
 	}
 
 	return versionMetadata{
 		Metadata:       bm,
-		IsDeleteMarker: !oi.Deleted.IsZero(),
+		IsDeleteMarker: !oi.Deleted.IsZero() && (gcs.PointInTime == nil || oi.Deleted.Before(*gcs.PointInTime)),
 		Version:        strconv.FormatInt(oi.Generation, 10),
 	}
 }

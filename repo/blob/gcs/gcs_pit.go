@@ -101,32 +101,16 @@ func (gcs *gcsPointInTimeStorage) getMetadata(ctx context.Context, b blob.ID) (v
 func newestAtUnlessDeleted(vs []versionMetadata, t time.Time) (v versionMetadata, found bool) {
 	fmt.Printf("newestAtUnlessDeleted %s\n", t)
 
-	for _, xxx := range vs {
-		fmt.Printf("newestAtUnlessDeleted: PRE SORT: found version %s del %s. deleted=%t\n", xxx.Version, xxx.Timestamp, xxx.IsDeleteMarker)
-	}
-
-	// Sort
-	sort.Slice(vs, func(i, j int) bool {
-		return vs[i].Timestamp.Before(vs[j].Timestamp)
-	})
-
-	for _, xxx := range vs {
-		fmt.Printf("newestAtUnlessDeleted POST SORT: found version %s del %s. deleted=%t\n", xxx.Version, xxx.Timestamp, xxx.IsDeleteMarker)
-	}
-
 	vs = getOlderThan(vs, t)
 
 	if len(vs) == 0 {
 		return versionMetadata{}, false
 	}
 
-	//v = vs[0] // versione s3
-	v = vs[len(vs)-1] // versione azure
-
+	v = vs[len(vs)-1]
 	fmt.Printf("newestAtUnlessDeleted del pit %s deleted=%t\n", v.Timestamp, v.IsDeleteMarker)
 
-	//return v, !v.IsDeleteMarker
-	return v, true
+	return v, !v.IsDeleteMarker
 }
 
 // Removes versions that are newer than t. The filtering is done in place
@@ -141,7 +125,7 @@ func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
 		fmt.Printf("getOlderThan %s: vs[i].Timestamp: %s \n", t, vs[i].Timestamp)
 		if vs[i].Timestamp.After(t) {
 			fmt.Printf("  Skippo versione %s del %s. Troppo nuova.\n", vs[i].Version, vs[i].Timestamp)
-			return vs[i:]
+			return vs[:i]
 		}
 	}
 
@@ -161,7 +145,7 @@ func maybePointInTimeStore(ctx context.Context, gcs *gcsStorage, pointInTime *ti
 		return nil, errors.Wrapf(err, "could not get determine if bucket '%s' supports versioning", gcs.BucketName)
 	}
 
-	if !attrs.VersioningEnabled {
+	if !attrs.VersioningEnabled || attrs.ObjectRetentionMode != "Enabled" {
 		return nil, errors.Errorf("cannot create point-in-time view for non-versioned bucket '%s'", gcs.BucketName)
 	}
 

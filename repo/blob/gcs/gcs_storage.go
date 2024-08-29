@@ -44,7 +44,7 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 
 // getBlobWithVersion returns full or partial contents of a blob with given ID and version.
 func (gcs *gcsStorage) getBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64, output blob.OutputBuffer) error {
-	fmt.Printf("getBlobWithVersion: blob %s versione %s\n", b, version)
+	fmt.Printf("getBlobWithVersion: blob %s version %s\n", b, version)
 	if offset < 0 {
 		return blob.ErrInvalidRange
 	}
@@ -165,7 +165,7 @@ func (gcs *gcsStorage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, 
 	if opts.RetentionPeriod != 0 {
 		retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
 		writer.ObjectAttrs.Retention = &storage.ObjectRetention{
-			Mode:        "Unlocked",
+			Mode:        blob.Locked,
 			RetainUntil: retainUntilDate,
 		}
 	}
@@ -204,7 +204,7 @@ func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 }
 
 func (gcs *gcsStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
-	retentionMode := "Unlocked" // TODO: properly handle lock mode
+	retentionMode := blob.Locked
 
 	retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC().Truncate(time.Second)
 
