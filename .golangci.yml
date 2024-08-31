@@ -80,6 +80,7 @@ linters:
     - depguard
     - execinquery
     - exhaustruct
+    - exportloopref
     - gochecknoinits
     - gomnd
     - gci
