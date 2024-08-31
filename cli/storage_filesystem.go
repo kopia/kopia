@@ -92,7 +92,7 @@ func getIntPtrValue(value string, base int) *int {
 
 func getFileModeValue(value string, def os.FileMode) os.FileMode {
 	if uint32Val, err := strconv.ParseUint(value, 8, 32); err == nil {
-		return os.FileMode(uint32Val)
+		return os.FileMode(uint32Val) //nolint:gosec
 	}
 
 	return def
