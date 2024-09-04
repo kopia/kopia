@@ -83,9 +83,9 @@ func (c *commandBenchmarkCompression) readInputFile(ctx context.Context) ([]byte
 type compressionBechmarkResult struct {
 	compression    compression.Name
 	throughput     float64
-	compressedSize int64
-	allocations    int64
-	allocBytes     int64
+	compressedSize uint64
+	allocations    uint64
+	allocBytes     uint64
 }
 
 func (c *commandBenchmarkCompression) shouldIncludeAlgorithm(name compression.Name) bool {
@@ -179,9 +179,9 @@ func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data [
 
 		var startMS, endMS runtime.MemStats
 
-		run := func(compressed *bytes.Buffer) int64 {
+		run := func(compressed *bytes.Buffer) uint64 {
 			var (
-				compressedSize int64
+				compressedSize uint64
 				lastHash       uint64
 				input          = bytes.NewReader(nil)
 			)
@@ -195,7 +195,7 @@ func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data [
 					continue
 				}
 
-				compressedSize = int64(compressed.Len())
+				compressedSize = uint64(compressed.Len())
 
 				if c.verifyStable {
 					h := hashOf(compressed.Bytes())
@@ -229,8 +229,8 @@ func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data [
 				compression:    name,
 				throughput:     perSecond,
 				compressedSize: compressedSize,
-				allocations:    int64(endMS.Mallocs - startMS.Mallocs),
-				allocBytes:     int64(endMS.TotalAlloc - startMS.TotalAlloc),
+				allocations:    endMS.Mallocs - startMS.Mallocs,
+				allocBytes:     endMS.TotalAlloc - startMS.TotalAlloc,
 			})
 	}
 
@@ -265,7 +265,7 @@ func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data
 
 		var startMS, endMS runtime.MemStats
 
-		run := func(decompressed *bytes.Buffer) int64 {
+		run := func(decompressed *bytes.Buffer) uint64 {
 			input := bytes.NewReader(nil)
 
 			for range cnt {
@@ -277,7 +277,7 @@ func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data
 				}
 			}
 
-			return int64(compressedInput.Length())
+			return uint64(compressedInput.Length())
 		}
 
 		outputBuffers := makeOutputBuffers(c.parallel, defaultCompressedDataByMethod)
@@ -297,8 +297,8 @@ func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data
 				compression:    name,
 				throughput:     perSecond,
 				compressedSize: compressedSize,
-				allocations:    int64(endMS.Mallocs - startMS.Mallocs),
-				allocBytes:     int64(endMS.TotalAlloc - startMS.TotalAlloc),
+				allocations:    endMS.Mallocs - startMS.Mallocs,
+				allocBytes:     endMS.TotalAlloc - startMS.TotalAlloc,
 			})
 	}
 

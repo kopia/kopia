@@ -142,8 +142,8 @@ func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Pol
 	return nil
 }
 
-func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add, remove []string, clear bool, changeCount *int) {
-	if clear {
+func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add, remove []string, clearList bool, changeCount *int) {
+	if clearList {
 		log(ctx).Infof(" - removing all from %q", desc)
 
 		*changeCount++

@@ -209,7 +209,7 @@ type v2HeaderInfo struct {
 }
 
 func (b *indexV2) getPackBlobIDByIndex(ndx uint32) blob.ID {
-	if ndx >= uint32(b.hdr.packCount) {
+	if ndx >= uint32(b.hdr.packCount) { //nolint:gosec
 		return invalidBlobID
 	}
 
@@ -508,11 +508,11 @@ func (b Builder) buildV2(output io.Writer) error {
 	header := make([]byte, v2IndexHeaderSize)
 	header[0] = Version2 // version
 	header[1] = byte(b2.keyLength)
-	binary.BigEndian.PutUint16(header[2:4], uint16(b2.entrySize))
-	binary.BigEndian.PutUint32(header[4:8], uint32(b2.entryCount))
-	binary.BigEndian.PutUint32(header[8:12], uint32(len(b2.packID2Index)))
+	binary.BigEndian.PutUint16(header[2:4], uint16(b2.entrySize))          //nolint:gosec
+	binary.BigEndian.PutUint32(header[4:8], uint32(b2.entryCount))         //nolint:gosec
+	binary.BigEndian.PutUint32(header[8:12], uint32(len(b2.packID2Index))) //nolint:gosec
 	header[12] = byte(len(b2.uniqueFormatInfo2Index))
-	binary.BigEndian.PutUint32(header[13:17], uint32(b2.baseTimestamp))
+	binary.BigEndian.PutUint32(header[13:17], uint32(b2.baseTimestamp)) //nolint:gosec
 
 	if _, err := w.Write(header); err != nil {
 		return errors.Wrap(err, "unable to write header")
@@ -564,15 +564,18 @@ func (b *indexBuilderV2) prepareExtraData(sortedInfos []Info) []byte {
 	for _, it := range sortedInfos {
 		if it.PackBlobID != "" {
 			if _, ok := b.packBlobIDOffsets[it.PackBlobID]; !ok {
-				b.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData))
+				b.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData)) //nolint:gosec
 				extraData = append(extraData, []byte(it.PackBlobID)...)
 			}
 		}
 	}
 
-	b.extraDataOffset = v2IndexHeaderSize                                         // fixed header
-	b.extraDataOffset += uint32(b.entryCount * (b.keyLength + b.entrySize))       // entries index
-	b.extraDataOffset += uint32(len(b.packID2Index) * v2PackInfoSize)             // pack information
+	b.extraDataOffset = v2IndexHeaderSize // fixed header
+	//nolint:gosec
+	b.extraDataOffset += uint32(b.entryCount * (b.keyLength + b.entrySize)) // entries index
+	//nolint:gosec
+	b.extraDataOffset += uint32(len(b.packID2Index) * v2PackInfoSize) // pack information
+	//nolint:gosec
 	b.extraDataOffset += uint32(len(b.uniqueFormatInfo2Index) * v2FormatInfoSize) // formats
 
 	return extraData
@@ -628,7 +631,7 @@ func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it Info) error {
 
 	binary.BigEndian.PutUint32(
 		buf[v2EntryOffsetTimestampSeconds:],
-		uint32(it.TimestampSeconds-b.baseTimestamp))
+		uint32(it.TimestampSeconds-b.baseTimestamp)) //nolint:gosec
 
 	//    4-7: pack offset bits 0..29
 	//         flags:
@@ -652,7 +655,7 @@ func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it Info) error {
 	//  14-15: pack ID (lower 16 bits)- index into Packs[]
 
 	packBlobIndex := b.packID2Index[it.PackBlobID]
-	binary.BigEndian.PutUint16(buf[v2EntryOffsetPackBlobID:], uint16(packBlobIndex))
+	binary.BigEndian.PutUint16(buf[v2EntryOffsetPackBlobID:], uint16(packBlobIndex)) //nolint:gosec
 
 	//     16: format ID - index into Formats[] - 0 - present if not all formats are identical
 
@@ -704,7 +707,7 @@ func openV2PackIndex(data []byte, closer func() error) (Index, error) {
 
 	hi.entriesOffset = v2IndexHeaderSize
 	hi.packsOffset = hi.entriesOffset + int64(hi.entryCount)*hi.entryStride
-	hi.formatsOffset = hi.packsOffset + int64(hi.packCount*v2PackInfoSize)
+	hi.formatsOffset = hi.packsOffset + int64(hi.packCount*v2PackInfoSize) //nolint:gosec
 
 	// pre-read formats section
 	formatsBuf, err := safeSlice(data, hi.formatsOffset, int(hi.formatCount)*v2FormatInfoSize)
@@ -714,7 +717,7 @@ func openV2PackIndex(data []byte, closer func() error) (Index, error) {
 
 	packIDs := make([]blob.ID, hi.packCount)
 
-	for i := range int(hi.packCount) {
+	for i := range int(hi.packCount) { //nolint:gosec
 		buf, err := safeSlice(data, hi.packsOffset+int64(v2PackInfoSize*i), v2PackInfoSize)
 		if err != nil {
 			return nil, errors.Errorf("unable to read pack blob IDs section - 1")
