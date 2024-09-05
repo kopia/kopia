@@ -455,6 +455,7 @@ func runTaskDeleteOrphanedBlobsFull(ctx context.Context, runParams RunParameters
 	return ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() error {
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
+			Parallel:     runParams.Params.ListParallelism,
 		}, safety)
 
 		return err
@@ -466,6 +467,7 @@ func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameter
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
 			Prefix:       content.PackBlobIDPrefixSpecial,
+			Parallel:     runParams.Params.ListParallelism,
 		}, safety)
 
 		return err
