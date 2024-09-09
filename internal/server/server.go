@@ -1006,6 +1006,13 @@ func (s *Server) getSchedulerItems(ctx context.Context, now time.Time) []schedul
 		NextTime:    nrt,
 	})
 
+	// add a scheduled item to refresh metrics
+	result = append(result, scheduler.Item{
+		Description: "refresh metrics",
+		Trigger:     s.refreshMetrics,
+		NextTime:    now.Add(1 * time.Minute), // Refresh metrics every minute
+	})
+
 	if s.maint != nil {
 		// If we have a direct repository, add an item to run maintenance.
 		// If we're the owner then nextMaintenanceTime will be zero.
@@ -1042,6 +1049,15 @@ func (s *Server) refreshScheduler(reason string) {
 	select {
 	case s.schedulerRefresh <- reason:
 	default:
+	}
+}
+
+func (s *Server) refreshMetrics() {
+	s.serverMutex.RLock()
+	defer s.serverMutex.RUnlock()
+
+	for _, sm := range s.sourceManagers {
+		sm.refreshStatus(s.rootctx)
 	}
 }
 

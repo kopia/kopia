@@ -6,8 +6,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/clock"
@@ -18,6 +16,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -200,6 +199,8 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 				s.setStatus("PENDING")
 
 				if err := s.server.runSnapshotTask(ctx, s.src, s.snapshotInternal); err != nil {
+					log(ctx).Errorf("snapshot error: %v", err)
+
 					s.backoffBeforeNextSnapshot()
 				} else {
 					s.refreshStatus(ctx)
