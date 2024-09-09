@@ -28,6 +28,7 @@ var tracer = otel.Tracer("kopia/repository")
 //
 //nolint:interfacebloat
 type Repository interface {
+	Metrics() *metrics.Registry
 	OpenObject(ctx context.Context, id object.ID) (object.Reader, error)
 	VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error)
 	GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error)
