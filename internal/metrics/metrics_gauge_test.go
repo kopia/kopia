@@ -41,8 +41,8 @@ func TestGauge_NoLabels(t *testing.T) {
 
 func TestGauge_WithLabels(t *testing.T) {
 	e := metrics.NewRegistry()
-	gauge1 := e.GaugeInt64("some_gauge_2", "some-help", map[string]string{"key1": "label1"})
-	gauge2 := e.GaugeInt64("some_gauge_2", "some-help", map[string]string{"key1": "label2"})
+	gauge1 := e.GaugeInt64("some_gauge2", "some-help", map[string]string{"key1": "label1"})
+	gauge2 := e.GaugeInt64("some_gauge2", "some-help", map[string]string{"key1": "label2"})
 
 	require.Equal(t, 0.0,
 		mustFindMetric(t, "kopia_some_gauge2", prommodel.MetricType_GAUGE, map[string]string{"key1": "label1"}).
