@@ -67,3 +67,17 @@ func TestGauge_WithLabels(t *testing.T) {
 		mustFindMetric(t, "kopia_some_gauge2", prommodel.MetricType_GAUGE, map[string]string{"key1": "label2"}).
 			GetGauge().GetValue())
 }
+func TestGauge_WithMultipleLabels(t *testing.T) {
+	e := metrics.NewRegistry()
+	gauge1 := e.GaugeInt64("last_snapshot_start_time", "Timestamp of the last snapshot start time", map[string]string{"host": "host1", "username": "user1", "path": "path1"})
+	gauge2 := e.GaugeInt64("last_snapshot_start_time", "Timestamp of the last snapshot start time", map[string]string{"host": "host2", "username": "user2", "path": "path2"})
+
+	gauge1.Set(33)
+	gauge2.Set(44)
+	require.Equal(t, 33.0,
+		mustFindMetric(t, "kopia_last_snapshot_start_time", prommodel.MetricType_GAUGE, map[string]string{"host": "host1", "username": "user1", "path": "path1"}).
+			GetGauge().GetValue())
+	require.Equal(t, 44.0,
+		mustFindMetric(t, "kopia_last_snapshot_start_time", prommodel.MetricType_GAUGE, map[string]string{"host": "host2", "username": "user2", "path": "path2"}).
+			GetGauge().GetValue())
+}
