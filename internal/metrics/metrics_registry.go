@@ -22,6 +22,7 @@ type Registry struct {
 	startTime time.Time
 
 	allCounters              map[string]*Counter
+	allGauges                map[string]*Gauge
 	allThroughput            map[string]*Throughput
 	allDurationDistributions map[string]*Distribution[time.Duration]
 	allSizeDistributions     map[string]*Distribution[int64]
@@ -35,6 +36,7 @@ type Snapshot struct {
 	Hostname  string    `json:"hostname"`
 
 	Counters              map[string]int64                             `json:"counters"`
+	Gauges                map[string]int64                             `json:"gauges"`
 	DurationDistributions map[string]*DistributionState[time.Duration] `json:"durationDistributions"`
 	SizeDistributions     map[string]*DistributionState[int64]         `json:"sizeDistributions"`
 }
@@ -42,6 +44,10 @@ type Snapshot struct {
 func (s *Snapshot) mergeFrom(other Snapshot) {
 	for k, v := range other.Counters {
 		s.Counters[k] += v
+	}
+
+	for k, v := range other.Gauges {
+		s.Gauges[k] = v // Gauges are not cumulative, so we just take the latest value
 	}
 
 	for k, v := range other.DurationDistributions {
@@ -68,6 +74,7 @@ func (s *Snapshot) mergeFrom(other Snapshot) {
 func createSnapshot() Snapshot {
 	return Snapshot{
 		Counters:              map[string]int64{},
+		Gauges:                map[string]int64{},
 		DurationDistributions: map[string]*DistributionState[time.Duration]{},
 		SizeDistributions:     map[string]*DistributionState[int64]{},
 	}
@@ -79,6 +86,10 @@ func (r *Registry) Snapshot(reset bool) Snapshot {
 
 	for k, c := range r.allCounters {
 		s.Counters[k] = c.Snapshot(reset)
+	}
+
+	for k, g := range r.allGauges {
+		s.Gauges[k] = g.Snapshot(reset)
 	}
 
 	for k, c := range r.allDurationDistributions {
@@ -125,6 +136,10 @@ func (r *Registry) Log(ctx context.Context) {
 		log(ctx).Debugw("COUNTER", "name", n, "value", val)
 	}
 
+	for n, val := range s.Gauges {
+		log(ctx).Debugw("GAUGE", "name", n, "value", val)
+	}
+
 	for n, st := range s.DurationDistributions {
 		log(ctx).Debugw("DURATION-DISTRIBUTION", "name", n, "counters", st.BucketCounters, "cnt", st.Count, "sum", st.Sum, "min", st.Min, "avg", st.Mean(), "max", st.Max)
 	}
@@ -142,6 +157,7 @@ func NewRegistry() *Registry {
 		startTime: clock.Now(),
 
 		allCounters:              map[string]*Counter{},
+		allGauges:                map[string]*Gauge{},
 		allDurationDistributions: map[string]*Distribution[time.Duration]{},
 		allSizeDistributions:     map[string]*Distribution[int64]{},
 		allThroughput:            map[string]*Throughput{},
