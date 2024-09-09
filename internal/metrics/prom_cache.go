@@ -20,6 +20,7 @@ var (
 	promCounters = map[string]*prometheus.CounterVec{}
 	// +checklocks:promCacheMutex
 	promHistograms = map[string]*prometheus.HistogramVec{}
+	promGauges     = map[string]*prometheus.GaugeVec{}
 )
 
 func getPrometheusCounter(opts prometheus.CounterOpts, labels map[string]string) prometheus.Counter {
@@ -31,6 +32,20 @@ func getPrometheusCounter(opts prometheus.CounterOpts, labels map[string]string)
 		prom = promauto.NewCounterVec(opts, maps.Keys(labels))
 
 		promCounters[opts.Name] = prom
+	}
+
+	return prom.WithLabelValues(maps.Values(labels)...)
+}
+
+func getPrometheusGauge(opts prometheus.GaugeOpts, labels map[string]string) prometheus.Gauge {
+	promCacheMutex.Lock()
+	defer promCacheMutex.Unlock()
+
+	prom := promGauges[opts.Name]
+	if prom == nil {
+		prom = promauto.NewGaugeVec(opts, maps.Keys(labels))
+
+		promGauges[opts.Name] = prom
 	}
 
 	return prom.WithLabelValues(maps.Values(labels)...)
