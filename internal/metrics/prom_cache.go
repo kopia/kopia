@@ -48,7 +48,7 @@ func getPrometheusGauge(opts prometheus.GaugeOpts, labels map[string]string) pro
 		promGauges[opts.Name] = prom
 	}
 
-	return prom.WithLabelValues(maps.Values(labels)...)
+	return prom.With(labels)
 }
 
 func getPrometheusHistogram(opts prometheus.HistogramOpts, labels map[string]string) prometheus.Observer { //nolint:gocritic
