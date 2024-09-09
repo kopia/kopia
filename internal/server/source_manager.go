@@ -6,11 +6,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/notification/notifydata"
@@ -18,6 +17,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/upload"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -75,6 +75,13 @@ type sourceManager struct {
 	isReadOnly bool
 
 	progress *upload.CountingUploadProgress
+
+	// Metrics
+	lastSnapshotStartTime *metrics.Gauge
+	lastSnapshotEndTime   *metrics.Gauge
+	lastSnapshotSize      *metrics.Gauge
+	lastSnapshotFiles     *metrics.Gauge
+	lastSnapshotDirs      *metrics.Gauge
 }
 
 func (s *sourceManager) Status() *serverapi.SourceStatus {
@@ -473,6 +480,15 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 	} else {
 		s.nextSnapshotTime = s.findClosestNextSnapshotTimeReadLocked()
 	}
+
+	// Update metrics
+	if s.lastCompleteSnapshot != nil && s.rep.Metrics() != nil {
+		s.lastSnapshotStartTime.Set(s.lastCompleteSnapshot.StartTime.ToTime().Unix())
+		s.lastSnapshotEndTime.Set(s.lastCompleteSnapshot.EndTime.ToTime().Unix())
+		s.lastSnapshotSize.Set(s.lastCompleteSnapshot.Stats.TotalFileSize)
+		s.lastSnapshotFiles.Set(int64(s.lastCompleteSnapshot.RootEntry.DirSummary.TotalFileCount))
+		s.lastSnapshotDirs.Set(int64(s.lastCompleteSnapshot.RootEntry.DirSummary.TotalDirCount))
+	}
 }
 
 type uitaskProgress struct {
@@ -592,7 +608,8 @@ func (t *uitaskProgress) EstimationParameters() upload.EstimationParameters {
 	return t.p.EstimationParameters()
 }
 
-func newSourceManager(src snapshot.SourceInfo, server *Server, rep repo.Repository) *sourceManager {
+func newSourceManager(src snapshot.SourceInfo, server sourceManagerServerInterface, rep repo.Repository) *sourceManager {
+
 	m := &sourceManager{
 		src:              src,
 		rep:              rep,
@@ -601,6 +618,15 @@ func newSourceManager(src snapshot.SourceInfo, server *Server, rep repo.Reposito
 		closed:           make(chan struct{}),
 		snapshotRequests: make(chan struct{}, 1),
 		progress:         &upload.CountingUploadProgress{},
+	}
+
+	if rep.Metrics() != nil {
+		registry := rep.Metrics()
+		m.lastSnapshotStartTime = registry.GaugeInt64("last_snapshot_start_time", "Timestamp of the last snapshot start time", map[string]string{"host": m.src.Host, "username": m.src.UserName, "path": m.src.Path})
+		m.lastSnapshotEndTime = registry.GaugeInt64("last_snapshot_end_time", "Timestamp of the last snapshot end time", map[string]string{"host": m.src.Host, "username": m.src.UserName, "path": m.src.Path})
+		m.lastSnapshotSize = registry.GaugeInt64("last_snapshot_size", "Size of the last snapshot in bytes", map[string]string{"host": m.src.Host, "username": m.src.UserName, "path": m.src.Path})
+		m.lastSnapshotFiles = registry.GaugeInt64("last_snapshot_files", "Number of files in the last snapshot", map[string]string{"host": m.src.Host, "username": m.src.UserName, "path": m.src.Path})
+		m.lastSnapshotDirs = registry.GaugeInt64("last_snapshot_dirs", "Number of directories in the last snapshot", map[string]string{"host": m.src.Host, "username": m.src.UserName, "path": m.src.Path})
 	}
 
 	return m
