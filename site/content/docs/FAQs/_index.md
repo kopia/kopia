@@ -129,3 +129,75 @@ For more information on the `checkpoint interval`, please refer to the [command-
 #### What is a Kopia Repository Server?
 
 See the [Kopia Repository Server help docs](../repository-server) for more information.
+
+#### How do I automate backups?
+
+There are two main pathways to automated backups with kopia:
+
+1. Run kopia cli with a scheduling tool such as cron.
+1. Start kopia server, and use a policy to schedule backups.
+
+##### Running kopia cli with cron
+
+Most linux based systems have [cron](https://en.wikipedia.org/wiki/Cron) installed.
+This can be used to trigger kopia cli commands on a schedule.
+A simple backup script could look something like this:
+
+```bash
+#!/bin/bash
+# This script will backup the home directory for myusername
+kopia snapshot create /home/myusername
+```
+
+You'll need to make this script executable:
+
+```bash
+chmod +x /path/to/backup_script.sh
+```
+
+To schedule this script to run every day at 3am, you could add the following line to your crontab:
+
+```bash
+0 3 * * * /path/to/backup_script.sh
+```
+
+You may want to add logging to your script to capture any errors that occur or set it up notify you if a backup fails, etc.
+
+##### Running kopia server as a linux service
+
+If you are running kopia server, it will attempt to backup your files based on configured policies.
+
+Kopia server can be started with the following command:
+
+```bash
+kopia server start
+```
+
+> Note: (if you haven't setup SSL, you may need to use `kopia server start --insecure`)
+
+On linux, you can use [systemd](https://en.wikipedia.org/wiki/Systemd) to create and manage the kopia server service.
+
+Create a service file at `/etc/systemd/system/kopia.service` something like this:
+
+```bash
+[Unit]
+Description=Kopia Backup Service.
+
+[Service]
+ExecStart=/usr/bin/kopia server start --insecure
+Environment=HOME=/root
+
+[Install]
+WantedBy=multi-user.target
+```
+
+> Warning: This will run kopia as the root user and without ssl certificates, which may be a security risk.
+> You may want to create a dedicated user for kopia to run as, and setup ssl certificates.
+
+After creating the service file, you can start the service and set it to run on startup using the following commands:
+
+```bash
+systemctl daemon-reload
+systemctl enable kopia
+systemctl start kopia
+```
