@@ -26,7 +26,9 @@ type commandContentVerify struct {
 }
 
 func (c *commandContentVerify) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("verify", "Verify that each content is backed by a valid blob")
+	cmd := parent.Command("verify", "Verify that each content is backed by a valid blob. " +
+	    "Does **not** verify that all blobs for all existing snapshots do exist. " +
+	    "See also `kopia snapshot verify` and https://kopia.io/docs/advanced/consistency/ for details")
 
 	cmd.Flag("parallel", "Parallelism").Default("16").IntVar(&c.contentVerifyParallel)
 	cmd.Flag("full", "Full verification (including download)").BoolVar(&c.contentVerifyFull)
