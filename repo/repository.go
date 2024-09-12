@@ -48,7 +48,7 @@ type RepositoryWriter interface {
 	Repository
 
 	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
-	ConcatenateObjects(ctx context.Context, objectIDs []object.ID, comp compression.Name) (object.ID, error)
+	ConcatenateObjects(ctx context.Context, objectIDs []object.ID, opt ConcatenateOptions) (object.ID, error)
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	ReplaceManifests(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
@@ -180,10 +180,15 @@ func (r *directRepository) NewObjectWriter(ctx context.Context, opt object.Write
 	return r.omgr.NewWriter(ctx, opt)
 }
 
+// ConcatenateOptions describes options for concatenating objects.
+type ConcatenateOptions struct {
+	Compressor compression.Name
+}
+
 // ConcatenateObjects creates a concatenated objects from the provided object IDs.
-func (r *directRepository) ConcatenateObjects(ctx context.Context, objectIDs []object.ID, comp compression.Name) (object.ID, error) {
+func (r *directRepository) ConcatenateObjects(ctx context.Context, objectIDs []object.ID, opt ConcatenateOptions) (object.ID, error) {
 	//nolint:wrapcheck
-	return r.omgr.Concatenate(ctx, objectIDs, comp)
+	return r.omgr.Concatenate(ctx, objectIDs, opt.Compressor)
 }
 
 // DisableIndexRefresh disables index refresh for the duration of the write session.

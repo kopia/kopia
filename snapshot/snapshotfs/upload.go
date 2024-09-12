@@ -221,7 +221,7 @@ func concatenateParts(ctx context.Context, rep repo.RepositoryWriter, name strin
 		objectIDs = append(objectIDs, part.ObjectID)
 	}
 
-	resultObject, err := rep.ConcatenateObjects(ctx, objectIDs, metadataComp)
+	resultObject, err := rep.ConcatenateObjects(ctx, objectIDs, repo.ConcatenateOptions{Compressor: metadataComp})
 	if err != nil {
 		return nil, errors.Wrap(err, "concatenate")
 	}
