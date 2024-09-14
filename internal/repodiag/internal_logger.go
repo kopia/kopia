@@ -12,7 +12,6 @@ import (
 )
 
 // internalLogger represents a single log session that saves log files as blobs in the repository.
-// The logger starts disabled and to actually persist logs enable() must be called.
 type internalLogger struct {
 	nextChunkNumber atomic.Int32
 
