@@ -52,7 +52,7 @@ func (m *LogManager) NewLogger() *zap.SugaredLogger {
 
 	rand.Read(rnd[:]) //nolint:errcheck
 
-	w := &internalLogger{
+	w := &logWriteSyncer{
 		m:      m,
 		prefix: blob.ID(fmt.Sprintf("%v%v_%x", LogBlobPrefix, clock.Now().Local().Format("20060102150405"), rnd)),
 	}
