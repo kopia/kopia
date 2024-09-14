@@ -30,7 +30,7 @@ type LogManager struct {
 	// repository asynchronously when the context is not provided.
 	ctx context.Context //nolint:containedctx
 
-	writer *Writer
+	writer *BlobWriter
 
 	timeFunc       func() time.Time
 	flushThreshold int
@@ -73,7 +73,7 @@ func (m *LogManager) Enable() {
 }
 
 // NewLogManager creates a new LogManager that will emit logs as repository blobs.
-func NewLogManager(ctx context.Context, w *Writer) *LogManager {
+func NewLogManager(ctx context.Context, w *BlobWriter) *LogManager {
 	return &LogManager{
 		ctx:            ctx,
 		writer:         w,
