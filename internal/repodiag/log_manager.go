@@ -24,7 +24,9 @@ const LogBlobPrefix = "_log_"
 
 // LogManager manages writing encrypted log blobs to the repository.
 type LogManager struct {
-	enabled atomic.Bool // set by enable(), logger is ineffective until called
+	// Set by Enable(). Log blobs are not written to the repository until
+	// Enable() is called.
+	enabled atomic.Bool
 
 	// InternalLogManager implements io.Writer and we must be able to write to the
 	// repository asynchronously when the context is not provided.
@@ -50,7 +52,7 @@ func (m *LogManager) NewLogger() *zap.SugaredLogger {
 
 	rand.Read(rnd[:]) //nolint:errcheck
 
-	w := &internalLogger{
+	w := &logWriteSyncer{
 		m:      m,
 		prefix: blob.ID(fmt.Sprintf("%v%v_%x", LogBlobPrefix, clock.Now().Local().Format("20060102150405"), rnd)),
 	}
@@ -63,7 +65,8 @@ func (m *LogManager) NewLogger() *zap.SugaredLogger {
 		w, zap.DebugLevel), zap.WithClock(zaplogutil.Clock())).Sugar()
 }
 
-// Enable enables writing any buffered logs to repository.
+// Enable enables writing log blobs to repository.
+// Logs are not written to the repository until Enable is called.
 func (m *LogManager) Enable() {
 	if m == nil {
 		return

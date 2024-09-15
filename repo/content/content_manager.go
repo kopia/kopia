@@ -735,7 +735,7 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 		return pp, nil
 	}
 
-	bm.repoLogManager.Enable()
+	bm.repoLogManager.Enable() // signal to the log manager that a write operation will be attempted so it is OK to write log blobs to the repo
 
 	b := gather.NewWriteBuffer()
 
