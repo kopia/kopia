@@ -3,6 +3,7 @@ package metrics_test
 import (
 	"testing"
 
+	"github.com/prometheus/client_golang/prometheus"
 	prommodel "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/require"
 
@@ -80,4 +81,44 @@ func TestGauge_WithMultipleLabels(t *testing.T) {
 	require.Equal(t, 44.0,
 		mustFindMetric(t, "kopia_last_snapshot_start_time", prommodel.MetricType_GAUGE, map[string]string{"host": "host2", "username": "user2", "path": "path2"}).
 			GetGauge().GetValue())
+}
+
+func TestGauge_RemoveGauge(t *testing.T) {
+	e := metrics.NewRegistry()
+	gauge := e.GaugeInt64("test_gauge", "test-help", nil)
+
+	// Set a value to ensure the gauge is created
+	gauge.Set(42)
+
+	// Verify the gauge exists in the registry
+	require.NotNil(t, e.GaugeInt64("test_gauge", "test-help", nil))
+
+	// Verify the gauge exist in proemetheus registry
+	metrics, err := prometheus.DefaultGatherer.Gather()
+	require.NoError(t, err)
+
+	found := false
+	for _, m := range metrics {
+		if *m.Name == "kopia_test_gauge" {
+			found = true
+			break
+		}
+	}
+	require.True(t, found)
+
+	// Remove the gauge
+	e.RemoveGauge(gauge)
+
+	// Verify the gauge is removed from the registry
+	require.False(t, e.HasGauge("test_gauge", nil))
+
+	// Verify the gauge is removed from Prometheus registry
+	metrics, err = prometheus.DefaultGatherer.Gather()
+	require.NoError(t, err)
+
+	for _, m := range metrics {
+		if *m.Name == "kopia_test_gauge" {
+			t.Errorf("gauge was not removed from Prometheus registry")
+		}
+	}
 }
