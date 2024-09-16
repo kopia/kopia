@@ -33,6 +33,24 @@ func (g *Gauge) Add(v int64) {
 	g.state.Add(v)
 }
 
+// RemoveGauge removes the gauge from the registry.
+func (r *Registry) RemoveGauge(g *Gauge) {
+	if r == nil || g == nil {
+		return
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	for fullName, gauge := range r.allGauges {
+		if gauge == g {
+			delete(r.allGauges, fullName)
+			prometheus.Unregister(g.prom)
+			return
+		}
+	}
+}
+
 // newState initializes gauge state and returns previous state or nil.
 func (g *Gauge) newState() int64 {
 	return g.state.Swap(0)
@@ -76,4 +94,11 @@ func (r *Registry) GaugeInt64(name, help string, labels map[string]string) *Gaug
 	}
 
 	return g
+}
+
+// Check if gauge exist in allGauges map
+func (r *Registry) HasGauge(name string, labels map[string]string) bool {
+	fullName := name + labelsSuffix(labels)
+	_, ok := r.allGauges[fullName]
+	return ok
 }
