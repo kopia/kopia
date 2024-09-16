@@ -8,6 +8,7 @@ const (
 	serverOutputCertSHA256      = "SERVER CERT SHA256: "
 	serverOutputPassword        = "SERVER PASSWORD: "
 	serverOutputControlPassword = "SERVER CONTROL PASSWORD: "
+	serverOutputMetricsAddress  = "starting prometheus metrics on "
 )
 
 // ServerParameters encapsulates parameters captured by processing stderr of
@@ -17,6 +18,7 @@ type ServerParameters struct {
 	SHA256Fingerprint     string
 	Password              string
 	ServerControlPassword string
+	MetricsAddress        string
 }
 
 // ProcessOutput processes output lines from a server that's starting up.
@@ -36,6 +38,10 @@ func (s *ServerParameters) ProcessOutput(l string) bool {
 
 	if strings.HasPrefix(l, serverOutputControlPassword) {
 		s.ServerControlPassword = strings.TrimPrefix(l, serverOutputControlPassword)
+	}
+
+	if strings.HasPrefix(l, serverOutputMetricsAddress) {
+		s.MetricsAddress = strings.TrimPrefix(l, serverOutputMetricsAddress)
 	}
 
 	return true
