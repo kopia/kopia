@@ -1170,7 +1170,6 @@ func uploadDirInternal(
 
 		return newDirEntryWithSummary(directory, oid, checkpointManifest.Summary)
 	})
-
 	defer thisCheckpointRegistry.removeCheckpointCallback(directory.Name())
 
 	if err := u.processChildren(ctx, childCheckpointRegistry, thisDirBuilder, localDirPathOrEmpty, dirRelativePath, directory, policyTree, uniqueDirectories(previousDirs)); err != nil && !errors.Is(err, errCanceled) {
