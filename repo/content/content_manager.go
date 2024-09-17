@@ -40,11 +40,6 @@ const (
 	DefaultIndexVersion = 2
 )
 
-// ManifestContentPrefix is the prefix of the content id for manifests.
-const (
-	ManifestContentPrefix = "m"
-)
-
 var tracer = otel.Tracer("kopia/content")
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
@@ -264,15 +259,6 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 
 	var compressedAndEncrypted gather.WriteBuffer
 	defer compressedAndEncrypted.Close()
-
-	// If the content is prefixed (which represents Kopia's own metadata as opposed to user data),
-	// and we're on V2 format or greater, enable internal compression even when not requested.
-	// Set compression only for manifest metadata.
-	// TODO: Remove this check once metadata compression setting is implemented for manifest metadata.
-	if contentID.HasPrefix() && contentID.Prefix() == ManifestContentPrefix && comp == NoCompression && mp.IndexVersion >= index.Version2 {
-		// 'zstd-fastest' has a good mix of being fast, low memory usage and high compression for JSON.
-		comp = compression.HeaderZstdFastest
-	}
 
 	// encrypt and compress before taking lock
 	actualComp, err := bm.maybeCompressAndEncryptDataForPacking(data, contentID, comp, &compressedAndEncrypted, mp)

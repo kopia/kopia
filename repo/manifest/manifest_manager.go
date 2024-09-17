@@ -23,14 +23,18 @@ import (
 const (
 	manifestLoadParallelism = 8
 	manifestIDLength        = 16
-
-	autoCompactionContentCountDefault = 16
 )
 
 var log = logging.Module("kopia/manifest") // +checklocksignore
 
 // ErrNotFound is returned when the metadata item is not found.
 var ErrNotFound = errors.New("not found")
+
+// ContentPrefix is the prefix of the content id for manifests.
+const (
+	ContentPrefix                     = "m"
+	autoCompactionContentCountDefault = 16
+)
 
 // TypeLabelKey is the label key for manifest type.
 const TypeLabelKey = "type"

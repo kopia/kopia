@@ -721,7 +721,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 	}
 
 	// we will be writing asynchronously and server will reject this write, fail early.
-	if prefix == content.ManifestContentPrefix {
+	if prefix == manifest.ContentPrefix {
 		return content.EmptyID, errors.Errorf("writing manifest contents not allowed")
 	}
 

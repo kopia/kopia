@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
 )
@@ -117,7 +118,8 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 	mustSucceed(gz.Flush())
 	mustSucceed(gz.Close())
 
-	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), content.ManifestContentPrefix, content.NoCompression)
+	// TODO: Configure manifest metadata compression with Policy setting
+	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), ContentPrefix, compression.HeaderZstdFastest)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to write content")
 	}
@@ -145,7 +147,7 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 		manifests = map[content.ID]manifest{}
 
 		err := m.b.IterateContents(ctx, content.IterateOptions{
-			Range:    index.PrefixRange(content.ManifestContentPrefix),
+			Range:    index.PrefixRange(ContentPrefix),
 			Parallel: manifestLoadParallelism,
 		}, func(ci content.Info) error {
 			man, err := loadManifestContent(ctx, m.b, ci.ContentID)
