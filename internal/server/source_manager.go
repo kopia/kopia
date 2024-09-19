@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/clock"
@@ -16,7 +18,6 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -199,7 +200,6 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 				s.setStatus("PENDING")
 
 				if err := s.server.runSnapshotTask(ctx, s.src, s.snapshotInternal); err != nil {
-
 					s.backoffBeforeNextSnapshot()
 				} else {
 					s.refreshStatus(ctx)
@@ -295,6 +295,17 @@ func (s *sourceManager) stop(ctx context.Context) {
 	}
 
 	close(s.closed)
+}
+
+func (s *sourceManager) removeMetrics() {
+	if s.rep.Metrics() != nil {
+		registry := s.rep.Metrics()
+		registry.RemoveGauge(s.lastSnapshotStartTime)
+		registry.RemoveGauge(s.lastSnapshotEndTime)
+		registry.RemoveGauge(s.lastSnapshotSize)
+		registry.RemoveGauge(s.lastSnapshotFiles)
+		registry.RemoveGauge(s.lastSnapshotDirs)
+	}
 }
 
 func (s *sourceManager) waitUntilStopped() {
@@ -463,8 +474,8 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 		s.lastSnapshotStartTime.Set(s.lastCompleteSnapshot.StartTime.ToTime().Unix())
 		s.lastSnapshotEndTime.Set(s.lastCompleteSnapshot.EndTime.ToTime().Unix())
 		s.lastSnapshotSize.Set(s.lastCompleteSnapshot.Stats.TotalFileSize)
-		s.lastSnapshotFiles.Set(int64(s.lastCompleteSnapshot.RootEntry.DirSummary.TotalFileCount))
-		s.lastSnapshotDirs.Set(int64(s.lastCompleteSnapshot.RootEntry.DirSummary.TotalDirCount))
+		s.lastSnapshotFiles.Set(s.lastCompleteSnapshot.RootEntry.DirSummary.TotalFileCount)
+		s.lastSnapshotDirs.Set(s.lastCompleteSnapshot.RootEntry.DirSummary.TotalDirCount)
 	}
 }
 
@@ -576,7 +587,6 @@ func (t *uitaskProgress) EstimatedDataSize(fileCount int, totalBytes int64) {
 }
 
 func newSourceManager(src snapshot.SourceInfo, server sourceManagerServerInterface, rep repo.Repository) *sourceManager {
-
 	m := &sourceManager{
 		src:              src,
 		rep:              rep,

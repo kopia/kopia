@@ -672,6 +672,7 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 	// stop source manager for sources no longer in the repo.
 	for _, sm := range oldSourceManagers {
 		sm.stop(ctx)
+		sm.removeMetrics() // Remove metrics for the source manager
 	}
 
 	for src, sm := range oldSourceManagers {
