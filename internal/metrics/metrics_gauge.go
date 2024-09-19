@@ -46,6 +46,7 @@ func (r *Registry) RemoveGauge(g *Gauge) {
 		if gauge == g {
 			delete(r.allGauges, fullName)
 			prometheus.Unregister(g.prom)
+
 			return
 		}
 	}
@@ -96,9 +97,10 @@ func (r *Registry) GaugeInt64(name, help string, labels map[string]string) *Gaug
 	return g
 }
 
-// Check if gauge exist in allGauges map
+// HasGauge returns true if gauge exist in allGauges map.
 func (r *Registry) HasGauge(name string, labels map[string]string) bool {
 	fullName := name + labelsSuffix(labels)
 	_, ok := r.allGauges[fullName]
+
 	return ok
 }
