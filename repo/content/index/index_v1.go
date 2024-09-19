@@ -284,8 +284,8 @@ func (b Builder) buildV1(output io.Writer) error {
 	header := make([]byte, v1HeaderSize)
 	header[0] = 1 // version
 	header[1] = byte(b1.keyLength)
-	binary.BigEndian.PutUint16(header[2:4], uint16(b1.entryLength))
-	binary.BigEndian.PutUint32(header[4:8], uint32(b1.entryCount))
+	binary.BigEndian.PutUint16(header[2:4], uint16(b1.entryLength)) //nolint:gosec
+	binary.BigEndian.PutUint32(header[4:8], uint32(b1.entryCount))  //nolint:gosec
 
 	if _, err := w.Write(header); err != nil {
 		return errors.Wrap(err, "unable to write header")
@@ -319,13 +319,13 @@ func (b *indexBuilderV1) prepareExtraData(allContents []Info) []byte {
 
 		if it.PackBlobID != "" {
 			if _, ok := b.packBlobIDOffsets[it.PackBlobID]; !ok {
-				b.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData))
+				b.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData)) //nolint:gosec
 				extraData = append(extraData, []byte(it.PackBlobID)...)
 			}
 		}
 	}
 
-	b.extraDataOffset = uint32(v1HeaderSize + b.entryCount*(b.keyLength+b.entryLength))
+	b.extraDataOffset = uint32(v1HeaderSize + b.entryCount*(b.keyLength+b.entryLength)) //nolint:gosec
 
 	return extraData
 }

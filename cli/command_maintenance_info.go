@@ -72,6 +72,10 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 		c.out.printStdout("Object Lock Extension: disabled\n")
 	}
 
+	if p.ListParallelism != 0 {
+		c.out.printStdout("List parallelism: %v\n", p.ListParallelism)
+	}
+
 	c.out.printStdout("Recent Maintenance Runs:\n")
 
 	for run, timings := range s.Runs {

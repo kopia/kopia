@@ -186,7 +186,7 @@ func (p *CountingUploadProgress) UploadedBytes(numBytes int64) {
 // EstimatedDataSize implements UploadProgress.
 func (p *CountingUploadProgress) EstimatedDataSize(numFiles int, numBytes int64) {
 	atomic.StoreInt64(&p.counters.EstimatedBytes, numBytes)
-	atomic.StoreInt32(&p.counters.EstimatedFiles, int32(numFiles))
+	atomic.StoreInt32(&p.counters.EstimatedFiles, int32(numFiles)) //nolint:gosec
 }
 
 // HashedBytes implements UploadProgress.

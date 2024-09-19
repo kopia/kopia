@@ -175,11 +175,11 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 		return errors.Errorf("unable to find valid postamble in file %v", packFile)
 	}
 
-	if uint32(offset) > postamble.localIndexOffset {
+	if uint32(offset) > postamble.localIndexOffset { //nolint:gosec
 		return errors.Errorf("not enough data read during optimized attempt %v", packFile)
 	}
 
-	postamble.localIndexOffset -= uint32(offset)
+	postamble.localIndexOffset -= uint32(offset) //nolint:gosec
 
 	if uint64(postamble.localIndexOffset+postamble.localIndexLength) > uint64(payload.Length()) {
 		// invalid offset/length

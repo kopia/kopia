@@ -309,10 +309,10 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		Deleted:          isDeleted,
 		ContentID:        contentID,
 		PackBlobID:       pp.packBlobID,
-		PackOffset:       uint32(pp.currentPackData.Length()),
+		PackOffset:       uint32(pp.currentPackData.Length()), //nolint:gosec
 		TimestampSeconds: bm.contentWriteTime(previousWriteTime),
 		FormatVersion:    byte(mp.Version),
-		OriginalLength:   uint32(data.Length()),
+		OriginalLength:   uint32(data.Length()), //nolint:gosec
 	}
 
 	if _, err := compressedAndEncrypted.Bytes().WriteTo(pp.currentPackData); err != nil {
@@ -321,7 +321,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	}
 
 	info.CompressionHeaderID = actualComp
-	info.PackedLength = uint32(pp.currentPackData.Length()) - info.PackOffset
+	info.PackedLength = uint32(pp.currentPackData.Length()) - info.PackOffset //nolint:gosec
 
 	pp.currentPackItems[contentID] = info
 
@@ -735,7 +735,7 @@ func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, pr
 		return pp, nil
 	}
 
-	bm.repoLogManager.Enable()
+	bm.repoLogManager.Enable() // signal to the log manager that a write operation will be attempted so it is OK to write log blobs to the repo
 
 	b := gather.NewWriteBuffer()
 

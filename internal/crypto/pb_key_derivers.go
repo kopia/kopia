@@ -30,7 +30,6 @@ func DeriveKeyFromPassword(password string, salt []byte, keySize int, algorithm 
 		return nil, errors.Errorf("unsupported key derivation algorithm: %v, supported algorithms %v", algorithm, supportedPBKeyDerivationAlgorithms())
 	}
 
-	//nolint:wrapcheck
 	return kd.deriveKeyFromPassword(password, salt, keySize)
 }
 

@@ -174,7 +174,7 @@ func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, _ []byte, output *gather
 	defer inputBuffer.Close()
 	inputBytes := inputBuffer.MakeContiguous(dataSizeInBlock * sizes.Blocks)
 
-	binary.BigEndian.PutUint32(inputBytes[:lengthSize], uint32(input.Length()))
+	binary.BigEndian.PutUint32(inputBytes[:lengthSize], uint32(input.Length())) //nolint:gosec
 	copied := input.AppendToSlice(inputBytes[lengthSize:lengthSize])
 
 	// WriteBuffer does not clear the data, so we must clear the padding

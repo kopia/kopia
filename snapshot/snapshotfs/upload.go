@@ -959,6 +959,7 @@ func (u *Uploader) processSingle(
 	}
 }
 
+//nolint:unparam
 func (u *Uploader) processEntryUploadResult(ctx context.Context, de *snapshot.DirEntry, err error, entryRelativePath string, parentDirBuilder *DirManifestBuilder, isIgnored bool, logDetail policy.LogDetail, logMessage string, t0 timetrack.Timer) error {
 	if err != nil {
 		u.reportErrorAndMaybeCancel(err, isIgnored, parentDirBuilder, entryRelativePath)

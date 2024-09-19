@@ -532,7 +532,7 @@ func makeEntryMetadataList(em []*manifest.EntryMetadata) []*grpcapi.ManifestEntr
 func makeEntryMetadata(em *manifest.EntryMetadata) *grpcapi.ManifestEntryMetadata {
 	return &grpcapi.ManifestEntryMetadata{
 		Id:           string(em.ID),
-		Length:       int32(em.Length),
+		Length:       int32(em.Length), //nolint:gosec
 		ModTimeNanos: em.ModTime.UnixNano(),
 		Labels:       em.Labels,
 	}
