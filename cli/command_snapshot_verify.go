@@ -30,7 +30,8 @@ type commandSnapshotVerify struct {
 func (c *commandSnapshotVerify) setup(svc appServices, parent commandParent) {
 	c.fileParallelism = runtime.NumCPU()
 
-	cmd := parent.Command("verify", "Verify the contents of stored snapshot")
+	cmd := parent.Command("verify", "Verify the contents of stored snapshot. " +
+	    "See also `kopia content verify` and https://kopia.io/docs/advanced/consistency/ for details")
 	cmd.Flag("max-errors", "Maximum number of errors before stopping").Default("0").IntVar(&c.verifyCommandErrorThreshold)
 	cmd.Flag("directory-id", "Directory object IDs to verify").StringsVar(&c.verifyCommandDirObjectIDs)
 	cmd.Flag("file-id", "File object IDs to verify").StringsVar(&c.verifyCommandFileObjectIDs)

@@ -10,6 +10,20 @@ Backing up data is great, but you also need to be able to restore that data when
 
 ### Verifying Validity of Snapshots 
 
+There are many verification methods, depending on what you need:
+
+In the order of lowest- to highest-level:
+
+1. [`kopia content verify`](../../reference/command-line/common/content-verify/) - will ensure that content manager index structures are correct and that every index entry is backed by an existing file
+
+2. `kopia content verify --download-percent=10` - same as above, but will download 10% of random contents and ensure they can be decrypted properly
+
+3. [`kopia snapshot verify`](../../reference/command-line/common/snapshot-verify/) - will ensure that directory structures in the repository are consistent by walking all files and directories in snapshots from their roots and performing equivalent of `kopia content verify` on all contents required to restore each file, but does not download the file. **This is done during every [daily full maintenance](../maintenance/), so you do not need to run the command yourself.**
+
+4. `kopia snapshot verify --verify-files-percent 10` - same as above but will also download random 10% of all files, this ensures that decryption and decompression is correct.
+
+In detail:
+
 The gold standard for testing the validity of backups is to simply [restore the snapshot](../../getting-started/); if restore is successful, then the backup is valid. However, in many situations it is not feasible to conduct a full restore of a snapshot, such as if you do not have enough local hard drive space to do a full restore or if the egress costs of your cloud storage are extremely high (e.g., Amazon S3 charges $0.09 per GB you download). 
 
 If you cannot, or do not want to, do a full test restore of your snapshots, Kopia enables you to verify the consistency/validity of your snapshots/repositories using the [`kopia snapshot verify` command](../../reference/command-line/common/snapshot-verify/). This command ensures that the directory structures in your repository are consistent by walking all files and directories in the snapshots from their roots; it verifies that the content manager index structures are correct and that every index entry is backed by an existing file. All of this is to ensure that your snapshots contain all the necessary metadata and blobs to restore each backed up file, should the need ever arise for you to restore your files.
