@@ -68,6 +68,7 @@ func TestGauge_WithLabels(t *testing.T) {
 		mustFindMetric(t, "kopia_some_gauge2", prommodel.MetricType_GAUGE, map[string]string{"key1": "label2"}).
 			GetGauge().GetValue())
 }
+
 func TestGauge_WithMultipleLabels(t *testing.T) {
 	e := metrics.NewRegistry()
 	gauge1 := e.GaugeInt64("last_snapshot_start_time", "Timestamp of the last snapshot start time", map[string]string{"host": "host1", "username": "user1", "path": "path1"})
@@ -94,12 +95,12 @@ func TestGauge_RemoveGauge(t *testing.T) {
 	require.NotNil(t, e.GaugeInt64("test_gauge", "test-help", nil))
 
 	// Verify the gauge exist in proemetheus registry
-	metrics, err := prometheus.DefaultGatherer.Gather()
+	m, err := prometheus.DefaultGatherer.Gather()
 	require.NoError(t, err)
 
 	found := false
-	for _, m := range metrics {
-		if *m.Name == "kopia_test_gauge" {
+	for _, m := range m {
+		if m.GetName() == "kopia_test_gauge" {
 			found = true
 			break
 		}
@@ -113,11 +114,11 @@ func TestGauge_RemoveGauge(t *testing.T) {
 	require.False(t, e.HasGauge("test_gauge", nil))
 
 	// Verify the gauge is removed from Prometheus registry
-	metrics, err = prometheus.DefaultGatherer.Gather()
+	m, err = prometheus.DefaultGatherer.Gather()
 	require.NoError(t, err)
 
-	for _, m := range metrics {
-		if *m.Name == "kopia_test_gauge" {
+	for _, m := range m {
+		if m.GetName() == "kopia_test_gauge" {
 			t.Errorf("gauge was not removed from Prometheus registry")
 		}
 	}
