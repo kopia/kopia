@@ -11,9 +11,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// internalLogger represents a single log session that saves log files as blobs in the repository.
-// The logger starts disabled and to actually persist logs enable() must be called.
-type internalLogger struct {
+// logWriteSyncer writes a sequence of log messages as blobs in the repository.
+type logWriteSyncer struct {
 	nextChunkNumber atomic.Int32
 
 	m  *LogManager
@@ -30,7 +29,7 @@ type internalLogger struct {
 	prefix blob.ID // +checklocksignore
 }
 
-func (l *internalLogger) Write(b []byte) (int, error) {
+func (l *logWriteSyncer) Write(b []byte) (int, error) {
 	if l != nil {
 		l.maybeEncryptAndWriteChunkUnlocked(l.addAndMaybeFlush(b))
 	}
@@ -38,7 +37,7 @@ func (l *internalLogger) Write(b []byte) (int, error) {
 	return len(b), nil
 }
 
-func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, closeFunc func()) {
+func (l *logWriteSyncer) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, closeFunc func()) {
 	if data.Length() == 0 {
 		closeFunc()
 		return
@@ -60,7 +59,7 @@ func (l *internalLogger) maybeEncryptAndWriteChunkUnlocked(data gather.Bytes, cl
 	l.m.encryptAndWriteLogBlob(prefix, data, closeFunc)
 }
 
-func (l *internalLogger) addAndMaybeFlush(b []byte) (payload gather.Bytes, closeFunc func()) {
+func (l *logWriteSyncer) addAndMaybeFlush(b []byte) (payload gather.Bytes, closeFunc func()) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -77,7 +76,7 @@ func (l *internalLogger) addAndMaybeFlush(b []byte) (payload gather.Bytes, close
 }
 
 // +checklocks:l.mu
-func (l *internalLogger) ensureWriterInitializedLocked() io.Writer {
+func (l *logWriteSyncer) ensureWriterInitializedLocked() io.Writer {
 	if l.gzw == nil {
 		l.buf = gather.NewWriteBuffer()
 		l.gzw = gzip.NewWriter(l.buf)
@@ -88,7 +87,7 @@ func (l *internalLogger) ensureWriterInitializedLocked() io.Writer {
 }
 
 // +checklocks:l.mu
-func (l *internalLogger) flushAndResetLocked() (payload gather.Bytes, closeFunc func()) {
+func (l *logWriteSyncer) flushAndResetLocked() (payload gather.Bytes, closeFunc func()) {
 	if l.gzw == nil {
 		return gather.Bytes{}, func() {}
 	}
@@ -105,13 +104,13 @@ func (l *internalLogger) flushAndResetLocked() (payload gather.Bytes, closeFunc 
 	return res, closeBuf
 }
 
-func (l *internalLogger) logUnexpectedError(err error) {
+func (l *logWriteSyncer) logUnexpectedError(err error) {
 	if err == nil {
 		return
 	}
 }
 
-func (l *internalLogger) Sync() error {
+func (l *logWriteSyncer) Sync() error {
 	l.mu.Lock()
 	data, closeFunc := l.flushAndResetLocked()
 	l.mu.Unlock()
