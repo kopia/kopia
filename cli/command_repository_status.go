@@ -160,8 +160,8 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 
 	switch cp, err := dr.BlobVolume().GetCapacity(ctx); {
 	case err == nil:
-		c.out.printStdout("Storage capacity:    %v\n", units.BytesString(int64(cp.SizeB)))
-		c.out.printStdout("Storage available:   %v\n", units.BytesString(int64(cp.FreeB)))
+		c.out.printStdout("Storage capacity:    %v\n", units.BytesString(cp.SizeB))
+		c.out.printStdout("Storage available:   %v\n", units.BytesString(cp.FreeB))
 	case errors.Is(err, blob.ErrNotAVolume):
 		c.out.printStdout("Storage capacity:    unbounded\n")
 	default:
@@ -190,7 +190,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 
 	c.outputRequiredFeatures(ctx, dr)
 
-	c.out.printStdout("Max pack length:     %v\n", units.BytesString(int64(mp.MaxPackSize)))
+	c.out.printStdout("Max pack length:     %v\n", units.BytesString(mp.MaxPackSize))
 	c.out.printStdout("Index Format:        v%v\n", mp.IndexVersion)
 
 	emgr, epochMgrEnabled, emerr := dr.ContentReader().EpochManager(ctx)

@@ -86,6 +86,7 @@ func untar(dir string, r io.Reader, stripPathComponents int) error {
 			}
 
 		case tar.TypeReg:
+			//nolint:gosec
 			if ferr := createFile(target, os.FileMode(header.Mode), header.ModTime, tr); ferr != nil {
 				return errors.Wrapf(ferr, "error creating file %v", target)
 			}

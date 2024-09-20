@@ -29,6 +29,7 @@ import (
 	"github.com/kopia/kopia/internal/stat"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testdirtree"
 	"github.com/kopia/kopia/tests/testenv"
@@ -42,33 +43,19 @@ const (
 	overriddenDirPermissions  = 0o752
 )
 
-type restoreProgressInvocation struct {
-	enqueuedCount, restoredCount, skippedCount, ignoredErrors int32
-	enqueuedBytes, restoredBytes, skippedBytes                int64
-}
-
 type fakeRestoreProgress struct {
 	mtx                  sync.Mutex
-	invocations          []restoreProgressInvocation
+	invocations          []restore.Stats
 	flushesCount         int
 	invocationAfterFlush bool
 }
 
-func (p *fakeRestoreProgress) SetCounters(
-	enqueuedCount, restoredCount, skippedCount, ignoredErrors int32,
-	enqueuedBytes, restoredBytes, skippedBytes int64,
-) {
+func (p *fakeRestoreProgress) SetCounters(s restore.Stats) {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
-	p.invocations = append(p.invocations, restoreProgressInvocation{
-		enqueuedCount: enqueuedCount,
-		restoredCount: restoredCount,
-		skippedCount:  skippedCount,
-		ignoredErrors: ignoredErrors,
-		enqueuedBytes: enqueuedBytes,
-		restoredBytes: restoredBytes,
-		skippedBytes:  skippedBytes,
-	})
+
+	p.invocations = append(p.invocations, s)
+
 	if p.flushesCount > 0 {
 		p.invocationAfterFlush = true
 	}

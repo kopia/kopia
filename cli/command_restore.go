@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
@@ -94,6 +95,12 @@ followed by the path of the directory for the contents to be restored.
 
 	unlimitedDepth = math.MaxInt32
 )
+
+// RestoreProgress is invoked to report progress during a restore.
+type RestoreProgress interface {
+	SetCounters(s restore.Stats)
+	Flush()
+}
 
 type restoreSourceTarget struct {
 	source        string
@@ -366,6 +373,21 @@ func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo
 	return rootEntry, nil
 }
 
+func (c *commandRestore) getRestoreProgress() RestoreProgress {
+	if rp := c.svc.getRestoreProgress(); rp != nil {
+		return rp
+	}
+
+	pf := c.svc.getProgress().progressFlags
+
+	return &cliRestoreProgress{
+		enableProgress:         pf.enableProgress,
+		out:                    pf.out,
+		progressUpdateInterval: pf.progressUpdateInterval,
+		eta:                    timetrack.Start(),
+	}
+}
+
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 	output, oerr := c.restoreOutput(ctx, rep)
 	if oerr != nil {
@@ -396,17 +418,9 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 			rootEntry = re
 		}
 
-		restoreProgress := c.svc.getRestoreProgress()
+		restoreProgress := c.getRestoreProgress()
 		progressCallback := func(ctx context.Context, stats restore.Stats) {
-			restoreProgress.SetCounters(
-				stats.EnqueuedFileCount+stats.EnqueuedDirCount+stats.EnqueuedSymlinkCount,
-				stats.RestoredFileCount+stats.RestoredDirCount+stats.RestoredSymlinkCount,
-				stats.SkippedCount,
-				stats.IgnoredErrorCount,
-				stats.EnqueuedTotalFileSize,
-				stats.RestoredTotalFileSize,
-				stats.SkippedTotalFileSize,
-			)
+			restoreProgress.SetCounters(stats)
 		}
 
 		st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{

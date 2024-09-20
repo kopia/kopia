@@ -53,7 +53,7 @@ func TestLogManager_AutoFlush(t *testing.T) {
 		var b [1024]byte
 
 		rand.Read(b[:])
-		l.Infof(hex.EncodeToString(b[:]))
+		l.Info(hex.EncodeToString(b[:]))
 	}
 
 	w.Wait(ctx)

@@ -145,10 +145,9 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
 
 	if pf, ok := f.(snapshot.HasDirEntryOrNil); ok {
-		switch de, err := pf.DirEntryOrNil(ctx); {
-		case err != nil:
+		if de, err := pf.DirEntryOrNil(ctx); err != nil {
 			return nil, errors.Wrap(err, "can't read placeholder")
-		case err == nil && de != nil:
+		} else if de != nil {
 			// We have read sufficient information from the shallow file's extended
 			// attribute to construct DirEntry.
 			_, err := u.repo.VerifyObject(ctx, de.ObjectID)
@@ -954,6 +953,7 @@ func (u *Uploader) processSingle(
 	}
 }
 
+//nolint:unparam
 func (u *Uploader) processEntryUploadResult(ctx context.Context, de *snapshot.DirEntry, err error, entryRelativePath string, parentDirBuilder *DirManifestBuilder, isIgnored bool, logDetail policy.LogDetail, logMessage string, t0 timetrack.Timer) error {
 	if err != nil {
 		u.reportErrorAndMaybeCancel(err, isIgnored, parentDirBuilder, entryRelativePath)
@@ -1073,10 +1073,9 @@ type dirReadError struct {
 
 func uploadShallowDirInternal(ctx context.Context, directory fs.Directory, u *Uploader) (*snapshot.DirEntry, error) {
 	if pf, ok := directory.(snapshot.HasDirEntryOrNil); ok {
-		switch de, err := pf.DirEntryOrNil(ctx); {
-		case err != nil:
+		if de, err := pf.DirEntryOrNil(ctx); err != nil {
 			return nil, errors.Wrapf(err, "error reading placeholder for %q", directory.Name())
-		case err == nil && de != nil:
+		} else if de != nil {
 			if _, err := u.repo.VerifyObject(ctx, de.ObjectID); err != nil {
 				return nil, errors.Wrapf(err, "invalid placeholder for %q contains foreign object.ID", directory.Name())
 			}

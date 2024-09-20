@@ -306,7 +306,7 @@ func newConcurrencyTest(st []blob.Storage, prefix blob.ID, opt Options) *concurr
 
 func (c *concurrencyTest) dataFromSeed(seed int64, buf []byte) []byte {
 	rnd := rand.New(rand.NewSource(seed)) //nolint:gosec
-	length := rnd.Int31n(int32(len(buf)))
+	length := rnd.Int31n(int32(len(buf))) //nolint:gosec
 	result := buf[0:length]
 	rnd.Read(result)
 

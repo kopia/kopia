@@ -39,6 +39,27 @@ func TestMaintenanceSetExtendObjectLocks(t *testing.T) {
 	require.False(t, mi.ExtendObjectLocks, "ExtendOjectLocks should be disabled.")
 }
 
+func TestMaintenanceSetListParallelism(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	var mi cli.MaintenanceInfo
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	require.NotContains(t, e.RunAndExpectSuccess(t, "maintenance", "info"), "List parallelism: 0")
+
+	e.RunAndExpectSuccess(t, "maintenance", "set", "--list-parallelism", "33")
+	require.Contains(t, e.RunAndExpectSuccess(t, "maintenance", "info"), "List parallelism: 33")
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
+	require.Equal(t, 33, mi.ListParallelism, "List parallelism should be set to 33.")
+
+	e.RunAndExpectSuccess(t, "maintenance", "set", "--list-parallelism", "0")
+	require.NotContains(t, e.RunAndExpectSuccess(t, "maintenance", "info"), "List parallelism: 0")
+}
+
 func (s *formatSpecificTestSuite) TestInvalidExtendRetainOptions(t *testing.T) {
 	var mi cli.MaintenanceInfo
 

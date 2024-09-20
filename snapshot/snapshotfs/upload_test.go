@@ -740,7 +740,7 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 
 	require.NoError(t, th.repo.Flush(ctx))
 
-	require.Greater(t, maxParallelCalls.Load(), int32(0))
+	require.Positive(t, maxParallelCalls.Load())
 }
 
 func randomBytes(n int64) []byte {

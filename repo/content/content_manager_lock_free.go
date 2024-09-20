@@ -144,7 +144,7 @@ func (sm *SharedManager) preparePackDataContent(mp format.MutableParameters, pp 
 		sb.AppendUint32(info.PackedLength)
 		sb.AppendString(" d:")
 		sb.AppendBoolean(info.Deleted)
-		sm.log.Debugf(sb.String())
+		sm.log.Debug(sb.String())
 
 		packFileIndex.Add(info)
 	}

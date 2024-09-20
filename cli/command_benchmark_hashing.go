@@ -42,7 +42,7 @@ func (c *commandBenchmarkHashing) run(ctx context.Context) error {
 	c.out.printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3d. %-20v %v / second", ndx, r.hash, units.BytesString(int64(r.throughput)))
+		c.out.printStdout("%3d. %-20v %v / second", ndx, r.hash, units.BytesString(r.throughput))
 
 		if c.optionPrint {
 			c.out.printStdout(",   --block-hash=%s", r.hash)
