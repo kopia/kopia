@@ -171,6 +171,79 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 	}
 }
 
+func TestSetMetricsPolicyFromFlags(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	for _, tc := range []struct {
+		name           string
+		startingPolicy *policy.MetricsPolicy
+		enableArg      string
+		expResult      *policy.MetricsPolicy
+		expErr         bool
+		expChangeCount int
+	}{
+		{
+			name:           "No flags provided, no starting policy",
+			startingPolicy: &policy.MetricsPolicy{},
+			expResult:      &policy.MetricsPolicy{},
+			expChangeCount: 0,
+		},
+		{
+			name:           "Enable metrics",
+			startingPolicy: &policy.MetricsPolicy{},
+			enableArg:      "true",
+			expResult: &policy.MetricsPolicy{
+				ExposeMetrics: policy.NewOptionalBool(true),
+			},
+			expChangeCount: 1,
+		},
+		{
+			name:           "Disable metrics",
+			startingPolicy: &policy.MetricsPolicy{ExposeMetrics: policy.NewOptionalBool(true)},
+			enableArg:      "false",
+			expResult: &policy.MetricsPolicy{
+				ExposeMetrics: policy.NewOptionalBool(false),
+			},
+			expChangeCount: 1,
+		},
+		{
+			name:           "Inherit metrics policy",
+			startingPolicy: &policy.MetricsPolicy{ExposeMetrics: policy.NewOptionalBool(true)},
+			enableArg:      "inherit",
+			expResult: &policy.MetricsPolicy{
+				ExposeMetrics: nil,
+			},
+			expChangeCount: 1,
+		},
+		{
+			name:           "Invalid input",
+			startingPolicy: &policy.MetricsPolicy{},
+			enableArg:      "invalid",
+			expResult:      &policy.MetricsPolicy{},
+			expErr:         true,
+			expChangeCount: 0,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			changeCount := 0
+
+			var pmf policyMetricsFlags
+
+			pmf.policyExposeMetrics = tc.enableArg
+
+			err := pmf.setMetricsPolicyFromFlags(ctx, tc.startingPolicy, &changeCount)
+			if tc.expErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, tc.expResult, tc.startingPolicy)
+			require.Equal(t, tc.expChangeCount, changeCount)
+		})
+	}
+}
+
 //nolint:maintidx
 func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 	ctx := testlogging.Context(t)

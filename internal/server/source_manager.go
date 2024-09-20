@@ -469,6 +469,11 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 		s.nextSnapshotTime = s.findClosestNextSnapshotTimeReadLocked()
 	}
 
+	// Do not expose metrics if the policy does not allow it.
+	if pol.MetricsPolicy.ExposeMetrics == nil || !*pol.MetricsPolicy.ExposeMetrics {
+		return
+	}
+
 	// Update metrics
 	if s.lastCompleteSnapshot != nil && s.rep.Metrics() != nil {
 		s.lastSnapshotStartTime.Set(s.lastCompleteSnapshot.StartTime.ToTime().Unix())
