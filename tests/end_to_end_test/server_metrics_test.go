@@ -93,4 +93,30 @@ func TestServerMetrics(t *testing.T) {
 	for _, path := range expectedPaths {
 		require.Contains(t, metrics, fmt.Sprintf(`kopia_last_snapshot_dirs{host="fake-hostname",path=%q,username="fake-username"}`, path))
 	}
+
+	// Delete snapshot
+	e.RunAndExpectSuccess(t, "snapshot", "delete", "--all-snapshots-for-source", sharedTestDataDir2, "--delete")
+	e.RunAndExpectSuccess(t, "server", "refresh",
+		"--address", sp.BaseURL,
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
+		"--server-control-password", sp.ServerControlPassword,
+	)
+
+	sourceList, err := serverapi.ListSources(ctx, cli, nil)
+	require.NoError(t, err)
+
+	// Check 2nd source is deleted
+	require.Len(t, sourceList.Sources, 1)
+
+	req, err = http.NewRequestWithContext(ctx, http.MethodGet, "http://"+sp.MetricsAddress+"/metrics", http.NoBody)
+	require.NoError(t, err)
+	resp, err = client.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, err = io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	metrics = string(body)
+	require.Contains(t, metrics, fmt.Sprintf(`kopia_last_snapshot_dirs{host="fake-hostname",path=%q,username="fake-username"}`, sharedTestDataDir1))
+	require.NotContains(t, metrics, fmt.Sprintf(`kopia_last_snapshot_dirs{host="fake-hostname",path=%q,username="fake-username"}`, sharedTestDataDir2))
 }

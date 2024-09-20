@@ -38,7 +38,7 @@ func getPrometheusCounter(opts prometheus.CounterOpts, labels map[string]string)
 	return prom.WithLabelValues(mapValues(labels)...)
 }
 
-func getPrometheusGauge(opts prometheus.GaugeOpts, labels map[string]string) prometheus.Gauge {
+func getPrometheusGauge(opts prometheus.GaugeOpts, labels map[string]string) *prometheus.GaugeVec {
 	promCacheMutex.Lock()
 	defer promCacheMutex.Unlock()
 
@@ -49,7 +49,7 @@ func getPrometheusGauge(opts prometheus.GaugeOpts, labels map[string]string) pro
 		promGauges[opts.Name] = prom
 	}
 
-	return prom.With(labels)
+	return prom.MustCurryWith(prometheus.Labels(labels))
 }
 
 func getPrometheusHistogram(opts prometheus.HistogramOpts, labels map[string]string) prometheus.Observer { //nolint:gocritic

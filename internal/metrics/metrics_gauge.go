@@ -10,7 +10,7 @@ import (
 type Gauge struct {
 	state atomic.Int64
 
-	prom prometheus.Gauge
+	prom *prometheus.GaugeVec
 }
 
 // Set sets the gauge to a specific value.
@@ -19,7 +19,8 @@ func (g *Gauge) Set(v int64) {
 		return
 	}
 
-	g.prom.Set(float64(v))
+	g.prom.With(prometheus.Labels{}).Set(float64(v))
+
 	g.state.Store(v)
 }
 
@@ -29,7 +30,7 @@ func (g *Gauge) Add(v int64) {
 		return
 	}
 
-	g.prom.Add(float64(v))
+	g.prom.With(prometheus.Labels{}).Add(float64(v))
 	g.state.Add(v)
 }
 
@@ -45,7 +46,7 @@ func (r *Registry) RemoveGauge(g *Gauge) {
 	for fullName, gauge := range r.allGauges {
 		if gauge == g {
 			delete(r.allGauges, fullName)
-			prometheus.Unregister(g.prom)
+			g.prom.Delete(prometheus.Labels{})
 
 			return
 		}
