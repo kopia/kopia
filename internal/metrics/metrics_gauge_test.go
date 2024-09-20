@@ -21,6 +21,8 @@ func TestGauge_NoLabels(t *testing.T) {
 	e := metrics.NewRegistry()
 	gauge := e.GaugeInt64("some_gauge", "some-help", nil)
 
+	gauge.Set(0)
+
 	require.Equal(t, 0.0,
 		mustFindMetric(t, "kopia_some_gauge", prommodel.MetricType_GAUGE, nil).
 			GetGauge().GetValue())
@@ -43,6 +45,9 @@ func TestGauge_WithLabels(t *testing.T) {
 	e := metrics.NewRegistry()
 	gauge1 := e.GaugeInt64("some_gauge2", "some-help", map[string]string{"key1": "label1"})
 	gauge2 := e.GaugeInt64("some_gauge2", "some-help", map[string]string{"key1": "label2"})
+
+	gauge1.Set(0)
+	gauge2.Set(0)
 
 	require.Equal(t, 0.0,
 		mustFindMetric(t, "kopia_some_gauge2", prommodel.MetricType_GAUGE, map[string]string{"key1": "label1"}).
@@ -110,37 +115,37 @@ func TestGauge_RemoveGauge(t *testing.T) {
 
 func TestGauge_RemoveOneOfTwoGaugesWithLabels(t *testing.T) {
 	e := metrics.NewRegistry()
-	gauge1 := e.GaugeInt64("some_gauge", "test-help", map[string]string{"key1": "label1"})
-	gauge2 := e.GaugeInt64("some_gauge", "test-help", map[string]string{"key1": "label2"})
+	gauge1 := e.GaugeInt64("some_gauge_2", "test-help", map[string]string{"key1": "label1"})
+	gauge2 := e.GaugeInt64("some_gauge_2", "test-help", map[string]string{"key1": "label2"})
 
 	// Set values to ensure the gauges are created
 	gauge1.Set(42)
 	gauge2.Set(43)
 
 	// Verify the gauge exists in the registry
-	require.True(t, e.HasGauge("some_gauge", map[string]string{"key1": "label1"}))
-	require.True(t, e.HasGauge("some_gauge", map[string]string{"key1": "label2"}))
+	require.True(t, e.HasGauge("some_gauge_2", map[string]string{"key1": "label1"}))
+	require.True(t, e.HasGauge("some_gauge_2", map[string]string{"key1": "label2"}))
 
 	// Verify both gauges exist in prometheus registry
 	require.Equal(t, 42.0,
-		mustFindMetric(t, "kopia_some_gauge", prommodel.MetricType_GAUGE, map[string]string{"key1": "label1"}).
+		mustFindMetric(t, "kopia_some_gauge_2", prommodel.MetricType_GAUGE, map[string]string{"key1": "label1"}).
 			GetGauge().GetValue())
 	require.Equal(t, 43.0,
-		mustFindMetric(t, "kopia_some_gauge", prommodel.MetricType_GAUGE, map[string]string{"key1": "label2"}).
+		mustFindMetric(t, "kopia_some_gauge_2", prommodel.MetricType_GAUGE, map[string]string{"key1": "label2"}).
 			GetGauge().GetValue())
 
 	// Remove gauge1
 	e.RemoveGauge(gauge1)
 
 	// Verify gauge1 is removed from the registry
-	require.False(t, e.HasGauge("some_gauge", map[string]string{"key1": "label1"}))
+	require.False(t, e.HasGauge("some_gauge_2", map[string]string{"key1": "label1"}))
 
 	// Verify gauge1 is removed from Prometheus registry
-	mustNotFindMetric(t, "kopia_some_gauge", prommodel.MetricType_GAUGE, map[string]string{"key1": "label1"})
+	mustNotFindMetric(t, "kopia_some_gauge_2", prommodel.MetricType_GAUGE, map[string]string{"key1": "label1"})
 
 	// Verify gauge2 still exists in the registry
-	require.True(t, e.HasGauge("some_gauge", map[string]string{"key1": "label2"}))
+	require.True(t, e.HasGauge("some_gauge_2", map[string]string{"key1": "label2"}))
 
 	// Verify gauge2 still exists in Prometheus registry
-	require.NotNil(t, mustFindMetric(t, "kopia_some_gauge", prommodel.MetricType_GAUGE, map[string]string{"key1": "label2"}))
+	require.NotNil(t, mustFindMetric(t, "kopia_some_gauge_2", prommodel.MetricType_GAUGE, map[string]string{"key1": "label2"}))
 }
