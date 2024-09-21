@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -149,7 +150,16 @@ func (c *observabilityFlags) maybeStartListener(ctx context.Context) {
 
 	log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
 
-	go http.ListenAndServe(c.metricsListenAddr, m) //nolint:errcheck,gosec
+	listener, err := net.Listen("tcp", c.metricsListenAddr)
+	if err != nil {
+		log(ctx).Warnf("unable to start listener: %v", err)
+		return
+	}
+
+	addr := listener.Addr().String()
+	log(ctx).Infof("starting prometheus metrics on %v", addr)
+
+	go http.Serve(listener, m) //nolint:errcheck,gosec
 }
 
 func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error {
