@@ -1,6 +1,7 @@
 package endtoend_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -68,20 +69,7 @@ func TestServerMetrics(t *testing.T) {
 
 	waitUntilServerStarted(ctx, t, controlClient)
 
-	// Check response on the captured metrics address
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+sp.MetricsAddress+"/metrics", http.NoBody)
-	require.NoError(t, err)
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	// Response body should not be empty
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.NotEmpty(t, body)
-	metrics := string(body)
+	metrics := getMetrics(ctx, t, sp.MetricsAddress)
 
 	// Define the expected paths
 	expectedPaths := []string{
@@ -108,15 +96,7 @@ func TestServerMetrics(t *testing.T) {
 	// Check 2nd source is deleted
 	require.Len(t, sourceList.Sources, 1)
 
-	req, err = http.NewRequestWithContext(ctx, http.MethodGet, "http://"+sp.MetricsAddress+"/metrics", http.NoBody)
-	require.NoError(t, err)
-	resp, err = client.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-	body, err = io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	metrics = string(body)
+	metrics = getMetrics(ctx, t, sp.MetricsAddress)
 	require.Contains(t, metrics, fmt.Sprintf(`kopia_last_snapshot_dirs{host="fake-hostname",path=%q,username="fake-username"}`, sharedTestDataDir1))
 	require.NotContains(t, metrics, fmt.Sprintf(`kopia_last_snapshot_dirs{host="fake-hostname",path=%q,username="fake-username"}`, sharedTestDataDir2))
 }
@@ -177,19 +157,7 @@ func TestServerMetricsWithGlobalDisablePolicy(t *testing.T) {
 	waitUntilServerStarted(ctx, t, controlClient)
 
 	// Check response on the captured metrics address
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+sp.MetricsAddress+"/metrics", http.NoBody)
-	require.NoError(t, err)
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-
-	// Response body should not be empty
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	require.NotEmpty(t, body)
-	metrics := string(body)
+	metrics := getMetrics(ctx, t, sp.MetricsAddress)
 
 	// Define the expected paths
 	expectedPaths := []string{
@@ -259,21 +227,26 @@ func TestServerMetricsWithSpecificDisablePolicy(t *testing.T) {
 	waitUntilServerStarted(ctx, t, controlClient)
 
 	// Check response on the captured metrics address
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+sp.MetricsAddress+"/metrics", http.NoBody)
+	metrics := getMetrics(ctx, t, sp.MetricsAddress)
+
+	// Only sharedTestDataDir should be present
+	require.Contains(t, metrics, fmt.Sprintf(`kopia_last_snapshot_dirs{host="fake-hostname",path=%q,username="fake-username"}`, sharedTestDataDir1))
+	require.NotContains(t, metrics, fmt.Sprintf(`kopia_last_snapshot_dirs{host="fake-hostname",path=%q,username="fake-username"}`, sharedTestDataDir2))
+}
+
+func getMetrics(ctx context.Context, t *testing.T, baseURL string) string {
+	t.Helper()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+baseURL+"/metrics", http.NoBody)
 	require.NoError(t, err)
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
-
 	// Response body should not be empty
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.NotEmpty(t, body)
-	metrics := string(body)
 
-	// Only sharedTestDataDir should be present
-	require.Contains(t, metrics, fmt.Sprintf(`kopia_last_snapshot_dirs{host="fake-hostname",path=%q,username="fake-username"}`, sharedTestDataDir1))
-	require.NotContains(t, metrics, fmt.Sprintf(`kopia_last_snapshot_dirs{host="fake-hostname",path=%q,username="fake-username"}`, sharedTestDataDir2))
+	return string(body)
 }
