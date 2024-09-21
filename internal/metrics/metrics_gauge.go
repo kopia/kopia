@@ -53,6 +53,13 @@ func (r *Registry) RemoveGauge(g *Gauge) {
 	}
 }
 
+// RemoveAllGauges remove all gauges from the registry.
+func (r *Registry) RemoveAllGauges() {
+	for _, gauge := range r.allGauges {
+		r.RemoveGauge(gauge)
+	}
+}
+
 // newState initializes gauge state and returns previous state or nil.
 func (g *Gauge) newState() int64 {
 	return g.state.Swap(0)
