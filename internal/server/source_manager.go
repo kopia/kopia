@@ -470,7 +470,7 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 	}
 
 	// Do not expose metrics if the policy does not allow it.
-	if pol.MetricsPolicy.ExposeMetrics == nil || !*pol.MetricsPolicy.ExposeMetrics {
+	if !pol.MetricsPolicy.ExposeMetrics.OrDefault(false) {
 		return
 	}
 
