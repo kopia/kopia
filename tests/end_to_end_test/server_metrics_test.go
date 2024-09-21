@@ -38,8 +38,8 @@ func TestServerMetrics(t *testing.T) {
 		"--random-password",
 		"--random-server-control-password",
 		"--tls-generate-cert",
-		"--tls-generate-rsa-key-size=2048",      // use shorter key size to speed up generation
-		"--metrics-listen-addr=localhost:10000", // enable metrics
+		"--tls-generate-rsa-key-size=2048",  // use shorter key size to speed up generation
+		"--metrics-listen-addr=localhost:0", // enable metrics
 	)
 
 	defer wait()
@@ -125,8 +125,8 @@ func TestServerMetricsWithGlobalDisablePolicy(t *testing.T) {
 		"--random-password",
 		"--random-server-control-password",
 		"--tls-generate-cert",
-		"--tls-generate-rsa-key-size=2048",      // use shorter key size to speed up generation
-		"--metrics-listen-addr=localhost:10000", // enable metrics
+		"--tls-generate-rsa-key-size=2048",  // use shorter key size to speed up generation
+		"--metrics-listen-addr=localhost:0", // enable metrics
 	)
 
 	defer wait()
@@ -195,8 +195,8 @@ func TestServerMetricsWithSpecificDisablePolicy(t *testing.T) {
 		"--random-password",
 		"--random-server-control-password",
 		"--tls-generate-cert",
-		"--tls-generate-rsa-key-size=2048",      // use shorter key size to speed up generation
-		"--metrics-listen-addr=localhost:10000", // enable metrics
+		"--tls-generate-rsa-key-size=2048",  // use shorter key size to speed up generation
+		"--metrics-listen-addr=localhost:0", // enable metrics
 	)
 
 	defer wait()
