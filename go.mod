@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/storage v1.43.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.14.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.7.0
-	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.4.0
+	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.4.1
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -62,17 +62,17 @@ require (
 	golang.org/x/sys v0.25.0
 	golang.org/x/term v0.24.0
 	golang.org/x/text v0.18.0
-	google.golang.org/api v0.197.0
-	google.golang.org/grpc v1.66.2
+	google.golang.org/api v0.198.0
+	google.golang.org/grpc v1.67.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
 )
 
 require (
 	cloud.google.com/go v0.115.1 // indirect
-	cloud.google.com/go/auth v0.9.3 // indirect
+	cloud.google.com/go/auth v0.9.4 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
-	cloud.google.com/go/compute/metadata v0.5.0 // indirect
+	cloud.google.com/go/compute/metadata v0.5.1 // indirect
 	cloud.google.com/go/iam v1.2.0 // indirect
 	github.com/Azure/azure-sdk-for-go/sdk/internal v1.10.0 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.2.2 // indirect
@@ -98,7 +98,7 @@ require (
 	github.com/goccy/go-json v0.10.3 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.1 // indirect
-	github.com/golang/glog v1.2.1 // indirect
+	github.com/golang/glog v1.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 // indirect
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
