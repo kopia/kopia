@@ -486,9 +486,6 @@ func handleShutdown(ctx context.Context, rc requestContext) (interface{}, *apiEr
 }
 
 func (s *Server) requestShutdown(ctx context.Context) {
-	// Workaround for passing tests
-	s.rep.Metrics().RemoveAllGauges()
-
 	if f := s.OnShutdown; f != nil {
 		go func() {
 			if err := f(ctx); err != nil {
