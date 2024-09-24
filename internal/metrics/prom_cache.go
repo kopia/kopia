@@ -20,7 +20,8 @@ var (
 	promCounters = map[string]*prometheus.CounterVec{}
 	// +checklocks:promCacheMutex
 	promHistograms = map[string]*prometheus.HistogramVec{}
-	promGauges     = map[string]*prometheus.GaugeVec{}
+	// +checklocks:promCacheMutex
+	promGauges = map[string]*prometheus.GaugeVec{}
 )
 
 func getPrometheusCounter(opts prometheus.CounterOpts, labels map[string]string) prometheus.Counter {
