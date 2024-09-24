@@ -478,7 +478,7 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 	if s.lastCompleteSnapshot != nil && s.rep.Metrics() != nil {
 		s.lastSnapshotStartTime.Set(s.lastCompleteSnapshot.StartTime.ToTime().Unix())
 		s.lastSnapshotEndTime.Set(s.lastCompleteSnapshot.EndTime.ToTime().Unix())
-		s.lastSnapshotSize.Set(s.lastCompleteSnapshot.Stats.TotalFileSize)
+		s.lastSnapshotSize.Set(atomic.LoadInt64(&s.lastCompleteSnapshot.Stats.TotalFileSize))
 		s.lastSnapshotFiles.Set(s.lastCompleteSnapshot.RootEntry.DirSummary.TotalFileCount)
 		s.lastSnapshotDirs.Set(s.lastCompleteSnapshot.RootEntry.DirSummary.TotalDirCount)
 	}
