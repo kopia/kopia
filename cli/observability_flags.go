@@ -148,8 +148,6 @@ func (c *observabilityFlags) maybeStartListener(ctx context.Context) {
 		m.HandleFunc("/debug/pprof/{cmd}", pprof.Index) // special handling for Gorilla mux, see https://stackoverflow.com/questions/30560859/cant-use-go-tool-pprof-with-an-existing-server/71032595#71032595
 	}
 
-	log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
-
 	listener, err := net.Listen("tcp", c.metricsListenAddr)
 	if err != nil {
 		log(ctx).Warnf("unable to start listener: %v", err)
