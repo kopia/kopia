@@ -119,6 +119,9 @@ func (r *Registry) Close(ctx context.Context) error {
 		return nil
 	}
 
+	// This helps e2e testing to have a clean prometheus registry
+	r.RemoveAllGauges()
+
 	releasable.Released("metric-registry", r)
 
 	return nil
