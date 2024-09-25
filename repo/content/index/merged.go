@@ -33,20 +33,20 @@ func (m Merged) Close() error {
 	return errors.Wrap(err, "closing index shards")
 }
 
-func contentInfoGreaterThanStruct(a, b Info) bool {
-	if l, r := a.TimestampSeconds, b.TimestampSeconds; l != r {
+func contentInfoGreaterThanStruct(a, b BuilderItem) bool {
+	if l, r := a.GetTimestampSeconds(), b.GetTimestampSeconds(); l != r {
 		// different timestamps, higher one wins
 		return l > r
 	}
 
-	if l, r := a.Deleted, b.Deleted; l != r {
+	if l, r := a.IsDeleted(), b.IsDeleted(); l != r {
 		// non-deleted is greater than deleted.
-		return !a.Deleted
+		return !a.IsDeleted()
 	}
 
 	// both same time, both deleted, we must ensure we always resolve to the same pack blob.
 	// since pack blobs are random and unique, simple lexicographic ordering will suffice.
-	return a.PackBlobID > b.PackBlobID
+	return a.GetPackBlobID() > b.GetPackBlobID()
 }
 
 // GetInfo returns information about a single content. If a content is not found, returns (false,nil).
