@@ -273,6 +273,10 @@ func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, s
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	_ = isCreate
 
+	if opt.BucketName == "" {
+		return nil, errors.New("bucket name must be specified")
+	}
+
 	scope := gcsclient.ScopeFullControl
 	if opt.ReadOnly {
 		scope = gcsclient.ScopeReadOnly
@@ -289,10 +293,6 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	cli, err := gcsclient.NewClient(ctx, clientOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create GCS client")
-	}
-
-	if opt.BucketName == "" {
-		return nil, errors.New("bucket name must be specified")
 	}
 
 	st := &gcsStorage{
