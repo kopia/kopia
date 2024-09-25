@@ -273,30 +273,20 @@ func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, s
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	_ = isCreate
 
-	var ts oauth2.TokenSource
-
-	var err error
-
 	scope := gcsclient.ScopeFullControl
 	if opt.ReadOnly {
 		scope = gcsclient.ScopeReadOnly
 	}
 
-	if sa := opt.ServiceAccountCredentialJSON; len(sa) > 0 {
-		ts, err = tokenSourceFromCredentialsJSON(ctx, sa, scope)
-	} else if sa := opt.ServiceAccountCredentialsFile; sa != "" {
-		ts, err = tokenSourceFromCredentialsFile(ctx, sa, scope)
-	} else {
-		ts, err = google.DefaultTokenSource(ctx, scope)
+	clientOptions := []option.ClientOption{option.WithScopes(scope)}
+
+	if j := opt.ServiceAccountCredentialJSON; len(j) > 0 {
+		clientOptions = append(clientOptions, option.WithCredentialsJSON(j))
+	} else if fn := opt.ServiceAccountCredentialsFile; fn != "" {
+		clientOptions = append(clientOptions, option.WithCredentialsFile(fn))
 	}
 
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize token source")
-	}
-
-	hc := oauth2.NewClient(ctx, ts)
-
-	cli, err := gcsclient.NewClient(ctx, option.WithHTTPClient(hc))
+	cli, err := gcsclient.NewClient(ctx, clientOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create GCS client")
 	}
