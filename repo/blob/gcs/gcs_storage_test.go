@@ -151,6 +151,17 @@ func gunzip(d []byte) ([]byte, error) {
 	return io.ReadAll(z)
 }
 
+func getEnvVarOrSkip(t *testing.T, envVarName string) string {
+	t.Helper()
+
+	v := os.Getenv(envVarName)
+	if v == "" {
+		t.Skipf("%q is not set", envVarName)
+	}
+
+	return v
+}
+
 func getCredJSONFromEnv(t *testing.T) []byte {
 	t.Helper()
 
