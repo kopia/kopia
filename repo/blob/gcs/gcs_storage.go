@@ -305,10 +305,15 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, errors.New("bucket name must be specified")
 	}
 
-	gcs := &gcsStorage{
+	st := &gcsStorage{
 		Options:       *opt,
 		storageClient: cli,
 		bucket:        cli.Bucket(opt.BucketName),
+	}
+
+	gcs, err := maybePointInTimeStore(ctx, st, opt.PointInTime)
+	if err != nil {
+		return nil, err
 	}
 
 	// verify GCS connection is functional by listing blobs in a bucket, which will fail if the bucket
