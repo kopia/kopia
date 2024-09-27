@@ -33,7 +33,7 @@ const (
 
 type bucketOpts struct {
 	bucket          string
-	credentialsFile string
+	credentialsJSON []byte
 	projectID       string
 	isLockedBucket  bool
 }
@@ -42,7 +42,7 @@ func createBucket(t *testing.T, opts bucketOpts) {
 	t.Helper()
 	ctx := context.Background()
 
-	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsFile(opts.credentialsFile))
+	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
 	if err != nil {
 		t.Fatalf("unable to create GCS client: %v", err)
 	}
@@ -75,7 +75,7 @@ func validateBucket(t *testing.T, opts bucketOpts) {
 	t.Helper()
 	ctx := context.Background()
 
-	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsFile(opts.credentialsFile))
+	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
 	if err != nil {
 		t.Fatalf("unable to create GCS client: %v", err)
 	}
@@ -151,6 +151,38 @@ func gunzip(d []byte) ([]byte, error) {
 	return io.ReadAll(z)
 }
 
+func getEnvVarOrSkip(t *testing.T, envVarName string) string {
+	t.Helper()
+
+	v := os.Getenv(envVarName)
+	if v == "" {
+		t.Skipf("%q is not set", envVarName)
+	}
+
+	return v
+}
+
+func getCredJSONFromEnv(t *testing.T) []byte {
+	t.Helper()
+
+	b64Data := os.Getenv(testBucketCredentialsJSONGzip)
+	if b64Data == "" {
+		t.Skip(testBucketCredentialsJSONGzip + "is not set")
+	}
+
+	credDataGZ, err := base64.StdEncoding.DecodeString(b64Data)
+	if err != nil {
+		t.Skip("skipping test because GCS credentials file can't be decoded")
+	}
+
+	credJSON, err := gunzip(credDataGZ)
+	if err != nil {
+		t.Skip("skipping test because GCS credentials file can't be unzipped")
+	}
+
+	return credJSON
+}
+
 func mustGetOptionsOrSkip(t *testing.T, prefix string) *gcs.Options {
 	t.Helper()
 
@@ -159,19 +191,9 @@ func mustGetOptionsOrSkip(t *testing.T, prefix string) *gcs.Options {
 		t.Skip("KOPIA_GCS_TEST_BUCKET not provided")
 	}
 
-	credDataGZ, err := base64.StdEncoding.DecodeString(os.Getenv(testBucketCredentialsJSONGzip))
-	if err != nil {
-		t.Skip("skipping test because GCS credentials file can't be decoded")
-	}
-
-	credData, err := gunzip(credDataGZ)
-	if err != nil {
-		t.Skip("skipping test because GCS credentials file can't be unzipped")
-	}
-
 	return &gcs.Options{
 		BucketName:                   bucket,
-		ServiceAccountCredentialJSON: credData,
+		ServiceAccountCredentialJSON: getCredJSONFromEnv(t),
 		Prefix:                       prefix,
 	}
 }

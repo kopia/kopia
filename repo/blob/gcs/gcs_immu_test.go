@@ -27,8 +27,8 @@ func TestGoogleStorageImmutabilityProtection(t *testing.T) {
 
 	opts := bucketOpts{
 		projectID:       os.Getenv(testBucketProjectID),
-		bucket:          os.Getenv(testImmutableBucketEnv),
-		credentialsFile: os.Getenv(testBucketCredentialsFile),
+		bucket:          getImmutableBucketNameOrSkip(t),
+		credentialsJSON: getCredJSONFromEnv(t),
 		isLockedBucket:  true,
 	}
 	createBucket(t, opts)
@@ -43,9 +43,9 @@ func TestGoogleStorageImmutabilityProtection(t *testing.T) {
 	newctx, cancel := context.WithCancel(ctx)
 	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	st, err := gcs.New(newctx, &gcs.Options{
-		BucketName:                    opts.bucket,
-		ServiceAccountCredentialsFile: opts.credentialsFile,
-		Prefix:                        prefix,
+		BucketName:                   opts.bucket,
+		ServiceAccountCredentialJSON: opts.credentialsJSON,
+		Prefix:                       prefix,
 	}, false)
 
 	cancel()
@@ -67,7 +67,7 @@ func TestGoogleStorageImmutabilityProtection(t *testing.T) {
 	}
 	err = st.PutBlob(ctx, dummyBlob, gather.FromSlice([]byte("x")), putOpts)
 	require.NoError(t, err)
-	cli := getGoogleCLI(t, opts.credentialsFile)
+	cli := getGoogleCLI(t, opts.credentialsJSON)
 
 	count := getBlobCount(ctx, t, st, dummyBlob[:1])
 	require.Equal(t, 1, count)
@@ -112,11 +112,11 @@ func TestGoogleStorageImmutabilityProtection(t *testing.T) {
 }
 
 // getGoogleCLI returns a separate client to verify things the Storage interface doesn't support.
-func getGoogleCLI(t *testing.T, credentialsFile string) *gcsclient.Client {
+func getGoogleCLI(t *testing.T, credentialsJSON []byte) *gcsclient.Client {
 	t.Helper()
 
 	ctx := context.Background()
-	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsFile(credentialsFile))
+	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(credentialsJSON))
 	if err != nil {
 		t.Fatalf("unable to create GCS client: %v", err)
 	}

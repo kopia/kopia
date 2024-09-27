@@ -35,9 +35,9 @@ func TestGetBlobVersionsFailsWhenVersioningDisabled(t *testing.T) {
 
 	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &gcs.Options{
-		BucketName:                    bucket,
-		ServiceAccountCredentialsFile: os.Getenv(testBucketCredentialsFile),
-		Prefix:                        prefix,
+		BucketName:                   bucket,
+		ServiceAccountCredentialJSON: getCredJSONFromEnv(t),
+		Prefix:                       prefix,
 	}
 	st, err := gcs.New(newctx, opts, false)
 	require.NoError(t, err)
@@ -59,8 +59,8 @@ func TestGetBlobVersions(t *testing.T) {
 	// must be with Versioning enabled.
 	bOpts := bucketOpts{
 		projectID:       os.Getenv(testBucketProjectID),
-		bucket:          os.Getenv(testImmutableBucketEnv),
-		credentialsFile: os.Getenv(testBucketCredentialsFile),
+		bucket:          getImmutableBucketNameOrSkip(t),
+		credentialsJSON: getCredJSONFromEnv(t),
 		isLockedBucket:  true,
 	}
 
@@ -76,9 +76,9 @@ func TestGetBlobVersions(t *testing.T) {
 
 	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &gcs.Options{
-		BucketName:                    bOpts.bucket,
-		ServiceAccountCredentialsFile: bOpts.credentialsFile,
-		Prefix:                        prefix,
+		BucketName:                   bOpts.bucket,
+		ServiceAccountCredentialJSON: bOpts.credentialsJSON,
+		Prefix:                       prefix,
 	}
 	st, err := gcs.New(newctx, opts, false)
 	require.NoError(t, err)
@@ -166,8 +166,8 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	// must be with Versioning enabled.
 	bOpts := bucketOpts{
 		projectID:       os.Getenv(testBucketProjectID),
-		bucket:          os.Getenv(testImmutableBucketEnv),
-		credentialsFile: os.Getenv(testBucketCredentialsFile),
+		bucket:          getImmutableBucketNameOrSkip(t),
+		credentialsJSON: getCredJSONFromEnv(t),
 		isLockedBucket:  true,
 	}
 
@@ -183,9 +183,9 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 
 	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &gcs.Options{
-		BucketName:                    bOpts.bucket,
-		ServiceAccountCredentialsFile: bOpts.credentialsFile,
-		Prefix:                        prefix,
+		BucketName:                   bOpts.bucket,
+		ServiceAccountCredentialJSON: bOpts.credentialsJSON,
+		Prefix:                       prefix,
 	}
 	st, err := gcs.New(newctx, opts, false)
 	require.NoError(t, err)
@@ -255,4 +255,10 @@ func putBlobs(ctx context.Context, cli blob.Storage, blobID blob.ID, blobs []str
 	}
 
 	return putTimes, nil
+}
+
+func getImmutableBucketNameOrSkip(t *testing.T) string {
+	t.Helper()
+
+	return getEnvVarOrSkip(t, testImmutableBucketEnv)
 }
