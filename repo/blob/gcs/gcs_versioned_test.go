@@ -59,7 +59,7 @@ func TestGetBlobVersions(t *testing.T) {
 	// must be with Versioning enabled.
 	bOpts := bucketOpts{
 		projectID:       os.Getenv(testBucketProjectID),
-		bucket:          os.Getenv(testImmutableBucketEnv),
+		bucket:          getImmutableBucketNameOrSkip(t),
 		credentialsJSON: getCredJSONFromEnv(t),
 		isLockedBucket:  true,
 	}
@@ -166,7 +166,7 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	// must be with Versioning enabled.
 	bOpts := bucketOpts{
 		projectID:       os.Getenv(testBucketProjectID),
-		bucket:          os.Getenv(testImmutableBucketEnv),
+		bucket:          getImmutableBucketNameOrSkip(t),
 		credentialsJSON: getCredJSONFromEnv(t),
 		isLockedBucket:  true,
 	}
@@ -255,4 +255,10 @@ func putBlobs(ctx context.Context, cli blob.Storage, blobID blob.ID, blobs []str
 	}
 
 	return putTimes, nil
+}
+
+func getImmutableBucketNameOrSkip(t *testing.T) string {
+	t.Helper()
+
+	return getEnvVarOrSkip(t, testImmutableBucketEnv)
 }

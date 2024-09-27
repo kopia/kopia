@@ -27,7 +27,7 @@ func TestGoogleStorageImmutabilityProtection(t *testing.T) {
 
 	opts := bucketOpts{
 		projectID:       os.Getenv(testBucketProjectID),
-		bucket:          os.Getenv(testImmutableBucketEnv),
+		bucket:          getImmutableBucketNameOrSkip(t),
 		credentialsJSON: getCredJSONFromEnv(t),
 		isLockedBucket:  true,
 	}
