@@ -22,7 +22,7 @@ For the context of Kopia protection, ransomware refers to viruses, trojans or ot
  * Kopia's Google Cloud Services (GCS) engine provides neither restricted access key nor object-lock support.
     * Google's S3 compatibility layer does not provide sufficient access controls to use these features, and thus Kopia cannot use
       the ransomware mitigation discussed on this page with GCS at this time.
-* Kopia's Azure storage engine supports object-locks for ransomware protection.
+* Kopia's Azure & Google storage engines support object-locks for ransomware protection.
 
 ### Using application keys to protect your data
 
@@ -127,3 +127,10 @@ When this is configured, the retention mode can be set to either compliance or g
 Follow [these steps](https://learn.microsoft.com/en-us/azure/storage/blobs/versioning-enable) to enable versioning on the storage account and [these steps](https://learn.microsoft.com/en-us/azure/storage/blobs/immutable-policy-configure-version-scope) to enable version-level immutability support on the container or related storage account.
 
 On Kopia side `--retention-mode COMPLIANCE --retention-period <retention time>` should be set like above. 
+
+### Google protection
+
+Kopia supports ransomware protection for Google in a similar manner to S3. The bucket must have both versioning and object retention enabled.
+When this is configured, the retention mode can be set to either compliance or governance mode. In both cases the blobs will be in [Locked](https://cloud.google.com/storage/docs/object-lock#overview) mode.
+
+On Kopia side `--retention-mode COMPLIANCE --retention-period <retention time>` should be set like above.
