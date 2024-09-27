@@ -128,7 +128,7 @@ func TestGCSStorageInvalid(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
-	bucket := os.Getenv(testBucketEnv)
+	bucket := getEnvVarOrSkip(t, testBucketEnv)
 
 	ctx := testlogging.Context(t)
 
@@ -165,10 +165,7 @@ func getEnvVarOrSkip(t *testing.T, envVarName string) string {
 func getCredJSONFromEnv(t *testing.T) []byte {
 	t.Helper()
 
-	b64Data := os.Getenv(testBucketCredentialsJSONGzip)
-	if b64Data == "" {
-		t.Skip(testBucketCredentialsJSONGzip + "is not set")
-	}
+	b64Data := getEnvVarOrSkip(t, testBucketCredentialsJSONGzip)
 
 	credDataGZ, err := base64.StdEncoding.DecodeString(b64Data)
 	if err != nil {
@@ -186,10 +183,7 @@ func getCredJSONFromEnv(t *testing.T) []byte {
 func mustGetOptionsOrSkip(t *testing.T, prefix string) *gcs.Options {
 	t.Helper()
 
-	bucket := os.Getenv(testBucketEnv)
-	if bucket == "" {
-		t.Skip("KOPIA_GCS_TEST_BUCKET not provided")
-	}
+	bucket := getEnvVarOrSkip(t, testBucketEnv)
 
 	return &gcs.Options{
 		BucketName:                   bucket,

@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -24,7 +23,7 @@ func TestGetBlobVersionsFailsWhenVersioningDisabled(t *testing.T) {
 	testutil.ProviderTest(t)
 
 	// must be with Versioning disabled.
-	bucket := os.Getenv(testBucketEnv)
+	bucket := getEnvVarOrSkip(t, testBucketEnv)
 
 	ctx := testlogging.Context(t)
 	data := make([]byte, 8)
@@ -58,7 +57,7 @@ func TestGetBlobVersions(t *testing.T) {
 
 	// must be with Versioning enabled.
 	bOpts := bucketOpts{
-		projectID:       os.Getenv(testBucketProjectID),
+		projectID:       getEnvVarOrSkip(t, testBucketProjectID),
 		bucket:          getImmutableBucketNameOrSkip(t),
 		credentialsJSON: getCredJSONFromEnv(t),
 		isLockedBucket:  true,
@@ -165,7 +164,7 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 
 	// must be with Versioning enabled.
 	bOpts := bucketOpts{
-		projectID:       os.Getenv(testBucketProjectID),
+		projectID:       getEnvVarOrSkip(t, testBucketProjectID),
 		bucket:          getImmutableBucketNameOrSkip(t),
 		credentialsJSON: getCredJSONFromEnv(t),
 		isLockedBucket:  true,

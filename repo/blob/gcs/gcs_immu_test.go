@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -26,7 +25,7 @@ func TestGoogleStorageImmutabilityProtection(t *testing.T) {
 	testutil.ProviderTest(t)
 
 	opts := bucketOpts{
-		projectID:       os.Getenv(testBucketProjectID),
+		projectID:       getEnvVarOrSkip(t, testBucketProjectID),
 		bucket:          getImmutableBucketNameOrSkip(t),
 		credentialsJSON: getCredJSONFromEnv(t),
 		isLockedBucket:  true,
