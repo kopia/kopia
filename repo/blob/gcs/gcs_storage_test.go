@@ -33,7 +33,7 @@ const (
 
 type bucketOpts struct {
 	bucket          string
-	credentialsFile string
+	credentialsJSON []byte
 	projectID       string
 	isLockedBucket  bool
 }
@@ -42,7 +42,7 @@ func createBucket(t *testing.T, opts bucketOpts) {
 	t.Helper()
 	ctx := context.Background()
 
-	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsFile(opts.credentialsFile))
+	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
 	if err != nil {
 		t.Fatalf("unable to create GCS client: %v", err)
 	}
@@ -75,7 +75,7 @@ func validateBucket(t *testing.T, opts bucketOpts) {
 	t.Helper()
 	ctx := context.Background()
 
-	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsFile(opts.credentialsFile))
+	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
 	if err != nil {
 		t.Fatalf("unable to create GCS client: %v", err)
 	}
