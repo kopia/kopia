@@ -105,14 +105,10 @@ func getCredJSONFromEnv(t *testing.T) []byte {
 	b64Data := getEnvVarOrSkip(t, testBucketCredentialsJSONGzip)
 
 	credDataGZ, err := base64.StdEncoding.DecodeString(b64Data)
-	if err != nil {
-		t.Skip("skipping test because GCS credentials file can't be decoded")
-	}
+	require.NoError(t, err, "GCS credentials env value can't be decoded")
 
 	credJSON, err := gunzip(credDataGZ)
-	if err != nil {
-		t.Skip("skipping test because GCS credentials file can't be unzipped")
-	}
+	require.NoError(t, err, "GCS credentials env can't be unzipped")
 
 	return credJSON
 }
