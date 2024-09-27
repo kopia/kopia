@@ -42,9 +42,7 @@ func createBucket(t *testing.T, opts bucketOpts) {
 	ctx := context.Background()
 
 	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
-	if err != nil {
-		t.Fatalf("unable to create GCS client: %v", err)
-	}
+	require.NoError(t, err, "unable to create GCS client")
 
 	attrs := &gcsclient.BucketAttrs{}
 
@@ -75,9 +73,7 @@ func validateBucket(t *testing.T, opts bucketOpts) {
 	ctx := context.Background()
 
 	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
-	if err != nil {
-		t.Fatalf("unable to create GCS client: %v", err)
-	}
+	require.NoError(t, err, "unable to create GCS client")
 
 	attrs, err := cli.Bucket(opts.bucket).Attrs(ctx)
 	require.NoError(t, err)
@@ -131,12 +127,11 @@ func TestGCSStorageInvalid(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	if _, err := gcs.New(ctx, &gcs.Options{
+	_, err := gcs.New(ctx, &gcs.Options{
 		BucketName:                   bucket + "-no-such-bucket",
 		ServiceAccountCredentialJSON: getCredJSONFromEnv(t),
-	}, false); err == nil {
-		t.Fatalf("unexpected success connecting to GCS, wanted error")
-	}
+	}, false)
+	require.Error(t, err, "unexpected success connecting to GCS, wanted error")
 }
 
 func gunzip(d []byte) ([]byte, error) {

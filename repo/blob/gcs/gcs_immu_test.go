@@ -116,9 +116,8 @@ func getGoogleCLI(t *testing.T, credentialsJSON []byte) *gcsclient.Client {
 
 	ctx := context.Background()
 	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(credentialsJSON))
-	if err != nil {
-		t.Fatalf("unable to create GCS client: %v", err)
-	}
+
+	require.NoError(t, err, "unable to create GCS client")
 
 	return cli
 }
