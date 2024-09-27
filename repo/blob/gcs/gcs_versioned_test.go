@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
+	gcsclient "cloud.google.com/go/storage"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/api/option"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -17,6 +20,13 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/gcs"
 )
+
+type bucketOpts struct {
+	bucket          string
+	credentialsJSON []byte
+	projectID       string
+	isLockedBucket  bool
+}
 
 func TestGetBlobVersionsFailsWhenVersioningDisabled(t *testing.T) {
 	t.Parallel()
@@ -254,6 +264,53 @@ func putBlobs(ctx context.Context, cli blob.Storage, blobID blob.ID, blobs []str
 	}
 
 	return putTimes, nil
+}
+
+func createBucket(t *testing.T, opts bucketOpts) {
+	t.Helper()
+	ctx := context.Background()
+
+	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
+	require.NoError(t, err, "unable to create GCS client")
+
+	attrs := &gcsclient.BucketAttrs{}
+
+	bucketHandle := cli.Bucket(opts.bucket)
+	if opts.isLockedBucket {
+		attrs.VersioningEnabled = true
+		bucketHandle = bucketHandle.SetObjectRetention(true)
+	}
+
+	err = bucketHandle.Create(ctx, opts.projectID, attrs)
+	if err == nil {
+		return
+	}
+
+	if strings.Contains(err.Error(), "The requested bucket name is not available") {
+		return
+	}
+
+	if strings.Contains(err.Error(), "Your previous request to create the named bucket succeeded and you already own it") {
+		return
+	}
+
+	t.Fatalf("issue creating bucket: %v", err)
+}
+
+func validateBucket(t *testing.T, opts bucketOpts) {
+	t.Helper()
+	ctx := context.Background()
+
+	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
+	require.NoError(t, err, "unable to create GCS client")
+
+	attrs, err := cli.Bucket(opts.bucket).Attrs(ctx)
+	require.NoError(t, err)
+
+	if opts.isLockedBucket {
+		require.True(t, attrs.VersioningEnabled)
+		require.Equal(t, "Enabled", attrs.ObjectRetentionMode)
+	}
 }
 
 func getImmutableBucketNameOrSkip(t *testing.T) string {

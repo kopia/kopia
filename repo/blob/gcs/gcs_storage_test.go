@@ -7,13 +7,10 @@ import (
 	"encoding/base64"
 	"io"
 	"os"
-	"strings"
 	"testing"
 
-	gcsclient "cloud.google.com/go/storage"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/api/option"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/providervalidation"
@@ -29,60 +26,6 @@ const (
 	testBucketCredentialsJSONGzip = "KOPIA_GCS_CREDENTIALS_JSON_GZIP"
 	testImmutableBucketEnv        = "KOPIA_GCS_TEST_IMMUTABLE_BUCKET"
 )
-
-type bucketOpts struct {
-	bucket          string
-	credentialsJSON []byte
-	projectID       string
-	isLockedBucket  bool
-}
-
-func createBucket(t *testing.T, opts bucketOpts) {
-	t.Helper()
-	ctx := context.Background()
-
-	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
-	require.NoError(t, err, "unable to create GCS client")
-
-	attrs := &gcsclient.BucketAttrs{}
-
-	bucketHandle := cli.Bucket(opts.bucket)
-	if opts.isLockedBucket {
-		attrs.VersioningEnabled = true
-		bucketHandle = bucketHandle.SetObjectRetention(true)
-	}
-
-	err = bucketHandle.Create(ctx, opts.projectID, attrs)
-	if err == nil {
-		return
-	}
-
-	if strings.Contains(err.Error(), "The requested bucket name is not available") {
-		return
-	}
-
-	if strings.Contains(err.Error(), "Your previous request to create the named bucket succeeded and you already own it") {
-		return
-	}
-
-	t.Fatalf("issue creating bucket: %v", err)
-}
-
-func validateBucket(t *testing.T, opts bucketOpts) {
-	t.Helper()
-	ctx := context.Background()
-
-	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
-	require.NoError(t, err, "unable to create GCS client")
-
-	attrs, err := cli.Bucket(opts.bucket).Attrs(ctx)
-	require.NoError(t, err)
-
-	if opts.isLockedBucket {
-		require.True(t, attrs.VersioningEnabled)
-		require.Equal(t, "Enabled", attrs.ObjectRetentionMode)
-	}
-}
 
 func TestCleanupOldData(t *testing.T) {
 	t.Parallel()
