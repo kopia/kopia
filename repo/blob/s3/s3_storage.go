@@ -45,6 +45,15 @@ func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64
 func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64, output blob.OutputBuffer) error {
 	output.Reset()
 
+	if s.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+
+		deadline := time.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
+
 	attempt := func() error {
 		opt := minio.GetObjectOptions{VersionID: version}
 
@@ -118,6 +127,15 @@ func (s *s3Storage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, 
 }
 
 func (s *s3Storage) getVersionMetadata(ctx context.Context, b blob.ID, version string) (versionMetadata, error) {
+	if s.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+
+		deadline := time.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
+
 	opts := minio.GetObjectOptions{
 		VersionID: version,
 	}
@@ -158,6 +176,15 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		retentionMode   minio.RetentionMode
 		retainUntilDate time.Time
 	)
+
+	if s.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+
+		deadline := time.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
 
 	if opts.RetentionPeriod != 0 {
 		retentionMode = minio.RetentionMode(opts.RetentionMode)
@@ -219,6 +246,15 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 }
 
 func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {
+	if s.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+
+		deadline := time.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
+	}
+
 	err := translateError(s.cli.RemoveObject(ctx, s.BucketName, s.getObjectNameString(b), minio.RemoveObjectOptions{}))
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
@@ -231,6 +267,15 @@ func (s *s3Storage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blo
 	retentionMode := minio.RetentionMode(opts.RetentionMode)
 	if !retentionMode.IsValid() {
 		return errors.Errorf("invalid retention mode: %q", opts.RetentionMode)
+	}
+
+	if s.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+
+		deadline := time.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
 	}
 
 	retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
