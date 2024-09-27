@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/readonly"
 )
@@ -120,6 +121,15 @@ func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
 func maybePointInTimeStore(ctx context.Context, s *s3Storage, pointInTime *time.Time) (blob.Storage, error) {
 	if pit := s.Options.PointInTime; pit == nil || pit.IsZero() {
 		return s, nil
+	}
+
+	if s.RequestTimeout > 0 {
+		var cancel context.CancelFunc
+
+		deadline := clock.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+
+		ctx, cancel = context.WithDeadline(ctx, deadline)
+		defer cancel()
 	}
 
 	// Does the bucket supports versioning?
