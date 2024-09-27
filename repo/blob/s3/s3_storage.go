@@ -48,7 +48,7 @@ func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version s
 	if s.RequestTimeout > 0 {
 		var cancel context.CancelFunc
 
-		deadline := time.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+		deadline := clock.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
 
 		ctx, cancel = context.WithDeadline(ctx, deadline)
 		defer cancel()
@@ -130,7 +130,7 @@ func (s *s3Storage) getVersionMetadata(ctx context.Context, b blob.ID, version s
 	if s.RequestTimeout > 0 {
 		var cancel context.CancelFunc
 
-		deadline := time.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+		deadline := clock.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
 
 		ctx, cancel = context.WithDeadline(ctx, deadline)
 		defer cancel()
@@ -180,7 +180,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	if s.RequestTimeout > 0 {
 		var cancel context.CancelFunc
 
-		deadline := time.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+		deadline := clock.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
 
 		ctx, cancel = context.WithDeadline(ctx, deadline)
 		defer cancel()
@@ -249,7 +249,7 @@ func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	if s.RequestTimeout > 0 {
 		var cancel context.CancelFunc
 
-		deadline := time.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+		deadline := clock.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
 
 		ctx, cancel = context.WithDeadline(ctx, deadline)
 		defer cancel()
@@ -272,7 +272,7 @@ func (s *s3Storage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blo
 	if s.RequestTimeout > 0 {
 		var cancel context.CancelFunc
 
-		deadline := time.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
+		deadline := clock.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
 
 		ctx, cancel = context.WithDeadline(ctx, deadline)
 		defer cancel()
