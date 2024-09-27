@@ -26,7 +26,6 @@ import (
 const (
 	testBucketEnv                 = "KOPIA_GCS_TEST_BUCKET"
 	testBucketProjectID           = "KOPIA_GCS_TEST_PROJECT_ID"
-	testBucketCredentialsFile     = "KOPIA_GCS_CREDENTIALS_FILE"
 	testBucketCredentialsJSONGzip = "KOPIA_GCS_CREDENTIALS_JSON_GZIP"
 	testImmutableBucketEnv        = "KOPIA_GCS_TEST_IMMUTABLE_BUCKET"
 )
@@ -133,8 +132,8 @@ func TestGCSStorageInvalid(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	if _, err := gcs.New(ctx, &gcs.Options{
-		BucketName:                    bucket + "-no-such-bucket",
-		ServiceAccountCredentialsFile: os.Getenv(testBucketCredentialsFile),
+		BucketName:                   bucket + "-no-such-bucket",
+		ServiceAccountCredentialJSON: getCredJSONFromEnv(t),
 	}, false); err == nil {
 		t.Fatalf("unexpected success connecting to GCS, wanted error")
 	}
