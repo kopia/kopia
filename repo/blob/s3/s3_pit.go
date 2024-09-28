@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/readonly"
 )
@@ -123,14 +122,8 @@ func maybePointInTimeStore(ctx context.Context, s *s3Storage, pointInTime *time.
 		return s, nil
 	}
 
-	if s.RequestTimeout > 0 {
-		var cancel context.CancelFunc
-
-		deadline := clock.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
-
-		ctx, cancel = context.WithDeadline(ctx, deadline)
-		defer cancel()
-	}
+	ctx, cancel := blob.WithRequestTimeout(ctx, s.RequestTimeout)
+	defer cancel()
 
 	// Does the bucket supports versioning?
 	vi, err := s.cli.GetBucketVersioning(ctx, s.BucketName)

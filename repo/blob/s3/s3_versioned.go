@@ -3,12 +3,10 @@ package s3
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -30,14 +28,8 @@ type versionMetadataCallback func(versionMetadata) error
 // bucket. Notice that when object locking is enabled in a bucket, object
 // versioning is enabled and cannot be suspended.
 func (s *s3Storage) IsVersioned(ctx context.Context) (bool, error) {
-	if s.RequestTimeout > 0 {
-		var cancel context.CancelFunc
-
-		deadline := clock.Now().Add(time.Duration(s.RequestTimeout) * time.Second)
-
-		ctx, cancel = context.WithDeadline(ctx, deadline)
-		defer cancel()
-	}
+	ctx, cancel := blob.WithRequestTimeout(ctx, s.RequestTimeout)
+	defer cancel()
 
 	vi, err := s.cli.GetBucketVersioning(ctx, s.BucketName)
 	if err != nil {
