@@ -19,7 +19,7 @@ const randomSuffixSize = 32 // number of random bytes to append at the end to ma
 type Builder map[ID]Info
 
 type BuilderCreator interface {
-	Add(Info)
+	Add(info Info)
 }
 
 // Clone returns a deep Clone of the Builder.

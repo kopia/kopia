@@ -13,7 +13,7 @@ import (
 )
 
 func (ic *InfoCompact) Less(other llrb.Item) bool {
-	return ic.ContentID.less(other.(*InfoCompact).ContentID)
+	return ic.ContentID.less(other.(*InfoCompact).ContentID) //nolint:forcetypeassert
 }
 
 type blobIDWrap struct {
@@ -21,7 +21,7 @@ type blobIDWrap struct {
 }
 
 func (b blobIDWrap) Less(other llrb.Item) bool {
-	return *b.id < *other.(blobIDWrap).id
+	return *b.id < *other.(blobIDWrap).id //nolint:forcetypeassert
 }
 
 type oneUseBuilder struct {
@@ -42,9 +42,9 @@ func (b *oneUseBuilder) Add(i Info) {
 
 	found := b.indexStore.Get(&InfoCompact{ContentID: cid})
 	if found == nil || contentInfoGreaterThanStruct(&i, &Info{
-		PackBlobID:       *found.(*InfoCompact).PackBlobID,
-		TimestampSeconds: found.(*InfoCompact).TimestampSeconds,
-		Deleted:          found.(*InfoCompact).Deleted,
+		PackBlobID:       *found.(*InfoCompact).PackBlobID,      //nolint:forcetypeassert
+		TimestampSeconds: found.(*InfoCompact).TimestampSeconds, //nolint:forcetypeassert
+		Deleted:          found.(*InfoCompact).Deleted,          //nolint:forcetypeassert
 	}) {
 		id := new(blob.ID)
 		if item := b.packBlobIDs.Get(blobIDWrap{&i.PackBlobID}); item == nil {
@@ -75,6 +75,7 @@ func (b *oneUseBuilder) Length() int {
 
 func (b *oneUseBuilder) sortedContents() []BuilderItem {
 	result := []BuilderItem{}
+
 	for b.indexStore.Len() > 0 {
 		item := b.indexStore.DeleteMin()
 		result = append(result, item.(*InfoCompact))
@@ -101,7 +102,7 @@ func (b *oneUseBuilder) shard(maxShardSize int) [][]BuilderItem {
 		h := fnv.New32a()
 		io.WriteString(h, item.(*InfoCompact).ContentID.String()) //nolint:errcheck
 
-		shard := h.Sum32() % uint32(numShards)
+		shard := h.Sum32() % uint32(numShards) //nolint:gosec
 
 		result[shard] = append(result[shard], item.(*InfoCompact))
 	}
