@@ -41,11 +41,7 @@ func (b *oneUseBuilder) Add(i Info) {
 	cid := i.ContentID
 
 	found := b.indexStore.Get(&InfoCompact{ContentID: cid})
-	if found == nil || contentInfoGreaterThanStruct(&i, &Info{
-		PackBlobID:       *found.(*InfoCompact).PackBlobID,      //nolint:forcetypeassert
-		TimestampSeconds: found.(*InfoCompact).TimestampSeconds, //nolint:forcetypeassert
-		Deleted:          found.(*InfoCompact).Deleted,          //nolint:forcetypeassert
-	}) {
+	if found == nil || contentInfoGreaterThanStruct(&i, found.(*InfoCompact)) {
 		id := new(blob.ID)
 		if item := b.packBlobIDs.Get(blobIDWrap{&i.PackBlobID}); item == nil {
 			*id = i.PackBlobID
