@@ -144,15 +144,17 @@ func testPackIndex(t *testing.T, version int) {
 	b1 := make(Builder)
 	b2 := make(Builder)
 	b3 := make(Builder)
+	b4 := NewOneUseBuilder()
 
 	for _, info := range infos {
 		infoMap[info.ContentID] = info
 		b1.Add(info)
 		b2.Add(info)
 		b3.Add(info)
+		b4.Add(info)
 	}
 
-	var buf1, buf2, buf3 bytes.Buffer
+	var buf1, buf2, buf3, buf4 bytes.Buffer
 
 	if err := b1.Build(&buf1, version); err != nil {
 		t.Fatalf("unable to build: %v", err)
@@ -166,9 +168,14 @@ func testPackIndex(t *testing.T, version int) {
 		t.Fatalf("unable to build: %v", err)
 	}
 
+	if err := b4.BuildStable(&buf4, version); err != nil {
+		t.Fatalf("unable to build: %v", err)
+	}
+
 	data1 := buf1.Bytes()
 	data2 := buf2.Bytes()
 	data3 := buf3.Bytes()
+	data4 := buf4.Bytes()
 
 	// each build produces exactly identical prefix except for the trailing random bytes.
 	data1Prefix := data1[0 : len(data1)-randomSuffixSize]
@@ -176,13 +183,20 @@ func testPackIndex(t *testing.T, version int) {
 
 	require.Equal(t, data1Prefix, data2Prefix)
 	require.Equal(t, data2Prefix, data3)
+	require.Equal(t, data2Prefix, data4)
 	require.NotEqual(t, data1, data2)
+	require.Equal(t, data3, data4)
 
 	t.Run("FuzzTest", func(t *testing.T) {
 		fuzzTestIndexOpen(data1)
 	})
 
-	ndx, err := Open(data1, nil, func() int { return fakeEncryptionOverhead })
+	verifyPackedIndexes(t, infos, infoMap, version, data1)
+	verifyPackedIndexes(t, infos, infoMap, version, data4)
+}
+
+func verifyPackedIndexes(t *testing.T, infos []Info, infoMap map[ID]Info, version int, packed []byte) {
+	ndx, err := Open(packed, nil, func() int { return fakeEncryptionOverhead })
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}
@@ -321,6 +335,76 @@ func TestSortedContents(t *testing.T) {
 
 func TestSortedContents2(t *testing.T) {
 	b := Builder{}
+
+	b.Add(Info{
+		ContentID: mustParseID(t, "0123"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "1023"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "0f23"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "f023"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "g0123"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "g1023"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "i0123"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "i1023"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "h0123"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "h1023"),
+	})
+
+	got := b.sortedContents()
+
+	var last ID
+
+	for _, info := range got {
+		if info.GetContentID().less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		}
+
+		last = info.GetContentID()
+	}
+}
+
+func TestSortedContents3(t *testing.T) {
+	b := NewOneUseBuilder()
+
+	for i := range 100 {
+		v := deterministicContentID(t, "", i)
+
+		b.Add(Info{
+			ContentID: v,
+		})
+	}
+
+	got := b.sortedContents()
+
+	var last ID
+	for _, info := range got {
+		if info.GetContentID().less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		}
+
+		last = info.GetContentID()
+	}
+}
+
+func TestSortedContents4(t *testing.T) {
+	b := NewOneUseBuilder()
 
 	b.Add(Info{
 		ContentID: mustParseID(t, "0123"),

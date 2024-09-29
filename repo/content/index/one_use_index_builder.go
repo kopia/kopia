@@ -118,6 +118,11 @@ func (b *oneUseBuilder) shard(maxShardSize int) [][]BuilderItem {
 	return nonEmpty
 }
 
+// BuildStable writes the pack index to the provided output.
+func (b *oneUseBuilder) BuildStable(output io.Writer, version int) error {
+	return buildSortedContents(b.sortedContents(), output, version)
+}
+
 // BuildShards builds the set of index shards ensuring no more than the provided number of contents are in each index.
 // Returns shard bytes and function to clean up after the shards have been written.
 func (b *oneUseBuilder) BuildShards(indexVersion int, stable bool, shardSize int) ([]gather.Bytes, func(), error) {
