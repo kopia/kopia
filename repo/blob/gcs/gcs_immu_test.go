@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -26,7 +25,7 @@ func TestGoogleStorageImmutabilityProtection(t *testing.T) {
 	testutil.ProviderTest(t)
 
 	opts := bucketOpts{
-		projectID:       os.Getenv(testBucketProjectID),
+		projectID:       getEnvVarOrSkip(t, testBucketProjectID),
 		bucket:          getImmutableBucketNameOrSkip(t),
 		credentialsJSON: getCredJSONFromEnv(t),
 		isLockedBucket:  true,
@@ -67,10 +66,11 @@ func TestGoogleStorageImmutabilityProtection(t *testing.T) {
 	}
 	err = st.PutBlob(ctx, dummyBlob, gather.FromSlice([]byte("x")), putOpts)
 	require.NoError(t, err)
-	cli := getGoogleCLI(t, opts.credentialsJSON)
 
 	count := getBlobCount(ctx, t, st, dummyBlob[:1])
 	require.Equal(t, 1, count)
+
+	cli := getGoogleCLI(t, opts.credentialsJSON)
 
 	attrs, err := cli.Bucket(opts.bucket).Object(blobNameFullPath).Attrs(ctx)
 	require.NoError(t, err)
@@ -117,9 +117,8 @@ func getGoogleCLI(t *testing.T, credentialsJSON []byte) *gcsclient.Client {
 
 	ctx := context.Background()
 	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(credentialsJSON))
-	if err != nil {
-		t.Fatalf("unable to create GCS client: %v", err)
-	}
+
+	require.NoError(t, err, "unable to create GCS client")
 
 	return cli
 }
