@@ -8,31 +8,20 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/repo/blob"
 	"github.com/petar/GoLLRB/llrb"
 )
 
-func (ic *InfoCompact) Less(other llrb.Item) bool {
-	return ic.ContentID.less(other.(*InfoCompact).ContentID) //nolint:forcetypeassert
-}
-
-type blobIDWrap struct {
-	id *blob.ID
-}
-
-func (b blobIDWrap) Less(other llrb.Item) bool {
-	return *b.id < *other.(blobIDWrap).id //nolint:forcetypeassert
+func (ic *Info) Less(other llrb.Item) bool {
+	return ic.ContentID.less(other.(*Info).ContentID) //nolint:forcetypeassert
 }
 
 type oneUseBuilder struct {
-	indexStore  *llrb.LLRB
-	packBlobIDs *llrb.LLRB
+	indexStore *llrb.LLRB
 }
 
 func NewOneUseBuilder() *oneUseBuilder {
 	return &oneUseBuilder{
-		indexStore:  llrb.New(),
-		packBlobIDs: llrb.New(),
+		indexStore: llrb.New(),
 	}
 }
 
@@ -40,18 +29,10 @@ func NewOneUseBuilder() *oneUseBuilder {
 func (b *oneUseBuilder) Add(i Info) {
 	cid := i.ContentID
 
-	found := b.indexStore.Get(&InfoCompact{ContentID: cid})
-	if found == nil || contentInfoGreaterThanStruct(&i, found.(*InfoCompact)) {
-		id := new(blob.ID)
-		if item := b.packBlobIDs.Get(blobIDWrap{&i.PackBlobID}); item == nil {
-			*id = i.PackBlobID
-			_ = b.packBlobIDs.ReplaceOrInsert(blobIDWrap{id})
-		} else {
-			id = item.(blobIDWrap).id
-		}
-
-		_ = b.indexStore.ReplaceOrInsert(&InfoCompact{
-			PackBlobID:          id,
+	found := b.indexStore.Get(&Info{ContentID: cid})
+	if found == nil || contentInfoGreaterThanStruct(&i, found.(*Info)) {
+		_ = b.indexStore.ReplaceOrInsert(&Info{
+			PackBlobID:          i.PackBlobID,
 			ContentID:           cid,
 			TimestampSeconds:    i.TimestampSeconds,
 			OriginalLength:      i.OriginalLength,
@@ -69,41 +50,41 @@ func (b *oneUseBuilder) Length() int {
 	return b.indexStore.Len()
 }
 
-func (b *oneUseBuilder) sortedContents() []BuilderItem {
-	result := []BuilderItem{}
+func (b *oneUseBuilder) sortedContents() []*Info {
+	result := []*Info{}
 
 	for b.indexStore.Len() > 0 {
 		item := b.indexStore.DeleteMin()
-		result = append(result, item.(*InfoCompact))
+		result = append(result, item.(*Info))
 	}
 
 	return result
 }
 
-func (b *oneUseBuilder) shard(maxShardSize int) [][]BuilderItem {
+func (b *oneUseBuilder) shard(maxShardSize int) [][]*Info {
 	numShards := (b.Length() + maxShardSize - 1) / maxShardSize
 	if numShards <= 1 {
 		if b.Length() == 0 {
-			return [][]BuilderItem{}
+			return [][]*Info{}
 		}
 
-		return [][]BuilderItem{b.sortedContents()}
+		return [][]*Info{b.sortedContents()}
 	}
 
-	result := make([][]BuilderItem, numShards)
+	result := make([][]*Info, numShards)
 
 	for b.indexStore.Len() > 0 {
 		item := b.indexStore.DeleteMin()
 
 		h := fnv.New32a()
-		io.WriteString(h, item.(*InfoCompact).ContentID.String()) //nolint:errcheck
+		io.WriteString(h, item.(*Info).ContentID.String()) //nolint:errcheck
 
 		shard := h.Sum32() % uint32(numShards) //nolint:gosec
 
-		result[shard] = append(result[shard], item.(*InfoCompact))
+		result[shard] = append(result[shard], item.(*Info))
 	}
 
-	var nonEmpty [][]BuilderItem
+	var nonEmpty [][]*Info
 
 	for _, r := range result {
 		if len(r) > 0 {

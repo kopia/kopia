@@ -42,7 +42,7 @@ func (b Builder) Add(i Info) {
 	cid := i.ContentID
 
 	old, found := b[cid]
-	if !found || contentInfoGreaterThanStruct(i, old) {
+	if !found || contentInfoGreaterThanStruct(&i, &old) {
 		b[cid] = i
 	}
 }
@@ -67,8 +67,8 @@ func init() {
 // sortedContents returns the list of []Info sorted lexicographically using bucket sort
 // sorting is optimized based on the format of content IDs (optional single-character
 // alphanumeric prefix (0-9a-z), followed by hexadecimal digits (0-9a-f).
-func (b Builder) sortedContents() []BuilderItem {
-	var buckets [36 * 16][]BuilderItem
+func (b Builder) sortedContents() []*Info {
+	var buckets [36 * 16][]*Info
 
 	// phase 1 - bucketize into 576 (36 *16) separate lists
 	// by first [0-9a-z] and second character [0-9a-f].
@@ -79,7 +79,7 @@ func (b Builder) sortedContents() []BuilderItem {
 		// first: 0..35, second: 0..15
 		buck := first<<4 + second //nolint:mnd
 
-		buckets[buck] = append(buckets[buck], v)
+		buckets[buck] = append(buckets[buck], &v)
 	}
 
 	// phase 2 - sort each non-empty bucket in parallel using goroutines
@@ -98,7 +98,7 @@ func (b Builder) sortedContents() []BuilderItem {
 					buck := buckets[i]
 
 					sort.Slice(buck, func(i, j int) bool {
-						return buck[i].GetContentID().less(buck[j].GetContentID())
+						return buck[i].ContentID.less(buck[j].ContentID)
 					})
 				}
 			}
@@ -108,7 +108,7 @@ func (b Builder) sortedContents() []BuilderItem {
 	wg.Wait()
 
 	// Phase 3 - merge results from all buckets.
-	result := make([]BuilderItem, 0, len(b))
+	result := make([]*Info, 0, len(b))
 
 	for i := range len(buckets) {
 		result = append(result, buckets[i]...)
@@ -141,7 +141,7 @@ func (b Builder) BuildStable(output io.Writer, version int) error {
 	return buildSortedContents(b.sortedContents(), output, version)
 }
 
-func buildSortedContents(items []BuilderItem, output io.Writer, version int) error {
+func buildSortedContents(items []*Info, output io.Writer, version int) error {
 	switch version {
 	case Version1:
 		return buildV1(items, output)

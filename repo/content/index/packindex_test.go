@@ -325,11 +325,11 @@ func TestSortedContents(t *testing.T) {
 
 	var last ID
 	for _, info := range got {
-		if info.GetContentID().less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		if info.ContentID.less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
 		}
 
-		last = info.GetContentID()
+		last = info.ContentID
 	}
 }
 
@@ -372,11 +372,11 @@ func TestSortedContents2(t *testing.T) {
 	var last ID
 
 	for _, info := range got {
-		if info.GetContentID().less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		if info.ContentID.less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
 		}
 
-		last = info.GetContentID()
+		last = info.ContentID
 	}
 }
 
@@ -395,11 +395,11 @@ func TestSortedContents3(t *testing.T) {
 
 	var last ID
 	for _, info := range got {
-		if info.GetContentID().less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		if info.ContentID.less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
 		}
 
-		last = info.GetContentID()
+		last = info.ContentID
 	}
 }
 
@@ -442,11 +442,11 @@ func TestSortedContents4(t *testing.T) {
 	var last ID
 
 	for _, info := range got {
-		if info.GetContentID().less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		if info.ContentID.less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
 		}
 
-		last = info.GetContentID()
+		last = info.ContentID
 	}
 }
 
