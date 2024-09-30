@@ -196,6 +196,8 @@ func testPackIndex(t *testing.T, version int) {
 }
 
 func verifyPackedIndexes(t *testing.T, infos []Info, infoMap map[ID]Info, version int, packed []byte) {
+	t.Helper()
+
 	ndx, err := Open(packed, nil, func() int { return fakeEncryptionOverhead })
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
