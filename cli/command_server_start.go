@@ -265,12 +265,7 @@ func (c *commandServerStart) run(ctx context.Context) (reterr error) {
 
 	onExternalConfigReloadRequest(srv.Refresh)
 
-	err = c.startServerWithOptionalTLS(ctx, httpServer)
-	if !errors.Is(err, http.ErrServerClosed) {
-		return err
-	}
-
-	return nil
+	return c.startServerWithOptionalTLS(ctx, httpServer)
 }
 
 func shutdownHTTPServer(ctx context.Context, httpServer *http.Server) {
