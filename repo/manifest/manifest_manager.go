@@ -70,7 +70,7 @@ type Manager struct {
 // Put serializes the provided payload to JSON and persists it. Returns unique identifier that represents the manifest.
 func (m *Manager) Put(ctx context.Context, labels map[string]string, payload interface{}) (ID, error) {
 	if labels[TypeLabelKey] == "" {
-		return "", errors.Errorf("'type' label is required")
+		return "", errors.New("'type' label is required")
 	}
 
 	random := make([]byte, manifestIDLength)

@@ -190,7 +190,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		require.NoError(t, w.Flush(ctx))
 
 		if uploaded == 0 {
-			return errors.Errorf("did not report uploaded bytes")
+			return errors.New("did not report uploaded bytes")
 		}
 
 		uploaded = 0
@@ -198,7 +198,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		require.NoError(t, w.Flush(ctx))
 
 		if uploaded != 0 {
-			return errors.Errorf("unexpected upload when writing duplicate object")
+			return errors.New("unexpected upload when writing duplicate object")
 		}
 
 		if result != result2 {
@@ -218,7 +218,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 
 		_, err = ow.Result()
 		if err == nil {
-			return errors.Errorf("unexpected success writing object with 'm' prefix")
+			return errors.New("unexpected success writing object with 'm' prefix")
 		}
 
 		manifestID, err = snapshot.SaveSnapshot(ctx, w, &snapshot.Manifest{

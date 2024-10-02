@@ -86,7 +86,7 @@ var ErrAlreadyInitialized = format.ErrAlreadyInitialized
 
 // ErrRepositoryUnavailableDueToUpgradeInProgress is returned when repository
 // is undergoing upgrade that requires exclusive access.
-var ErrRepositoryUnavailableDueToUpgradeInProgress = errors.Errorf("repository upgrade in progress")
+var ErrRepositoryUnavailableDueToUpgradeInProgress = errors.New("repository upgrade in progress")
 
 // Open opens a Repository specified in the configuration file.
 func Open(ctx context.Context, configFile, password string, options *Options) (rep Repository, err error) {
@@ -203,7 +203,7 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 // openDirect opens the repository that directly manipulates blob storage..
 func openDirect(ctx context.Context, configFile string, lc *LocalConfig, password string, options *Options) (rep Repository, err error) {
 	if lc.Storage == nil {
-		return nil, errors.Errorf("storage not set in the configuration file")
+		return nil, errors.New("storage not set in the configuration file")
 	}
 
 	st, err := blob.NewStorage(ctx, *lc.Storage, false)

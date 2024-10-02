@@ -314,7 +314,7 @@ func getCustomTransport(opt *Options) (*http.Transport, error) {
 		rootcas := x509.NewCertPool()
 
 		if ok := rootcas.AppendCertsFromPEM(opt.RootCA); !ok {
-			return nil, errors.Errorf("cannot parse provided CA")
+			return nil, errors.New("cannot parse provided CA")
 		}
 
 		transport.TLSClientConfig.RootCAs = rootcas

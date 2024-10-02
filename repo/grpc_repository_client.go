@@ -722,7 +722,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 
 	// we will be writing asynchronously and server will reject this write, fail early.
 	if prefix == manifest.ContentPrefix {
-		return content.EmptyID, errors.Errorf("writing manifest contents not allowed")
+		return content.EmptyID, errors.New("writing manifest contents not allowed")
 	}
 
 	var hashOutput [128]byte
@@ -867,7 +867,7 @@ func baseURLToURI(baseURL string) (uri string, err error) {
 	}
 
 	if u.Scheme != "kopia" && u.Scheme != "https" && u.Scheme != "unix+https" {
-		return "", errors.Errorf("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
+		return "", errors.New("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
 	}
 
 	uri = net.JoinHostPort(u.Hostname(), u.Port())

@@ -380,7 +380,7 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 	cmd.Flag("safety", "Safety level").Default("full").PreAction(func(_ *kingpin.ParseContext) error {
 		r, ok := safetyByName[str]
 		if !ok {
-			return errors.Errorf("unhandled safety level")
+			return errors.New("unhandled safety level")
 		}
 
 		*result = r
@@ -435,7 +435,7 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 		// but will fail in the future when we have remote repository implementation
 		lr, ok := rep.(repo.DirectRepository)
 		if !ok {
-			return errors.Errorf("operation supported only on direct repository")
+			return errors.New("operation supported only on direct repository")
 		}
 
 		return act(ctx, lr)
@@ -611,7 +611,7 @@ To run this command despite the warning, set --advanced-commands=enabled
 
 `)
 
-		c.exitWithError(errors.Errorf("advanced commands are disabled"))
+		c.exitWithError(errors.New("advanced commands are disabled"))
 	}
 }
 

@@ -619,7 +619,7 @@ func TestWriteSessionFlushOnSuccess(t *testing.T) {
 
 	verify(ctx, t, env.Repository, oid, []byte{1, 2, 3}, "test-1")
 
-	someErr := errors.Errorf("some error")
+	someErr := errors.New("some error")
 
 	require.ErrorIs(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		oid = writeObject(ctx, t, w, []byte{1, 2, 3, 4}, "test-2")
@@ -684,7 +684,7 @@ func TestWriteSessionFlushOnSuccessClient(t *testing.T) {
 
 	verify(ctx, t, rep, oid, []byte{1, 2, 3}, "test-1")
 
-	someErr := errors.Errorf("some error")
+	someErr := errors.New("some error")
 
 	require.ErrorIs(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		oid = writeObject(ctx, t, w, []byte{1, 2, 3, 4}, "test-2")

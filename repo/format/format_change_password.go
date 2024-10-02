@@ -15,7 +15,7 @@ func (m *Manager) ChangePassword(ctx context.Context, newPassword string) error 
 	defer m.mu.Unlock()
 
 	if !m.repoConfig.EnablePasswordChange {
-		return errors.Errorf("password changes are not supported for repositories created using Kopia v0.8 or older")
+		return errors.New("password changes are not supported for repositories created using Kopia v0.8 or older")
 	}
 
 	newFormatEncryptionKey, err := m.j.DeriveFormatEncryptionKeyFromPassword(newPassword)

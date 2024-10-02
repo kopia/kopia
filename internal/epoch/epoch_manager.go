@@ -35,7 +35,7 @@ type ParametersProvider interface {
 
 // ErrVerySlowIndexWrite is returned by WriteIndex if a write takes more than 2 epochs (usually >48h).
 // This is theoretically possible with laptops going to sleep, etc.
-var ErrVerySlowIndexWrite = errors.Errorf("extremely slow index write - index write took more than two epochs")
+var ErrVerySlowIndexWrite = errors.New("extremely slow index write - index write took more than two epochs")
 
 // Parameters encapsulates all parameters that influence the behavior of epoch manager.
 //
@@ -451,7 +451,7 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 	nextDelayTime := initiaRefreshAttemptSleep
 
 	if !p.Enabled {
-		return errors.Errorf("epoch manager not enabled")
+		return errors.New("epoch manager not enabled")
 	}
 
 	for err := e.refreshAttemptLocked(ctx); err != nil; err = e.refreshAttemptLocked(ctx) {
@@ -775,7 +775,7 @@ func (e *Manager) GetCompleteIndexSet(ctx context.Context, maxEpoch int) ([]blob
 	}
 }
 
-var errWriteIndexTryAgain = errors.Errorf("try again")
+var errWriteIndexTryAgain = errors.New("try again")
 
 // WriteIndex writes new index blob by picking the appropriate prefix based on current epoch.
 func (e *Manager) WriteIndex(ctx context.Context, dataShards map[blob.ID]blob.Bytes) ([]blob.Metadata, error) {
@@ -1015,7 +1015,7 @@ func (e *Manager) generateRangeCheckpointFromCommittedState(ctx context.Context,
 	}
 
 	if e.timeFunc().After(cs.ValidUntil) {
-		return errors.Errorf("not generating full checkpoint - the committed state is no longer valid")
+		return errors.New("not generating full checkpoint - the committed state is no longer valid")
 	}
 
 	if err := e.compact(ctx, blob.IDsFromMetadata(completeSet), rangeCheckpointBlobPrefix(minEpoch, maxEpoch)); err != nil {

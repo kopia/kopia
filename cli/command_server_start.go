@@ -322,7 +322,7 @@ func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authent
 	switch {
 	case c.serverStartWithoutPassword:
 		if !c.serverStartInsecure {
-			return nil, errors.Errorf("--without-password specified without --insecure, refusing to start server")
+			return nil, errors.New("--without-password specified without --insecure, refusing to start server")
 		}
 
 		return nil, nil

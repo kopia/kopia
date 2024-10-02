@@ -39,7 +39,7 @@ func (c *commandServerSourceManagerAction) triggerActionOnMatchingSources(ctx co
 
 	if !c.all {
 		if c.source == "" {
-			return errors.Errorf("must specify source or --all")
+			return errors.New("must specify source or --all")
 		}
 
 		absPath, err := filepath.Abs(c.source)

@@ -39,7 +39,7 @@ type contentInfoOrError struct {
 // blobs and index entries to point at them.
 func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) error {
 	if opt == nil {
-		return errors.Errorf("missing options")
+		return errors.New("missing options")
 	}
 
 	if opt.ShortPacks {

@@ -195,8 +195,8 @@ func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.S
 			{"xf0f0f3", "no-such-content", 0, -1, nil, blob.ErrBlobNotFound},
 			{"xf0f0f4", "no-such-content", 10, 5, nil, blob.ErrBlobNotFound},
 			{"f0f0f5", "content-1", 7, 3, []byte{8, 9, 10}, nil},
-			{"xf0f0f6", "content-1", 11, 10, nil, errors.Errorf("invalid offset: 11: invalid blob offset or length")},
-			{"xf0f0f6", "content-1", -1, 5, nil, errors.Errorf("invalid offset: -1: invalid blob offset or length")},
+			{"xf0f0f6", "content-1", 11, 10, nil, errors.New("invalid offset: 11: invalid blob offset or length")},
+			{"xf0f0f6", "content-1", -1, 5, nil, errors.New("invalid offset: -1: invalid blob offset or length")},
 		}
 
 		var v gather.WriteBuffer
@@ -356,5 +356,5 @@ type withoutTouchBlob struct {
 }
 
 func (c withoutTouchBlob) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) (time.Time, error) {
-	return time.Time{}, errors.Errorf("TouchBlob not implemented")
+	return time.Time{}, errors.New("TouchBlob not implemented")
 }

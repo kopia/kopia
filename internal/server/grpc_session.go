@@ -186,10 +186,10 @@ func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, a
 		respond(handleApplyRetentionPolicyRequest(ctx, dw, authz, usernameAtHostname, inner.ApplyRetentionPolicy))
 
 	case *grpcapi.SessionRequest_InitializeSession:
-		respond(errorResponse(errors.Errorf("InitializeSession must be the first request in a session")))
+		respond(errorResponse(errors.New("InitializeSession must be the first request in a session")))
 
 	default:
-		respond(errorResponse(errors.Errorf("unhandled session request")))
+		respond(errorResponse(errors.New("unhandled session request")))
 	}
 }
 
@@ -546,7 +546,7 @@ func (s *Server) handleInitialSessionHandshake(srv grpcapi.KopiaRepository_Sessi
 
 	ir := initializeReq.GetInitializeSession()
 	if ir == nil {
-		return repo.WriteSessionOptions{}, errors.Errorf("missing initialization request")
+		return repo.WriteSessionOptions{}, errors.New("missing initialization request")
 	}
 
 	scc := dr.ContentReader().SupportsContentCompression()

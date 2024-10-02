@@ -404,7 +404,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
 
 	default:
-		return nil, errors.Errorf("one of the storage key, SAS token or client secret must be provided")
+		return nil, errors.New("one of the storage key, SAS token or client secret must be provided")
 	}
 
 	if serviceErr != nil {

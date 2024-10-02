@@ -93,7 +93,7 @@ func (c *commandServerUserAddSet) runServerUserAddSet(ctx context.Context, rep r
 	}
 
 	if !changed && !c.isNew {
-		return errors.Errorf("no change")
+		return errors.New("no change")
 	}
 
 	if err := user.SetUserProfile(ctx, rep, up); err != nil {

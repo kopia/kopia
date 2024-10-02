@@ -132,7 +132,7 @@ func (c *commandCacheSetParams) run(ctx context.Context, _ repo.RepositoryWriter
 	}
 
 	if changed == 0 {
-		return errors.Errorf("no changes")
+		return errors.New("no changes")
 	}
 
 	//nolint:wrapcheck

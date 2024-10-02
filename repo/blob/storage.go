@@ -17,10 +17,10 @@ import (
 var log = logging.Module("blob")
 
 // ErrSetTimeUnsupported is returned by implementations of Storage that don't support SetTime.
-var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
+var ErrSetTimeUnsupported = errors.New("SetTime is not supported")
 
 // ErrInvalidRange is returned when the requested blob offset or length is invalid.
-var ErrInvalidRange = errors.Errorf("invalid blob offset or length")
+var ErrInvalidRange = errors.New("invalid blob offset or length")
 
 // InvalidCredentialsErrStr is the error string returned by the provider
 // when a token has expired.

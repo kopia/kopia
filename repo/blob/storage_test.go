@@ -90,7 +90,7 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 
 	require.ElementsMatch(t, []blob.ID{"foo", "bar", "boo"}, got)
 
-	errDummy := errors.Errorf("dummy")
+	errDummy := errors.New("dummy")
 
 	require.ErrorIs(t, errDummy, blob.IterateAllPrefixesInParallel(ctx, 10, st, []blob.ID{
 		"b",

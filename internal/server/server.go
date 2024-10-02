@@ -848,7 +848,7 @@ func (s *Server) InitRepositoryAsync(ctx context.Context, mode string, initializ
 
 		if cctx.Err() != nil {
 			// context canceled
-			return errors.Errorf("operation has been canceled")
+			return errors.New("operation has been canceled")
 		}
 
 		if err != nil {
@@ -1044,11 +1044,11 @@ func (s *Server) refreshScheduler(reason string) {
 // The server will manage sources for a given username@hostname.
 func New(ctx context.Context, options *Options) (*Server, error) {
 	if options.Authorizer == nil {
-		return nil, errors.Errorf("missing authorizer")
+		return nil, errors.New("missing authorizer")
 	}
 
 	if options.PasswordPersist == nil {
-		return nil, errors.Errorf("missing password persistence")
+		return nil, errors.New("missing password persistence")
 	}
 
 	if options.AuthCookieSigningKey == "" {
