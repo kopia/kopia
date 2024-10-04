@@ -564,7 +564,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 
 		err = act(ctx, rep)
 
-		if rep != nil && !mode.disableMaintenance {
+		if rep != nil && err == nil && !mode.disableMaintenance {
 			if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
 				log(ctx).Errorf("error running maintenance: %v", merr)
 			}
