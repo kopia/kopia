@@ -464,7 +464,6 @@ func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo
 			OnUpload: c.progress.UploadedBytes,
 		}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
 	}), repositoryAccessMode{
-		mustBeConnected:    true,
 		disableMaintenance: true,
 	})
 }
@@ -473,7 +472,6 @@ func (c *App) directRepositoryReadAction(act func(ctx context.Context, rep repo.
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return act(ctx, rep)
 	}), repositoryAccessMode{
-		mustBeConnected:    true,
 		disableMaintenance: true,
 	})
 }
@@ -482,7 +480,6 @@ func (c *App) repositoryReaderAction(act func(ctx context.Context, rep repo.Repo
 	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
 	}, repositoryAccessMode{
-		mustBeConnected:    true,
 		disableMaintenance: true,
 	})
 }
@@ -495,9 +492,7 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 		}, func(ctx context.Context, w repo.RepositoryWriter) error {
 			return act(ctx, w)
 		})
-	}, repositoryAccessMode{
-		mustBeConnected: true,
-	})
+	}, repositoryAccessMode{})
 }
 
 func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.Context) error) error {
@@ -549,7 +544,6 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 }
 
 type repositoryAccessMode struct {
-	mustBeConnected    bool
 	disableMaintenance bool
 }
 
@@ -569,8 +563,10 @@ func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ct
 
 func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return c.baseActionWithContext(func(ctx context.Context) error {
-		rep, err := c.openRepository(ctx, mode.mustBeConnected)
-		if err != nil && mode.mustBeConnected {
+		const requireConnected = true
+
+		rep, err := c.openRepository(ctx, requireConnected)
+		if err != nil {
 			return errors.Wrap(err, "open repository")
 		}
 
@@ -595,7 +591,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 			)
 		}
 
-		if rep != nil && mode.mustBeConnected {
+		if rep != nil {
 			if cerr := rep.Close(ctx); cerr != nil {
 				return errors.Wrap(cerr, "unable to close repository")
 			}
