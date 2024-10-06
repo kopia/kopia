@@ -1,6 +1,7 @@
 package testenv
 
 import (
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -20,7 +21,7 @@ type CLIExeRunner struct {
 }
 
 // Start implements CLIRunner.
-func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
+func (e *CLIExeRunner) Start(t *testing.T, ctx context.Context, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
 	t.Helper()
 
 	c := exec.Command(e.Exe, append([]string{

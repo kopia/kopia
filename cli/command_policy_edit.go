@@ -84,7 +84,7 @@ func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) 
 
 		var updated *policy.Policy
 
-		if err := editor.EditLoop(ctx, "policy.conf", s, func(edited string) error {
+		if err := editor.EditLoop(ctx, "policy.conf", s, true, func(edited string) error {
 			updated = &policy.Policy{}
 			d := json.NewDecoder(bytes.NewBufferString(edited))
 			d.DisallowUnknownFields()
