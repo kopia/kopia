@@ -27,7 +27,7 @@ func (c *commandSnapshotPin) setup(svc appServices, parent commandParent) {
 
 func (c *commandSnapshotPin) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	if len(c.addPins)+len(c.removePins) == 0 {
-		return errors.Errorf("must specify --add and/or --remove")
+		return errors.New("must specify --add and/or --remove")
 	}
 
 	for _, id := range c.snapshotIDs {

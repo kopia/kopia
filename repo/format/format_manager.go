@@ -138,7 +138,7 @@ func (m *Manager) refresh(ctx context.Context) error {
 
 	b, err = addFormatBlobChecksumAndLength(b)
 	if err != nil {
-		return errors.Errorf("unable to add checksum")
+		return errors.New("unable to add checksum")
 	}
 
 	// use old key, if present to avoid deriving it, which is expensive
@@ -309,7 +309,7 @@ func (m *Manager) LoadedTime() time.Time {
 // +checklocks:m.mu
 func (m *Manager) updateRepoConfigLocked(ctx context.Context) error {
 	if err := m.j.EncryptRepositoryConfig(m.repoConfig, m.formatEncryptionKey); err != nil {
-		return errors.Errorf("unable to encrypt format bytes")
+		return errors.New("unable to encrypt format bytes")
 	}
 
 	if err := m.j.WriteKopiaRepositoryBlob(ctx, m.blobs, m.blobCfgBlob); err != nil {
@@ -420,7 +420,7 @@ func NewManagerWithCache(
 }
 
 // ErrAlreadyInitialized indicates that repository has already been initialized.
-var ErrAlreadyInitialized = errors.Errorf("repository already initialized")
+var ErrAlreadyInitialized = errors.New("repository already initialized")
 
 // Initialize initializes the format blob in a given storage.
 func Initialize(ctx context.Context, st blob.Storage, formatBlob *KopiaRepositoryJSON, repoConfig *RepositoryConfig, blobcfg BlobStorageConfiguration, password string) error {
@@ -439,7 +439,7 @@ func Initialize(ctx context.Context, st blob.Storage, formatBlob *KopiaRepositor
 
 	err = st.GetBlob(ctx, KopiaBlobCfgBlobID, 0, -1, &tmp)
 	if err == nil {
-		return errors.Errorf("possible corruption: blobcfg blob exists, but format blob is not found")
+		return errors.New("possible corruption: blobcfg blob exists, but format blob is not found")
 	}
 
 	if !errors.Is(err, blob.ErrBlobNotFound) {

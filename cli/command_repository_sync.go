@@ -69,7 +69,7 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 
 				dr, ok := rep.(repo.DirectRepository)
 				if !ok {
-					return errors.Errorf("sync only supports directly-connected repositories")
+					return errors.New("sync only supports directly-connected repositories")
 				}
 
 				return c.runSyncWithStorage(ctx, dr.BlobReader(), st)
@@ -356,7 +356,7 @@ func (c *commandRepositorySyncTo) ensureRepositoriesHaveSameFormatBlob(ctx conte
 		// target does not have format blob, save it there first.
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			if c.repositorySyncDestinationMustExist {
-				return errors.Errorf("destination repository does not have a format blob")
+				return errors.New("destination repository does not have a format blob")
 			}
 
 			return errors.Wrap(dst.PutBlob(ctx, format.KopiaRepositoryBlobID, srcData.Bytes(), blob.PutOptions{}), "error saving format blob")
@@ -379,7 +379,7 @@ func (c *commandRepositorySyncTo) ensureRepositoriesHaveSameFormatBlob(ctx conte
 		return nil
 	}
 
-	return errors.Errorf("destination repository contains incompatible data")
+	return errors.New("destination repository contains incompatible data")
 }
 
 func parseUniqueID(r gather.Bytes) (string, error) {
@@ -392,7 +392,7 @@ func parseUniqueID(r gather.Bytes) (string, error) {
 	}
 
 	if f.UniqueID == "" {
-		return "", errors.Errorf("unique ID not found")
+		return "", errors.New("unique ID not found")
 	}
 
 	return f.UniqueID, nil

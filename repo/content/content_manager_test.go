@@ -1250,7 +1250,7 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 				}
 			} else {
 				if cnt > 0 {
-					result = append(result, fault.New().Repeat(cnt-1).ErrorInstead(errors.Errorf("some write error")))
+					result = append(result, fault.New().Repeat(cnt-1).ErrorInstead(errors.New("some write error")))
 				}
 			}
 		}

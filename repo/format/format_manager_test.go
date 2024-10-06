@@ -22,7 +22,7 @@ import (
 )
 
 var (
-	errSomeError = errors.Errorf("some error")
+	errSomeError = errors.New("some error")
 
 	cf = format.ContentFormat{
 		MutableParameters: format.MutableParameters{

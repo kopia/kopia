@@ -185,7 +185,7 @@ func (b Builder) shard(maxShardSize int) []Builder {
 // Returns shard bytes and function to clean up after the shards have been written.
 func (b Builder) BuildShards(indexVersion int, stable bool, shardSize int) ([]gather.Bytes, func(), error) {
 	if shardSize == 0 {
-		return nil, nil, errors.Errorf("invalid shard size")
+		return nil, nil, errors.New("invalid shard size")
 	}
 
 	var (

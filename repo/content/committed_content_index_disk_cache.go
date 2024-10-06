@@ -159,7 +159,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 	}
 
 	if err := tf.Close(); err != nil {
-		return "", errors.Errorf("can't close tmp file")
+		return "", errors.New("can't close tmp file")
 	}
 
 	return tf.Name(), nil

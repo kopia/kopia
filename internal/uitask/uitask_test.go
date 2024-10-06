@@ -185,7 +185,7 @@ func testUITaskInternal(t *testing.T, ctx context.Context, m *uitask.Manager) {
 			t.Fatalf("unexpected summary: %v", diff)
 		}
 
-		return errors.Errorf("some error")
+		return errors.New("some error")
 	})
 
 	verifyTaskList(t, m, map[string]uitask.Status{

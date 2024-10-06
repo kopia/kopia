@@ -80,7 +80,7 @@ func TestSnapshotTreeWalker(t *testing.T) {
 }
 
 func TestSnapshotTreeWalker_Errors(t *testing.T) {
-	someErr1 := errors.Errorf("some error")
+	someErr1 := errors.New("some error")
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
@@ -122,7 +122,7 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 }
 
 func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
-	someErr1 := errors.Errorf("some error")
+	someErr1 := errors.New("some error")
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
@@ -172,7 +172,7 @@ func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 }
 
 func TestSnapshotTreeWalker_MultipleErrorsSameOID(t *testing.T) {
-	someErr1 := errors.Errorf("some error")
+	someErr1 := errors.New("some error")
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 

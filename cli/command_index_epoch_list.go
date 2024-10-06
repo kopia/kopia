@@ -29,7 +29,7 @@ func (c *commandIndexEpochList) run(ctx context.Context, rep repo.DirectReposito
 	}
 
 	if !ok {
-		return errors.Errorf("epoch manager is not active")
+		return errors.New("epoch manager is not active")
 	}
 
 	snap, err := emgr.Current(ctx)

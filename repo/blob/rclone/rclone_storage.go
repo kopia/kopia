@@ -240,7 +240,7 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 		return rcloneURLs{}, err
 
 	case <-time.After(startupTimeout):
-		return rcloneURLs{}, errors.Errorf("timed out waiting for rclone to start")
+		return rcloneURLs{}, errors.New("timed out waiting for rclone to start")
 	}
 }
 

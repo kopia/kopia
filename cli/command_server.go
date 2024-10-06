@@ -76,7 +76,7 @@ func (c *commandServer) setup(svc advancedAppServices, parent commandParent) {
 
 func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) {
 	if c.serverAddress == "" {
-		return apiclient.Options{}, errors.Errorf("missing server address")
+		return apiclient.Options{}, errors.New("missing server address")
 	}
 
 	return apiclient.Options{

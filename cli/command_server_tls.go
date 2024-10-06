@@ -162,7 +162,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 
 	default:
 		if !c.serverStartInsecure {
-			return errors.Errorf("TLS not configured. To start server without encryption pass --insecure")
+			return errors.New("TLS not configured. To start server without encryption pass --insecure")
 		}
 
 		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttp://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck

@@ -435,7 +435,7 @@ func newInternalMapWithOptions(ctx context.Context, hasValues bool, opts *Option
 	tablewSizeIndex := opts.InitialSizeLogarithm - minSizeLogarithm
 
 	if tablewSizeIndex < 1 {
-		return nil, errors.Errorf("invalid initial size")
+		return nil, errors.New("invalid initial size")
 	}
 
 	m := &internalMap{
