@@ -40,6 +40,7 @@ jobs:
       uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
       with:
         cache: false
+        go-version:
         go-version-file: 'go.mod'
         repo-checkout: false
     - name: Lint
