@@ -5,6 +5,8 @@ import (
 	"net/url"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/notification/sender"
 )
 
 // Options defines Webhook sender options.
@@ -20,8 +22,8 @@ func (o *Options) ApplyDefaultsAndValidate(ctx context.Context) error {
 		o.Method = "POST"
 	}
 
-	if o.Format == "" {
-		o.Format = "md"
+	if err := sender.ValidateMessageFormatAndSetDefault(&o.Format, sender.FormatPlainText); err != nil {
+		return errors.Wrap(err, "invalid format")
 	}
 
 	u, err := url.ParseRequestURI(o.Endpoint)

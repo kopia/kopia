@@ -279,7 +279,7 @@ func remoteRepositoryNotificationTest(t *testing.T, ctx context.Context, rep rep
 	defer server.Close()
 
 	require.NoError(t, notifyprofile.SaveProfile(ctx, rw, notifyprofile.Config{
-		Profile: "my-profile",
+		ProfileName: "my-profile",
 		MethodConfig: sender.MethodConfig{
 			Type: "webhook",
 			Config: &webhook.Options{
@@ -296,7 +296,7 @@ func remoteRepositoryNotificationTest(t *testing.T, ctx context.Context, rep rep
 	// another webhook which fails
 
 	require.NoError(t, notifyprofile.SaveProfile(ctx, rw, notifyprofile.Config{
-		Profile: "my-profile",
+		ProfileName: "my-profile",
 		MethodConfig: sender.MethodConfig{
 			Type: "webhook",
 			Config: &webhook.Options{

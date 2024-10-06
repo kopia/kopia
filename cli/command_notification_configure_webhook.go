@@ -3,6 +3,7 @@ package cli
 import (
 	"net/http"
 
+	"github.com/kopia/kopia/notification/sender"
 	"github.com/kopia/kopia/notification/sender/webhook"
 )
 
@@ -19,6 +20,7 @@ func (c *commandNotificationConfigureWebhook) setup(svc appServices, parent comm
 
 	cmd.Flag("endpoint", "SMTP server").StringVar(&c.opt.Endpoint)
 	cmd.Flag("method", "HTTP Method").EnumVar(&c.opt.Method, http.MethodPost, http.MethodPut)
+	cmd.Flag("format", "Format of the message").EnumVar(&c.opt.Format, sender.FormatHTML, sender.FormatPlainText)
 
 	cmd.Action(configureNotificationAction(svc, &c.common, webhook.ProviderType, &c.opt, webhook.MergeOptions))
 }

@@ -30,11 +30,11 @@ func TestNotificationTemplates(t *testing.T) {
 		require.Contains(t, line, "<built-in>")
 	}
 
-	// override 'test-notification.md' template from STDIN and verify.
+	// override 'test-notification.txt' template from STDIN and verify.
 	runner.SetNextStdin(strings.NewReader("Subject: test-template-subject\n\ntest-template-body1\ntest-template-body2\n"))
-	e.RunAndExpectSuccess(t, "notification", "template", "set", "test-notification.md", "--from-stdin")
+	e.RunAndExpectSuccess(t, "notification", "template", "set", "test-notification.txt", "--from-stdin")
 
-	verifyTemplateContents(t, e, "test-notification.md", []string{
+	verifyTemplateContents(t, e, "test-notification.txt", []string{
 		"Subject: test-template-subject",
 		"",
 		"test-template-body1",
@@ -43,15 +43,15 @@ func TestNotificationTemplates(t *testing.T) {
 
 	// make sure it shows up as <customized>
 	verifyHasLine(t, e.RunAndExpectSuccess(t, "notification", "template", "list"), func(s string) bool {
-		return strings.Contains(s, "test-notification.md") && strings.Contains(s, "<customized>")
+		return strings.Contains(s, "test-notification.txt") && strings.Contains(s, "<customized>")
 	})
 
-	// reset 'test-notification.md' template and verify.
-	e.RunAndExpectSuccess(t, "notification", "template", "remove", "test-notification.md")
+	// reset 'test-notification.txt' template and verify.
+	e.RunAndExpectSuccess(t, "notification", "template", "remove", "test-notification.txt")
 
 	// make sure it shows up as <built-in>
 	verifyHasLine(t, e.RunAndExpectSuccess(t, "notification", "template", "list"), func(s string) bool {
-		return strings.Contains(s, "test-notification.md") && strings.Contains(s, "<built-in>")
+		return strings.Contains(s, "test-notification.txt") && strings.Contains(s, "<built-in>")
 	})
 
 	// now the same using external file
@@ -59,11 +59,11 @@ func TestNotificationTemplates(t *testing.T) {
 	fname := td + "/template.md"
 
 	// no such file
-	e.RunAndExpectFailure(t, "notification", "template", "set", "test-notification.md", "--from-file="+fname)
+	e.RunAndExpectFailure(t, "notification", "template", "set", "test-notification.txt", "--from-file="+fname)
 
 	os.WriteFile(fname, []byte("Subject: test-template-subject\n\ntest-template-body3\ntest-template-body4\n"), 0o600)
-	e.RunAndExpectSuccess(t, "notification", "template", "set", "test-notification.md", "--from-file="+fname)
-	verifyTemplateContents(t, e, "test-notification.md", []string{
+	e.RunAndExpectSuccess(t, "notification", "template", "set", "test-notification.txt", "--from-file="+fname)
+	verifyTemplateContents(t, e, "test-notification.txt", []string{
 		"Subject: test-template-subject",
 		"",
 		"test-template-body3",
@@ -100,9 +100,9 @@ func TestNotificationTemplates(t *testing.T) {
 		return nil
 	}
 
-	e.RunAndExpectSuccess(t, "notification", "template", "set", "test-notification.md", "--editor")
+	e.RunAndExpectSuccess(t, "notification", "template", "set", "test-notification.txt", "--editor")
 
-	verifyTemplateContents(t, e, "test-notification.md", []string{
+	verifyTemplateContents(t, e, "test-notification.txt", []string{
 		"Subject: test-template-subject",
 		"",
 		"test-template-body5",

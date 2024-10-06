@@ -66,7 +66,7 @@ func (p *pushoverProvider) Send(ctx context.Context, msg *sender.Message) error 
 }
 
 func (p *pushoverProvider) Summary() string {
-	return fmt.Sprintf("Pushover user %q app %q", p.opt.UserKey, p.opt.AppToken)
+	return fmt.Sprintf("Pushover user %q app %q format %q", p.opt.UserKey, p.opt.AppToken, p.Format())
 }
 
 func (p *pushoverProvider) Format() string {

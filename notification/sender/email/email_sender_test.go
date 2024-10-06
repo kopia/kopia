@@ -27,11 +27,11 @@ func TestEmailProvider(t *testing.T) {
 		SMTPPort:   srv.PortNumber(),
 		From:       "some-user@example.com",
 		To:         "another-user@example.com",
-		Format:     "md",
+		Format:     sender.FormatHTML,
 	})
 	require.NoError(t, err)
 
-	require.Equal(t, "SMTP server: \"localhost\", Mail from: \"some-user@example.com\" Mail to: \"another-user@example.com\"", p.Summary())
+	require.Equal(t, "SMTP server: \"localhost\", Mail from: \"some-user@example.com\" Mail to: \"another-user@example.com\" Format: \"html\"", p.Summary())
 
 	require.NoError(t, p.Send(ctx, &sender.Message{Subject: "Test", Body: `
 This is a test.

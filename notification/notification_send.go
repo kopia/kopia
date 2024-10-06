@@ -91,9 +91,9 @@ func notificationSendersFromRepo(ctx context.Context, rep repo.Repository, sever
 			continue
 		}
 
-		s, err := sender.GetSender(ctx, p.Profile, p.MethodConfig.Type, p.MethodConfig.Config)
+		s, err := sender.GetSender(ctx, p.ProfileName, p.MethodConfig.Type, p.MethodConfig.Config)
 		if err != nil {
-			log(ctx).Warnw("unable to create sender for notification profile", "profile", p.Profile, "err", err)
+			log(ctx).Warnw("unable to create sender for notification profile", "profile", p.ProfileName, "err", err)
 			continue
 		}
 

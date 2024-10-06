@@ -48,7 +48,7 @@ func TestPushover(t *testing.T) {
 		Endpoint: server.URL + "/some-path",
 	})
 	require.NoError(t, err)
-	require.Equal(t, "Pushover user \"user-key1\" app \"app-token1\"", p.Summary())
+	require.Equal(t, "Pushover user \"user-key1\" app \"app-token1\" format \"txt\"", p.Summary())
 
 	require.NoError(t, p.Send(ctx, &sender.Message{Subject: "Test", Body: "This is a test.\n\n* one\n* two\n* three\n\n# Header\n## Subheader\n\n- a\n- b\n- c"}))
 	require.NoError(t, ph.Send(ctx, &sender.Message{Subject: "Test", Body: "<p>This is a HTML test</p>"}))

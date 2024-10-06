@@ -30,7 +30,7 @@ func (p *emailProvider) Send(ctx context.Context, msg *sender.Message) error {
 
 	var msgPayload []byte
 
-	if p.Format() == "html" {
+	if p.Format() == sender.FormatHTML {
 		msgPayload = []byte("Subject: " + msg.Subject + "\r\n" + "MIME-version: 1.0;\r\nContent-Type: text/html; charset=\"UTF-8\";\r\n\r\n" + msg.Body)
 	} else {
 		msgPayload = []byte("Subject: " + msg.Subject + "\r\n" + msg.Body)
@@ -46,11 +46,11 @@ func (p *emailProvider) Send(ctx context.Context, msg *sender.Message) error {
 }
 
 func (p *emailProvider) Summary() string {
-	return fmt.Sprintf("SMTP server: %q, Mail from: %q Mail to: %q", p.opt.SMTPServer, p.opt.From, p.opt.To)
+	return fmt.Sprintf("SMTP server: %q, Mail from: %q Mail to: %q Format: %q", p.opt.SMTPServer, p.opt.From, p.opt.To, p.Format())
 }
 
 func (p *emailProvider) Format() string {
-	return "html"
+	return p.opt.Format
 }
 
 func init() {

@@ -12,7 +12,7 @@ import (
 )
 
 //go:embed "*.html"
-//go:embed "*.md"
+//go:embed "*.txt"
 var embedded embed.FS
 
 // Template names.

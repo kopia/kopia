@@ -17,7 +17,7 @@ func TestNotificationTemplatesAutocomplete(t *testing.T) {
 
 	require.Contains(t,
 		a.listNotificationTemplates(ctx, env.Repository),
-		"test-notification.md")
+		"test-notification.txt")
 
 	a.templateName = "no-such-prefix"
 	require.Empty(t, a.listNotificationTemplates(ctx, env.Repository))
@@ -25,5 +25,5 @@ func TestNotificationTemplatesAutocomplete(t *testing.T) {
 	a.templateName = "test-notif"
 	require.Contains(t,
 		a.listNotificationTemplates(ctx, env.Repository),
-		"test-notification.md")
+		"test-notification.txt")
 }

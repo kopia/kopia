@@ -33,7 +33,7 @@ func (c *commandNotificationProfileTest) run(ctx context.Context, rep repo.Repos
 		return errors.Errorf("notification profile %q not found", c.profileName)
 	}
 
-	snd, err := sender.GetSender(ctx, p.Profile, p.MethodConfig.Type, p.MethodConfig.Config)
+	snd, err := sender.GetSender(ctx, p.ProfileName, p.MethodConfig.Type, p.MethodConfig.Config)
 	if err != nil {
 		return errors.Wrap(err, "unable to get notification sender")
 	}

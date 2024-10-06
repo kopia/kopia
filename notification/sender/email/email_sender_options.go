@@ -2,6 +2,8 @@ package email
 
 import (
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/notification/sender"
 )
 
 // Options defines email notification provider options.
@@ -29,6 +31,7 @@ func MergeOptions(src Options, dst *Options, isUpdate bool) {
 	copyOrMerge(&dst.From, src.From, isUpdate)
 	copyOrMerge(&dst.To, src.To, isUpdate)
 	copyOrMerge(&dst.CC, src.CC, isUpdate)
+	copyOrMerge(&dst.Format, src.Format, isUpdate)
 }
 
 func (o *Options) applyDefaultsAndValidate() error {
@@ -48,8 +51,8 @@ func (o *Options) applyDefaultsAndValidate() error {
 		return errors.Errorf("To address must be provided")
 	}
 
-	if o.Format == "" {
-		o.Format = "html"
+	if err := sender.ValidateMessageFormatAndSetDefault(&o.Format, sender.FormatHTML); err != nil {
+		return errors.Wrap(err, "invalid format")
 	}
 
 	return nil

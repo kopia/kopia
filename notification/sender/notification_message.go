@@ -92,3 +92,25 @@ func (m Message) ToString() string {
 
 	return buf.String()
 }
+
+// Supported message formats.
+const (
+	FormatPlainText = "txt"
+	FormatHTML      = "html"
+)
+
+// ValidateMessageFormatAndSetDefault validates message the format and sets the default value if empty.
+func ValidateMessageFormatAndSetDefault(f *string, defaultValue string) error {
+	switch *f {
+	case FormatHTML, FormatPlainText:
+		// ok
+		return nil
+
+	case "":
+		*f = defaultValue
+		return nil
+
+	default:
+		return errors.Errorf("invalid format: %v", *f)
+	}
+}

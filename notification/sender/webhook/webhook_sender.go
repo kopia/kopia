@@ -52,7 +52,7 @@ func (p *webhookProvider) Send(ctx context.Context, msg *sender.Message) error {
 }
 
 func (p *webhookProvider) Summary() string {
-	return fmt.Sprintf("Webhook %v %v", p.opt.Method, p.opt.Endpoint)
+	return fmt.Sprintf("Webhook %v %v Format %q", p.opt.Method, p.opt.Endpoint, p.Format())
 }
 
 func (p *webhookProvider) Format() string {

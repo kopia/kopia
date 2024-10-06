@@ -93,7 +93,7 @@ func configureNotificationAction[T comparable](
 		log(ctx).Infof("Saving notification profile %q of type %q with severity %q.", c.profileName, senderMethod, notification.SeverityToString[sev])
 
 		return notifyprofile.SaveProfile(ctx, rep, notifyprofile.Config{
-			Profile: c.profileName,
+			ProfileName: c.profileName,
 			MethodConfig: sender.MethodConfig{
 				Type:   senderMethod,
 				Config: previousOptions,

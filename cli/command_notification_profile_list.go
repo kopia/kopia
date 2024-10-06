@@ -42,12 +42,12 @@ func (c *commandNotificationProfileList) run(ctx context.Context, rep repo.Repos
 	for i, pc := range profileConfigs {
 		var summ notifyprofile.Summary
 
-		summ.ProfileName = pc.Profile
+		summ.ProfileName = pc.ProfileName
 		summ.Type = string(pc.MethodConfig.Type)
 		summ.MinSeverity = int32(pc.MinSeverity)
 
 		// Provider returns a new instance of the notification provider.
-		if prov, err := sender.GetSender(ctx, pc.Profile, pc.MethodConfig.Type, pc.MethodConfig.Config); err == nil {
+		if prov, err := sender.GetSender(ctx, pc.ProfileName, pc.MethodConfig.Type, pc.MethodConfig.Config); err == nil {
 			summ.Summary = prov.Summary()
 		} else {
 			summ.Summary = fmt.Sprintf("%v - invalid", pc.MethodConfig.Type)

@@ -96,3 +96,21 @@ func TestToString(t *testing.T) {
 		t.Errorf("ToString() = %v, want %v", actual, expected)
 	}
 }
+
+func TestValidateMessageFormatAndSetDefault(t *testing.T) {
+	var f string
+
+	require.NoError(t, sender.ValidateMessageFormatAndSetDefault(&f, "html"))
+	require.Equal(t, "html", f)
+
+	f = "txt"
+	require.NoError(t, sender.ValidateMessageFormatAndSetDefault(&f, "html"))
+	require.Equal(t, "txt", f)
+
+	f = "html"
+	require.NoError(t, sender.ValidateMessageFormatAndSetDefault(&f, "html"))
+	require.Equal(t, "html", f)
+
+	f = "bad"
+	require.ErrorContains(t, sender.ValidateMessageFormatAndSetDefault(&f, "html"), "invalid format: bad")
+}

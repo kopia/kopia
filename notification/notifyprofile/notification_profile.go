@@ -20,7 +20,7 @@ const notificationConfigManifestType = "notificationProfile"
 
 // Config is a struct that represents the configuration for a single notification profile.
 type Config struct {
-	Profile      string              `json:"profile"`
+	ProfileName  string              `json:"profile"`
 	MethodConfig sender.MethodConfig `json:"method"`
 	MinSeverity  sender.Severity     `json:"minSeverity"`
 }
@@ -77,9 +77,9 @@ func GetProfile(ctx context.Context, rep repo.Repository, name string) (Config, 
 
 // SaveProfile saves a notification profile.
 func SaveProfile(ctx context.Context, rep repo.RepositoryWriter, pc Config) error {
-	log(ctx).Debugf("saving notification profile %q with method %v", pc.Profile, pc.MethodConfig)
+	log(ctx).Debugf("saving notification profile %q with method %v", pc.ProfileName, pc.MethodConfig)
 
-	_, err := rep.ReplaceManifests(ctx, labelsForProfileName(pc.Profile), &pc)
+	_, err := rep.ReplaceManifests(ctx, labelsForProfileName(pc.ProfileName), &pc)
 	if err != nil {
 		return errors.Wrap(err, "unable to save notification profile")
 	}

@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/notification/sender"
 )
 
 // Options defines Pushover notification sender options.
@@ -25,8 +27,8 @@ func (o *Options) ApplyDefaultsAndValidate(ctx context.Context) error {
 		return errors.Errorf("User Key must be provided")
 	}
 
-	if o.Format == "" {
-		o.Format = "md"
+	if err := sender.ValidateMessageFormatAndSetDefault(&o.Format, sender.FormatPlainText); err != nil {
+		return errors.Wrap(err, "invalid format")
 	}
 
 	return nil

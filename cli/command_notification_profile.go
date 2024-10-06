@@ -30,7 +30,7 @@ type notificationProfileFlag struct {
 }
 
 func (c *notificationProfileFlag) setup(svc appServices, cmd *kingpin.CmdClause) {
-	cmd.Flag("profile", "Profile name").Required().HintAction(svc.repositoryHintAction(c.listNotificationProfiles)).StringVar(&c.profileName)
+	cmd.Flag("profile-name", "Profile name").Required().HintAction(svc.repositoryHintAction(c.listNotificationProfiles)).StringVar(&c.profileName)
 }
 
 func (c *notificationProfileFlag) listNotificationProfiles(ctx context.Context, rep repo.Repository) []string {
@@ -42,8 +42,8 @@ func (c *notificationProfileFlag) listNotificationProfiles(ctx context.Context, 
 	var hints []string
 
 	for _, ti := range profiles {
-		if strings.HasPrefix(ti.Profile, c.profileName) {
-			hints = append(hints, ti.Profile)
+		if strings.HasPrefix(ti.ProfileName, c.profileName) {
+			hints = append(hints, ti.ProfileName)
 		}
 	}
 

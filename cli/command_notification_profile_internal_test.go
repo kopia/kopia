@@ -19,7 +19,7 @@ func TestNotificationProfileAutocomplete(t *testing.T) {
 
 	require.Empty(t, a.listNotificationProfiles(ctx, env.Repository))
 	require.NoError(t, notifyprofile.SaveProfile(ctx, env.RepositoryWriter, notifyprofile.Config{
-		Profile: "test-profile",
+		ProfileName: "test-profile",
 		MethodConfig: sender.MethodConfig{
 			Type:   "email",
 			Config: map[string]string{},
