@@ -39,8 +39,9 @@ jobs:
     - id: govulncheck
       uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
       with:
-        repo-checkout: false
         cache: false
+        go-version-file: 'go.mod'
+        repo-checkout: false
     - name: Lint
       run: make lint
     - name: Check Locks
