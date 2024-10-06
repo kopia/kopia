@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
 	apipb "github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/internal/retry"
@@ -739,7 +738,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 	// clone so that caller can reuse the buffer
 	clone := data.ToByteSlice()
 
-	if err := r.doWriteAsync(ctxutil.Detach(ctx), contentID, clone, prefix, comp); err != nil {
+	if err := r.doWriteAsync(context.WithoutCancel(ctx), contentID, clone, prefix, comp); err != nil {
 		return content.EmptyID, err
 	}
 
@@ -897,7 +896,7 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 		r.innerSessionAttemptCount++
 
 		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
-			sess, err := cli.Session(ctxutil.Detach(ctx))
+			sess, err := cli.Session(context.WithoutCancel(ctx))
 			if err != nil {
 				return nil, errors.Wrap(err, "Session()")
 			}

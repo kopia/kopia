@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
@@ -45,7 +44,7 @@ func NewStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdi
 		}
 	}
 
-	fs, err := filesystem.New(ctxutil.Detach(ctx), &filesystem.Options{
+	fs, err := filesystem.New(context.WithoutCancel(ctx), &filesystem.Options{
 		Path: contentCacheDir,
 		Options: sharded.Options{
 			DirectoryShards: []int{2},

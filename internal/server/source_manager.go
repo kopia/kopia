@@ -11,7 +11,6 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo"
@@ -159,7 +158,7 @@ func (s *sourceManager) start(ctx context.Context, isLocal bool) {
 
 func (s *sourceManager) run(ctx context.Context, isLocal bool) {
 	// make sure we run in a detached context, which ignores outside cancellation and deadline.
-	ctx = ctxutil.Detach(ctx)
+	ctx = context.WithoutCancel(ctx)
 
 	s.setStatus("INITIALIZING")
 	defer s.setStatus("STOPPED")
