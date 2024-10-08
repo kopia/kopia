@@ -12,16 +12,17 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 )
 
-// Less compares with another *Info by their ContentID and return true if the current one is smaller
-func (ic *Info) Less(other llrb.Item) bool {
-	return ic.ContentID.less(other.(*Info).ContentID) //nolint:forcetypeassert
+// Less compares with another *Info by their ContentID and return true if the current one is smaller.
+func (i *Info) Less(other llrb.Item) bool {
+	return i.ContentID.less(other.(*Info).ContentID) //nolint:forcetypeassert
 }
 
+// OneUseBuilder prepares and writes content index for epoch index compaction.
 type OneUseBuilder struct {
 	indexStore *llrb.LLRB
 }
 
-// NewOneUseBuilder create a new instance of OneUseBuilder
+// NewOneUseBuilder create a new instance of OneUseBuilder.
 func NewOneUseBuilder() *OneUseBuilder {
 	return &OneUseBuilder{
 		indexStore: llrb.New(),
@@ -81,7 +82,7 @@ func (b *OneUseBuilder) shard(maxShardSize int) [][]*Info {
 		item := b.indexStore.DeleteMin()
 
 		h := fnv.New32a()
-		io.WriteString(h, item.(*Info).ContentID.String()) //nolint:errcheck,//nolint:forcetypeassert
+		io.WriteString(h, item.(*Info).ContentID.String()) //nolint:errcheck,forcetypeassert
 
 		shard := h.Sum32() % uint32(numShards) //nolint:gosec
 

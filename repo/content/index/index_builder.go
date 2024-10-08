@@ -18,7 +18,7 @@ const randomSuffixSize = 32 // number of random bytes to append at the end to ma
 // Builder prepares and writes content index.
 type Builder map[ID]Info
 
-// BuilderCreator is an interface for caller to add indexes to builders
+// BuilderCreator is an interface for caller to add indexes to builders.
 type BuilderCreator interface {
 	Add(info Info)
 }

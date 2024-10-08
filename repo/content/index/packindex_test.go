@@ -604,6 +604,83 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 	return lens
 }
 
+func TestShard1(t *testing.T) {
+	// generate 10000 IDs in random order
+	ids := make([]int, 10000)
+	for i := range ids {
+		ids[i] = i
+	}
+
+	rand.Shuffle(len(ids), func(i, j int) {
+		ids[i], ids[j] = ids[j], ids[i]
+	})
+
+	cases := []struct {
+		shardSize int
+		numShards int
+		shardLens []int
+	}{
+		{100000, 1, nil},
+		{100, 100, nil},
+		{500, 20, []int{460, 472, 473, 477, 479, 483, 486, 492, 498, 499, 501, 503, 504, 505, 511, 519, 524, 528, 542, 544}},
+		{1000, 10, []int{945, 964, 988, 988, 993, 1002, 1014, 1017, 1021, 1068}},
+		{2000, 5, []int{1952, 1995, 2005, 2013, 2035}},
+	}
+
+	for _, tc := range cases {
+		b := NewOneUseBuilder()
+
+		// add ID to the builder
+		for _, id := range ids {
+			b.Add(Info{
+				ContentID: deterministicContentID(t, "", id),
+			})
+		}
+
+		length := b.Length()
+		shards := b.shard(tc.shardSize)
+
+		// verify number of shards
+		lens := verifyAllShardedIDsList(t, shards, length, tc.numShards)
+
+		require.Zero(t, b.Length())
+
+		// sharding will always produce stable results, verify sorted shard lengths here
+		if tc.shardLens != nil {
+			require.ElementsMatch(t, tc.shardLens, lens)
+		}
+	}
+}
+
+func verifyAllShardedIDsList(t *testing.T, sharded [][]*Info, numTotal, numShards int) []int {
+	t.Helper()
+
+	require.Len(t, sharded, numShards)
+
+	m := map[ID]bool{}
+	for i := range numTotal {
+		m[deterministicContentID(t, "", i)] = true
+	}
+
+	cnt := 0
+
+	var lens []int
+
+	for _, s := range sharded {
+		cnt += len(s)
+		lens = append(lens, len(s))
+
+		for _, v := range s {
+			delete(m, v.ContentID)
+		}
+	}
+
+	require.Equal(t, numTotal, cnt, "invalid total number of sharded elements")
+	require.Empty(t, m)
+
+	return lens
+}
+
 func withOriginalLength(is Info, originalLength uint32) Info {
 	// clone and override original length
 	is.OriginalLength = originalLength
