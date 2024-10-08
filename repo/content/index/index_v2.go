@@ -695,12 +695,12 @@ func openV2PackIndex(data []byte, closer func() error) (Index, error) {
 	}
 
 	if hi.keySize <= 1 || hi.entrySize < v2EntryMinLength || hi.entrySize > v2EntryMaxLength || hi.entryCount < 0 || hi.formatCount > v2MaxFormatCount {
-		return nil, errors.Errorf("invalid header")
+		return nil, errors.New("invalid header")
 	}
 
 	hi.entryStride = int64(hi.keySize + hi.entrySize)
 	if hi.entryStride > v2MaxEntrySize {
-		return nil, errors.Errorf("invalid header - entry stride too big")
+		return nil, errors.New("invalid header - entry stride too big")
 	}
 
 	hi.entriesOffset = v2IndexHeaderSize
@@ -710,7 +710,7 @@ func openV2PackIndex(data []byte, closer func() error) (Index, error) {
 	// pre-read formats section
 	formatsBuf, err := safeSlice(data, hi.formatsOffset, int(hi.formatCount)*v2FormatInfoSize)
 	if err != nil {
-		return nil, errors.Errorf("unable to read formats section")
+		return nil, errors.New("unable to read formats section")
 	}
 
 	packIDs := make([]blob.ID, hi.packCount)
@@ -718,7 +718,7 @@ func openV2PackIndex(data []byte, closer func() error) (Index, error) {
 	for i := range int(hi.packCount) { //nolint:gosec
 		buf, err := safeSlice(data, hi.packsOffset+int64(v2PackInfoSize*i), v2PackInfoSize)
 		if err != nil {
-			return nil, errors.Errorf("unable to read pack blob IDs section - 1")
+			return nil, errors.New("unable to read pack blob IDs section - 1")
 		}
 
 		nameLength := int(buf[0])
@@ -726,7 +726,7 @@ func openV2PackIndex(data []byte, closer func() error) (Index, error) {
 
 		nameBuf, err := safeSliceString(data, int64(nameOffset), nameLength)
 		if err != nil {
-			return nil, errors.Errorf("unable to read pack blob IDs section - 2")
+			return nil, errors.New("unable to read pack blob IDs section - 2")
 		}
 
 		packIDs[i] = blob.ID(nameBuf)

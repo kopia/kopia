@@ -31,7 +31,7 @@ const (
 const KopiaRepositoryBlobID = "kopia.repository"
 
 // ErrInvalidPassword is returned when repository password is invalid.
-var ErrInvalidPassword = errors.Errorf("invalid repository password") // +checklocksignore
+var ErrInvalidPassword = errors.New("invalid repository password") // +checklocksignore
 
 //nolint:gochecknoglobals
 var (

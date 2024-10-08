@@ -78,7 +78,7 @@ func TestServerMaintenance(t *testing.T) {
 	}, 3*time.Second, 10*time.Millisecond)
 
 	ts.mu.Lock()
-	ts.err = errors.Errorf("some error")
+	ts.err = errors.New("some error")
 	ts.mu.Unlock()
 
 	mm.trigger()

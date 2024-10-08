@@ -192,7 +192,7 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 		if c.indexFormatVersion > mp.IndexVersion {
 			setIntParameter(ctx, c.indexFormatVersion, "index format version", &mp.IndexVersion, &anyChange)
 		} else {
-			return errors.Errorf("index format version can only be upgraded")
+			return errors.New("index format version can only be upgraded")
 		}
 	}
 

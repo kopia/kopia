@@ -339,11 +339,11 @@ func (b *indexBuilderV1) writeEntry(w io.Writer, it *Info, entry []byte) error {
 	}
 
 	if it.CompressionHeaderID != 0 {
-		return errors.Errorf("compression not supported in index v1")
+		return errors.New("compression not supported in index v1")
 	}
 
 	if it.EncryptionKeyID != 0 {
-		return errors.Errorf("encryption key ID not supported in index v1")
+		return errors.New("encryption key ID not supported in index v1")
 	}
 
 	if err := b.formatEntry(entry, it); err != nil {
@@ -410,7 +410,7 @@ func v1ReadHeader(data []byte) (v1HeaderInfo, error) {
 	}
 
 	if hi.keySize <= 1 || hi.valueSize < 0 || hi.entryCount < 0 {
-		return v1HeaderInfo{}, errors.Errorf("invalid header")
+		return v1HeaderInfo{}, errors.New("invalid header")
 	}
 
 	return hi, nil

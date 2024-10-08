@@ -89,7 +89,7 @@ func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, sa
 		l.Infof("GC found %v in-use system-contents (%v)", st.SystemCount, units.BytesString(st.SystemBytes))
 
 		if st.UnusedCount > 0 && !gcDelete {
-			return errors.Errorf("Not deleting because 'gcDelete' was not set")
+			return errors.New("Not deleting because 'gcDelete' was not set")
 		}
 
 		return nil

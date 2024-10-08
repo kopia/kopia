@@ -29,7 +29,7 @@ import (
 	"github.com/kopia/kopia/repo/splitter"
 )
 
-var errSomeError = errors.Errorf("some error")
+var errSomeError = errors.New("some error")
 
 type fakeContentManager struct {
 	mu sync.Mutex
@@ -369,7 +369,7 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 
 				for _, id := range ids {
 					if id == content.EmptyID {
-						return errors.Errorf("checkpoint returned empty id")
+						return errors.New("checkpoint returned empty id")
 					}
 				}
 			}

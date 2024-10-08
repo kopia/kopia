@@ -222,7 +222,7 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 	case fileIsSymlink(st):
 		// Throw error if we are not overwriting symlinks
 		if !o.OverwriteSymlinks {
-			return errors.Errorf("will not overwrite existing symlink")
+			return errors.New("will not overwrite existing symlink")
 		}
 
 		// Remove the existing symlink before symlink creation

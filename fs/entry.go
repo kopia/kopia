@@ -13,7 +13,7 @@ import (
 const ModBits = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 
 // ErrUnknown is returned by ErrorEntry.ErrorInfo() to indicate that type of an entry is unknown.
-var ErrUnknown = errors.Errorf("unknown or unsupported entry type")
+var ErrUnknown = errors.New("unknown or unsupported entry type")
 
 // Entry represents a filesystem entry, which can be Directory, File, or Symlink.
 type Entry interface {

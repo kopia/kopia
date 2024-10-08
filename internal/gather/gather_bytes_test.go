@@ -122,7 +122,7 @@ func TestGatherBytes(t *testing.T) {
 
 			require.Equal(t, tmp.ToByteSlice(), b.ToByteSlice())
 
-			someError := errors.Errorf("some error")
+			someError := errors.New("some error")
 
 			// WriteTo propagates error
 			if b.Length() > 0 {

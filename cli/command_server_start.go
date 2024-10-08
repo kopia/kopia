@@ -20,7 +20,6 @@ import (
 	htpasswd "github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/auth"
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
 )
@@ -256,11 +255,12 @@ func (c *commandServerStart) run(ctx context.Context) (reterr error) {
 	if c.serverStartShutdownWhenStdinClosed {
 		log(ctx).Info("Server will close when stdin is closed...")
 
-		ctxutil.GoDetached(ctx, func(ctx context.Context) {
+		go func() {
+			ctx := context.WithoutCancel(ctx)
 			// consume all stdin and close the server when it closes
 			io.Copy(io.Discard, os.Stdin) //nolint:errcheck
 			shutdownHTTPServer(ctx, httpServer)
-		})
+		}()
 	}
 
 	onExternalConfigReloadRequest(srv.Refresh)
@@ -322,7 +322,7 @@ func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authent
 	switch {
 	case c.serverStartWithoutPassword:
 		if !c.serverStartInsecure {
-			return nil, errors.Errorf("--without-password specified without --insecure, refusing to start server")
+			return nil, errors.New("--without-password specified without --insecure, refusing to start server")
 		}
 
 		return nil, nil

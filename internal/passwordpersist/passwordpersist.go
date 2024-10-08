@@ -10,10 +10,10 @@ import (
 )
 
 // ErrPasswordNotFound is returned when a password cannot be found in a persistent storage.
-var ErrPasswordNotFound = errors.Errorf("password not found")
+var ErrPasswordNotFound = errors.New("password not found")
 
 // ErrUnsupported is returned when a password storage is not supported.
-var ErrUnsupported = errors.Errorf("password storage not supported")
+var ErrUnsupported = errors.New("password storage not supported")
 
 var log = logging.Module("passwordpersist")
 

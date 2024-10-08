@@ -161,7 +161,7 @@ func (c *App) maybeCheckForUpdates(ctx context.Context) (string, error) {
 	if v := os.Getenv(c.EnvName(checkForUpdatesEnvar)); v != "" {
 		// see if environment variable is set to false.
 		if b, err := strconv.ParseBool(v); err == nil && !b {
-			return "", errors.Errorf("update check disabled")
+			return "", errors.New("update check disabled")
 		}
 	}
 
