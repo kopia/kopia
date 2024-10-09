@@ -9,9 +9,12 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
+
+var estimateLog = logging.Module("estimate")
 
 // SampleBucket keeps track of count and total size of files above in certain size range and
 // includes small number of examples of such files.

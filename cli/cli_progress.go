@@ -21,12 +21,14 @@ const (
 
 type progressFlags struct {
 	enableProgress         bool
+	progressEstimationType string
 	progressUpdateInterval time.Duration
 	out                    textOutput
 }
 
 func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
 	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
+	app.Flag("progress-estimation-type", "Set type of estimation of the data to be snapshotted").Hidden().Default(snapshotfs.EstimationTypeClassic).EnumVar(&p.progressEstimationType, snapshotfs.EstimationTypeClassic, snapshotfs.EstimationTypeRough)
 	app.Flag("progress-update-interval", "How often to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
 	p.out.setup(svc)
 }
@@ -57,13 +59,18 @@ type cliProgress struct {
 
 	uploadStartTime timetrack.Estimator // +checklocksignore
 
-	estimatedFileCount  int   // +checklocksignore
+	estimatedFileCount  int64 // +checklocksignore
 	estimatedTotalBytes int64 // +checklocksignore
 
 	// indicates shared instance that does not reset counters at the beginning of upload.
 	shared bool
 
 	progressFlags
+}
+
+// Enabled returns true when progress is enabled.
+func (p *cliProgress) Enabled() bool {
+	return p.enableProgress
 }
 
 func (p *cliProgress) HashingFile(_ string) {
@@ -226,7 +233,7 @@ func (p *cliProgress) UploadStarted() {
 	p.uploading.Store(true)
 }
 
-func (p *cliProgress) EstimatedDataSize(fileCount int, totalBytes int64) {
+func (p *cliProgress) EstimatedDataSize(fileCount, totalBytes int64) {
 	if p.shared {
 		// do nothing
 		return
@@ -257,6 +264,10 @@ func (p *cliProgress) Finish() {
 	if p.enableProgress {
 		p.out.printStderr("\n")
 	}
+}
+
+func (p *cliProgress) EstimationType() string {
+	return p.progressEstimationType
 }
 
 var _ snapshotfs.UploadProgress = (*cliProgress)(nil)

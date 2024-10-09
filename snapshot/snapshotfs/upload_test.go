@@ -854,59 +854,6 @@ func randomBytes(n int64) []byte {
 	return b
 }
 
-func TestUploadScanStopsOnContextCancel(t *testing.T) {
-	ctx := testlogging.Context(t)
-	th := newUploadTestHarness(ctx, t)
-
-	defer th.cleanup()
-
-	u := NewUploader(th.repo)
-
-	scanctx, cancel := context.WithCancel(ctx)
-
-	th.sourceDir.Subdir("d1").Subdir("d2").OnReaddir(func() {
-		cancel()
-	})
-
-	result, err := u.scanDirectory(scanctx, th.sourceDir, nil)
-	require.ErrorIs(t, err, scanctx.Err())
-
-	if result.numFiles == 0 && result.totalFileSize == 0 {
-		t.Fatalf("should have returned partial results, got zeros")
-	}
-}
-
-func TestUploadScanIgnoresFiles(t *testing.T) {
-	ctx := testlogging.Context(t)
-	th := newUploadTestHarness(ctx, t)
-
-	defer th.cleanup()
-
-	u := NewUploader(th.repo)
-
-	// set up a policy tree where that ignores some files.
-	policyTree := policy.BuildTree(map[string]*policy.Policy{
-		".": {
-			FilesPolicy: policy.FilesPolicy{
-				IgnoreRules: []string{"f1"},
-			},
-		},
-	}, policy.DefaultPolicy)
-
-	// no policy
-	result1, err := u.scanDirectory(ctx, th.sourceDir, nil)
-	require.NoError(t, err)
-
-	result2, err := u.scanDirectory(ctx, th.sourceDir, policyTree)
-	require.NoError(t, err)
-
-	require.NotEqual(t, 0, result1.numFiles)
-	require.NotEqual(t, 0, result2.numFiles)
-
-	require.Less(t, result2.numFiles, result1.numFiles)
-	require.Less(t, result2.totalFileSize, result1.totalFileSize)
-}
-
 func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
