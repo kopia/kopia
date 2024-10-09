@@ -530,8 +530,15 @@ func TestServerStartInsecure(t *testing.T) {
 	waitUntilServerStarted(ctx, t, cli)
 
 	// server fails to start with --without-password when `--insecure` is not specified
-	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--without-password")                        // without TLS
-	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--without-password", "--tls-generate-cert") // with TLS
+	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--without-password") // without TLS
+
+	// with TLS
+	e.RunAndExpectFailure(t, "server", "start", "--ui",
+		"--address=localhost:0",
+		"--without-password",
+		"--tls-generate-cert",
+		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation,
+	)
 
 	// server fails to start when TLS is not configured and `--insecure` is not specified
 	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0")
