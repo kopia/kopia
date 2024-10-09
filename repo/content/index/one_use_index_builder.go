@@ -50,7 +50,7 @@ func (b *OneUseBuilder) Add(i Info) {
 	}
 }
 
-// Length returns the number of indexes in the current builder
+// Length returns the number of indexes in the current builder.
 func (b *OneUseBuilder) Length() int {
 	return b.indexStore.Len()
 }
