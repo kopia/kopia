@@ -30,6 +30,8 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
+const defaultServerControlUsername = "server-control"
+
 func TestServerStart(t *testing.T) {
 	ctx := testlogging.Context(t)
 
@@ -74,7 +76,7 @@ func TestServerStart(t *testing.T) {
 
 	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             sp.BaseURL,
-		Username:                            "server-control",
+		Username:                            defaultServerControlUsername,
 		Password:                            sp.ServerControlPassword,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
 		LogRequests:                         true,
@@ -219,7 +221,7 @@ func TestServerStartAsyncRepoConnect(t *testing.T) {
 
 	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             sp.BaseURL,
-		Username:                            "server-control",
+		Username:                            defaultServerControlUsername,
 		Password:                            sp.ServerControlPassword,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
 		LogRequests:                         true,
@@ -298,7 +300,7 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 
 	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             sp.BaseURL,
-		Username:                            "server-control",
+		Username:                            defaultServerControlUsername,
 		Password:                            sp.ServerControlPassword,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
 		LogRequests:                         true,
@@ -377,7 +379,7 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 
 	controlClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             sp.BaseURL,
-		Username:                            "server-control",
+		Username:                            defaultServerControlUsername,
 		Password:                            sp.ServerControlPassword,
 		TrustedServerCertificateFingerprint: sp.SHA256Fingerprint,
 	})
