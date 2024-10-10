@@ -178,7 +178,7 @@ func (c *commandServerStart) showServerUIPrompt(ctx context.Context) {
 	}
 }
 
-func checkErrServerClosed(err error, msg string) error {
+func checkErrServerClosed(ctx context.Context, err error, msg string) error {
 	if errors.Is(err, http.ErrServerClosed) {
 		log(ctx).Debug("HTTP server closed:", err)
 
