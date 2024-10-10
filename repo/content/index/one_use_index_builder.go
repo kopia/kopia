@@ -31,22 +31,9 @@ func NewOneUseBuilder() *OneUseBuilder {
 
 // Add adds a new entry to the builder or conditionally replaces it if the timestamp is greater.
 func (b *OneUseBuilder) Add(i Info) {
-	cid := i.ContentID
-
-	found := b.indexStore.Get(&Info{ContentID: cid})
+	found := b.indexStore.Get(&i)
 	if found == nil || contentInfoGreaterThanStruct(&i, found.(*Info)) { //nolint:forcetypeassert
-		_ = b.indexStore.ReplaceOrInsert(&Info{
-			PackBlobID:          i.PackBlobID,
-			ContentID:           cid,
-			TimestampSeconds:    i.TimestampSeconds,
-			OriginalLength:      i.OriginalLength,
-			PackedLength:        i.PackedLength,
-			PackOffset:          i.PackOffset,
-			CompressionHeaderID: i.CompressionHeaderID,
-			Deleted:             i.Deleted,
-			FormatVersion:       i.FormatVersion,
-			EncryptionKeyID:     i.EncryptionKeyID,
-		})
+		_ = b.indexStore.ReplaceOrInsert(&i)
 	}
 }
 

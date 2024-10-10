@@ -156,21 +156,17 @@ func testPackIndex(t *testing.T, version int) {
 
 	var buf1, buf2, buf3, buf4 bytes.Buffer
 
-	if err := b1.Build(&buf1, version); err != nil {
-		t.Fatalf("unable to build: %v", err)
-	}
+	err := b1.Build(&buf1, version)
+	require.NoError(t, err)
 
-	if err := b2.Build(&buf2, version); err != nil {
-		t.Fatalf("unable to build: %v", err)
-	}
+	err = b2.Build(&buf2, version)
+	require.NoError(t, err)
 
-	if err := b3.BuildStable(&buf3, version); err != nil {
-		t.Fatalf("unable to build: %v", err)
-	}
+	err = b3.BuildStable(&buf3, version)
+	require.NoError(t, err)
 
-	if err := b4.BuildStable(&buf4, version); err != nil {
-		t.Fatalf("unable to build: %v", err)
-	}
+	err = b4.BuildStable(&buf4, version)
+	require.NoError(t, err)
 
 	data1 := buf1.Bytes()
 	data2 := buf2.Bytes()
