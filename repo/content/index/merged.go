@@ -33,7 +33,7 @@ func (m Merged) Close() error {
 	return errors.Wrap(err, "closing index shards")
 }
 
-func contentInfoGreaterThanStruct(a, b Info) bool {
+func contentInfoGreaterThanStruct(a, b *Info) bool {
 	if l, r := a.TimestampSeconds, b.TimestampSeconds; l != r {
 		// different timestamps, higher one wins
 		return l > r
@@ -66,7 +66,7 @@ func (m Merged) GetInfo(id ID, result *Info) (bool, error) {
 			continue
 		}
 
-		if !found || contentInfoGreaterThanStruct(tmp, *result) {
+		if !found || contentInfoGreaterThanStruct(&tmp, result) {
 			*result = tmp
 			found = true
 		}
@@ -88,7 +88,7 @@ func (h nextInfoHeap) Less(i, j int) bool {
 		return a.less(b)
 	}
 
-	return !contentInfoGreaterThanStruct(h[i].it, h[j].it)
+	return !contentInfoGreaterThanStruct(&h[i].it, &h[j].it)
 }
 
 func (h nextInfoHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
@@ -167,7 +167,7 @@ func (m Merged) Iterate(r IDRange, cb func(i Info) error) error {
 
 			pendingItem = minNextInfo.it
 			havePendingItem = true
-		} else if contentInfoGreaterThanStruct(minNextInfo.it, pendingItem) {
+		} else if contentInfoGreaterThanStruct(&minNextInfo.it, &pendingItem) {
 			pendingItem = minNextInfo.it
 		}
 

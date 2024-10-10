@@ -35,6 +35,7 @@ require (
 	github.com/mocktools/go-smtp-mock/v2 v2.3.1
 	github.com/mxk/go-vss v1.2.0
 	github.com/natefinch/atomic v1.0.1
+	github.com/petar/GoLLRB v0.0.0-20210522233825-ae3b015fd3e9
 	github.com/pierrec/lz4 v2.6.1+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.7.0

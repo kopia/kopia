@@ -144,15 +144,17 @@ func testPackIndex(t *testing.T, version int) {
 	b1 := make(Builder)
 	b2 := make(Builder)
 	b3 := make(Builder)
+	b4 := NewOneUseBuilder()
 
 	for _, info := range infos {
 		infoMap[info.ContentID] = info
 		b1.Add(info)
 		b2.Add(info)
 		b3.Add(info)
+		b4.Add(info)
 	}
 
-	var buf1, buf2, buf3 bytes.Buffer
+	var buf1, buf2, buf3, buf4 bytes.Buffer
 
 	if err := b1.Build(&buf1, version); err != nil {
 		t.Fatalf("unable to build: %v", err)
@@ -166,9 +168,14 @@ func testPackIndex(t *testing.T, version int) {
 		t.Fatalf("unable to build: %v", err)
 	}
 
+	if err := b4.BuildStable(&buf4, version); err != nil {
+		t.Fatalf("unable to build: %v", err)
+	}
+
 	data1 := buf1.Bytes()
 	data2 := buf2.Bytes()
 	data3 := buf3.Bytes()
+	data4 := buf4.Bytes()
 
 	// each build produces exactly identical prefix except for the trailing random bytes.
 	data1Prefix := data1[0 : len(data1)-randomSuffixSize]
@@ -176,13 +183,22 @@ func testPackIndex(t *testing.T, version int) {
 
 	require.Equal(t, data1Prefix, data2Prefix)
 	require.Equal(t, data2Prefix, data3)
+	require.Equal(t, data2Prefix, data4)
 	require.NotEqual(t, data1, data2)
+	require.Equal(t, data3, data4)
 
 	t.Run("FuzzTest", func(t *testing.T) {
 		fuzzTestIndexOpen(data1)
 	})
 
-	ndx, err := Open(data1, nil, func() int { return fakeEncryptionOverhead })
+	verifyPackedIndexes(t, infos, infoMap, version, data1)
+	verifyPackedIndexes(t, infos, infoMap, version, data4)
+}
+
+func verifyPackedIndexes(t *testing.T, infos []Info, infoMap map[ID]Info, version int, packed []byte) {
+	t.Helper()
+
+	ndx, err := Open(packed, nil, func() int { return fakeEncryptionOverhead })
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}
@@ -276,7 +292,7 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 		var result bytes.Buffer
 
 		if tc.errMsg == "" {
-			require.NoError(t, b.buildV2(&result))
+			require.NoError(t, buildV2(b.sortedContents(), &result))
 
 			pi, err := Open(result.Bytes(), nil, func() int { return fakeEncryptionOverhead })
 			require.NoError(t, err)
@@ -289,7 +305,7 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 
 			require.Equal(t, got, tc.info)
 		} else {
-			err := b.buildV2(&result)
+			err := buildV2(b.sortedContents(), &result)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.errMsg)
 		}
@@ -366,6 +382,76 @@ func TestSortedContents2(t *testing.T) {
 	}
 }
 
+func TestSortedContents3(t *testing.T) {
+	b := NewOneUseBuilder()
+
+	for i := range 100 {
+		v := deterministicContentID(t, "", i)
+
+		b.Add(Info{
+			ContentID: v,
+		})
+	}
+
+	got := b.sortedContents()
+
+	var last ID
+	for _, info := range got {
+		if info.ContentID.less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
+		}
+
+		last = info.ContentID
+	}
+}
+
+func TestSortedContents4(t *testing.T) {
+	b := NewOneUseBuilder()
+
+	b.Add(Info{
+		ContentID: mustParseID(t, "0123"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "1023"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "0f23"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "f023"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "g0123"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "g1023"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "i0123"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "i1023"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "h0123"),
+	})
+	b.Add(Info{
+		ContentID: mustParseID(t, "h1023"),
+	})
+
+	got := b.sortedContents()
+
+	var last ID
+
+	for _, info := range got {
+		if info.ContentID.less(last) {
+			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
+		}
+
+		last = info.ContentID
+	}
+}
+
 func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 	b := Builder{}
 
@@ -380,7 +466,7 @@ func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 		})
 	}
 
-	require.NoError(t, b.buildV2(io.Discard))
+	require.NoError(t, buildV2(b.sortedContents(), io.Discard))
 
 	// add one more to push it over the edge
 	b.Add(Info{
@@ -389,7 +475,7 @@ func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 		CompressionHeaderID: compression.HeaderID(5000),
 	})
 
-	err := b.buildV2(io.Discard)
+	err := buildV2(b.sortedContents(), io.Discard)
 	require.Error(t, err)
 	require.Equal(t, "unsupported - too many unique formats 256 (max 255)", err.Error())
 }
@@ -490,6 +576,83 @@ func TestShard(t *testing.T) {
 }
 
 func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards int) []int {
+	t.Helper()
+
+	require.Len(t, sharded, numShards)
+
+	m := map[ID]bool{}
+	for i := range numTotal {
+		m[deterministicContentID(t, "", i)] = true
+	}
+
+	cnt := 0
+
+	var lens []int
+
+	for _, s := range sharded {
+		cnt += len(s)
+		lens = append(lens, len(s))
+
+		for _, v := range s {
+			delete(m, v.ContentID)
+		}
+	}
+
+	require.Equal(t, numTotal, cnt, "invalid total number of sharded elements")
+	require.Empty(t, m)
+
+	return lens
+}
+
+func TestShard1(t *testing.T) {
+	// generate 10000 IDs in random order
+	ids := make([]int, 10000)
+	for i := range ids {
+		ids[i] = i
+	}
+
+	rand.Shuffle(len(ids), func(i, j int) {
+		ids[i], ids[j] = ids[j], ids[i]
+	})
+
+	cases := []struct {
+		shardSize int
+		numShards int
+		shardLens []int
+	}{
+		{100000, 1, nil},
+		{100, 100, nil},
+		{500, 20, []int{460, 472, 473, 477, 479, 483, 486, 492, 498, 499, 501, 503, 504, 505, 511, 519, 524, 528, 542, 544}},
+		{1000, 10, []int{945, 964, 988, 988, 993, 1002, 1014, 1017, 1021, 1068}},
+		{2000, 5, []int{1952, 1995, 2005, 2013, 2035}},
+	}
+
+	for _, tc := range cases {
+		b := NewOneUseBuilder()
+
+		// add ID to the builder
+		for _, id := range ids {
+			b.Add(Info{
+				ContentID: deterministicContentID(t, "", id),
+			})
+		}
+
+		length := b.Length()
+		shards := b.shard(tc.shardSize)
+
+		// verify number of shards
+		lens := verifyAllShardedIDsList(t, shards, length, tc.numShards)
+
+		require.Zero(t, b.Length())
+
+		// sharding will always produce stable results, verify sorted shard lengths here
+		if tc.shardLens != nil {
+			require.ElementsMatch(t, tc.shardLens, lens)
+		}
+	}
+}
+
+func verifyAllShardedIDsList(t *testing.T, sharded [][]*Info, numTotal, numShards int) []int {
 	t.Helper()
 
 	require.Len(t, sharded, numShards)
