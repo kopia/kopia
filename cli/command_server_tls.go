@@ -122,7 +122,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
 		c.showServerUIPrompt(ctx)
 
-		return checkErrServerClosed(httpServer.ServeTLS(listener, c.serverStartTLSCertFile, c.serverStartTLSKeyFile), "error starting TLS server")
+		return checkErrServerClosed(ctx, httpServer.ServeTLS(listener, c.serverStartTLSCertFile, c.serverStartTLSKeyFile), "error starting TLS server")
 
 	case c.serverStartTLSGenerateCert:
 		// PEM files not provided, generate in-memory TLS cert/key but don't persit.
@@ -158,7 +158,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
 		c.showServerUIPrompt(ctx)
 
-		return checkErrServerClosed(httpServer.ServeTLS(listener, "", ""), "error starting TLS server")
+		return checkErrServerClosed(ctx, httpServer.ServeTLS(listener, "", ""), "error starting TLS server")
 
 	default:
 		if !c.serverStartInsecure {
@@ -168,7 +168,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttp://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
 		c.showServerUIPrompt(ctx)
 
-		return checkErrServerClosed(httpServer.Serve(listener), "error starting server")
+		return checkErrServerClosed(ctx, httpServer.Serve(listener), "error starting server")
 	}
 }
 
