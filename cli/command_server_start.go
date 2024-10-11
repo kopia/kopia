@@ -24,7 +24,10 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-const serverRandomPasswordLength = 32
+const (
+	defaultServerControlUsername = "server-control"
+	serverRandomPasswordLength   = 32
+)
 
 type commandServerStart struct {
 	co connectOptions
@@ -93,7 +96,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("htpasswd-file", "Path to htpasswd file that contains allowed user@hostname entries").Hidden().ExistingFileVar(&c.serverStartHtpasswdFile)
 
 	cmd.Flag("random-server-control-password", "Generate random server control password and print to stderr").Hidden().BoolVar(&c.randomServerControlPassword)
-	cmd.Flag("server-control-username", "Server control username").Default("server-control").Envar(svc.EnvName("KOPIA_SERVER_CONTROL_USER")).StringVar(&c.serverControlUsername)
+	cmd.Flag("server-control-username", "Server control username").Default(defaultServerControlUsername).Envar(svc.EnvName("KOPIA_SERVER_CONTROL_USER")).StringVar(&c.serverControlUsername)
 	cmd.Flag("server-control-password", "Server control password").PlaceHolder("PASSWORD").Envar(svc.EnvName("KOPIA_SERVER_CONTROL_PASSWORD")).StringVar(&c.serverControlPassword)
 
 	cmd.Flag("auth-cookie-signing-key", "Force particular auth cookie signing key").Envar(svc.EnvName("KOPIA_AUTH_COOKIE_SIGNING_KEY")).Hidden().StringVar(&c.serverAuthCookieSingingKey)
