@@ -32,7 +32,7 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 	//nolint:nestif
 	if comp != NoCompression {
 		if mp.IndexVersion < index.Version2 {
-			return NoCompression, errors.Errorf("compression is not enabled for this repository")
+			return NoCompression, errors.New("compression is not enabled for this repository")
 		}
 
 		var tmp gather.WriteBuffer

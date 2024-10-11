@@ -60,11 +60,11 @@ func TestBlobCrypto(t *testing.T) {
 type badEncryptor struct{}
 
 func (badEncryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
-	return errors.Errorf("some error")
+	return errors.New("some error")
 }
 
 func (badEncryptor) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
-	return errors.Errorf("some error")
+	return errors.New("some error")
 }
 
 func (badEncryptor) Overhead() int { return 0 }

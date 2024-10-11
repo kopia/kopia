@@ -3,6 +3,7 @@ package testenv
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"io/fs"
 	"math/rand"
@@ -18,8 +19,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/timetrack"
+	"github.com/kopia/kopia/notification/sender"
+	"github.com/kopia/kopia/notification/sender/testsender"
 )
 
 const (
@@ -30,11 +34,15 @@ const (
 // CLIRunner encapsulates running kopia subcommands for testing purposes.
 // It supports implementations that use subprocesses or in-process invocations.
 type CLIRunner interface {
-	Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal))
+	Start(t *testing.T, ctx context.Context, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal))
 }
 
 // CLITest encapsulates state for a CLI-based test.
 type CLITest struct {
+	// context in which all subcommands are running
+	//nolint:containedctx
+	RunContext context.Context
+
 	startTime time.Time
 
 	RepoDir   string
@@ -91,6 +99,7 @@ func NewCLITest(t *testing.T, repoCreateFlags []string, runner CLIRunner) *CLITe
 	}
 
 	return &CLITest{
+		RunContext:                   testsender.CaptureMessages(testlogging.Context(t)),
 		startTime:                    clock.Now(),
 		RepoDir:                      testutil.TempDirectory(t),
 		ConfigDir:                    configDir,
@@ -154,6 +163,10 @@ func (e *CLITest) SetLogOutput(enable bool, prefix string) {
 	e.logOutputPrefix = prefix
 }
 
+func (e *CLITest) NotificationsSent() []*sender.Message {
+	return testsender.MessagesInContext(e.RunContext)
+}
+
 func (e *CLITest) getLogOutputPrefix() (string, bool) {
 	e.logMu.RLock()
 	defer e.logMu.RUnlock()
@@ -178,7 +191,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line string) bool, args ...string) (wait func() error, interrupt func(os.Signal)) {
 	t.Helper()
 
-	stdout, stderr, wait, interrupt := e.Runner.Start(t, e.cmdArgs(args), e.Environment)
+	stdout, stderr, wait, interrupt := e.Runner.Start(t, e.RunContext, e.cmdArgs(args), e.Environment)
 
 	go func() {
 		scanner := bufio.NewScanner(stdout)
@@ -276,7 +289,7 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 
 	timer := timetrack.StartTimer()
 
-	stdoutReader, stderrReader, wait, _ := e.Runner.Start(t, args, e.Environment)
+	stdoutReader, stderrReader, wait, _ := e.Runner.Start(t, e.RunContext, args, e.Environment)
 
 	var wg sync.WaitGroup
 

@@ -180,7 +180,7 @@ func ParseID(s string) (ID, error) {
 	}
 
 	if id.indirection > 0 && id.compression {
-		return id, errors.Errorf("malformed object ID - compression and indirection are mutually exclusive")
+		return id, errors.New("malformed object ID - compression and indirection are mutually exclusive")
 	}
 
 	cid, err := index.ParseID(s)

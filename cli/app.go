@@ -80,6 +80,7 @@ type appServices interface {
 	directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error
 	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
+	repositoryHintAction(act func(ctx context.Context, rep repo.Repository) []string) func() []string
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
 	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
@@ -143,24 +144,25 @@ type App struct {
 	onFatalErrorCallbacks []func(err error)
 
 	// subcommands
-	blob        commandBlob
-	benchmark   commandBenchmark
-	cache       commandCache
-	content     commandContent
-	diff        commandDiff
-	index       commandIndex
-	list        commandList
-	server      commandServer
-	session     commandSession
-	policy      commandPolicy
-	restore     commandRestore
-	show        commandShow
-	snapshot    commandSnapshot
-	manifest    commandManifest
-	mount       commandMount
-	maintenance commandMaintenance
-	repository  commandRepository
-	logs        commandLogs
+	blob         commandBlob
+	benchmark    commandBenchmark
+	cache        commandCache
+	content      commandContent
+	diff         commandDiff
+	index        commandIndex
+	list         commandList
+	server       commandServer
+	session      commandSession
+	policy       commandPolicy
+	restore      commandRestore
+	show         commandShow
+	snapshot     commandSnapshot
+	manifest     commandManifest
+	mount        commandMount
+	maintenance  commandMaintenance
+	repository   commandRepository
+	logs         commandLogs
+	notification commandNotification
 
 	// testability hooks
 	testonlyIgnoreMissingRequiredFeatures bool
@@ -300,6 +302,7 @@ func (c *App) setup(app *kingpin.Application) {
 	c.index.setup(c, app)
 	c.list.setup(c, app)
 	c.logs.setup(c, app)
+	c.notification.setup(c, app)
 	c.server.setup(c, app)
 	c.session.setup(c, app)
 	c.restore.setup(c, app)
@@ -380,7 +383,7 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 	cmd.Flag("safety", "Safety level").Default("full").PreAction(func(_ *kingpin.ParseContext) error {
 		r, ok := safetyByName[str]
 		if !ok {
-			return errors.Errorf("unhandled safety level")
+			return errors.New("unhandled safety level")
 		}
 
 		*result = r
@@ -435,7 +438,7 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 		// but will fail in the future when we have remote repository implementation
 		lr, ok := rep.(repo.DirectRepository)
 		if !ok {
-			return errors.Errorf("operation supported only on direct repository")
+			return errors.New("operation supported only on direct repository")
 		}
 
 		return act(ctx, lr)
@@ -501,8 +504,15 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 	}
 
 	err := func() error {
+		if command == nil {
+			defer c.runOnExit()
+
+			return cb(ctx)
+		}
+
 		tctx, span := tracer.Start(ctx, command.FullCommand(), trace.WithSpanKind(trace.SpanKindClient))
 		defer span.End()
+
 		defer c.runOnExit()
 
 		return cb(tctx)
@@ -570,6 +580,28 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 	})
 }
 
+func (c *App) repositoryHintAction(act func(ctx context.Context, rep repo.Repository) []string) func() []string {
+	return func() []string {
+		var result []string
+
+		//nolint:errcheck
+		c.runAppWithContext(nil, func(ctx context.Context) error {
+			rep, err := c.openRepository(ctx, true)
+			if err != nil {
+				return nil
+			}
+
+			defer rep.Close(ctx) //nolint:errcheck
+
+			result = act(ctx, rep)
+
+			return nil
+		})
+
+		return result
+	}
+}
+
 func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 	if !c.enableAutomaticMaintenance {
 		return nil
@@ -611,7 +643,7 @@ To run this command despite the warning, set --advanced-commands=enabled
 
 `)
 
-		c.exitWithError(errors.Errorf("advanced commands are disabled"))
+		c.exitWithError(errors.New("advanced commands are disabled"))
 	}
 }
 

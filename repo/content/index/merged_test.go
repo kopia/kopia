@@ -60,7 +60,7 @@ func TestMerged(t *testing.T) {
 	fmt.Println("=========== START")
 
 	// error is propagated.
-	someErr := errors.Errorf("some error")
+	someErr := errors.New("some error")
 	require.ErrorIs(t, m.Iterate(AllIDs, func(i Info) error {
 		if i.ContentID == mustParseID(t, "aabbcc") {
 			return someErr
@@ -160,7 +160,7 @@ func (i failingIndex) GetInfo(contentID ID, result *Info) (bool, error) {
 }
 
 func TestMergedGetInfoError(t *testing.T) {
-	someError := errors.Errorf("some error")
+	someError := errors.New("some error")
 
 	m := Merged{failingIndex{nil, someError}}
 

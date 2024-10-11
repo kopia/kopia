@@ -33,7 +33,7 @@ type committedManifestManager struct {
 	// +checklocks:cmmu
 	committedEntries map[ID]*manifestEntry
 	// +checklocks:cmmu
-	committedContentIDs map[content.ID]bool
+	committedContentIDs map[content.ID]struct{}
 
 	// autoCompactionThreshold controls the threshold after which the manager auto-compacts
 	// manifest contents
@@ -80,7 +80,7 @@ func (m *committedManifestManager) findCommittedEntries(ctx context.Context, lab
 	return findEntriesMatchingLabels(m.committedEntries, labels), nil
 }
 
-func (m *committedManifestManager) commitEntries(ctx context.Context, entries map[ID]*manifestEntry) (map[content.ID]bool, error) {
+func (m *committedManifestManager) commitEntries(ctx context.Context, entries map[ID]*manifestEntry) (map[content.ID]struct{}, error) {
 	if len(entries) == 0 {
 		return nil, nil
 	}
@@ -99,7 +99,7 @@ func (m *committedManifestManager) commitEntries(ctx context.Context, entries ma
 // the lock via commitEntries()) and to compact existing committed entries during compaction
 // where the lock is already being held.
 // +checklocks:m.cmmu
-func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entries map[ID]*manifestEntry) (map[content.ID]bool, error) {
+func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entries map[ID]*manifestEntry) (map[content.ID]struct{}, error) {
 	if len(entries) == 0 {
 		return nil, nil
 	}
@@ -126,12 +126,11 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 
 	for _, e := range entries {
 		m.committedEntries[e.ID] = e
-		delete(entries, e.ID)
 	}
 
-	m.committedContentIDs[contentID] = true
+	m.committedContentIDs[contentID] = struct{}{}
 
-	return map[content.ID]bool{contentID: true}, nil
+	return map[content.ID]struct{}{contentID: {}}, nil
 }
 
 // +checklocks:m.cmmu
@@ -194,10 +193,10 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 // +checklocks:m.cmmu
 func (m *committedManifestManager) loadManifestContentsLocked(manifests map[content.ID]manifest) {
 	m.committedEntries = map[ID]*manifestEntry{}
-	m.committedContentIDs = map[content.ID]bool{}
+	m.committedContentIDs = map[content.ID]struct{}{}
 
 	for contentID := range manifests {
-		m.committedContentIDs[contentID] = true
+		m.committedContentIDs[contentID] = struct{}{}
 	}
 
 	for _, man := range manifests {
@@ -259,19 +258,14 @@ func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 	m.b.DisableIndexFlush(ctx)
 	defer m.b.EnableIndexFlush(ctx)
 
-	tmp := map[ID]*manifestEntry{}
-	for k, v := range m.committedEntries {
-		tmp[k] = v
-	}
-
-	written, err := m.writeEntriesLocked(ctx, tmp)
+	written, err := m.writeEntriesLocked(ctx, m.committedEntries)
 	if err != nil {
 		return err
 	}
 
 	// add the newly-created content to the list, could be duplicate
 	for b := range m.committedContentIDs {
-		if written[b] {
+		if _, ok := written[b]; ok {
 			// do not delete content that was just written.
 			continue
 		}
@@ -376,7 +370,7 @@ func newCommittedManager(b contentManager, autoCompactionThreshold int) *committ
 		b:                       b,
 		debugID:                 debugID,
 		committedEntries:        map[ID]*manifestEntry{},
-		committedContentIDs:     map[content.ID]bool{},
+		committedContentIDs:     map[content.ID]struct{}{},
 		autoCompactionThreshold: autoCompactionThreshold,
 	}
 }

@@ -96,7 +96,7 @@ func ValidatePolicy(si snapshot.SourceInfo, pol *Policy) error {
 // validatePolicyPath validates that the provided policy path is valid and the path exists.
 func validatePolicyPath(p string) error {
 	if isSlashOrBackslash(p[len(p)-1]) && !isRootPath(p) {
-		return errors.Errorf("path cannot end with a slash or a backslash")
+		return errors.New("path cannot end with a slash or a backslash")
 	}
 
 	return nil

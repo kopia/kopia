@@ -85,7 +85,7 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) error {
 	)
 
 	if f.Size() < int64(validSignatureLen) {
-		return errors.Errorf("cache dir marker file too short")
+		return errors.New("cache dir marker file too short")
 	}
 
 	r, err := f.Open(ctx)
@@ -102,7 +102,7 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) error {
 	}
 
 	if string(sig) != validSignature {
-		return errors.Errorf("invalid cache dir marker file signature")
+		return errors.New("invalid cache dir marker file signature")
 	}
 
 	return nil

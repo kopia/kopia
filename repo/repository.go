@@ -62,6 +62,11 @@ type RemoteRetentionPolicy interface {
 	ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error)
 }
 
+// RemoteNotifications is an interface implemented by repository clients that support remote notifications.
+type RemoteNotifications interface {
+	SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, severity int32) error
+}
+
 // DirectRepository provides additional low-level repository functionality.
 //
 //nolint:interfacebloat

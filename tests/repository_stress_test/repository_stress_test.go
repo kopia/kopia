@@ -74,7 +74,7 @@ type StressOptions struct {
 	ActionWeights map[actName]int
 }
 
-var errSkipped = errors.Errorf("skipped")
+var errSkipped = errors.New("skipped")
 
 const masterPassword = "foo-bar-baz-1234"
 

@@ -109,7 +109,7 @@ func (om *Manager) closedWriter(ow *objectWriter) {
 // so this method should only be used for very large files where this overhead is relatively small.
 func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID, metadataComp compression.Name) (ID, error) {
 	if len(objectIDs) == 0 {
-		return EmptyID, errors.Errorf("empty list of objects")
+		return EmptyID, errors.New("empty list of objects")
 	}
 
 	if len(objectIDs) == 1 {

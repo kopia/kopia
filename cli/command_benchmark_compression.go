@@ -115,7 +115,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 	}
 
 	if len(data) == 0 {
-		return errors.Errorf("empty data file")
+		return errors.New("empty data file")
 	}
 
 	repeatCount := c.repeat

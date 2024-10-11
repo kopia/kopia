@@ -190,7 +190,7 @@ func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectReposito
 	}
 
 	if !changedParams && !changedSchedule {
-		return errors.Errorf("no changes specified")
+		return errors.New("no changes specified")
 	}
 
 	blobCfg, err := rep.FormatManager().BlobCfgBlob(ctx)

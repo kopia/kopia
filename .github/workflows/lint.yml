@@ -26,7 +26,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - name: Check out repository
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+      uses: actions/checkout@d632683dd7b4114ad314bca15554477dd762a938 # v4.2.0
       with:
         fetch-depth: 0
     - name: Set up Go
@@ -37,10 +37,12 @@ jobs:
       id: go
       if: ${{ !contains(matrix.os, 'ARMHF') }}
     - id: govulncheck
-      uses: golang/govulncheck-action@dd0578b371c987f96d1185abb54344b44352bd58 # v1.0.3
+      uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
       with:
-        repo-checkout: false
         cache: false
+        go-version-input:
+        go-version-file: 'go.mod'
+        repo-checkout: false
     - name: Lint
       run: make lint
     - name: Check Locks
