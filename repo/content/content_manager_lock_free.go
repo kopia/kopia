@@ -29,6 +29,12 @@ func (sm *SharedManager) maybeCompressAndEncryptDataForPacking(data gather.Bytes
 
 	iv := getPackedContentIV(hashOutput[:0], contentID)
 
+	// If the content is prefixed (which represents Kopia's own metadata as opposed to user data),
+	// and we're on < V2 format, disable compression even when its requested.
+	if contentID.HasPrefix() && mp.IndexVersion < index.Version2 {
+		comp = NoCompression
+	}
+
 	//nolint:nestif
 	if comp != NoCompression {
 		if mp.IndexVersion < index.Version2 {
