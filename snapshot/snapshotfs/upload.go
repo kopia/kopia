@@ -1339,7 +1339,7 @@ func (u *Uploader) startDataSizeEstimation(
 		return noOpEstimationCtrl
 	}
 
-	estimator := NewEstimator(wrapped, policyTree, u.Progress.EstimationType(), logger)
+	estimator := NewEstimator(wrapped, policyTree, u.Progress.EstimationParameters(), logger)
 
 	estimator.StartEstimation(ctx, func(filesCount, totalFileSize int64) {
 		u.Progress.EstimatedDataSize(filesCount, totalFileSize)

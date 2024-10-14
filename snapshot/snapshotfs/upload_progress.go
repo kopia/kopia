@@ -12,7 +12,19 @@ const (
 	EstimationTypeClassic = "classic"
 	// EstimationTypeRough represents new way of estimation, which looks into filesystem stats to get amount of data.
 	EstimationTypeRough = "rough"
+	// EstimationTypeAdaptive is a combination of new and old approaches. If the estimated file count is high,
+	// it will use a rough estimation. If the count is low, it will switch to the classic method.
+	EstimationTypeAdaptive = "adaptive"
+
+	// AdaptiveEstimationThreshold is the point at which the classic estimation is used instead of the rough estimation.
+	AdaptiveEstimationThreshold = 300000
 )
+
+// EstimationParameters represents parameters to be used for estimation.
+type EstimationParameters struct {
+	Type              string
+	AdaptiveThreshold int64
+}
 
 // UploadProgress is invoked by uploader to report status of file and directory uploads.
 //
@@ -63,8 +75,8 @@ type UploadProgress interface {
 	// FinishedDirectory is emitted whenever a directory is finished uploading.
 	FinishedDirectory(dirname string)
 
-	// EstimationType returns type of estimation to be used
-	EstimationType() string
+	// EstimationParameters returns settings to be used for estimation
+	EstimationParameters() EstimationParameters
 
 	// EstimatedDataSize is emitted whenever the size of upload is estimated.
 	EstimatedDataSize(fileCount int64, totalBytes int64)
@@ -144,8 +156,12 @@ func (p *NullUploadProgress) FinishedDirectory(dirname string) {}
 //nolint:revive
 func (p *NullUploadProgress) Error(path string, err error, isIgnored bool) {}
 
-// EstimationType implements UploadProgress.
-func (p *NullUploadProgress) EstimationType() string { return EstimationTypeClassic }
+// EstimationParameters implements UploadProgress.
+func (p *NullUploadProgress) EstimationParameters() EstimationParameters {
+	return EstimationParameters{
+		Type: EstimationTypeClassic,
+	}
+}
 
 var _ UploadProgress = (*NullUploadProgress)(nil)
 

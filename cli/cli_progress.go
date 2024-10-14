@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,16 +21,19 @@ const (
 )
 
 type progressFlags struct {
-	enableProgress         bool
-	progressEstimationType string
-	progressUpdateInterval time.Duration
-	out                    textOutput
+	enableProgress              bool
+	progressEstimationType      string
+	adaptiveEstimationThreshold int64
+	progressUpdateInterval      time.Duration
+	out                         textOutput
 }
 
 func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
 	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
-	app.Flag("progress-estimation-type", "Set type of estimation of the data to be snapshotted").Hidden().Default(snapshotfs.EstimationTypeClassic).EnumVar(&p.progressEstimationType, snapshotfs.EstimationTypeClassic, snapshotfs.EstimationTypeRough)
+	app.Flag("progress-estimation-type", "Set type of estimation of the data to be snapshotted").Hidden().Default(snapshotfs.EstimationTypeClassic).
+		EnumVar(&p.progressEstimationType, snapshotfs.EstimationTypeClassic, snapshotfs.EstimationTypeRough, snapshotfs.EstimationTypeAdaptive)
 	app.Flag("progress-update-interval", "How often to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
+	app.Flag("adaptive-estimation-threshold", "Sets the threshold below which the classic estimation method will be used").Hidden().Default(strconv.FormatInt(snapshotfs.AdaptiveEstimationThreshold, 10)).Int64Var(&p.adaptiveEstimationThreshold)
 	p.out.setup(svc)
 }
 
@@ -266,8 +270,11 @@ func (p *cliProgress) Finish() {
 	}
 }
 
-func (p *cliProgress) EstimationType() string {
-	return p.progressEstimationType
+func (p *cliProgress) EstimationParameters() snapshotfs.EstimationParameters {
+	return snapshotfs.EstimationParameters{
+		Type:              p.progressEstimationType,
+		AdaptiveThreshold: p.adaptiveEstimationThreshold,
+	}
 }
 
 var _ snapshotfs.UploadProgress = (*cliProgress)(nil)

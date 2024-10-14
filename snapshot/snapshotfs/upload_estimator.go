@@ -48,10 +48,10 @@ func (c *NoOpEstimationController) Wait() {}
 var noOpEstimationCtrl EstimationController = &NoOpEstimationController{} //nolint:gochecknoglobals
 
 type estimator struct {
-	estimationType string
-	logger         logging.Logger
-	entry          fs.Directory
-	policyTree     *policy.Tree
+	estimationParameters EstimationParameters
+	logger               logging.Logger
+	entry                fs.Directory
+	policyTree           *policy.Tree
 
 	scanWG              sync.WaitGroup
 	cancelCtx           context.CancelFunc
@@ -61,28 +61,14 @@ type estimator struct {
 // EstimatorOption is an option which could be used to customize estimator behavior.
 type EstimatorOption func(Estimator)
 
-// WithFailedVolumeSizeInfo returns EstimatorOption which ensures that GetVolumeSizeInfo will fail with provided error.
-// Purposed for tests.
-func WithFailedVolumeSizeInfo(err error) EstimatorOption {
-	return func(e Estimator) {
-		roughEst, _ := e.(*estimator)
-		roughEst.getVolumeSizeInfoFn = func(_ string) (vsi.VolumeSizeInfo, error) {
-			return vsi.VolumeSizeInfo{}, err
-		}
-	}
-}
+// VolumeSizeInfoFn represents a function type which is used to retrieve volume size information.
+type VolumeSizeInfoFn func(string) (vsi.VolumeSizeInfo, error)
 
-// WithVolumeSizeInfo returns EstimatorOption which provides fake volume size. Purposed for tests.
-func WithVolumeSizeInfo(filesCount, usedFileSize, totalFileSize uint64) EstimatorOption {
+// WithVolumeSizeInfoFn returns EstimatorOption which allows to pass custom GetVolumeSizeInfo implementation.
+func WithVolumeSizeInfoFn(fn VolumeSizeInfoFn) EstimatorOption {
 	return func(e Estimator) {
 		roughEst, _ := e.(*estimator)
-		roughEst.getVolumeSizeInfoFn = func(_ string) (vsi.VolumeSizeInfo, error) {
-			return vsi.VolumeSizeInfo{
-				TotalSize:  totalFileSize,
-				UsedSize:   usedFileSize,
-				FilesCount: filesCount,
-			}, nil
-		}
+		roughEst.getVolumeSizeInfoFn = fn
 	}
 }
 
@@ -90,16 +76,16 @@ func WithVolumeSizeInfo(filesCount, usedFileSize, totalFileSize uint64) Estimato
 func NewEstimator(
 	entry fs.Directory,
 	policyTree *policy.Tree,
-	estimationType string,
+	estimationParams EstimationParameters,
 	logger logging.Logger,
 	options ...EstimatorOption,
 ) Estimator {
 	est := &estimator{
-		estimationType:      estimationType,
-		logger:              logger,
-		entry:               entry,
-		policyTree:          policyTree,
-		getVolumeSizeInfoFn: vsi.GetVolumeSizeInfo,
+		estimationParameters: estimationParams,
+		logger:               logger,
+		entry:                entry,
+		policyTree:           policyTree,
+		getVolumeSizeInfoFn:  vsi.GetVolumeSizeInfo,
 	}
 
 	for _, option := range options {
@@ -130,17 +116,25 @@ func (e *estimator) StartEstimation(ctx context.Context, cb EstimationDoneFn) {
 
 		var err error
 
-		switch e.estimationType {
-		case EstimationTypeRough:
+		et := e.estimationParameters.Type
+		useClassic := false
+
+		if et == EstimationTypeAdaptive || et == EstimationTypeRough {
 			filesCount, totalFileSize, err = e.doRoughEstimation()
-			if err == nil {
-				break
+			if err != nil {
+				logger.Debugf("Unable to do rough estimation, fallback to classic one. %v", err)
+
+				useClassic = true
 			}
 
-			logger.Debugf("Unable to do rough estimation, fallback to classic one. %v", err)
+			if et == EstimationTypeAdaptive && filesCount < e.estimationParameters.AdaptiveThreshold {
+				logger.Debugf("Small number of files (%d) on volume, falling back to classic estimation.", filesCount)
 
-			fallthrough
-		case EstimationTypeClassic:
+				useClassic = true
+			}
+		}
+
+		if useClassic || et == EstimationTypeClassic {
 			filesCount, totalFileSize, err = e.doClassicEstimation(scanCtx)
 			if err != nil {
 				if errors.Is(err, context.Canceled) {

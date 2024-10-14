@@ -568,9 +568,9 @@ func (t *uitaskProgress) EstimatedDataSize(fileCount, totalBytes int64) {
 	t.maybeReport()
 }
 
-// EstimationType returns type of estimation to be used.
-func (t *uitaskProgress) EstimationType() string {
-	return t.p.EstimationType()
+// EstimationParameters returns parameters to be used for estimation.
+func (t *uitaskProgress) EstimationParameters() snapshotfs.EstimationParameters {
+	return t.p.EstimationParameters()
 }
 
 func newSourceManager(src snapshot.SourceInfo, server *Server, rep repo.Repository) *sourceManager {
