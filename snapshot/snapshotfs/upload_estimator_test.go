@@ -121,7 +121,7 @@ func TestUploadEstimator(t *testing.T) {
 
 		expectSuccessfulEstimation(estimationCtx, t, estimator, expectedNumberOfFiles, expectedDataSize)
 	})
-	t.Run("Rough estimation - getVolumeSizeInfo failed", func(t *testing.T) {
+	t.Run("Rough estimation - GetVolumeSizeInfo failed", func(t *testing.T) {
 		logger := getMockLogger()
 
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
@@ -131,7 +131,7 @@ func TestUploadEstimator(t *testing.T) {
 
 		estimationCtx := context.Background()
 
-		// We expect that estimation will succeed even when getVolumeSizeInfo will fail
+		// We expect that estimation will succeed even when GetVolumeSizeInfo will fail
 		// fallback to classical estimation should handle this case
 		expectSuccessfulEstimation(estimationCtx, t, estimator, expectedNumberOfFiles, expectedDataSize)
 	})

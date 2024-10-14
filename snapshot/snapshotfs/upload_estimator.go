@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/kopia/kopia/fs"
+	vsi "github.com/kopia/kopia/internal/volumesizeinfo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot/policy"
 
@@ -54,19 +55,19 @@ type estimator struct {
 
 	scanWG              sync.WaitGroup
 	cancelCtx           context.CancelFunc
-	getVolumeSizeInfoFn func(string) (volumeSizeInfo, error)
+	getVolumeSizeInfoFn func(string) (vsi.VolumeSizeInfo, error)
 }
 
 // EstimatorOption is an option which could be used to customize estimator behavior.
 type EstimatorOption func(Estimator)
 
-// WithFailedVolumeSizeInfo returns EstimatorOption which ensures that getVolumeSizeInfo will fail with provided error.
+// WithFailedVolumeSizeInfo returns EstimatorOption which ensures that GetVolumeSizeInfo will fail with provided error.
 // Purposed for tests.
 func WithFailedVolumeSizeInfo(err error) EstimatorOption {
 	return func(e Estimator) {
 		roughEst, _ := e.(*estimator)
-		roughEst.getVolumeSizeInfoFn = func(_ string) (volumeSizeInfo, error) {
-			return volumeSizeInfo{}, err
+		roughEst.getVolumeSizeInfoFn = func(_ string) (vsi.VolumeSizeInfo, error) {
+			return vsi.VolumeSizeInfo{}, err
 		}
 	}
 }
@@ -75,11 +76,11 @@ func WithFailedVolumeSizeInfo(err error) EstimatorOption {
 func WithVolumeSizeInfo(filesCount, usedFileSize, totalFileSize uint64) EstimatorOption {
 	return func(e Estimator) {
 		roughEst, _ := e.(*estimator)
-		roughEst.getVolumeSizeInfoFn = func(_ string) (volumeSizeInfo, error) {
-			return volumeSizeInfo{
-				totalSize:  totalFileSize,
-				usedSize:   usedFileSize,
-				filesCount: filesCount,
+		roughEst.getVolumeSizeInfoFn = func(_ string) (vsi.VolumeSizeInfo, error) {
+			return vsi.VolumeSizeInfo{
+				TotalSize:  totalFileSize,
+				UsedSize:   usedFileSize,
+				FilesCount: filesCount,
 			}, nil
 		}
 	}
@@ -98,7 +99,7 @@ func NewEstimator(
 		logger:              logger,
 		entry:               entry,
 		policyTree:          policyTree,
-		getVolumeSizeInfoFn: getVolumeSizeInfo,
+		getVolumeSizeInfoFn: vsi.GetVolumeSizeInfo,
 	}
 
 	for _, option := range options {
@@ -173,7 +174,7 @@ func (e *estimator) doRoughEstimation() (filesCount, totalFileSize int64, err er
 		return 0, 0, errors.Wrap(err, "Unable to get volume size info")
 	}
 
-	return int64(volumeSizeInfo.filesCount), int64(volumeSizeInfo.usedSize), nil //nolint:gosec
+	return int64(volumeSizeInfo.FilesCount), int64(volumeSizeInfo.UsedSize), nil //nolint:gosec
 }
 
 func (e *estimator) doClassicEstimation(ctx context.Context) (filesCount, totalFileSize int64, err error) {
