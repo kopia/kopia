@@ -277,7 +277,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 
 	var err error
 
-	scope := gcsclient.ScopeReadWrite
+	scope := gcsclient.ScopeFullControl
 	if opt.ReadOnly {
 		scope = gcsclient.ScopeReadOnly
 	}
