@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -86,6 +88,8 @@ func (e *Engine) RandomAction(ctx context.Context, actionOpts ActionOpts) error 
 // CheckErrRecovery tries to recover from no space left error
 // by deleting data directories.
 func (e *Engine) CheckErrRecovery(ctx context.Context, incomingErr error, actionOpts ActionOpts) (outgoingErr error) {
+	log.Printf("Inside CheckErrRecovery")
+
 	outgoingErr = incomingErr
 
 	if incomingErr == nil {
@@ -96,6 +100,8 @@ func (e *Engine) CheckErrRecovery(ctx context.Context, incomingErr error, action
 
 	if errIsNotEnoughSpace(incomingErr) && ctrl[ThrowNoSpaceOnDeviceErrField] == "" {
 		// no space left on device
+		e.gatherStats()
+
 		// Delete everything in the data directory
 		outgoingErr = e.FileWriter.DeleteEverything(ctx)
 		if outgoingErr != nil {
@@ -267,6 +273,14 @@ func restoreIntoDataDirectoryAction(ctx context.Context, e *Engine, opts map[str
 
 	b := &bytes.Buffer{}
 
+	// Get source dir size from snapshot being restored
+	// may have to implement another method to get snapshot ID storage stats
+	// snapshots, err := e.TestRepo.ListSnapshots(ctx)
+
+	// Check volume capacity of e.FileWriter.DataDirectory
+	// before restoring the snapshot
+	// Restore only if available empty space > source size
+
 	if err := e.Checker.RestoreSnapshotToPath(ctx, snapID, e.FileWriter.DataDirectory(ctx), b, opts); err != nil {
 		log.Print(b.String())
 
@@ -343,4 +357,143 @@ func (e *Engine) getSnapIDOptOrRandLive(opts map[string]string) (snapID string, 
 	}
 
 	return snapIDList[rand.Intn(len(snapIDList))], nil //nolint:gosec
+}
+
+func (e *Engine) gatherStats() {
+	log.Printf("Inside gatherStats")
+	// Gather evidence
+	// df -ah
+	app := "df"
+	arg0 := "-ah"
+	fmt.Println("df -ah")
+	cmd := exec.Command(app, arg0)
+	stdout, err := cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// temp dirs
+	// du -sh /tmp/
+	// /tmp/engine-data-*
+	app = "du"
+	arg0 = "-sh"
+	arg1 := "/tmp/"
+	fmt.Println("du -sh /tmp/engine-data-*")
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// filesystem
+	// du -sh /codefresh/volume/test-repo/robustness-metadata/
+	arg1 = "/codefresh/volume/test-repo/robustness-metadata/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// robustness-data
+	// du -sh /codefresh/volume/test-repo/robustness-data/
+	arg1 = "/codefresh/volume/test-repo/robustness-data/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// du -sh /codefresh/volume/fio-data-root/fio-data-*
+	arg1 = "/codefresh/volume/fio-data-root/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// du -sh /codefresh/volume/kopia/
+	arg1 = "/codefresh/volume/kopia/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// du -sh /root/.cache/kopia/cli-logs
+	arg1 = "/root/.cache/kopia/cli-logs"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// du -sh /codefresh/volume/k10/
+	arg1 = "/codefresh/volume/k10/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
+
+	// logs, cache
+	// du -sh /root/.cache/kopia/*/server-contents/
+	// the above one doesn't work
+	arg1 = "/root/.cache/kopia/"
+	fmt.Println("du -sh ", arg1)
+	cmd = exec.Command(app, arg0, arg1)
+	stdout, err = cmd.Output()
+
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Print the output
+	fmt.Println(string(stdout))
 }
