@@ -68,7 +68,8 @@ type objectWriter struct {
 
 	om *Manager
 
-	compressor compression.Compressor
+	compressor         compression.Compressor
+	metadataCompressor compression.Compressor
 
 	prefix      content.IDPrefix
 	buffer      gather.WriteBuffer
@@ -197,6 +198,13 @@ func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data gather.Byte
 		objectComp = nil
 	}
 
+	// metadata objects are ALWAYS compressed at the content layer, irrespective of the index version (1 or 1+).
+	// even if a compressor for metadata objects is set by the caller, do not compress the objects at this layer;
+	// instead, let it be handled at the content layer.
+	if w.prefix != "" {
+		objectComp = nil
+	}
+
 	// contentBytes is what we're going to write to the content manager, it potentially uses bytes from b
 	contentBytes, isCompressed, err := maybeCompressedContentBytes(objectComp, data, &b)
 	if err != nil {
@@ -292,12 +300,13 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 	}
 
 	iw := &objectWriter{
-		ctx:         w.ctx,
-		om:          w.om,
-		compressor:  nil,
-		description: "LIST(" + w.description + ")",
-		splitter:    w.om.newDefaultSplitter(),
-		prefix:      w.prefix,
+		ctx:                w.ctx,
+		om:                 w.om,
+		compressor:         w.metadataCompressor,
+		metadataCompressor: w.metadataCompressor,
+		description:        "LIST(" + w.description + ")",
+		splitter:           w.om.newDefaultSplitter(),
+		prefix:             w.prefix,
 	}
 
 	if iw.prefix == "" {
@@ -334,9 +343,10 @@ func writeIndirectObject(w io.Writer, entries []IndirectObjectEntry) error {
 
 // WriterOptions can be passed to Repository.NewWriter().
 type WriterOptions struct {
-	Description string
-	Prefix      content.IDPrefix // empty string or a single-character ('g'..'z')
-	Compressor  compression.Name
-	Splitter    string // use particular splitter instead of default
-	AsyncWrites int    // allow up to N content writes to be asynchronous
+	Description        string
+	Prefix             content.IDPrefix // empty string or a single-character ('g'..'z')
+	Compressor         compression.Name
+	MetadataCompressor compression.Name
+	Splitter           string // use particular splitter instead of default
+	AsyncWrites        int    // allow up to N content writes to be asynchronous
 }

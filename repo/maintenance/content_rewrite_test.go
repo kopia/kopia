@@ -79,7 +79,7 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			// run N sessions to create N individual pack blobs for each content prefix
 			for range tc.numPContents {
 				require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
-					ow := w.NewObjectWriter(ctx, object.WriterOptions{})
+					ow := w.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 					fmt.Fprintf(ow, "%v", uuid.NewString())
 					_, err := ow.Result()
 					return err
@@ -88,7 +88,7 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 
 			for range tc.numQContents {
 				require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
-					ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "k"})
+					ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "k", MetadataCompressor: "zstd-fastest"})
 					fmt.Fprintf(ow, "%v", uuid.NewString())
 					_, err := ow.Result()
 					return err

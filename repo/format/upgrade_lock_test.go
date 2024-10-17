@@ -401,7 +401,7 @@ func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
 func writeObject(ctx context.Context, t *testing.T, rep repo.RepositoryWriter, data []byte, testCaseID string) {
 	t.Helper()
 
-	w := rep.NewObjectWriter(ctx, object.WriterOptions{})
+	w := rep.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 
 	_, err := w.Write(data)
 	require.NoError(t, err, testCaseID)

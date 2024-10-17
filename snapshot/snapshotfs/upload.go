@@ -160,12 +160,13 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	}
 
 	comp := pol.CompressionPolicy.CompressorForFile(f)
+	metadataComp := pol.MetadataCompressionPolicy.MetadataCompressor()
 	splitterName := pol.SplitterPolicy.SplitterForFile(f)
 
 	chunkSize := pol.UploadPolicy.ParallelUploadAboveSize.OrDefault(-1)
 	if chunkSize < 0 || f.Size() <= chunkSize {
 		// all data fits in 1 full chunks, upload directly
-		return u.uploadFileData(ctx, parentCheckpointRegistry, f, f.Name(), 0, -1, comp, splitterName)
+		return u.uploadFileData(ctx, parentCheckpointRegistry, f, f.Name(), 0, -1, comp, metadataComp, splitterName)
 	}
 
 	// we always have N+1 parts, first N are exactly chunkSize, last one has undetermined length
@@ -190,11 +191,11 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 		if wg.CanShareWork(u.workerPool) {
 			// another goroutine is available, delegate to them
 			wg.RunAsync(u.workerPool, func(_ *workshare.Pool[*uploadWorkItem], _ *uploadWorkItem) {
-				parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp, splitterName)
+				parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp, metadataComp, splitterName)
 			}, nil)
 		} else {
 			// just do the work in the current goroutine
-			parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp, splitterName)
+			parts[i], partErrors[i] = u.uploadFileData(ctx, parentCheckpointRegistry, f, uuid.NewString(), offset, length, comp, metadataComp, splitterName)
 		}
 	}
 
@@ -205,10 +206,10 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 		return nil, errors.Wrap(err, "error uploading parts")
 	}
 
-	return concatenateParts(ctx, u.repo, f.Name(), parts)
+	return concatenateParts(ctx, u.repo, f.Name(), parts, metadataComp)
 }
 
-func concatenateParts(ctx context.Context, rep repo.RepositoryWriter, name string, parts []*snapshot.DirEntry) (*snapshot.DirEntry, error) {
+func concatenateParts(ctx context.Context, rep repo.RepositoryWriter, name string, parts []*snapshot.DirEntry, metadataComp compression.Name) (*snapshot.DirEntry, error) {
 	var (
 		objectIDs []object.ID
 		totalSize int64
@@ -220,7 +221,7 @@ func concatenateParts(ctx context.Context, rep repo.RepositoryWriter, name strin
 		objectIDs = append(objectIDs, part.ObjectID)
 	}
 
-	resultObject, err := rep.ConcatenateObjects(ctx, objectIDs)
+	resultObject, err := rep.ConcatenateObjects(ctx, objectIDs, repo.ConcatenateOptions{Compressor: metadataComp})
 	if err != nil {
 		return nil, errors.Wrap(err, "concatenate")
 	}
@@ -233,7 +234,7 @@ func concatenateParts(ctx context.Context, rep repo.RepositoryWriter, name strin
 	return de, nil
 }
 
-func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, f fs.File, fname string, offset, length int64, compressor compression.Name, splitterName string) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, f fs.File, fname string, offset, length int64, compressor, metadataComp compression.Name, splitterName string) (*snapshot.DirEntry, error) {
 	file, err := f.Open(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open file")
@@ -241,10 +242,11 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 	defer file.Close() //nolint:errcheck
 
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
-		Description: "FILE:" + fname,
-		Compressor:  compressor,
-		Splitter:    splitterName,
-		AsyncWrites: 1, // upload chunk in parallel to writing another chunk
+		Description:        "FILE:" + fname,
+		Compressor:         compressor,
+		MetadataCompressor: metadataComp,
+		Splitter:           splitterName,
+		AsyncWrites:        1, // upload chunk in parallel to writing another chunk
 	})
 	defer writer.Close() //nolint:errcheck
 
@@ -297,7 +299,7 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 	return de, nil
 }
 
-func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath string, f fs.Symlink) (dirEntry *snapshot.DirEntry, ret error) {
+func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath string, f fs.Symlink, metadataComp compression.Name) (dirEntry *snapshot.DirEntry, ret error) {
 	u.Progress.HashingFile(relativePath)
 
 	defer func() {
@@ -311,7 +313,8 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 	}
 
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
-		Description: "SYMLINK:" + f.Name(),
+		Description:        "SYMLINK:" + f.Name(),
+		MetadataCompressor: metadataComp,
 	})
 	defer writer.Close() //nolint:errcheck
 
@@ -352,11 +355,13 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 	}()
 
 	comp := pol.CompressionPolicy.CompressorForFile(f)
+	metadataComp := pol.MetadataCompressionPolicy.MetadataCompressor()
 
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
-		Description: "STREAMFILE:" + f.Name(),
-		Compressor:  comp,
-		Splitter:    pol.SplitterPolicy.SplitterForFile(f),
+		Description:        "STREAMFILE:" + f.Name(),
+		Compressor:         comp,
+		MetadataCompressor: metadataComp,
+		Splitter:           pol.SplitterPolicy.SplitterForFile(f),
 	})
 
 	defer writer.Close() //nolint:errcheck
@@ -902,7 +907,8 @@ func (u *Uploader) processSingle(
 		return nil
 
 	case fs.Symlink:
-		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry)
+		childTree := policyTree.Child(entry.Name())
+		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry, childTree.EffectivePolicy().MetadataCompressionPolicy.MetadataCompressor())
 
 		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
@@ -1144,6 +1150,8 @@ func uploadDirInternal(
 
 	childCheckpointRegistry := &checkpointRegistry{}
 
+	metadataComp := policyTree.EffectivePolicy().MetadataCompressionPolicy.MetadataCompressor()
+
 	thisCheckpointRegistry.addCheckpointCallback(directory.Name(), func() (*snapshot.DirEntry, error) {
 		// when snapshotting the parent, snapshot all our children and tell them to populate
 		// childCheckpointBuilder
@@ -1156,7 +1164,7 @@ func uploadDirInternal(
 
 		checkpointManifest := thisCheckpointBuilder.Build(fs.UTCTimestampFromTime(directory.ModTime()), IncompleteReasonCheckpoint)
 
-		oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, checkpointManifest)
+		oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, checkpointManifest, metadataComp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error writing dir manifest")
 		}
@@ -1171,7 +1179,7 @@ func uploadDirInternal(
 
 	dirManifest := thisDirBuilder.Build(fs.UTCTimestampFromTime(directory.ModTime()), u.incompleteReason())
 
-	oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, dirManifest)
+	oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, dirManifest, metadataComp)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error writing dir manifest: %v", directory.Name())
 	}

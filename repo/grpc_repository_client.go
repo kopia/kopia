@@ -560,9 +560,9 @@ func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOp
 }
 
 // ConcatenateObjects creates a concatenated objects from the provided object IDs.
-func (r *grpcRepositoryClient) ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error) {
+func (r *grpcRepositoryClient) ConcatenateObjects(ctx context.Context, objectIDs []object.ID, opt ConcatenateOptions) (object.ID, error) {
 	//nolint:wrapcheck
-	return r.omgr.Concatenate(ctx, objectIDs)
+	return r.omgr.Concatenate(ctx, objectIDs, opt.Compressor)
 }
 
 // maybeRetry executes the provided callback with or without automatic retries depending on how

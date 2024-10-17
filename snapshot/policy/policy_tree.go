@@ -12,6 +12,9 @@ var (
 	defaultCompressionPolicy = CompressionPolicy{
 		CompressorName: "none",
 	}
+	defaultMetadataCompressionPolicy = MetadataCompressionPolicy{
+		CompressorName: "zstd-fastest",
+	}
 
 	defaultSplitterPolicy = SplitterPolicy{}
 
@@ -71,15 +74,16 @@ var (
 
 	// DefaultPolicy is a default policy returned by policy tree in absence of other policies.
 	DefaultPolicy = &Policy{
-		FilesPolicy:         defaultFilesPolicy,
-		RetentionPolicy:     defaultRetentionPolicy,
-		CompressionPolicy:   defaultCompressionPolicy,
-		ErrorHandlingPolicy: defaultErrorHandlingPolicy,
-		SchedulingPolicy:    defaultSchedulingPolicy,
-		LoggingPolicy:       defaultLoggingPolicy,
-		Actions:             defaultActionsPolicy,
-		OSSnapshotPolicy:    defaultOSSnapshotPolicy,
-		UploadPolicy:        defaultUploadPolicy,
+		FilesPolicy:               defaultFilesPolicy,
+		RetentionPolicy:           defaultRetentionPolicy,
+		CompressionPolicy:         defaultCompressionPolicy,
+		MetadataCompressionPolicy: defaultMetadataCompressionPolicy,
+		ErrorHandlingPolicy:       defaultErrorHandlingPolicy,
+		SchedulingPolicy:          defaultSchedulingPolicy,
+		LoggingPolicy:             defaultLoggingPolicy,
+		Actions:                   defaultActionsPolicy,
+		OSSnapshotPolicy:          defaultOSSnapshotPolicy,
+		UploadPolicy:              defaultUploadPolicy,
 	}
 
 	// DefaultDefinition provides the Definition for the default policy.
