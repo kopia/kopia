@@ -103,13 +103,11 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 		e.Password = DefaultPasswordForTesting
 	}
 
-	if err := repo.Initialize(ctx, st, opt, e.Password); err != nil {
-		tb.Fatalf("err: %v", err)
-	}
+	err := repo.Initialize(ctx, st, opt, e.Password)
+	require.NoError(tb, err)
 
-	if err := repo.Connect(ctx, e.ConfigFile(), st, e.Password, nil); err != nil {
-		tb.Fatalf("can't connect: %v", err)
-	}
+	err = repo.Connect(ctx, e.ConfigFile(), st, e.Password, nil)
+	require.NoError(tb, err, "can't connect")
 
 	e.connected = true
 
@@ -118,15 +116,12 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	defer cancel()
 
 	rep, err := repo.Open(ctx2, e.ConfigFile(), e.Password, openOpt)
-
 	require.NoError(tb, err)
 
 	e.Repository = rep
 
 	_, e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
-	if err != nil {
-		tb.Fatal(err)
-	}
+	require.NoError(tb, err)
 
 	tb.Cleanup(func() {
 		e.RepositoryWriter.Close(ctx)
@@ -140,20 +135,17 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 func (e *Environment) Close(ctx context.Context, tb testing.TB) {
 	tb.Helper()
 
-	if err := e.RepositoryWriter.Close(ctx); err != nil {
-		tb.Fatalf("unable to close: %v", err)
-	}
+	err := e.RepositoryWriter.Close(ctx)
+	require.NoError(tb, err, "unable to close")
 
 	if e.connected {
-		if err := repo.Disconnect(ctx, e.ConfigFile()); err != nil {
-			tb.Errorf("error disconnecting: %v", err)
-		}
+		err := repo.Disconnect(ctx, e.ConfigFile())
+		require.NoError(tb, err, "error disconnecting")
 	}
 
-	if err := os.Remove(e.configDir); err != nil {
-		// should be empty, assuming Disconnect was successful
-		tb.Errorf("error removing config directory: %v", err)
-	}
+	err = os.Remove(e.configDir)
+	// should be empty, assuming Disconnect was successful
+	require.NoError(tb, err, "error removing config directory")
 }
 
 // ConfigFile returns the name of the config file.
@@ -168,25 +160,19 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 	ctx := testlogging.Context(tb)
 
 	err := e.RepositoryWriter.Close(ctx)
-	if err != nil {
-		tb.Fatalf("close error: %v", err)
-	}
+	require.NoError(tb, err, "close error")
 
 	// ensure context passed to Open() is not used for cancellation signal.
 	ctx2, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	rep, err := repo.Open(ctx2, e.ConfigFile(), e.Password, repoOptions(openOpts))
-	if err != nil {
-		tb.Fatalf("err: %v", err)
-	}
+	require.NoError(tb, err)
 
 	tb.Cleanup(func() { rep.Close(ctx) })
 
 	_, e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
-	if err != nil {
-		tb.Fatalf("err: %v", err)
-	}
+	require.NoError(tb, err)
 }
 
 // MustOpenAnother opens another repository backed by the same storage location.
@@ -196,18 +182,14 @@ func (e *Environment) MustOpenAnother(tb testing.TB, openOpts ...func(*repo.Opti
 	ctx := testlogging.Context(tb)
 
 	rep2, err := repo.Open(ctx, e.ConfigFile(), e.Password, repoOptions(openOpts))
-	if err != nil {
-		tb.Fatalf("err: %v", err)
-	}
+	require.NoError(tb, err)
 
 	tb.Cleanup(func() {
 		rep2.Close(ctx)
 	})
 
 	_, w, err := rep2.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
-	if err != nil {
-		tb.Fatal(err)
-	}
+	require.NoError(tb, err)
 
 	return w
 }
@@ -226,14 +208,11 @@ func (e *Environment) MustConnectOpenAnother(tb testing.TB, openOpts ...func(*re
 		},
 	}
 
-	if err := repo.Connect(ctx, config, e.st, e.Password, connOpts); err != nil {
-		tb.Fatal("can't connect:", err)
-	}
+	err := repo.Connect(ctx, config, e.st, e.Password, connOpts)
+	require.NoError(tb, err, "can't connect")
 
 	rep, err := repo.Open(ctx, e.ConfigFile(), e.Password, repoOptions(openOpts))
-	if err != nil {
-		tb.Fatal("can't open:", err)
-	}
+	require.NoError(tb, err, "can't open")
 
 	return rep
 }
@@ -249,9 +228,7 @@ func (e *Environment) VerifyBlobCount(tb testing.TB, want int) {
 		return nil
 	})
 
-	if got != want {
-		tb.Errorf("got unexpected number of BLOBs: %v, wanted %v", got, want)
-	}
+	require.Equal(tb, want, got, "got unexpected number of BLOBs")
 }
 
 // LocalPathSourceInfo is a convenience method that returns SourceInfo for the local user and path.
