@@ -94,7 +94,7 @@ func (e *Engine) CheckErrRecovery(ctx context.Context, incomingErr error, action
 
 	ctrl := actionOpts.getActionControlOpts()
 
-	if errIsNotEnoughSpace(incomingErr) && ctrl[ThrowNoSpaceOnDeviceErrField] == "" {
+	if e.ErrIsNotEnoughSpace(incomingErr) && ctrl[ThrowNoSpaceOnDeviceErrField] == "" {
 		// no space left on device
 		// Delete everything in the data directory
 		outgoingErr = e.FileWriter.DeleteEverything(ctx)
@@ -270,7 +270,11 @@ func restoreIntoDataDirectoryAction(ctx context.Context, e *Engine, opts map[str
 	if err := e.Checker.RestoreSnapshotToPath(ctx, snapID, e.FileWriter.DataDirectory(ctx), b, opts); err != nil {
 		log.Print(b.String())
 
-		return nil, err //nolint:wrapcheck
+		if len(opts) == 0 {
+			opts[SnapshotIDField] = snapID
+		}
+
+		return opts, err //nolint:wrapcheck
 	}
 
 	return nil, nil
@@ -325,7 +329,8 @@ func pickActionWeighted(actionControlOpts map[string]string, actionList map[Acti
 	return keepKey
 }
 
-func errIsNotEnoughSpace(err error) bool {
+// ErrIsNotEnoughSpace checks if the given error is about no space left.
+func (e *Engine) ErrIsNotEnoughSpace(err error) bool {
 	return errors.Is(err, robustness.ErrCannotPerformIO) || strings.Contains(err.Error(), noSpaceOnDeviceMatchStr)
 }
 
