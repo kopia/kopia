@@ -51,11 +51,9 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 	env.RepositoryWriter.Flush(ctx)
 
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
-	require.NoError(t, err)
 
-	if got, want := len(blobsBefore), 4; got != want {
-		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
-	}
+	require.NoError(t, err)
+	require.Len(t, blobsBefore, 4, "unexpected number of blobs after writing")
 
 	lastBlobIdx := len(blobsBefore) - 1
 	st := env.RootStorage().(blobtesting.RetentionStorage)
@@ -106,11 +104,9 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 	env.RepositoryWriter.Flush(ctx)
 
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
-	require.NoError(t, err)
 
-	if got, want := len(blobsBefore), 4; got != want {
-		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
-	}
+	require.NoError(t, err)
+	require.Len(t, blobsBefore, 4, "unexpected number of blobs after writing")
 
 	// Need to continue using TouchBlob because the environment only supports the
 	// locking map if no retention time is given.
