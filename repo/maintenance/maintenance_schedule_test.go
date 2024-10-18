@@ -34,7 +34,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceSchedule(t *testing.T) {
 	s2, err := maintenance.GetSchedule(ctx, env.RepositoryWriter)
 	require.NoError(t, err, "unable to get schedule")
 
-	got, want := toJSON(s2), toJSON(sch)
+	got, want := toJSON(t, s2), toJSON(t, sch)
 	require.Equal(t, want, got, "unexpected schedule")
 }
 
@@ -116,7 +116,12 @@ func TestTimeToAttemptNextMaintenance(t *testing.T) {
 	}
 }
 
-func toJSON(v interface{}) string {
-	b, _ := json.MarshalIndent(v, "", "  ")
+func toJSON(t *testing.T, v interface{}) string {
+	t.Helper()
+
+	b, err := json.MarshalIndent(v, "", "  ")
+
+	require.NoError(t, err, "json marshal")
+
 	return string(b)
 }
