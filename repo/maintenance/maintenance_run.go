@@ -257,11 +257,11 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		return errors.Wrap(err, "unable to get schedule")
 	}
 
-	_, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
+	em, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if ok {
 		log(ctx).Debug("running quick epoch maintenance only")
 
-		err := runTaskEpochMaintenanceQuick(ctx, runParams, s)
+		err := runTaskEpochMaintenanceQuick(ctx, em, runParams, s)
 
 		return errors.Wrap(err, "error running quick epoch maintenance tasks")
 	}
@@ -342,16 +342,7 @@ func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunPa
 	})
 }
 
-func runTaskEpochMaintenanceQuick(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	em, hasEpochManager, emerr := runParams.rep.ContentManager().EpochManager(ctx)
-	if emerr != nil {
-		return errors.Wrap(emerr, "epoch manager")
-	}
-
-	if !hasEpochManager {
-		return nil
-	}
-
+func runTaskEpochMaintenanceQuick(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
 	err := ReportRun(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
 		log(ctx).Info("Compacting an eligible uncompacted epoch...")
 		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
