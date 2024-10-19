@@ -261,9 +261,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 	if ok {
 		log(ctx).Debug("running quick epoch maintenance only")
 
-		err := runTaskEpochMaintenanceQuick(ctx, em, runParams, s)
-
-		return errors.Wrap(err, "error running quick epoch maintenance tasks")
+		return runTaskEpochMaintenanceQuick(ctx, em, runParams, s)
 	}
 
 	if emerr != nil {
@@ -351,7 +349,9 @@ func runTaskEpochMaintenanceQuick(ctx context.Context, em *epoch.Manager, runPar
 		return err
 	}
 
-	return runTaskEpochAdvance(ctx, em, runParams, s)
+	err = runTaskEpochAdvance(ctx, em, runParams, s)
+
+	return errors.Wrap(err, "error to advance epoch in quick epoch maintenance task")
 }
 
 func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
