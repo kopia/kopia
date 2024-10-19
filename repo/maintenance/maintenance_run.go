@@ -231,7 +231,7 @@ func checkClockSkewBounds(rp RunParameters) error {
 	}
 
 	if clockSkew > maxClockSkew {
-		return errors.Errorf("Clock skew detected: local clock is out of sync with repository timestamp by more than allowed %v (local: %v repository: %v). Refusing to run maintenance.", maxClockSkew, localTime, repoTime) //nolint:revive
+		return errors.Errorf("clock skew detected: local clock is out of sync with repository timestamp by more than allowed %v (local: %v repository: %v skew: %s). Refusing to run maintenance.", maxClockSkew, localTime, repoTime, clockSkew) //nolint:revive
 	}
 
 	return nil
