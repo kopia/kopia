@@ -496,7 +496,7 @@ func (m *ManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs []Metadata
 	for i, indexBlob := range indexBlobs {
 		m.log.Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
 
-		if err := addIndexBlobsToBuilder(ctx, m.enc, bld, indexBlob.BlobID); err != nil {
+		if err := addIndexBlobsToBuilder(ctx, m.enc, bld.Add, indexBlob.BlobID); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 
@@ -550,7 +550,7 @@ func (m *ManagerV0) dropContentsFromBuilder(bld index.Builder, opt CompactOption
 	}
 }
 
-func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, bld index.BuilderCreator, indexBlobID blob.ID) error {
+func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, addEntry func(index.Info), indexBlobID blob.ID) error {
 	var data gather.WriteBuffer
 	defer data.Close()
 
@@ -565,7 +565,7 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, bld ind
 	}
 
 	_ = ndx.Iterate(index.AllIDs, func(i index.Info) error {
-		bld.Add(i)
+		addEntry(i)
 		return nil
 	})
 

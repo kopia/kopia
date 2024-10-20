@@ -73,7 +73,7 @@ func (m *ManagerV1) CompactEpoch(ctx context.Context, blobIDs []blob.ID, outputP
 	tmpbld := index.NewOneUseBuilder()
 
 	for _, indexBlob := range blobIDs {
-		if err := addIndexBlobsToBuilder(ctx, m.enc, tmpbld, indexBlob); err != nil {
+		if err := addIndexBlobsToBuilder(ctx, m.enc, tmpbld.Add, indexBlob); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 	}
