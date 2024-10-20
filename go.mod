@@ -3,8 +3,8 @@ module github.com/kopia/kopia
 go 1.22.7
 
 require (
-	cloud.google.com/go/storage v1.44.0
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.15.0
+	cloud.google.com/go/storage v1.45.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.16.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.8.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.4.1
 	github.com/alecthomas/kingpin/v2 v2.4.0
