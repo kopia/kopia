@@ -117,6 +117,17 @@ func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
 	return os.Readlink(fsl.fullPath())
 }
 
+func (fsl *filesystemSymlink) Resolve(ctx context.Context) (fs.Entry, error) {
+	target, err := filepath.EvalSymlinks(fsl.fullPath())
+	if err != nil {
+		return nil, errors.Wrapf(err, "while reading symlink %s", fsl.fullPath())
+	}
+
+	entry, err := NewEntry(target)
+
+	return entry, err
+}
+
 func (e *filesystemErrorEntry) ErrorInfo() error {
 	return e.err
 }

@@ -191,6 +191,46 @@ var cases = []struct {
 		},
 	},
 	{
+		desc:       "default policy, have dotignore relative symlink",
+		policyTree: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			dir := root.AddDir("ignoredir", 0)
+			dir.AddFileLines("kopiaignore", []string{"file[12]"}, 0)
+			root.AddSymlink(".kopiaignore", "./ignoredir/kopiaignore", 0)
+		},
+		addedFiles: []string{
+			"./.kopiaignore",
+			"./ignoredir/",
+			"./ignoredir/kopiaignore",
+		},
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./file1",
+			"./file2",
+		},
+	},
+	{
+		desc:       "default policy, have dotignore absolute symlink",
+		policyTree: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			dir := root.AddDir("ignoredir", 0)
+			dir.AddFileLines("kopiaignore", []string{"file[12]"}, 0)
+			root.AddSymlink(".kopiaignore", "/ignoredir/kopiaignore", 0)
+		},
+		addedFiles: []string{
+			"./.kopiaignore",
+			"./ignoredir/",
+			"./ignoredir/kopiaignore",
+		},
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./file1",
+			"./file2",
+		},
+	},
+	{
 		desc:       "two policies, nested policy excludes files",
 		policyTree: rootAndSrcPolicy,
 		ignoredFiles: []string{
@@ -553,7 +593,7 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 
 			if subdir, ok := e.(fs.Directory); ok {
 				if err := walk(relPath, subdir); err != nil {
-					return err
+					t.Fatalf("%s not found in %s", relPath, subdir.Name())
 				}
 			} else {
 				output = append(output, relPath)

@@ -17,7 +17,10 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var log = logging.Module("ignorefs")
+var (
+	log                = logging.Module("ignorefs")
+	errSymlinkNotAFile = errors.New("Symlink does not link to a file")
+)
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.
 type IgnoreCallback func(ctx context.Context, path string, metadata fs.Entry, pol *policy.Tree)
@@ -185,12 +188,12 @@ func (d *ignoreDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, er
 
 	thisContext, err := d.buildContext(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "in ignoreDirectory.Iterate, when building context")
 	}
 
 	inner, err := d.Directory.Iterate(ctx)
 	if err != nil {
-		return nil, err //nolint:wrapcheck
+		return nil, errors.Wrapf(err, "in ignoreDirectory.Iterate, when creating iterator")
 	}
 
 	it := ignoreDirIteratorPool.Get().(*ignoreDirIterator) //nolint:forcetypeassert
@@ -283,8 +286,22 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 
 	for _, dotfile := range effectiveDotIgnoreFiles {
 		if e, err := d.Directory.Child(ctx, dotfile); err == nil {
-			if f, ok := e.(fs.File); ok {
-				dotIgnoreFiles = append(dotIgnoreFiles, f)
+			switch entry := e.(type) {
+			case fs.File:
+				dotIgnoreFiles = append(dotIgnoreFiles, entry)
+
+			case fs.Symlink:
+				target, err := entry.Resolve(ctx)
+				if err != nil {
+					link, _ := entry.Readlink(ctx)
+					return nil, errors.Wrapf(err, "when resolving symlink %s of type %T, which points to %s", entry.Name(), entry, link)
+				}
+
+				if f, ok := target.(fs.File); !ok {
+					return nil, errors.Wrapf(errSymlinkNotAFile, "%s does not link to a file", entry.Name())
+				} else {
+					dotIgnoreFiles = append(dotIgnoreFiles, f)
+				}
 			}
 		}
 	}
