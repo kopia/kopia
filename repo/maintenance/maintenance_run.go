@@ -252,19 +252,20 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 }
 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
-	_, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
+	s, err := GetSchedule(ctx, runParams.rep)
+	if err != nil {
+		return errors.Wrap(err, "unable to get schedule")
+	}
+
+	em, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if ok {
-		log(ctx).Debug("quick maintenance not required for epoch manager")
-		return nil
+		log(ctx).Debug("running quick epoch maintenance only")
+
+		return runTaskEpochMaintenanceQuick(ctx, em, runParams, s)
 	}
 
 	if emerr != nil {
 		return errors.Wrap(emerr, "epoch manager")
-	}
-
-	s, err := GetSchedule(ctx, runParams.rep)
-	if err != nil {
-		return errors.Wrap(err, "unable to get schedule")
 	}
 
 	if shouldQuickRewriteContents(s, safety) {
@@ -297,10 +298,6 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		}
 	} else {
 		notDeletingOrphanedBlobs(ctx, s, safety)
-	}
-
-	if err := runTaskEpochMaintenanceQuick(ctx, runParams, s); err != nil {
-		return errors.Wrap(err, "error running quick epoch maintenance tasks")
 	}
 
 	// consolidate many smaller indexes into fewer larger ones.
@@ -343,16 +340,7 @@ func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunPa
 	})
 }
 
-func runTaskEpochMaintenanceQuick(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	em, hasEpochManager, emerr := runParams.rep.ContentManager().EpochManager(ctx)
-	if emerr != nil {
-		return errors.Wrap(emerr, "epoch manager")
-	}
-
-	if !hasEpochManager {
-		return nil
-	}
-
+func runTaskEpochMaintenanceQuick(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
 	err := ReportRun(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
 		log(ctx).Info("Compacting an eligible uncompacted epoch...")
 		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
@@ -361,7 +349,9 @@ func runTaskEpochMaintenanceQuick(ctx context.Context, runParams RunParameters, 
 		return err
 	}
 
-	return runTaskEpochAdvance(ctx, em, runParams, s)
+	err = runTaskEpochAdvance(ctx, em, runParams, s)
+
+	return errors.Wrap(err, "error to advance epoch in quick epoch maintenance task")
 }
 
 func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
