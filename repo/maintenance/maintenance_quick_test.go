@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo"
@@ -43,18 +44,7 @@ func TestQuickMaintenanceRunWithEpochManager(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, co.UsernameAtHost(), maintParams.Owner)
 
-	// verify epoch manager is enabled
-	dr, isDirect := env.Repository.(repo.DirectRepository)
-	require.True(t, isDirect)
-	require.NotNil(t, dr)
-
-	fm := dr.FormatManager()
-	require.NotNil(t, fm)
-
-	mp, err := fm.GetMutableParameters(ctx)
-	require.NoError(t, err)
-	require.True(t, mp.EpochParameters.Enabled)
-
+	verifyEpochManagerIsEnabled(t, ctx, env.Repository)
 	verifyEpochTasksRanInQuickMaintenance(t, ctx, env.RepositoryWriter)
 }
 
@@ -85,21 +75,7 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, co.UsernameAtHost(), maintParams.Owner)
 
-	// verify epoch manager is enabled
-	dr, isDirect := env.Repository.(repo.DirectRepository)
-	require.True(t, isDirect)
-	require.NotNil(t, dr)
-
-	fm := dr.FormatManager()
-	require.NotNil(t, fm)
-
-	mp, err := fm.GetMutableParameters(ctx)
-	require.NoError(t, err)
-	require.True(t, mp.EpochParameters.Enabled, "epoch manager not enabled")
-
-	emgr, enabled, err := dr.ContentReader().EpochManager(ctx)
-	require.NoError(t, err)
-	require.True(t, enabled, "epoch manager not enabled")
+	emgr, mp := verifyEpochManagerIsEnabled(t, ctx, env.Repository)
 
 	countThreshold := mp.EpochParameters.EpochAdvanceOnCountThreshold
 	epochDuration := mp.EpochParameters.MinEpochDuration
@@ -165,6 +141,28 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 	epochSnap, err = emgr.Current(ctx)
 	require.NoError(t, err)
 	require.Positive(t, epochSnap.WriteEpoch, "write epoch was NOT advanced")
+}
+
+func verifyEpochManagerIsEnabled(t *testing.T, ctx context.Context, rep repo.Repository) (*epoch.Manager, format.MutableParameters) {
+	t.Helper()
+
+	// verify epoch manager is enabled
+	dr, isDirect := rep.(repo.DirectRepository)
+	require.True(t, isDirect)
+	require.NotNil(t, dr)
+
+	fm := dr.FormatManager()
+	require.NotNil(t, fm)
+
+	mp, err := fm.GetMutableParameters(ctx)
+	require.NoError(t, err)
+	require.True(t, mp.EpochParameters.Enabled, "epoch manager not enabled")
+
+	emgr, enabled, err := dr.ContentReader().EpochManager(ctx)
+	require.NoError(t, err)
+	require.True(t, enabled, "epoch manager not enabled")
+
+	return emgr, mp
 }
 
 func verifyEpochTasksRanInQuickMaintenance(t *testing.T, ctx context.Context, rep repo.DirectRepositoryWriter) {
