@@ -165,7 +165,7 @@ func testPackIndex(t *testing.T, version int) {
 	err = b3.buildStable(&buf3, version)
 	require.NoError(t, err)
 
-	err = b4.BuildStable(&buf4, version)
+	err = buildSortedContents(b4.sortedContents(), &buf4, version)
 	require.NoError(t, err)
 
 	data1 := buf1.Bytes()
