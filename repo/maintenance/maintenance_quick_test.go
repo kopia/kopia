@@ -55,25 +55,6 @@ func TestQuickMaintenanceRunWithEpochManager(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, mp.EpochParameters.Enabled)
 
-	// verify quick maintenance has NOT run yet
-	sch, err := maintenance.GetSchedule(ctx, env.RepositoryWriter)
-
-	require.NoError(t, err)
-	require.True(t, sch.NextFullMaintenanceTime.IsZero(), "unexpected NextFullMaintenanceTime")
-	require.True(t, sch.NextQuickMaintenanceTime.IsZero(), "unexpected NextQuickMaintenanceTime")
-
-	err = snapshotmaintenance.Run(ctx, env.RepositoryWriter, maintenance.ModeQuick, false, maintenance.SafetyFull)
-	require.NoError(t, err)
-
-	// verify quick maintenance was run
-	sch, err = maintenance.GetSchedule(ctx, env.RepositoryWriter)
-
-	require.NoError(t, err)
-
-	require.NotEmpty(t, sch.Runs, "maintenance runs")
-	require.False(t, sch.NextQuickMaintenanceTime.IsZero(), "unexpected NextQuickMaintenanceTime")
-	require.True(t, sch.NextFullMaintenanceTime.IsZero(), "unexpected NextFullMaintenanceTime")
-
 	verifyEpochTasksRanInQuickMaintenance(t, ctx, env.RepositoryWriter)
 }
 
@@ -175,16 +156,6 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 	require.Zero(t, epochSnap.WriteEpoch, "write epoch was advanced")
 	require.GreaterOrEqual(t, len(epochSnap.UncompactedEpochSets[0]), countThreshold, "not enough index blobs were written")
 
-	// verify quick maintenance has NOT run yet
-	sch, err := maintenance.GetSchedule(ctx, env.RepositoryWriter)
-
-	require.NoError(t, err)
-	require.True(t, sch.NextFullMaintenanceTime.IsZero(), "unexpected NextFullMaintenanceTime")
-	require.True(t, sch.NextQuickMaintenanceTime.IsZero(), "unexpected NextQuickMaintenanceTime")
-
-	err = snapshotmaintenance.Run(ctx, env.RepositoryWriter, maintenance.ModeQuick, false, maintenance.SafetyFull)
-	require.NoError(t, err)
-
 	verifyEpochTasksRanInQuickMaintenance(t, ctx, env.RepositoryWriter)
 
 	// verify epoch was advanced
@@ -196,14 +167,25 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 	require.Positive(t, epochSnap.WriteEpoch, "write epoch was NOT advanced")
 }
 
-func verifyEpochTasksRanInQuickMaintenance(t *testing.T, ctx context.Context, rep repo.DirectRepository) {
+func verifyEpochTasksRanInQuickMaintenance(t *testing.T, ctx context.Context, rep repo.DirectRepositoryWriter) {
 	t.Helper()
 
-	// verify quick maintenance ran
+	// verify quick maintenance has NOT run yet
 	sch, err := maintenance.GetSchedule(ctx, rep)
 
 	require.NoError(t, err)
+	require.True(t, sch.NextFullMaintenanceTime.IsZero(), "unexpected NextFullMaintenanceTime")
+	require.True(t, sch.NextQuickMaintenanceTime.IsZero(), "unexpected NextQuickMaintenanceTime")
+
+	err = snapshotmaintenance.Run(ctx, rep, maintenance.ModeQuick, false, maintenance.SafetyFull)
+	require.NoError(t, err)
+
+	// verify quick maintenance ran
+	sch, err = maintenance.GetSchedule(ctx, rep)
+
+	require.NoError(t, err)
 	require.False(t, sch.NextQuickMaintenanceTime.IsZero(), "unexpected NextQuickMaintenanceTime")
+	require.True(t, sch.NextFullMaintenanceTime.IsZero(), "unexpected NextFullMaintenanceTime")
 	require.NotEmpty(t, sch.Runs, "quick maintenance did not run")
 
 	// note: this does not work => require.Contains(t, sch.Runs, maintenance.TaskEpochAdvance)
