@@ -28,7 +28,7 @@ func TestQuickMaintenanceRunWithEpochManager(t *testing.T) {
 	// set the repository owner since it is not set by NewEnvironment
 	setRepositoryOwner(t, ctx, env.RepositoryWriter)
 	verifyEpochManagerIsEnabled(t, ctx, env.Repository)
-	verifyEpochTasksRanInQuickMaintenance(t, ctx, env.RepositoryWriter)
+	verifyEpochTasksRunsInQuickMaintenance(t, ctx, env.RepositoryWriter)
 }
 
 func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
@@ -101,7 +101,7 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 	require.Zero(t, epochSnap.WriteEpoch, "write epoch was advanced")
 	require.GreaterOrEqual(t, len(epochSnap.UncompactedEpochSets[0]), countThreshold, "not enough index blobs were written")
 
-	verifyEpochTasksRanInQuickMaintenance(t, ctx, env.RepositoryWriter)
+	verifyEpochTasksRunsInQuickMaintenance(t, ctx, env.RepositoryWriter)
 
 	// verify epoch was advanced
 	err = emgr.Refresh(ctx)
@@ -156,7 +156,7 @@ func verifyEpochManagerIsEnabled(t *testing.T, ctx context.Context, rep repo.Rep
 	return emgr, mp
 }
 
-func verifyEpochTasksRanInQuickMaintenance(t *testing.T, ctx context.Context, rep repo.DirectRepositoryWriter) {
+func verifyEpochTasksRunsInQuickMaintenance(t *testing.T, ctx context.Context, rep repo.DirectRepositoryWriter) {
 	t.Helper()
 
 	// verify quick maintenance has NOT run yet
