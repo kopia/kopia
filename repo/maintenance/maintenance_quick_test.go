@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo"
@@ -25,56 +26,9 @@ func TestQuickMaintenanceRunWithEpochManager(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, format.FormatVersion3)
 
 	// set the repository owner since it is not set by NewEnvironment
-	maintParams, err := maintenance.GetParams(ctx, env.Repository)
-	require.NoError(t, err)
-
-	co := env.Repository.ClientOptions()
-	require.NotZero(t, co)
-
-	maintParams.Owner = co.UsernameAtHost()
-
-	err = maintenance.SetParams(ctx, env.RepositoryWriter, maintParams)
-	require.NoError(t, err)
-
-	require.NoError(t, env.RepositoryWriter.Flush(ctx))
-
-	// verify the owner was set
-	maintParams, err = maintenance.GetParams(ctx, env.Repository)
-	require.NoError(t, err)
-	require.Equal(t, co.UsernameAtHost(), maintParams.Owner)
-
-	// verify epoch manager is enabled
-	dr, isDirect := env.Repository.(repo.DirectRepository)
-	require.True(t, isDirect)
-	require.NotNil(t, dr)
-
-	fm := dr.FormatManager()
-	require.NotNil(t, fm)
-
-	mp, err := fm.GetMutableParameters(ctx)
-	require.NoError(t, err)
-	require.True(t, mp.EpochParameters.Enabled)
-
-	// verify quick maintenance has NOT run yet
-	sch, err := maintenance.GetSchedule(ctx, env.RepositoryWriter)
-
-	require.NoError(t, err)
-	require.True(t, sch.NextFullMaintenanceTime.IsZero(), "unexpected NextFullMaintenanceTime")
-	require.True(t, sch.NextQuickMaintenanceTime.IsZero(), "unexpected NextQuickMaintenanceTime")
-
-	err = snapshotmaintenance.Run(ctx, env.RepositoryWriter, maintenance.ModeQuick, false, maintenance.SafetyFull)
-	require.NoError(t, err)
-
-	// verify quick maintenance was run
-	sch, err = maintenance.GetSchedule(ctx, env.RepositoryWriter)
-
-	require.NoError(t, err)
-
-	require.NotEmpty(t, sch.Runs, "maintenance runs")
-	require.False(t, sch.NextQuickMaintenanceTime.IsZero(), "unexpected NextQuickMaintenanceTime")
-	require.True(t, sch.NextFullMaintenanceTime.IsZero(), "unexpected NextFullMaintenanceTime")
-
-	verifyEpochTasksRanInQuickMaintenance(t, ctx, env.RepositoryWriter)
+	setRepositoryOwner(t, ctx, env.RepositoryWriter)
+	verifyEpochManagerIsEnabled(t, ctx, env.Repository)
+	verifyEpochTasksRunsInQuickMaintenance(t, ctx, env.RepositoryWriter)
 }
 
 func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
@@ -88,42 +42,14 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 	})
 
 	// set the repository owner since it is not set by NewEnvironment
-	maintParams, err := maintenance.GetParams(ctx, env.Repository)
-	require.NoError(t, err)
+	setRepositoryOwner(t, ctx, env.RepositoryWriter)
 
-	co := env.Repository.ClientOptions()
-	require.NotZero(t, co)
-
-	maintParams.Owner = co.UsernameAtHost()
-	maintenance.SetParams(ctx, env.RepositoryWriter, maintParams)
-
-	require.NoError(t, err)
-	require.NoError(t, env.RepositoryWriter.Flush(ctx))
-
-	maintParams, err = maintenance.GetParams(ctx, env.Repository)
-	require.NoError(t, err)
-	require.Equal(t, co.UsernameAtHost(), maintParams.Owner)
-
-	// verify epoch manager is enabled
-	dr, isDirect := env.Repository.(repo.DirectRepository)
-	require.True(t, isDirect)
-	require.NotNil(t, dr)
-
-	fm := dr.FormatManager()
-	require.NotNil(t, fm)
-
-	mp, err := fm.GetMutableParameters(ctx)
-	require.NoError(t, err)
-	require.True(t, mp.EpochParameters.Enabled, "epoch manager not enabled")
-
-	emgr, enabled, err := dr.ContentReader().EpochManager(ctx)
-	require.NoError(t, err)
-	require.True(t, enabled, "epoch manager not enabled")
+	emgr, mp := verifyEpochManagerIsEnabled(t, ctx, env.Repository)
 
 	countThreshold := mp.EpochParameters.EpochAdvanceOnCountThreshold
 	epochDuration := mp.EpochParameters.MinEpochDuration
 
-	err = env.Repository.Refresh(ctx)
+	err := env.Repository.Refresh(ctx)
 	require.NoError(t, err)
 
 	// write countThreshold index blobs: writing an object & flushing creates
@@ -175,17 +101,7 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 	require.Zero(t, epochSnap.WriteEpoch, "write epoch was advanced")
 	require.GreaterOrEqual(t, len(epochSnap.UncompactedEpochSets[0]), countThreshold, "not enough index blobs were written")
 
-	// verify quick maintenance has NOT run yet
-	sch, err := maintenance.GetSchedule(ctx, env.RepositoryWriter)
-
-	require.NoError(t, err)
-	require.True(t, sch.NextFullMaintenanceTime.IsZero(), "unexpected NextFullMaintenanceTime")
-	require.True(t, sch.NextQuickMaintenanceTime.IsZero(), "unexpected NextQuickMaintenanceTime")
-
-	err = snapshotmaintenance.Run(ctx, env.RepositoryWriter, maintenance.ModeQuick, false, maintenance.SafetyFull)
-	require.NoError(t, err)
-
-	verifyEpochTasksRanInQuickMaintenance(t, ctx, env.RepositoryWriter)
+	verifyEpochTasksRunsInQuickMaintenance(t, ctx, env.RepositoryWriter)
 
 	// verify epoch was advanced
 	err = emgr.Refresh(ctx)
@@ -196,14 +112,69 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 	require.Positive(t, epochSnap.WriteEpoch, "write epoch was NOT advanced")
 }
 
-func verifyEpochTasksRanInQuickMaintenance(t *testing.T, ctx context.Context, rep repo.DirectRepository) {
+func setRepositoryOwner(t *testing.T, ctx context.Context, rep repo.RepositoryWriter) {
 	t.Helper()
 
-	// verify quick maintenance ran
+	maintParams, err := maintenance.GetParams(ctx, rep)
+	require.NoError(t, err)
+
+	co := rep.ClientOptions()
+	require.NotZero(t, co)
+
+	maintParams.Owner = co.UsernameAtHost()
+
+	err = maintenance.SetParams(ctx, rep, maintParams)
+	require.NoError(t, err)
+
+	require.NoError(t, rep.Flush(ctx))
+
+	// verify the owner was set
+	maintParams, err = maintenance.GetParams(ctx, rep)
+	require.NoError(t, err)
+	require.Equal(t, co.UsernameAtHost(), maintParams.Owner)
+}
+
+func verifyEpochManagerIsEnabled(t *testing.T, ctx context.Context, rep repo.Repository) (*epoch.Manager, format.MutableParameters) {
+	t.Helper()
+
+	// verify epoch manager is enabled
+	dr, isDirect := rep.(repo.DirectRepository)
+	require.True(t, isDirect)
+	require.NotNil(t, dr)
+
+	fm := dr.FormatManager()
+	require.NotNil(t, fm)
+
+	mp, err := fm.GetMutableParameters(ctx)
+	require.NoError(t, err)
+	require.True(t, mp.EpochParameters.Enabled, "epoch manager not enabled")
+
+	emgr, enabled, err := dr.ContentReader().EpochManager(ctx)
+	require.NoError(t, err)
+	require.True(t, enabled, "epoch manager not enabled")
+
+	return emgr, mp
+}
+
+func verifyEpochTasksRunsInQuickMaintenance(t *testing.T, ctx context.Context, rep repo.DirectRepositoryWriter) {
+	t.Helper()
+
+	// verify quick maintenance has NOT run yet
 	sch, err := maintenance.GetSchedule(ctx, rep)
 
 	require.NoError(t, err)
+	require.True(t, sch.NextFullMaintenanceTime.IsZero(), "unexpected NextFullMaintenanceTime")
+	require.True(t, sch.NextQuickMaintenanceTime.IsZero(), "unexpected NextQuickMaintenanceTime")
+
+	err = snapshotmaintenance.Run(ctx, rep, maintenance.ModeQuick, false, maintenance.SafetyFull)
+	require.NoError(t, err)
+
+	// verify quick maintenance ran
+	sch, err = maintenance.GetSchedule(ctx, rep)
+
+	require.NoError(t, err)
 	require.False(t, sch.NextQuickMaintenanceTime.IsZero(), "unexpected NextQuickMaintenanceTime")
+	require.True(t, sch.NextFullMaintenanceTime.IsZero(), "unexpected NextFullMaintenanceTime")
 	require.NotEmpty(t, sch.Runs, "quick maintenance did not run")
 
 	// note: this does not work => require.Contains(t, sch.Runs, maintenance.TaskEpochAdvance)
