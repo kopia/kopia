@@ -26,24 +26,7 @@ func TestQuickMaintenanceRunWithEpochManager(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, format.FormatVersion3)
 
 	// set the repository owner since it is not set by NewEnvironment
-	maintParams, err := maintenance.GetParams(ctx, env.Repository)
-	require.NoError(t, err)
-
-	co := env.Repository.ClientOptions()
-	require.NotZero(t, co)
-
-	maintParams.Owner = co.UsernameAtHost()
-
-	err = maintenance.SetParams(ctx, env.RepositoryWriter, maintParams)
-	require.NoError(t, err)
-
-	require.NoError(t, env.RepositoryWriter.Flush(ctx))
-
-	// verify the owner was set
-	maintParams, err = maintenance.GetParams(ctx, env.Repository)
-	require.NoError(t, err)
-	require.Equal(t, co.UsernameAtHost(), maintParams.Owner)
-
+	setRepositoryOwner(t, ctx, env.RepositoryWriter)
 	verifyEpochManagerIsEnabled(t, ctx, env.Repository)
 	verifyEpochTasksRanInQuickMaintenance(t, ctx, env.RepositoryWriter)
 }
@@ -59,28 +42,14 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 	})
 
 	// set the repository owner since it is not set by NewEnvironment
-	maintParams, err := maintenance.GetParams(ctx, env.Repository)
-	require.NoError(t, err)
-
-	co := env.Repository.ClientOptions()
-	require.NotZero(t, co)
-
-	maintParams.Owner = co.UsernameAtHost()
-	maintenance.SetParams(ctx, env.RepositoryWriter, maintParams)
-
-	require.NoError(t, err)
-	require.NoError(t, env.RepositoryWriter.Flush(ctx))
-
-	maintParams, err = maintenance.GetParams(ctx, env.Repository)
-	require.NoError(t, err)
-	require.Equal(t, co.UsernameAtHost(), maintParams.Owner)
+	setRepositoryOwner(t, ctx, env.RepositoryWriter)
 
 	emgr, mp := verifyEpochManagerIsEnabled(t, ctx, env.Repository)
 
 	countThreshold := mp.EpochParameters.EpochAdvanceOnCountThreshold
 	epochDuration := mp.EpochParameters.MinEpochDuration
 
-	err = env.Repository.Refresh(ctx)
+	err := env.Repository.Refresh(ctx)
 	require.NoError(t, err)
 
 	// write countThreshold index blobs: writing an object & flushing creates
@@ -141,6 +110,28 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 	epochSnap, err = emgr.Current(ctx)
 	require.NoError(t, err)
 	require.Positive(t, epochSnap.WriteEpoch, "write epoch was NOT advanced")
+}
+
+func setRepositoryOwner(t *testing.T, ctx context.Context, rep repo.RepositoryWriter) {
+	t.Helper()
+
+	maintParams, err := maintenance.GetParams(ctx, rep)
+	require.NoError(t, err)
+
+	co := rep.ClientOptions()
+	require.NotZero(t, co)
+
+	maintParams.Owner = co.UsernameAtHost()
+
+	err = maintenance.SetParams(ctx, rep, maintParams)
+	require.NoError(t, err)
+
+	require.NoError(t, rep.Flush(ctx))
+
+	// verify the owner was set
+	maintParams, err = maintenance.GetParams(ctx, rep)
+	require.NoError(t, err)
+	require.Equal(t, co.UsernameAtHost(), maintParams.Owner)
 }
 
 func verifyEpochManagerIsEnabled(t *testing.T, ctx context.Context, rep repo.Repository) (*epoch.Manager, format.MutableParameters) {
