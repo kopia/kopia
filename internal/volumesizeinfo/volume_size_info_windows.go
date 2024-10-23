@@ -26,6 +26,6 @@ func getPlatformVolumeSizeInfo(volumeMountPoint string) (VolumeSizeInfo, error) 
 	return VolumeSizeInfo{
 		TotalSize:  c.SizeB,
 		UsedSize:   c.SizeB - c.FreeB,
-		FilesCount: int64(math.MaxInt64), // On Windows it's not possible to get / estimate number of files on volume
+		FilesCount: uint64(math.MaxInt64), // On Windows it's not possible to get / estimate number of files on volume
 	}, nil
 }

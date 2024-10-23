@@ -15,9 +15,9 @@ func getPlatformVolumeSizeInfo(volumeMountPoint string) (VolumeSizeInfo, error) 
 	}
 
 	return VolumeSizeInfo{
-		TotalSize: stats.Blocks * uint64(stats.Bsize),
-		UsedSize:  (stats.Blocks - stats.Bfree) * uint64(stats.Bsize),
+		TotalSize: stats.Blocks * uint64(stats.Bsize),                 //nolint:unconvert,nolintlint
+		UsedSize:  (stats.Blocks - stats.Bfree) * uint64(stats.Bsize), //nolint:unconvert,nolintlint
 		// Conversion to uint64 is needed for some arch/distrib combination.
-		FilesCount: stats.Files - uint64(stats.Ffree), //nolint:unconvert
+		FilesCount: stats.Files - uint64(stats.Ffree), //nolint:unconvert,nolintlint
 	}, nil
 }
