@@ -2,6 +2,8 @@
 title: "Ransomware Protection"
 linkTitle: "Ransomware Protection"
 weight: 55
+aliases:
+- ../advanced/ransomware/
 ---
 
 Some cloud storage providers provide capabilities targeted at protecting against ransomware attacks. Kopia can be configured to take advantage of those capabilities to provide additional protection for your data.
