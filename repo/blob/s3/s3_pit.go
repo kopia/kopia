@@ -122,6 +122,9 @@ func maybePointInTimeStore(ctx context.Context, s *s3Storage, pointInTime *time.
 		return s, nil
 	}
 
+	ctx, cancel := blob.WithRequestTimeout(ctx, s.RequestTimeout)
+	defer cancel()
+
 	// Does the bucket supports versioning?
 	vi, err := s.cli.GetBucketVersioning(ctx, s.BucketName)
 	if err != nil {
