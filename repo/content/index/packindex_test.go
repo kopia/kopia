@@ -356,6 +356,16 @@ func addDeterministicContents(t *testing.T, add func(Info)) {
 	}
 }
 
+func addIntsAsDeterministicContent(t *testing.T, ints []int, add func(Info)) {
+	t.Helper()
+
+	for i := range ints {
+		add(Info{
+			ContentID: deterministicContentID(t, "", i),
+		})
+	}
+}
+
 func verifySortedEntries(t *testing.T, sortedContents func() []*Info) {
 	t.Helper()
 
@@ -466,11 +476,7 @@ func TestShard(t *testing.T) {
 	ids := rand.Perm(10_000)
 
 	// add ID to the builder
-	for _, id := range ids {
-		b.Add(Info{
-			ContentID: deterministicContentID(t, "", id),
-		})
-	}
+	addIntsAsDeterministicContent(t, ids, b.Add)
 
 	// verify number of shards
 	verifyAllShardedIDs(t, b.shard(100000), len(b), 1)
@@ -536,12 +542,7 @@ func TestShard1(t *testing.T) {
 	for _, tc := range cases {
 		b := NewOneUseBuilder()
 
-		// add ID to the builder
-		for _, id := range ids {
-			b.Add(Info{
-				ContentID: deterministicContentID(t, "", id),
-			})
-		}
+		addIntsAsDeterministicContent(t, ids, b.Add)
 
 		length := b.Length()
 		shards := b.shard(tc.shardSize)
