@@ -25,7 +25,10 @@ type Options struct {
 	Tags            map[string]string `json:"tags" kopia:"sensitive"`
 	RoleARN         string            `json:"roleARN"`
 	SessionName     string            `json:"sessionName"`
-	RoleDuration    string            `json:"duration"`
+	RoleDuration    time.Duration     `json:"duration"`
+	RoleEndpoint    string            `json:"roleEndpoint"`
+	// TODO(ashmrtn): Figure out if this can be merged with Region.
+	RoleRegion string `json:"roleRegion"`
 
 	// Region is an optional region to pass in authorization header.
 	Region string `json:"region,omitempty"`
