@@ -319,16 +319,7 @@ func TestSortedContents(t *testing.T) {
 		})
 	}
 
-	got := b.sortedContents()
-
-	var last ID
-	for _, info := range got {
-		if info.ContentID.less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
-		}
-
-		last = info.ContentID
-	}
+	verifySortedEntries(t, b.sortedContents)
 }
 
 func TestSortedContents2(t *testing.T) {
@@ -365,17 +356,7 @@ func TestSortedContents2(t *testing.T) {
 		ContentID: mustParseID(t, "h1023"),
 	})
 
-	got := b.sortedContents()
-
-	var last ID
-
-	for _, info := range got {
-		if info.ContentID.less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
-		}
-
-		last = info.ContentID
-	}
+	verifySortedEntries(t, b.sortedContents)
 }
 
 func TestSortedContents3(t *testing.T) {
@@ -389,16 +370,7 @@ func TestSortedContents3(t *testing.T) {
 		})
 	}
 
-	got := b.sortedContents()
-
-	var last ID
-	for _, info := range got {
-		if info.ContentID.less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
-		}
-
-		last = info.ContentID
-	}
+	verifySortedEntries(t, b.sortedContents)
 }
 
 func TestSortedContents4(t *testing.T) {
@@ -435,13 +407,19 @@ func TestSortedContents4(t *testing.T) {
 		ContentID: mustParseID(t, "h1023"),
 	})
 
-	got := b.sortedContents()
+	verifySortedEntries(t, b.sortedContents)
+}
+
+func verifySortedEntries(t *testing.T, sortedContents func() []*Info) {
+	t.Helper()
+
+	got := sortedContents()
 
 	var last ID
 
 	for _, info := range got {
 		if info.ContentID.less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
+			t.Fatalf("not sorted %v (last was %v)!", info.ContentID, last)
 		}
 
 		last = info.ContentID
