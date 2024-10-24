@@ -311,103 +311,49 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 func TestSortedContents(t *testing.T) {
 	b := Builder{}
 
-	for i := range 100 {
-		v := deterministicContentID(t, "", i)
-
-		b.Add(Info{
-			ContentID: v,
-		})
-	}
-
+	addDeterministicContents(t, b.Add)
 	verifySortedEntries(t, b.sortedContents)
 }
 
 func TestSortedContents2(t *testing.T) {
 	b := Builder{}
 
-	b.Add(Info{
-		ContentID: mustParseID(t, "0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "0f23"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "f023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "g0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "g1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "i0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "i1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "h0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "h1023"),
-	})
-
+	addContentIDsWithDifferentPrefixes(t, b.Add)
 	verifySortedEntries(t, b.sortedContents)
 }
 
 func TestSortedContents3(t *testing.T) {
 	b := NewOneUseBuilder()
 
-	for i := range 100 {
-		v := deterministicContentID(t, "", i)
-
-		b.Add(Info{
-			ContentID: v,
-		})
-	}
-
+	addDeterministicContents(t, b.Add)
 	verifySortedEntries(t, b.sortedContents)
 }
 
 func TestSortedContents4(t *testing.T) {
 	b := NewOneUseBuilder()
 
-	b.Add(Info{
-		ContentID: mustParseID(t, "0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "0f23"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "f023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "g0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "g1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "i0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "i1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "h0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "h1023"),
-	})
-
+	addContentIDsWithDifferentPrefixes(t, b.Add)
 	verifySortedEntries(t, b.sortedContents)
+}
+
+func addContentIDsWithDifferentPrefixes(t *testing.T, add func(Info)) {
+	t.Helper()
+
+	for _, id := range []string{"0123", "1023", "0f23", "f023", "g0123", "g1023", "i0123", "i1023", "h0123", "h1023"} {
+		add(Info{
+			ContentID: mustParseID(t, id),
+		})
+	}
+}
+
+func addDeterministicContents(t *testing.T, add func(Info)) {
+	t.Helper()
+
+	for i := range 100 {
+		add(Info{
+			ContentID: deterministicContentID(t, "", i),
+		})
+	}
 }
 
 func verifySortedEntries(t *testing.T, sortedContents func() []*Info) {
