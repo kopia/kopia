@@ -315,21 +315,21 @@ func TestSortedContents(t *testing.T) {
 	verifySortedEntries(t, b.sortedContents)
 }
 
-func TestSortedContents2(t *testing.T) {
+func TestSortedContentsDifferentPrefixes(t *testing.T) {
 	b := Builder{}
 
 	addContentIDsWithDifferentPrefixes(t, b.Add)
 	verifySortedEntries(t, b.sortedContents)
 }
 
-func TestSortedContents3(t *testing.T) {
+func TestSortedContentsSingleUse(t *testing.T) {
 	b := NewOneUseBuilder()
 
 	addDeterministicContents(t, b.Add)
 	verifySortedEntries(t, b.sortedContents)
 }
 
-func TestSortedContents4(t *testing.T) {
+func TestSortedContentsSingleUseDifferentPrefixes(t *testing.T) {
 	b := NewOneUseBuilder()
 
 	addContentIDsWithDifferentPrefixes(t, b.Add)
@@ -523,7 +523,7 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 	return lens
 }
 
-func TestShard1(t *testing.T) {
+func TestSingleUseBuilderShard(t *testing.T) {
 	// generate IDs in random order
 	ids := rand.Perm(10_000)
 
