@@ -46,7 +46,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 			nro.BlockFormat.HMACSecret = testHMACSecret
 		},
 	})
-	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	io.WriteString(w, "hello world!")
 	w.Result()
 	w.Close()

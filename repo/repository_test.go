@@ -47,7 +47,7 @@ func (s *formatSpecificTestSuite) TestWriters(t *testing.T) {
 	for _, c := range cases {
 		ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
-		writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+		writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 		if _, err := writer.Write(c.data); err != nil {
 			t.Fatalf("write error: %v", err)
 		}
@@ -74,7 +74,7 @@ func (s *formatSpecificTestSuite) TestWriterCompleteChunkInTwoWrites(t *testing.
 	ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 	b := make([]byte, 100)
-	writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	writer.Write(b[0:50])
 	writer.Write(b[0:50])
 	result, err := writer.Result()
@@ -159,7 +159,7 @@ func (s *formatSpecificTestSuite) TestHMAC(t *testing.T) {
 
 	c := bytes.Repeat([]byte{0xcd}, 50)
 
-	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	w.Write(c)
 	result, err := w.Result()
 
@@ -185,7 +185,7 @@ func (s *formatSpecificTestSuite) TestReaderStoredBlockNotFound(t *testing.T) {
 func writeObject(ctx context.Context, t *testing.T, rep repo.RepositoryWriter, data []byte, testCaseID string) object.ID {
 	t.Helper()
 
-	w := rep.NewObjectWriter(ctx, object.WriterOptions{})
+	w := rep.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	if _, err := w.Write(data); err != nil {
 		t.Fatalf("can't write object %q - write failed: %v", testCaseID, err)
 	}
@@ -275,7 +275,7 @@ func TestFormats(t *testing.T) {
 
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)
-			w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+			w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 			w.Write(bytesToWrite)
 
 			oid, err := w.Result()
@@ -555,7 +555,7 @@ func TestObjectWritesWithRetention(t *testing.T) {
 		},
 	})
 
-	writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	_, err := writer.Write([]byte("the quick brown fox jumps over the lazy dog"))
 	require.NoError(t, err)
 
@@ -774,7 +774,8 @@ func TestMetrics_CompressibleData(t *testing.T) {
 
 	for ensureMapEntry(t, env.RepositoryMetrics().Snapshot(false).Counters, "content_write_duration_nanos") < 5e6 {
 		w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{
-			Compressor: "gzip",
+			Compressor:         "gzip",
+			MetadataCompressor: "zstd-fastest",
 		})
 		w.Write(inputData)
 

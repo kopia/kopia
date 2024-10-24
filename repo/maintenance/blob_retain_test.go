@@ -43,7 +43,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 			nro.RetentionPeriod = period
 		},
 	})
-	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	io.WriteString(w, "hello world!")
 	w.Result()
 	w.Close()
@@ -96,7 +96,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 			nro.BlockFormat.HMACSecret = testHMACSecret
 		},
 	})
-	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	io.WriteString(w, "hello world!")
 	w.Result()
 	w.Close()

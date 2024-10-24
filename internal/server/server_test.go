@@ -314,7 +314,7 @@ func remoteRepositoryNotificationTest(t *testing.T, ctx context.Context, rep rep
 func mustWriteObject(ctx context.Context, t *testing.T, w repo.RepositoryWriter, data []byte) object.ID {
 	t.Helper()
 
-	ow := w.NewObjectWriter(ctx, object.WriterOptions{})
+	ow := w.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 
 	_, err := ow.Write(data)
 	require.NoError(t, err)
