@@ -4,6 +4,7 @@ package ignorefs
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -185,12 +186,12 @@ func (d *ignoreDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, er
 
 	thisContext, err := d.buildContext(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "in ignoreDirectory.Iterate, when building context")
 	}
 
 	inner, err := d.Directory.Iterate(ctx)
 	if err != nil {
-		return nil, err //nolint:wrapcheck
+		return nil, errors.Wrapf(err, "in ignoreDirectory.Iterate, when creating iterator")
 	}
 
 	it := ignoreDirIteratorPool.Get().(*ignoreDirIterator) //nolint:forcetypeassert
@@ -283,8 +284,26 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 
 	for _, dotfile := range effectiveDotIgnoreFiles {
 		if e, err := d.Directory.Child(ctx, dotfile); err == nil {
-			if f, ok := e.(fs.File); ok {
-				dotIgnoreFiles = append(dotIgnoreFiles, f)
+			switch entry := e.(type) {
+			case fs.File:
+				dotIgnoreFiles = append(dotIgnoreFiles, entry)
+
+			case fs.Symlink:
+				target, err := entry.Resolve(ctx)
+				if err != nil {
+					link, _ := entry.Readlink(ctx)
+					return nil, errors.Wrapf(err, "when resolving symlink %s of type %T, which points to %s", entry.Name(), entry, link)
+				}
+
+				if f, ok := (*target).(fs.File); !ok {
+					t, err := entry.Readlink(ctx)
+					if err != nil {
+						return nil, errors.Wrapf(err, "while reading symlink %s", entry.Name())
+					}
+					return nil, fmt.Errorf("%s is not a file", t)
+				} else {
+					dotIgnoreFiles = append(dotIgnoreFiles, f)
+				}
 			}
 		}
 	}
