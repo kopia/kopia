@@ -117,9 +117,7 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	t.Helper()
 
 	stdout, _, err := e.Run(t, false, args...)
-	if err != nil {
-		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
-	}
+	require.NoError(t, err, "'kopia %v' failed", strings.Join(args, " "))
 
 	return stdout
 }
@@ -234,9 +232,7 @@ func (e *CLITest) RunAndExpectSuccessWithErrOut(t *testing.T, args ...string) (s
 	t.Helper()
 
 	stdout, stderr, err := e.Run(t, false, args...)
-	if err != nil {
-		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
-	}
+	require.NoError(t, err, "'kopia %v' failed", strings.Join(args, " "))
 
 	return stdout, stderr
 }
@@ -248,9 +244,7 @@ func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) (stdout, std
 	var err error
 
 	stdout, stderr, err = e.Run(t, true, args...)
-	if err == nil {
-		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
-	}
+	require.Error(t, err, "'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
 
 	return stdout, stderr
 }
@@ -260,9 +254,7 @@ func (e *CLITest) RunAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 	t.Helper()
 
 	lines := e.RunAndExpectSuccess(t, args...)
-	if len(lines) != wantLines {
-		t.Fatalf("unexpected list of results of 'kopia %v': %v lines (%v) wanted %v", strings.Join(args, " "), len(lines), lines, wantLines)
-	}
+	require.Len(t, lines, wantLines, "unexpected output lines for 'kopia %v', lines:\n %s", strings.Join(args, " "), strings.Join(lines, "\n "))
 
 	return lines
 }
