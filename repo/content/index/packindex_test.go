@@ -311,137 +311,71 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 func TestSortedContents(t *testing.T) {
 	b := Builder{}
 
-	for i := range 100 {
-		v := deterministicContentID(t, "", i)
-
-		b.Add(Info{
-			ContentID: v,
-		})
-	}
-
-	got := b.sortedContents()
-
-	var last ID
-	for _, info := range got {
-		if info.ContentID.less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
-		}
-
-		last = info.ContentID
-	}
+	addDeterministicContents(t, b.Add)
+	verifySortedEntries(t, b.sortedContents)
 }
 
-func TestSortedContents2(t *testing.T) {
+func TestSortedContentsDifferentPrefixes(t *testing.T) {
 	b := Builder{}
 
-	b.Add(Info{
-		ContentID: mustParseID(t, "0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "0f23"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "f023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "g0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "g1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "i0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "i1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "h0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "h1023"),
-	})
-
-	got := b.sortedContents()
-
-	var last ID
-
-	for _, info := range got {
-		if info.ContentID.less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
-		}
-
-		last = info.ContentID
-	}
+	addContentIDsWithDifferentPrefixes(t, b.Add)
+	verifySortedEntries(t, b.sortedContents)
 }
 
-func TestSortedContents3(t *testing.T) {
+func TestSortedContentsSingleUse(t *testing.T) {
 	b := NewOneUseBuilder()
 
-	for i := range 100 {
-		v := deterministicContentID(t, "", i)
+	addDeterministicContents(t, b.Add)
+	verifySortedEntries(t, b.sortedContents)
+}
 
-		b.Add(Info{
-			ContentID: v,
+func TestSortedContentsSingleUseDifferentPrefixes(t *testing.T) {
+	b := NewOneUseBuilder()
+
+	addContentIDsWithDifferentPrefixes(t, b.Add)
+	verifySortedEntries(t, b.sortedContents)
+}
+
+func addContentIDsWithDifferentPrefixes(t *testing.T, add func(Info)) {
+	t.Helper()
+
+	for _, id := range []string{"0123", "1023", "0f23", "f023", "g0123", "g1023", "i0123", "i1023", "h0123", "h1023"} {
+		add(Info{
+			ContentID: mustParseID(t, id),
 		})
 	}
+}
 
-	got := b.sortedContents()
+func addDeterministicContents(t *testing.T, add func(Info)) {
+	t.Helper()
 
-	var last ID
-	for _, info := range got {
-		if info.ContentID.less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
-		}
-
-		last = info.ContentID
+	for i := range 100 {
+		add(Info{
+			ContentID: deterministicContentID(t, "", i),
+		})
 	}
 }
 
-func TestSortedContents4(t *testing.T) {
-	b := NewOneUseBuilder()
+func addIntsAsDeterministicContent(t *testing.T, ints []int, add func(Info)) {
+	t.Helper()
 
-	b.Add(Info{
-		ContentID: mustParseID(t, "0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "0f23"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "f023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "g0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "g1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "i0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "i1023"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "h0123"),
-	})
-	b.Add(Info{
-		ContentID: mustParseID(t, "h1023"),
-	})
+	for i := range ints {
+		add(Info{
+			ContentID: deterministicContentID(t, "", i),
+		})
+	}
+}
 
-	got := b.sortedContents()
+func verifySortedEntries(t *testing.T, sortedContents func() []*Info) {
+	t.Helper()
+
+	got := sortedContents()
 
 	var last ID
 
 	for _, info := range got {
 		if info.ContentID.less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.ContentID, last)
+			t.Fatalf("not sorted %v (last was %v)!", info.ContentID, last)
 		}
 
 		last = info.ContentID
@@ -538,22 +472,11 @@ func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d [
 func TestShard(t *testing.T) {
 	b := Builder{}
 
-	// generate 10000 IDs in random order
-	ids := make([]int, 10000)
-	for i := range ids {
-		ids[i] = i
-	}
-
-	rand.Shuffle(len(ids), func(i, j int) {
-		ids[i], ids[j] = ids[j], ids[i]
-	})
+	// generate IDs in random order
+	ids := rand.Perm(10_000)
 
 	// add ID to the builder
-	for _, id := range ids {
-		b.Add(Info{
-			ContentID: deterministicContentID(t, "", id),
-		})
-	}
+	addIntsAsDeterministicContent(t, ids, b.Add)
 
 	// verify number of shards
 	verifyAllShardedIDs(t, b.shard(100000), len(b), 1)
@@ -600,16 +523,9 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 	return lens
 }
 
-func TestShard1(t *testing.T) {
-	// generate 10000 IDs in random order
-	ids := make([]int, 10000)
-	for i := range ids {
-		ids[i] = i
-	}
-
-	rand.Shuffle(len(ids), func(i, j int) {
-		ids[i], ids[j] = ids[j], ids[i]
-	})
+func TestSingleUseBuilderShard(t *testing.T) {
+	// generate IDs in random order
+	ids := rand.Perm(10_000)
 
 	cases := []struct {
 		shardSize int
@@ -626,12 +542,7 @@ func TestShard1(t *testing.T) {
 	for _, tc := range cases {
 		b := NewOneUseBuilder()
 
-		// add ID to the builder
-		for _, id := range ids {
-			b.Add(Info{
-				ContentID: deterministicContentID(t, "", id),
-			})
-		}
+		addIntsAsDeterministicContent(t, ids, b.Add)
 
 		length := b.Length()
 		shards := b.shard(tc.shardSize)
