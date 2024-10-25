@@ -462,15 +462,8 @@ func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d [
 func TestShard(t *testing.T) {
 	b := Builder{}
 
-	// generate 10000 IDs in random order
-	ids := make([]int, 10000)
-	for i := range ids {
-		ids[i] = i
-	}
-
-	rand.Shuffle(len(ids), func(i, j int) {
-		ids[i], ids[j] = ids[j], ids[i]
-	})
+	// generate IDs in random order
+	ids := rand.Perm(10_000)
 
 	// add ID to the builder
 	for _, id := range ids {
@@ -525,15 +518,8 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 }
 
 func TestShard1(t *testing.T) {
-	// generate 10000 IDs in random order
-	ids := make([]int, 10000)
-	for i := range ids {
-		ids[i] = i
-	}
-
-	rand.Shuffle(len(ids), func(i, j int) {
-		ids[i], ids[j] = ids[j], ids[i]
-	})
+	// generate IDs in random order
+	ids := rand.Perm(10_000)
 
 	cases := []struct {
 		shardSize int
