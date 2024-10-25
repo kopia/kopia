@@ -98,6 +98,16 @@ func TestLogsMaintenance(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "maintenance", "run", "--full")
 	e.RunAndVerifyOutputLineCount(t, 1, "logs", "list")
+}
+
+func TestLogsMaintenanceSet(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "maintenance", "set",
 		"--max-retained-log-age=22h",
