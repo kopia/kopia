@@ -3,17 +3,13 @@ package gcs
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
 	gcsclient "cloud.google.com/go/storage"
 	"github.com/pkg/errors"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
@@ -246,24 +242,6 @@ func (gcs *gcsStorage) toBlobID(blobName string) blob.ID {
 	return blob.ID(blobName[len(gcs.Prefix):])
 }
 
-func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
-	data, err := os.ReadFile(fn) //nolint:gosec
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading credentials file")
-	}
-
-	return tokenSourceFromCredentialsJSON(ctx, data, scopes...)
-}
-
-func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, scopes ...string) (oauth2.TokenSource, error) {
-	creds, err := google.CredentialsFromJSON(ctx, data, scopes...)
-	if err != nil {
-		return nil, errors.Wrap(err, "google.CredentialsFromJSON")
-	}
-
-	return creds.TokenSource, nil
-}
-
 // New creates new Google Cloud Storage-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.
@@ -273,36 +251,26 @@ func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, s
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	_ = isCreate
 
-	var ts oauth2.TokenSource
-
-	var err error
+	if opt.BucketName == "" {
+		return nil, errors.New("bucket name must be specified")
+	}
 
 	scope := gcsclient.ScopeFullControl
 	if opt.ReadOnly {
 		scope = gcsclient.ScopeReadOnly
 	}
 
-	if sa := opt.ServiceAccountCredentialJSON; len(sa) > 0 {
-		ts, err = tokenSourceFromCredentialsJSON(ctx, sa, scope)
-	} else if sa := opt.ServiceAccountCredentialsFile; sa != "" {
-		ts, err = tokenSourceFromCredentialsFile(ctx, sa, scope)
-	} else {
-		ts, err = google.DefaultTokenSource(ctx, scope)
+	clientOptions := []option.ClientOption{option.WithScopes(scope)}
+
+	if j := opt.ServiceAccountCredentialJSON; len(j) > 0 {
+		clientOptions = append(clientOptions, option.WithCredentialsJSON(j))
+	} else if fn := opt.ServiceAccountCredentialsFile; fn != "" {
+		clientOptions = append(clientOptions, option.WithCredentialsFile(fn))
 	}
 
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize token source")
-	}
-
-	hc := oauth2.NewClient(ctx, ts)
-
-	cli, err := gcsclient.NewClient(ctx, option.WithHTTPClient(hc))
+	cli, err := gcsclient.NewClient(ctx, clientOptions...)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create GCS client")
-	}
-
-	if opt.BucketName == "" {
-		return nil, errors.New("bucket name must be specified")
 	}
 
 	st := &gcsStorage{
