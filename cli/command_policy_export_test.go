@@ -23,7 +23,7 @@ func TestExportPolicy(t *testing.T) {
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export"), &policies1)
 
-	assert.Len(t, len(policies1), 1, "unexpected number of policies")
+	assert.Len(t, policies1, 1, "unexpected number of policies")
 	assert.Equal(t, policy.DefaultPolicy, policies1["(global)"], "unexpected policy")
 
 	var policies2 map[string]*policy.Policy
@@ -31,7 +31,7 @@ func TestExportPolicy(t *testing.T) {
 	// we only have one policy, so exporting all policies should be the same as exporting the global policy explicitly
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", "(global)"), &policies2)
 
-	assert.Len(t, len(policies2), 1, "unexpected number of policies")
+	assert.Len(t, policies2, 1, "unexpected number of policies")
 	assert.Equal(t, policies1, policies2, "unexpected policy")
 
 	// create a new policy
@@ -54,21 +54,21 @@ func TestExportPolicy(t *testing.T) {
 	var policies3 map[string]*policy.Policy
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", id), &policies3)
 
-	assert.Len(t, len(policies3), 1, "unexpected number of policies")
+	assert.Len(t, policies3, 1, "unexpected number of policies")
 	assert.Equal(t, expectedPolicy, policies3[id], "unexpected policy")
 
 	// specifying a local id should return the same policy
 	var policies4 map[string]*policy.Policy
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", td), &policies4) // note: td, not id
 
-	assert.Len(t, len(policies4), 1, "unexpected number of policies")
+	assert.Len(t, policies4, 1, "unexpected number of policies")
 	assert.Equal(t, expectedPolicy, policies4[id], "unexpected policy") // thee key is always the full id however
 
 	// exporting without specifying a policy should return all policies
 	var policies5 map[string]*policy.Policy
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export"), &policies5)
 
-	assert.Len(t, len(policies5), 2, "unexpected number of policies")
+	assert.Len(t, policies5, 2, "unexpected number of policies")
 	assert.Equal(t, expectedPolicies, policies5, "unexpected policy")
 
 	// sanity check if --to-file works
@@ -100,6 +100,6 @@ func TestExportPolicy(t *testing.T) {
 	testutil.MustParseJSONLines(t, []string{string(exportedContent)}, &policies7)
 
 	// we specified id, so only that policy should be exported
-	assert.Len(t, len(policies7), 1, "unexpected number of policies")
+	assert.Len(t, policies7, 1, "unexpected number of policies")
 	assert.Equal(t, expectedPolicy, policies5[id], "unexpected policy")
 }

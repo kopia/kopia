@@ -46,6 +46,11 @@ func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) erro
 		return err
 	}
 
+	file, ok := output.(*os.File)
+	if ok {
+		defer file.Close() //nolint:errcheck
+	}
+
 	policies := make(map[string]*policy.Policy)
 
 	if c.policyTargetFlags.global || len(c.policyTargetFlags.targets) > 0 {
@@ -113,8 +118,6 @@ func getOutput(c *commandPolicyExport) (io.Writer, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening file to write to")
 	}
-
-	defer file.Close() //nolint:errcheck
 
 	return file, nil
 }
