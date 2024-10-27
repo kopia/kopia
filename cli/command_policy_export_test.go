@@ -3,11 +3,13 @@ package cli_test
 import (
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -36,7 +38,11 @@ func TestExportPolicy(t *testing.T) {
 
 	// create a new policy
 	td := testutil.TempDirectory(t)
-	id := "user@host:" + td
+	id := snapshot.SourceInfo{
+		Host:     "host",
+		UserName: "user",
+		Path:     filepath.ToSlash(td),
+	}.String()
 
 	e.RunAndExpectSuccess(t, "policy", "set", td, "--splitter=FIXED-4M")
 

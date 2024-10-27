@@ -4,11 +4,13 @@ import (
 	"encoding/json"
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -56,7 +58,11 @@ func TestImportPolicy(t *testing.T) {
 	assertPoliciesEqual(t, e, specifiedPolicies)
 
 	// create a new policy
-	id := "user@host:" + td
+	id := snapshot.SourceInfo{
+		Host:     "host",
+		UserName: "user",
+		Path:     filepath.ToSlash(td),
+	}.String()
 
 	specifiedPolicies[id] = &policy.Policy{
 		SplitterPolicy: policy.SplitterPolicy{
@@ -88,8 +94,12 @@ func TestImportPolicy(t *testing.T) {
 	assertPoliciesEqual(t, e, specifiedPolicies)
 
 	// create a new policy
-	path2 := path.Join(td, "policy.json")
-	id2 := "user@host:" + path2
+	td2 := testutil.TempDirectory(t)
+	id2 := snapshot.SourceInfo{
+		Host:     "host",
+		UserName: "user",
+		Path:     filepath.ToSlash(td2),
+	}.String()
 	policy2 := &policy.Policy{
 		MetadataCompressionPolicy: policy.MetadataCompressionPolicy{
 			CompressorName: "zstd",
