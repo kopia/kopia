@@ -147,7 +147,7 @@ func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiEr
 
 	task, ok := rc.srv.taskManager().GetTask(taskID)
 	if !ok {
-		return nil, internalServerError(errors.Errorf("task not found"))
+		return nil, internalServerError(errors.New("task not found"))
 	}
 
 	return task, nil

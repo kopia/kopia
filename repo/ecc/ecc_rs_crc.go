@@ -174,12 +174,12 @@ func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, _ []byte, output *gather
 	defer inputBuffer.Close()
 	inputBytes := inputBuffer.MakeContiguous(dataSizeInBlock * sizes.Blocks)
 
-	binary.BigEndian.PutUint32(inputBytes[:lengthSize], uint32(input.Length()))
+	binary.BigEndian.PutUint32(inputBytes[:lengthSize], uint32(input.Length())) //nolint:gosec
 	copied := input.AppendToSlice(inputBytes[lengthSize:lengthSize])
 
 	// WriteBuffer does not clear the data, so we must clear the padding
 	if lengthSize+len(copied) < len(inputBytes) {
-		clear(inputBytes[lengthSize+len(copied):])
+		fillWithZeros(inputBytes[lengthSize+len(copied):])
 	}
 
 	// Compute and store ECC + checksum
@@ -261,7 +261,7 @@ func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, _ []byte, output *gather
 
 	// WriteBuffer does not clear the data, so we must clear the padding
 	if len(copied) < len(inputBytes) {
-		clear(inputBytes[len(copied):])
+		fillWithZeros(inputBytes[len(copied):])
 	}
 
 	eccBytes := inputBytes[:parityPlusCrcSizeInBlock*sizes.Blocks]

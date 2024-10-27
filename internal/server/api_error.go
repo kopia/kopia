@@ -32,7 +32,7 @@ func accessDeniedError() *apiError {
 }
 
 func repositoryNotWritableError() *apiError {
-	return internalServerError(errors.Errorf("repository is not writable"))
+	return internalServerError(errors.New("repository is not writable"))
 }
 
 func internalServerError(err error) *apiError {

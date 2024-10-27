@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/gather"
 	apipb "github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/internal/retry"
@@ -469,6 +468,38 @@ func (r *grpcInnerSession) ApplyRetentionPolicy(ctx context.Context, sourcePath 
 	return nil, errNoSessionResponse()
 }
 
+func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, importance int32) error {
+	_, err := maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (struct{}, error) {
+		return sess.SendNotification(ctx, templateName, templateDataJSON, importance)
+	})
+
+	return err
+}
+
+var _ RemoteNotifications = (*grpcRepositoryClient)(nil)
+
+func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, severity int32) (struct{}, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+		Request: &apipb.SessionRequest_SendNotification{
+			SendNotification: &apipb.SendNotificationRequest{
+				TemplateName: templateName,
+				EventArgs:    templateDataJSON,
+				Severity:     severity,
+			},
+		},
+	}) {
+		switch resp.GetResponse().(type) {
+		case *apipb.SessionResponse_SendNotification:
+			return struct{}{}, nil
+
+		default:
+			return struct{}{}, unhandledSessionResponse(resp)
+		}
+	}
+
+	return struct{}{}, errNoSessionResponse()
+}
+
 func (r *grpcRepositoryClient) Time() time.Time {
 	return clock.Now()
 }
@@ -529,9 +560,9 @@ func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOp
 }
 
 // ConcatenateObjects creates a concatenated objects from the provided object IDs.
-func (r *grpcRepositoryClient) ConcatenateObjects(ctx context.Context, objectIDs []object.ID) (object.ID, error) {
+func (r *grpcRepositoryClient) ConcatenateObjects(ctx context.Context, objectIDs []object.ID, opt ConcatenateOptions) (object.ID, error) {
 	//nolint:wrapcheck
-	return r.omgr.Concatenate(ctx, objectIDs)
+	return r.omgr.Concatenate(ctx, objectIDs, opt.Compressor)
 }
 
 // maybeRetry executes the provided callback with or without automatic retries depending on how
@@ -722,7 +753,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 
 	// we will be writing asynchronously and server will reject this write, fail early.
 	if prefix == manifest.ContentPrefix {
-		return content.EmptyID, errors.Errorf("writing manifest contents not allowed")
+		return content.EmptyID, errors.New("writing manifest contents not allowed")
 	}
 
 	var hashOutput [128]byte
@@ -739,7 +770,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 	// clone so that caller can reuse the buffer
 	clone := data.ToByteSlice()
 
-	if err := r.doWriteAsync(ctxutil.Detach(ctx), contentID, clone, prefix, comp); err != nil {
+	if err := r.doWriteAsync(context.WithoutCancel(ctx), contentID, clone, prefix, comp); err != nil {
 		return content.EmptyID, err
 	}
 
@@ -867,7 +898,7 @@ func baseURLToURI(baseURL string) (uri string, err error) {
 	}
 
 	if u.Scheme != "kopia" && u.Scheme != "https" && u.Scheme != "unix+https" {
-		return "", errors.Errorf("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
+		return "", errors.New("invalid server address, must be 'https://host:port' or 'unix+https://<path>")
 	}
 
 	uri = net.JoinHostPort(u.Hostname(), u.Port())
@@ -897,7 +928,7 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 		r.innerSessionAttemptCount++
 
 		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
-			sess, err := cli.Session(ctxutil.Detach(ctx))
+			sess, err := cli.Session(context.WithoutCancel(ctx))
 			if err != nil {
 				return nil, errors.Wrap(err, "Session()")
 			}

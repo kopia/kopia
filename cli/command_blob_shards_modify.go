@@ -73,7 +73,7 @@ func parseShardSpec(shards string) ([]int, error) {
 
 		v, err := strconv.Atoi(p)
 		if err != nil || v < 0 {
-			return nil, errors.Errorf("invalid shard specification")
+			return nil, errors.New("invalid shard specification")
 		}
 
 		result = append(result, v)
@@ -98,7 +98,7 @@ func (c *commandBlobShardsModify) applyParameterChangesFromFlags(p *sharded.Para
 	if c.defaultShardSpec != "" {
 		v, err := parseShardSpec(c.defaultShardSpec)
 		if err != nil {
-			return errors.Errorf("invalid --default-shards")
+			return errors.New("invalid --default-shards")
 		}
 
 		p.DefaultShards = v

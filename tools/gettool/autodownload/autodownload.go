@@ -86,6 +86,7 @@ func untar(dir string, r io.Reader, stripPathComponents int) error {
 			}
 
 		case tar.TypeReg:
+			//nolint:gosec
 			if ferr := createFile(target, os.FileMode(header.Mode), header.ModTime, tr); ferr != nil {
 				return errors.Wrapf(ferr, "error creating file %v", target)
 			}
@@ -265,7 +266,7 @@ func downloadInternal(url, dir string, checksum map[string]string, stripPathComp
 	if strings.HasSuffix(url, ".gz") {
 		gzr, err := gzip.NewReader(&buf)
 		if err != nil {
-			return errors.Errorf("unable to gunzip response")
+			return errors.New("unable to gunzip response")
 		}
 
 		r = gzr
@@ -279,6 +280,6 @@ func downloadInternal(url, dir string, checksum map[string]string, stripPathComp
 	case strings.HasSuffix(url, ".zip"):
 		return errors.Wrap(unzip(dir, r, stripPathComponents), "unzip error")
 	default:
-		return errors.Errorf("unsupported archive format")
+		return errors.New("unsupported archive format")
 	}
 }

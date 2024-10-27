@@ -12,8 +12,8 @@ import (
 
 var log = logging.Module("repodiag")
 
-// Writer manages encryption and asynchronous writing of diagnostic blobs to the repository.
-type Writer struct {
+// BlobWriter manages encryption and asynchronous writing of diagnostic blobs to the repository.
+type BlobWriter struct {
 	st blob.Storage
 	bc blobcrypto.Crypter
 	wg sync.WaitGroup
@@ -21,7 +21,7 @@ type Writer struct {
 
 // EncryptAndWriteBlobAsync encrypts given content and writes it to the repository asynchronously,
 // folllowed by calling the provided closeFunc.
-func (w *Writer) EncryptAndWriteBlobAsync(ctx context.Context, prefix blob.ID, data gather.Bytes, closeFunc func()) {
+func (w *BlobWriter) EncryptAndWriteBlobAsync(ctx context.Context, prefix blob.ID, data gather.Bytes, closeFunc func()) {
 	encrypted := gather.NewWriteBuffer()
 	// Close happens in a goroutine
 
@@ -53,7 +53,7 @@ func (w *Writer) EncryptAndWriteBlobAsync(ctx context.Context, prefix blob.ID, d
 }
 
 // Wait waits for all the writes to complete.
-func (w *Writer) Wait(ctx context.Context) error {
+func (w *BlobWriter) Wait(ctx context.Context) error {
 	w.wg.Wait()
 	return nil
 }
@@ -62,6 +62,6 @@ func (w *Writer) Wait(ctx context.Context) error {
 func NewWriter(
 	st blob.Storage,
 	bc blobcrypto.Crypter,
-) *Writer {
-	return &Writer{st: st, bc: bc}
+) *BlobWriter {
+	return &BlobWriter{st: st, bc: bc}
 }

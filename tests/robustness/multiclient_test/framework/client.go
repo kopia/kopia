@@ -12,7 +12,9 @@ import (
 
 const nameLen int = 2
 
-var clientKey = struct{}{}
+type clientKeyT struct{}
+
+var clientKey clientKeyT
 
 // Client is a unique client for use in multiclient robustness tests.
 type Client struct {

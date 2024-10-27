@@ -43,7 +43,7 @@ type fsImpl struct {
 	osi osInterface
 }
 
-var errRetriableInvalidLength = errors.Errorf("invalid length (retriable)")
+var errRetriableInvalidLength = errors.New("invalid length (retriable)")
 
 func (fs *fsImpl) isRetriable(err error) bool {
 	if err == nil {
@@ -115,7 +115,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 				}
 			}
 
-			return errors.Errorf("invalid length")
+			return errors.New("invalid length")
 		}
 
 		return nil

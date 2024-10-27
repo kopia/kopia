@@ -80,7 +80,7 @@ func (v *MutableParameters) Validate() error {
 	}
 
 	if v.IndexVersion < 0 || v.IndexVersion > index.Version2 {
-		return errors.Errorf("invalid index version, supported versions are 1 & 2")
+		return errors.New("invalid index version, supported versions are 1 & 2")
 	}
 
 	if err := v.EpochParameters.Validate(); err != nil {

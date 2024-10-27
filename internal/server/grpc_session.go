@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/grpcapi"
+	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
@@ -185,11 +186,14 @@ func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, a
 	case *grpcapi.SessionRequest_ApplyRetentionPolicy:
 		respond(handleApplyRetentionPolicyRequest(ctx, dw, authz, usernameAtHostname, inner.ApplyRetentionPolicy))
 
+	case *grpcapi.SessionRequest_SendNotification:
+		respond(handleSendNotificationRequest(ctx, dw, authz, inner.SendNotification))
+
 	case *grpcapi.SessionRequest_InitializeSession:
-		respond(errorResponse(errors.Errorf("InitializeSession must be the first request in a session")))
+		respond(errorResponse(errors.New("InitializeSession must be the first request in a session")))
 
 	default:
-		respond(errorResponse(errors.Errorf("unhandled session request")))
+		respond(errorResponse(errors.New("unhandled session request")))
 	}
 }
 
@@ -484,6 +488,28 @@ func handleApplyRetentionPolicyRequest(ctx context.Context, rep repo.RepositoryW
 	}
 }
 
+func handleSendNotificationRequest(ctx context.Context, rep repo.RepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.SendNotificationRequest) *grpcapi.SessionResponse {
+	ctx, span := tracer.Start(ctx, "GRPCSession.SendNotification")
+	defer span.End()
+
+	if authz.ContentAccessLevel() < auth.AccessLevelAppend {
+		return accessDeniedResponse()
+	}
+
+	if err := notification.SendInternal(ctx, rep,
+		req.GetTemplateName(),
+		json.RawMessage(req.GetEventArgs()),
+		notification.Severity(req.GetSeverity())); err != nil {
+		return errorResponse(err)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_SendNotification{
+			SendNotification: &grpcapi.SendNotificationResponse{},
+		},
+	}
+}
+
 func accessDeniedResponse() *grpcapi.SessionResponse {
 	return &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_Error{
@@ -532,7 +558,7 @@ func makeEntryMetadataList(em []*manifest.EntryMetadata) []*grpcapi.ManifestEntr
 func makeEntryMetadata(em *manifest.EntryMetadata) *grpcapi.ManifestEntryMetadata {
 	return &grpcapi.ManifestEntryMetadata{
 		Id:           string(em.ID),
-		Length:       int32(em.Length),
+		Length:       int32(em.Length), //nolint:gosec
 		ModTimeNanos: em.ModTime.UnixNano(),
 		Labels:       em.Labels,
 	}
@@ -546,7 +572,7 @@ func (s *Server) handleInitialSessionHandshake(srv grpcapi.KopiaRepository_Sessi
 
 	ir := initializeReq.GetInitializeSession()
 	if ir == nil {
-		return repo.WriteSessionOptions{}, errors.Errorf("missing initialization request")
+		return repo.WriteSessionOptions{}, errors.New("missing initialization request")
 	}
 
 	scc := dr.ContentReader().SupportsContentCompression()

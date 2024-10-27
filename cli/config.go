@@ -54,7 +54,7 @@ func (c *App) openRepository(ctx context.Context, required bool) (repo.Repositor
 			return nil, nil
 		}
 
-		return nil, errors.Errorf("repository is not connected. See https://kopia.io/docs/repositories/")
+		return nil, errors.New("repository is not connected. See https://kopia.io/docs/repositories/")
 	}
 
 	c.maybePrintUpdateNotification(ctx)

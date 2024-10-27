@@ -45,7 +45,7 @@ func (c *commandBenchmarkCrypto) run(ctx context.Context) error {
 	c.out.printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3d. %-20v %-30v %v / second", ndx, r.hash, r.encryption, units.BytesString(int64(r.throughput)))
+		c.out.printStdout("%3d. %-20v %-30v %v / second", ndx, r.hash, r.encryption, units.BytesString(r.throughput))
 
 		if c.optionPrint {
 			c.out.printStdout(",   --block-hash=%s --encryption=%s", r.hash, r.encryption)

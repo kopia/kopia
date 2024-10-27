@@ -89,7 +89,7 @@ func (c *commandList) listDirectory(ctx context.Context, d fs.Directory, prefix,
 func (c *commandList) printDirectoryEntry(ctx context.Context, e fs.Entry, prefix, indent string) error {
 	hoid, ok := e.(object.HasObjectID)
 	if !ok {
-		return errors.Errorf("entry without object ID")
+		return errors.New("entry without object ID")
 	}
 
 	objectID := hoid.ObjectID()

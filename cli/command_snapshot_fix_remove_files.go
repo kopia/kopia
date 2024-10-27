@@ -54,7 +54,7 @@ func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, dirRel
 
 func (c *commandSnapshotFixRemoveFiles) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	if len(c.removeObjectIDs)+len(c.removeFilesByName) == 0 {
-		return errors.Errorf("must specify files to remove")
+		return errors.New("must specify files to remove")
 	}
 
 	return c.common.rewriteMatchingSnapshots(ctx, rep, c.rewriteEntry)

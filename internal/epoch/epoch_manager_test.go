@@ -80,7 +80,7 @@ func (te *epochManagerTestEnv) interruptedCompaction(ctx context.Context, _ []bl
 	te.st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v%016x-s%v-c3", prefix, sess, rand.Int63())), gather.FromSlice([]byte("dummy")), blob.PutOptions{})
 	te.st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v%016x-s%v-c3", prefix, sess, rand.Int63())), gather.FromSlice([]byte("dummy")), blob.PutOptions{})
 
-	return errors.Errorf("failed for some reason")
+	return errors.New("failed for some reason")
 }
 
 func newTestEnv(t *testing.T) *epochManagerTestEnv {
@@ -319,7 +319,7 @@ func TestIndexEpochManager_DeletionFailing(t *testing.T) {
 
 	te.faultyStorage.
 		AddFault(blobtesting.MethodDeleteBlob).
-		ErrorInstead(errors.Errorf("something bad happened")).
+		ErrorInstead(errors.New("something bad happened")).
 		Repeat(200)
 
 	// set up test environment in which compactions never succeed for whatever reason.
@@ -772,7 +772,7 @@ func TestInvalid_WriteIndex(t *testing.T) {
 	defer cancel()
 
 	// on first write, advance time enough to lose current context and go to the next epoch.
-	te.faultyStorage.AddFault(blobtesting.MethodListBlobs).Repeat(100).Before(cancel).ErrorInstead(errors.Errorf("canceled"))
+	te.faultyStorage.AddFault(blobtesting.MethodListBlobs).Repeat(100).Before(cancel).ErrorInstead(errors.New("canceled"))
 
 	_, err := te.writeIndexFiles(ctx,
 		newFakeIndexWithEntries(1),
@@ -793,7 +793,7 @@ func TestInvalid_ForceAdvanceEpoch(t *testing.T) {
 	require.ErrorIs(t, err, ctx.Err())
 
 	ctx = testlogging.Context(t)
-	someError := errors.Errorf("failed")
+	someError := errors.New("failed")
 	te.faultyStorage.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
 
 	err = te.mgr.forceAdvanceEpoch(ctx)

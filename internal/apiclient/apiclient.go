@@ -73,7 +73,7 @@ func (c *KopiaAPIClient) FetchCSRFTokenForTesting(ctx context.Context) error {
 
 	match := re.FindSubmatch(b)
 	if match == nil {
-		return errors.Errorf("CSRF token not found")
+		return errors.New("CSRF token not found")
 	}
 
 	c.CSRFToken = string(match[1])

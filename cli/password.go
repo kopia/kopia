@@ -97,7 +97,7 @@ func askPass(out io.Writer, prompt string) (string, error) {
 	for range 5 {
 		fmt.Fprint(out, prompt) //nolint:errcheck
 
-		passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+		passBytes, err := term.ReadPassword(int(os.Stdin.Fd())) //nolint:gosec
 		if err != nil {
 			return "", errors.Wrap(err, "password prompt error")
 		}

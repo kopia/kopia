@@ -161,8 +161,8 @@ func decodePostamble(payload []byte) *packContentPostamble {
 
 	return &packContentPostamble{
 		localIndexIV:     iv,
-		localIndexLength: uint32(length),
-		localIndexOffset: uint32(off),
+		localIndexLength: uint32(length), //nolint:gosec
+		localIndexOffset: uint32(off),    //nolint:gosec
 	}
 }
 
@@ -197,8 +197,8 @@ func (sm *SharedManager) appendPackFileIndexRecoveryData(mp format.MutableParame
 
 	postamble := packContentPostamble{
 		localIndexIV:     localIndexIV,
-		localIndexOffset: uint32(localIndexOffset),
-		localIndexLength: uint32(encryptedLocalIndex.Length()),
+		localIndexOffset: uint32(localIndexOffset),             //nolint:gosec
+		localIndexLength: uint32(encryptedLocalIndex.Length()), //nolint:gosec
 	}
 
 	if _, err := encryptedLocalIndex.Bytes().WriteTo(output); err != nil {

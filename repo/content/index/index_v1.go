@@ -266,8 +266,7 @@ type indexBuilderV1 struct {
 }
 
 // buildV1 writes the pack index to the provided output.
-func (b Builder) buildV1(output io.Writer) error {
-	allContents := b.sortedContents()
+func buildV1(allContents []*Info, output io.Writer) error {
 	b1 := &indexBuilderV1{
 		packBlobIDOffsets: map[blob.ID]uint32{},
 		keyLength:         -1,
@@ -284,8 +283,8 @@ func (b Builder) buildV1(output io.Writer) error {
 	header := make([]byte, v1HeaderSize)
 	header[0] = 1 // version
 	header[1] = byte(b1.keyLength)
-	binary.BigEndian.PutUint16(header[2:4], uint16(b1.entryLength))
-	binary.BigEndian.PutUint32(header[4:8], uint32(b1.entryCount))
+	binary.BigEndian.PutUint16(header[2:4], uint16(b1.entryLength)) //nolint:gosec
+	binary.BigEndian.PutUint32(header[4:8], uint32(b1.entryCount))  //nolint:gosec
 
 	if _, err := w.Write(header); err != nil {
 		return errors.Wrap(err, "unable to write header")
@@ -307,7 +306,7 @@ func (b Builder) buildV1(output io.Writer) error {
 	return errors.Wrap(w.Flush(), "error flushing index")
 }
 
-func (b *indexBuilderV1) prepareExtraData(allContents []Info) []byte {
+func (b *indexBuilderV1) prepareExtraData(allContents []*Info) []byte {
 	var extraData []byte
 
 	var hashBuf [maxContentIDSize]byte
@@ -319,18 +318,18 @@ func (b *indexBuilderV1) prepareExtraData(allContents []Info) []byte {
 
 		if it.PackBlobID != "" {
 			if _, ok := b.packBlobIDOffsets[it.PackBlobID]; !ok {
-				b.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData))
+				b.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData)) //nolint:gosec
 				extraData = append(extraData, []byte(it.PackBlobID)...)
 			}
 		}
 	}
 
-	b.extraDataOffset = uint32(v1HeaderSize + b.entryCount*(b.keyLength+b.entryLength))
+	b.extraDataOffset = uint32(v1HeaderSize + b.entryCount*(b.keyLength+b.entryLength)) //nolint:gosec
 
 	return extraData
 }
 
-func (b *indexBuilderV1) writeEntry(w io.Writer, it Info, entry []byte) error {
+func (b *indexBuilderV1) writeEntry(w io.Writer, it *Info, entry []byte) error {
 	var hashBuf [maxContentIDSize]byte
 
 	k := contentIDToBytes(hashBuf[:0], it.ContentID)
@@ -340,11 +339,11 @@ func (b *indexBuilderV1) writeEntry(w io.Writer, it Info, entry []byte) error {
 	}
 
 	if it.CompressionHeaderID != 0 {
-		return errors.Errorf("compression not supported in index v1")
+		return errors.New("compression not supported in index v1")
 	}
 
 	if it.EncryptionKeyID != 0 {
-		return errors.Errorf("encryption key ID not supported in index v1")
+		return errors.New("encryption key ID not supported in index v1")
 	}
 
 	if err := b.formatEntry(entry, it); err != nil {
@@ -362,7 +361,7 @@ func (b *indexBuilderV1) writeEntry(w io.Writer, it Info, entry []byte) error {
 	return nil
 }
 
-func (b *indexBuilderV1) formatEntry(entry []byte, it Info) error {
+func (b *indexBuilderV1) formatEntry(entry []byte, it *Info) error {
 	entryTimestampAndFlags := entry[0:8]
 	entryPackFileOffset := entry[8:12]
 	entryPackedOffset := entry[12:16]
@@ -411,7 +410,7 @@ func v1ReadHeader(data []byte) (v1HeaderInfo, error) {
 	}
 
 	if hi.keySize <= 1 || hi.valueSize < 0 || hi.entryCount < 0 {
-		return v1HeaderInfo{}, errors.Errorf("invalid header")
+		return v1HeaderInfo{}, errors.New("invalid header")
 	}
 
 	return hi, nil

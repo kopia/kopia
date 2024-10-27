@@ -3,6 +3,7 @@ package manifest
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -310,8 +311,8 @@ type contentManagerOpts struct {
 	readOnly bool
 }
 
-func newContentManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap, opts contentManagerOpts) contentManager {
-	t.Helper()
+func newContentManagerForTesting(ctx context.Context, tb testing.TB, data blobtesting.DataMap, opts contentManagerOpts) contentManager {
+	tb.Helper()
 
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
@@ -328,12 +329,12 @@ func newContentManagerForTesting(ctx context.Context, t *testing.T, data blobtes
 		},
 	}, nil)
 
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
 	bm, err := content.NewManagerForTesting(ctx, st, fop, nil, nil)
-	require.NoError(t, err)
+	require.NoError(tb, err)
 
-	t.Cleanup(func() { bm.CloseShared(ctx) })
+	tb.Cleanup(func() { bm.CloseShared(ctx) })
 
 	return bm
 }
@@ -487,4 +488,51 @@ func TestManifestAutoCompactionWithReadOnly(t *testing.T) {
 
 	_, err = mgr.Find(ctx, map[string]string{"color": "red"})
 	require.NoError(t, err, "forcing reload of manifest manager")
+}
+
+func BenchmarkLargeCompaction(b *testing.B) {
+	item1 := map[string]int{"foo": 1, "bar": 2}
+	labels1 := map[string]string{"type": "item", "color": "red"}
+
+	table := []int{10000, 100000, 1000000}
+
+	for _, numItems := range table {
+		b.Run(fmt.Sprintf("%dItems", numItems), func(b *testing.B) {
+			for range b.N {
+				b.StopTimer()
+				// Use default context to avoid lots of log output during benchmark.
+				ctx := context.Background()
+				data := blobtesting.DataMap{}
+
+				bm := newContentManagerForTesting(ctx, b, data, contentManagerOpts{})
+
+				mgr, err := NewManager(
+					ctx,
+					bm,
+					ManagerOptions{AutoCompactionThreshold: 2},
+					nil,
+				)
+				require.NoError(b, err, "getting initial manifest manager")
+
+				for range numItems - 1 {
+					_, err = mgr.Put(ctx, labels1, item1)
+					require.NoError(b, err, "adding item to manifest manager")
+				}
+
+				require.NoError(b, mgr.Flush(ctx))
+				require.NoError(b, mgr.b.Flush(ctx))
+
+				_, err = mgr.Put(ctx, labels1, item1)
+				require.NoError(b, err, "adding item to manifest manager")
+
+				require.NoError(b, mgr.Flush(ctx))
+				require.NoError(b, mgr.b.Flush(ctx))
+
+				b.StartTimer()
+
+				err = mgr.Compact(ctx)
+				require.NoError(b, err, "forcing reload of manifest manager")
+			}
+		})
+	}
 }

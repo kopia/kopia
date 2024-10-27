@@ -162,7 +162,7 @@ func (kc *KopiaClient) SnapshotRestore(ctx context.Context, key string) ([]byte,
 		return nil, err
 	}
 
-	log.Printf("restored %v", units.BytesString(int64(len(val))))
+	log.Printf("restored %v", units.BytesString(len(val)))
 
 	if err := r.Close(ctx); err != nil {
 		return nil, err

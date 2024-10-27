@@ -54,27 +54,16 @@ func getStreamCopier(ctx context.Context, targetpath string, sparse bool) (strea
 	}, nil
 }
 
-// progressReportingReader is just a wrapper for fs.Reader which is used to capture and pass to cb number of bytes read.
+// progressReportingReader wraps fs.Reader Read function to capture the and pass
+// the number of bytes read to the callback cb.
 type progressReportingReader struct {
-	r fs.Reader
+	fs.Reader
 
 	cb FileWriteProgress
 }
 
-func (r *progressReportingReader) Entry() (fs.Entry, error) {
-	return r.r.Entry() //nolint:wrapcheck
-}
-
-func (r *progressReportingReader) Seek(offset int64, whence int) (int64, error) {
-	return r.r.Seek(offset, whence) //nolint:wrapcheck
-}
-
-func (r *progressReportingReader) Close() error {
-	return r.r.Close() //nolint:wrapcheck
-}
-
 func (r *progressReportingReader) Read(p []byte) (int, error) {
-	bytesRead, err := r.r.Read(p)
+	bytesRead, err := r.Reader.Read(p)
 	if err == nil && r.cb != nil {
 		r.cb(int64(bytesRead))
 	}
@@ -233,7 +222,7 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 	case fileIsSymlink(st):
 		// Throw error if we are not overwriting symlinks
 		if !o.OverwriteSymlinks {
-			return errors.Errorf("will not overwrite existing symlink")
+			return errors.New("will not overwrite existing symlink")
 		}
 
 		// Remove the existing symlink before symlink creation
@@ -399,10 +388,8 @@ func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
 	// close below, as close is idempotent.
 	defer f.Close() //nolint:errcheck
 
-	name := f.Name()
-
 	if _, err := c(f, r); err != nil {
-		return errors.Wrap(err, "cannot write data to file %q "+name)
+		return errors.Wrapf(err, "cannot write data to file %q", f.Name())
 	}
 
 	if err := f.Close(); err != nil {
@@ -431,9 +418,9 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 	}
 	defer r.Close() //nolint:errcheck
 
-	wr := &progressReportingReader{
-		r:  r,
-		cb: progressCb,
+	rr := &progressReportingReader{
+		Reader: r,
+		cb:     progressCb,
 	}
 
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
@@ -441,10 +428,10 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 
 	if o.WriteFilesAtomically {
 		//nolint:wrapcheck
-		return atomicfile.Write(targetPath, wr)
+		return atomicfile.Write(targetPath, rr)
 	}
 
-	return write(targetPath, wr, f.Size(), o.copier)
+	return write(targetPath, rr, f.Size(), o.copier)
 }
 
 func isEmptyDirectory(name string) (bool, error) {

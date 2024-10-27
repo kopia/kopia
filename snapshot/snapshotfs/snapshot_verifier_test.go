@@ -56,7 +56,7 @@ func TestSnapshotVerifier(t *testing.T) {
 
 		v := snapshotfs.NewVerifier(ctx, te2, opts)
 
-		someErr := errors.Errorf("some error")
+		someErr := errors.New("some error")
 
 		require.ErrorIs(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			return someErr

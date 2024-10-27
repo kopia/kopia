@@ -23,7 +23,6 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
-	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
@@ -81,13 +80,14 @@ type appServices interface {
 	directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error
 	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
+	repositoryHintAction(act func(ctx context.Context, rep repo.Repository) []string) func() []string
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
 	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
 	advancedCommand(ctx context.Context)
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
-	getRestoreProgress() restore.Progress
+	getRestoreProgress() RestoreProgress
 
 	stdout() io.Writer
 	Stderr() io.Writer
@@ -120,7 +120,7 @@ type App struct {
 	enableAutomaticMaintenance    bool
 	pf                            profileFlags
 	progress                      *cliProgress
-	restoreProgress               restore.Progress
+	restoreProgress               RestoreProgress
 	initialUpdateCheckDelay       time.Duration
 	updateCheckInterval           time.Duration
 	updateAvailableNotifyInterval time.Duration
@@ -144,24 +144,25 @@ type App struct {
 	onFatalErrorCallbacks []func(err error)
 
 	// subcommands
-	blob        commandBlob
-	benchmark   commandBenchmark
-	cache       commandCache
-	content     commandContent
-	diff        commandDiff
-	index       commandIndex
-	list        commandList
-	server      commandServer
-	session     commandSession
-	policy      commandPolicy
-	restore     commandRestore
-	show        commandShow
-	snapshot    commandSnapshot
-	manifest    commandManifest
-	mount       commandMount
-	maintenance commandMaintenance
-	repository  commandRepository
-	logs        commandLogs
+	blob         commandBlob
+	benchmark    commandBenchmark
+	cache        commandCache
+	content      commandContent
+	diff         commandDiff
+	index        commandIndex
+	list         commandList
+	server       commandServer
+	session      commandSession
+	policy       commandPolicy
+	restore      commandRestore
+	show         commandShow
+	snapshot     commandSnapshot
+	manifest     commandManifest
+	mount        commandMount
+	maintenance  commandMaintenance
+	repository   commandRepository
+	logs         commandLogs
+	notification commandNotification
 
 	// testability hooks
 	testonlyIgnoreMissingRequiredFeatures bool
@@ -186,11 +187,11 @@ func (c *App) getProgress() *cliProgress {
 }
 
 // SetRestoreProgress is used to set custom restore progress, purposed to be used in tests.
-func (c *App) SetRestoreProgress(p restore.Progress) {
+func (c *App) SetRestoreProgress(p RestoreProgress) {
 	c.restoreProgress = p
 }
 
-func (c *App) getRestoreProgress() restore.Progress {
+func (c *App) getRestoreProgress() RestoreProgress {
 	return c.restoreProgress
 }
 
@@ -293,10 +294,6 @@ func (c *App) setup(app *kingpin.Application) {
 	c.pf.setup(app)
 	c.progress.setup(c, app)
 
-	if rp, ok := c.restoreProgress.(*cliRestoreProgress); ok {
-		rp.setup(c, app)
-	}
-
 	c.blob.setup(c, app)
 	c.benchmark.setup(c, app)
 	c.cache.setup(c, app)
@@ -305,6 +302,7 @@ func (c *App) setup(app *kingpin.Application) {
 	c.index.setup(c, app)
 	c.list.setup(c, app)
 	c.logs.setup(c, app)
+	c.notification.setup(c, app)
 	c.server.setup(c, app)
 	c.session.setup(c, app)
 	c.restore.setup(c, app)
@@ -325,8 +323,7 @@ type commandParent interface {
 // NewApp creates a new instance of App.
 func NewApp() *App {
 	return &App{
-		progress:        &cliProgress{},
-		restoreProgress: &cliRestoreProgress{},
+		progress: &cliProgress{},
 		cliStorageProviders: []StorageProvider{
 			{"from-config", "the provided configuration file", func() StorageFlags { return &storageFromConfigFlags{} }},
 
@@ -386,7 +383,7 @@ func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters)
 	cmd.Flag("safety", "Safety level").Default("full").PreAction(func(_ *kingpin.ParseContext) error {
 		r, ok := safetyByName[str]
 		if !ok {
-			return errors.Errorf("unhandled safety level")
+			return errors.New("unhandled safety level")
 		}
 
 		*result = r
@@ -441,7 +438,7 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 		// but will fail in the future when we have remote repository implementation
 		lr, ok := rep.(repo.DirectRepository)
 		if !ok {
-			return errors.Errorf("operation supported only on direct repository")
+			return errors.New("operation supported only on direct repository")
 		}
 
 		return act(ctx, lr)
@@ -507,8 +504,15 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 	}
 
 	err := func() error {
+		if command == nil {
+			defer c.runOnExit()
+
+			return cb(ctx)
+		}
+
 		tctx, span := tracer.Start(ctx, command.FullCommand(), trace.WithSpanKind(trace.SpanKindClient))
 		defer span.End()
+
 		defer c.runOnExit()
 
 		return cb(tctx)
@@ -560,7 +564,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 
 		err = act(ctx, rep)
 
-		if rep != nil && !mode.disableMaintenance {
+		if rep != nil && err == nil && !mode.disableMaintenance {
 			if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
 				log(ctx).Errorf("error running maintenance: %v", merr)
 			}
@@ -574,6 +578,28 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 
 		return err
 	})
+}
+
+func (c *App) repositoryHintAction(act func(ctx context.Context, rep repo.Repository) []string) func() []string {
+	return func() []string {
+		var result []string
+
+		//nolint:errcheck
+		c.runAppWithContext(nil, func(ctx context.Context) error {
+			rep, err := c.openRepository(ctx, true)
+			if err != nil {
+				return nil
+			}
+
+			defer rep.Close(ctx) //nolint:errcheck
+
+			result = act(ctx, rep)
+
+			return nil
+		})
+
+		return result
+	}
 }
 
 func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
@@ -617,7 +643,7 @@ To run this command despite the warning, set --advanced-commands=enabled
 
 `)
 
-		c.exitWithError(errors.Errorf("advanced commands are disabled"))
+		c.exitWithError(errors.New("advanced commands are disabled"))
 	}
 }
 

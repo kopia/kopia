@@ -113,7 +113,7 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 	}
 
 	if !anyChange {
-		return errors.Errorf("no changes")
+		return errors.New("no changes")
 	}
 
 	//nolint:wrapcheck

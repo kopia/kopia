@@ -122,7 +122,7 @@ func TestGatherBytes(t *testing.T) {
 
 			require.Equal(t, tmp.ToByteSlice(), b.ToByteSlice())
 
-			someError := errors.Errorf("some error")
+			someError := errors.New("some error")
 
 			// WriteTo propagates error
 			if b.Length() > 0 {
@@ -314,7 +314,7 @@ func TestGatherBytesReaderAtVariableInputBufferSizes(t *testing.T) {
 
 			// write the generated data
 			n, err := preWrt.Write(buf)
-			require.NoErrorf(t, err, "Write() faiiled, inputBufferSize: %8", tc.inputBufferSize)
+			require.NoErrorf(t, err, "Write() faiiled, inputBufferSize: %v", tc.inputBufferSize)
 			require.Equalf(t, defaultAllocator.chunkSize, preWrt.alloc.chunkSize,
 				"this test expects that the default-allocator will be used, but we are using: %#v", preWrt.alloc)
 
