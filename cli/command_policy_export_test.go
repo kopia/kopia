@@ -5,10 +5,11 @@ import (
 	"path"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/tests/testenv"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestExportPolicy(t *testing.T) {
@@ -18,20 +19,20 @@ func TestExportPolicy(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-username=user", "--override-hostname=host")
 
 	// check if we get the default global policy
-	var policies_1 map[string]*policy.Policy
+	var policies1 map[string]*policy.Policy
 
-	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export"), &policies_1)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export"), &policies1)
 
-	assert.Equal(t, 1, len(policies_1), "unexpected number of policies")
-	assert.Equal(t, policy.DefaultPolicy, policies_1["(global)"], "unexpected policy")
+	assert.Len(t, len(policies1), 1, "unexpected number of policies")
+	assert.Equal(t, policy.DefaultPolicy, policies1["(global)"], "unexpected policy")
 
-	var policies_2 map[string]*policy.Policy
+	var policies2 map[string]*policy.Policy
 
 	// we only have one policy, so exporting all policies should be the same as exporting the global policy explicitly
-	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", "(global)"), &policies_2)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", "(global)"), &policies2)
 
-	assert.Equal(t, 1, len(policies_2), "unexpected number of policies")
-	assert.Equal(t, policies_1, policies_2, "unexpected policy")
+	assert.Len(t, len(policies2), 1, "unexpected number of policies")
+	assert.Equal(t, policies1, policies2, "unexpected policy")
 
 	// create a new policy
 	td := testutil.TempDirectory(t)
@@ -50,25 +51,25 @@ func TestExportPolicy(t *testing.T) {
 	}
 
 	// check if we get the new policy
-	var policies_3 map[string]*policy.Policy
-	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", id), &policies_3)
+	var policies3 map[string]*policy.Policy
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", id), &policies3)
 
-	assert.Equal(t, 1, len(policies_3), "unexpected number of policies")
-	assert.Equal(t, expectedPolicy, policies_3[id], "unexpected policy")
+	assert.Len(t, len(policies3), 1, "unexpected number of policies")
+	assert.Equal(t, expectedPolicy, policies3[id], "unexpected policy")
 
 	// specifying a local id should return the same policy
-	var policies_4 map[string]*policy.Policy
-	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", td), &policies_4) // note: td, not id
+	var policies4 map[string]*policy.Policy
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", td), &policies4) // note: td, not id
 
-	assert.Equal(t, 1, len(policies_4), "unexpected number of policies")
-	assert.Equal(t, expectedPolicy, policies_4[id], "unexpected policy") // thee key is always the full id however
+	assert.Len(t, len(policies4), 1, "unexpected number of policies")
+	assert.Equal(t, expectedPolicy, policies4[id], "unexpected policy") // thee key is always the full id however
 
 	// exporting without specifying a policy should return all policies
-	var policies_5 map[string]*policy.Policy
-	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export"), &policies_5)
+	var policies5 map[string]*policy.Policy
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export"), &policies5)
 
-	assert.Equal(t, 2, len(policies_5), "unexpected number of policies")
-	assert.Equal(t, expectedPolicies, policies_5, "unexpected policy")
+	assert.Len(t, len(policies5), 2, "unexpected number of policies")
+	assert.Equal(t, expectedPolicies, policies5, "unexpected policy")
 
 	// sanity check if --to-file works
 	exportPath := path.Join(td, "exported.json")
@@ -79,10 +80,10 @@ func TestExportPolicy(t *testing.T) {
 		t.Fatalf("unable to read exported file: %v", err)
 	}
 
-	var policies_6 map[string]*policy.Policy
-	testutil.MustParseJSONLines(t, []string{string(exportedContent)}, &policies_6)
+	var policies6 map[string]*policy.Policy
+	testutil.MustParseJSONLines(t, []string{string(exportedContent)}, &policies6)
 
-	assert.Equal(t, expectedPolicies, policies_6, "unexpected policy")
+	assert.Equal(t, expectedPolicies, policies6, "unexpected policy")
 
 	// should not overwrite existing file
 	e.RunAndExpectFailure(t, "policy", "export", "--to-file", exportPath, id)
@@ -95,10 +96,10 @@ func TestExportPolicy(t *testing.T) {
 		t.Fatalf("unable to read exported file: %v", err)
 	}
 
-	var policies_7 map[string]*policy.Policy
-	testutil.MustParseJSONLines(t, []string{string(exportedContent)}, &policies_7)
+	var policies7 map[string]*policy.Policy
+	testutil.MustParseJSONLines(t, []string{string(exportedContent)}, &policies7)
 
 	// we specified id, so only that policy should be exported
-	assert.Equal(t, 1, len(policies_7), "unexpected number of policies")
-	assert.Equal(t, expectedPolicy, policies_5[id], "unexpected policy")
+	assert.Len(t, len(policies7), 1, "unexpected number of policies")
+	assert.Equal(t, expectedPolicy, policies5[id], "unexpected policy")
 }

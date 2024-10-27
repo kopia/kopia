@@ -7,10 +7,11 @@ import (
 	"os"
 	"slices"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/pkg/errors"
 )
 
 type commandPolicyImport struct {
@@ -36,16 +37,16 @@ func (c *commandPolicyImport) setup(svc appServices, parent commandParent) {
 
 func (c *commandPolicyImport) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	var input io.Reader
+
 	var err error
 
 	if c.filePath != "" {
 		file, err := os.Open(c.filePath)
-
 		if err != nil {
 			return errors.Wrap(err, "unable to read policy file")
 		}
 
-		defer file.Close()
+		defer file.Close() //nolint:errcheck
 
 		input = file
 	} else {
@@ -60,16 +61,14 @@ func (c *commandPolicyImport) run(ctx context.Context, rep repo.RepositoryWriter
 	}
 
 	err = d.Decode(&policies)
-
 	if err != nil {
 		return errors.Wrap(err, "unable to decode policy file as valid json")
 	}
 
-	var targetLimit []snapshot.SourceInfo = nil
+	var targetLimit []snapshot.SourceInfo
 
 	if c.policyTargetFlags.global || len(c.policyTargetFlags.targets) > 0 {
 		targetLimit, err = c.policyTargets(ctx, rep)
-
 		if err != nil {
 			return err
 		}
@@ -103,16 +102,25 @@ func (c *commandPolicyImport) run(ctx context.Context, rep repo.RepositoryWriter
 	}
 
 	if c.deleteOtherPolicies {
-		ps, err := policy.ListPolicies(ctx, rep)
+		err := deleteOthers(ctx, rep, importedSources)
 		if err != nil {
-			return errors.Wrap(err, "failed to list policies")
+			return err
 		}
+	}
 
-		for _, p := range ps {
-			if !slices.Contains(importedSources, p.Target().String()) {
-				if err := policy.RemovePolicy(ctx, rep, p.Target()); err != nil {
-					return errors.Wrapf(err, "can't delete policy for %v", p.Target())
-				}
+	return nil
+}
+
+func deleteOthers(ctx context.Context, rep repo.RepositoryWriter, importedSources []string) error {
+	ps, err := policy.ListPolicies(ctx, rep)
+	if err != nil {
+		return errors.Wrap(err, "failed to list policies")
+	}
+
+	for _, p := range ps {
+		if !slices.Contains(importedSources, p.Target().String()) {
+			if err := policy.RemovePolicy(ctx, rep, p.Target()); err != nil {
+				return errors.Wrapf(err, "can't delete policy for %v", p.Target())
 			}
 		}
 	}

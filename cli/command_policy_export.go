@@ -7,10 +7,11 @@ import (
 	"io"
 	"os"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/pkg/errors"
 )
 
 type commandPolicyExport struct {
@@ -22,6 +23,8 @@ type commandPolicyExport struct {
 
 	svc appServices
 }
+
+const exportFilePerms = 0o600
 
 func (c *commandPolicyExport) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("export", "Exports the policy to the specified file, or to stdout if none is specified.")
@@ -38,33 +41,9 @@ func (c *commandPolicyExport) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) error {
-	var output io.Writer
-	var err error
-
-	if c.filePath != "" {
-		var file *os.File
-
-		if c.overwrite {
-			file, err = os.Create(c.filePath)
-		} else {
-			file, err = os.OpenFile(c.filePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0666)
-			if os.IsExist(err) {
-				return errors.Wrap(err, "file already exists and overwrite flag is not set")
-			}
-		}
-
-		if err != nil {
-			return errors.Wrap(err, "error opening file to write to")
-		}
-
-		defer file.Close()
-
-		output = file
-	} else {
-		if c.overwrite {
-			return errors.New("overwrite was passed but no file path was given")
-		}
-		output = c.svc.stdout()
+	output, err := getOutput(c)
+	if err != nil {
+		return err
 	}
 
 	policies := make(map[string]*policy.Policy)
@@ -76,12 +55,12 @@ func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) erro
 		}
 
 		for _, target := range targets {
-			policy, err := policy.GetDefinedPolicy(ctx, rep, target)
+			definedPolicy, err := policy.GetDefinedPolicy(ctx, rep, target)
 			if err != nil {
 				return errors.Wrapf(err, "can't get defined policy for %q", target)
 			}
 
-			policies[target.String()] = policy
+			policies[target.String()] = definedPolicy
 		}
 	} else {
 		ps, err := policy.ListPolicies(ctx, rep)
@@ -106,5 +85,36 @@ func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) erro
 
 	_, err = fmt.Fprintf(output, "%s", toWrite)
 
-	return err
+	return errors.Wrap(err, "unable to write policy to output")
+}
+
+func getOutput(c *commandPolicyExport) (io.Writer, error) {
+	var err error
+
+	if c.filePath == "" {
+		if c.overwrite {
+			return nil, errors.New("overwrite was passed but no file path was given")
+		}
+
+		return c.svc.stdout(), nil
+	}
+
+	var file *os.File
+
+	if c.overwrite {
+		file, err = os.Create(c.filePath)
+	} else {
+		file, err = os.OpenFile(c.filePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, exportFilePerms)
+		if os.IsExist(err) {
+			return nil, errors.Wrap(err, "file already exists and overwrite flag is not set")
+		}
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening file to write to")
+	}
+
+	defer file.Close() //nolint:errcheck
+
+	return file, nil
 }
