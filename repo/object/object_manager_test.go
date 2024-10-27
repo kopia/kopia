@@ -29,7 +29,7 @@ import (
 	"github.com/kopia/kopia/repo/splitter"
 )
 
-var errSomeError = errors.Errorf("some error")
+var errSomeError = errors.New("some error")
 
 type fakeContentManager struct {
 	mu sync.Mutex
@@ -88,7 +88,7 @@ func (f *fakeContentManager) ContentInfo(ctx context.Context, contentID content.
 	defer f.mu.Unlock()
 
 	if d, ok := f.data[contentID]; ok {
-		return content.Info{ContentID: contentID, PackedLength: uint32(len(d))}, nil
+		return content.Info{ContentID: contentID, PackedLength: uint32(len(d)), CompressionHeaderID: f.compresionIDs[contentID]}, nil
 	}
 
 	return content.Info{}, blob.ErrBlobNotFound
@@ -175,16 +175,41 @@ func TestCompression_ContentCompressionEnabled(t *testing.T) {
 	_, _, om := setupTest(t, cmap)
 
 	w := om.NewWriter(ctx, WriterOptions{
-		Compressor: "gzip",
+		Compressor:         "gzip",
+		MetadataCompressor: "zstd-fastest",
 	})
 	w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1000))
 	oid, err := w.Result()
 	require.NoError(t, err)
 
 	cid, isCompressed, ok := oid.ContentID()
+
 	require.True(t, ok)
 	require.False(t, isCompressed) // oid will not indicate compression
 	require.Equal(t, compression.ByName["gzip"].HeaderID(), cmap[cid])
+}
+
+func TestCompression_IndirectContentCompressionEnabledMetadata(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	cmap := map[content.ID]compression.HeaderID{}
+	_, _, om := setupTest(t, cmap)
+	w := om.NewWriter(ctx, WriterOptions{
+		Compressor:         "gzip",
+		MetadataCompressor: "zstd-fastest",
+	})
+	w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1000000))
+	oid, err := w.Result()
+	require.NoError(t, err)
+	verifyIndirectBlock(ctx, t, om, oid, compression.HeaderZstdFastest)
+
+	w2 := om.NewWriter(ctx, WriterOptions{
+		MetadataCompressor: "none",
+	})
+	w2.Write(bytes.Repeat([]byte{5, 6, 7, 8}, 1000000))
+	oid2, err2 := w2.Result()
+	require.NoError(t, err2)
+	verifyIndirectBlock(ctx, t, om, oid2, content.NoCompression)
 }
 
 func TestCompression_CustomSplitters(t *testing.T) {
@@ -244,7 +269,8 @@ func TestCompression_ContentCompressionDisabled(t *testing.T) {
 	_, _, om := setupTest(t, nil)
 
 	w := om.NewWriter(ctx, WriterOptions{
-		Compressor: "gzip",
+		Compressor:         "gzip",
+		MetadataCompressor: "zstd-fastest",
 	})
 	w.Write(bytes.Repeat([]byte{1, 2, 3, 4}, 1000))
 	oid, err := w.Result()
@@ -369,7 +395,7 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 
 				for _, id := range ids {
 					if id == content.EmptyID {
-						return errors.Errorf("checkpoint returned empty id")
+						return errors.New("checkpoint returned empty id")
 					}
 				}
 			}
@@ -409,7 +435,7 @@ func verifyNoError(t *testing.T, err error) {
 	require.NoError(t, err)
 }
 
-func verifyIndirectBlock(ctx context.Context, t *testing.T, om *Manager, oid ID) {
+func verifyIndirectBlock(ctx context.Context, t *testing.T, om *Manager, oid ID, expectedComp compression.HeaderID) {
 	t.Helper()
 
 	for indexContentID, isIndirect := oid.IndexObjectID(); isIndirect; indexContentID, isIndirect = indexContentID.IndexObjectID() {
@@ -418,6 +444,11 @@ func verifyIndirectBlock(ctx context.Context, t *testing.T, om *Manager, oid ID)
 				if !c.HasPrefix() {
 					t.Errorf("expected base content ID to be prefixed, was %v", c)
 				}
+				info, err := om.contentMgr.ContentInfo(ctx, c)
+				if err != nil {
+					t.Errorf("error getting content info for %v", err.Error())
+				}
+				require.Equal(t, expectedComp, info.CompressionHeaderID)
 			}
 
 			rd, err := Open(ctx, om.contentMgr, indexContentID)
@@ -443,6 +474,7 @@ func TestIndirection(t *testing.T) {
 		dataLength          int
 		expectedBlobCount   int
 		expectedIndirection int
+		metadataCompressor  compression.Name
 	}{
 		{dataLength: 200, expectedBlobCount: 1, expectedIndirection: 0},
 		{dataLength: 1000, expectedBlobCount: 1, expectedIndirection: 0},
@@ -452,15 +484,18 @@ func TestIndirection(t *testing.T) {
 		// 1 blob of 1000 zeros + 1 index blob
 		{dataLength: 4000, expectedBlobCount: 2, expectedIndirection: 1},
 		// 1 blob of 1000 zeros + 1 index blob
-		{dataLength: 10000, expectedBlobCount: 2, expectedIndirection: 1},
+		{dataLength: 10000, expectedBlobCount: 2, expectedIndirection: 1, metadataCompressor: "none"},
+		// 1 blob of 1000 zeros + 1 index blob, enabled metadata compression
+		{dataLength: 10000, expectedBlobCount: 2, expectedIndirection: 1, metadataCompressor: "zstd-fastest"},
 	}
 
 	for _, c := range cases {
-		data, _, om := setupTest(t, nil)
+		cmap := map[content.ID]compression.HeaderID{}
+		data, _, om := setupTest(t, cmap)
 
 		contentBytes := make([]byte, c.dataLength)
 
-		writer := om.NewWriter(ctx, WriterOptions{})
+		writer := om.NewWriter(ctx, WriterOptions{MetadataCompressor: c.metadataCompressor})
 		writer.(*objectWriter).splitter = splitterFactory()
 
 		if _, err := writer.Write(contentBytes); err != nil {
@@ -491,7 +526,11 @@ func TestIndirection(t *testing.T) {
 			t.Errorf("invalid blob count for %v, got %v, wanted %v", result, got, want)
 		}
 
-		verifyIndirectBlock(ctx, t, om, result)
+		expectedCompressor := content.NoCompression
+		if len(c.metadataCompressor) > 0 && c.metadataCompressor != "none" {
+			expectedCompressor = compression.ByName[c.metadataCompressor].HeaderID()
+		}
+		verifyIndirectBlock(ctx, t, om, result, expectedCompressor)
 	}
 }
 
@@ -578,7 +617,7 @@ func TestConcatenate(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		concatenatedOID, err := om.Concatenate(ctx, tc.inputs)
+		concatenatedOID, err := om.Concatenate(ctx, tc.inputs, "zstd-fastest")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -617,7 +656,7 @@ func TestConcatenate(t *testing.T) {
 		}
 
 		// make sure results of concatenation can be further concatenated.
-		concatenated3OID, err := om.Concatenate(ctx, []ID{concatenatedOID, concatenatedOID, concatenatedOID})
+		concatenated3OID, err := om.Concatenate(ctx, []ID{concatenatedOID, concatenatedOID, concatenatedOID}, "zstd-fastest")
 		if err != nil {
 			t.Fatal(err)
 		}

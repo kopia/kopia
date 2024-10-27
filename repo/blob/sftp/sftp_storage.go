@@ -379,7 +379,7 @@ func getHostKeyCallback(opt *Options) (ssh.HostKeyCallback, error) {
 	}
 
 	if f := opt.knownHostsFile(); !ospath.IsAbs(f) {
-		return nil, errors.Errorf("known hosts path must be absolute")
+		return nil, errors.New("known hosts path must be absolute")
 	}
 
 	//nolint:wrapcheck
@@ -400,7 +400,7 @@ func getSigner(opt *Options) (ssh.Signer, error) {
 		var err error
 
 		if f := opt.Keyfile; !ospath.IsAbs(f) {
-			return nil, errors.Errorf("key file path must be absolute")
+			return nil, errors.New("key file path must be absolute")
 		}
 
 		privateKeyData, err = os.ReadFile(opt.Keyfile)

@@ -169,7 +169,7 @@ func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error 
 
 		parts := strings.SplitN(g, ":", nParts)
 		if len(parts) != nParts {
-			return errors.Errorf("grouping must be name:value")
+			return errors.New("grouping must be name:value")
 		}
 
 		name := parts[0]
@@ -196,7 +196,7 @@ func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error 
 
 func (c *observabilityFlags) maybeStartTraceExporter(ctx context.Context) error {
 	if c.enableJaeger {
-		return errors.Errorf("Flag '--enable-jaeger-collector' is no longer supported, use '--otlp' instead. See https://github.com/kopia/kopia/pull/3264 for more information")
+		return errors.New("Flag '--enable-jaeger-collector' is no longer supported, use '--otlp' instead. See https://github.com/kopia/kopia/pull/3264 for more information")
 	}
 
 	if !c.otlpTrace {

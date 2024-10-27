@@ -41,7 +41,7 @@ func TestDiagWriter(t *testing.T) {
 	<-closeCalled2
 
 	// simulate write failure
-	someErr := errors.Errorf("some error")
+	someErr := errors.New("some error")
 	fs.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someErr)
 
 	closeCalled3 := make(chan struct{})

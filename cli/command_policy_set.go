@@ -19,6 +19,7 @@ type commandPolicySet struct {
 
 	policyActionFlags
 	policyCompressionFlags
+	policyMetadataCompressionFlags
 	policySplitterFlags
 	policyErrorFlags
 	policyFilesFlags
@@ -36,6 +37,7 @@ func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
 
 	c.policyActionFlags.setup(cmd)
 	c.policyCompressionFlags.setup(cmd)
+	c.policyMetadataCompressionFlags.setup(cmd)
 	c.policySplitterFlags.setup(cmd)
 	c.policyErrorFlags.setup(cmd)
 	c.policyFilesFlags.setup(cmd)
@@ -106,6 +108,10 @@ func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Pol
 
 	if err := c.setCompressionPolicyFromFlags(ctx, &p.CompressionPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "compression policy")
+	}
+
+	if err := c.setMetadataCompressionPolicyFromFlags(ctx, &p.MetadataCompressionPolicy, changeCount); err != nil {
+		return errors.Wrap(err, "metadata compression policy")
 	}
 
 	if err := c.setSplitterPolicyFromFlags(ctx, &p.SplitterPolicy, changeCount); err != nil {

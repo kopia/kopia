@@ -38,6 +38,8 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	bloblogging "github.com/kopia/kopia/repo/blob/logging"
+	"github.com/kopia/kopia/repo/compression"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -228,6 +230,108 @@ func TestUpload(t *testing.T) {
 	}
 }
 
+type entry struct {
+	name     string
+	objectID object.ID
+}
+
+// findAllEntries recursively iterates over all the dirs and returns list of file entries.
+func findAllEntries(t *testing.T, ctx context.Context, dir fs.Directory) []entry {
+	t.Helper()
+	entries := []entry{}
+	fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
+		oid, err := object.ParseID(e.(object.HasObjectID).ObjectID().String())
+		require.NoError(t, err)
+		entries = append(entries, entry{
+			name:     e.Name(),
+			objectID: oid,
+		})
+		if e.IsDir() {
+			entries = append(entries, findAllEntries(t, ctx, e.(fs.Directory))...)
+		}
+		return nil
+	})
+
+	return entries
+}
+
+func verifyMetadataCompressor(t *testing.T, ctx context.Context, rep repo.Repository, entries []entry, comp compression.HeaderID) {
+	t.Helper()
+	for _, e := range entries {
+		cid, _, ok := e.objectID.ContentID()
+		require.True(t, ok)
+		if !cid.HasPrefix() {
+			continue
+		}
+		info, err := rep.ContentInfo(ctx, cid)
+		if err != nil {
+			t.Errorf("failed to get content info: %v", err)
+		}
+		require.Equal(t, comp, info.CompressionHeaderID)
+	}
+}
+
+func TestUploadMetadataCompression(t *testing.T) {
+	ctx := testlogging.Context(t)
+	t.Run("default metadata compression", func(t *testing.T) {
+		th := newUploadTestHarness(ctx, t)
+		defer th.cleanup()
+		u := NewUploader(th.repo)
+		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+		s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+		if err != nil {
+			t.Errorf("Upload error: %v", err)
+		}
+
+		dir := EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
+		entries := findAllEntries(t, ctx, dir)
+		verifyMetadataCompressor(t, ctx, th.repo, entries, compression.HeaderZstdFastest)
+	})
+	t.Run("disable metadata compression", func(t *testing.T) {
+		th := newUploadTestHarness(ctx, t)
+		defer th.cleanup()
+		u := NewUploader(th.repo)
+		policyTree := policy.BuildTree(map[string]*policy.Policy{
+			".": {
+				MetadataCompressionPolicy: policy.MetadataCompressionPolicy{
+					CompressorName: "none",
+				},
+			},
+		}, policy.DefaultPolicy)
+
+		s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+		if err != nil {
+			t.Errorf("Upload error: %v", err)
+		}
+
+		dir := EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
+		entries := findAllEntries(t, ctx, dir)
+		verifyMetadataCompressor(t, ctx, th.repo, entries, content.NoCompression)
+	})
+	t.Run("set metadata compressor", func(t *testing.T) {
+		th := newUploadTestHarness(ctx, t)
+		defer th.cleanup()
+		u := NewUploader(th.repo)
+		policyTree := policy.BuildTree(map[string]*policy.Policy{
+			".": {
+				MetadataCompressionPolicy: policy.MetadataCompressionPolicy{
+					CompressorName: "gzip",
+				},
+			},
+		}, policy.DefaultPolicy)
+
+		s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+		if err != nil {
+			t.Errorf("Upload error: %v", err)
+		}
+
+		dir := EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
+		entries := findAllEntries(t, ctx, dir)
+		verifyMetadataCompressor(t, ctx, th.repo, entries, compression.ByName["gzip"].HeaderID())
+	})
+}
+
 func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
@@ -357,8 +461,8 @@ func TestUpload_ErrorEntries(t *testing.T) {
 	defer th.cleanup()
 
 	th.sourceDir.Subdir("d1").AddErrorEntry("some-unknown-entry", os.ModeIrregular, fs.ErrUnknown)
-	th.sourceDir.Subdir("d1").AddErrorEntry("some-failed-entry", 0, errors.Errorf("some-other-error"))
-	th.sourceDir.Subdir("d2").AddErrorEntry("another-failed-entry", os.ModeIrregular, errors.Errorf("another-error"))
+	th.sourceDir.Subdir("d1").AddErrorEntry("some-failed-entry", 0, errors.New("some-other-error"))
+	th.sourceDir.Subdir("d2").AddErrorEntry("another-failed-entry", os.ModeIrregular, errors.New("another-error"))
 
 	trueValue := policy.OptionalBool(true)
 	falseValue := policy.OptionalBool(false)
@@ -816,14 +920,14 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	// Create a temporary pipe file with test data
-	content := []byte("Streaming Temporary file content")
+	tmpContent := []byte("Streaming Temporary file content")
 
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("error creating pipe file: %v", err)
 	}
 
-	if _, err = w.Write(content); err != nil {
+	if _, err = w.Write(tmpContent); err != nil {
 		t.Fatalf("error writing to pipe file: %v", err)
 	}
 
@@ -873,8 +977,8 @@ func TestUpload_VirtualDirectoryWithStreamingFile_WithCompression(t *testing.T) 
 
 	// Create a temporary file with test data. Want something compressible but
 	// small so we don't trigger dedupe.
-	content := []byte(strings.Repeat("a", 4096))
-	r := io.NopCloser(bytes.NewReader(content))
+	tmpContent := []byte(strings.Repeat("a", 4096))
+	r := io.NopCloser(bytes.NewReader(tmpContent))
 
 	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
 		virtualfs.StreamingFileFromReader("stream-file", r),
@@ -895,7 +999,7 @@ func TestUpload_VirtualDirectoryWithStreamingFile_WithCompression(t *testing.T) 
 }
 
 func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
-	content := []byte("Streaming Temporary file content")
+	tmpContent := []byte("Streaming Temporary file content")
 	mt := time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
 
 	cases := []struct {
@@ -907,7 +1011,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 		{
 			desc: "CurrentTime",
 			getFile: func() fs.StreamingFile {
-				return virtualfs.StreamingFileFromReader("a", io.NopCloser(bytes.NewReader(content)))
+				return virtualfs.StreamingFileFromReader("a", io.NopCloser(bytes.NewReader(tmpContent)))
 			},
 			cachedFiles:   0,
 			uploadedFiles: 1,
@@ -915,7 +1019,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 		{
 			desc: "FixedTime",
 			getFile: func() fs.StreamingFile {
-				return virtualfs.StreamingFileWithModTimeFromReader("a", mt, io.NopCloser(bytes.NewReader(content)))
+				return virtualfs.StreamingFileWithModTimeFromReader("a", mt, io.NopCloser(bytes.NewReader(tmpContent)))
 			},
 			cachedFiles:   1,
 			uploadedFiles: 0,
@@ -944,7 +1048,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.NonCachedFiles))
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalDirectoryCount))
 			require.Equal(t, int32(1), atomic.LoadInt32(&man1.Stats.TotalFileCount))
-			require.Equal(t, int64(len(content)), atomic.LoadInt64(&man1.Stats.TotalFileSize))
+			require.Equal(t, int64(len(tmpContent)), atomic.LoadInt64(&man1.Stats.TotalFileSize))
 
 			// wait a little bit to ensure clock moves forward which is not always the case on Windows.
 			time.Sleep(100 * time.Millisecond)
@@ -963,7 +1067,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			assert.Equal(t, tc.uploadedFiles, atomic.LoadInt32(&man2.Stats.NonCachedFiles))
 			// Cached files don't count towards the total file count.
 			assert.Equal(t, tc.uploadedFiles, atomic.LoadInt32(&man2.Stats.TotalFileCount))
-			require.Equal(t, int64(len(content)), atomic.LoadInt64(&man2.Stats.TotalFileSize))
+			require.Equal(t, int64(len(tmpContent)), atomic.LoadInt64(&man2.Stats.TotalFileSize))
 		})
 	}
 }

@@ -135,11 +135,11 @@ var validUsernameRegexp = regexp.MustCompile(`^[a-z0-9\-_.]+@[a-z0-9\-_.]+$`)
 // ValidateUsername returns an error if the given username is invalid.
 func ValidateUsername(name string) error {
 	if name == "" {
-		return errors.Errorf("username is required")
+		return errors.New("username is required")
 	}
 
 	if !validUsernameRegexp.MatchString(name) {
-		return errors.Errorf("username must be specified as lowercase 'user@hostname'")
+		return errors.New("username must be specified as lowercase 'user@hostname'")
 	}
 
 	return nil
@@ -167,7 +167,7 @@ func SetUserProfile(ctx context.Context, w repo.RepositoryWriter, p *Profile) er
 // DeleteUserProfile removes user profile with a given username.
 func DeleteUserProfile(ctx context.Context, w repo.RepositoryWriter, username string) error {
 	if username == "" {
-		return errors.Errorf("username is required")
+		return errors.New("username is required")
 	}
 
 	manifests, err := w.FindManifests(ctx, map[string]string{

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -47,7 +46,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 			nro.BlockFormat.HMACSecret = testHMACSecret
 		},
 	})
-	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	io.WriteString(w, "hello world!")
 	w.Result()
 	w.Close()
@@ -55,11 +54,9 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	env.RepositoryWriter.Flush(ctx)
 
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
-	require.NoError(t, err)
 
-	if got, want := len(blobsBefore), 4; got != want {
-		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
-	}
+	require.NoError(t, err)
+	require.Len(t, blobsBefore, 4, "unexpected number of blobs after writing")
 
 	// add some more unreferenced blobs
 	const (
@@ -73,9 +70,8 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
 
 	// new blobs not will be deleted because of minimum age requirement
-	if _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyFull); err != nil {
-		t.Fatal(err)
-	}
+	_, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyFull)
+	require.NoError(t, err)
 
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID1)
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
@@ -87,9 +83,8 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	}
 
 	// new blobs will be deleted
-	if _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyNone); err != nil {
-		t.Fatal(err)
-	}
+	_, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyNone)
+	require.NoError(t, err)
 
 	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobID1)
 	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
@@ -112,9 +107,8 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 		CheckpointTime: ta.NowFunc()(),
 	})
 
-	if _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration); err != nil {
-		t.Fatal(err)
-	}
+	_, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration)
+	require.NoError(t, err)
 
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession1)
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession2)
@@ -125,9 +119,8 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	// now finish session 2
 	env.RepositoryWriter.BlobStorage().DeleteBlob(ctx, session2Marker)
 
-	if _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration); err != nil {
-		t.Fatal(err)
-	}
+	_, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration)
+	require.NoError(t, err)
 
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession1)
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession2)
@@ -138,9 +131,8 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	// now move time into the future making session 1 timed out
 	ta.Advance(7 * 24 * time.Hour)
 
-	if _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyFull); err != nil {
-		t.Fatal(err)
-	}
+	_, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyFull)
+	require.NoError(t, err)
 
 	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession1)
 	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession2)
@@ -153,33 +145,29 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	blobsAfter, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
 	require.NoError(t, err)
 
-	if diff := cmp.Diff(blobsBefore, blobsAfter); diff != "" {
-		t.Fatalf("unexpected diff: %v", diff)
-	}
+	diff := cmp.Diff(blobsBefore, blobsAfter)
+	require.Empty(t, diff, "unexpected blobs")
 }
 
 func verifyBlobExists(t *testing.T, st blob.Storage, blobID blob.ID) {
 	t.Helper()
 
-	if _, err := st.GetMetadata(testlogging.Context(t), blobID); err != nil {
-		t.Fatalf("expected blob %v to exist, got %v", blobID, err)
-	}
+	_, err := st.GetMetadata(testlogging.Context(t), blobID)
+	require.NoError(t, err)
 }
 
 func verifyBlobNotFound(t *testing.T, st blob.Storage, blobID blob.ID) {
 	t.Helper()
 
-	if _, err := st.GetMetadata(testlogging.Context(t), blobID); !errors.Is(err, blob.ErrBlobNotFound) {
-		t.Fatalf("expected blob %v to be not found, got %v", blobID, err)
-	}
+	_, err := st.GetMetadata(testlogging.Context(t), blobID)
+	require.ErrorIsf(t, err, blob.ErrBlobNotFound, "expected blob %v to be not found", blobID)
 }
 
 func mustPutDummyBlob(t *testing.T, st blob.Storage, blobID blob.ID) {
 	t.Helper()
 
-	if err := st.PutBlob(testlogging.Context(t), blobID, gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}); err != nil {
-		t.Fatal(err)
-	}
+	err := st.PutBlob(testlogging.Context(t), blobID, gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{})
+	require.NoError(t, err)
 }
 
 func mustPutDummySessionBlob(t *testing.T, st blob.Storage, sessionIDSuffix blob.ID, si *content.SessionInfo) blob.ID {

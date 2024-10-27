@@ -69,7 +69,7 @@ func parseNestedObjectID(ctx context.Context, startingDir fs.Entry, parts []stri
 
 	hoid, ok := e.(object.HasObjectID)
 	if !ok {
-		return object.EmptyID, errors.Errorf("entry without ObjectID")
+		return object.EmptyID, errors.New("entry without ObjectID")
 	}
 
 	return hoid.ObjectID(), nil

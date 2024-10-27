@@ -221,6 +221,27 @@ You will be asked to enter the repository password that you want. Remember, this
 
 After you have created the `repository`, you connect to it using the [`kopia repository connect gcs` command](../reference/command-line/common/repository-connect-gcs/) or the [`kopia repository connect s3` command](../reference/command-line/common/repository-connect-s3/), depending on whichever way you setup the Google Cloud Storage `repository`. Read the [help docs for `repository connect gcs`](../reference/command-line/common/repository-connect-gcs/) or the [help docs for `repository connect s3`](../reference/command-line/common/repository-connect-s3/) for more information on the options available for these commands.
 
+### Credential permissions
+
+The following permissions are required when in readonly mode:
+```
+storage.buckets.get
+storage.objects.get
+storage.objects.list
+```
+
+When in normal read-write mode the following additional permissions are required:
+```
+storage.objects.update
+storage.objects.create
+storage.objects.delete
+```
+
+If using [ransomware protection](../advanced/ransomware#Google-protection) then the following additional permission is required:
+```
+storage.objects.setRetention
+```
+
 ## Google Drive
 
 Kopia supports Google Drive in two ways: natively and through Kopia's [Rclone `repository` option](#rclone). Native Google Drive support is currently only available through Kopia CLI; Kopia GUI users need to use Kopia's [Rclone `repository` option](#rclone).

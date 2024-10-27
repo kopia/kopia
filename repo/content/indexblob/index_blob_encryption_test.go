@@ -68,14 +68,14 @@ func TestEncryptedBlobManager(t *testing.T) {
 
 	require.ErrorIs(t, ebm.GetEncryptedBlob(ctx, "no-such-blob", &tmp), blob.ErrBlobNotFound)
 
-	someError := errors.Errorf("some error")
+	someError := errors.New("some error")
 
 	fs.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
 
 	_, err = ebm.EncryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
 	require.ErrorIs(t, err, someError)
 
-	someError2 := errors.Errorf("some error 2")
+	someError2 := errors.New("some error 2")
 
 	ebm.crypter = blobcrypto.StaticCrypter{Hash: hf, Encryption: failingEncryptor{nil, someError2}}
 

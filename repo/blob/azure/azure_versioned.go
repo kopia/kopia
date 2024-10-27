@@ -22,7 +22,7 @@ type versionMetadataCallback func(versionMetadata) error
 
 func (az *azPointInTimeStorage) getVersionedBlobMeta(it *azblobmodels.BlobItem) (*versionMetadata, error) {
 	if it.VersionID == nil {
-		return nil, errors.Errorf("versionID is nil. Versioning must be enabled on the container for PIT")
+		return nil, errors.New("versionID is nil. Versioning must be enabled on the container for PIT")
 	}
 
 	bm := az.getBlobMeta(it)

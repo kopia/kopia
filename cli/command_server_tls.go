@@ -122,7 +122,7 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
 		c.showServerUIPrompt(ctx)
 
-		return errors.Wrap(httpServer.ServeTLS(listener, c.serverStartTLSCertFile, c.serverStartTLSKeyFile), "error starting TLS server")
+		return checkErrServerClosed(ctx, httpServer.ServeTLS(listener, c.serverStartTLSCertFile, c.serverStartTLSKeyFile), "error starting TLS server")
 
 	case c.serverStartTLSGenerateCert:
 		// PEM files not provided, generate in-memory TLS cert/key but don't persit.
@@ -158,17 +158,17 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttps://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
 		c.showServerUIPrompt(ctx)
 
-		return errors.Wrap(httpServer.ServeTLS(listener, "", ""), "error starting TLS server")
+		return checkErrServerClosed(ctx, httpServer.ServeTLS(listener, "", ""), "error starting TLS server")
 
 	default:
 		if !c.serverStartInsecure {
-			return errors.Errorf("TLS not configured. To start server without encryption pass --insecure")
+			return errors.New("TLS not configured. To start server without encryption pass --insecure")
 		}
 
 		fmt.Fprintf(c.out.stderr(), "SERVER ADDRESS: %shttp://%v\n", udsPfx, httpServer.Addr) //nolint:errcheck
 		c.showServerUIPrompt(ctx)
 
-		return errors.Wrap(httpServer.Serve(listener), "error starting server")
+		return checkErrServerClosed(ctx, httpServer.Serve(listener), "error starting server")
 	}
 }
 
@@ -176,4 +176,14 @@ func (c *commandServerStart) showServerUIPrompt(ctx context.Context) {
 	if c.serverStartUI {
 		log(ctx).Info("Open the address above in a web browser to use the UI.")
 	}
+}
+
+func checkErrServerClosed(ctx context.Context, err error, msg string) error {
+	if errors.Is(err, http.ErrServerClosed) {
+		log(ctx).Debug("HTTP server closed:", err)
+
+		return nil
+	}
+
+	return errors.Wrap(err, msg)
 }

@@ -22,7 +22,7 @@ type ConnectOptions struct {
 
 // ErrRepositoryNotInitialized is returned when attempting to connect to repository that has not
 // been initialized.
-var ErrRepositoryNotInitialized = errors.Errorf("repository not initialized in the provided storage")
+var ErrRepositoryNotInitialized = errors.New("repository not initialized in the provided storage")
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
 func Connect(ctx context.Context, configFile string, st blob.Storage, password string, opt *ConnectOptions) error {
@@ -89,7 +89,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 
 	if cfg.Caching != nil && cfg.Caching.CacheDirectory != "" {
 		if !ospath.IsAbs(cfg.Caching.CacheDirectory) {
-			return errors.Errorf("cache directory was not absolute, refusing to delete")
+			return errors.New("cache directory was not absolute, refusing to delete")
 		}
 
 		if err = os.RemoveAll(cfg.Caching.CacheDirectory); err != nil {

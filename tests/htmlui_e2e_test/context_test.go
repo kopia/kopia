@@ -46,7 +46,7 @@ func (tc *TestContext) waitForDownload(waitTime time.Duration) chromedp.Action {
 			tc.t.Logf("file downloaded, good!")
 
 		case <-time.After(waitTime):
-			return errors.Errorf("download did not complete")
+			return errors.New("download did not complete")
 		}
 
 		return nil

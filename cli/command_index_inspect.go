@@ -70,7 +70,7 @@ func (c *commandIndexInspect) runWithOutput(ctx context.Context, rep repo.Direct
 			}
 		}
 	default:
-		return errors.Errorf("must pass either --all, --active or provide a list of blob IDs to inspect")
+		return errors.New("must pass either --all, --active or provide a list of blob IDs to inspect")
 	}
 
 	return nil

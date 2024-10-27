@@ -242,7 +242,7 @@ func (c *commandRestore) constructTargetPairs(rep repo.Repository) error {
 	}
 
 	// Some undefined mixture of placeholders and other arguments.
-	return errors.Errorf("restore requires a source and targetpath or placeholders")
+	return errors.New("restore requires a source and targetpath or placeholders")
 }
 
 func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository) (restore.Output, error) {
@@ -473,7 +473,7 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 	}
 
 	if si.Path == "" {
-		return "", errors.Errorf("the source must contain a path element")
+		return "", errors.New("the source must contain a path element")
 	}
 
 	manifestIDs, err := findSnapshotsForSource(ctx, rep, si, map[string]string{})

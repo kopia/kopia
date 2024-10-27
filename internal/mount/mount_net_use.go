@@ -17,7 +17,7 @@ import (
 // Directory mounts a given directory under a provided drive letter.
 func Directory(ctx context.Context, entry fs.Directory, driveLetter string, _ Options) (Controller, error) {
 	if !isValidWindowsDriveOrAsterisk(driveLetter) {
-		return nil, errors.Errorf("must be a valid drive letter or asterisk")
+		return nil, errors.New("must be a valid drive letter or asterisk")
 	}
 
 	c, err := DirectoryWebDAV(ctx, entry)

@@ -93,7 +93,7 @@ func handleDeleteSnapshots(ctx context.Context, rc requestContext) (interface{},
 
 			for _, sn := range snaps {
 				if sn.Source != req.SourceInfo {
-					return errors.Errorf("source info does not match snapshot source")
+					return errors.New("source info does not match snapshot source")
 				}
 			}
 

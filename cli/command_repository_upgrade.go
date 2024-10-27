@@ -426,7 +426,7 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 
 		// TODO: this can get stuck
 		if !c.sleepWithContext(ctx, l.StatusPollInterval) {
-			return errors.Errorf("upgrade drain interrupted")
+			return errors.New("upgrade drain interrupted")
 		}
 	}
 

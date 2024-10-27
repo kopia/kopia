@@ -21,7 +21,6 @@ import (
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/mount"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/scheduler"
@@ -159,6 +158,11 @@ func (s *Server) SetupHTMLUIAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/tasks/{taskID}", s.handleUIPossiblyNotConnected(handleTaskInfo)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/tasks/{taskID}/logs", s.handleUIPossiblyNotConnected(handleTaskLogs)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/tasks/{taskID}/cancel", s.handleUIPossiblyNotConnected(handleTaskCancel)).Methods(http.MethodPost)
+
+	m.HandleFunc("/api/v1/notificationProfiles", s.handleUI(handleNotificationProfileCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/notificationProfiles/{profileName}", s.handleUI(handleNotificationProfileDelete)).Methods(http.MethodDelete)
+	m.HandleFunc("/api/v1/notificationProfiles/{profileName}", s.handleUI(handleNotificationProfileGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/notificationProfiles", s.handleUI(handleNotificationProfileList)).Methods(http.MethodGet)
 }
 
 // SetupControlAPIHandlers registers control API handlers.
@@ -362,7 +366,7 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 		// process the request while ignoring the cancellation signal
 		// to ensure all goroutines started by it won't be canceled
 		// when the request finishes.
-		ctx = ctxutil.Detach(ctx)
+		ctx = context.WithoutCancel(ctx)
 
 		if isAuthorized(ctx, rc) {
 			v, err = f(ctx, rc)
@@ -585,7 +589,7 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 		s.maint = nil
 	}
 
-	s.sched = scheduler.Start(ctxutil.Detach(ctx), s.getSchedulerItems, scheduler.Options{
+	s.sched = scheduler.Start(context.WithoutCancel(ctx), s.getSchedulerItems, scheduler.Options{
 		TimeNow:        clock.Now,
 		Debug:          s.options.DebugScheduler,
 		RefreshChannel: s.schedulerRefresh,
@@ -848,7 +852,7 @@ func (s *Server) InitRepositoryAsync(ctx context.Context, mode string, initializ
 
 		if cctx.Err() != nil {
 			// context canceled
-			return errors.Errorf("operation has been canceled")
+			return errors.New("operation has been canceled")
 		}
 
 		if err != nil {
@@ -1044,11 +1048,11 @@ func (s *Server) refreshScheduler(reason string) {
 // The server will manage sources for a given username@hostname.
 func New(ctx context.Context, options *Options) (*Server, error) {
 	if options.Authorizer == nil {
-		return nil, errors.Errorf("missing authorizer")
+		return nil, errors.New("missing authorizer")
 	}
 
 	if options.PasswordPersist == nil {
-		return nil, errors.Errorf("missing password persistence")
+		return nil, errors.New("missing password persistence")
 	}
 
 	if options.AuthCookieSigningKey == "" {
