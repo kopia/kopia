@@ -1,13 +1,13 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
+	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/pkg/errors"
@@ -20,7 +20,7 @@ type commandPolicyExport struct {
 
 	jsonIndent bool
 
-	stdout io.Writer
+	svc appServices
 }
 
 func (c *commandPolicyExport) setup(svc appServices, parent commandParent) {
@@ -32,7 +32,7 @@ func (c *commandPolicyExport) setup(svc appServices, parent commandParent) {
 
 	c.policyTargetFlags.setup(cmd)
 
-	c.stdout = svc.stdout()
+	c.svc = svc
 
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
@@ -40,7 +40,6 @@ func (c *commandPolicyExport) setup(svc appServices, parent commandParent) {
 func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) error {
 	var output io.Writer
 	var err error
-	var deferErr error
 
 	if c.filePath != "" {
 		var file *os.File
@@ -58,28 +57,14 @@ func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) erro
 			return errors.Wrap(err, "error opening file to write to")
 		}
 
-		wr := bufio.NewWriter(file)
-		defer func() {
-			if deferErr = wr.Flush(); deferErr != nil {
-				deferErr = errors.Wrap(deferErr, "failed to flush file")
-				return
-			}
-			if deferErr = file.Sync(); deferErr != nil {
-				deferErr = errors.Wrap(deferErr, "failed to sync file")
-				return
-			}
-			if deferErr = file.Close(); deferErr != nil {
-				deferErr = errors.Wrap(deferErr, "failed to close file")
-				return
-			}
-		}()
+		defer file.Close()
 
-		output = wr
+		output = file
 	} else {
 		if c.overwrite {
 			return errors.New("overwrite was passed but no file path was given")
 		}
-		output = c.stdout
+		output = c.svc.stdout()
 	}
 
 	policies := make(map[string]*policy.Policy)
@@ -117,11 +102,9 @@ func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) erro
 		toWrite, err = json.Marshal(policies)
 	}
 
-	if err != nil {
-		panic("error serializing JSON, that should not happen: " + err.Error())
-	}
+	impossible.PanicOnError(err)
 
-	fmt.Fprintf(output, "%s", toWrite) //nolint:errcheck
+	_, err = fmt.Fprintf(output, "%s", toWrite)
 
-	return nil
+	return err
 }

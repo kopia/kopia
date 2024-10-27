@@ -1,11 +1,11 @@
 package cli
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"io"
 	"os"
+	"slices"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -15,17 +15,19 @@ import (
 
 type commandPolicyImport struct {
 	policyTargetFlags
-	filePath string
+	filePath           string
+	allowUnknownFields bool
 
-	stdin io.Reader
+	svc appServices
 }
 
 func (c *commandPolicyImport) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("import", "Imports policies from a specified file, or stdin if no file is specified.")
 	cmd.Flag("from-file", "File path to import from").StringVar(&c.filePath)
+	cmd.Flag("allow-unknown-fields", "Allow unknown fields in the policy file").BoolVar(&c.allowUnknownFields)
 
 	c.policyTargetFlags.setup(cmd)
-	c.stdin = svc.stdin()
+	c.svc = svc
 
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
@@ -41,14 +43,19 @@ func (c *commandPolicyImport) run(ctx context.Context, rep repo.RepositoryWriter
 			return errors.Wrap(err, "unable to read policy file")
 		}
 
-		input = bufio.NewReader(file)
+		defer file.Close()
+
+		input = file
 	} else {
-		input = c.stdin
+		input = c.svc.stdin()
 	}
 
 	policies := make(map[string]*policy.Policy)
 	d := json.NewDecoder(input)
-	d.DisallowUnknownFields()
+
+	if !c.allowUnknownFields {
+		d.DisallowUnknownFields()
+	}
 
 	err = d.Decode(&policies)
 
@@ -56,18 +63,22 @@ func (c *commandPolicyImport) run(ctx context.Context, rep repo.RepositoryWriter
 		return errors.Wrap(err, "unable to decode policy file as valid json")
 	}
 
-	//var targetLimit []snapshot.SourceInfo
-	targetLimit := make(map[snapshot.SourceInfo]struct{})
+	var targetLimit []snapshot.SourceInfo = nil
 
 	if c.policyTargetFlags.global || len(c.policyTargetFlags.targets) > 0 {
-		targetLimitSrc, err := c.policyTargets(ctx, rep)
+		targetLimit, err = c.policyTargets(ctx, rep)
+
 		if err != nil {
 			return err
 		}
+	}
 
-		for _, target := range targetLimitSrc {
-			targetLimit[target] = struct{}{}
+	shouldImportSource := func(target snapshot.SourceInfo) bool {
+		if targetLimit == nil {
+			return true
 		}
+
+		return slices.Contains(targetLimit, target)
 	}
 
 	for ts, newPolicy := range policies {
@@ -76,10 +87,8 @@ func (c *commandPolicyImport) run(ctx context.Context, rep repo.RepositoryWriter
 			return errors.Wrapf(err, "unable to parse source info: %q", ts)
 		}
 
-		if len(targetLimit) > 0 {
-			if _, ok := targetLimit[target]; !ok {
-				continue
-			}
+		if !shouldImportSource(target) {
+			continue
 		}
 
 		if err := policy.SetPolicy(ctx, rep, target, newPolicy); err != nil {
