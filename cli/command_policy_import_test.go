@@ -22,8 +22,16 @@ func TestImportPolicy(t *testing.T) {
 	td := testutil.TempDirectory(t)
 	policyFilePath := path.Join(td, "policy.json")
 
+	// poor man's deep copy
+	defaultPolicyJson, err := json.Marshal(policy.DefaultPolicy)
+	if err != nil {
+		t.Fatalf("unable to marshal policy: %v", err)
+	}
+	var defaultPolicy *policy.Policy
+	testutil.MustParseJSONLines(t, []string{string(defaultPolicyJson)}, &defaultPolicy)
+
 	specifiedPolicies := map[string]*policy.Policy{
-		"(global)": policy.DefaultPolicy,
+		"(global)": defaultPolicy,
 	}
 	makePolicyFile := func() {
 		data, err := json.Marshal(specifiedPolicies)
@@ -78,12 +86,21 @@ func TestImportPolicy(t *testing.T) {
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, id)
 	assertPoliciesEqual(t, e, specifiedPolicies)
 
-	// unknown fields should be disallowed by default
+	// create a new policy
 	path_2 := path.Join(td, "policy.json")
 	id_2 := "user@host:" + path_2
+	policy_2 := &policy.Policy{
+		MetadataCompressionPolicy: policy.MetadataCompressionPolicy{
+			CompressorName: "zstd",
+		},
+	}
+	specifiedPolicies[id_2] = policy_2
+	makePolicyFile()
+	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, id_2)
+	assertPoliciesEqual(t, e, specifiedPolicies)
 
-	err := os.WriteFile(policyFilePath, []byte(`{ "`+id_2+`": { "not-a-real-field": 50 } }`), 0o600)
-	specifiedPolicies[id_2] = &policy.Policy{}
+	// unknown fields should be disallowed by default
+	err = os.WriteFile(policyFilePath, []byte(`{ "`+id_2+`": { "not-a-real-field": 50, "metadataCompression": { "compressorName": "zstd" } } }`), 0o600)
 	if err != nil {
 		t.Fatalf("unable to write policy file: %v", err)
 	}
@@ -93,6 +110,40 @@ func TestImportPolicy(t *testing.T) {
 	// unless explicitly allowed
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, "--allow-unknown-fields", id_2)
 	assertPoliciesEqual(t, e, specifiedPolicies) // no change
+
+	// deleteOtherPolicies should work
+	delete(specifiedPolicies, id_2)
+	makePolicyFile()
+	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, "--delete-other-policies")
+	assertPoliciesEqual(t, e, specifiedPolicies)
+
+	// add it back in
+	specifiedPolicies[id_2] = policy_2
+	makePolicyFile()
+	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath)
+	assertPoliciesEqual(t, e, specifiedPolicies)
+
+	// deleteOtherPolicies should work with specified targets as well
+	// don't change policy file
+	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, "--delete-other-policies", "(global)", id)
+	delete(specifiedPolicies, id_2)
+	assertPoliciesEqual(t, e, specifiedPolicies)
+
+	// --global should be equivalent to (global)
+	specifiedPolicies[id_2] = policy_2
+	makePolicyFile()
+	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, "--global")
+	delete(specifiedPolicies, id_2) // should NOT have been imported
+	assertPoliciesEqual(t, e, specifiedPolicies)
+
+	// sanity check against (global)
+	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, "(global)")
+	assertPoliciesEqual(t, e, specifiedPolicies)
+
+	// another sanity check
+	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath)
+	specifiedPolicies[id_2] = policy_2
+	assertPoliciesEqual(t, e, specifiedPolicies)
 }
 
 func assertPoliciesEqual(t *testing.T, e *testenv.CLITest, expected map[string]*policy.Policy) {

@@ -15,8 +15,9 @@ import (
 
 type commandPolicyImport struct {
 	policyTargetFlags
-	filePath           string
-	allowUnknownFields bool
+	filePath            string
+	allowUnknownFields  bool
+	deleteOtherPolicies bool
 
 	svc appServices
 }
@@ -25,6 +26,7 @@ func (c *commandPolicyImport) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("import", "Imports policies from a specified file, or stdin if no file is specified.")
 	cmd.Flag("from-file", "File path to import from").StringVar(&c.filePath)
 	cmd.Flag("allow-unknown-fields", "Allow unknown fields in the policy file").BoolVar(&c.allowUnknownFields)
+	cmd.Flag("delete-other-policies", "Delete all other policies, keeping only those that got imported").BoolVar(&c.deleteOtherPolicies)
 
 	c.policyTargetFlags.setup(cmd)
 	c.svc = svc
@@ -81,6 +83,8 @@ func (c *commandPolicyImport) run(ctx context.Context, rep repo.RepositoryWriter
 		return slices.Contains(targetLimit, target)
 	}
 
+	importedSources := make([]string, 0, len(policies))
+
 	for ts, newPolicy := range policies {
 		target, err := snapshot.ParseSourceInfo(ts, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 		if err != nil {
@@ -90,9 +94,26 @@ func (c *commandPolicyImport) run(ctx context.Context, rep repo.RepositoryWriter
 		if !shouldImportSource(target) {
 			continue
 		}
+		// used for deleteOtherPolicies
+		importedSources = append(importedSources, ts)
 
 		if err := policy.SetPolicy(ctx, rep, target, newPolicy); err != nil {
 			return errors.Wrapf(err, "can't save policy for %v", target)
+		}
+	}
+
+	if c.deleteOtherPolicies {
+		ps, err := policy.ListPolicies(ctx, rep)
+		if err != nil {
+			return errors.Wrap(err, "failed to list policies")
+		}
+
+		for _, p := range ps {
+			if !slices.Contains(importedSources, p.Target().String()) {
+				if err := policy.RemovePolicy(ctx, rep, p.Target()); err != nil {
+					return errors.Wrapf(err, "can't delete policy for %v", p.Target())
+				}
+			}
 		}
 	}
 
