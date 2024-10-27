@@ -371,6 +371,19 @@ $ kopia policy import --from-file import.json "(global)" "foo@bar:/home/foobar"
 $ kopia policy export --to-file export.json "(global)" "foo@bar:/home/foobar"
 ```
 
+Both commands support using stdin/stdout:
+
+```
+$ cat file.json | kopia policy import
+$ kopia policy export > file.json
+```
+
+You can use the `--delete-other-policies` flag to delete all policies that are not imported. This command would delete any policy besides `(global)` and `foo@bar:/home/foobar`:
+
+```
+$ kopia policy import --from-file import.json --delete-other-policies "(global)" "foo@bar:/home/foobar"
+```
+
 #### Examining Repository Structure
 
 Kopia CLI provides low-level commands to examine the contents of repository, perform maintenance actions, and get deeper insight into how the data is laid out.
