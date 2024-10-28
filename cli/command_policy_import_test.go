@@ -155,6 +155,16 @@ func TestImportPolicy(t *testing.T) {
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath)
 	specifiedPolicies[id2] = policy2
 	assertPoliciesEqual(t, e, specifiedPolicies)
+
+	// reading an invalid file should fail
+	e.RunAndExpectFailure(t, "policy", "import", "--from-file", "/not/a/real/file")
+
+	// invalid targets should fail
+	err = os.WriteFile(policyFilePath, []byte(`{ "userwithouthost@": { "metadataCompression": { "compressorName": "zstd" } } }`), 0o600)
+	if err != nil {
+		t.Fatalf("unable to write policy file: %v", err)
+	}
+	e.RunAndExpectFailure(t, "policy", "import", "--from-file", policyFilePath)
 }
 
 func assertPoliciesEqual(t *testing.T, e *testenv.CLITest, expected map[string]*policy.Policy) {

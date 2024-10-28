@@ -108,4 +108,23 @@ func TestExportPolicy(t *testing.T) {
 	// we specified id, so only that policy should be exported
 	assert.Len(t, policies7, 1, "unexpected number of policies")
 	assert.Equal(t, expectedPolicy, policies5[id], "unexpected policy")
+
+	// pretty-printed JSON should be different but also correct
+	policies8prettyJSON := e.RunAndExpectSuccess(t, "policy", "export", "--json-indent")
+
+	var policies8pretty map[string]*policy.Policy
+	testutil.MustParseJSONLines(t, policies8prettyJSON, &policies8pretty)
+
+	policies8JSON := e.RunAndExpectSuccess(t, "policy", "export")
+	var policies8 map[string]*policy.Policy
+	testutil.MustParseJSONLines(t, policies8JSON, &policies8)
+
+	assert.Equal(t, policies8, policies8pretty, "pretty-printing should not change the content")
+	assert.NotEqual(t, policies8JSON, policies8prettyJSON, "pretty-printed JSON should be different")
+
+	// --overwrite and no --to-file should fail
+	e.RunAndExpectFailure(t, "policy", "export", "--overwrite")
+
+	// writing to inaccessible file should fail
+	e.RunAndExpectFailure(t, "policy", "export", "--to-file", "/not/a/real/file/path")
 }
