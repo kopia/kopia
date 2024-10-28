@@ -3,7 +3,6 @@ package cli_test
 import (
 	"os"
 	"path"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,7 +40,7 @@ func TestExportPolicy(t *testing.T) {
 	id := snapshot.SourceInfo{
 		Host:     "host",
 		UserName: "user",
-		Path:     filepath.ToSlash(td),
+		Path:     td,
 	}.String()
 
 	e.RunAndExpectSuccess(t, "policy", "set", td, "--splitter=FIXED-4M")
