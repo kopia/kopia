@@ -1000,18 +1000,17 @@ func (s *Server) getSchedulerItems(ctx context.Context, now time.Time) []schedul
 	s.nextRefreshTimeLock.Unlock()
 
 	// add a scheduled item to refresh all sources and policies
-	result = append(result, scheduler.Item{
-		Description: "refresh",
-		Trigger:     s.refreshAsync,
-		NextTime:    nrt,
-	})
-
-	// add a scheduled item to refresh metrics
-	result = append(result, scheduler.Item{
-		Description: "refresh metrics",
-		Trigger:     s.refreshMetrics,
-		NextTime:    now.Add(1 * time.Minute), // Refresh metrics every minute
-	})
+	result = append(result,
+		scheduler.Item{
+			Description: "refresh",
+			Trigger:     s.refreshAsync,
+			NextTime:    nrt,
+		},
+		scheduler.Item{
+			Description: "refresh metrics",
+			Trigger:     s.refreshMetrics,
+			NextTime:    now.Add(1 * time.Minute), // Refresh metrics every minute
+		})
 
 	if s.maint != nil {
 		// If we have a direct repository, add an item to run maintenance.
