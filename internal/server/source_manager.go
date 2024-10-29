@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/clock"
@@ -16,7 +18,6 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -296,6 +297,17 @@ func (s *sourceManager) stop(ctx context.Context) {
 	}
 
 	close(s.closed)
+}
+
+func (s *sourceManager) removeMetrics() {
+	if s.rep.Metrics() != nil {
+		registry := s.rep.Metrics()
+		registry.RemoveGauge(s.lastSnapshotStartTime)
+		registry.RemoveGauge(s.lastSnapshotEndTime)
+		registry.RemoveGauge(s.lastSnapshotSize)
+		registry.RemoveGauge(s.lastSnapshotFiles)
+		registry.RemoveGauge(s.lastSnapshotDirs)
+	}
 }
 
 func (s *sourceManager) waitUntilStopped() {
@@ -582,7 +594,6 @@ func (t *uitaskProgress) EstimatedDataSize(fileCount int, totalBytes int64) {
 }
 
 func newSourceManager(src snapshot.SourceInfo, server sourceManagerServerInterface, rep repo.Repository) *sourceManager {
-
 	m := &sourceManager{
 		src:              src,
 		rep:              rep,
