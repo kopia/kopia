@@ -90,6 +90,8 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 			defer encryptOutput.Close()
 
 			for range hashCount {
+				encryptOutput.Reset()
+
 				if encerr := enc.Encrypt(input, hashOutput[:32], &encryptOutput); encerr != nil {
 					log(ctx).Errorf("encryption failed: %v", encerr)
 					break
