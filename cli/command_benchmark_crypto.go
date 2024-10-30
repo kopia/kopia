@@ -98,6 +98,8 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 				defer encryptOutput.Close()
 
 				for range hashCount {
+					encryptOutput.Reset()
+
 					contentID := hf(hashOutput[:0], input)
 
 					if encerr := enc.Encrypt(input, contentID, &encryptOutput); encerr != nil {
