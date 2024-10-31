@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -147,9 +148,16 @@ func (c *observabilityFlags) maybeStartListener(ctx context.Context) {
 		m.HandleFunc("/debug/pprof/{cmd}", pprof.Index) // special handling for Gorilla mux, see https://stackoverflow.com/questions/30560859/cant-use-go-tool-pprof-with-an-existing-server/71032595#71032595
 	}
 
-	log(ctx).Infof("starting prometheus metrics on %v", c.metricsListenAddr)
+	listener, err := net.Listen("tcp", c.metricsListenAddr)
+	if err != nil {
+		log(ctx).Warnf("unable to start listener: %v", err)
+		return
+	}
 
-	go http.ListenAndServe(c.metricsListenAddr, m) //nolint:errcheck,gosec
+	addr := listener.Addr().String()
+	log(ctx).Infof("starting prometheus metrics on %v", addr)
+
+	go http.Serve(listener, m) //nolint:errcheck,gosec
 }
 
 func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error {
