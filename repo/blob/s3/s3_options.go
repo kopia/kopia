@@ -19,16 +19,16 @@ type Options struct {
 	DoNotVerifyTLS bool   `json:"doNotVerifyTLS,omitempty"`
 	RootCA         []byte `json:"rootCA,omitempty"`
 
-	AccessKeyID     string            `json:"accessKeyID"`
-	SecretAccessKey string            `json:"secretAccessKey" kopia:"sensitive"`
-	SessionToken    string            `json:"sessionToken" kopia:"sensitive"`
-	Tags            map[string]string `json:"tags" kopia:"sensitive"`
-	RoleARN         string            `json:"roleARN"`
-	SessionName     string            `json:"sessionName"`
-	RoleDuration    time.Duration     `json:"duration"`
-	RoleEndpoint    string            `json:"roleEndpoint"`
-	// TODO(ashmrtn): Figure out if this can be merged with Region.
-	RoleRegion string `json:"roleRegion"`
+	AccessKeyID     string `json:"accessKeyID"`
+	SecretAccessKey string `json:"secretAccessKey" kopia:"sensitive"`
+	SessionToken    string `json:"sessionToken" kopia:"sensitive"`
+
+	// Used for assume role authentication.
+	RoleARN      string        `json:"roleARN"`
+	SessionName  string        `json:"sessionName"`
+	RoleDuration time.Duration `json:"duration"`
+	RoleEndpoint string        `json:"roleEndpoint"`
+	RoleRegion   string        `json:"roleRegion"`
 
 	// Region is an optional region to pass in authorization header.
 	Region string `json:"region,omitempty"`
