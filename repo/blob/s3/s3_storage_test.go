@@ -368,19 +368,13 @@ func TestS3StorageCustomCredentials(t *testing.T) {
 
 	options := &Options{
 		Endpoint:     getEnv(testEndpointEnv, awsEndpoint),
-		BucketName:   getEnv(testBucketEnv, ""),
-		RoleARN:      getEnv(testRoleEnv, ""),
-		RoleEndpoint: awsStsEndpointUSWest2,
-		RoleRegion:   getEnv(testRegionEnv, ""),
+		BucketName:   getEnvOrSkip(t, testBucketEnv),
+		RoleARN:      getEnvOrSkip(t, testRoleEnv),
+		RoleRegion:   getEnvOrSkip(t, testRegionEnv),
 		SessionName:  "test-assume-role",
+		RoleEndpoint: awsStsEndpointUSWest2,
 		RoleDuration: time.Minute * 15,
 	}
-
-	require.NotEmpty(t, options.BucketName)
-	require.NotEmpty(t, options.RoleARN)
-	require.NotEmpty(t, options.Endpoint)
-	require.NotEmpty(t, options.RoleEndpoint)
-	require.NotEmpty(t, options.RoleRegion)
 
 	getOrCreateBucket(t, options)
 	testStorage(t, options, false, blob.PutOptions{})
