@@ -363,14 +363,24 @@ func TestS3StorageCustomCredentials(t *testing.T) {
 	t.Parallel()
 
 	// skip the test if AWS creds are not provided
-	getEnvOrSkip(t, testAccessKeyIDEnv)
-	getEnvOrSkip(t, testSecretAccessKeyEnv)
+	getEnv(testAccessKeyIDEnv, "")
+	getEnv(testSecretAccessKeyEnv, "")
 
 	options := &Options{
-		Endpoint:   getEnv(testEndpointEnv, awsEndpoint),
-		BucketName: getEnvOrSkip(t, testBucketEnv),
-		RoleARN:    getEnvOrSkip(t, testRoleEnv),
+		Endpoint:     getEnv(testEndpointEnv, awsEndpoint),
+		BucketName:   getEnv(testBucketEnv, ""),
+		RoleARN:      getEnv(testRoleEnv, ""),
+		RoleEndpoint: awsStsEndpointUSWest2,
+		RoleRegion:   getEnv(testRegionEnv, ""),
+		SessionName:  "test-assume-role",
+		RoleDuration: time.Minute * 15,
 	}
+
+	require.NotEmpty(t, options.BucketName)
+	require.NotEmpty(t, options.RoleARN)
+	require.NotEmpty(t, options.Endpoint)
+	require.NotEmpty(t, options.RoleEndpoint)
+	require.NotEmpty(t, options.RoleRegion)
 
 	getOrCreateBucket(t, options)
 	testStorage(t, options, false, blob.PutOptions{})
