@@ -196,7 +196,7 @@ jobs:
         DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Bump Homebrew formula
-      uses: dawidd6/action-homebrew-bump-formula@baf2b60c51fc1f8453c884b0c61052668a71bd1d # v3.11.0
+      uses: dawidd6/action-homebrew-bump-formula@8d494330bce4434918392df134ad3db1167904db # v4
       # only bump formula for tags which don't contain '-'
       # this excludes vx.y.z-rc1
       if: github.ref_type == 'tag' && !contains(github.ref_name, '-')
