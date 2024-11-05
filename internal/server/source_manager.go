@@ -477,6 +477,11 @@ func (t *uitaskProgress) maybeReport() {
 	}
 }
 
+// Enabled implements UploadProgress, always returns true.
+func (t *uitaskProgress) Enabled() bool {
+	return true
+}
+
 // UploadStarted is emitted once at the start of an upload.
 func (t *uitaskProgress) UploadStarted() {
 	t.p.UploadStarted()
@@ -558,9 +563,14 @@ func (t *uitaskProgress) ExcludedDir(dirname string) {
 }
 
 // EstimatedDataSize is emitted whenever the size of upload is estimated.
-func (t *uitaskProgress) EstimatedDataSize(fileCount int, totalBytes int64) {
+func (t *uitaskProgress) EstimatedDataSize(fileCount, totalBytes int64) {
 	t.p.EstimatedDataSize(fileCount, totalBytes)
 	t.maybeReport()
+}
+
+// EstimationParameters returns parameters to be used for estimation.
+func (t *uitaskProgress) EstimationParameters() snapshotfs.EstimationParameters {
+	return t.p.EstimationParameters()
 }
 
 func newSourceManager(src snapshot.SourceInfo, server *Server, rep repo.Repository) *sourceManager {

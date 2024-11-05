@@ -10,7 +10,6 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -37,9 +36,8 @@ import (
 const DefaultCheckpointInterval = 45 * time.Minute
 
 var (
-	uploadLog   = logging.Module("uploader")
-	estimateLog = logging.Module("estimate")
-	repoFSLog   = logging.Module("repofs")
+	uploadLog = logging.Module("uploader")
+	repoFSLog = logging.Module("repofs")
 
 	uploadTracer = otel.Tracer("upload")
 )
@@ -1279,37 +1277,9 @@ func (u *Uploader) Upload(
 
 	s.StartTime = fs.UTCTimestampFromTime(u.repo.Time())
 
-	var scanWG sync.WaitGroup
-
-	scanctx, cancelScan := context.WithCancel(ctx)
-
-	defer cancelScan()
-
 	switch entry := source.(type) {
 	case fs.Directory:
-		var previousDirs []fs.Directory
-
-		for _, m := range previousManifests {
-			if d := u.maybeOpenDirectoryFromManifest(ctx, m); d != nil {
-				previousDirs = append(previousDirs, d)
-			}
-		}
-
-		scanWG.Add(1)
-
-		go func() {
-			defer scanWG.Done()
-
-			wrapped := u.wrapIgnorefs(estimateLog(ctx), entry, policyTree, false /* reportIgnoreStats */)
-
-			ds, _ := u.scanDirectory(scanctx, wrapped, policyTree)
-
-			u.Progress.EstimatedDataSize(ds.numFiles, ds.totalFileSize)
-		}()
-
-		wrapped := u.wrapIgnorefs(uploadLog(ctx), entry, policyTree, true /* reportIgnoreStats */)
-
-		s.RootEntry, err = u.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo)
+		s.RootEntry, err = u.uploadDir(ctx, previousManifests, entry, policyTree, sourceInfo)
 
 	case fs.File:
 		u.Progress.EstimatedDataSize(1, entry.Size())
@@ -1323,14 +1293,59 @@ func (u *Uploader) Upload(
 		return nil, rootCauseError(err)
 	}
 
-	cancelScan()
-	scanWG.Wait()
-
 	s.IncompleteReason = u.incompleteReason()
 	s.EndTime = fs.UTCTimestampFromTime(u.repo.Time())
 	s.Stats = *u.stats
 
 	return s, nil
+}
+
+func (u *Uploader) uploadDir(
+	ctx context.Context,
+	previousManifests []*snapshot.Manifest,
+	entry fs.Directory,
+	policyTree *policy.Tree,
+	sourceInfo snapshot.SourceInfo,
+) (*snapshot.DirEntry, error) {
+	var previousDirs []fs.Directory
+
+	for _, m := range previousManifests {
+		if d := u.maybeOpenDirectoryFromManifest(ctx, m); d != nil {
+			previousDirs = append(previousDirs, d)
+		}
+	}
+
+	estimationCtl := u.startDataSizeEstimation(ctx, entry, policyTree)
+	defer func() {
+		estimationCtl.Cancel()
+		estimationCtl.Wait()
+	}()
+
+	wrapped := u.wrapIgnorefs(uploadLog(ctx), entry, policyTree, true /* reportIgnoreStats */)
+
+	return u.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo)
+}
+
+func (u *Uploader) startDataSizeEstimation(
+	ctx context.Context,
+	entry fs.Directory,
+	policyTree *policy.Tree,
+) EstimationController {
+	logger := estimateLog(ctx)
+	wrapped := u.wrapIgnorefs(logger, entry, policyTree, false /* reportIgnoreStats */)
+
+	if u.disableEstimation || !u.Progress.Enabled() {
+		logger.Debug("Estimation disabled")
+		return noOpEstimationCtrl
+	}
+
+	estimator := NewEstimator(wrapped, policyTree, u.Progress.EstimationParameters(), logger)
+
+	estimator.StartEstimation(ctx, func(filesCount, totalFileSize int64) {
+		u.Progress.EstimatedDataSize(filesCount, totalFileSize)
+	})
+
+	return estimator
 }
 
 func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, policyTree *policy.Tree, reportIgnoreStats bool) fs.Directory {

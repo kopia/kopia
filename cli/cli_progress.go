@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,14 +21,19 @@ const (
 )
 
 type progressFlags struct {
-	enableProgress         bool
-	progressUpdateInterval time.Duration
-	out                    textOutput
+	enableProgress              bool
+	progressEstimationType      string
+	adaptiveEstimationThreshold int64
+	progressUpdateInterval      time.Duration
+	out                         textOutput
 }
 
 func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
 	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
+	app.Flag("progress-estimation-type", "Set type of estimation of the data to be snapshotted").Hidden().Default(snapshotfs.EstimationTypeClassic).
+		EnumVar(&p.progressEstimationType, snapshotfs.EstimationTypeClassic, snapshotfs.EstimationTypeRough, snapshotfs.EstimationTypeAdaptive)
 	app.Flag("progress-update-interval", "How often to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
+	app.Flag("adaptive-estimation-threshold", "Sets the threshold below which the classic estimation method will be used").Hidden().Default(strconv.FormatInt(snapshotfs.AdaptiveEstimationThreshold, 10)).Int64Var(&p.adaptiveEstimationThreshold)
 	p.out.setup(svc)
 }
 
@@ -57,13 +63,18 @@ type cliProgress struct {
 
 	uploadStartTime timetrack.Estimator // +checklocksignore
 
-	estimatedFileCount  int   // +checklocksignore
+	estimatedFileCount  int64 // +checklocksignore
 	estimatedTotalBytes int64 // +checklocksignore
 
 	// indicates shared instance that does not reset counters at the beginning of upload.
 	shared bool
 
 	progressFlags
+}
+
+// Enabled returns true when progress is enabled.
+func (p *cliProgress) Enabled() bool {
+	return p.enableProgress
 }
 
 func (p *cliProgress) HashingFile(_ string) {
@@ -226,7 +237,7 @@ func (p *cliProgress) UploadStarted() {
 	p.uploading.Store(true)
 }
 
-func (p *cliProgress) EstimatedDataSize(fileCount int, totalBytes int64) {
+func (p *cliProgress) EstimatedDataSize(fileCount, totalBytes int64) {
 	if p.shared {
 		// do nothing
 		return
@@ -256,6 +267,13 @@ func (p *cliProgress) Finish() {
 
 	if p.enableProgress {
 		p.out.printStderr("\n")
+	}
+}
+
+func (p *cliProgress) EstimationParameters() snapshotfs.EstimationParameters {
+	return snapshotfs.EstimationParameters{
+		Type:              p.progressEstimationType,
+		AdaptiveThreshold: p.adaptiveEstimationThreshold,
 	}
 }
 
