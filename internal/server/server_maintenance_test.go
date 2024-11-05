@@ -47,6 +47,10 @@ func (s *testServer) refreshScheduler(reason string) {
 	s.refreshSchedulerCount.Add(1)
 }
 
+func (s *testServer) enableErrorNotifications() bool {
+	return false
+}
+
 func TestServerMaintenance(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 

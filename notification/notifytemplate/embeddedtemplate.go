@@ -3,12 +3,14 @@ package notifytemplate
 
 import (
 	"embed"
+	"slices"
+	"sort"
 	"text/template"
-	"time"
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/notification/notifydata"
 )
 
 //go:embed "*.html"
@@ -24,16 +26,13 @@ const (
 //
 //nolint:gochecknoglobals
 var Functions = template.FuncMap{
-	"toTime": func(t any) time.Time {
-		if t, ok := t.(time.Time); ok {
-			return t
-		}
-
-		if t, ok := t.(fs.UTCTimestamp); ok {
-			return t.ToTime()
-		}
-
-		return time.Time{}
+	"bytes": units.BytesString[int64],
+	"sortSnapshotManifestsByName": func(man []*notifydata.ManifestWithError) []*notifydata.ManifestWithError {
+		res := slices.Clone(man)
+		sort.Slice(res, func(i, j int) bool {
+			return res[i].Source.String() < res[j].Source.String()
+		})
+		return res
 	},
 }
 

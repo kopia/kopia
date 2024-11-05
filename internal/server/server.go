@@ -535,6 +535,10 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 	s.parallelSnapshotsChanged.Signal()
 }
 
+func (s *Server) enableErrorNotifications() bool {
+	return s.options.EnableErrorNotifications
+}
+
 // SetRepository sets the repository (nil is allowed and indicates server that is not
 // connected to the repository).
 func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
@@ -785,23 +789,24 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 
 // Options encompasses all API server options.
 type Options struct {
-	ConfigFile             string
-	ConnectOptions         *repo.ConnectOptions
-	RefreshInterval        time.Duration
-	MaxConcurrency         int
-	Authenticator          auth.Authenticator
-	Authorizer             auth.Authorizer
-	PasswordPersist        passwordpersist.Strategy
-	AuthCookieSigningKey   string
-	LogRequests            bool
-	UIUser                 string // name of the user allowed to access the UI API
-	UIPreferencesFile      string // name of the JSON file storing UI preferences
-	ServerControlUser      string // name of the user allowed to access the server control API
-	DisableCSRFTokenChecks bool
-	PersistentLogs         bool
-	UITitlePrefix          string
-	DebugScheduler         bool
-	MinMaintenanceInterval time.Duration
+	ConfigFile               string
+	ConnectOptions           *repo.ConnectOptions
+	RefreshInterval          time.Duration
+	MaxConcurrency           int
+	Authenticator            auth.Authenticator
+	Authorizer               auth.Authorizer
+	PasswordPersist          passwordpersist.Strategy
+	AuthCookieSigningKey     string
+	LogRequests              bool
+	UIUser                   string // name of the user allowed to access the UI API
+	UIPreferencesFile        string // name of the JSON file storing UI preferences
+	ServerControlUser        string // name of the user allowed to access the server control API
+	DisableCSRFTokenChecks   bool
+	PersistentLogs           bool
+	UITitlePrefix            string
+	DebugScheduler           bool
+	MinMaintenanceInterval   time.Duration
+	EnableErrorNotifications bool
 }
 
 // InitRepositoryFunc is a function that attempts to connect to/open repository.

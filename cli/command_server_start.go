@@ -161,6 +161,8 @@ func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Op
 		DebugScheduler:         c.debugScheduler,
 		MinMaintenanceInterval: c.minMaintenanceInterval,
 		DisableCSRFTokenChecks: c.disableCSRFTokenChecks,
+
+		EnableErrorNotifications: c.svc.enableErrorNotifications(),
 	}, nil
 }
 
