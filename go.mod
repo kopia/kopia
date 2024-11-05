@@ -28,7 +28,7 @@ require (
 	github.com/klauspost/compress v1.17.11
 	github.com/klauspost/pgzip v1.2.6
 	github.com/klauspost/reedsolomon v1.12.4
-	github.com/kopia/htmluibuild v0.0.1-0.20241105030613-ff1a0c1deb89
+	github.com/kopia/htmluibuild v0.0.1-0.20241105060252-108f70b353de
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.13
 	github.com/minio/minio-go/v7 v7.0.80
