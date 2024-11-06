@@ -15,12 +15,12 @@ type ManifestWithError struct {
 
 // StartTimestamp returns the start time of the snapshot.
 func (m *ManifestWithError) StartTimestamp() time.Time {
-	return m.StartTime.ToTime().Truncate(time.Second)
+	return m.StartTime.ToTime().UTC().Truncate(time.Second)
 }
 
 // EndTimestamp returns the end time of the snapshot.
 func (m *ManifestWithError) EndTimestamp() time.Time {
-	return m.EndTime.ToTime().Truncate(time.Second)
+	return m.EndTime.ToTime().UTC().Truncate(time.Second)
 }
 
 // TotalSize returns the total size of the snapshot in bytes.

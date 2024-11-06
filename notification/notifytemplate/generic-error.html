@@ -14,7 +14,7 @@ Subject: Kopia has encountered an error during {{ .EventArgs.Operation }} on {{.
 
 <pre>{{ .EventArgs.ErrorDetails }}</pre>
 
-<p>Generated at {{ .EventTime }} by <a href="https://kopia.io">Kopia {{ .KopiaBuildVersion }}</a>.</p>
+<p>Generated at {{ .EventTime | formatTime }} by <a href="https://kopia.io">Kopia {{ .KopiaBuildVersion }}</a>.</p>
 
 </body>
 </html>

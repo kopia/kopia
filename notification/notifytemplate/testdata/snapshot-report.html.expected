@@ -62,7 +62,7 @@ Subject: Kopia created 2 snapshots on some-host
 
 <tr class="snapshotstatus-fatal">
 <td><span class="path">/some/other/path</span></td>
-<td>1969-12-31 16:00:00 -0800 PST</td>
+<td>1970-01-01T00:00:00Z</td>
 <td>0s</td>
 <td>0 B</td>
 <td>0</td>
@@ -82,7 +82,7 @@ Subject: Kopia created 2 snapshots on some-host
 
 <tr class="snapshotstatus-ok">
 <td><span class="path">/some/path</span></td>
-<td>2020-01-01 19:04:05 -0800 PST</td>
+<td>2020-01-02T03:04:05Z</td>
 <td>1.000000001s</td>
 <td>456 B</td>
 <td>123</td>
@@ -113,7 +113,7 @@ Subject: Kopia created 2 snapshots on some-host
 
 </table>
 
-<p>Generated at 2020-01-02 03:04:05.000000006 +0000 UTC by <a href="https://kopia.io">Kopia v0-unofficial</a>.</p>
+<p>Generated at 2020-01-02T03:04:05Z by <a href="https://kopia.io">Kopia v0-unofficial</a>.</p>
 
 </body>
 </html>

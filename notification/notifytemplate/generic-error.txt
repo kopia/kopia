@@ -6,6 +6,6 @@ Finished:  {{ .EventArgs.EndTimestamp }} ({{ .EventArgs.Duration }})
 
 {{ .EventArgs.ErrorDetails }}
 
-Generated at {{ .EventTime }} by Kopia {{ .KopiaBuildVersion }}.
+Generated at {{ .EventTime | formatTime }} by Kopia {{ .KopiaBuildVersion }}.
 
 https://kopia.io/

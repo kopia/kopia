@@ -175,7 +175,7 @@ func SendTo(ctx context.Context, rep repo.Repository, s sender.Sender, templateN
 		return errors.Wrap(err, "unable to resolve notification template")
 	}
 
-	t, err := notifytemplate.ParseTemplate(tmpl)
+	t, err := notifytemplate.ParseTemplate(tmpl, notifytemplate.DefaultOptions)
 	if err != nil {
 		return errors.Wrap(err, "unable to parse notification template")
 	}

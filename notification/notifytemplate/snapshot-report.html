@@ -62,7 +62,7 @@ Subject: Kopia created {{ len .EventArgs.Snapshots }} snapshot{{ if gt (len .Eve
 {{ range .EventArgs.Snapshots | sortSnapshotManifestsByName}}
 <tr class="snapshotstatus-{{ .StatusCode }}">
 <td><span class="path">{{ .Source.Path }}</span></td>
-<td>{{ .StartTimestamp }}</td>
+<td>{{ .StartTimestamp | formatTime }}</td>
 <td>{{ .Duration }}</td>
 <td>{{ .TotalSize | bytes }}</td>
 <td>{{ .TotalFiles }}</td>
@@ -97,7 +97,7 @@ Subject: Kopia created {{ len .EventArgs.Snapshots }} snapshot{{ if gt (len .Eve
 {{ end }}
 </table>
 
-<p>Generated at {{ .EventTime }} by <a href="https://kopia.io">Kopia {{ .KopiaBuildVersion }}</a>.</p>
+<p>Generated at {{ .EventTime | formatTime }} by <a href="https://kopia.io">Kopia {{ .KopiaBuildVersion }}</a>.</p>
 
 </body>
 </html>

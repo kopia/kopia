@@ -16,6 +16,11 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
+var testOptions = notifytemplate.Options{
+	Timezone:   time.UTC,
+	TimeFormat: time.RFC3339,
+}
+
 func TestNotifyTemplate_generic_error(t *testing.T) {
 	args := notification.MakeTemplateArgs(&notifydata.ErrorInfo{
 		Operation:        "Some Operation",
@@ -82,7 +87,7 @@ func verifyTemplate(t *testing.T, embeddedTemplateName string, args interface{})
 	tmpl, err := notifytemplate.GetEmbeddedTemplate(embeddedTemplateName)
 	require.NoError(t, err)
 
-	tt, err := notifytemplate.ParseTemplate(tmpl)
+	tt, err := notifytemplate.ParseTemplate(tmpl, testOptions)
 	require.NoError(t, err)
 
 	var buf bytes.Buffer

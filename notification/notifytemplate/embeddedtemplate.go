@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 	"text/template"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -22,19 +23,41 @@ const (
 	TestNotification = "test-notification"
 )
 
-// Functions is a map of functions that can be used in templates.
+// Options provides options for template rendering.
+type Options struct {
+	Timezone   *time.Location
+	TimeFormat string
+}
+
+// functions is a map of functions that can be used in templates.
+func functions(opt Options) template.FuncMap {
+	if opt.Timezone == nil {
+		opt.Timezone = time.Local
+	}
+
+	if opt.TimeFormat == "" {
+		opt.TimeFormat = time.RFC3339
+	}
+
+	return template.FuncMap{
+		"bytes": units.BytesString[int64],
+		"sortSnapshotManifestsByName": func(man []*notifydata.ManifestWithError) []*notifydata.ManifestWithError {
+			res := slices.Clone(man)
+			sort.Slice(res, func(i, j int) bool {
+				return res[i].Source.String() < res[j].Source.String()
+			})
+			return res
+		},
+		"formatTime": func(t time.Time) string {
+			return t.In(opt.Timezone).Format(opt.TimeFormat)
+		},
+	}
+}
+
+// DefaultOptions is the default set of options.
 //
 //nolint:gochecknoglobals
-var Functions = template.FuncMap{
-	"bytes": units.BytesString[int64],
-	"sortSnapshotManifestsByName": func(man []*notifydata.ManifestWithError) []*notifydata.ManifestWithError {
-		res := slices.Clone(man)
-		sort.Slice(res, func(i, j int) bool {
-			return res[i].Source.String() < res[j].Source.String()
-		})
-		return res
-	},
-}
+var DefaultOptions = Options{}
 
 // GetEmbeddedTemplate returns embedded template by name.
 func GetEmbeddedTemplate(templateName string) (string, error) {
@@ -60,7 +83,7 @@ func SupportedTemplates() []string {
 }
 
 // ParseTemplate parses a named template.
-func ParseTemplate(tmpl string) (*template.Template, error) {
+func ParseTemplate(tmpl string, opt Options) (*template.Template, error) {
 	//nolint:wrapcheck
-	return template.New("template").Funcs(Functions).Parse(tmpl)
+	return template.New("template").Funcs(functions(opt)).Parse(tmpl)
 }

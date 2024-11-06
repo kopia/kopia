@@ -77,7 +77,7 @@ func (c *commandNotificationTemplateSet) launchEditor(ctx context.Context, rep r
 	var lastUpdated string
 
 	if err := editor.EditLoop(ctx, "template.md", s, false, func(updated string) error {
-		_, err := notifytemplate.ParseTemplate(updated)
+		_, err := notifytemplate.ParseTemplate(updated, notifytemplate.DefaultOptions)
 		if err == nil {
 			lastUpdated = updated
 			return nil

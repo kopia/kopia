@@ -3,7 +3,7 @@ Subject: Kopia created {{ len .EventArgs.Snapshots }} snapshot{{ if gt (len .Eve
 {{ range .EventArgs.Snapshots | sortSnapshotManifestsByName}}Path: {{ .Source.Path }}
 
   Status: {{ .StatusCode }}
-  Start: {{ .StartTimestamp }} Duration: {{ .Duration }}
+  Start: {{ .StartTimestamp | formatTime  }} Duration: {{ .Duration }}
   Size: {{ .TotalSize | bytes }}, {{ .TotalFiles }} files, {{ .TotalDirs }} directories.
 {{ if .Error }}  Error: {{ .Error }}
 {{ end }}{{ if .RootEntry }}{{ if .RootEntry.DirSummary }}{{ if .RootEntry.DirSummary.FailedEntries }}
@@ -11,6 +11,6 @@ Subject: Kopia created {{ len .EventArgs.Snapshots }} snapshot{{ if gt (len .Eve
 {{ range .RootEntry.DirSummary.FailedEntries }}
   - {{.EntryPath}}: {{.Error}}{{ end }}{{ end }}{{ end }}
 {{ end }}
-{{ end }}Generated at {{ .EventTime }} by Kopia {{ .KopiaBuildVersion }}.
+{{ end }}Generated at {{ .EventTime | formatTime }} by Kopia {{ .KopiaBuildVersion }}.
 
 https://kopia.io/
