@@ -207,6 +207,9 @@ func isAuthenticated(rc requestContext) bool {
 		rc.w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
 		http.Error(rc.w, "Access denied.\n", http.StatusUnauthorized)
 
+		// Log failed authentication attempt
+		log(rc.req.Context()).Warnf("failed login attempt by client %s for user %s", rc.req.RemoteAddr, username)
+
 		return false
 	}
 
@@ -222,6 +225,9 @@ func isAuthenticated(rc requestContext) bool {
 			Expires: now.Add(kopiaAuthCookieTTL),
 			Path:    "/",
 		})
+
+		// Log successful authentication
+		log(rc.req.Context()).Infof("successful login by client %s for user %s", rc.req.RemoteAddr, username)
 	}
 
 	return true
