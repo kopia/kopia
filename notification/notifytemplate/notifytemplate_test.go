@@ -17,8 +17,7 @@ import (
 )
 
 var defaultTestOptions = notifytemplate.Options{
-	Timezone:   time.UTC,
-	TimeFormat: time.RFC3339,
+	Timezone: time.UTC,
 }
 
 var altTestOptions = notifytemplate.Options{

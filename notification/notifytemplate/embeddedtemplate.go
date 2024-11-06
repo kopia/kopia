@@ -36,7 +36,7 @@ func functions(opt Options) template.FuncMap {
 	}
 
 	if opt.TimeFormat == "" {
-		opt.TimeFormat = time.RFC3339
+		opt.TimeFormat = time.RFC1123Z
 	}
 
 	return template.FuncMap{
