@@ -1,0 +1,23 @@
+Subject: Kopia created 2 snapshots on some-host
+
+Path: /some/other/path
+
+  Status: fatal
+  Start: 1969-12-31 16:00:00 -0800 PST Duration: 0s
+  Size: 0 B, 0 files, 0 directories.
+  Error: some top-level error
+
+Path: /some/path
+
+  Status: ok
+  Start: 2020-01-01 19:04:05 -0800 PST Duration: 1.000000001s
+  Size: 456 B, 123 files, 33 directories.
+
+  Failed Entries:
+
+  - /some/path: some error
+  - /some/path2: some error
+
+Generated at 2020-01-02 03:04:05.000000006 +0000 UTC by Kopia v0-unofficial.
+
+https://kopia.io/
