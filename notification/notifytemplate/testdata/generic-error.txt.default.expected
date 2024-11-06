@@ -1,8 +1,8 @@
 Subject: Kopia has encountered an error during Some Operation on some-host
 
 Operation: Some Operation Details
-Started:   2020-01-02 03:04:05 +0000 UTC
-Finished:  2020-01-02 03:04:06 +0000 UTC (1s)
+Started:   2020-01-02T03:04:05Z
+Finished:  2020-01-02T03:04:06Z (1s)
 
 error details
 

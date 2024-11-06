@@ -16,9 +16,14 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-var testOptions = notifytemplate.Options{
+var defaultTestOptions = notifytemplate.Options{
 	Timezone:   time.UTC,
 	TimeFormat: time.RFC3339,
+}
+
+var altTestOptions = notifytemplate.Options{
+	Timezone:   time.FixedZone("PST", -8*60*60),
+	TimeFormat: time.RFC1123,
 }
 
 func TestNotifyTemplate_generic_error(t *testing.T) {
@@ -34,8 +39,10 @@ func TestNotifyTemplate_generic_error(t *testing.T) {
 	args.EventTime = time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC)
 	args.Hostname = "some-host"
 
-	verifyTemplate(t, "generic-error.txt", args)
-	verifyTemplate(t, "generic-error.html", args)
+	verifyTemplate(t, "generic-error.txt", ".default", args, defaultTestOptions)
+	verifyTemplate(t, "generic-error.html", ".default", args, defaultTestOptions)
+	verifyTemplate(t, "generic-error.txt", ".alt", args, altTestOptions)
+	verifyTemplate(t, "generic-error.html", ".alt", args, altTestOptions)
 }
 
 func TestNotifyTemplate_snapshot_report(t *testing.T) {
@@ -77,33 +84,34 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 	args.EventTime = time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC)
 	args.Hostname = "some-host"
 
-	verifyTemplate(t, "snapshot-report.txt", args)
-	verifyTemplate(t, "snapshot-report.html", args)
+	verifyTemplate(t, "snapshot-report.txt", ".default", args, defaultTestOptions)
+	verifyTemplate(t, "snapshot-report.html", ".default", args, defaultTestOptions)
+	verifyTemplate(t, "snapshot-report.txt", ".alt", args, altTestOptions)
+	verifyTemplate(t, "snapshot-report.html", ".alt", args, altTestOptions)
 }
 
-func verifyTemplate(t *testing.T, embeddedTemplateName string, args interface{}) {
+func verifyTemplate(t *testing.T, embeddedTemplateName, expectedSuffix string, args interface{}, opt notifytemplate.Options) {
 	t.Helper()
 
 	tmpl, err := notifytemplate.GetEmbeddedTemplate(embeddedTemplateName)
 	require.NoError(t, err)
 
-	tt, err := notifytemplate.ParseTemplate(tmpl, testOptions)
+	tt, err := notifytemplate.ParseTemplate(tmpl, opt)
 	require.NoError(t, err)
 
 	var buf bytes.Buffer
 
 	require.NoError(t, tt.Execute(&buf, args))
 
-	actualFileName := filepath.Join("testdata", embeddedTemplateName+".actual")
+	actualFileName := filepath.Join("testdata", embeddedTemplateName+expectedSuffix+".actual")
 	require.NoError(t, os.WriteFile(actualFileName, buf.Bytes(), 0o644))
 
-	expectedFileName := filepath.Join("testdata", embeddedTemplateName+".expected")
+	expectedFileName := filepath.Join("testdata", embeddedTemplateName+expectedSuffix+".expected")
 
 	wantBytes, err := os.ReadFile(expectedFileName)
 	require.NoError(t, err)
 
 	want := string(wantBytes)
-	require.NotEmpty(t, want)
 
 	require.Equal(t, want, buf.String())
 

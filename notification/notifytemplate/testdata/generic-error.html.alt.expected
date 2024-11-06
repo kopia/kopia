@@ -7,14 +7,14 @@ Subject: Kopia has encountered an error during Some Operation on some-host
 <body>
 
 <p><b>Operation:</b> Some Operation Details</p>
-<p><b>Started:</b> 2020-01-02 03:04:05 +0000 UTC</p>
-<p><b>Finished:</b> 2020-01-02 03:04:06 +0000 UTC (1s)</p>
+<p><b>Started:</b> Wed, 01 Jan 2020 19:04:05 PST</p>
+<p><b>Finished:</b> Wed, 01 Jan 2020 19:04:06 PST (1s)</p>
 
 <p><b>Message:</b> error message</p>
 
 <pre>error details</pre>
 
-<p>Generated at 2020-01-02T03:04:05Z by <a href="https://kopia.io">Kopia v0-unofficial</a>.</p>
+<p>Generated at Wed, 01 Jan 2020 19:04:05 PST by <a href="https://kopia.io">Kopia v0-unofficial</a>.</p>
 
 </body>
 </html>

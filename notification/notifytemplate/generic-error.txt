@@ -1,8 +1,8 @@
 Subject: Kopia has encountered an error during {{ .EventArgs.Operation }} on {{.Hostname}}
 
 Operation: {{ .EventArgs.OperationDetails }}
-Started:   {{ .EventArgs.StartTimestamp }}
-Finished:  {{ .EventArgs.EndTimestamp }} ({{ .EventArgs.Duration }})
+Started:   {{ .EventArgs.StartTimestamp | formatTime }}
+Finished:  {{ .EventArgs.EndTimestamp | formatTime }} ({{ .EventArgs.Duration }})
 
 {{ .EventArgs.ErrorDetails }}
 
