@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifydata"
+	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
 )
@@ -35,6 +36,7 @@ type maintenanceManagerServerInterface interface {
 	runMaintenanceTask(ctx context.Context, dr repo.DirectRepository) error
 	refreshScheduler(reason string)
 	enableErrorNotifications() bool
+	notificationTemplateOptions() notifytemplate.Options
 }
 
 func (s *srvMaintenance) trigger() {
@@ -152,7 +154,9 @@ func startMaintenanceManager(
 							rep,
 							"generic-error",
 							notifydata.NewErrorInfo("Maintenance", "Scheduled Maintenance", t0, clock.Now(), err),
-							notification.SeverityError)
+							notification.SeverityError,
+							srv.notificationTemplateOptions(),
+						)
 					}
 				}
 

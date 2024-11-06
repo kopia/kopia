@@ -132,7 +132,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 			go func() {
 				defer s.grpcServerState.sem.Release(1)
 
-				handleSessionRequest(ctx, dw, authz, usernameAtHostname, req, func(resp *grpcapi.SessionResponse) {
+				s.handleSessionRequest(ctx, dw, authz, usernameAtHostname, req, func(resp *grpcapi.SessionResponse) {
 					if err := s.send(srv, req.GetRequestId(), resp); err != nil {
 						select {
 						case lastErr <- err:
@@ -149,7 +149,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 
 var tracer = otel.Tracer("kopia/grpc")
 
-func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, usernameAtHostname string, req *grpcapi.SessionRequest, respond func(*grpcapi.SessionResponse)) {
+func (s *Server) handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, usernameAtHostname string, req *grpcapi.SessionRequest, respond func(*grpcapi.SessionResponse)) {
 	if req.GetTraceContext() != nil {
 		var tc propagation.TraceContext
 		ctx = tc.Extract(ctx, propagation.MapCarrier(req.GetTraceContext()))
@@ -187,7 +187,7 @@ func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, a
 		respond(handleApplyRetentionPolicyRequest(ctx, dw, authz, usernameAtHostname, inner.ApplyRetentionPolicy))
 
 	case *grpcapi.SessionRequest_SendNotification:
-		respond(handleSendNotificationRequest(ctx, dw, authz, inner.SendNotification))
+		respond(s.handleSendNotificationRequest(ctx, dw, authz, inner.SendNotification))
 
 	case *grpcapi.SessionRequest_InitializeSession:
 		respond(errorResponse(errors.New("InitializeSession must be the first request in a session")))
@@ -488,7 +488,7 @@ func handleApplyRetentionPolicyRequest(ctx context.Context, rep repo.RepositoryW
 	}
 }
 
-func handleSendNotificationRequest(ctx context.Context, rep repo.RepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.SendNotificationRequest) *grpcapi.SessionResponse {
+func (s *Server) handleSendNotificationRequest(ctx context.Context, rep repo.RepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.SendNotificationRequest) *grpcapi.SessionResponse {
 	ctx, span := tracer.Start(ctx, "GRPCSession.SendNotification")
 	defer span.End()
 
@@ -499,7 +499,8 @@ func handleSendNotificationRequest(ctx context.Context, rep repo.RepositoryWrite
 	if err := notification.SendInternal(ctx, rep,
 		req.GetTemplateName(),
 		json.RawMessage(req.GetEventArgs()),
-		notification.Severity(req.GetSeverity())); err != nil {
+		notification.Severity(req.GetSeverity()),
+		s.options.NotifyTemplateOptions); err != nil {
 		return errorResponse(err)
 	}
 

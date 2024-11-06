@@ -105,7 +105,7 @@ func notificationSendersFromRepo(ctx context.Context, rep repo.Repository, sever
 
 // Send sends a notification for the given event.
 // Any errors encountered during the process are logged.
-func Send(ctx context.Context, rep repo.Repository, templateName string, eventArgs any, sev Severity) {
+func Send(ctx context.Context, rep repo.Repository, templateName string, eventArgs any, sev Severity, opt notifytemplate.Options) {
 	// if we're connected to a repository server, send the notification there.
 	if rem, ok := rep.(repo.RemoteNotifications); ok {
 		jsonData, err := json.Marshal(eventArgs)
@@ -122,13 +122,13 @@ func Send(ctx context.Context, rep repo.Repository, templateName string, eventAr
 		return
 	}
 
-	if err := SendInternal(ctx, rep, templateName, eventArgs, sev); err != nil {
+	if err := SendInternal(ctx, rep, templateName, eventArgs, sev, opt); err != nil {
 		log(ctx).Warnw("unable to send notification", "err", err)
 	}
 }
 
 // SendInternal sends a notification for the given event and returns an error.
-func SendInternal(ctx context.Context, rep repo.Repository, templateName string, eventArgs any, sev Severity) error {
+func SendInternal(ctx context.Context, rep repo.Repository, templateName string, eventArgs any, sev Severity, opt notifytemplate.Options) error {
 	senders, err := notificationSendersFromRepo(ctx, rep, sev)
 	if err != nil {
 		return errors.Wrap(err, "unable to get notification senders")
@@ -137,7 +137,7 @@ func SendInternal(ctx context.Context, rep repo.Repository, templateName string,
 	var resultErr error
 
 	for _, s := range senders {
-		if err := SendTo(ctx, rep, s, templateName, eventArgs, sev); err != nil {
+		if err := SendTo(ctx, rep, s, templateName, eventArgs, sev, opt); err != nil {
 			resultErr = multierr.Append(resultErr, err)
 		}
 	}
@@ -166,7 +166,7 @@ func MakeTemplateArgs(eventArgs any) TemplateArgs {
 }
 
 // SendTo sends a notification to the given sender.
-func SendTo(ctx context.Context, rep repo.Repository, s sender.Sender, templateName string, eventArgs any, sev Severity) error {
+func SendTo(ctx context.Context, rep repo.Repository, s sender.Sender, templateName string, eventArgs any, sev Severity, opt notifytemplate.Options) error {
 	// execute template
 	var bodyBuf bytes.Buffer
 
@@ -175,7 +175,7 @@ func SendTo(ctx context.Context, rep repo.Repository, s sender.Sender, templateN
 		return errors.Wrap(err, "unable to resolve notification template")
 	}
 
-	t, err := notifytemplate.ParseTemplate(tmpl, notifytemplate.DefaultOptions)
+	t, err := notifytemplate.ParseTemplate(tmpl, opt)
 	if err != nil {
 		return errors.Wrap(err, "unable to parse notification template")
 	}
@@ -205,5 +205,5 @@ func SendTo(ctx context.Context, rep repo.Repository, s sender.Sender, templateN
 func SendTestNotification(ctx context.Context, rep repo.Repository, s sender.Sender) error {
 	log(ctx).Infof("Sending test notification to %v", s.Summary())
 
-	return SendTo(ctx, rep, s, notifytemplate.TestNotification, struct{}{}, SeveritySuccess)
+	return SendTo(ctx, rep, s, notifytemplate.TestNotification, struct{}{}, SeveritySuccess, notifytemplate.DefaultOptions)
 }

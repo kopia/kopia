@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifydata"
+	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -91,6 +92,7 @@ type appServices interface {
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
 	getRestoreProgress() RestoreProgress
+	notificationTemplateOptions() notifytemplate.Options
 
 	stdout() io.Writer
 	Stderr() io.Writer
@@ -589,7 +591,9 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 				c.currentActionName(),
 				t0,
 				clock.Now(),
-				err), notification.SeverityError)
+				err), notification.SeverityError,
+				c.notificationTemplateOptions(),
+			)
 		}
 
 		if rep != nil && mode.mustBeConnected {
@@ -667,6 +671,11 @@ To run this command despite the warning, set --advanced-commands=enabled
 
 		c.exitWithError(errors.New("advanced commands are disabled"))
 	}
+}
+
+func (c *App) notificationTemplateOptions() notifytemplate.Options {
+	// perhaps make this configurable in the future
+	return notifytemplate.DefaultOptions
 }
 
 func init() {

@@ -147,7 +147,7 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		}
 	}
 
-	notification.Send(ctx, rep, "snapshot-report", st, notification.SeverityReport)
+	notification.Send(ctx, rep, "snapshot-report", st, notification.SeverityReport, c.svc.notificationTemplateOptions())
 
 	// ensure we flush at least once in the session to properly close all pending buffers,
 	// otherwise the session will be reported as memory leak.

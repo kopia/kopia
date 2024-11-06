@@ -12,6 +12,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
 )
@@ -49,6 +50,10 @@ func (s *testServer) refreshScheduler(reason string) {
 
 func (s *testServer) enableErrorNotifications() bool {
 	return false
+}
+
+func (s *testServer) notificationTemplateOptions() notifytemplate.Options {
+	return notifytemplate.DefaultOptions
 }
 
 func TestServerMaintenance(t *testing.T) {

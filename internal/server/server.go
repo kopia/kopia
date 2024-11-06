@@ -26,6 +26,7 @@ import (
 	"github.com/kopia/kopia/internal/scheduler"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
+	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
@@ -539,6 +540,10 @@ func (s *Server) enableErrorNotifications() bool {
 	return s.options.EnableErrorNotifications
 }
 
+func (s *Server) notificationTemplateOptions() notifytemplate.Options {
+	return s.options.NotifyTemplateOptions
+}
+
 // SetRepository sets the repository (nil is allowed and indicates server that is not
 // connected to the repository).
 func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
@@ -807,6 +812,7 @@ type Options struct {
 	DebugScheduler           bool
 	MinMaintenanceInterval   time.Duration
 	EnableErrorNotifications bool
+	NotifyTemplateOptions    notifytemplate.Options
 }
 
 // InitRepositoryFunc is a function that attempts to connect to/open repository.

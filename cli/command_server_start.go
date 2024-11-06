@@ -163,6 +163,7 @@ func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Op
 		DisableCSRFTokenChecks: c.disableCSRFTokenChecks,
 
 		EnableErrorNotifications: c.svc.enableErrorNotifications(),
+		NotifyTemplateOptions:    c.svc.notificationTemplateOptions(),
 	}, nil
 }
 
