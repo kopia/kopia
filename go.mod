@@ -1,6 +1,7 @@
 module github.com/kopia/kopia
 
 go 1.22.7
+toolchain go1.23.3
 
 require (
 	cloud.google.com/go/storage v1.46.0
@@ -10,8 +11,8 @@ require (
 	github.com/alecthomas/kingpin/v2 v2.4.0
 	github.com/alecthomas/units v0.0.0-20211218093645-b94a6e3cc137
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
-	github.com/chromedp/cdproto v0.0.0-20241003230502-a4a8f7c660df
-	github.com/chromedp/chromedp v0.11.0
+	github.com/chromedp/cdproto v0.0.0-20241022234722-4d5d5faf59fb
+	github.com/chromedp/chromedp v0.11.2
 	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/edsrzf/mmap-go v1.2.0
@@ -90,7 +91,7 @@ require (
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/chromedp/sysutil v1.0.0 // indirect
+	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20240905190251-b4127c9b8d78 // indirect
 	github.com/danieljoos/wincred v1.2.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
