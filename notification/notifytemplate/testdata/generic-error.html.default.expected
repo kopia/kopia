@@ -1,0 +1,20 @@
+Subject: Kopia has encountered an error during Some Operation on some-host
+
+<!doctype html>
+<html>
+<head>
+</head>
+<body>
+
+<p><b>Operation:</b> Some Operation Details</p>
+<p><b>Started:</b> Thu, 02 Jan 2020 03:04:05 +0000</p>
+<p><b>Finished:</b> Thu, 02 Jan 2020 03:04:06 +0000 (1s)</p>
+
+<p><b>Message:</b> error message</p>
+
+<pre>error details</pre>
+
+<p>Generated at Thu, 02 Jan 2020 03:04:05 +0000 by <a href="https://kopia.io">Kopia v0-unofficial</a>.</p>
+
+</body>
+</html>

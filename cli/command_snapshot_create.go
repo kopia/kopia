@@ -12,6 +12,8 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/virtualfs"
+	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -127,6 +129,8 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		return err
 	}
 
+	var st notifydata.MultiSnapshotStatus
+
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
 			log(ctx).Info("Upload canceled")
@@ -138,10 +142,12 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 			finalErrors = append(finalErrors, fmt.Sprintf("failed to prepare source: %s", err))
 		}
 
-		if err := c.snapshotSingleSource(ctx, fsEntry, setManual, rep, u, sourceInfo, tags); err != nil {
+		if err := c.snapshotSingleSource(ctx, fsEntry, setManual, rep, u, sourceInfo, tags, &st); err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
 	}
+
+	notification.Send(ctx, rep, "snapshot-report", st, notification.SeverityReport, c.svc.notificationTemplateOptions())
 
 	// ensure we flush at least once in the session to properly close all pending buffers,
 	// otherwise the session will be reported as memory leak.
@@ -259,27 +265,48 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 		startTime.After(endTime)
 }
 
-//nolint:gocyclo
-func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, fsEntry fs.Entry, setManual bool, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
+//nolint:gocyclo,funlen
+func (c *commandSnapshotCreate) snapshotSingleSource(
+	ctx context.Context,
+	fsEntry fs.Entry,
+	setManual bool,
+	rep repo.RepositoryWriter,
+	u *snapshotfs.Uploader,
+	sourceInfo snapshot.SourceInfo,
+	tags map[string]string,
+	st *notifydata.MultiSnapshotStatus,
+) (finalErr error) {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
-	var err error
+	var mwe notifydata.ManifestWithError
 
-	previous, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
-	if err != nil {
-		return err
+	mwe.Source = sourceInfo
+
+	st.Snapshots = append(st.Snapshots, &mwe)
+
+	defer func() {
+		if finalErr != nil {
+			mwe.Error = finalErr.Error()
+		}
+	}()
+
+	var previous []*snapshot.Manifest
+
+	previous, finalErr = findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
+	if finalErr != nil {
+		return finalErr
 	}
 
-	policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
-	if err != nil {
-		return errors.Wrap(err, "unable to get policy tree")
+	policyTree, finalErr := policy.TreeForSource(ctx, rep, sourceInfo)
+	if finalErr != nil {
+		return errors.Wrap(finalErr, "unable to get policy tree")
 	}
 
-	manifest, err := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)
-	if err != nil {
+	manifest, finalErr := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)
+	if finalErr != nil {
 		// fail-fast uploads will fail here without recording a manifest, other uploads will
 		// possibly fail later.
-		return errors.Wrap(err, "upload error")
+		return errors.Wrap(finalErr, "upload error")
 	}
 
 	manifest.Description = c.snapshotCreateDescription
@@ -308,6 +335,8 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, fsEntr
 		manifest.EndTime = fs.UTCTimestampFromTime(endTimeOverride)
 	}
 
+	mwe.Manifest = *manifest
+
 	ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
 	if ignoreIdenticalSnapshot && len(previous) > 0 {
 		if previous[0].RootObjectID() == manifest.RootObjectID() {
@@ -316,17 +345,17 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, fsEntr
 		}
 	}
 
-	if _, err = snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {
-		return errors.Wrap(err, "cannot save manifest")
+	if _, finalErr = snapshot.SaveSnapshot(ctx, rep, manifest); finalErr != nil {
+		return errors.Wrap(finalErr, "cannot save manifest")
 	}
 
-	if _, err = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true); err != nil {
-		return errors.Wrap(err, "unable to apply retention policy")
+	if _, finalErr = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true); finalErr != nil {
+		return errors.Wrap(finalErr, "unable to apply retention policy")
 	}
 
 	if setManual {
-		if err = policy.SetManual(ctx, rep, sourceInfo); err != nil {
-			return errors.Wrap(err, "unable to set manual field in scheduling policy for source")
+		if finalErr = policy.SetManual(ctx, rep, sourceInfo); finalErr != nil {
+			return errors.Wrap(finalErr, "unable to set manual field in scheduling policy for source")
 		}
 	}
 

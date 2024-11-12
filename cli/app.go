@@ -16,9 +16,13 @@ import (
 	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/releasable"
+	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/notifydata"
+	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -88,6 +92,7 @@ type appServices interface {
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
 	getRestoreProgress() RestoreProgress
+	notificationTemplateOptions() notifytemplate.Options
 
 	stdout() io.Writer
 	Stderr() io.Writer
@@ -112,6 +117,7 @@ type advancedAppServices interface {
 	getPasswordFromFlags(ctx context.Context, isCreate, allowPersistent bool) (string, error)
 	optionsFromFlags(ctx context.Context) *repo.Options
 	runAppWithContext(command *kingpin.CmdClause, callback func(ctx context.Context) error) error
+	enableErrorNotifications() bool
 }
 
 // App contains per-invocation flags and state of Kopia CLI.
@@ -138,6 +144,8 @@ type App struct {
 	observability       observabilityFlags
 	upgradeOwnerID      string
 	doNotWaitForUpgrade bool
+
+	errorNotifications bool
 
 	currentAction         string
 	onExitCallbacks       []func()
@@ -240,6 +248,10 @@ func (c *App) passwordPersistenceStrategy() passwordpersist.Strategy {
 	return passwordpersist.File()
 }
 
+func (c *App) enableErrorNotifications() bool {
+	return c.errorNotifications
+}
+
 func (c *App) setup(app *kingpin.Application) {
 	app.PreAction(func(pc *kingpin.ParseContext) error {
 		if sc := pc.SelectedCommand; sc != nil {
@@ -274,6 +286,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(c.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
 	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar(c.EnvName("KOPIA_REPO_UPGRADE_OWNER_ID")).StringVar(&c.upgradeOwnerID)
 	app.Flag("upgrade-no-block", "Do not block when repository format upgrade is in progress, instead exit with a message.").Hidden().Default("false").Envar(c.EnvName("KOPIA_REPO_UPGRADE_NO_BLOCK")).BoolVar(&c.doNotWaitForUpgrade)
+	app.Flag("error-notifications", "Send notification on errors").Hidden().Envar(c.EnvName("KOPIA_SEND_ERROR_NOTIFICATIONS")).Default("true").BoolVar(&c.errorNotifications)
 
 	if c.enableTestOnlyFlags() {
 		app.Flag("ignore-missing-required-features", "Open repository despite missing features (VERY DANGEROUS, ONLY FOR TESTING)").Hidden().BoolVar(&c.testonlyIgnoreMissingRequiredFeatures)
@@ -562,12 +575,25 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 			return errors.Wrap(err, "open repository")
 		}
 
+		t0 := clock.Now()
+
 		err = act(ctx, rep)
 
 		if rep != nil && err == nil && !mode.disableMaintenance {
 			if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
 				log(ctx).Errorf("error running maintenance: %v", merr)
 			}
+		}
+
+		if err != nil && rep != nil && c.errorNotifications {
+			notification.Send(ctx, rep, "generic-error", notifydata.NewErrorInfo(
+				c.currentActionName(),
+				c.currentActionName(),
+				t0,
+				clock.Now(),
+				err), notification.SeverityError,
+				c.notificationTemplateOptions(),
+			)
 		}
 
 		if rep != nil && mode.mustBeConnected {
@@ -645,6 +671,11 @@ To run this command despite the warning, set --advanced-commands=enabled
 
 		c.exitWithError(errors.New("advanced commands are disabled"))
 	}
+}
+
+func (c *App) notificationTemplateOptions() notifytemplate.Options {
+	// perhaps make this configurable in the future
+	return notifytemplate.DefaultOptions
 }
 
 func init() {

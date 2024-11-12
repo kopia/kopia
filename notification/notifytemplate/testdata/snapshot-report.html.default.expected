@@ -1,0 +1,119 @@
+Subject: Kopia created 2 snapshots on some-host
+
+<!doctype html>
+<html>
+<head>
+<style type="text/css">
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    thead tr {
+        background-color: #f2f2f2;
+    }
+
+    th, td {
+        border: 1px solid black;
+        padding: 2px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f2f2f2;
+    }
+
+    code {
+        background-color: #f2f2f2;
+        padding: 2px;
+    }
+
+    span.path {
+        font-family: monospace;
+        color: #344652;
+        font-weight: bold;
+    }
+
+    tr.snapshotstatus-fatal {
+        background-color: #fde9e4;
+    }
+
+    tr.snapshotstatus-error {
+        background-color: #fcffba;
+    }
+
+    tr.snapshotstatus-incomplete {
+        background-color: #8a8c7e;
+    }
+</style>
+</head>
+<body>
+<table border="1">
+<thead>
+    <tr>
+        <th>Source</th>
+        <th>Started</th>
+        <th>Duration</th>
+        <th>Total Size</th>
+        <th>Total Files</th>
+        <th>Total Directories</th>
+    </tr>
+</thead>
+
+<tr class="snapshotstatus-fatal">
+<td><span class="path">/some/other/path</span></td>
+<td>Thu, 01 Jan 1970 00:00:00 +0000</td>
+<td>0s</td>
+<td>0 B</td>
+<td>0</td>
+<td>0</td>
+</tr>
+
+
+<tr class="snapshotstatus-fatal">
+    <td colspan="6">
+        <b style="color:red">Error:</b> some top-level error
+    </td>
+</tr>
+
+
+
+
+
+<tr class="snapshotstatus-ok">
+<td><span class="path">/some/path</span></td>
+<td>Thu, 02 Jan 2020 03:04:05 +0000</td>
+<td>1.000000001s</td>
+<td>456 B</td>
+<td>123</td>
+<td>33</td>
+</tr>
+
+
+
+
+
+
+<tr class="snapshotstatus-ok">
+    <td colspan="6">
+        <b style="color:red">Failed Entries:</b>
+        <ul>
+        
+        <li><span class="path">/some/path</span>: some error</li>
+        
+        <li><span class="path">/some/path2</span>: some error</li>
+        
+        </ul>
+    </td>
+</tr>
+
+
+
+
+
+</table>
+
+<p>Generated at Thu, 02 Jan 2020 03:04:05 +0000 by <a href="https://kopia.io">Kopia v0-unofficial</a>.</p>
+
+</body>
+</html>

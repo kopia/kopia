@@ -290,7 +290,7 @@ func remoteRepositoryNotificationTest(t *testing.T, ctx context.Context, rep rep
 	}))
 	require.NoError(t, rw.Flush(ctx))
 
-	notification.Send(ctx, rep, notifytemplate.TestNotification, nil, notification.SeverityError)
+	notification.Send(ctx, rep, notifytemplate.TestNotification, nil, notification.SeverityError, notifytemplate.DefaultOptions)
 	require.Equal(t, int32(1), numRequestsReceived.Load())
 
 	// another webhook which fails
@@ -307,7 +307,7 @@ func remoteRepositoryNotificationTest(t *testing.T, ctx context.Context, rep rep
 	}))
 
 	require.NoError(t, rw.Flush(ctx))
-	notification.Send(ctx, rep, notifytemplate.TestNotification, nil, notification.SeverityError)
+	notification.Send(ctx, rep, notifytemplate.TestNotification, nil, notification.SeverityError, notifytemplate.DefaultOptions)
 	require.Equal(t, int32(1), numRequestsReceived.Load())
 }
 
