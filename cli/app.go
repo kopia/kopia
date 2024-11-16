@@ -145,7 +145,7 @@ type App struct {
 	upgradeOwnerID      string
 	doNotWaitForUpgrade bool
 
-	errorNotifications bool
+	errorNotifications string
 
 	currentAction         string
 	onExitCallbacks       []func()
@@ -248,10 +248,6 @@ func (c *App) passwordPersistenceStrategy() passwordpersist.Strategy {
 	return passwordpersist.File()
 }
 
-func (c *App) enableErrorNotifications() bool {
-	return c.errorNotifications
-}
-
 func (c *App) setup(app *kingpin.Application) {
 	app.PreAction(func(pc *kingpin.ParseContext) error {
 		if sc := pc.SelectedCommand; sc != nil {
@@ -286,7 +282,10 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(c.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
 	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar(c.EnvName("KOPIA_REPO_UPGRADE_OWNER_ID")).StringVar(&c.upgradeOwnerID)
 	app.Flag("upgrade-no-block", "Do not block when repository format upgrade is in progress, instead exit with a message.").Hidden().Default("false").Envar(c.EnvName("KOPIA_REPO_UPGRADE_NO_BLOCK")).BoolVar(&c.doNotWaitForUpgrade)
-	app.Flag("error-notifications", "Send notification on errors").Hidden().Envar(c.EnvName("KOPIA_SEND_ERROR_NOTIFICATIONS")).Default("true").BoolVar(&c.errorNotifications)
+	app.Flag("error-notifications", "Send notification on errors").Hidden().
+		Envar(c.EnvName("KOPIA_SEND_ERROR_NOTIFICATIONS")).
+		Default(errorNotificationsNonInteractive).
+		EnumVar(&c.errorNotifications, errorNotificationsAlways, errorNotificationsNever, errorNotificationsNonInteractive)
 
 	if c.enableTestOnlyFlags() {
 		app.Flag("ignore-missing-required-features", "Open repository despite missing features (VERY DANGEROUS, ONLY FOR TESTING)").Hidden().BoolVar(&c.testonlyIgnoreMissingRequiredFeatures)
@@ -585,7 +584,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 			}
 		}
 
-		if err != nil && rep != nil && c.errorNotifications {
+		if err != nil && c.enableErrorNotifications() && rep != nil {
 			notification.Send(ctx, rep, "generic-error", notifydata.NewErrorInfo(
 				c.currentActionName(),
 				c.currentActionName(),
