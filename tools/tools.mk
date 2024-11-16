@@ -121,6 +121,11 @@ endif
 npm=$(node_dir)$(slash)npm$(cmd_suffix)
 npm_flags=--scripts-prepend-node-path=auto
 
+npm_install_or_ci:=install
+ifneq ($(CI),)
+npm_install_or_ci:=ci
+endif
+
 # put NPM in the path
 PATH:=$(node_dir)$(path_separator)$(PATH)
 ifeq ($(GOOS),$(filter $(GOOS),openbsd freebsd))
