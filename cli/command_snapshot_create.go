@@ -42,6 +42,7 @@ type commandSnapshotCreate struct {
 	snapshotCreateTags                    []string
 	flushPerSource                        bool
 	sourceOverride                        string
+	sendSnapshotReport                    bool
 
 	pins []string
 
@@ -73,6 +74,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("pin", "Create a pinned snapshot that will not expire automatically").StringsVar(&c.pins)
 	cmd.Flag("flush-per-source", "Flush writes at the end of each source").Hidden().BoolVar(&c.flushPerSource)
 	cmd.Flag("override-source", "Override the source of the snapshot.").StringVar(&c.sourceOverride)
+	cmd.Flag("send-snapshot-report", "Send a snapshot report notification using configured notification profiles").Default("true").BoolVar(&c.sendSnapshotReport)
 
 	c.logDirDetail = -1
 	c.logEntryDetail = -1
@@ -147,7 +149,9 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		}
 	}
 
-	notification.Send(ctx, rep, "snapshot-report", st, notification.SeverityReport, c.svc.notificationTemplateOptions())
+	if c.sendSnapshotReport {
+		notification.Send(ctx, rep, "snapshot-report", st, notification.SeverityReport, c.svc.notificationTemplateOptions())
+	}
 
 	// ensure we flush at least once in the session to properly close all pending buffers,
 	// otherwise the session will be reported as memory leak.
