@@ -50,8 +50,8 @@ func goModeToUnixMode(mode os.FileMode) uint32 {
 
 func populateAttributes(a *fuse.Attr, e fs.Entry) {
 	a.Mode = goModeToUnixMode(e.Mode())
-	a.Size = uint64(e.Size())
-	a.Mtime = uint64(e.ModTime().Unix())
+	a.Size = uint64(e.Size())            //nolint:gosec
+	a.Mtime = uint64(e.ModTime().Unix()) //nolint:gosec
 	a.Ctime = a.Mtime
 	a.Atime = a.Mtime
 	a.Nlink = 1

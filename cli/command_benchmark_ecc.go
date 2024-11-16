@@ -70,6 +70,8 @@ func (c *commandBenchmarkEcc) runBenchmark(ctx context.Context) []eccBenchResult
 	var results []eccBenchResult
 
 	data := make([]byte, c.blockSize)
+
+	//nolint:gosec
 	for i := range uint64(c.blockSize) {
 		data[i] = byte(i%255 + 1)
 	}

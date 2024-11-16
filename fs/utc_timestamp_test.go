@@ -25,7 +25,7 @@ func TestUTCTimestamp(t *testing.T) {
 
 	v, err := json.Marshal(x)
 	require.NoError(t, err)
-	require.Equal(t, "{\"myts\":\"2022-01-02T03:04:05.000000006Z\"}", string(v))
+	require.JSONEq(t, "{\"myts\":\"2022-01-02T03:04:05.000000006Z\"}", string(v))
 
 	require.NoError(t, json.Unmarshal(v, &y))
 	require.Equal(t, x, y)

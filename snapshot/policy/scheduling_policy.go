@@ -17,6 +17,8 @@ import (
 )
 
 // TimeOfDay represents the time of day (hh:mm) using 24-hour time format.
+//
+//nolint:recvcheck
 type TimeOfDay struct {
 	Hour   int `json:"hour"`
 	Minute int `json:"min"`

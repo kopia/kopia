@@ -87,11 +87,11 @@ func TestAggregation(t *testing.T) {
 		"counter4": 777,
 	}, res.Counters)
 
-	require.Equal(t,
+	require.JSONEq(t,
 		`{"dist1":{"min":50,"max":210,"sum":560,"count":4,"buckets":[2,2,0,0]}}`,
 		toJSON(res.SizeDistributions))
 
-	require.Equal(t,
+	require.JSONEq(t,
 		`{"dur1":{"min":50000000000,"max":210000000000,"sum":560000000000,"count":4,"buckets":[2,2,0,0]}}`,
 		toJSON(res.DurationDistributions))
 }

@@ -2014,7 +2014,7 @@ func (s *contentManagerSuite) verifyReadsOwnWrites(t *testing.T, st blob.Storage
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := range len(ids) {
+	for i := range len(ids) { //nolint:intrange
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
 		for j := range i {
@@ -2035,7 +2035,7 @@ func (s *contentManagerSuite) verifyReadsOwnWrites(t *testing.T, st blob.Storage
 	require.NoError(t, bm.CloseShared(ctx))
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := range len(ids) {
+	for i := range len(ids) { //nolint:intrange
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }
@@ -2378,7 +2378,7 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := range len(ids) {
+	for i := range len(ids) { //nolint:intrange
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
 		for j := range i {
@@ -2409,7 +2409,7 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := range len(ids) {
+	for i := range len(ids) { //nolint:intrange
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }

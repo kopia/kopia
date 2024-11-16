@@ -68,8 +68,8 @@ func (gdrive *gdriveStorage) GetCapacity(ctx context.Context) (blob.Capacity, er
 	}
 
 	return blob.Capacity{
-		SizeB: uint64(q.Limit),
-		FreeB: uint64(q.Limit) - uint64(q.Usage),
+		SizeB: uint64(q.Limit),                   //nolint:gosec
+		FreeB: uint64(q.Limit) - uint64(q.Usage), //nolint:gosec
 	}, nil
 }
 
