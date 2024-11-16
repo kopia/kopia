@@ -280,7 +280,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(
 
 	var mwe notifydata.ManifestWithError
 
-	mwe.Source = sourceInfo
+	mwe.Manifest.Source = sourceInfo
 
 	st.Snapshots = append(st.Snapshots, &mwe)
 
@@ -295,6 +295,10 @@ func (c *commandSnapshotCreate) snapshotSingleSource(
 	previous, finalErr = findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
 	if finalErr != nil {
 		return finalErr
+	}
+
+	if len(previous) > 0 {
+		mwe.Previous = previous[0]
 	}
 
 	policyTree, finalErr := policy.TreeForSource(ctx, rep, sourceInfo)

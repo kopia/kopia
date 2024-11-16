@@ -34,6 +34,16 @@ Subject: Kopia created {{ len .EventArgs.Snapshots }} snapshot{{ if gt (len .Eve
         font-weight: bold;
     }
 
+    span.increase {
+        color: green;
+        font-style: italic;
+    }
+
+    span.decrease {
+        color: red;
+        font-style: italic;
+    }
+
     tr.snapshotstatus-fatal {
         background-color: #fde9e4;
     }
@@ -61,12 +71,12 @@ Subject: Kopia created {{ len .EventArgs.Snapshots }} snapshot{{ if gt (len .Eve
 </thead>
 {{ range .EventArgs.Snapshots | sortSnapshotManifestsByName}}
 <tr class="snapshotstatus-{{ .StatusCode }}">
-<td><span class="path">{{ .Source.Path }}</span></td>
+<td><span class="path">{{ .Manifest.Source.Path }}</span></td>
 <td>{{ .StartTimestamp | formatTime }}</td>
 <td>{{ .Duration }}</td>
-<td>{{ .TotalSize | bytes }}</td>
-<td>{{ .TotalFiles }}</td>
-<td>{{ .TotalDirs }}</td>
+<td>{{ .TotalSize | bytes }}{{ .TotalSizeDelta | bytesDeltaHTML }}</td>
+<td>{{ .TotalFiles | formatCount }}{{ .TotalFilesDelta | countDeltaHTML }}</td>
+<td>{{ .TotalDirs | formatCount }}{{ .TotalDirsDelta | countDeltaHTML }}</td>
 </tr>
 
 {{ if .Error }}
@@ -77,14 +87,14 @@ Subject: Kopia created {{ len .EventArgs.Snapshots }} snapshot{{ if gt (len .Eve
 </tr>
 {{ end }}
 
-{{ if .RootEntry }}
-{{ if .RootEntry.DirSummary }}
-{{ if .RootEntry.DirSummary.FailedEntries }}
+{{ if .Manifest.RootEntry }}
+{{ if .Manifest.RootEntry.DirSummary }}
+{{ if .Manifest.RootEntry.DirSummary.FailedEntries }}
 <tr class="snapshotstatus-{{ .StatusCode }}">
     <td colspan="6">
         <b style="color:red">Failed Entries:</b>
         <ul>
-        {{ range .RootEntry.DirSummary.FailedEntries }}
+        {{ range .Manifest.RootEntry.DirSummary.FailedEntries }}
         <li><span class="path">{{.EntryPath}}</span>: {{.Error}}</li>
         {{ end }}
         </ul>
