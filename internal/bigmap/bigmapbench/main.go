@@ -98,7 +98,7 @@ func main() {
 
 		// generate key=sha256(i) without allocations.
 		h.Reset()
-		binary.LittleEndian.PutUint64(num[:], uint64(i))
+		binary.LittleEndian.PutUint64(num[:], uint64(i)) //nolint:gosec
 		h.Write(num[:])
 		h.Sum(keyBuf[:0])
 

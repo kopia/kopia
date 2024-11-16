@@ -184,7 +184,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	for blobID, v := range data {
 		for _, prefix := range content.PackBlobIDPrefixes {
 			if strings.HasPrefix(string(blobID), string(prefix)) {
-				for i := range len(v) {
+				for i := range len(v) { // nolint:intrange
 					v[i] ^= 1
 				}
 			}

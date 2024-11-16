@@ -108,7 +108,7 @@ func (r closedIntRange) length() uint {
 		return 0
 	}
 
-	return uint(r.hi - r.lo + 1)
+	return uint(r.hi - r.lo + 1) //nolint:gosec
 }
 
 func (r closedIntRange) isEmpty() bool {

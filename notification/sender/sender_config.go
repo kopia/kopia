@@ -10,6 +10,8 @@ import (
 type Method string
 
 // MethodConfig represents JSON-serializable configuration of a notification method and parameters.
+//
+//nolint:recvcheck
 type MethodConfig struct {
 	Type   Method
 	Config any

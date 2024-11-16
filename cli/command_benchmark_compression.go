@@ -195,7 +195,7 @@ func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data [
 					continue
 				}
 
-				compressedSize = uint64(compressed.Len())
+				compressedSize = uint64(compressed.Len()) //nolint:gosec
 
 				if c.verifyStable {
 					h := hashOf(compressed.Bytes())
@@ -277,6 +277,7 @@ func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data
 				}
 			}
 
+			//nolint:gosec
 			return uint64(compressedInput.Length())
 		}
 

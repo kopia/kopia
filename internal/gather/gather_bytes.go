@@ -18,6 +18,8 @@ var (
 )
 
 // Bytes represents a sequence of bytes split into slices.
+//
+//nolint:recvcheck
 type Bytes struct {
 	Slices [][]byte
 

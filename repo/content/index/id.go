@@ -30,6 +30,8 @@ func (p IDPrefix) ValidateSingle() error {
 }
 
 // ID is an identifier of content in content-addressable storage.
+//
+//nolint:recvcheck
 type ID struct {
 	data [hashing.MaxHashSize]byte
 

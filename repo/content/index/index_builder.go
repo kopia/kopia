@@ -111,7 +111,7 @@ func (b Builder) sortedContents() []*Info {
 	// Phase 3 - merge results from all buckets.
 	result := make([]*Info, 0, len(b))
 
-	for i := range len(buckets) {
+	for i := range len(buckets) { //nolint:intrange
 		result = append(result, buckets[i]...)
 	}
 

@@ -8,6 +8,8 @@ import (
 )
 
 // AccessLevel specifies access level.
+//
+//nolint:recvcheck
 type AccessLevel int
 
 // accessLevelToString maps supported access levels to strings.

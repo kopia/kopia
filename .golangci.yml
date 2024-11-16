@@ -78,11 +78,9 @@ linters:
   enable-all: true
   disable:
     - depguard
-    - execinquery
     - exhaustruct
     - exportloopref
     - gochecknoinits
-    - gomnd
     - gci
     - ireturn # this one may be interesting to control allocations
     - gosmopolitan

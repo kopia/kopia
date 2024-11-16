@@ -366,7 +366,7 @@ func (b *indexBuilderV1) formatEntry(entry []byte, it *Info) error {
 	entryPackFileOffset := entry[8:12]
 	entryPackedOffset := entry[12:16]
 	entryPackedLength := entry[16:20]
-	timestampAndFlags := uint64(it.TimestampSeconds) << 16 //nolint:mnd
+	timestampAndFlags := uint64(it.TimestampSeconds) << 16 //nolint:mnd,gosec
 
 	packBlobID := it.PackBlobID
 	if len(packBlobID) == 0 {

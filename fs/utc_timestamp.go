@@ -8,6 +8,8 @@ import (
 )
 
 // UTCTimestamp stores the UTC timestamp in nanoseconds and provides JSON serializability.
+//
+//nolint:recvcheck
 type UTCTimestamp int64
 
 // UnmarshalJSON implements json.Unmarshaler.

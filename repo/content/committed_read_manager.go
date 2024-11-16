@@ -181,6 +181,7 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 
 	postamble.localIndexOffset -= uint32(offset) //nolint:gosec
 
+	//nolint:gosec
 	if uint64(postamble.localIndexOffset+postamble.localIndexLength) > uint64(payload.Length()) {
 		// invalid offset/length
 		return errors.Errorf("unable to find valid local index in file %v - invalid offset/length", packFile)
