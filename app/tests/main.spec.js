@@ -85,6 +85,7 @@ test('opens repository window', async () => {
   const page = await electronApp.firstWindow();
 
   expect(page).toBeTruthy();
+  await page.waitForNavigation({waitUntil: 'networkidle', networkIdleTimeout: 1000});
   expect(await page.title()).toMatch(/KopiaUI v\d+/);
 
   // TODO - we can exercise some UI scenario using 'page'
