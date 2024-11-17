@@ -145,7 +145,12 @@ func getContentCacheOrNil(ctx context.Context, si *APIServerInfo, opt *content.C
 
 	const cacheEncryptionKeySize = 32
 
-	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, saltWithPurpose, cacheEncryptionKeySize, si.LocalCacheKeyDerivationAlgorithm)
+	keyAlgo := si.LocalCacheKeyDerivationAlgorithm
+	if keyAlgo == "" {
+		keyAlgo = DefaultServerRepoCacheKeyDerivationAlgorithm
+	}
+
+	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, saltWithPurpose, cacheEncryptionKeySize, keyAlgo)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
 	}
