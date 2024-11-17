@@ -206,6 +206,13 @@ kopia08=$(kopia08_dir)$(slash)kopia$(exe_suffix)
 $(kopia08):
 	go run github.com/kopia/kopia/tools/gettool --tool kopia:$(kopia08_version) --output-dir $(kopia08_dir)
 
+kopia017_version=0.17.0
+kopia017_dir=$(TOOLS_DIR)$(slash)kopia-$(kopia017_version)
+kopia017=$(kopia017_dir)$(slash)kopia$(exe_suffix)
+
+$(kopia017):
+	go run github.com/kopia/kopia/tools/gettool --tool kopia:$(kopia017_version) --output-dir $(kopia017_dir)
+
 MINIO_MC_PATH=$(TOOLS_DIR)/bin/mc$(exe_suffix)
 
 $(MINIO_MC_PATH):
@@ -300,7 +307,7 @@ else
 maybehugo=
 endif
 
-ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION),kopia:0.8.4,gitchglog:$(GITCHGLOG_VERSION)
+ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION),kopia:0.8.4,kopia:0.17.0,gitchglog:$(GITCHGLOG_VERSION)
 
 verify-all-tool-checksums:
 	go run github.com/kopia/kopia/tools/gettool --test-all \

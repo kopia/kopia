@@ -311,8 +311,9 @@ $(TESTING_ACTION_EXE): tests/testingaction/main.go
 
 compat-tests: export KOPIA_CURRENT_EXE=$(CURDIR)/$(kopia_ui_embedded_exe)
 compat-tests: export KOPIA_08_EXE=$(kopia08)
+compat-tests: export KOPIA_017_EXE=$(kopia017)
 compat-tests: GOTESTSUM_FLAGS=--format=testname --no-summary=skipped --jsonfile=.tmp.compat-tests.json
-compat-tests: $(kopia_ui_embedded_exe) $(kopia08) $(gotestsum)
+compat-tests: $(kopia_ui_embedded_exe) $(kopia08) $(kopia017) $(gotestsum)
 	$(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/compat_test
 	#  -$(gotestsum) tool slowest --jsonfile .tmp.compat-tests.json  --threshold 1000ms
 

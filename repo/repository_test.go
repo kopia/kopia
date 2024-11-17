@@ -668,9 +668,9 @@ func TestWriteSessionFlushOnSuccessClient(t *testing.T) {
 		},
 	})
 
-	defer rep.Close(ctx) //nolint:errcheck,staticcheck
-
 	require.NoError(t, err)
+
+	defer rep.Close(ctx) //nolint:errcheck,staticcheck
 
 	var oid object.ID
 
