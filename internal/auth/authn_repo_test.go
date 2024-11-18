@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/auth"
@@ -86,7 +87,6 @@ func TestRepositoryAuthenticator(t *testing.T) {
 func verifyRepoAuthenticator(ctx context.Context, t *testing.T, a auth.Authenticator, r repo.Repository, username, password string, want bool) {
 	t.Helper()
 
-	if got := a.IsValid(ctx, r, username, password); got != want {
-		t.Errorf("invalid authenticator result for %v/%v: %v, want %v", username, password, got, want)
-	}
+	got := a.IsValid(ctx, r, username, password)
+	assert.Equal(t, want, got, "invalid authenticator result for %v/%v", username, password)
 }
