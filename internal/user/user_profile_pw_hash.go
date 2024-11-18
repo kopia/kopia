@@ -34,13 +34,8 @@ func (p *Profile) setPassword(password string) error {
 	return nil
 }
 
-func computePasswordHash(password string, salt []byte, passwordHashVersion int) ([]byte, error) {
-	hashingAlgo, err := getPasswordHashAlgorithm(passwordHashVersion)
-	if err != nil {
-		return nil, err
-	}
-
-	key, err := crypto.DeriveKeyFromPassword(password, salt, passwordHashLength, hashingAlgo)
+func computePasswordHash(password string, salt []byte, passwordHashingAlgo string) ([]byte, error) {
+	key, err := crypto.DeriveKeyFromPassword(password, salt, passwordHashLength, passwordHashingAlgo)
 	if err != nil {
 		return nil, errors.Wrap(err, "error hashing password")
 	}
@@ -61,7 +56,7 @@ func computeNewPasswordHash(password string, passwordHashVersion int) ([]byte, e
 		return nil, errors.Wrap(err, "error generating salt")
 	}
 
-	return computePasswordHashWithAlgo(password, salt, hashingAlgo)
+	return computePasswordHash(password, salt, hashingAlgo)
 }
 
 func isValidPassword(password string, hashedPassword []byte, passwordHashVersion int) (bool, error) {
@@ -69,9 +64,14 @@ func isValidPassword(password string, hashedPassword []byte, passwordHashVersion
 		return false, nil
 	}
 
+	hashingAlgo, err := getPasswordHashAlgorithm(passwordHashVersion)
+	if err != nil {
+		return false, err
+	}
+
 	salt := hashedPassword[0:passwordHashSaltLength]
 
-	h, err := computePasswordHash(password, salt, passwordHashVersion)
+	h, err := computePasswordHash(password, salt, hashingAlgo)
 	if err != nil {
 		return false, err
 	}
