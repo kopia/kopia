@@ -274,6 +274,26 @@ func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, err
 	return nil, fs.ErrEntryNotFound
 }
 
+func resolveSymlink(ctx context.Context, entry fs.Symlink) (*fs.File, error) {
+	for {
+		target, err := entry.Resolve(ctx)
+		if err != nil {
+			link, _ := entry.Readlink(ctx)
+			return nil, errors.Wrapf(err, "when resolving symlink %s of type %T, which points to %s", entry.Name(), entry, link)
+		}
+
+		switch t := target.(type) {
+		case fs.File:
+			return &t, nil
+		case fs.Symlink:
+			entry = t
+			continue
+		default:
+			return nil, errors.Wrapf(errSymlinkNotAFile, "%s does not eventually link to a file", entry.Name())
+		}
+	}
+}
+
 func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, error) {
 	effectiveDotIgnoreFiles := d.parentContext.dotIgnoreFiles
 
@@ -291,17 +311,12 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 				dotIgnoreFiles = append(dotIgnoreFiles, entry)
 
 			case fs.Symlink:
-				target, err := entry.Resolve(ctx)
+				target, err := resolveSymlink(ctx, entry)
 				if err != nil {
-					link, _ := entry.Readlink(ctx)
-					return nil, errors.Wrapf(err, "when resolving symlink %s of type %T, which points to %s", entry.Name(), entry, link)
+					return nil, err
 				}
 
-				if f, ok := target.(fs.File); !ok {
-					return nil, errors.Wrapf(errSymlinkNotAFile, "%s does not link to a file", entry.Name())
-				} else {
-					dotIgnoreFiles = append(dotIgnoreFiles, f)
-				}
+				dotIgnoreFiles = append(dotIgnoreFiles, *target)
 			}
 		}
 	}

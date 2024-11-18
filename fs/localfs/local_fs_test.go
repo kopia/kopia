@@ -43,17 +43,14 @@ func verifyLink(t *testing.T, path, expected string) {
 	ctx := testlogging.Context(t)
 
 	entry, err := NewEntry(path)
-	if err != nil {
-		t.Errorf("Error when creating entry: %v", err)
-	}
+	require.NoError(t, err)
 
 	if link, ok := entry.(fs.Symlink); !ok {
 		t.Errorf("entry is not a symlink: %s", path)
 	} else {
 		target, err := link.Resolve(ctx)
-		if err != nil {
-			t.Errorf("Error while resolving link %s: %v", path, err)
-		}
+		require.NoError(t, err)
+
 		if f, ok := target.(fs.File); !ok {
 			t.Errorf("Link does not resolve to a file: %s", path)
 		} else {
