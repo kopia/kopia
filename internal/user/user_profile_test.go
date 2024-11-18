@@ -31,7 +31,7 @@ func TestUserProfile(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestBadPasswordHashVersion(t *testing.T) {
+func TestBadPasswordHashVersionWithSCrypt(t *testing.T) {
 	// mock a valid password
 	p := &user.Profile{
 		PasswordHashVersion: user.ScryptHashVersion,
@@ -50,14 +50,57 @@ func TestBadPasswordHashVersion(t *testing.T) {
 
 	require.False(t, isValid, "password unexpectedly valid!")
 	require.NoError(t, err)
+}
 
-	// Invalid password hashing algorithm
-	p.PasswordHashVersion = 0
+func TestBadPasswordHashVersionWithPbkdf2(t *testing.T) {
+	const dummyTestPassword = "foo"
 
-	isValid, err = p.IsValidPassword("foo")
+	p := &user.Profile{
+		PasswordHashVersion: user.Pbkdf2HashVersion,
+	}
+
+	p.SetPassword(dummyTestPassword)
+
+	isValid, err := p.IsValidPassword(dummyTestPassword)
+
+	require.True(t, isValid, "password not valid!")
+	require.NoError(t, err)
+
+	// A password hashing algorithm different from the original should fail
+	p.PasswordHashVersion = user.ScryptHashVersion
+	isValid, err = p.IsValidPassword(dummyTestPassword)
 
 	require.False(t, isValid, "password unexpectedly valid!")
-	require.Error(t, err)
+	require.NoError(t, err)
+
+	p.PasswordHashVersion = 0
+	isValid, err = p.IsValidPassword(dummyTestPassword)
+
+	require.False(t, isValid, "password unexpectedly valid!")
+	require.NoError(t, err)
+}
+
+func TestUnsetPasswordHashVersion(t *testing.T) {
+	const dummyTestPassword = "foo"
+
+	p := &user.Profile{
+		PasswordHashVersion: user.ScryptHashVersion,
+	}
+
+	p.SetPassword(dummyTestPassword)
+
+	isValid, err := p.IsValidPassword(dummyTestPassword)
+
+	require.True(t, isValid, "password not valid!")
+	require.NoError(t, err)
+
+	// Unset password hashing algorithm
+	p.PasswordHashVersion = 0
+
+	isValid, err = p.IsValidPassword(dummyTestPassword)
+
+	require.True(t, isValid, "password unexpectedly invalid!")
+	require.NoError(t, err)
 }
 
 func TestNilUserProfile(t *testing.T) {
