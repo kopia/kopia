@@ -18,7 +18,7 @@ func TestRepositoryAuthenticator(t *testing.T) {
 
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{},
 		func(ctx context.Context, w repo.RepositoryWriter) error {
-			for _, tc := range []struct {
+			for _, testProfile := range []struct {
 				profile  *user.Profile
 				password string
 			}{
@@ -50,8 +50,8 @@ func TestRepositoryAuthenticator(t *testing.T) {
 					password: "password4",
 				},
 			} {
-				tc.profile.SetPassword(tc.password)
-				err := user.SetUserProfile(ctx, w, tc.profile)
+				testProfile.profile.SetPassword(testProfile.password)
+				err := user.SetUserProfile(ctx, w, testProfile.profile)
 				if err != nil {
 					return err
 				}
