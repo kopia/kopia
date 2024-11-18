@@ -24,16 +24,14 @@ func initDummyHash() []byte {
 }
 
 func (p *Profile) setPassword(password string) error {
-	salt := make([]byte, passwordHashSaltLength)
-	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
-		return errors.Wrap(err, "error generating salt")
+	h, err := computeNewPasswordHash(password, p.PasswordHashVersion)
+	if err != nil {
+		return err
 	}
 
-	var err error
+	p.PasswordHash = h
 
-	p.PasswordHash, err = computePasswordHash(password, salt, p.PasswordHashVersion)
-
-	return err
+	return nil
 }
 
 func computePasswordHash(password string, salt []byte, passwordHashVersion int) ([]byte, error) {
@@ -50,6 +48,20 @@ func computePasswordHash(password string, salt []byte, passwordHashVersion int) 
 	payload := append(append([]byte(nil), salt...), key...)
 
 	return payload, nil
+}
+
+func computeNewPasswordHash(password string, passwordHashVersion int) ([]byte, error) {
+	hashingAlgo, err := getPasswordHashAlgorithm(passwordHashVersion)
+	if err != nil {
+		return nil, err
+	}
+
+	salt := make([]byte, passwordHashSaltLength)
+	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
+		return nil, errors.Wrap(err, "error generating salt")
+	}
+
+	return computePasswordHashWithAlgo(password, salt, hashingAlgo)
 }
 
 func isValidPassword(password string, hashedPassword []byte, passwordHashVersion int) (bool, error) {
