@@ -30,11 +30,24 @@ func (p *emailProvider) Send(ctx context.Context, msg *sender.Message) error {
 
 	var msgPayload []byte
 
-	if p.Format() == sender.FormatHTML {
-		msgPayload = []byte("Subject: " + msg.Subject + "\r\n" + "MIME-version: 1.0;\r\nContent-Type: text/html; charset=\"UTF-8\";\r\n\r\n" + msg.Body)
-	} else {
-		msgPayload = []byte("Subject: " + msg.Subject + "\r\n" + msg.Body)
+	headers := []string{
+		"Subject: " + msg.Subject,
+		"From: " + p.opt.From,
+		"To: " + p.opt.To,
 	}
+
+	if p.Format() == sender.FormatHTML {
+		headers = append(headers,
+			"MIME-version: 1.0;",
+			"Content-Type: text/html; charset=\"UTF-8\";",
+		)
+	}
+
+	for k, v := range msg.Headers {
+		headers = append(headers, fmt.Sprintf("%v: %v", k, v))
+	}
+
+	msgPayload = []byte(strings.Join(headers, "\r\n") + "\r\n" + msg.Body)
 
 	//nolint:wrapcheck
 	return smtp.SendMail(
