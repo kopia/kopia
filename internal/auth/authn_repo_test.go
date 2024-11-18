@@ -39,6 +39,7 @@ func TestRepositoryAuthenticator(t *testing.T) {
 				{
 					profile: &user.Profile{
 						Username: "user3@host3",
+						// PasswordHashVersion is not set
 					},
 					password: "password3",
 				},
@@ -63,19 +64,22 @@ func TestRepositoryAuthenticator(t *testing.T) {
 			return nil
 		}))
 
+	// valid user, valid password
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user1@host1", "password1", true)
+	// valid user, invalid password
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user1@host1", "password2", false)
+	// valid user, invalid password
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user1@host1", "password11", false)
+	// invalid user, existing password
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user1@host1a", "password1", false)
+	// invalid user, invalid password
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user1@host1a", "password1a", false)
 
-	// Test for password with KeyDerivationSet
+	// user profile with ScryptHashVersion
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user2@host2", "password2", true)
-
-	// Test for User with neither key derivation or PasswordHashVersion set
+	// user profile with no PasswordHashVersion set
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user3@host3", "password3", false)
-
-	// Test for PBKDF2 key derivation
+	// user profile with Pbkdf2HashVersion
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user4@host4", "password4", true)
 }
 
