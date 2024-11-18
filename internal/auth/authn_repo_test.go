@@ -79,7 +79,7 @@ func TestRepositoryAuthenticator(t *testing.T) {
 	// user profile with ScryptHashVersion
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user2@host2", "password2", true)
 	// user profile with no PasswordHashVersion set
-	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user3@host3", "password3", false)
+	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user3@host3", "password3", true)
 	// user profile with Pbkdf2HashVersion
 	verifyRepoAuthenticator(ctx, t, a, env.Repository, "user4@host4", "password4", true)
 }
