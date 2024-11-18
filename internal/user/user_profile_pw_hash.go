@@ -23,17 +23,6 @@ func initDummyHash() []byte {
 	return s
 }
 
-func (p *Profile) setPassword(password string) error {
-	h, err := computeNewPasswordHash(password, p.PasswordHashVersion)
-	if err != nil {
-		return err
-	}
-
-	p.PasswordHash = h
-
-	return nil
-}
-
 func computePasswordHash(password string, salt []byte, passwordHashingAlgo string) ([]byte, error) {
 	key, err := crypto.DeriveKeyFromPassword(password, salt, passwordHashLength, passwordHashingAlgo)
 	if err != nil {
