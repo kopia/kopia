@@ -274,7 +274,7 @@ func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, err
 	return nil, fs.ErrEntryNotFound
 }
 
-func resolveSymlink(ctx context.Context, entry fs.Symlink) (*fs.File, error) {
+func resolveSymlink(ctx context.Context, entry fs.Symlink) (fs.File, error) {
 	for {
 		target, err := entry.Resolve(ctx)
 		if err != nil {
@@ -284,7 +284,7 @@ func resolveSymlink(ctx context.Context, entry fs.Symlink) (*fs.File, error) {
 
 		switch t := target.(type) {
 		case fs.File:
-			return &t, nil
+			return t, nil
 		case fs.Symlink:
 			entry = t
 			continue
@@ -316,7 +316,7 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 					return nil, err
 				}
 
-				dotIgnoreFiles = append(dotIgnoreFiles, *target)
+				dotIgnoreFiles = append(dotIgnoreFiles, target)
 			}
 		}
 	}
