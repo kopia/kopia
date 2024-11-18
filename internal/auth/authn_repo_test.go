@@ -50,8 +50,12 @@ func TestRepositoryAuthenticator(t *testing.T) {
 					password: "password4",
 				},
 			} {
-				testProfile.profile.SetPassword(testProfile.password)
-				err := user.SetUserProfile(ctx, w, testProfile.profile)
+				err := testProfile.profile.SetPassword(testProfile.password)
+				if err != nil {
+					return err
+				}
+
+				err = user.SetUserProfile(ctx, w, testProfile.profile)
 				if err != nil {
 					return err
 				}
