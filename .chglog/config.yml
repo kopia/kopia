@@ -20,6 +20,7 @@ options:
       - deps-dev
       - infra
       - ci
+      - notifications
       - ui
   commit_groups:
     sort_by: Custom
@@ -37,6 +38,7 @@ options:
       infra: Infrastructure
       general: General Improvements
       providers: Storage Providers
+      notifications: Notifications
       ci: CI/CD
     title_order:
       - cli
@@ -46,6 +48,7 @@ options:
       - server
       - snapshots
       - providers
+      - notifications
       - deps
       - testing
       - lint
