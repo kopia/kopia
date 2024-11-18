@@ -73,5 +73,11 @@ func (p *Profile) IsValidPassword(password string) (bool, error) {
 		return false, err
 	}
 
-	return isValidPassword(password, p.PasswordHash, p.PasswordHashVersion)
+	hashVersion := p.PasswordHashVersion
+	if hashVersion == unsetDefaulHashVersion {
+		// use default hash version when not set in the profile
+		hashVersion = ScryptHashVersion
+	}
+
+	return isValidPassword(password, p.PasswordHash, hashVersion)
 }
