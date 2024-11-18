@@ -5,6 +5,10 @@ import (
 )
 
 const (
+	// default password hash version when it is not explicitly set in the user
+	// profile, this always maps to ScryptHashVersion.
+	unsetDefaulHashVersion = 0
+
 	// ScryptHashVersion is the version representation of the scrypt algorithm.
 	ScryptHashVersion = 1
 	// scryptHashAlgorithm is the scrypt password hashing algorithm. This must match crypto.ScryptAlgorithm.
