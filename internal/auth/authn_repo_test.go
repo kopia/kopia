@@ -64,13 +64,6 @@ func TestRepositoryAuthenticatorPasswordHashVersion(t *testing.T) {
 		},
 		{
 			profile: &user.Profile{
-				Username: "user3@host3",
-				// PasswordHashVersion is not set
-			},
-			password: "password3",
-		},
-		{
-			profile: &user.Profile{
 				Username:            "user4@host4",
 				PasswordHashVersion: user.Pbkdf2HashVersion,
 			},
@@ -99,6 +92,40 @@ func TestRepositoryAuthenticatorPasswordHashVersion(t *testing.T) {
 			verifyRepoAuthenticator(ctx, t, a, env.Repository, tc.profile.Username, tc.password, true)
 		})
 	}
+}
+
+func TestRepositoryAuthenticatorUnsetPasswordHashVersion(t *testing.T) {
+	t.Parallel()
+
+	a := auth.AuthenticateRepositoryUsers()
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	profile := user.Profile{
+		Username:            "user3@host3",
+		PasswordHashVersion: user.ScryptHashVersion,
+	}
+
+	const testPassword = "weak-password"
+
+	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{},
+		func(ctx context.Context, w repo.RepositoryWriter) error {
+			err := profile.SetPassword(testPassword)
+			if err != nil {
+				return err
+			}
+
+			// unset PasswordHashVersion to create a "legacy 0.17" profile
+			profile.PasswordHashVersion = 0
+
+			err = user.SetUserProfile(ctx, w, &profile)
+			if err != nil {
+				return err
+			}
+
+			return nil
+		}))
+
+	verifyRepoAuthenticator(ctx, t, a, env.Repository, profile.Username, testPassword, true)
 }
 
 func verifyRepoAuthenticator(ctx context.Context, t *testing.T, a auth.Authenticator, r repo.Repository, username, password string, want bool) {
