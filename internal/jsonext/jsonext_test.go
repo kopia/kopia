@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/jsonext"
@@ -25,13 +26,51 @@ func TestDurationJSONMarshaling(t *testing.T) {
 func TestDurationJSONUnmarshaling(t *testing.T) {
 	var ms MyStruct
 
-	in := []byte(`{"timeout":"3h20m10s"}`)
+	cases := []struct {
+		input     string
+		want      time.Duration
+		expectErr bool
+	}{
+		{
+			input: `{"timeout":"3h20m10s"}`,
+			want:  3*time.Hour + 20*time.Minute + 10*time.Second,
+		},
+		{
+			input: `{"timeout":" 2305ns "}`,
+			want:  2305 * time.Nanosecond,
+		},
+		{
+			input: `{"timeout":"2305ns"}`,
+			want:  2305 * time.Nanosecond,
+		},
+		{
+			input: `{"timeout":"2304"}`,
+			want:  2304 * time.Nanosecond,
+		},
+		{
+			input: `{"timeout":"  2_304  "}`,
+			want:  2304 * time.Nanosecond,
+		},
+		{
+			input: `{"timeout":"  1_002_304  "}`,
+			want:  1_002_304 * time.Nanosecond,
+		},
+		{
+			input: `{"timeout":"1_002_303"}`,
+			want:  1_002_303 * time.Nanosecond,
+		},
+	}
 
-	err := json.Unmarshal(in, &ms)
-	require.NoError(t, err)
+	for _, tc := range cases {
+		err := json.Unmarshal([]byte(tc.input), &ms)
+		if tc.expectErr {
+			assert.Error(t, err)
+		} else {
+			assert.NoError(t, err)
+		}
 
-	want := 3*time.Hour + 20*time.Minute + 10*time.Second
-	require.Equal(t, want, ms.Timeout.Duration)
+		assert.Equal(t, tc.want, ms.Timeout.Duration)
+	}
 }
 
 func TestDurationJSONUnmarshalingError(t *testing.T) {
