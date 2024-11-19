@@ -22,6 +22,50 @@ type fileEnt struct {
 	isFile bool
 }
 
+func TestSymlink(t *testing.T) {
+	tmp := testutil.TempDirectory(t)
+
+	fn := filepath.Join(tmp, "target")
+	absLink := filepath.Join(tmp, "abslink")
+	relLink := filepath.Join(tmp, "rellink")
+
+	assertNoError(t, os.WriteFile(fn, []byte{1, 2, 3}, 0o777))
+	assertNoError(t, os.Symlink(fn, absLink))
+	assertNoError(t, os.Symlink("./target", relLink))
+
+	verifyLink(t, absLink, fn)
+	verifyLink(t, relLink, fn)
+}
+
+func verifyLink(t *testing.T, path, expected string) {
+	t.Helper()
+
+	ctx := testlogging.Context(t)
+
+	entry, err := NewEntry(path)
+	require.NoError(t, err)
+
+	if link, ok := entry.(fs.Symlink); !ok {
+		t.Errorf("entry is not a symlink: %s", path)
+	} else {
+		target, err := link.Resolve(ctx)
+		require.NoError(t, err)
+
+		if f, ok := target.(fs.File); !ok {
+			t.Errorf("Link does not resolve to a file: %s", path)
+		} else {
+			// Canonicalize paths (for example, on MacOS /var points to /private/var)
+			actual, _ := filepath.EvalSymlinks(f.LocalFilesystemPath())
+			expected, _ := filepath.EvalSymlinks(expected)
+
+			actual = filepath.Clean(actual)
+			expected = filepath.Clean(expected)
+
+			require.Equal(t, expected, actual)
+		}
+	}
+}
+
 //nolint:gocyclo
 func TestFiles(t *testing.T) {
 	ctx := testlogging.Context(t)
