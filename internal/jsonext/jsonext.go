@@ -2,7 +2,9 @@
 package jsonext
 
 import (
+	"bytes"
 	"fmt"
+	"strconv"
 	"time"
 )
 
@@ -18,11 +20,18 @@ func (d Duration) MarshalText() ([]byte, error) {
 
 // UnmarshalText read d from a text representation.
 func (d *Duration) UnmarshalText(b []byte) error {
-	var err error
+	s := string(bytes.TrimSpace(b))
 
-	d.Duration, err = time.ParseDuration(string(b))
+	f, err := strconv.ParseFloat(s, 64)
+	if err == nil {
+		d.Duration = time.Duration(f)
+
+		return nil
+	}
+
+	d.Duration, err = time.ParseDuration(s)
 	if err != nil {
-		return fmt.Errorf("unmarshaling %s: %w", b, err)
+		return fmt.Errorf("invalid duration %s: %w", s, err)
 	}
 
 	return nil
