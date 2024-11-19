@@ -27,9 +27,8 @@ func TestDurationJSONUnmarshaling(t *testing.T) {
 	var ms MyStruct
 
 	cases := []struct {
-		input     string
-		want      time.Duration
-		expectErr bool
+		input string
+		want  time.Duration
 	}{
 		{
 			input: `{"timeout":"3h20m10s"}`,
@@ -63,12 +62,8 @@ func TestDurationJSONUnmarshaling(t *testing.T) {
 
 	for _, tc := range cases {
 		err := json.Unmarshal([]byte(tc.input), &ms)
-		if tc.expectErr {
-			assert.Error(t, err)
-		} else {
-			assert.NoError(t, err)
-		}
 
+		assert.NoError(t, err)
 		assert.Equal(t, tc.want, ms.Timeout.Duration)
 	}
 }
