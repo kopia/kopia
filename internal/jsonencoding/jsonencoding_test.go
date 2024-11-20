@@ -2,10 +2,10 @@ package jsonencoding_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/jsonencoding"
@@ -60,11 +60,13 @@ func TestDurationJSONUnmarshaling(t *testing.T) {
 		},
 	}
 
-	for _, tc := range cases {
-		err := json.Unmarshal([]byte(tc.input), &ms)
+	for i, tc := range cases {
+		t.Run(fmt.Sprint(i), func(t *testing.T) {
+			err := json.Unmarshal([]byte(tc.input), &ms)
 
-		assert.NoError(t, err)
-		assert.Equal(t, tc.want, ms.Timeout.Duration)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, ms.Timeout.Duration)
+		})
 	}
 }
 
