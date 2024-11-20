@@ -20,7 +20,7 @@ func TestDurationJSONMarshaling(t *testing.T) {
 
 	b, err := json.Marshal(ms)
 	require.NoError(t, err)
-	require.Equal(t, `{"timeout":"20m10s"}`, string(b))
+	require.JSONEq(t, `{"timeout":"20m10s"}`, string(b))
 }
 
 func TestDurationJSONUnmarshaling(t *testing.T) {
