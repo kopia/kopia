@@ -1,5 +1,5 @@
-// Package jsonext defines common types with JSON marshalers.
-package jsonext
+// Package jsonencoding defines common types with JSON marshalers.
+package jsonencoding
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 )
 
 // Duration adds text/json (un)marshaling functions to time.Duration.
-type Duration struct {
+type Duration struct { //nolint: recvcheck
 	time.Duration
 }
 

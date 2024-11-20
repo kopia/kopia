@@ -1,4 +1,4 @@
-package jsonext_test
+package jsonencoding_test
 
 import (
 	"encoding/json"
@@ -8,15 +8,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/internal/jsonext"
+	"github.com/kopia/kopia/internal/jsonencoding"
 )
 
 type MyStruct struct {
-	Timeout jsonext.Duration `json:"timeout"`
+	Timeout jsonencoding.Duration `json:"timeout"`
 }
 
 func TestDurationJSONMarshaling(t *testing.T) {
-	ms := MyStruct{Timeout: jsonext.Duration{20*time.Minute + 10*time.Second}}
+	ms := MyStruct{Timeout: jsonencoding.Duration{20*time.Minute + 10*time.Second}}
 
 	b, err := json.Marshal(ms)
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func TestDurationJSONUnmarshaling(t *testing.T) {
 }
 
 func TestDurationJSONUnmarshalingError(t *testing.T) {
-	var d jsonext.Duration
+	var d jsonencoding.Duration
 
 	in := []byte(`"bogus"`)
 
