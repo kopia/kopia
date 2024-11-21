@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -412,16 +411,4 @@ func ReadBlobMap(ctx context.Context, br Reader) (map[ID]Metadata, error) {
 	log(ctx).Infof("Listed %v blobs.", len(blobMap))
 
 	return blobMap, nil
-}
-
-// WithRequestTimeout adds a deadline to the context if RequestTimeout is greater than 0.
-// Returns the updated context and a cancel function that should be called to free resources.
-func WithRequestTimeout(ctx context.Context, seconds int64) (context.Context, context.CancelFunc) {
-	if seconds > 0 {
-		deadline := clock.Now().Add(time.Duration(seconds) * time.Second)
-		return context.WithDeadline(ctx, deadline)
-	}
-
-	// If no timeout, return the original context and a no-op cancel function.
-	return ctx, func() {}
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
+	"github.com/kopia/kopia/repo/blob/timeout"
 )
 
 const (
@@ -44,9 +45,6 @@ func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64
 // getBlobWithVersion returns full or partial contents of a blob with given ID and version.
 func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version string, offset, length int64, output blob.OutputBuffer) error {
 	output.Reset()
-
-	ctx, cancel := blob.WithRequestTimeout(ctx, s.RequestTimeout)
-	defer cancel()
 
 	attempt := func() error {
 		opt := minio.GetObjectOptions{VersionID: version}
@@ -121,9 +119,6 @@ func (s *s3Storage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, 
 }
 
 func (s *s3Storage) getVersionMetadata(ctx context.Context, b blob.ID, version string) (versionMetadata, error) {
-	ctx, cancel := blob.WithRequestTimeout(ctx, s.RequestTimeout)
-	defer cancel()
-
 	opts := minio.GetObjectOptions{
 		VersionID: version,
 	}
@@ -164,9 +159,6 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		retentionMode   minio.RetentionMode
 		retainUntilDate time.Time
 	)
-
-	ctx, cancel := blob.WithRequestTimeout(ctx, s.RequestTimeout)
-	defer cancel()
 
 	if opts.RetentionPeriod != 0 {
 		retentionMode = minio.RetentionMode(opts.RetentionMode)
@@ -228,9 +220,6 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 }
 
 func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {
-	ctx, cancel := blob.WithRequestTimeout(ctx, s.RequestTimeout)
-	defer cancel()
-
 	err := translateError(s.cli.RemoveObject(ctx, s.BucketName, s.getObjectNameString(b), minio.RemoveObjectOptions{}))
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
@@ -244,9 +233,6 @@ func (s *s3Storage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blo
 	if !retentionMode.IsValid() {
 		return errors.Errorf("invalid retention mode: %q", opts.RetentionMode)
 	}
-
-	ctx, cancel := blob.WithRequestTimeout(ctx, s.RequestTimeout)
-	defer cancel()
 
 	retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
 
@@ -354,7 +340,9 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, err
 	}
 
-	return retrying.NewWrapper(s), nil
+	sw := timeout.NewStorageTimeout(s, st.RequestTimeoutSeconds)
+
+	return retrying.NewWrapper(sw), nil
 }
 
 func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {

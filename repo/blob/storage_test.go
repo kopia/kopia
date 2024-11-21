@@ -199,32 +199,3 @@ func TestPutBlobAndGetMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, fixedTime, bm.Timestamp)
 }
-
-func TestWithRequestTimeout(t *testing.T) {
-	// Timeout is greater than 0
-	t.Run("With valid timeout", func(t *testing.T) {
-		ctx := context.Background()
-
-		newCtx, cancel := blob.WithRequestTimeout(ctx, 5)
-		defer cancel()
-
-		deadline, ok := newCtx.Deadline()
-		require.True(t, ok, "Expected a deadline to be set")
-
-		expectedDeadline := time.Now().Add(5 * time.Second) //nolint:forbidigo
-		require.WithinDuration(t, expectedDeadline, deadline, 1*time.Second, "Deadline should be approximately 5 seconds from now")
-	})
-
-	// Timeout is 0, context should be unchanged and cancel should be no-op
-	t.Run("With no timeout", func(t *testing.T) {
-		ctx := context.Background()
-
-		newCtx, cancel := blob.WithRequestTimeout(ctx, 0)
-		defer cancel()
-
-		require.Equal(t, ctx, newCtx, "Expected the context to remain unchanged")
-
-		_, ok := newCtx.Deadline()
-		require.False(t, ok, "Expected no deadline to be set")
-	})
-}

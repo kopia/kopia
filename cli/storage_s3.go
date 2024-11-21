@@ -31,13 +31,13 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("disable-tls-verification", "Disable TLS (HTTPS) certificate verification").BoolVar(&c.s3options.DoNotVerifyTLS)
 
 	timeoutPreAction := func(_ *kingpin.ParseContext) error {
-		if c.s3options.RequestTimeout < 0 {
+		if c.s3options.RequestTimeoutSeconds < 0 {
 			return errors.Errorf("invalid request timeout value, needs a positive value")
 		}
 
 		return nil
 	}
-	cmd.Flag("request-timeout", "Timeout in seconds to use on S3 requests, default is no timeout").Default("0").PreAction(timeoutPreAction).Int64Var(&c.s3options.RequestTimeout)
+	cmd.Flag("request-timeout", "Timeout in seconds to use on S3 requests, default is no timeout").Default("0").PreAction(timeoutPreAction).Int64Var(&c.s3options.RequestTimeoutSeconds)
 
 	commonThrottlingFlags(cmd, &c.s3options.Limits)
 

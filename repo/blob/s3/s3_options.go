@@ -24,7 +24,7 @@ type Options struct {
 	SessionToken    string `json:"sessionToken"    kopia:"sensitive"`
 
 	// Timeout is used as a deadline context in Minio API calls.
-	RequestTimeout int64 `json:"requestTimeout,omitempty"`
+	RequestTimeoutSeconds int64 `json:"requestTimeout,omitempty"`
 
 	// Region is an optional region to pass in authorization header.
 	Region string `json:"region,omitempty"`

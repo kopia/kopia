@@ -27,6 +27,7 @@ import (
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
+	"github.com/kopia/kopia/repo/blob/timeout"
 )
 
 const (
@@ -320,7 +321,9 @@ func TestTokenExpiration(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	rst := retrying.NewWrapper(st)
+	sw := timeout.NewStorageTimeout(st, 1)
+
+	rst := retrying.NewWrapper(sw)
 
 	// Since the session token is valid at this point
 	// we expect errors that indicate that the blob was not found.
