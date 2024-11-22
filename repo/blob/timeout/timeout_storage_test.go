@@ -16,7 +16,7 @@ import (
 type MockTimeoutTestStorage struct {
 	blob.Storage
 
-	returnedContext context.Context
+	returnedContext context.Context //nolint: containedctx
 }
 
 func (s *MockTimeoutTestStorage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata, error) {
