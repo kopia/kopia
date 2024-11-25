@@ -46,7 +46,7 @@ require (
 	github.com/prometheus/common v0.60.1
 	github.com/sanity-io/litter v1.5.5
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/studio-b12/gowebdav v0.9.0
 	github.com/tg123/go-htpasswd v1.2.3
 	github.com/zalando/go-keyring v0.2.6
