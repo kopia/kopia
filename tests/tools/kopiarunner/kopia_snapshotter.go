@@ -34,8 +34,8 @@ const (
 	serverControlPassword   = "abcdef"
 
 	// Flag value settings.
-	contentCacheSizeSettingMB  = 500
-	metadataCacheSizeSettingMB = 500
+	contentCacheSizeSettingMB  = 50 // 500
+	metadataCacheSizeSettingMB = 50 // 500
 	parallelSetting            = 8
 
 	aclEnabledMatchStr = "ACLs already enabled"
