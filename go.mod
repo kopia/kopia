@@ -32,7 +32,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.13
 	github.com/mattn/go-isatty v0.0.20
-	github.com/minio/minio-go/v7 v7.0.80
+	github.com/minio/minio-go/v7 v7.0.81
 	github.com/mocktools/go-smtp-mock/v2 v2.3.3
 	github.com/mxk/go-vss v1.2.0
 	github.com/natefinch/atomic v1.0.1
