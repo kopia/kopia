@@ -238,8 +238,8 @@ github.com/minio/minio-go/v7 v7.0.81 h1:SzhMN0TQ6T/xSBu6Nvw3M5M8voM+Ht8RH3hE8S7z
 github.com/minio/minio-go/v7 v7.0.81/go.mod h1:84gmIilaX4zcvAWWzJ5Z1WI5axN+hAbM5w25xf8xvC0=
 github.com/moby/sys/mountinfo v0.6.2 h1:BzJjoreD5BMFNmD9Rus6gdd1pLuecOFPt8wC+Vygl78=
 github.com/moby/sys/mountinfo v0.6.2/go.mod h1:IJb6JQeOklcdMU9F5xQ8ZALD+CUr5VlGpwtX+VE0rpI=
-github.com/mocktools/go-smtp-mock/v2 v2.3.3 h1:hM3AEVq0hr/nzCZOoIS+6ZHMb/vTqogjUaOG78Em42Q=
-github.com/mocktools/go-smtp-mock/v2 v2.3.3/go.mod h1:h9AOf/IXLSU2m/1u4zsjtOM/WddPwdOUBz56dV9f81M=
+github.com/mocktools/go-smtp-mock/v2 v2.4.0 h1:u0ky0iyNW/LEMKAFRTsDivHyP8dHYxe/cV3FZC3rRjo=
+github.com/mocktools/go-smtp-mock/v2 v2.4.0/go.mod h1:h9AOf/IXLSU2m/1u4zsjtOM/WddPwdOUBz56dV9f81M=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/mxk/go-vss v1.2.0 h1:JpdOPc/P6B3XyRoddn0iMiG/ADBi3AuEsv8RlTb+JeE=
