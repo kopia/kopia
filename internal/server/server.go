@@ -182,7 +182,7 @@ func (s *Server) SetupControlAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/control/throttle", s.handleServerControlAPI(handleRepoSetThrottle)).Methods(http.MethodPut)
 }
 
-func isAuthenticated(rc requestContext) bool {
+func (s *Server) isAuthenticated(rc requestContext) bool {
 	authn := rc.srv.getAuthenticator()
 	if authn == nil {
 		return true
@@ -227,8 +227,10 @@ func isAuthenticated(rc requestContext) bool {
 			Path:    "/",
 		})
 
-		// Log successful authentication
-		log(rc.req.Context()).Infof("successful login by client %s for user %s", rc.req.RemoteAddr, username)
+		if s.options.LogRequests {
+			// Log successful authentication
+			log(rc.req.Context()).Infof("successful login by client %s for user %s", rc.req.RemoteAddr, username)
+		}
 	}
 
 	return true
@@ -296,7 +298,7 @@ func (s *Server) requireAuth(checkCSRFToken csrfTokenOption, f func(ctx context.
 		rc := s.captureRequestContext(w, r)
 
 		//nolint:contextcheck
-		if !isAuthenticated(rc) {
+		if !s.isAuthenticated(rc) {
 			return
 		}
 
@@ -763,7 +765,7 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 		rc := s.captureRequestContext(w, r)
 
 		//nolint:contextcheck
-		if !isAuthenticated(rc) {
+		if !s.isAuthenticated(rc) {
 			return
 		}
 
