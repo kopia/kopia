@@ -1,13 +1,17 @@
 package pproflogging
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"regexp"
+	"runtime/pprof"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -15,30 +19,137 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
+//nolint:gocritic
+var pemRegexp = regexp.MustCompile("(?sm:^(-{5}BEGIN ([A-Z]+)-{5}$.)(([A-Za-z0-9/+=]{2,80}$.)+)(^-{5}END ([A-Z]+)-{5})$)")
+
+// TestDebug_StartProfileBuffers test setup of profile buffers with configuration set from the environment.
 func TestDebug_StartProfileBuffers(t *testing.T) {
+	// save environment and restore after testing
 	saveLockEnv(t)
-	// placeholder to make coverage happy
+
 	tcs := []struct {
-		in string
-		rx *regexp.Regexp
+		inArgs               string
+		expectedProfileCount int
+		expectKeys           []ProfileName
+		expectOptions        [][2]string
+		rx                   *regexp.Regexp
 	}{
 		{
-			in: "",
-			rx: regexp.MustCompile("no profile buffers enabled"),
+			inArgs:               "",
+			expectedProfileCount: 0,
 		},
 		{
-			in: ":",
-			rx: regexp.MustCompile(`cannot start PPROF config, ".*", due to parse error`),
+			inArgs:               "block=debug=foo",
+			expectedProfileCount: 0,
+			expectKeys:           []ProfileName{"block"},
+			expectOptions:        [][2]string{{"block", "debug=foo"}},
+		},
+		{
+			inArgs:               "block=rate=10:cpu:mutex=10",
+			expectedProfileCount: 3,
+			expectKeys:           []ProfileName{"block", "cpu", "mutex"},
+			expectOptions:        [][2]string{{"block", "rate=10"}, {"cpu", ""}, {"mutex", "10"}},
+		},
+		{
+			inArgs:               "block=rate=10:nonelikethis=foo",
+			expectedProfileCount: 1,
+			expectKeys:           []ProfileName{"block", "nonelikethis"},
+			expectOptions:        [][2]string{{"block", "rate=10"}, {"nonelikethis", "foo"}},
+		},
+		{
+			inArgs:               "block=rate=10:cpu:mutex=10,debug=1",
+			expectedProfileCount: 3,
+			expectKeys:           []ProfileName{"block", "cpu", "mutex"},
+			expectOptions:        [][2]string{{"block", "rate=10"}, {"cpu", ""}, {"mutex", "10"}, {"mutex", "debug=1"}},
+		},
+		{
+			inArgs:               "block=rate=10,debug=1:cpu:mutex=10",
+			expectedProfileCount: 3,
+			expectKeys:           []ProfileName{"block", "cpu", "mutex"},
+			expectOptions:        [][2]string{{"block", "debug=1"}, {"block", "rate=10"}, {"cpu", ""}, {"mutex", "10"}},
+		},
+		{
+			inArgs: "",
+			rx:     regexp.MustCompile("no profile buffers enabled"),
+		},
+		{
+			inArgs: ":",
+			rx:     regexp.MustCompile(`cannot start PPROF config, ".*", due to parse error`),
 		},
 	}
-	for _, tc := range tcs {
-		lg := &bytes.Buffer{}
-		ctx := logging.WithLogger(context.Background(), logging.ToWriter(lg))
 
-		t.Setenv(EnvVarKopiaDebugPprof, tc.in)
-		StartProfileBuffers(ctx)
-		require.Regexp(t, tc.rx, lg.String())
+	for i, tc := range tcs {
+		t.Run(fmt.Sprintf("%d: %q", i, tc.inArgs), func(t *testing.T) {
+			t.Setenv(EnvVarKopiaDebugPprof, tc.inArgs)
+
+			lg := &bytes.Buffer{}
+
+			// CPU configuration will be removed if its already
+			// configured.  This guarantees that the CPU profile is reset
+			pprof.StopCPUProfile()
+			// initialize pprofConfigs to initial value
+			pprofConfigs = newProfileConfigs(nil)
+
+			ctx := logging.WithLogger(context.Background(), logging.ToWriter(lg))
+
+			StartProfileBuffers(ctx)
+
+			// grab lock for rest of test
+			pprofConfigs.mu.Lock()
+			defer pprofConfigs.mu.Unlock()
+
+			require.Equal(t, len(tc.expectKeys), len(pprofConfigs.pcm))
+
+			for _, nm := range tc.expectKeys {
+				_, ok := pprofConfigs.pcm[nm]
+				require.True(t, ok)
+			}
+
+			for _, pth := range tc.expectOptions {
+				v0, ok := pprofConfigs.pcm[ProfileName(pth[0])]
+				require.True(t, ok)
+				if pth[1] == "" && len(v0.flags) == 0 {
+					continue
+				}
+				require.Contains(t, v0.flags, pth[1])
+			}
+
+			if tc.rx != nil {
+				require.Regexp(t, tc.rx, lg.String())
+			}
+
+			time.Sleep(1 * time.Second)
+		})
 	}
+}
+
+// TestDebug_StartProfileBuffers test setup of profile buffers with configuration set from the environment.
+func TestDebug_StartProfileBuffersWithError(t *testing.T) {
+	// save environment and restore after testing
+	saveLockEnv(t)
+
+	// temporary buffer
+	lg0 := &bytes.Buffer{}
+	// buffer for profile config
+	lg1 := &bytes.Buffer{}
+
+	// can ignore this error.  the goal is to start profiling.  we don't'
+	// care if its already on.
+	pprof.StartCPUProfile(lg0)
+
+	// initialize pprofConfigs to initial value
+	pprofConfigs = newProfileConfigs(nil)
+
+	t.Setenv(EnvVarKopiaDebugPprof, "cpu")
+
+	ctx := logging.WithLogger(context.Background(), logging.ToWriter(lg1))
+	StartProfileBuffers(ctx)
+
+	pprofConfigs.mu.Lock()
+	defer pprofConfigs.mu.Unlock()
+
+	require.Regexp(t, "cannot start cpu PPROF", lg1.String())
+	require.Empty(t, pprofConfigs.pcm["cpu"])
 }
 
 func TestDebug_parseProfileConfigs(t *testing.T) {
@@ -220,6 +331,119 @@ func TestDebug_newProfileConfigs(t *testing.T) {
 	}
 }
 
+func TestDebug_DumpPem(t *testing.T) {
+	saveLockEnv(t)
+
+	tcs := []struct {
+		inBody  string
+		inType  string
+		inError error
+		// oddball function that allows passing the test
+		// context into the WriteError object
+		inCtxFn     func(context.CancelFunc) context.CancelFunc
+		inMx        int
+		expectErr   error
+		expectLines int
+		expectCount int
+	}{
+		{
+			inBody:      "this is a sample PEM",
+			inType:      "cpu",
+			inMx:        100,
+			expectErr:   io.EOF,
+			expectLines: 4,
+			expectCount: 7,
+		},
+		{
+			inBody:      "this is a sample PEM",
+			inType:      "cpu",
+			inError:     nil,
+			inMx:        5,
+			expectErr:   io.EOF,
+			expectLines: 0,
+			expectCount: 0,
+		},
+		{
+			inBody:      "this is a sample PEM",
+			inType:      "cpu",
+			inError:     io.EOF,
+			inMx:        5,
+			expectErr:   io.EOF,
+			expectLines: 0,
+			expectCount: 0,
+		},
+		{
+			inBody:      "this is a sample PEM",
+			inType:      "cpu",
+			inError:     io.ErrClosedPipe,
+			inMx:        5,
+			expectErr:   io.ErrClosedPipe,
+			expectLines: 0,
+			expectCount: 0,
+		},
+		{
+			inBody:      "this is a sample PEM",
+			inType:      "cpu",
+			inError:     io.ErrClosedPipe,
+			inMx:        5,
+			expectErr:   io.ErrClosedPipe,
+			expectLines: 0,
+			expectCount: 0,
+		},
+		{
+			inBody: "this is a sample PEM",
+			inType: "cpu",
+			inCtxFn: func(canfn context.CancelFunc) context.CancelFunc {
+				return canfn
+			},
+			inMx:        5,
+			expectErr:   context.Canceled,
+			expectLines: 0,
+			expectCount: 0,
+		},
+	}
+	for i, tc := range tcs {
+		t.Run(fmt.Sprintf("%d %s", i, tc.inType), func(t *testing.T) {
+			ctx, canfn := context.WithCancel(context.Background())
+			defer canfn()
+			// PEM headings always in upper case
+			unm := strings.ToUpper(tc.inType)
+			// DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
+			wrt := &ErrorWriter{
+				bs:  make([]byte, 0),
+				mx:  tc.inMx,
+				err: tc.inError,
+			}
+			if tc.inCtxFn != nil {
+				wrt.fn = tc.inCtxFn(canfn) // call a function to make a function
+			}
+			err := DumpPem(ctx, []byte(tc.inBody), unm, wrt)
+			if tc.expectErr != nil {
+				require.ErrorIs(t, err, tc.expectErr)
+			} else {
+				require.NoError(t, err)
+			}
+			dumps := string(wrt.bs)
+			j := 0
+			rdr := bufio.NewReader(strings.NewReader(dumps))
+			for {
+				_, err = rdr.ReadBytes('\n')
+				if err != nil {
+					break
+				}
+				j++
+			}
+			require.ErrorIs(t, err, io.EOF)
+			require.Equal(t, tc.expectLines, j)
+			ssm := pemRegexp.FindAllStringSubmatch(dumps, 100)
+			if tc.expectCount > 0 {
+				require.Len(t, ssm, 1)
+				require.Len(t, ssm[0], tc.expectCount)
+			}
+		})
+	}
+}
+
 func TestDebug_LoadProfileConfigs(t *testing.T) {
 	// save environment and restore after testing
 	saveLockEnv(t)
@@ -325,6 +549,7 @@ type ErrorWriter struct {
 	bs  []byte
 	mx  int
 	err error
+	fn  context.CancelFunc
 }
 
 func (p *ErrorWriter) Write(bs []byte) (int, error) {
@@ -342,10 +567,14 @@ func (p *ErrorWriter) Write(bs []byte) (int, error) {
 	p.bs = append(p.bs, bs[:n]...)
 	if n < len(bs) {
 		// here we assume that any less than len(bs)
-		// bytes written returns an error.  This
-		// allows setting ErrorWriter up once
-		// to produce an error after multiple
-		// writes
+		// bytes written returns an error or calls
+		// the callback. This allows setting ErrorWriter
+		// up once to produce an error or callback
+		// after multiple writes
+		if p.fn != nil {
+			p.fn()
+		}
+
 		return n, p.err
 	}
 
