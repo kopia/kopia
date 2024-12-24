@@ -1,6 +1,6 @@
 module github.com/kopia/kopia
 
-go 1.22.7
+go 1.22
 
 require (
 	cloud.google.com/go/storage v1.48.0
@@ -59,7 +59,7 @@ require (
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.31.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/mod v0.22.0
+	golang.org/x/mod v0.20.1-0.20240815161730-b1d336cfca97 // this version is equivalent to 0.22.0 except it excludes a commit that enforces go directive patch version be used https://github.com/golang/mod/commit/3afcd4e90a74c23515a9543f1e8fb68f05ecc8e0 We would want to remove this when 0.23.0 is released
 	golang.org/x/net v0.32.0
 	golang.org/x/oauth2 v0.24.0
 	golang.org/x/sync v0.10.0
