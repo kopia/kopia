@@ -110,6 +110,15 @@
     },
     "afterSign": "notarize.cjs"
   },
+  "deb": {
+    "appArmorProfile": "kopia-ui.apparmor"
+  },
+  "rpm": {
+    "appArmorProfile": "kopia-ui.apparmor"
+  },
+  "AppImage": {
+    "appArmorProfile": "kopia-ui.apparmor"
+  },
   "devDependencies": {
     "@electron/notarize": "^2.5.0",
     "@playwright/test": "^1.49.0",
@@ -117,7 +126,7 @@
     "concurrently": "^9.1.0",
     "dotenv": "^16.4.5",
     "electron": "^33.2.1",
-    "electron-builder": "^25.1.8",
+    "electron-builder": "^v26.0.0-alpha.8",
     "electron-store": "^10.0.0",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1"

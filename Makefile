@@ -123,6 +123,10 @@ MAYBE_XVFB=xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" --
 endif
 
 kopia-ui-test:
+ifeq ($(GOOS)/$(GOARCH),linux/amd64)
+	# on Linux we run from installed location due to AppArmor requirement on Ubuntu 24.04
+	sudo apt-get install -y ./dist/kopia-ui/kopia-ui*_amd64.deb
+endif
 	$(MAYBE_XVFB) $(MAKE) -C app e2e-test
 
 # use this to test htmlui changes in full build of KopiaUI, this is rarely needed
