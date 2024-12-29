@@ -24,13 +24,9 @@ func (c *commandNotificationProfileTest) setup(svc appServices, parent commandPa
 }
 
 func (c *commandNotificationProfileTest) run(ctx context.Context, rep repo.Repository) error {
-	p, ok, err := notifyprofile.GetProfile(ctx, rep, c.profileName)
+	p, err := notifyprofile.GetProfile(ctx, rep, c.profileName)
 	if err != nil {
 		return errors.Wrap(err, "unable to get notification profile")
-	}
-
-	if !ok {
-		return errors.Errorf("notification profile %q not found", c.profileName)
 	}
 
 	snd, err := sender.GetSender(ctx, p.ProfileName, p.MethodConfig.Type, p.MethodConfig.Config)

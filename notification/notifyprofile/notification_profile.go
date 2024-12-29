@@ -57,22 +57,25 @@ func ListProfiles(ctx context.Context, rep repo.Repository) ([]Config, error) {
 	return profiles, nil
 }
 
+// ErrNotFound is returned when a profile is not found.
+var ErrNotFound = errors.New("profile not found")
+
 // GetProfile returns a notification profile by name.
-func GetProfile(ctx context.Context, rep repo.Repository, name string) (Config, bool, error) {
+func GetProfile(ctx context.Context, rep repo.Repository, name string) (Config, error) {
 	entries, err := rep.FindManifests(ctx, labelsForProfileName(name))
 	if err != nil {
-		return Config{}, false, errors.Wrap(err, "unable to list notification profiles")
+		return Config{}, errors.Wrap(err, "unable to list notification profiles")
 	}
 
 	if len(entries) == 0 {
-		return Config{}, false, nil
+		return Config{}, ErrNotFound
 	}
 
 	var pc Config
 
 	_, err = rep.GetManifest(ctx, manifest.PickLatestID(entries), &pc)
 
-	return pc, true, errors.Wrap(err, "unable to get notification profile")
+	return pc, errors.Wrap(err, "unable to get notification profile")
 }
 
 // SaveProfile saves a notification profile.

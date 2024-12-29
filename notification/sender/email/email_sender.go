@@ -68,7 +68,7 @@ func (p *emailProvider) Format() string {
 
 func init() {
 	sender.Register(ProviderType, func(ctx context.Context, options *Options) (sender.Provider, error) {
-		if err := options.applyDefaultsAndValidate(); err != nil {
+		if err := options.ApplyDefaultsAndValidate(ctx); err != nil {
 			return nil, errors.Wrap(err, "invalid notification configuration")
 		}
 
