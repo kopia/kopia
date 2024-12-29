@@ -1,5 +1,4 @@
-Subject: Kopia created 4 snapshots on some-host
-
+Subject: Kopia encountered a fatal error creating 4 snapshots on some-host
 Path: /some/other/path
 
   Status:      fatal
@@ -12,7 +11,7 @@ Path: /some/other/path
 
 Path: /some/path
 
-  Status:      ok
+  Status:      success
   Start:       Thu, 02 Jan 2020 03:04:05 +0000
   Duration:    1.1s
   Size:        456 B (+56 B)
@@ -26,7 +25,7 @@ Path: /some/path
 
 Path: /some/path
 
-  Status:      ok
+  Status:      success
   Start:       Thu, 02 Jan 2020 03:04:05 +0000
   Duration:    1.1s
   Size:        456 B (-44 B)
@@ -40,7 +39,7 @@ Path: /some/path
 
 Path: /some/path2
 
-  Status:      ok
+  Status:      success
   Start:       Thu, 02 Jan 2020 03:04:05 +0000
   Duration:    1.1s
   Size:        456 B

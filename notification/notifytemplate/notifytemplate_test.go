@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
@@ -187,7 +188,9 @@ func verifyTemplate(t *testing.T, embeddedTemplateName, expectedSuffix string, a
 
 	want := string(wantBytes)
 
-	require.Equal(t, want, buf.String())
+	assert.Equal(t, want, buf.String())
 
-	require.NoError(t, os.Remove(actualFileName))
+	if want == buf.String() {
+		require.NoError(t, os.Remove(actualFileName))
+	}
 }
