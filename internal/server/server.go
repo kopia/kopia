@@ -184,6 +184,10 @@ func (s *Server) SetupControlAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/control/throttle", s.handleServerControlAPI(handleRepoSetThrottle)).Methods(http.MethodPut)
 }
 
+func (s *Server) rootContext() context.Context {
+	return s.rootctx
+}
+
 func (s *Server) isAuthenticated(rc requestContext) bool {
 	authn := rc.srv.getAuthenticator()
 	if authn == nil {

@@ -41,7 +41,8 @@ func handleNotificationProfileTest(ctx context.Context, rc requestContext) (any,
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to construct sender: "+err.Error())
 	}
 
-	if err := notification.SendTestNotification(ctx, rc.rep, s); err != nil {
+	//nolint:contextcheck
+	if err := notification.SendTestNotification(rc.srv.rootContext(), rc.rep, s); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to send notification: "+err.Error())
 	}
 

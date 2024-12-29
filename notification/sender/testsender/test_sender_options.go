@@ -10,7 +10,8 @@ import (
 
 // Options defines email notification provider options.
 type Options struct {
-	Format string `json:"format"` // format of the message, must be "html" or "md"
+	Format  string `json:"format"`  // format of the message, must be "html" or "md"
+	Invalid bool   `json:"invalid"` // set to true to fail creation
 }
 
 // MergeOptions updates the destination options with the source options.
@@ -23,6 +24,10 @@ func MergeOptions(ctx context.Context, src Options, dst *Options, isUpdate bool)
 func (o *Options) ApplyDefaultsAndValidate(ctx context.Context) error {
 	if err := sender.ValidateMessageFormatAndSetDefault(&o.Format, "html"); err != nil {
 		return errors.Wrap(err, "invalid format")
+	}
+
+	if o.Invalid {
+		return errors.New("invalid options")
 	}
 
 	return nil

@@ -20,12 +20,30 @@ const capturedMessagesContextKey capturedMessagesContextKeyType = "capturedMessa
 
 type capturedMessages struct {
 	messages []*sender.Message
+	handle   func(*sender.Message) error
 }
 
 // CaptureMessages captures messages sent in the provider context and returns a new context.
 // Captured messages can be retrieved using MessagesInContext.
 func CaptureMessages(ctx context.Context) context.Context {
-	return context.WithValue(ctx, capturedMessagesContextKey, &capturedMessages{})
+	cm := &capturedMessages{}
+
+	cm.handle = func(msg *sender.Message) error {
+		cm.messages = append(cm.messages, msg)
+		return nil
+	}
+
+	return context.WithValue(ctx, capturedMessagesContextKey, cm)
+}
+
+// CaptureMessagesWithHandler captures messages sent in the provider context and returns a new context.
+// Captured messages can be retrieved using MessagesInContext.
+func CaptureMessagesWithHandler(ctx context.Context, handler func(msg *sender.Message) error) context.Context {
+	cm := &capturedMessages{
+		handle: handler,
+	}
+
+	return context.WithValue(ctx, capturedMessagesContextKey, cm)
 }
 
 // MessagesInContext retrieves messages sent in the provider context.
@@ -52,9 +70,7 @@ func (p *testSenderProvider) Send(ctx context.Context, msg *sender.Message) erro
 		return errors.Errorf("test sender not configured")
 	}
 
-	cm.messages = append(cm.messages, msg)
-
-	return nil
+	return cm.handle(msg)
 }
 
 func (p *testSenderProvider) Summary() string {
