@@ -1,6 +1,8 @@
 package email
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/notification/sender"
@@ -22,7 +24,7 @@ type Options struct {
 }
 
 // MergeOptions updates the destination options with the source options.
-func MergeOptions(src Options, dst *Options, isUpdate bool) {
+func MergeOptions(ctx context.Context, src Options, dst *Options, isUpdate bool) error {
 	copyOrMerge(&dst.SMTPServer, src.SMTPServer, isUpdate)
 	copyOrMerge(&dst.SMTPPort, src.SMTPPort, isUpdate)
 	copyOrMerge(&dst.SMTPIdentity, src.SMTPIdentity, isUpdate)
@@ -32,9 +34,12 @@ func MergeOptions(src Options, dst *Options, isUpdate bool) {
 	copyOrMerge(&dst.To, src.To, isUpdate)
 	copyOrMerge(&dst.CC, src.CC, isUpdate)
 	copyOrMerge(&dst.Format, src.Format, isUpdate)
+
+	return dst.ApplyDefaultsAndValidate(ctx)
 }
 
-func (o *Options) applyDefaultsAndValidate() error {
+// ApplyDefaultsAndValidate applies default values and validates the configuration.
+func (o *Options) ApplyDefaultsAndValidate(ctx context.Context) error {
 	if o.SMTPPort == 0 {
 		o.SMTPPort = defaultSMTPPort
 	}

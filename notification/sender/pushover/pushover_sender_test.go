@@ -2,6 +2,7 @@ package pushover_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -106,25 +107,25 @@ func TestPushover_Invalid(t *testing.T) {
 func TestMergeOptions(t *testing.T) {
 	var dst pushover.Options
 
-	pushover.MergeOptions(pushover.Options{
+	require.NoError(t, pushover.MergeOptions(context.Background(), pushover.Options{
 		AppToken: "app1",
 		UserKey:  "user1",
-	}, &dst, false)
+	}, &dst, false))
 
 	require.Equal(t, "app1", dst.AppToken)
 	require.Equal(t, "user1", dst.UserKey)
 
-	pushover.MergeOptions(pushover.Options{
+	require.NoError(t, pushover.MergeOptions(context.Background(), pushover.Options{
 		UserKey: "user2",
-	}, &dst, true)
+	}, &dst, true))
 
 	require.Equal(t, "app1", dst.AppToken)
 	require.Equal(t, "user2", dst.UserKey)
 
-	pushover.MergeOptions(pushover.Options{
+	require.NoError(t, pushover.MergeOptions(context.Background(), pushover.Options{
 		AppToken: "app2",
 		UserKey:  "user2",
-	}, &dst, true)
+	}, &dst, true))
 
 	require.Equal(t, "app2", dst.AppToken)
 	require.Equal(t, "user2", dst.UserKey)

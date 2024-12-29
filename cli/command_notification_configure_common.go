@@ -31,17 +31,17 @@ func (c *commonNotificationOptions) setup(svc appServices, cmd *kingpin.CmdClaus
 // configures a notification method.
 // it will read the existing profile, merge the provided options, and save the profile back
 // or send a test notification based on the flags.
-func configureNotificationAction[T comparable](
+func configureNotificationAction[T any](
 	svc appServices,
 	c *commonNotificationOptions,
 	senderMethod sender.Method,
 	opt *T,
-	merge func(src T, dst *T, isUpdate bool),
+	merge func(ctx context.Context, src T, dst *T, isUpdate bool) error,
 ) func(ctx *kingpin.ParseContext) error {
 	return svc.directRepositoryWriteAction(func(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 		var (
-			defaultT        T
-			previousOptions *T
+			defaultT      T
+			mergedOptions *T
 		)
 
 		// read the existing profile, if any.
@@ -63,15 +63,14 @@ func configureNotificationAction[T comparable](
 				return errors.Wrapf(err, "profile %q already exists but is not of type %q", c.profileName, senderMethod)
 			}
 
-			previousOptions = &parsedT
+			mergedOptions = &parsedT
 			sev = oldProfile.MinSeverity
 		} else {
-			previousOptions = &defaultT
+			mergedOptions = &defaultT
 		}
 
-		if *opt != defaultT {
-			// any options provided on the command line, merge them with the existing ones.
-			merge(*opt, previousOptions, exists)
+		if err := merge(ctx, *opt, mergedOptions, exists); err != nil {
+			return errors.Wrap(err, "unable to merge options")
 		}
 
 		if c.minSeverity != "" {
@@ -79,7 +78,7 @@ func configureNotificationAction[T comparable](
 			sev = notification.SeverityToNumber[c.minSeverity]
 		}
 
-		s, err := sender.GetSender(ctx, c.profileName, senderMethod, previousOptions)
+		s, err := sender.GetSender(ctx, c.profileName, senderMethod, mergedOptions)
 		if err != nil {
 			return errors.Wrap(err, "unable to get notification provider")
 		}
@@ -96,7 +95,7 @@ func configureNotificationAction[T comparable](
 			ProfileName: c.profileName,
 			MethodConfig: sender.MethodConfig{
 				Type:   senderMethod,
-				Config: previousOptions,
+				Config: mergedOptions,
 			},
 			MinSeverity: sev,
 		})
