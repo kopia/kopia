@@ -29,20 +29,20 @@ func TestNotificationProfile(t *testing.T) {
 	require.Empty(t, profiles)
 
 	// setup a profile
-	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "testsender", "--profile-name=mywebhook")
+	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "testsender", "--profile-name=mywebhook", "--send-test-notification")
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "notification", "profile", "list", "--json"), &profiles)
 	require.Len(t, profiles, 1)
 	require.Equal(t, "testsender", profiles[0].Type)
 
-	// nothing is sent so far
-	require.Empty(t, e.NotificationsSent())
+	// one test message sent
+	require.Len(t, e.NotificationsSent(), 1)
 
 	// now send a test message
 	e.RunAndExpectSuccess(t, "notification", "profile", "test", "--profile-name=mywebhook")
 	e.RunAndExpectFailure(t, "notification", "profile", "show", "--profile-name=no-such-profile")
 
-	// make sure we received the test request
-	require.Len(t, e.NotificationsSent(), 1)
+	// make sure we received the test message
+	require.Len(t, e.NotificationsSent(), 2)
 	require.Contains(t, e.NotificationsSent()[0].Body, "If you received this, your notification configuration")
 
 	// define another profile
@@ -96,10 +96,26 @@ func TestNotificationProfile_WebHook(t *testing.T) {
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "notification", "profile", "show", "--profile-name=myotherwebhook", "--json", "--raw"), &opt)
 
+	var summ notifyprofile.Summary
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "notification", "profile", "show", "--profile-name=myotherwebhook", "--json"), &summ)
+
+	require.Equal(t, []string{
+		"Profile \"myotherwebhook\" Type \"webhook\" Minimum Severity: warning",
+		"Webhook POST http://anotherhost:12345 Format \"txt\"",
+	}, e.RunAndExpectSuccess(t, "notification", "profile", "show", "--profile-name=myotherwebhook"))
+
 	var opt2 webhook.Options
 
 	require.NoError(t, opt.MethodConfig.Options(&opt2))
 	require.Equal(t, "Foo:Bar\nBaz:Qux", opt2.Headers)
+
+	// partial update
+	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "webhook", "--profile-name=myotherwebhook", "--method=PUT", "--format=html")
+
+	require.Equal(t, []string{
+		"Profile \"myotherwebhook\" Type \"webhook\" Minimum Severity: warning",
+		"Webhook PUT http://anotherhost:12345 Format \"html\"",
+	}, e.RunAndExpectSuccess(t, "notification", "profile", "show", "--profile-name=myotherwebhook"))
 
 	// delete non-existent profile does not fail
 	e.RunAndExpectSuccess(t, "notification", "profile", "delete", "--profile-name=unknown")

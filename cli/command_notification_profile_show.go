@@ -31,19 +31,15 @@ func (c *commandNotificationProfileShow) setup(svc appServices, parent commandPa
 }
 
 func (c *commandNotificationProfileShow) run(ctx context.Context, rep repo.Repository) error {
-	pc, ok, err := notifyprofile.GetProfile(ctx, rep, c.profileName)
+	pc, err := notifyprofile.GetProfile(ctx, rep, c.profileName)
 	if err != nil {
 		return errors.Wrap(err, "unable to list notification profiles")
-	}
-
-	if !ok {
-		return errors.Errorf("profile %q not found", c.profileName)
 	}
 
 	summ := getProfileSummary(ctx, pc)
 
 	if !c.jo.jsonOutput {
-		c.out.printStdout("Profile %q Type %q Minimum Severity: %v\n  %v\n",
+		c.out.printStdout("Profile %q Type %q Minimum Severity: %v\n%v\n",
 			summ.ProfileName,
 			pc.MethodConfig.Type,
 			notification.SeverityToString[pc.MinSeverity],
@@ -53,11 +49,9 @@ func (c *commandNotificationProfileShow) run(ctx context.Context, rep repo.Repos
 	}
 
 	if c.raw {
-		if c.jo.jsonOutput {
-			c.out.printStdout("%s\n", c.jo.jsonBytes(pc))
-		} else {
-			c.out.printStdout("%s\n", c.jo.jsonBytes(summ))
-		}
+		c.out.printStdout("%s\n", c.jo.jsonBytes(pc))
+	} else {
+		c.out.printStdout("%s\n", c.jo.jsonBytes(summ))
 	}
 
 	return nil

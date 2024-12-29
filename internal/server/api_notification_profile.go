@@ -50,13 +50,9 @@ func handleNotificationProfileTest(ctx context.Context, rc requestContext) (any,
 }
 
 func handleNotificationProfileGet(ctx context.Context, rc requestContext) (any, *apiError) {
-	cfg, ok, err := notifyprofile.GetProfile(ctx, rc.rep, rc.muxVar("profileName"))
+	cfg, err := notifyprofile.GetProfile(ctx, rc.rep, rc.muxVar("profileName"))
 	if err != nil {
 		return nil, internalServerError(err)
-	}
-
-	if !ok {
-		return nil, notFoundError("profile not found")
 	}
 
 	return cfg, nil

@@ -45,12 +45,13 @@ func configureNotificationAction[T any](
 		)
 
 		// read the existing profile, if any.
-		oldProfile, exists, err := notifyprofile.GetProfile(ctx, rep, c.profileName)
-		if err != nil {
+		oldProfile, err := notifyprofile.GetProfile(ctx, rep, c.profileName)
+		if err != nil && !errors.Is(err, notifyprofile.ErrNotFound) {
 			return errors.Wrap(err, "unable to get notification profile")
 		}
 
 		sev := notification.SeverityDefault
+		exists := err == nil
 
 		if exists {
 			if oldProfile.MethodConfig.Type != senderMethod {
