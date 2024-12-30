@@ -47,7 +47,7 @@ func (m *ManagerV1) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.
 		result = append(result, Metadata{Metadata: bm})
 	}
 
-	m.log.Errorf("active indexes %v deletion watermark %v", blob.IDsFromMetadata(active), deletionWatermark)
+	m.log.Debugf("total active indexes %v, deletion watermark %v", len(active), deletionWatermark)
 
 	return result, deletionWatermark, nil
 }
