@@ -555,18 +555,25 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo, mwe *no
 
 	// send a single snapshot report when last parallel snapshot completes.
 	if s.currentParallelSnapshots == 0 {
-		s.serverMutex.Lock()
-		rep := s.rep
-		s.serverMutex.Unlock()
-
-		//nolint:contextcheck
-		notification.Send(s.rootctx, rep, "snapshot-report", s.pendingMultiSnapshotStatus, notification.SeverityReport, s.notificationTemplateOptions())
+		go s.sendSnapshotReport(s.pendingMultiSnapshotStatus)
 
 		s.pendingMultiSnapshotStatus.Snapshots = nil
 	}
 
 	// notify one of the waiters
 	s.parallelSnapshotsChanged.Signal()
+}
+
+func (s *Server) sendSnapshotReport(st notifydata.MultiSnapshotStatus) {
+	s.serverMutex.Lock()
+	rep := s.rep
+	s.serverMutex.Unlock()
+
+	// send the notification without blocking if we still have the repository
+	// it's possible that repository was closed in the meantime.
+	if rep != nil {
+		notification.Send(s.rootctx, rep, "snapshot-report", st, notification.SeverityReport, s.notificationTemplateOptions())
+	}
 }
 
 func (s *Server) enableErrorNotifications() bool {
