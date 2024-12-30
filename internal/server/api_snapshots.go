@@ -175,7 +175,7 @@ func forAllSourceManagersMatchingURLFilter(ctx context.Context, managers map[sna
 	}
 
 	for src, mgr := range managers {
-		if mgr.isReadOnly {
+		if mgr.isRunningReadOnly() {
 			continue
 		}
 
