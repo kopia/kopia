@@ -176,7 +176,19 @@ func (e *CLITest) getLogOutputPrefix() (string, bool) {
 func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) (wait func() error, kill func()) {
 	t.Helper()
 
-	wait, interrupt := e.RunAndProcessStderrInt(t, callback, args...)
+	wait, interrupt := e.RunAndProcessStderrInt(t, callback, nil, args...)
+	kill = func() {
+		interrupt(os.Kill)
+	}
+
+	return wait, kill
+}
+
+// RunAndProcessStderrAsync runs the given command, and streams its output line-by-line to a given function until it returns false.
+func (e *CLITest) RunAndProcessStderrAsync(t *testing.T, callback func(line string) bool, asyncCallback func(line string), args ...string) (wait func() error, kill func()) {
+	t.Helper()
+
+	wait, interrupt := e.RunAndProcessStderrInt(t, callback, asyncCallback, args...)
 	kill = func() {
 		interrupt(os.Kill)
 	}
@@ -186,7 +198,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 
 // RunAndProcessStderrInt runs the given command, and streams its output
 // line-by-line to outputCallback until it returns false.
-func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line string) bool, args ...string) (wait func() error, interrupt func(os.Signal)) {
+func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line string) bool, asyncCallback func(line string), args ...string) (wait func() error, interrupt func(os.Signal)) {
 	t.Helper()
 
 	stdout, stderr, wait, interrupt := e.Runner.Start(t, e.RunContext, e.cmdArgs(args), e.Environment)
@@ -214,6 +226,10 @@ func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line 
 	// complete the scan in background without processing lines.
 	go func() {
 		for scanner.Scan() {
+			if asyncCallback != nil {
+				asyncCallback(scanner.Text())
+			}
+
 			if prefix, ok := e.getLogOutputPrefix(); ok {
 				t.Logf("[%vstderr] %v", prefix, scanner.Text())
 			}
