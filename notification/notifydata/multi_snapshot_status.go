@@ -1,6 +1,8 @@
 package notifydata
 
 import (
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kopia/kopia/snapshot"
@@ -51,19 +53,6 @@ func (m *ManifestWithError) TotalSizeDelta() int64 {
 
 	if m.Manifest.RootEntry.DirSummary != nil && m.Previous.RootEntry.DirSummary != nil {
 		return m.Manifest.RootEntry.DirSummary.TotalFileSize - m.Previous.RootEntry.DirSummary.TotalFileSize
-	}
-
-	return m.Manifest.RootEntry.FileSize
-}
-
-// New returns the total size of the snapshot in bytes.
-func (m *ManifestWithError) New() int64 {
-	if m.Manifest.RootEntry == nil {
-		return 0
-	}
-
-	if m.Manifest.RootEntry.DirSummary != nil {
-		return m.Manifest.RootEntry.DirSummary.TotalFileSize
 	}
 
 	return m.Manifest.RootEntry.FileSize
@@ -134,30 +123,81 @@ func (m *ManifestWithError) Duration() time.Duration {
 	return time.Duration(m.Manifest.EndTime - m.Manifest.StartTime).Round(durationPrecision)
 }
 
+// Status codes.
+const (
+	StatusCodeIncomplete = "incomplete"
+	StatusCodeFatal      = "fatal"
+	StatusCodeError      = "error"
+	StatusCodeSuccess    = "success"
+)
+
 // StatusCode returns the status code of the manifest.
 func (m *ManifestWithError) StatusCode() string {
 	if m.Error != "" {
-		return "fatal"
+		return StatusCodeFatal
 	}
 
 	if m.Manifest.IncompleteReason != "" {
-		return "incomplete"
+		return StatusCodeIncomplete
 	}
 
 	if m.Manifest.RootEntry != nil && m.Manifest.RootEntry.DirSummary != nil {
 		if m.Manifest.RootEntry.DirSummary.FatalErrorCount > 0 {
-			return "fatal"
+			return StatusCodeFatal
 		}
 
 		if m.Manifest.RootEntry.DirSummary.IgnoredErrorCount > 0 {
-			return "error"
+			return StatusCodeError
 		}
 	}
 
-	return "ok"
+	return StatusCodeSuccess
 }
 
 // MultiSnapshotStatus represents the status of multiple snapshots.
 type MultiSnapshotStatus struct {
 	Snapshots []*ManifestWithError `json:"snapshots"`
+}
+
+// OverallStatus returns the overall status of the snapshots.
+func (m MultiSnapshotStatus) OverallStatus() string {
+	var (
+		numIncomplete int
+		numFatal      int
+		numErrors     int
+		numSuccess    int
+	)
+
+	for _, s := range m.Snapshots {
+		switch s.StatusCode() {
+		case StatusCodeIncomplete:
+			numIncomplete++
+		case StatusCodeError:
+			numErrors++
+		case StatusCodeFatal:
+			numFatal++
+		case StatusCodeSuccess:
+			numSuccess++
+		}
+	}
+
+	var errorStrings []string
+
+	if numFatal > 1 {
+		errorStrings = append(errorStrings, fmt.Sprintf("%d fatal errors", numFatal))
+	} else if numFatal == 1 {
+		errorStrings = append(errorStrings, "a fatal error")
+	}
+
+	if numErrors > 1 {
+		errorStrings = append(errorStrings, fmt.Sprintf("%d errors", numErrors))
+	} else if numErrors == 1 {
+		errorStrings = append(errorStrings, "an error")
+	}
+
+	if len(errorStrings) == 0 {
+		return "success"
+	}
+
+	return "encountered " + strings.Join(errorStrings, " and ")
 }

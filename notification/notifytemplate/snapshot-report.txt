@@ -1,5 +1,4 @@
-Subject: Kopia created {{ len .EventArgs.Snapshots }} snapshot{{ if gt (len .EventArgs.Snapshots) 1 }}s{{end}} on {{.Hostname}}
-
+Subject: Kopia {{.EventArgs.OverallStatus}} creating {{ if gt (len .EventArgs.Snapshots) 1 }}{{ len .EventArgs.Snapshots }} snapshots{{else}}snapshot{{end}} on {{.Hostname}}
 {{ range .EventArgs.Snapshots | sortSnapshotManifestsByName}}Path: {{ .Manifest.Source.Path }}
 
   Status:      {{ .StatusCode }}
