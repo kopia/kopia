@@ -71,9 +71,10 @@ type sourceManager struct {
 	currentTask string
 	// +checklocks:sourceMutex
 	lastAttemptedSnapshotTime fs.UTCTimestamp
-
+	// +checklocks:sourceMutex
 	isReadOnly bool
-	progress   *snapshotfs.CountingUploadProgress
+
+	progress *snapshotfs.CountingUploadProgress
 }
 
 func (s *sourceManager) Status() *serverapi.SourceStatus {
@@ -218,8 +219,17 @@ func (s *sourceManager) backoffBeforeNextSnapshot() {
 	s.setNextSnapshotTime(clock.Now().Add(failedSnapshotRetryInterval))
 }
 
+func (s *sourceManager) isRunningReadOnly() bool {
+	s.sourceMutex.RLock()
+	defer s.sourceMutex.RUnlock()
+
+	return s.isReadOnly
+}
+
 func (s *sourceManager) runReadOnly() {
+	s.sourceMutex.Lock()
 	s.isReadOnly = true
+	s.sourceMutex.Unlock()
 	s.setStatus("REMOTE")
 
 	// wait until closed
