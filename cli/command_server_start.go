@@ -21,6 +21,8 @@ import (
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/server"
+	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/sender/jsonsender"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -68,7 +70,8 @@ type commandServerStart struct {
 	debugScheduler                      bool
 	minMaintenanceInterval              time.Duration
 
-	shutdownGracePeriod time.Duration
+	shutdownGracePeriod  time.Duration
+	kopiauiNotifications bool
 
 	logServerRequests bool
 
@@ -122,6 +125,8 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("disable-csrf-token-checks", "Disable CSRF token").Hidden().BoolVar(&c.disableCSRFTokenChecks)
 
 	cmd.Flag("shutdown-grace-period", "Grace period for shutting down the server").Default("5s").DurationVar(&c.shutdownGracePeriod)
+
+	cmd.Flag("kopiaui-notifications", "Enable notifications to be printed to stdout for KopiaUI").BoolVar(&c.kopiauiNotifications)
 
 	c.sf.setup(svc, cmd)
 	c.co.setup(svc, cmd)
@@ -270,6 +275,15 @@ func (c *commandServerStart) run(ctx context.Context) (reterr error) {
 	}
 
 	onExternalConfigReloadRequest(srv.Refresh)
+
+	// enable notification to be printed to stderr where KopiaUI will pick it up
+	if c.kopiauiNotifications {
+		notification.AdditionalSenders = append(notification.AdditionalSenders,
+			jsonsender.NewJSONSender(
+				"NOTIFICATION: ",
+				c.out.stderr(),
+				notification.SeverityVerbose))
+	}
 
 	return c.startServerWithOptionalTLS(ctx, httpServer)
 }

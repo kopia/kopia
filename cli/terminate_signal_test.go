@@ -17,7 +17,7 @@ func TestTerminate(t *testing.T) {
 
 	var sp testutil.ServerParameters
 
-	wait, interrupt := env.RunAndProcessStderrInt(t, sp.ProcessOutput, "server", "start",
+	wait, interrupt := env.RunAndProcessStderrInt(t, sp.ProcessOutput, nil, "server", "start",
 		"--address=localhost:0",
 		"--insecure")
 

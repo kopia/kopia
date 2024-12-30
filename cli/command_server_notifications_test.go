@@ -2,15 +2,19 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/notification/sender"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -48,20 +52,31 @@ func TestServerNotifications(t *testing.T) {
 
 	var sp testutil.ServerParameters
 
-	env.SetLogOutput(true, "server")
+	jsonNotificationsReceived := make(chan string, 100)
 
-	wait, kill := env.RunAndProcessStderr(t, sp.ProcessOutput,
-		"server", "start",
+	wait, kill := env.RunAndProcessStderrAsync(t, sp.ProcessOutput, func(line string) {
+		const prefix = "NOTIFICATION: "
+
+		if strings.HasPrefix(line, prefix) {
+			t.Logf("JSON notification received: %v", line)
+
+			jsonNotificationsReceived <- line[len(prefix):]
+		}
+	}, "server", "start",
 		"--address=localhost:0",
 		"--insecure",
 		"--random-server-control-password",
+		"--kopiaui-notifications",
 		"--shutdown-grace-period", "100ms",
 	)
 
+	defer func() {
+		kill()
+		wait()
+	}()
+
 	// trigger server snapshot
 	env.RunAndExpectSuccess(t, "server", "snapshot", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, dir1)
-
-	t.Logf("triggered")
 
 	select {
 	case not := <-notificationsReceived:
@@ -71,6 +86,18 @@ func TestServerNotifications(t *testing.T) {
 		t.Error("notification not received in time")
 	}
 
-	kill()
-	wait()
+	select {
+	case not := <-jsonNotificationsReceived:
+		// make sure we received a valid sender.Message JSON
+		dec := json.NewDecoder(strings.NewReader(not))
+		dec.DisallowUnknownFields()
+
+		var msg sender.Message
+
+		require.NoError(t, dec.Decode(&msg))
+		require.Contains(t, msg.Subject, "Kopia success")
+
+	case <-time.After(5 * time.Second):
+		t.Error("notification not received in time")
+	}
 }
