@@ -1,4 +1,4 @@
-Subject: Kopia {{.EventArgs.OverallStatus}} creating {{ if gt (len .EventArgs.Snapshots) 1 }}{{ len .EventArgs.Snapshots }} snapshots{{else}}snapshot{{end}} on {{.Hostname}}
+Subject: {{.EventArgs.OverallStatus}} on {{.Hostname}}
 
 <!doctype html>
 <html>

@@ -2,7 +2,6 @@ package notifydata
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/kopia/kopia/snapshot"
@@ -127,7 +126,7 @@ func (m *ManifestWithError) Duration() time.Duration {
 const (
 	StatusCodeIncomplete = "incomplete"
 	StatusCodeFatal      = "fatal"
-	StatusCodeError      = "error"
+	StatusCodeWarnings   = "warnings"
 	StatusCodeSuccess    = "success"
 )
 
@@ -147,7 +146,7 @@ func (m *ManifestWithError) StatusCode() string {
 		}
 
 		if m.Manifest.RootEntry.DirSummary.IgnoredErrorCount > 0 {
-			return StatusCodeError
+			return StatusCodeWarnings
 		}
 	}
 
@@ -162,42 +161,30 @@ type MultiSnapshotStatus struct {
 // OverallStatus returns the overall status of the snapshots.
 func (m MultiSnapshotStatus) OverallStatus() string {
 	var (
-		numIncomplete int
-		numFatal      int
-		numErrors     int
-		numSuccess    int
+		numErrors  int
+		numSuccess int
 	)
 
 	for _, s := range m.Snapshots {
 		switch s.StatusCode() {
-		case StatusCodeIncomplete:
-			numIncomplete++
-		case StatusCodeError:
-			numErrors++
 		case StatusCodeFatal:
-			numFatal++
+			numErrors++
 		case StatusCodeSuccess:
 			numSuccess++
 		}
 	}
 
-	var errorStrings []string
+	if numErrors == 0 {
+		if len(m.Snapshots) == 1 {
+			return fmt.Sprintf("Successfully created a snapshot of %v", m.Snapshots[0].Manifest.Source.Path)
+		}
 
-	if numFatal > 1 {
-		errorStrings = append(errorStrings, fmt.Sprintf("%d fatal errors", numFatal))
-	} else if numFatal == 1 {
-		errorStrings = append(errorStrings, "a fatal error")
+		return fmt.Sprintf("Successfully created %d snapshots", len(m.Snapshots))
 	}
 
-	if numErrors > 1 {
-		errorStrings = append(errorStrings, fmt.Sprintf("%d errors", numErrors))
-	} else if numErrors == 1 {
-		errorStrings = append(errorStrings, "an error")
+	if len(m.Snapshots) == 1 {
+		return fmt.Sprintf("Failed to create a snapshot of %v", m.Snapshots[0].Manifest.Source.Path)
 	}
 
-	if len(errorStrings) == 0 {
-		return "success"
-	}
-
-	return "encountered " + strings.Join(errorStrings, " and ")
+	return fmt.Sprintf("Failed to create %v of %v snapshots", numErrors, len(m.Snapshots))
 }

@@ -165,6 +165,56 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 	verifyTemplate(t, "snapshot-report.html", ".alt", args, altTestOptions)
 }
 
+func TestNotifyTemplate_snapshot_report_single_success(t *testing.T) {
+	args := notification.MakeTemplateArgs(&notifydata.MultiSnapshotStatus{
+		Snapshots: []*notifydata.ManifestWithError{
+			{
+				// normal snapshot with positive deltas
+				Manifest: snapshot.Manifest{
+					Source:    snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
+					StartTime: fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
+					EndTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					RootEntry: &snapshot.DirEntry{
+						DirSummary: &fs.DirectorySummary{
+							TotalFileCount: 123,
+							TotalFileSize:  456,
+							TotalDirCount:  33,
+							FailedEntries: []*fs.EntryWithError{
+								{
+									EntryPath: "/some/path",
+									Error:     "some error",
+								},
+								{
+									EntryPath: "/some/path2",
+									Error:     "some error",
+								},
+							},
+						},
+					},
+				},
+				Previous: &snapshot.Manifest{
+					Source:    snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
+					StartTime: fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
+					EndTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					RootEntry: &snapshot.DirEntry{
+						DirSummary: &fs.DirectorySummary{
+							TotalFileCount: 100,
+							TotalFileSize:  400,
+							TotalDirCount:  30,
+						},
+					},
+				},
+			},
+		},
+	})
+
+	args.EventTime = time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC)
+	args.Hostname = "some-host"
+
+	verifyTemplate(t, "snapshot-report.txt", ".success", args, defaultTestOptions)
+	verifyTemplate(t, "snapshot-report.html", ".success", args, defaultTestOptions)
+}
+
 func verifyTemplate(t *testing.T, embeddedTemplateName, expectedSuffix string, args interface{}, opt notifytemplate.Options) {
 	t.Helper()
 

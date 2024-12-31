@@ -1,4 +1,5 @@
-Subject: Kopia encountered a fatal error creating 4 snapshots on some-host
+Subject: Failed to create 1 of 4 snapshots on some-host
+
 Path: /some/other/path
 
   Status:      fatal
