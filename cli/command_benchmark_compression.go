@@ -336,7 +336,7 @@ func (c *commandBenchmarkCompression) printResults(results []compressionBechmark
 			maybeDeprecated = " (deprecated)"
 		}
 
-		c.out.printStdout("%3d. %-26v %-12v %-12v/s %-8v %v%v",
+		c.out.printStdout("%3d. %-26v %-12v %8v/s     %-8v %v%v",
 			ndx,
 			r.compression,
 			units.BytesString(r.compressedSize),
