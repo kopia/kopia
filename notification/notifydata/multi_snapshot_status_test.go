@@ -19,12 +19,25 @@ func TestOverallStatus(t *testing.T) {
 		expected  string
 	}{
 		{
+			name: "one success",
+			snapshots: []*notifydata.ManifestWithError{
+				{Manifest: snapshot.Manifest{
+					Source: snapshot.SourceInfo{
+						Host:     "host",
+						Path:     "/some/path",
+						UserName: "user",
+					},
+				}},
+			},
+			expected: "Successfully created a snapshot of /some/path",
+		},
+		{
 			name: "all success",
 			snapshots: []*notifydata.ManifestWithError{
 				{Manifest: snapshot.Manifest{}},
 				{Manifest: snapshot.Manifest{}},
 			},
-			expected: "success",
+			expected: "Successfully created 2 snapshots",
 		},
 		{
 			name: "one fatal error",
@@ -32,7 +45,20 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{}, Error: "fatal error"},
 				{Manifest: snapshot.Manifest{}},
 			},
-			expected: "encountered a fatal error",
+			expected: "Failed to create 1 of 2 snapshots",
+		},
+		{
+			name: "one fatal error",
+			snapshots: []*notifydata.ManifestWithError{
+				{Manifest: snapshot.Manifest{
+					Source: snapshot.SourceInfo{
+						Host:     "host",
+						Path:     "/some/path",
+						UserName: "user",
+					},
+				}, Error: "fatal error"},
+			},
+			expected: "Failed to create a snapshot of /some/path",
 		},
 		{
 			name: "multiple fatal errors",
@@ -40,7 +66,7 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{}, Error: "fatal error"},
 				{Manifest: snapshot.Manifest{}, Error: "fatal error"},
 			},
-			expected: "encountered 2 fatal errors",
+			expected: "Failed to create 2 of 2 snapshots",
 		},
 		{
 			name: "one error",
@@ -48,7 +74,7 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 				{Manifest: snapshot.Manifest{}},
 			},
-			expected: "encountered an error",
+			expected: "Successfully created 2 snapshots",
 		},
 		{
 			name: "one fatal error and two errors",
@@ -58,7 +84,7 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 			},
-			expected: "encountered a fatal error and 2 errors",
+			expected: "Failed to create 1 of 4 snapshots",
 		},
 		{
 			name: "one fatal error and one errors",
@@ -67,7 +93,7 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{}},
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 			},
-			expected: "encountered a fatal error and an error",
+			expected: "Failed to create 1 of 3 snapshots",
 		},
 		{
 			name: "multiple errors",
@@ -75,7 +101,7 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 			},
-			expected: "encountered 2 errors",
+			expected: "Successfully created 2 snapshots",
 		},
 		{
 			name: "incomplete snapshot",
@@ -83,7 +109,7 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{IncompleteReason: "incomplete"}},
 				{Manifest: snapshot.Manifest{}},
 			},
-			expected: "success",
+			expected: "Successfully created 2 snapshots",
 		},
 	}
 
@@ -141,7 +167,7 @@ func TestStatusCode(t *testing.T) {
 					},
 				},
 			},
-			expected: notifydata.StatusCodeError,
+			expected: notifydata.StatusCodeWarnings,
 		},
 		{
 			name: "success",
