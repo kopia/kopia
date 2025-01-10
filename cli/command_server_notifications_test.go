@@ -95,7 +95,7 @@ func TestServerNotifications(t *testing.T) {
 		var msg sender.Message
 
 		require.NoError(t, dec.Decode(&msg))
-		require.Contains(t, msg.Subject, "Kopia success")
+		require.Contains(t, msg.Subject, "Successfully created a snapshot of")
 
 	case <-time.After(5 * time.Second):
 		t.Error("notification not received in time")
