@@ -290,7 +290,7 @@ func TestTokenExpiration(t *testing.T) {
 	creds, customProvider := customCredentialsAndProvider(awsAccessKeyID, awsSecretAccessKeyID, role, region)
 
 	// Verify that the credentials can be used to get a new value
-	val, err := creds.Get()
+	val, err := creds.GetWithContext(nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -754,7 +754,7 @@ func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUs
 	require.NoError(t, err, "during STSAssumeRole:", minioEndpoint)
 	require.NotNil(t, roleCreds)
 
-	credsValue, err := roleCreds.Get()
+	credsValue, err := roleCreds.GetWithContext(nil)
 	require.NoError(t, err)
 
 	return credsValue
@@ -787,6 +787,14 @@ const expiredSessionToken = "IQoJb3JpZ2luX2VjEBMaCXVzLXdlc3QtMiJIM" +
 	"82CdcwRB+t7K1LEmRErltbteGtM="
 
 func (cp *customProvider) Retrieve() (credentials.Value, error) {
+	return cp.RetrieveWithCredContext(nil)
+}
+
+func (cp *customProvider) IsExpired() bool {
+	return cp.forceExpired.Load()
+}
+
+func (cp *customProvider) RetrieveWithCredContext(cc *credentials.CredContext) (credentials.Value, error) {
 	if cp.forceExpired.Load() {
 		return credentials.Value{
 			AccessKeyID:     "ASIAQREAKNKDBR4F5F2I",
@@ -796,11 +804,7 @@ func (cp *customProvider) Retrieve() (credentials.Value, error) {
 		}, nil
 	}
 
-	return cp.stsProvider.Retrieve()
-}
-
-func (cp *customProvider) IsExpired() bool {
-	return cp.forceExpired.Load()
+	return cp.stsProvider.RetrieveWithCredContext(cc)
 }
 
 // customCredentialsAndProvider creates a custom provider and returns credentials
