@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -614,9 +615,8 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 			relPath := path + "/" + e.Name()
 
 			if subdir, ok := e.(fs.Directory); ok {
-				if err := walk(relPath, subdir); err != nil {
-					t.Fatalf("%s not found in %s", relPath, subdir.Name())
-				}
+				err := walk(relPath, subdir)
+				require.NoError(t, err, relPath, "not found in", subdir.Name())
 			} else {
 				output = append(output, relPath)
 			}
@@ -625,9 +625,8 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 		})
 	}
 
-	if err := walk(".", dir); err != nil {
-		t.Fatalf("error walking tree: %v", err)
-	}
+	err := walk(".", dir)
+	require.NoError(t, err, "error walking tree")
 
 	return output
 }
@@ -637,7 +636,6 @@ func verifyDirectoryTree(t *testing.T, dir fs.Directory, expected []string) {
 
 	output := walkTree(t, dir)
 
-	if diff := pretty.Compare(output, expected); diff != "" {
-		t.Errorf("unexpected directory tree, diff(-got,+want): %v\n", diff)
-	}
+	diff := pretty.Compare(output, expected)
+	require.Empty(t, diff, "unexpected directory tree, diff(-got,+want)")
 }
