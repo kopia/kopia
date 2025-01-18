@@ -625,9 +625,8 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 		})
 	}
 
-	if err := walk(".", dir); err != nil {
-		t.Fatalf("error walking tree: %v", err)
-	}
+	err := walk(".", dir)
+	require.NoError(t, err, "error walking tree")
 
 	return output
 }
@@ -637,7 +636,6 @@ func verifyDirectoryTree(t *testing.T, dir fs.Directory, expected []string) {
 
 	output := walkTree(t, dir)
 
-	if diff := pretty.Compare(output, expected); diff != "" {
-		t.Errorf("unexpected directory tree, diff(-got,+want): %v\n", diff)
-	}
+	diff := pretty.Compare(output, expected)
+	require.Empty(t, diff, "unexpected directory tree, diff(-got,+want)")
 }
