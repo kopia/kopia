@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -614,9 +615,8 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 			relPath := path + "/" + e.Name()
 
 			if subdir, ok := e.(fs.Directory); ok {
-				if err := walk(relPath, subdir); err != nil {
-					t.Fatalf("%s not found in %s", relPath, subdir.Name())
-				}
+				err := walk(relPath, subdir)
+				require.NoError(t, err, relPath, "not found in", subdir.Name())
 			} else {
 				output = append(output, relPath)
 			}
