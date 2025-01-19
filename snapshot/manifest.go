@@ -18,9 +18,10 @@ type Manifest struct {
 	ID     manifest.ID `json:"id"`
 	Source SourceInfo  `json:"source"`
 
-	Description string          `json:"description"`
-	StartTime   fs.UTCTimestamp `json:"startTime"`
-	EndTime     fs.UTCTimestamp `json:"endTime"`
+	Description string           `json:"description"`
+	StartTime   fs.UTCTimestamp  `json:"startTime"`
+	EndTime     fs.UTCTimestamp  `json:"endTime"`
+	Progress    map[string]int64 `json:"progress"`
 
 	Stats            Stats  `json:"stats,omitempty"`
 	IncompleteReason string `json:"incomplete,omitempty"`
