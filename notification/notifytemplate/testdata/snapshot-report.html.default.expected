@@ -1,4 +1,4 @@
-Subject: Kopia created 2 snapshots on some-host
+Subject: Failed to create 1 of 4 snapshots on some-host
 
 <!doctype html>
 <html>
@@ -32,6 +32,16 @@ Subject: Kopia created 2 snapshots on some-host
         font-family: monospace;
         color: #344652;
         font-weight: bold;
+    }
+
+    span.increase {
+        color: green;
+        font-style: italic;
+    }
+
+    span.decrease {
+        color: red;
+        font-style: italic;
     }
 
     tr.snapshotstatus-fatal {
@@ -80,10 +90,72 @@ Subject: Kopia created 2 snapshots on some-host
 
 
 
-<tr class="snapshotstatus-ok">
+<tr class="snapshotstatus-success">
 <td><span class="path">/some/path</span></td>
 <td>Thu, 02 Jan 2020 03:04:05 +0000</td>
-<td>1.000000001s</td>
+<td>1.1s</td>
+<td>456 B <span class='increase'>(&#x2191; 56 B)</span></td>
+<td>123 <span class='increase'>(&#x2191; 23)</span></td>
+<td>33 <span class='increase'>(&#x2191; 3)</span></td>
+</tr>
+
+
+
+
+
+
+<tr class="snapshotstatus-success">
+    <td colspan="6">
+        <b style="color:red">Failed Entries:</b>
+        <ul>
+        
+        <li><span class="path">/some/path</span>: some error</li>
+        
+        <li><span class="path">/some/path2</span>: some error</li>
+        
+        </ul>
+    </td>
+</tr>
+
+
+
+
+
+<tr class="snapshotstatus-success">
+<td><span class="path">/some/path</span></td>
+<td>Thu, 02 Jan 2020 03:04:05 +0000</td>
+<td>1.1s</td>
+<td>456 B <span class='decrease'>(&#x2193; 44 B)</span></td>
+<td>123 <span class='decrease'>(&#x2193; 77)</span></td>
+<td>33 <span class='decrease'>(&#x2193; 7)</span></td>
+</tr>
+
+
+
+
+
+
+<tr class="snapshotstatus-success">
+    <td colspan="6">
+        <b style="color:red">Failed Entries:</b>
+        <ul>
+        
+        <li><span class="path">/some/path</span>: some error</li>
+        
+        <li><span class="path">/some/path2</span>: some error</li>
+        
+        </ul>
+    </td>
+</tr>
+
+
+
+
+
+<tr class="snapshotstatus-success">
+<td><span class="path">/some/path2</span></td>
+<td>Thu, 02 Jan 2020 03:04:05 +0000</td>
+<td>1.1s</td>
 <td>456 B</td>
 <td>123</td>
 <td>33</td>
@@ -94,7 +166,7 @@ Subject: Kopia created 2 snapshots on some-host
 
 
 
-<tr class="snapshotstatus-ok">
+<tr class="snapshotstatus-success">
     <td colspan="6">
         <b style="color:red">Failed Entries:</b>
         <ul>

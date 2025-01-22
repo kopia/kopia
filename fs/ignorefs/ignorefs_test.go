@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -188,6 +189,68 @@ var cases = []struct {
 			"./bin/some-bin",
 			"./src/some-src/",
 			"./src/some-src/f1",
+		},
+	},
+	{
+		desc:       "default policy, have dotignore relative symlink",
+		policyTree: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			dir := root.AddDir("ignoredir", 0)
+			dir.AddFileLines("kopiaignore", []string{"file[12]"}, 0)
+			root.AddSymlink(".kopiaignore", "./ignoredir/kopiaignore", 0)
+		},
+		addedFiles: []string{
+			"./.kopiaignore",
+			"./ignoredir/",
+			"./ignoredir/kopiaignore",
+		},
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./file1",
+			"./file2",
+		},
+	},
+	{
+		desc:       "default policy, have dotignore absolute symlink",
+		policyTree: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			dir := root.AddDir("ignoredir", 0)
+			dir.AddFileLines("kopiaignore", []string{"file[12]"}, 0)
+			root.AddSymlink(".kopiaignore", "/ignoredir/kopiaignore", 0)
+		},
+		addedFiles: []string{
+			"./.kopiaignore",
+			"./ignoredir/",
+			"./ignoredir/kopiaignore",
+		},
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./file1",
+			"./file2",
+		},
+	},
+	{
+		desc:       "default policy, have dotignore recursive symlink",
+		policyTree: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			dir := root.AddDir("ignoredir", 0)
+			dir.AddFileLines("kopiaignore", []string{"file[12]"}, 0)
+			root.AddSymlink(".ignorelink", "/ignoredir/kopiaignore", 0)
+			root.AddSymlink(".kopiaignore", "/.ignorelink", 0)
+		},
+		addedFiles: []string{
+			"./.kopiaignore",
+			"./.ignorelink",
+			"./ignoredir/",
+			"./ignoredir/kopiaignore",
+		},
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./file1",
+			"./file2",
 		},
 	},
 	{
@@ -552,9 +615,8 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 			relPath := path + "/" + e.Name()
 
 			if subdir, ok := e.(fs.Directory); ok {
-				if err := walk(relPath, subdir); err != nil {
-					return err
-				}
+				err := walk(relPath, subdir)
+				require.NoError(t, err, relPath, "not found in", subdir.Name())
 			} else {
 				output = append(output, relPath)
 			}
@@ -563,9 +625,8 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 		})
 	}
 
-	if err := walk(".", dir); err != nil {
-		t.Fatalf("error walking tree: %v", err)
-	}
+	err := walk(".", dir)
+	require.NoError(t, err, "error walking tree")
 
 	return output
 }
@@ -575,7 +636,6 @@ func verifyDirectoryTree(t *testing.T, dir fs.Directory, expected []string) {
 
 	output := walkTree(t, dir)
 
-	if diff := pretty.Compare(output, expected); diff != "" {
-		t.Errorf("unexpected directory tree, diff(-got,+want): %v\n", diff)
-	}
+	diff := pretty.Compare(output, expected)
+	require.Empty(t, diff, "unexpected directory tree, diff(-got,+want)")
 }

@@ -8,6 +8,8 @@ import (
 )
 
 // Info is an implementation of Info based on a structure.
+//
+//nolint:recvcheck
 type Info struct {
 	PackBlobID          blob.ID              `json:"packFile,omitempty"`
 	TimestampSeconds    int64                `json:"time"`

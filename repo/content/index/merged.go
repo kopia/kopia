@@ -80,6 +80,7 @@ type nextInfo struct {
 	ch <-chan Info
 }
 
+//nolint:recvcheck
 type nextInfoHeap []*nextInfo
 
 func (h nextInfoHeap) Len() int { return len(h) }

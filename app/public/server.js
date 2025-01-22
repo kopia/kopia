@@ -41,9 +41,11 @@ function newServerForRepo(repoID) {
                 '--random-server-control-password',
                 '--tls-generate-cert',
                 '--async-repo-connect',
+                '--error-notifications=always',
+                '--kopiaui-notifications', // will print notification JSON to stderr
                 '--shutdown-on-stdin', // shutdown the server when parent dies
                 '--address=127.0.0.1:0');
-    
+
 
             args.push("--config-file", path.resolve(configDir(), repoID + ".config"));
             if (isPortableConfig()) {
@@ -67,7 +69,7 @@ function newServerForRepo(repoID) {
 
             const statusUpdated = this.raiseStatusUpdatedEvent.bind(this);
 
-	    const pollInterval = 3000; 
+            const pollInterval = 3000;
 
             function pollOnce() {
                 if (!runningServerAddress || !runningServerCertificate || !runningServerPassword || !runningServerControlPassword) {
@@ -80,13 +82,13 @@ function newServerForRepo(repoID) {
                     port: parseInt(new URL(runningServerAddress).port),
                     method: "GET",
                     path: "/api/v1/control/status",
-		    timeout: pollInterval,
+                    timeout: pollInterval,
                     headers: {
                         'Authorization': 'Basic ' + Buffer.from("server-control" + ':' + runningServerControlPassword).toString('base64')
-                     }  
+                    }
                 }, (resp) => {
                     if (resp.statusCode === 200) {
-                        resp.on('data', x => { 
+                        resp.on('data', x => {
                             try {
                                 const newDetails = JSON.parse(x);
                                 if (JSON.stringify(newDetails) != JSON.stringify(runningServerStatusDetails)) {
@@ -101,7 +103,7 @@ function newServerForRepo(repoID) {
                         log.warn('error fetching status', resp.statusMessage);
                     }
                 });
-                req.on('error', (e)=>{
+                req.on('error', (e) => {
                     log.info('error fetching status', e);
                 });
                 req.end();
@@ -158,6 +160,14 @@ function newServerForRepo(repoID) {
                     case "SERVER ADDRESS":
                         runningServerAddress = value;
                         this.raiseStatusUpdatedEvent();
+                        break;
+
+                    case "NOTIFICATION":
+                        try {
+                            this.raiseNotificationEvent(JSON.parse(value));
+                        } catch (e) {
+                            log.warn('unable to parse notification JSON', e);
+                        }
                         break;
                 }
             }
@@ -231,6 +241,15 @@ function newServerForRepo(repoID) {
 
             ipcMain.emit('status-updated-event', args);
         },
+
+        raiseNotificationEvent(notification) {
+            const args = {
+                repoID: repoID,
+                notification: notification,
+            };
+
+            ipcMain.emit('repo-notification-event', args);
+        },
     };
 };
 
@@ -243,13 +262,13 @@ ipcMain.on('status-fetch', (event, args) => {
 })
 
 export function serverForRepo(repoID) {
-        let s = servers[repoID];
-        if (s) {
-            return s;
-        }
-
-        s = newServerForRepo(repoID);
-        servers[repoID] = s;
+    let s = servers[repoID];
+    if (s) {
         return s;
     }
+
+    s = newServerForRepo(repoID);
+    servers[repoID] = s;
+    return s;
+}
 

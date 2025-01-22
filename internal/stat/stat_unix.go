@@ -27,6 +27,7 @@ func GetFileAllocSize(fname string) (uint64, error) {
 		return 0, err //nolint:wrapcheck
 	}
 
+	//nolint:gosec
 	return uint64(st.Blocks) * diskBlockSize, nil
 }
 

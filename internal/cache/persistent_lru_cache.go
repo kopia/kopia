@@ -220,6 +220,8 @@ func (c *PersistentCache) Close(ctx context.Context) {
 }
 
 // A contentMetadataHeap implements heap.Interface and holds blob.Metadata.
+//
+//nolint:recvcheck
 type contentMetadataHeap struct {
 	data           []blob.Metadata
 	index          map[blob.ID]int

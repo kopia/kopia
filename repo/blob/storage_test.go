@@ -183,7 +183,7 @@ func TestMetataJSONString(t *testing.T) {
 		Timestamp: time.Date(2000, 1, 2, 3, 4, 5, 6, time.UTC),
 	}
 
-	require.Equal(t, `{"id":"foo","length":12345,"timestamp":"2000-01-02T03:04:05.000000006Z"}`, bm.String())
+	require.JSONEq(t, `{"id":"foo","length":12345,"timestamp":"2000-01-02T03:04:05.000000006Z"}`, bm.String())
 }
 
 func TestPutBlobAndGetMetadata(t *testing.T) {

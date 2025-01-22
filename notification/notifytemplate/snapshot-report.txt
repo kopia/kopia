@@ -1,14 +1,17 @@
-Subject: Kopia created {{ len .EventArgs.Snapshots }} snapshot{{ if gt (len .EventArgs.Snapshots) 1 }}s{{end}} on {{.Hostname}}
+Subject: {{.EventArgs.OverallStatus}} on {{.Hostname}}
 
-{{ range .EventArgs.Snapshots | sortSnapshotManifestsByName}}Path: {{ .Source.Path }}
+{{ range .EventArgs.Snapshots | sortSnapshotManifestsByName}}Path: {{ .Manifest.Source.Path }}
 
-  Status: {{ .StatusCode }}
-  Start: {{ .StartTimestamp | formatTime  }} Duration: {{ .Duration }}
-  Size: {{ .TotalSize | bytes }}, {{ .TotalFiles }} files, {{ .TotalDirs }} directories.
-{{ if .Error }}  Error: {{ .Error }}
-{{ end }}{{ if .RootEntry }}{{ if .RootEntry.DirSummary }}{{ if .RootEntry.DirSummary.FailedEntries }}
+  Status:      {{ .StatusCode }}
+  Start:       {{ .StartTimestamp | formatTime  }}
+  Duration:    {{ .Duration }}
+  Size:        {{ .TotalSize | bytes }}{{ .TotalSizeDelta | bytesDelta }}
+  Files:       {{ .TotalFiles | formatCount }}{{ .TotalFilesDelta | countDelta }}
+  Directories: {{ .TotalDirs | formatCount }}{{ .TotalDirsDelta | countDelta }}
+{{ if .Error }}  Error:       {{ .Error }}
+{{ end }}{{ if .Manifest.RootEntry }}{{ if .Manifest.RootEntry.DirSummary }}{{ if .Manifest.RootEntry.DirSummary.FailedEntries }}
   Failed Entries:
-{{ range .RootEntry.DirSummary.FailedEntries }}
+{{ range .Manifest.RootEntry.DirSummary.FailedEntries }}
   - {{.EntryPath}}: {{.Error}}{{ end }}{{ end }}{{ end }}
 {{ end }}
 {{ end }}Generated at {{ .EventTime | formatTime }} by Kopia {{ .KopiaBuildVersion }}.

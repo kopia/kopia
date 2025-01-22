@@ -36,7 +36,12 @@ const (
 func StartServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
 	t.Helper()
 
-	ctx := testlogging.Context(t)
+	return StartServerContext(testlogging.Context(t), t, env, tls)
+}
+
+// StartServerContext starts a test server with a given root context and returns APIServerInfo.
+func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
+	t.Helper()
 
 	s, err := server.New(ctx, &server.Options{
 		ConfigFile:      env.ConfigFile(),
@@ -78,8 +83,6 @@ func StartServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.API
 		hs.Start()
 		asi.BaseURL = hs.URL
 	}
-
-	asi.LocalCacheKeyDerivationAlgorithm = repo.DefaultServerRepoCacheKeyDerivationAlgorithm
 
 	t.Cleanup(hs.Close)
 

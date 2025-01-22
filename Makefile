@@ -1,4 +1,4 @@
-COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...,./cli/...,./internal/...
+COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...,./cli/...,./internal/...,./notification/...
 TEST_FLAGS?=
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/kopia.exe
 TESTING_ACTION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/testingaction.exe
@@ -123,6 +123,10 @@ MAYBE_XVFB=xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" --
 endif
 
 kopia-ui-test:
+ifeq ($(GOOS)/$(GOARCH),linux/amd64)
+	# on Linux we run from installed location due to AppArmor requirement on Ubuntu 24.04
+	sudo apt-get install -y ./dist/kopia-ui/kopia-ui*_amd64.deb
+endif
 	$(MAYBE_XVFB) $(MAKE) -C app e2e-test
 
 # use this to test htmlui changes in full build of KopiaUI, this is rarely needed
@@ -311,8 +315,9 @@ $(TESTING_ACTION_EXE): tests/testingaction/main.go
 
 compat-tests: export KOPIA_CURRENT_EXE=$(CURDIR)/$(kopia_ui_embedded_exe)
 compat-tests: export KOPIA_08_EXE=$(kopia08)
+compat-tests: export KOPIA_017_EXE=$(kopia017)
 compat-tests: GOTESTSUM_FLAGS=--format=testname --no-summary=skipped --jsonfile=.tmp.compat-tests.json
-compat-tests: $(kopia_ui_embedded_exe) $(kopia08) $(gotestsum)
+compat-tests: $(kopia_ui_embedded_exe) $(kopia08) $(kopia017) $(gotestsum)
 	$(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/compat_test
 	#  -$(gotestsum) tool slowest --jsonfile .tmp.compat-tests.json  --threshold 1000ms
 

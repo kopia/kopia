@@ -5,7 +5,6 @@ import (
 	"path"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -777,7 +776,7 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 	require.Equal(t, "foo", si[2].Host)
 
 	if runtime.GOOS == "windows" {
-		require.Regexp(t, regexp.MustCompile(`[A-Z]:\\foo\\bar`), si[2].Path)
+		require.Regexp(t, `[A-Z]:\\foo\\bar`, si[2].Path)
 	} else {
 		require.Equal(t, "/foo/bar", si[2].Path)
 	}

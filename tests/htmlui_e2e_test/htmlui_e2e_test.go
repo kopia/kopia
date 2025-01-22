@@ -150,6 +150,8 @@ func createTestSnapshot(t *testing.T, ctx context.Context, sp *testutil.ServerPa
 		chromedp.Click(`a[data-testid='new-snapshot']`),
 
 		tc.log("entering path:"+snap1Path),
+
+		chromedp.Sleep(time.Second),
 		chromedp.SendKeys(`input[name='path']`, snap1Path+"\t"),
 		chromedp.Sleep(2*time.Second),
 
@@ -161,9 +163,12 @@ func createTestSnapshot(t *testing.T, ctx context.Context, sp *testutil.ServerPa
 
 		tc.log("clicking snapshot now"),
 		chromedp.Click(`button[data-testid='snapshot-now']`),
+		chromedp.Sleep(time.Second),
 		tc.captureScreenshot("snapshot-clicked"),
 
+		tc.log("navigating to tab Snapshots"),
 		chromedp.Navigate(sp.BaseURL),
+		chromedp.WaitVisible(`a[data-testid='tab-snapshots']`),
 		chromedp.Click("a[data-testid='tab-snapshots']"),
 
 		tc.log("waiting for snapshot list"),
@@ -277,6 +282,7 @@ func TestChangeTheme(t *testing.T) {
 
 			tc.log("clicking on preference tab"),
 			chromedp.Click("a[data-testid='tab-preferences']", chromedp.BySearch),
+			chromedp.Sleep(time.Second),
 
 			chromedp.Nodes("html", &nodes),
 			tc.captureScreenshot("initial-theme"),

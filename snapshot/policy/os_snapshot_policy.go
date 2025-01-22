@@ -36,6 +36,8 @@ func (p *VolumeShadowCopyPolicy) Merge(src VolumeShadowCopyPolicy, def *VolumeSh
 
 // OSSnapshotMode specifies whether OS-level snapshots are used for file systems
 // that support them.
+//
+//nolint:recvcheck
 type OSSnapshotMode byte
 
 // OS-level snapshot modes.

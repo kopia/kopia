@@ -102,13 +102,13 @@ retry:=
 endif
 
 # tool versions
-GOLANGCI_LINT_VERSION=1.60.3
+GOLANGCI_LINT_VERSION=1.62.0
 CHECKLOCKS_VERSION=release-20241104.0
 NODE_VERSION=20.15.1
 HUGO_VERSION=0.113.0
 GOTESTSUM_VERSION=1.11.0
 GORELEASER_VERSION=v0.176.0
-RCLONE_VERSION=1.67.0
+RCLONE_VERSION=1.68.2
 GITCHGLOG_VERSION=0.15.1
 
 # nodejs / npm
@@ -120,6 +120,11 @@ node_dir=$(node_base_dir)$(slash)bin
 endif
 npm=$(node_dir)$(slash)npm$(cmd_suffix)
 npm_flags=--scripts-prepend-node-path=auto
+
+npm_install_or_ci:=install
+ifneq ($(CI),)
+npm_install_or_ci:=ci
+endif
 
 # put NPM in the path
 PATH:=$(node_dir)$(path_separator)$(PATH)
@@ -200,6 +205,13 @@ kopia08=$(kopia08_dir)$(slash)kopia$(exe_suffix)
 
 $(kopia08):
 	go run github.com/kopia/kopia/tools/gettool --tool kopia:$(kopia08_version) --output-dir $(kopia08_dir)
+
+kopia017_version=0.17.0
+kopia017_dir=$(TOOLS_DIR)$(slash)kopia-$(kopia017_version)
+kopia017=$(kopia017_dir)$(slash)kopia$(exe_suffix)
+
+$(kopia017):
+	go run github.com/kopia/kopia/tools/gettool --tool kopia:$(kopia017_version) --output-dir $(kopia017_dir)
 
 MINIO_MC_PATH=$(TOOLS_DIR)/bin/mc$(exe_suffix)
 
@@ -295,7 +307,7 @@ else
 maybehugo=
 endif
 
-ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION),kopia:0.8.4,gitchglog:$(GITCHGLOG_VERSION)
+ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION),kopia:0.8.4,kopia:0.17.0,gitchglog:$(GITCHGLOG_VERSION)
 
 verify-all-tool-checksums:
 	go run github.com/kopia/kopia/tools/gettool --test-all \

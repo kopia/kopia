@@ -244,7 +244,13 @@ func isRetriable(err error) bool {
 
 	case errors.As(err, &pe):
 		httpCode := httpErrorCode(pe)
-		return httpCode == 429 || httpCode >= 500
+		switch httpCode {
+		case http.StatusLocked, http.StatusConflict, http.StatusTooManyRequests:
+			return true
+
+		default:
+			return httpCode >= http.StatusInternalServerError
+		}
 
 	default:
 		return true
