@@ -1,6 +1,7 @@
 package repodiag_test
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"strings"
@@ -82,6 +83,30 @@ func TestLogManager_NotEnabled(t *testing.T) {
 
 	// make sure log messages are not written
 	require.Empty(t, d)
+}
+
+func TestLogManager_CancelledContext(t *testing.T) {
+	d := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(d, nil, nil)
+	w := repodiag.NewWriter(st, newStaticCrypter(t))
+	ctx := testlogging.Context(t)
+	cctx, cancel := context.WithCancel(ctx)
+	lm := repodiag.NewLogManager(cctx, w)
+
+	// cancel context, logs should still be written
+	cancel()
+
+	lm.Enable()
+	l := lm.NewLogger()
+	l.Info("hello")
+
+	require.Empty(t, d)
+
+	l.Sync()
+	w.Wait(ctx)
+
+	// make sure log messages are written
+	require.Len(t, d, 1)
 }
 
 func TestLogManager_Null(t *testing.T) {
