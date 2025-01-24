@@ -31,13 +31,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-        include:
-          - os: [self-hosted, ARM64]
-          # - os: [self-hosted, ARMHF]
+        os: [windows-latest, ubuntu-latest, macos-latest, ubuntu-24.04-arm ]
     name: Make
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ contains(matrix.os, 'self-hosted') }}
     steps:
     - name: Check out repository
       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
