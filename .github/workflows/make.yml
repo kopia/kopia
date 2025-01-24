@@ -113,7 +113,6 @@ jobs:
           dist/kopia-ui/*.AppImage
           dist/kopia-ui/*.yml
         if-no-files-found: ignore
-      if: ${{ !contains(matrix.os, 'self-hosted') }}
     - name: Upload Kopia Binary
       uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
       with:
@@ -124,7 +123,6 @@ jobs:
           dist/*/rclone
           dist/*/rclone.exe
         if-no-files-found: ignore
-      if: ${{ !contains(matrix.os, 'self-hosted') }}
   publish:
     name: Stage And Publish Artifacts
     runs-on: ubuntu-latest
