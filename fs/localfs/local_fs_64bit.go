@@ -1,8 +1,8 @@
-//go:build !windows && !openbsd && !darwin && (amd64 || arm64 || arm || ppc64 || ppc64le || s390x || 386 || riscv64)
+//go:build !windows && !openbsd && !darwin && (amd64 || arm64 || arm || ppc64 || ppc64le || s390x || 386 || riscv64 || loong64)
 // +build !windows
 // +build !openbsd
 // +build !darwin
-// +build amd64 arm64 arm ppc64 ppc64le s390x 386 riscv64
+// +build amd64 arm64 arm ppc64 ppc64le s390x 386 riscv64 loong64
 
 package localfs
 
