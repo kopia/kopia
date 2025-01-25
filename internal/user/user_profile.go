@@ -34,7 +34,14 @@ type Profile struct {
 
 // SetPassword changes the password for a user profile.
 func (p *Profile) SetPassword(password string) error {
-	return p.setPassword(password)
+	h, err := computeNewPasswordHash(password, p.PasswordHashVersion)
+	if err != nil {
+		return err
+	}
+
+	p.PasswordHash = h
+
+	return nil
 }
 
 // SetPasswordHash decodes and validates encodedhash, if it is a valid hash
@@ -66,5 +73,11 @@ func (p *Profile) IsValidPassword(password string) (bool, error) {
 		return false, err
 	}
 
-	return isValidPassword(password, p.PasswordHash, p.PasswordHashVersion)
+	hashVersion := p.PasswordHashVersion
+	if hashVersion == unsetDefaulHashVersion {
+		// use default hash version when not set in the profile
+		hashVersion = ScryptHashVersion
+	}
+
+	return isValidPassword(password, p.PasswordHash, hashVersion)
 }
