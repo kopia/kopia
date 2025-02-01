@@ -4,12 +4,12 @@
   "repository": "github:kopia/kopia",
   "dependencies": {
     "auto-launch": "^5.0.6",
-    "electron-log": "^5.2.4",
-    "electron-store": "^10.0.0",
+    "electron-log": "^5.3.0",
+    "electron-store": "^10.0.1",
     "electron-updater": "^6.3.9",
     "minimist": "^1.2.8",
-    "semver": "^7.6.3",
-    "uuid": "^11.0.3"
+    "semver": "^7.7.0",
+    "uuid": "^11.0.5"
   },
   "type": "module",
   "author": {
@@ -121,13 +121,13 @@
   },
   "devDependencies": {
     "@electron/notarize": "^2.5.0",
-    "@playwright/test": "^1.49.1",
+    "@playwright/test": "^1.50.1",
     "asar": "^3.2.0",
     "concurrently": "^9.1.2",
     "dotenv": "^16.4.7",
-    "electron": "^33.2.1",
-    "electron-builder": "^v26.0.0-alpha.8",
-    "electron-store": "^10.0.0",
+    "electron": "^34.0.2",
+    "electron-builder": "^v26.0.1",
+    "electron-store": "^10.0.1",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1"
   },
