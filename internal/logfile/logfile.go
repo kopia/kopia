@@ -24,6 +24,7 @@ import (
 	"github.com/kopia/kopia/internal/zaplogutil"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/internal/cachedir"
 )
 
 const logsDirMode = 0o700
@@ -211,6 +212,15 @@ func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, lo
 
 	if err := os.MkdirAll(logDir, logsDirMode); err != nil {
 		fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err)
+	}
+
+	// write a cachetag.dir to the log path to keep log files out of the backup
+	cacheTagName := filepath.Join(logDir, "CACHEDIR.TAG")
+
+	if _, err := os.Stat(cacheTagName); errors.Is(err, os.ErrNotExist) {
+		if err := cachedir.WriteCacheMarker(logDir); err != nil {
+			fmt.Fprintln(os.Stderr, "Unable to write CACHETAG")
+		}
 	}
 
 	sweepLogWG := &sync.WaitGroup{}
