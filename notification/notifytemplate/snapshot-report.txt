@@ -1,4 +1,4 @@
-Subject: Kopia created {{ len .EventArgs.Snapshots }} snapshot{{ if gt (len .EventArgs.Snapshots) 1 }}s{{end}} on {{.Hostname}}
+Subject: {{.EventArgs.OverallStatus}} on {{.Hostname}}
 
 {{ range .EventArgs.Snapshots | sortSnapshotManifestsByName}}Path: {{ .Manifest.Source.Path }}
 

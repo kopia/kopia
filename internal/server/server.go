@@ -26,6 +26,8 @@ import (
 	"github.com/kopia/kopia/internal/scheduler"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
+	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
@@ -84,6 +86,9 @@ type Server struct {
 	currentParallelSnapshots int
 	// +checklocks:parallelSnapshotsMutex
 	maxParallelSnapshots int
+
+	// +checklocks:parallelSnapshotsMutex
+	pendingMultiSnapshotStatus notifydata.MultiSnapshotStatus
 
 	// +checklocks:serverMutex
 	rep repo.Repository
@@ -164,6 +169,8 @@ func (s *Server) SetupHTMLUIAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/notificationProfiles/{profileName}", s.handleUI(handleNotificationProfileDelete)).Methods(http.MethodDelete)
 	m.HandleFunc("/api/v1/notificationProfiles/{profileName}", s.handleUI(handleNotificationProfileGet)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/notificationProfiles", s.handleUI(handleNotificationProfileList)).Methods(http.MethodGet)
+
+	m.HandleFunc("/api/v1/testNotificationProfile", s.handleUI(handleNotificationProfileTest)).Methods(http.MethodPost)
 }
 
 // SetupControlAPIHandlers registers control API handlers.
@@ -180,6 +187,10 @@ func (s *Server) SetupControlAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/control/resume-source", s.handleServerControlAPI(handleResume)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/control/throttle", s.handleServerControlAPI(handleRepoGetThrottle)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/control/throttle", s.handleServerControlAPI(handleRepoSetThrottle)).Methods(http.MethodPut)
+}
+
+func (s *Server) rootContext() context.Context {
+	return s.rootctx
 }
 
 func (s *Server) isAuthenticated(rc requestContext) bool {
@@ -532,7 +543,7 @@ func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) bool 
 	return true
 }
 
-func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
+func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo, mwe *notifydata.ManifestWithError) {
 	s.parallelSnapshotsMutex.Lock()
 	defer s.parallelSnapshotsMutex.Unlock()
 
@@ -540,8 +551,29 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 
 	s.currentParallelSnapshots--
 
+	s.pendingMultiSnapshotStatus.Snapshots = append(s.pendingMultiSnapshotStatus.Snapshots, mwe)
+
+	// send a single snapshot report when last parallel snapshot completes.
+	if s.currentParallelSnapshots == 0 {
+		go s.sendSnapshotReport(s.pendingMultiSnapshotStatus)
+
+		s.pendingMultiSnapshotStatus.Snapshots = nil
+	}
+
 	// notify one of the waiters
 	s.parallelSnapshotsChanged.Signal()
+}
+
+func (s *Server) sendSnapshotReport(st notifydata.MultiSnapshotStatus) {
+	s.serverMutex.Lock()
+	rep := s.rep
+	s.serverMutex.Unlock()
+
+	// send the notification without blocking if we still have the repository
+	// it's possible that repository was closed in the meantime.
+	if rep != nil {
+		notification.Send(s.rootctx, rep, "snapshot-report", st, notification.SeverityReport, s.notificationTemplateOptions())
+	}
 }
 
 func (s *Server) enableErrorNotifications() bool {
@@ -932,20 +964,28 @@ func RetryInitRepository(initialize InitRepositoryFunc) InitRepositoryFunc {
 	}
 }
 
-func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, inner func(ctx context.Context, ctrl uitask.Controller) error) error {
+func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, inner func(ctx context.Context, ctrl uitask.Controller, result *notifydata.ManifestWithError) error) error {
 	if !s.beginUpload(ctx, src) {
 		return nil
 	}
 
-	defer s.endUpload(ctx, src)
+	var result notifydata.ManifestWithError
+	result.Manifest.Source = src
 
-	return errors.Wrap(s.taskmgr.Run(
+	defer s.endUpload(ctx, src, &result)
+
+	err := errors.Wrap(s.taskmgr.Run(
 		ctx,
 		"Snapshot",
 		fmt.Sprintf("%v at %v", src, clock.Now().Format(time.RFC3339)),
 		func(ctx context.Context, ctrl uitask.Controller) error {
-			return inner(ctx, ctrl)
+			return inner(ctx, ctrl, &result)
 		}), "snapshot task")
+	if err != nil {
+		result.Error = err.Error()
+	}
+
+	return err
 }
 
 func (s *Server) runMaintenanceTask(ctx context.Context, dr repo.DirectRepository) error {

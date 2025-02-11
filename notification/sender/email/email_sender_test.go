@@ -1,6 +1,7 @@
 package email_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -185,25 +186,28 @@ func TestEmailProvider_Invalid(t *testing.T) {
 func TestMergeOptions(t *testing.T) {
 	var dst email.Options
 
-	email.MergeOptions(email.Options{
+	require.NoError(t, email.MergeOptions(context.Background(), email.Options{
 		SMTPServer: "server1",
 		From:       "from1",
-	}, &dst, false)
+		To:         "to1",
+	}, &dst, false))
 
 	require.Equal(t, "server1", dst.SMTPServer)
 	require.Equal(t, "from1", dst.From)
+	require.Equal(t, "to1", dst.To)
+	require.Equal(t, "html", dst.Format)
 
-	email.MergeOptions(email.Options{
+	require.NoError(t, email.MergeOptions(context.Background(), email.Options{
 		From: "user2",
-	}, &dst, true)
+	}, &dst, true))
 
 	require.Equal(t, "server1", dst.SMTPServer)
 	require.Equal(t, "user2", dst.From)
 
-	email.MergeOptions(email.Options{
+	require.NoError(t, email.MergeOptions(context.Background(), email.Options{
 		SMTPServer: "app2",
 		From:       "user2",
-	}, &dst, true)
+	}, &dst, true))
 
 	require.Equal(t, "app2", dst.SMTPServer)
 	require.Equal(t, "user2", dst.From)

@@ -3,6 +3,7 @@ import pkg from "electron-updater";
 const autoUpdater = pkg.autoUpdater;
 import { iconsPath, publicPath, selectByOS } from './utils.js';
 import { toggleLaunchAtStartup, willLaunchAtStartup, refreshWillLaunchAtStartup } from './auto-launch.js';
+import { setNotificationLevel, getNotificationLevel } from './notifications.js';
 import { serverForRepo } from './server.js';
 import { loadConfigs, allConfigs, deleteConfigIfDisconnected, addNewConfig, configDir, isFirstRun, isPortableConfig } from './config.js';
 
@@ -223,6 +224,7 @@ ipcMain.handle('browse-dir', async (_event, path) => {
 
 ipcMain.on('server-status-updated', updateTrayContextMenu);
 ipcMain.on('launch-at-startup-updated', updateTrayContextMenu);
+ipcMain.on('notification-config-updated', updateTrayContextMenu);
 
 let updateAvailableInfo = null;
 let updateDownloadStatusInfo = "";
@@ -466,8 +468,41 @@ app.on('ready', () => {
   }
 })
 
+function showRepoNotification(e) {
+  const nl = getNotificationLevel();
+  if (nl === 0) {
+    // notifications disabled
+    return;
+  }
+  
+  if (e.severity < 10 && nl === 1) {
+    // non-important notifications disabled.
+    return;
+  }
+
+  let urgency = "normal";
+
+  if (e.severity < 0) {
+    urgency = "low";
+  } else if (e.severity >= 10) { // warnings and errors
+    urgency = "critical";
+  } else {
+    urgency = "normal";
+  }
+
+  const notification = new Notification({
+    title: e.notification.subject,
+    body: e.notification.body,
+    urgency: urgency
+  });
+
+  notification.on('click', () => showRepoWindow(e.repositoryID));
+  notification.show();
+}
+
 ipcMain.addListener('config-list-updated-event', () => updateTrayContextMenu());
 ipcMain.addListener('status-updated-event', () => updateTrayContextMenu());
+ipcMain.addListener('repo-notification-event', showRepoNotification);
 
 function addAnotherRepository() {
   const repoID = addNewConfig();
@@ -530,6 +565,8 @@ function updateTrayContextMenu() {
     autoUpdateMenuItems.push({ label: "KopiaUI is up-to-date: " + app.getVersion(), enabled: false });
   }
 
+  const nl = getNotificationLevel();
+
   let template = defaultReposTemplates.concat(additionalReposTemplates).concat([
     { type: 'separator' },
     { label: 'Connect To Another Repository...', click: addAnotherRepository },
@@ -538,6 +575,11 @@ function updateTrayContextMenu() {
   ]).concat(autoUpdateMenuItems).concat([
     { type: 'separator' },
     { label: 'Launch At Startup', type: 'checkbox', click: toggleLaunchAtStartup, checked: willLaunchAtStartup() },
+    { label: 'Notifications', type: 'submenu', submenu: [
+      { label: 'Enabled', type: 'radio', click: () => setNotificationLevel(2), checked: nl === 2 },
+      { label: 'Warnings And Errors', type: 'radio', click: () => setNotificationLevel(1), checked: nl === 1 },
+      { label: 'Disabled', type: 'radio', click: () => setNotificationLevel(0), checked: nl === 0 },
+    ] },
     { label: 'Quit', role: 'quit' },
   ]);
 

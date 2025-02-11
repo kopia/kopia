@@ -36,6 +36,7 @@ type serverInterface interface {
 	getConnectOptions(cliOpts repo.ClientOptions) *repo.ConnectOptions
 	SetRepository(ctx context.Context, rep repo.Repository) error
 	InitRepositoryAsync(ctx context.Context, mode string, initializer InitRepositoryFunc, wait bool) (string, error)
+	rootContext() context.Context
 }
 
 type requestContext struct {

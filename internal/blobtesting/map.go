@@ -33,6 +33,10 @@ type mapStorage struct {
 }
 
 func (s *mapStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	if err := ctx.Err(); err != nil {
+		return blob.Capacity{}, errors.Wrap(err, "get capacity failed")
+	}
+
 	if s.limit < 0 {
 		return blob.Capacity{}, blob.ErrNotAVolume
 	}
@@ -47,6 +51,10 @@ func (s *mapStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 }
 
 func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
+	if err := ctx.Err(); err != nil {
+		return errors.Wrap(err, "get blob failed")
+	}
+
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -82,6 +90,10 @@ func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int
 }
 
 func (s *mapStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+	if err := ctx.Err(); err != nil {
+		return blob.Metadata{}, errors.Wrap(err, "get metadata failed")
+	}
+
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -98,6 +110,10 @@ func (s *mapStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata
 }
 
 func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+	if err := ctx.Err(); err != nil {
+		return errors.Wrap(err, "pub blob failed")
+	}
+
 	switch {
 	case opts.HasRetentionOptions():
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
@@ -134,6 +150,10 @@ func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, o
 }
 
 func (s *mapStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
+	if err := ctx.Err(); err != nil {
+		return errors.Wrap(err, "delete blob failed")
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -145,6 +165,10 @@ func (s *mapStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 }
 
 func (s *mapStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+	if err := ctx.Err(); err != nil {
+		return errors.Wrap(err, "list blobs failed")
+	}
+
 	s.mutex.RLock()
 
 	keys := []blob.ID{}
@@ -184,6 +208,10 @@ func (s *mapStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 }
 
 func (s *mapStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) (time.Time, error) {
+	if err := ctx.Err(); err != nil {
+		return time.Time{}, errors.Wrap(err, "touch blob failed")
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

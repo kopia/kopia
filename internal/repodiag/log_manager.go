@@ -78,7 +78,7 @@ func (m *LogManager) Enable() {
 // NewLogManager creates a new LogManager that will emit logs as repository blobs.
 func NewLogManager(ctx context.Context, w *BlobWriter) *LogManager {
 	return &LogManager{
-		ctx:            ctx,
+		ctx:            context.WithoutCancel(ctx),
 		writer:         w,
 		flushThreshold: blobLoggerFlushThreshold,
 		timeFunc:       clock.Now,

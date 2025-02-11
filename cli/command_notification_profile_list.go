@@ -15,6 +15,8 @@ import (
 type commandNotificationProfileList struct {
 	out textOutput
 	jo  jsonOutput
+
+	raw bool
 }
 
 func (c *commandNotificationProfileList) setup(svc appServices, parent commandParent) {
@@ -22,6 +24,8 @@ func (c *commandNotificationProfileList) setup(svc appServices, parent commandPa
 
 	c.out.setup(svc)
 	c.jo.setup(svc, cmd)
+
+	cmd.Flag("raw", "Raw output").BoolVar(&c.raw)
 
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
@@ -40,21 +44,14 @@ func (c *commandNotificationProfileList) run(ctx context.Context, rep repo.Repos
 	}
 
 	for i, pc := range profileConfigs {
-		var summ notifyprofile.Summary
-
-		summ.ProfileName = pc.ProfileName
-		summ.Type = string(pc.MethodConfig.Type)
-		summ.MinSeverity = int32(pc.MinSeverity)
-
-		// Provider returns a new instance of the notification provider.
-		if prov, err := sender.GetSender(ctx, pc.ProfileName, pc.MethodConfig.Type, pc.MethodConfig.Config); err == nil {
-			summ.Summary = prov.Summary()
-		} else {
-			summ.Summary = fmt.Sprintf("%v - invalid", pc.MethodConfig.Type)
-		}
+		summ := getProfileSummary(ctx, pc)
 
 		if c.jo.jsonOutput {
-			jl.emit(summ)
+			if c.raw {
+				jl.emit(pc)
+			} else {
+				jl.emit(summ)
+			}
 		} else {
 			if i > 0 {
 				c.out.printStdout("\n")
@@ -69,4 +66,21 @@ func (c *commandNotificationProfileList) run(ctx context.Context, rep repo.Repos
 	}
 
 	return nil
+}
+
+func getProfileSummary(ctx context.Context, pc notifyprofile.Config) notifyprofile.Summary {
+	var summ notifyprofile.Summary
+
+	summ.ProfileName = pc.ProfileName
+	summ.Type = string(pc.MethodConfig.Type)
+	summ.MinSeverity = int32(pc.MinSeverity)
+
+	// Provider returns a new instance of the notification provider.
+	if prov, err := sender.GetSender(ctx, pc.ProfileName, pc.MethodConfig.Type, pc.MethodConfig.Config); err == nil {
+		summ.Summary = prov.Summary()
+	} else {
+		summ.Summary = fmt.Sprintf("%v - invalid", pc.MethodConfig.Type)
+	}
+
+	return summ
 }

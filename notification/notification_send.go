@@ -19,6 +19,11 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
+// AdditionalSenders is a list of additional senders that will be used in addition to the senders configured in the repository.
+//
+//nolint:gochecknoglobals
+var AdditionalSenders []sender.Sender
+
 var log = logging.Module("notification")
 
 // TemplateArgs represents the arguments passed to the notification template when rendering.
@@ -133,6 +138,8 @@ func SendInternal(ctx context.Context, rep repo.Repository, templateName string,
 	if err != nil {
 		return errors.Wrap(err, "unable to get notification senders")
 	}
+
+	senders = append(senders, AdditionalSenders...)
 
 	var resultErr error
 

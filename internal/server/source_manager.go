@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
+	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -26,7 +27,7 @@ const (
 )
 
 type sourceManagerServerInterface interface {
-	runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, inner func(ctx context.Context, ctrl uitask.Controller) error) error
+	runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, inner func(ctx context.Context, ctrl uitask.Controller, result *notifydata.ManifestWithError) error) error
 	refreshScheduler(reason string)
 }
 
@@ -70,9 +71,10 @@ type sourceManager struct {
 	currentTask string
 	// +checklocks:sourceMutex
 	lastAttemptedSnapshotTime fs.UTCTimestamp
-
+	// +checklocks:sourceMutex
 	isReadOnly bool
-	progress   *snapshotfs.CountingUploadProgress
+
+	progress *snapshotfs.CountingUploadProgress
 }
 
 func (s *sourceManager) Status() *serverapi.SourceStatus {
@@ -217,8 +219,17 @@ func (s *sourceManager) backoffBeforeNextSnapshot() {
 	s.setNextSnapshotTime(clock.Now().Add(failedSnapshotRetryInterval))
 }
 
+func (s *sourceManager) isRunningReadOnly() bool {
+	s.sourceMutex.RLock()
+	defer s.sourceMutex.RUnlock()
+
+	return s.isReadOnly
+}
+
 func (s *sourceManager) runReadOnly() {
+	s.sourceMutex.Lock()
 	s.isReadOnly = true
+	s.sourceMutex.Unlock()
 	s.setStatus("REMOTE")
 
 	// wait until closed
@@ -298,7 +309,7 @@ func (s *sourceManager) waitUntilStopped() {
 	s.wg.Wait()
 }
 
-func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Controller) error {
+func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Controller, result *notifydata.ManifestWithError) error {
 	s.setStatus("UPLOADING")
 
 	s.setCurrentTaskID(ctrl.CurrentTaskID())
@@ -324,6 +335,10 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 	manifestsSinceLastCompleteSnapshot := append([]*snapshot.Manifest(nil), s.manifestsSinceLastCompleteSnapshot...)
 	s.lastAttemptedSnapshotTime = fs.UTCTimestampFromTime(clock.Now())
 	s.sourceMutex.Unlock()
+
+	if len(manifestsSinceLastCompleteSnapshot) > 0 {
+		result.Previous = manifestsSinceLastCompleteSnapshot[0]
+	}
 
 	//nolint:wrapcheck
 	return repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
@@ -366,6 +381,8 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		if err != nil {
 			return errors.Wrap(err, "upload error")
 		}
+
+		result.Manifest = *manifest
 
 		ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
 		if ignoreIdenticalSnapshot && len(manifestsSinceLastCompleteSnapshot) > 0 {

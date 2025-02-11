@@ -45,25 +45,24 @@ func verifyLink(t *testing.T, path, expected string) {
 	entry, err := NewEntry(path)
 	require.NoError(t, err)
 
-	if link, ok := entry.(fs.Symlink); !ok {
-		t.Errorf("entry is not a symlink: %s", path)
-	} else {
-		target, err := link.Resolve(ctx)
-		require.NoError(t, err)
+	link, ok := entry.(fs.Symlink)
+	require.True(t, ok, "entry is not a symlink:", entry)
 
-		if f, ok := target.(fs.File); !ok {
-			t.Errorf("Link does not resolve to a file: %s", path)
-		} else {
-			// Canonicalize paths (for example, on MacOS /var points to /private/var)
-			actual, _ := filepath.EvalSymlinks(f.LocalFilesystemPath())
-			expected, _ := filepath.EvalSymlinks(expected)
+	target, err := link.Resolve(ctx)
+	require.NoError(t, err)
 
-			actual = filepath.Clean(actual)
-			expected = filepath.Clean(expected)
+	f, ok := target.(fs.File)
+	require.True(t, ok, "link does not point to a file:", path)
 
-			require.Equal(t, expected, actual)
-		}
-	}
+	// Canonicalize paths (for example, on MacOS /var points to /private/var)
+	// EvalSymlinks calls "Clean" on the result
+	got, err := filepath.EvalSymlinks(f.LocalFilesystemPath())
+	require.NoError(t, err)
+
+	want, err := filepath.EvalSymlinks(expected)
+	require.NoError(t, err)
+
+	require.Equal(t, want, got)
 }
 
 //nolint:gocyclo

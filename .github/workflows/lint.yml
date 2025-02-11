@@ -30,12 +30,11 @@ jobs:
       with:
         fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@41dfa10bad2bb2ae585af6ee5bb4d7d973ad74ed # v5.1.0
+      uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
       with:
         go-version-file: 'go.mod'
         check-latest: true
       id: go
-      if: ${{ !contains(matrix.os, 'ARMHF') }}
     - id: govulncheck
       uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
       with:

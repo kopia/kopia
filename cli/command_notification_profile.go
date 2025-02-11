@@ -15,6 +15,7 @@ type commandNotificationProfile struct {
 	list   commandNotificationProfileList
 	delete commandNotificationProfileDelete
 	test   commandNotificationProfileTest
+	show   commandNotificationProfileShow
 }
 
 func (c *commandNotificationProfile) setup(svc appServices, parent commandParent) {
@@ -23,6 +24,7 @@ func (c *commandNotificationProfile) setup(svc appServices, parent commandParent
 	c.delete.setup(svc, cmd)
 	c.test.setup(svc, cmd)
 	c.list.setup(svc, cmd)
+	c.show.setup(svc, cmd)
 }
 
 type notificationProfileFlag struct {
