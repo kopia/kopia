@@ -12,6 +12,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/notification/notifyprofile"
 	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/notification/sender"
@@ -161,6 +162,8 @@ func MakeTemplateArgs(eventArgs any) TemplateArgs {
 		h = "unknown hostname"
 	}
 
+	eventArgs = guessEventArgsType(eventArgs)
+
 	// prepare template arguments
 	return TemplateArgs{
 		Hostname:          h,
@@ -170,6 +173,28 @@ func MakeTemplateArgs(eventArgs any) TemplateArgs {
 		KopiaBuildInfo:    repo.BuildInfo,
 		KopiaBuildVersion: repo.BuildVersion,
 	}
+}
+
+func guessEventArgsType(eventArgs any) any {
+	// When sent via grpc, eventArgs is a json.RawMessage.
+	if jsonRaw, ok := eventArgs.(json.RawMessage); ok {
+		var v map[string]interface{}
+		if err := json.Unmarshal(jsonRaw, &v); err != nil {
+			return eventArgs
+		}
+		if _, ok := v["snapshots"]; ok {
+			var st notifydata.MultiSnapshotStatus
+			if err := json.Unmarshal(jsonRaw, &st); err == nil {
+				eventArgs = st
+			}
+		} else if _, ok := v["error"]; ok {
+			var e notifydata.ErrorInfo
+			if err := json.Unmarshal(jsonRaw, &e); err == nil {
+				eventArgs = e
+			}
+		}
+	}
+	return eventArgs
 }
 
 // SendTo sends a notification to the given sender.
