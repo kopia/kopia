@@ -75,7 +75,7 @@ func TestServerMaintenance(t *testing.T) {
 
 	ts := &testServer{log: t.Logf}
 
-	mm := startMaintenanceManager(ctx, env.RepositoryWriter, ts, time.Minute)
+	mm := maybeStartMaintenanceManager(ctx, env.RepositoryWriter, ts, time.Minute)
 	require.Equal(t, time.Time{}, mm.nextMaintenanceNoEarlierThan)
 
 	defer mm.stop(ctx)
@@ -134,7 +134,7 @@ func TestServerMaintenanceReadOnlyRepoConnection(t *testing.T) {
 	env.MustReopen(t)
 
 	ts := &testServer{log: t.Logf}
-	mm := startMaintenanceManager(ctx, env.RepositoryWriter, ts, time.Minute)
+	mm := maybeStartMaintenanceManager(ctx, env.RepositoryWriter, ts, time.Minute)
 
 	require.Nil(t, mm, "maintenance task should not be created on read-only repo")
 }

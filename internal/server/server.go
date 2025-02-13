@@ -632,7 +632,7 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 		return err
 	}
 
-	s.maint = startMaintenanceManager(ctx, s.rep, s, s.options.MinMaintenanceInterval)
+	s.maint = maybeStartMaintenanceManager(ctx, s.rep, s, s.options.MinMaintenanceInterval)
 
 	s.sched = scheduler.Start(context.WithoutCancel(ctx), s.getSchedulerItems, scheduler.Options{
 		TimeNow:        clock.Now,

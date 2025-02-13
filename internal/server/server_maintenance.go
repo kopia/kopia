@@ -110,7 +110,8 @@ func (s *srvMaintenance) nextMaintenanceTime() time.Time {
 	return s.cachedNextMaintenanceTime
 }
 
-func startMaintenanceManager(
+// Starts a periodic, background srvMaintenance task. Returns nil if no task was created.
+func maybeStartMaintenanceManager(
 	ctx context.Context,
 	rep repo.Repository,
 	srv maintenanceManagerServerInterface,
