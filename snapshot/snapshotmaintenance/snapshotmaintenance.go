@@ -13,6 +13,10 @@ import (
 
 // Run runs the complete snapshot and repository maintenance.
 func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.Mode, force bool, safety maintenance.SafetyParameters) error {
+	if dr.ClientOptions().ReadOnly {
+		return errors.New("not running maintenance on read-only repository connection")
+	}
+
 	//nolint:wrapcheck
 	return maintenance.RunExclusive(ctx, dr, mode, force,
 		func(ctx context.Context, runParams maintenance.RunParameters) error {
