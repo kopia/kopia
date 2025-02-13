@@ -112,15 +112,22 @@ func (s *srvMaintenance) nextMaintenanceTime() time.Time {
 
 func startMaintenanceManager(
 	ctx context.Context,
-	rep repo.DirectRepository,
+	rep repo.Repository,
 	srv maintenanceManagerServerInterface,
 	minMaintenanceInterval time.Duration,
 ) *srvMaintenance {
 	// Check whether maintenance can be run and avoid unnecessarily starting a task that
-	// would fail later. Don't start a task if the repo is read only.
+	// would fail later. Don't start a task when the repo is either:
+	// - not direct; or
+	// - read only.
 	// Note: the repo owner is not checked here since the repo owner can be externally
 	// changed while the server is running. The server would pick up the new onwer
 	// the next time a maintenance task executes.
+	dr, ok := rep.(repo.DirectRepository)
+	if !ok {
+		return nil
+	}
+
 	if rep.ClientOptions().ReadOnly {
 		log(ctx).Warnln("the repository connection is read-only, maintenance tasks will not be performed on this repository")
 
@@ -135,7 +142,7 @@ func startMaintenanceManager(
 		srv:                    srv,
 		cancelCtx:              cancel,
 		minMaintenanceInterval: minMaintenanceInterval,
-		dr:                     rep,
+		dr:                     dr,
 	}
 
 	m.wg.Add(1)
@@ -156,7 +163,7 @@ func startMaintenanceManager(
 
 				t0 := clock.Now()
 
-				if err := srv.runMaintenanceTask(mctx, rep); err != nil {
+				if err := srv.runMaintenanceTask(mctx, dr); err != nil {
 					log(ctx).Debugw("maintenance task failed", "err", err)
 					m.afterFailedRun()
 
