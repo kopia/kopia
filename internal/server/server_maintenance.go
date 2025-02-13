@@ -116,6 +116,17 @@ func startMaintenanceManager(
 	srv maintenanceManagerServerInterface,
 	minMaintenanceInterval time.Duration,
 ) *srvMaintenance {
+	// Check whether maintenance can be run and avoid unnecessarily starting a task that
+	// would fail later. Don't start a task if the repo is read only.
+	// Note: the repo owner is not checked here since the repo owner can be externally
+	// changed while the server is running. The server would pick up the new onwer
+	// the next time a maintenance task executes.
+	if rep.ClientOptions().ReadOnly {
+		log(ctx).Warnln("the repository connection is read-only, maintenance tasks will not be performed on this repository")
+
+		return nil
+	}
+
 	mctx, cancel := context.WithCancel(ctx)
 
 	m := srvMaintenance{

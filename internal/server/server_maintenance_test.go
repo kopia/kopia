@@ -102,3 +102,39 @@ func TestServerMaintenance(t *testing.T) {
 	// after a failure next maintenance time should be deferred by a minute.
 	require.Greater(t, mm.nextMaintenanceTime().Sub(clock.Now()), 50*time.Second)
 }
+
+func TestServerMaintenanceReadOnlyRepoConnection(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	require.NoError(t, repo.DirectWriteSession(ctx, env.RepositoryWriter, repo.WriteSessionOptions{}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error {
+		return maintenance.SetParams(ctx, dw, &maintenance.Params{
+			Owner: env.Repository.ClientOptions().UsernameAtHost(),
+			QuickCycle: maintenance.CycleParams{
+				Enabled:  true,
+				Interval: 5 * time.Second,
+			},
+			FullCycle: maintenance.CycleParams{
+				Enabled:  true,
+				Interval: 10 * time.Second,
+			},
+		})
+	}))
+
+	dr, ok := env.Repository.(repo.DirectRepository)
+	require.True(t, ok, "not a direct repository connection")
+
+	dr.Refresh(ctx)
+
+	// make repo read-only
+	co := env.Repository.ClientOptions()
+	co.ReadOnly = true
+
+	repo.SetClientOptions(ctx, env.ConfigFile(), co)
+
+	env.MustReopen(t)
+
+	ts := &testServer{log: t.Logf}
+	mm := startMaintenanceManager(ctx, env.RepositoryWriter, ts, time.Minute)
+
+	require.Nil(t, mm, "maintenance task should not be created on read-only repo")
+}
