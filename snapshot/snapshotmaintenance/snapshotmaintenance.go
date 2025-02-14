@@ -11,10 +11,13 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotgc"
 )
 
+// ErrReadonly indicates a failure when attempting to run maintenance on a read-only repository.
+var ErrReadonly = errors.New("not running maintenance on read-only repository connection")
+
 // Run runs the complete snapshot and repository maintenance.
 func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.Mode, force bool, safety maintenance.SafetyParameters) error {
 	if dr.ClientOptions().ReadOnly {
-		return errors.New("not running maintenance on read-only repository connection")
+		return ErrReadonly
 	}
 
 	//nolint:wrapcheck
