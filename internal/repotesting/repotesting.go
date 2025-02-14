@@ -38,6 +38,7 @@ type Environment struct {
 
 // Options used during Environment Setup.
 type Options struct {
+	ConnectOptions       func(*repo.ConnectOptions)
 	NewRepositoryOptions func(*repo.NewRepositoryOptions)
 	OpenOptions          func(*repo.Options)
 }
@@ -62,6 +63,7 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	ctx := testlogging.Context(tb)
 	e.configDir = testutil.TempDirectory(tb)
 	openOpt := &repo.Options{}
+	connectOpt := &repo.ConnectOptions{}
 
 	opt := &repo.NewRepositoryOptions{
 		BlockFormat: format.ContentFormat{
@@ -86,6 +88,10 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 		if mod.OpenOptions != nil {
 			mod.OpenOptions(openOpt)
 		}
+
+		if mod.ConnectOptions != nil {
+			mod.ConnectOptions(connectOpt)
+		}
 	}
 
 	var st blob.Storage
@@ -106,7 +112,7 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	err := repo.Initialize(ctx, st, opt, e.Password)
 	require.NoError(tb, err)
 
-	err = repo.Connect(ctx, e.ConfigFile(), st, e.Password, nil)
+	err = repo.Connect(ctx, e.ConfigFile(), st, e.Password, connectOpt)
 	require.NoError(tb, err, "can't connect")
 
 	e.connected = true
