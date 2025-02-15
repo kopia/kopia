@@ -120,12 +120,10 @@ func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
 func (fsl *filesystemSymlink) Resolve(ctx context.Context) (fs.Entry, error) {
 	target, err := filepath.EvalSymlinks(fsl.fullPath())
 	if err != nil {
-		return nil, errors.Wrapf(err, "while reading symlink %s", fsl.fullPath())
+		return nil, errors.Wrapf(err, "cannot resolve symlink for '%q'", fsl.fullPath())
 	}
 
-	entry, err := NewEntry(target)
-
-	return entry, err
+	return NewEntry(target)
 }
 
 func (e *filesystemErrorEntry) ErrorInfo() error {
