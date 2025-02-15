@@ -20,6 +20,7 @@ import (
 var (
 	log                = logging.Module("ignorefs")
 	errSymlinkNotAFile = errors.New("Symlink does not link to a file")
+	errTooManySymlinks = errors.New("too many levels of symbolic links")
 )
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.
@@ -275,7 +276,9 @@ func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, err
 }
 
 func resolveSymlink(ctx context.Context, entry fs.Symlink) (fs.File, error) {
-	for {
+	const maxSymlinkFollow = 30
+
+	for range maxSymlinkFollow {
 		target, err := entry.Resolve(ctx)
 		if err != nil {
 			link, _ := entry.Readlink(ctx)
@@ -292,6 +295,8 @@ func resolveSymlink(ctx context.Context, entry fs.Symlink) (fs.File, error) {
 			return nil, errors.Wrapf(errSymlinkNotAFile, "%s does not eventually link to a file", entry.Name())
 		}
 	}
+
+	return nil, errors.Wrapf(errTooManySymlinks, "cannot resolve '%q'", entry.Name())
 }
 
 func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, error) {
