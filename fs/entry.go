@@ -132,7 +132,7 @@ func GetAllEntries(ctx context.Context, d Directory) ([]Entry, error) {
 	defer iter.Close()
 
 	cur, err := iter.Next(ctx)
-	for cur != nil {
+	for err == nil && cur != nil {
 		entries = append(entries, cur)
 		cur, err = iter.Next(ctx)
 	}
