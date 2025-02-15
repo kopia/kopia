@@ -188,7 +188,7 @@ func (d *ignoreDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, er
 
 	thisContext, err := d.buildContext(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "in ignoreDirectory.Iterate, when building context")
+		return nil, err
 	}
 
 	inner, err := d.Directory.Iterate(ctx)

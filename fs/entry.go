@@ -78,10 +78,6 @@ func IterateEntries(ctx context.Context, dir Directory, cb func(context.Context,
 	defer iter.Close()
 
 	cur, err := iter.Next(ctx)
-	if err != nil {
-		err = errors.Wrapf(err, "in fs.IterateEntries, on first iteration")
-	}
-
 	for cur != nil {
 		if err2 := cb(ctx, cur); err2 != nil {
 			return errors.Wrapf(err2, "in fs.IterateEntries, while calling callback on file %s", cur.Name())
