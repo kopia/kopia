@@ -193,7 +193,7 @@ func (d *ignoreDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, er
 
 	inner, err := d.Directory.Iterate(ctx)
 	if err != nil {
-		return nil, errors.Wrapf(err, "in ignoreDirectory.Iterate, when creating iterator")
+		return nil, errors.Wrap(err, "cannot create iterator")
 	}
 
 	it := ignoreDirIteratorPool.Get().(*ignoreDirIterator) //nolint:forcetypeassert
