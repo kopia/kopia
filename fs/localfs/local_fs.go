@@ -123,9 +123,7 @@ func (fsl *filesystemSymlink) Resolve(ctx context.Context) (fs.Entry, error) {
 		return nil, errors.Wrapf(err, "cannot resolve symlink for '%q'", fsl.fullPath())
 	}
 
-	entry, err := NewEntry(target)
-
-	return entry, err
+	return NewEntry(target)
 }
 
 func (e *filesystemErrorEntry) ErrorInfo() error {
