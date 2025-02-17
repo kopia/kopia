@@ -47,7 +47,7 @@ func (p *emailProvider) Send(_ context.Context, msg *sender.Message) error {
 		headers = append(headers, fmt.Sprintf("%v: %v", k, v))
 	}
 
-	msgPayload = []byte(strings.Join(headers, "\r\n") + "\r\n" + msg.Body)
+	msgPayload = []byte(strings.Join(headers, "\r\n") + "\r\n\r\n" + msg.Body)
 
 	//nolint:wrapcheck
 	return smtp.SendMail(
