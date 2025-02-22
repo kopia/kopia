@@ -181,7 +181,6 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 
 	if isDir2 {
 		// left is non-directory, right is a directory
-		log(ctx).Infof("changed %v from non-directory to a directory", path)
 		c.output("changed %v from non-directory to a directory\n", path)
 
 		return nil
