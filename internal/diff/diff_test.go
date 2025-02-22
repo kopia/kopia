@@ -22,6 +22,7 @@ var (
 
 type testBaseEntry struct {
 	modtime time.Time
+	mode    os.FileMode
 	name    string
 }
 
@@ -29,11 +30,18 @@ func (f *testBaseEntry) IsDir() bool                 { return false }
 func (f *testBaseEntry) LocalFilesystemPath() string { return f.name }
 func (f *testBaseEntry) Close()                      {}
 func (f *testBaseEntry) Name() string                { return f.name }
-func (f *testBaseEntry) Mode() os.FileMode           { return 0o644 }
 func (f *testBaseEntry) ModTime() time.Time          { return f.modtime }
 func (f *testBaseEntry) Sys() interface{}            { return nil }
 func (f *testBaseEntry) Owner() fs.OwnerInfo         { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
 func (f *testBaseEntry) Device() fs.DeviceInfo       { return fs.DeviceInfo{Dev: 1} }
+
+func (f *testBaseEntry) Mode() os.FileMode {
+	if f.mode == 0 {
+		return 0o644
+	}
+
+	return f.mode & ^os.ModeDir
+}
 
 type testFile struct {
 	testBaseEntry
@@ -59,8 +67,15 @@ func (d *testDirectory) SupportsMultipleIterations() bool                { retur
 func (d *testDirectory) IsDir() bool                                     { return true }
 func (d *testDirectory) LocalFilesystemPath() string                     { return d.name }
 func (d *testDirectory) Size() int64                                     { return 0 }
-func (d *testDirectory) Mode() os.FileMode                               { return 0o755 }
 func (d *testDirectory) Readdir(ctx context.Context) ([]fs.Entry, error) { return d.files, nil }
+
+func (d *testDirectory) Mode() os.FileMode {
+	if d.mode == 0 {
+		return os.ModeDir | 0o755
+	}
+
+	return os.ModeDir | d.mode
+}
 
 func (d *testDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	for _, f := range d.files {
