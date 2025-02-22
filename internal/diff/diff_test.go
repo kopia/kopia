@@ -15,51 +15,53 @@ import (
 	"github.com/kopia/kopia/internal/diff"
 )
 
-var _ fs.Entry = (*testFile)(nil)
+var (
+	_ fs.Entry     = (*testFile)(nil)
+	_ fs.Directory = (*testDirectory)(nil)
+)
 
-type testFile struct {
+type testBaseEntry struct {
 	modtime time.Time
 	name    string
+}
+
+func (f *testBaseEntry) IsDir() bool                 { return false }
+func (f *testBaseEntry) LocalFilesystemPath() string { return f.name }
+func (f *testBaseEntry) Close()                      {}
+func (f *testBaseEntry) Name() string                { return f.name }
+func (f *testBaseEntry) Mode() os.FileMode           { return 0o644 }
+func (f *testBaseEntry) ModTime() time.Time          { return f.modtime }
+func (f *testBaseEntry) Sys() interface{}            { return nil }
+func (f *testBaseEntry) Owner() fs.OwnerInfo         { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
+func (f *testBaseEntry) Device() fs.DeviceInfo       { return fs.DeviceInfo{Dev: 1} }
+
+type testFile struct {
+	testBaseEntry
 	content string
 }
 
-func (f *testFile) IsDir() bool                 { return false }
-func (f *testFile) LocalFilesystemPath() string { return f.name }
-func (f *testFile) Close()                      {}
-func (f *testFile) Name() string                { return f.name }
-func (f *testFile) Size() int64                 { return int64(len(f.content)) }
-func (f *testFile) Mode() os.FileMode           { return 0o644 }
-func (f *testFile) ModTime() time.Time          { return f.modtime }
-func (f *testFile) Sys() interface{}            { return nil }
-func (f *testFile) Owner() fs.OwnerInfo         { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
-func (f *testFile) Device() fs.DeviceInfo       { return fs.DeviceInfo{Dev: 1} }
 func (f *testFile) Open(ctx context.Context) (io.Reader, error) {
 	return strings.NewReader(f.content), nil
 }
 
-var _ fs.Directory = (*testDirectory)(nil)
+func (f *testFile) Size() int64 { return int64(len(f.content)) }
 
 type testDirectory struct {
-	name    string
-	files   []fs.Entry
-	modtime time.Time
+	testBaseEntry
+	files []fs.Entry
 }
 
 func (d *testDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	return fs.StaticIterator(d.files, nil), nil
 }
 
-func (d *testDirectory) SupportsMultipleIterations() bool { return false }
-func (d *testDirectory) IsDir() bool                      { return true }
-func (d *testDirectory) LocalFilesystemPath() string      { return d.name }
-func (d *testDirectory) Close()                           {}
-func (d *testDirectory) Name() string                     { return d.name }
-func (d *testDirectory) Size() int64                      { return 0 }
-func (d *testDirectory) Mode() os.FileMode                { return 0o755 }
-func (d *testDirectory) ModTime() time.Time               { return d.modtime }
-func (d *testDirectory) Sys() interface{}                 { return nil }
-func (d *testDirectory) Owner() fs.OwnerInfo              { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
-func (d *testDirectory) Device() fs.DeviceInfo            { return fs.DeviceInfo{Dev: 1} }
+func (d *testDirectory) SupportsMultipleIterations() bool                { return false }
+func (d *testDirectory) IsDir() bool                                     { return true }
+func (d *testDirectory) LocalFilesystemPath() string                     { return d.name }
+func (d *testDirectory) Size() int64                                     { return 0 }
+func (d *testDirectory) Mode() os.FileMode                               { return 0o755 }
+func (d *testDirectory) Readdir(ctx context.Context) ([]fs.Entry, error) { return d.files, nil }
+
 func (d *testDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	for _, f := range d.files {
 		if f.Name() == name {
@@ -69,7 +71,6 @@ func (d *testDirectory) Child(ctx context.Context, name string) (fs.Entry, error
 
 	return nil, fs.ErrEntryNotFound
 }
-func (d *testDirectory) Readdir(ctx context.Context) ([]fs.Entry, error) { return d.files, nil }
 
 func TestCompareEmptyDirectories(t *testing.T) {
 	var buf bytes.Buffer
@@ -102,14 +103,14 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 	dir1 := createTestDirectory(
 		"testDir1",
 		dmodtime,
-		&testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime},
-		&testFile{name: "file2.txt", content: "klmnopqrstuvwxyz", modtime: fmodtime},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file1.txt"}, content: "abcdefghij"},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
 		dmodtime,
-		&testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime},
-		&testFile{name: "file2.txt", content: "klmnopqrstuvwxyz", modtime: fmodtime},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file1.txt"}, content: "abcdefghij"},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
 
 	c, err := diff.NewComparer(&buf)
@@ -134,14 +135,14 @@ func TestCompareDifferentDirectories(t *testing.T) {
 	dir1 := createTestDirectory(
 		"testDir1",
 		dmodtime,
-		&testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime},
-		&testFile{name: "file2.txt", content: "klmnopqrstuvwxyz", modtime: fmodtime},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file1.txt"}, content: "abcdefghij"},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
 		dmodtime,
-		&testFile{name: "file3.txt", content: "abcdefghij1", modtime: fmodtime},
-		&testFile{name: "file4.txt", content: "klmnopqrstuvwxyz2", modtime: fmodtime},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file3.txt"}, content: "abcdefghij1"},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file4.txt"}, content: "klmnopqrstuvwxyz2"},
 	)
 
 	c, err := diff.NewComparer(&buf)
@@ -171,14 +172,14 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	dir1 := createTestDirectory(
 		"testDir1",
 		dmodtime1,
-		&testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime},
-		&testFile{name: "file2.txt", content: "klmnopqrstuvwxyz", modtime: fmodtime},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file1.txt"}, content: "abcdefghij"},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
 		dmodtime2,
-		&testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime},
-		&testFile{name: "file2.txt", content: "klmnopqrstuvwxyz", modtime: fmodtime},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file1.txt"}, content: "abcdefghij"},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
 
 	c, err := diff.NewComparer(&buf)
@@ -205,12 +206,12 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 	dir1 := createTestDirectory(
 		"testDir1",
 		dmodtime,
-		&testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime1},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime1, name: "file1.txt"}, content: "abcdefghij"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
 		dmodtime,
-		&testFile{name: "file1.txt", content: "abcdefghij", modtime: fmodtime2},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime2, name: "file1.txt"}, content: "abcdefghij"},
 	)
 
 	c, err := diff.NewComparer(&buf)
@@ -228,5 +229,5 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 }
 
 func createTestDirectory(name string, modtime time.Time, files ...fs.Entry) *testDirectory {
-	return &testDirectory{name: name, files: files, modtime: modtime}
+	return &testDirectory{testBaseEntry: testBaseEntry{modtime: modtime, name: name}, files: files}
 }
