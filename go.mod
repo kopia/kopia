@@ -1,7 +1,6 @@
 module github.com/kopia/kopia
 
 go 1.23
-
 toolchain go1.23.6
 
 require (
@@ -34,7 +33,7 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
-	github.com/minio/minio-go/v7 v7.0.86
+	github.com/minio/minio-go/v7 v7.0.87
 	github.com/mocktools/go-smtp-mock/v2 v2.4.0
 	github.com/mxk/go-vss v1.2.0
 	github.com/natefinch/atomic v1.0.1
@@ -59,16 +58,16 @@ require (
 	go.opentelemetry.io/otel/trace v1.34.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.33.0
+	golang.org/x/crypto v0.35.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/mod v0.23.0
 	golang.org/x/net v0.35.0
-	golang.org/x/oauth2 v0.26.0
+	golang.org/x/oauth2 v0.27.0
 	golang.org/x/sync v0.11.0
 	golang.org/x/sys v0.30.0
 	golang.org/x/term v0.29.0
 	golang.org/x/text v0.22.0
-	google.golang.org/api v0.221.0
+	google.golang.org/api v0.222.0
 	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.5
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
@@ -146,6 +145,6 @@ require (
 	golang.org/x/time v0.10.0 // indirect
 	google.golang.org/genproto v0.0.0-20241118233622-e639e219e697 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250115164207-1a7da9e5054f // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250207221924-e9438ea467c6 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250212204824-5a70512c5d8b // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
