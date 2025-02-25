@@ -359,6 +359,27 @@ func TestS3StorageMinio(t *testing.T) {
 	testStorage(t, options, true, blob.PutOptions{})
 }
 
+func TestS3StorageCustomCredentials(t *testing.T) {
+	t.Parallel()
+
+	// skip the test if AWS creds are not provided
+	getEnv(testAccessKeyIDEnv, "")
+	getEnv(testSecretAccessKeyEnv, "")
+
+	options := &Options{
+		Endpoint:     getEnv(testEndpointEnv, awsEndpoint),
+		BucketName:   getEnvOrSkip(t, testBucketEnv),
+		RoleARN:      getEnvOrSkip(t, testRoleEnv),
+		RoleRegion:   getEnvOrSkip(t, testRegionEnv),
+		SessionName:  "test-assume-role",
+		RoleEndpoint: awsStsEndpointUSWest2,
+		RoleDuration: time.Minute * 15,
+	}
+
+	getOrCreateBucket(t, options)
+	testStorage(t, options, false, blob.PutOptions{})
+}
+
 func TestS3StorageMinioSelfSignedCert(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
