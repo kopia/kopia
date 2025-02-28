@@ -63,7 +63,8 @@ func (c *commandDiff) run(ctx context.Context, rep repo.Repository) error {
 	}
 
 	if isDir1 {
-		return errors.Wrap(d.Compare(ctx, ent1, ent2), "error comparing directories")
+		_, err := d.Compare(ctx, ent1, ent2)
+		return errors.Wrap(err, "error comparing directories")
 	}
 
 	return errors.New("comparing files not implemented yet")
