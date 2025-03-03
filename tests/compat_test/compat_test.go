@@ -16,6 +16,7 @@ var (
 	kopiaCurrentExe = os.Getenv("KOPIA_CURRENT_EXE")
 	kopia08exe      = os.Getenv("KOPIA_08_EXE")
 	kopia017exe     = os.Getenv("KOPIA_017_EXE")
+	kopia022exe     = os.Getenv("KOPIA_022_EXE")
 )
 
 func TestRepoCreatedWith08CanBeOpenedWithCurrent(t *testing.T) {
@@ -200,4 +201,83 @@ func TestClientConnectedUsingV017CanConnectUsingCurrent(t *testing.T) {
 	// everything should still work
 	e2.Runner = runnerCurrent
 	e2.RunAndExpectSuccess(t, "snapshot", "ls")
+}
+
+// Verify `server status` environment variables compatibility for *control* username/password.
+func TestServerControlArgs(t *testing.T) {
+	t.Parallel()
+
+	if kopiaCurrentExe == "" {
+		t.Skip()
+	}
+
+	if kopia022exe == "" {
+		t.Skip()
+	}
+
+	runnerCurrent := testenv.NewExeRunnerWithBinary(t, kopiaCurrentExe)
+	runner022 := testenv.NewExeRunnerWithBinary(t, kopia022exe)
+
+	// create repository using v0.22 and start a server
+	e1 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner022)
+	e1.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e1.RepoDir)
+	e1.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
+
+	var sp testutil.ServerParameters
+
+	tlsCert := filepath.Join(e1.ConfigDir, "tls.cert")
+	tlsKey := filepath.Join(e1.ConfigDir, "tls.key")
+
+	wait, kill := e1.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start",
+		"--address=localhost:0",
+		"--server-control-username=admin-user",
+		"--server-control-password=admin-pwd",
+		"--tls-generate-cert",
+		"--tls-key-file", tlsKey,
+		"--tls-cert-file", tlsCert,
+		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
+	)
+
+	t.Logf("detected server parameters %#v", sp)
+
+	defer wait()
+	defer kill()
+
+	time.Sleep(3 * time.Second)
+
+	// check server status using v0.22 environment variables for control username/password
+	e2 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner022)
+
+	// set v0.22 environment variables
+	e2.Environment["KOPIA_SERVER_USERNAME"] = "admin-user"
+	e2.Environment["KOPIA_SERVER_PASSWORD"] = "admin-pwd"
+
+	e2.RunAndExpectSuccess(t,
+		"server", "status",
+		"--address", sp.BaseURL+"/",
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
+	)
+
+	// now switch to using latest executable with same environment variables,
+	// everything should still work
+	e2.Runner = runnerCurrent
+	e2.RunAndExpectSuccess(t,
+		"server", "status",
+		"--address", sp.BaseURL+"/",
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
+	)
+
+	// switch to post-0.22 environment variables,
+	// everything should still work
+	delete(e2.Environment, "KOPIA_SERVER_USERNAME")
+	delete(e2.Environment, "KOPIA_SERVER_PASSWORD")
+	e2.Environment["KOPIA_SERVER_CONTROL_USERNAME"] = "admin-user"
+	e2.Environment["KOPIA_SERVER_CONTROL_PASSWORD"] = "admin-pwd"
+
+	e2.RunAndExpectSuccess(t,
+		"server", "status",
+		"--address", sp.BaseURL+"/",
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
+	)
 }

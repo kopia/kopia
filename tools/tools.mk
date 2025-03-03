@@ -219,6 +219,13 @@ kopia017=$(kopia017_dir)$(slash)kopia$(exe_suffix)
 $(kopia017):
 	go run github.com/kopia/kopia/tools/gettool --tool kopia:$(kopia017_version) --output-dir $(kopia017_dir)
 
+kopia022_version=0.22.3
+kopia022_dir=$(TOOLS_DIR)$(slash)kopia-$(kopia022_version)
+kopia022=$(kopia022_dir)$(slash)kopia$(exe_suffix)
+
+$(kopia022):
+	go run github.com/kopia/kopia/tools/gettool --tool kopia:$(kopia022_version) --output-dir $(kopia022_dir)
+
 MINIO_MC_PATH=$(TOOLS_DIR)/bin/mc$(exe_suffix)
 
 $(MINIO_MC_PATH):

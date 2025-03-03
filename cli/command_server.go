@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"io"
+
 	"github.com/alecthomas/kingpin/v2"
+	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/apiclient"
@@ -39,18 +42,23 @@ type serverClientFlags struct {
 	serverUsername        string
 	serverPassword        string
 	serverCertFingerprint string
+
+	serverUsernameDeprecated string
+	serverPasswordDeprecated string
+
+	stderrWriter io.Writer
 }
 
 func (c *serverClientFlags) setup(svc appServices, cmd *kingpin.CmdClause) {
-	c.serverUsername = defaultServerControlUsername
+	c.stderrWriter = colorable.NewColorableStderr()
 
 	cmd.Flag("address", "Address of the server to connect to").Envar(svc.EnvName("KOPIA_SERVER_ADDRESS")).Default("http://127.0.0.1:51515").StringVar(&c.serverAddress)
-	cmd.Flag("server-control-username", "Server control username").Envar(svc.EnvName("KOPIA_SERVER_USERNAME")).StringVar(&c.serverUsername)
-	cmd.Flag("server-control-password", "Server control password").PlaceHolder("PASSWORD").Envar(svc.EnvName("KOPIA_SERVER_PASSWORD")).StringVar(&c.serverPassword)
+	cmd.Flag("server-control-username", "Server control username").Envar(svc.EnvName("KOPIA_SERVER_CONTROL_USERNAME")).StringVar(&c.serverUsername)
+	cmd.Flag("server-control-password", "Server control password").PlaceHolder("PASSWORD").Envar(svc.EnvName("KOPIA_SERVER_CONTROL_PASSWORD")).StringVar(&c.serverPassword)
 
 	// aliases for backwards compat
-	cmd.Flag("server-username", "Server control username").Hidden().StringVar(&c.serverUsername)
-	cmd.Flag("server-password", "Server control password").Hidden().StringVar(&c.serverPassword)
+	cmd.Flag("server-username", "Server control username").Envar(svc.EnvName("KOPIA_SERVER_USERNAME")).Hidden().StringVar(&c.serverUsernameDeprecated)
+	cmd.Flag("server-password", "Server control password").Envar(svc.EnvName("KOPIA_SERVER_PASSWORD")).Hidden().StringVar(&c.serverPasswordDeprecated)
 
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").PlaceHolder("SHA256-FINGERPRINT").Envar(svc.EnvName("KOPIA_SERVER_CERT_FINGERPRINT")).StringVar(&c.serverCertFingerprint)
 }
@@ -78,6 +86,24 @@ func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) 
 	if c.serverAddress == "" {
 		return apiclient.Options{}, errors.New("missing server address")
 	}
+
+	username, err := mergeDeprecatedFlags(c.stderrWriter, c.serverUsernameDeprecated, c.serverUsername, "--server-username", "KOPIA_SERVER_USERNAME", "--server-control-username", "KOPIA_SERVER_CONTROL_USERNAME")
+	if err != nil {
+		return apiclient.Options{}, err
+	}
+
+	if username == "" {
+		username = defaultServerControlUsername
+	}
+
+	c.serverUsername = username
+
+	password, err := mergeDeprecatedFlags(c.stderrWriter, c.serverPasswordDeprecated, c.serverPassword, "--server-password", "KOPIA_SERVER_PASSWORD", "--server-control-password", "KOPIA_SERVER_CONTROL_PASSWORD")
+	if err != nil {
+		return apiclient.Options{}, err
+	}
+
+	c.serverPassword = password
 
 	return apiclient.Options{
 		BaseURL:                             c.serverAddress,
