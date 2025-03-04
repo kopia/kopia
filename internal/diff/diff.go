@@ -3,7 +3,6 @@ package diff
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -61,13 +60,6 @@ func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) (ComparerStats,
 	if err != nil {
 		return c.stats, err
 	}
-
-	b, err := json.Marshal(c.stats)
-	if err != nil {
-		return c.stats, errors.Wrap(err, "error marshaling computed snapshot diff stats")
-	}
-
-	c.output("%v", string(b))
 
 	return c.stats, errors.Wrap(err, "error comparing fs entries")
 }

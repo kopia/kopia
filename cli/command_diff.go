@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -63,8 +65,19 @@ func (c *commandDiff) run(ctx context.Context, rep repo.Repository) error {
 	}
 
 	if isDir1 {
-		_, err := d.Compare(ctx, ent1, ent2)
-		return errors.Wrap(err, "error comparing directories")
+		snapshotDiffStats, err := d.Compare(ctx, ent1, ent2)
+		if err != nil {
+			return errors.Wrap(err, "error comparing directories")
+		}
+
+		b, err := json.Marshal(snapshotDiffStats)
+		if err != nil {
+			return errors.Wrap(err, "error marshaling computed snapshot diff stats")
+		}
+
+		fmt.Fprintf(c.out.stdout(), "%v", string(b))
+
+		return nil
 	}
 
 	return errors.New("comparing files not implemented yet")
