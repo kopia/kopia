@@ -391,11 +391,11 @@ func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
 
 	expectedStats := diff.Stats{
 		FileEntries: diff.EntryTypeStats{
-			SameContentButDiffMetadata:   1,
-			SameContentButDiffModTime:    1,
-			SameContentButDiffMode:       1,
-			SameContentButDiffOwnerUser:  1,
-			SameContentButDiffOwnerGroup: 1,
+			SameContentButDifferentMetadata:         1,
+			SameContentButDifferentModificationTime: 1,
+			SameContentButDifferentMode:             1,
+			SameContentButDifferentUserOwner:        1,
+			SameContentButDifferentGroupOwner:       1,
 		},
 	}
 
@@ -451,11 +451,11 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 
 	expectedStats := diff.Stats{
 		DirectoryEntries: diff.EntryTypeStats{
-			SameContentButDiffMetadata:   1,
-			SameContentButDiffModTime:    1,
-			SameContentButDiffMode:       1,
-			SameContentButDiffOwnerUser:  1,
-			SameContentButDiffOwnerGroup: 1,
+			SameContentButDifferentMetadata:         1,
+			SameContentButDifferentModificationTime: 1,
+			SameContentButDifferentMode:             1,
+			SameContentButDifferentUserOwner:        1,
+			SameContentButDifferentGroupOwner:       1,
 		},
 	}
 

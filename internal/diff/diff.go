@@ -28,13 +28,13 @@ type EntryTypeStats struct {
 	Modified uint32 `json:"modified"`
 
 	// aggregate stats
-	SameContentButDiffMetadata uint32 `json:"sameContentButDifferentMetadata"`
+	SameContentButDifferentMetadata uint32 `json:"sameContentButDifferentMetadata"`
 
 	// stats categorized based on metadata
-	SameContentButDiffMode       uint32 `json:"sameContentbutDifferentMode"`
-	SameContentButDiffModTime    uint32 `json:"sameContentbutDifferentModificationTime"`
-	SameContentButDiffOwnerUser  uint32 `json:"sameContentbutDifferentUserOwner"`
-	SameContentButDiffOwnerGroup uint32 `json:"sameContentbutDifferentGroupOwner"`
+	SameContentButDifferentMode             uint32 `json:"sameContentButDifferentMode"`
+	SameContentButDifferentModificationTime uint32 `json:"sameContentButDifferentModificationTime"`
+	SameContentButDifferentUserOwner        uint32 `json:"sameContentButDifferentUserOwner"`
+	SameContentButDifferentGroupOwner       uint32 `json:"sameContentButDifferentGroupOwner"`
 }
 
 // Stats accumulates stats between snapshots being compared.
@@ -208,27 +208,27 @@ func (c *Comparer) compareDirMetadataAndComputeStats(ctx context.Context, e1, e2
 
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
 		equal = false
-		c.stats.DirectoryEntries.SameContentButDiffMode++
+		c.stats.DirectoryEntries.SameContentButDifferentMode++
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
 		equal = false
-		c.stats.DirectoryEntries.SameContentButDiffModTime++
+		c.stats.DirectoryEntries.SameContentButDifferentModificationTime++
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
 		equal = false
-		c.stats.DirectoryEntries.SameContentButDiffOwnerUser++
+		c.stats.DirectoryEntries.SameContentButDifferentUserOwner++
 	}
 
 	if o1.GroupID != o2.GroupID {
 		equal = false
-		c.stats.DirectoryEntries.SameContentButDiffOwnerGroup++
+		c.stats.DirectoryEntries.SameContentButDifferentGroupOwner++
 	}
 
 	if !equal {
-		c.stats.DirectoryEntries.SameContentButDiffMetadata++
+		c.stats.DirectoryEntries.SameContentButDifferentMetadata++
 
 		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
 	}
@@ -239,27 +239,27 @@ func (c *Comparer) compareFileMetadataAndComputeStats(ctx context.Context, e1, e
 	equal := true
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
 		equal = false
-		c.stats.FileEntries.SameContentButDiffMode++
+		c.stats.FileEntries.SameContentButDifferentMode++
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
 		equal = false
-		c.stats.FileEntries.SameContentButDiffModTime++
+		c.stats.FileEntries.SameContentButDifferentModificationTime++
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
 		equal = false
-		c.stats.FileEntries.SameContentButDiffOwnerUser++
+		c.stats.FileEntries.SameContentButDifferentUserOwner++
 	}
 
 	if o1.GroupID != o2.GroupID {
 		equal = false
-		c.stats.FileEntries.SameContentButDiffOwnerGroup++
+		c.stats.FileEntries.SameContentButDifferentGroupOwner++
 	}
 
 	if !equal {
-		c.stats.FileEntries.SameContentButDiffMetadata++
+		c.stats.FileEntries.SameContentButDifferentMetadata++
 
 		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
 	}
