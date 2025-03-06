@@ -54,6 +54,7 @@ func (b *DirManifestBuilder) AddEntry(de *snapshot.DirEntry) {
 			b.summary.TotalFileCount += childSummary.TotalFileCount
 			b.summary.TotalFileSize += childSummary.TotalFileSize
 			b.summary.TotalDirCount += childSummary.TotalDirCount
+			b.summary.TotalSymlinkCount += childSummary.TotalSymlinkCount
 			b.summary.FatalErrorCount += childSummary.FatalErrorCount
 			b.summary.IgnoredErrorCount += childSummary.IgnoredErrorCount
 			b.summary.FailedEntries = append(b.summary.FailedEntries, childSummary.FailedEntries...)

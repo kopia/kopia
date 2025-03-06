@@ -49,7 +49,7 @@ func (c *commandDiff) run(ctx context.Context, rep repo.Repository) error {
 	_, isDir2 := ent2.(fs.Directory)
 
 	if isDir1 != isDir2 {
-		return errors.New("arguments do diff must both be directories or both non-directories")
+		return errors.New("arguments to diff must both be directories or both non-directories")
 	}
 
 	d, err := diff.NewComparer(c.out.stdout())

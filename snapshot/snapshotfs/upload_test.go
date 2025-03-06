@@ -712,6 +712,45 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 	assert.Equal(t, 2, filesFinished, "FinishedFile calls")
 }
 
+func TestUpload_SymlinkStats(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	root := mockfs.NewDirectory()
+	root.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
+	root.AddDir("d1", defaultPermissions)
+	root.AddDir("d1/d1", defaultPermissions)
+	root.AddFile("d1/d1/f1", []byte{1, 2, 3}, defaultPermissions)
+	root.AddSymlink("s1", "d1/d1/f1", defaultPermissions)
+	root.AddSymlink("s2", "f1", defaultPermissions)
+	root.AddSymlink("s3", "d1", defaultPermissions)
+
+	u := NewUploader(th.repo)
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	// First upload of the root directory.
+	man1, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	// Expect the directory summary to have the correct breakdown of files and symlinks.
+	require.Equal(t, int64(3), man1.RootEntry.DirSummary.TotalSymlinkCount, "Directory summary TotalSymlinkCount")
+	require.Equal(t, int64(2), man1.RootEntry.DirSummary.TotalFileCount, "Directory summary TotalSymlinkCount")
+
+	// Expect the directory summary total file size to match the stats total file size.
+	require.Equal(t, atomic.LoadInt64(&man1.Stats.TotalFileSize), man1.RootEntry.DirSummary.TotalFileSize, "Total file size")
+
+	// Upload a second time to check the stats from cached files.
+	man2, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{}, man1)
+	require.NoError(t, err)
+
+	// Expect total file count for the second upload to be zero - all files are cached.
+	require.Equal(t, int32(0), atomic.LoadInt32(&man2.Stats.TotalFileCount), "Directory summary TotalFileCount")
+
+	// Expect the directory summary to have the correct breakdown of files and symlinks.
+	require.Equal(t, int64(3), man2.RootEntry.DirSummary.TotalSymlinkCount, "Directory summary TotalSymlinkCount")
+	require.Equal(t, int64(2), man2.RootEntry.DirSummary.TotalFileCount, "Directory summary TotalSymlinkCount")
+}
+
 func TestUploadWithCheckpointing(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
