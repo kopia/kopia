@@ -3,7 +3,6 @@ package diff_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"os"
 	"strings"
@@ -118,11 +117,8 @@ func TestCompareEmptyDirectories(t *testing.T) {
 		_ = c.Close()
 	})
 
-	snapshotDiffStats := diff.ComparerStats{}
-	expectedStats := snapshotDiffOutput(snapshotDiffStats)
-
-	snapshotDiffStats, err = c.Compare(ctx, dir1, dir2)
-	actualStats := snapshotDiffOutput(snapshotDiffStats)
+	expectedStats := diff.Stats{}
+	actualStats, err := c.Compare(ctx, dir1, dir2)
 
 	require.NoError(t, err)
 	require.Empty(t, buf.String())
@@ -167,8 +163,7 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 		file2,
 	)
 
-	diffSnapshotStats := diff.ComparerStats{}
-	expectedStats := snapshotDiffOutput(diffSnapshotStats)
+	expectedStats := diff.Stats{}
 
 	c, err := diff.NewComparer(&buf)
 	require.NoError(t, err)
@@ -177,8 +172,7 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 		_ = c.Close()
 	})
 
-	snapshotDiffStats, err := c.Compare(ctx, dir1, dir2)
-	actualStats := snapshotDiffOutput(snapshotDiffStats)
+	actualStats, err := c.Compare(ctx, dir1, dir2)
 
 	require.NoError(t, err)
 	require.Empty(t, buf.String())
@@ -227,20 +221,18 @@ func TestCompareDifferentDirectories(t *testing.T) {
 		_ = c.Close()
 	})
 
-	diffSnapshotStats := diff.ComparerStats{}
-	diffSnapshotStats.FileStats.EntriesAdded = 2
-	diffSnapshotStats.FileStats.EntriesRemoved = 2
-	expectedOutputStats := snapshotDiffOutput(diffSnapshotStats)
+	expectedStats := diff.Stats{}
+	expectedStats.FileEntries.Added = 2
+	expectedStats.FileEntries.Removed = 2
 
 	expectedOutput := "added file ./file3.txt (11 bytes)\nadded file ./file4.txt (17 bytes)\n" +
 		"removed file ./file1.txt (10 bytes)\n" +
 		"removed file ./file2.txt (16 bytes)\n"
 
-	snapshotDiffStats, err := c.Compare(ctx, dir1, dir2)
-	actualStats := snapshotDiffOutput(snapshotDiffStats)
+	actualStats, err := c.Compare(ctx, dir1, dir2)
 
 	require.NoError(t, err)
-	require.Equal(t, expectedOutputStats, actualStats)
+	require.Equal(t, expectedStats, actualStats)
 	require.Equal(t, expectedOutput, buf.String())
 }
 
@@ -280,9 +272,8 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
 
-	diffSnapshotStats := diff.ComparerStats{}
-	diffSnapshotStats.DirectoryStats.EntriesModified = 1
-	expectedOutputStats := snapshotDiffOutput(diffSnapshotStats)
+	expectedStats := diff.Stats{}
+	expectedStats.DirectoryEntries.Modified = 1
 
 	c, err := diff.NewComparer(&buf)
 	require.NoError(t, err)
@@ -292,12 +283,11 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	})
 
 	expectedOutput := ". modification times differ: 2023-04-12 10:30:00 +0000 UTC 2022-04-12 10:30:00 +0000 UTC\n"
-	snapshotDiffStats, err := c.Compare(ctx, dir1, dir2)
-	actualStats := snapshotDiffOutput(snapshotDiffStats)
+	actualStats, err := c.Compare(ctx, dir1, dir2)
 
 	require.NoError(t, err)
 	require.Equal(t, expectedOutput, buf.String())
-	require.Equal(t, expectedOutputStats, actualStats)
+	require.Equal(t, expectedStats, actualStats)
 }
 
 func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
@@ -341,18 +331,16 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 		_ = c.Close()
 	})
 
-	diffSnapshotStats := diff.ComparerStats{}
-	diffSnapshotStats.FileStats.EntriesModified = 1
-	expectedOutputStats := snapshotDiffOutput(diffSnapshotStats)
+	expectedStats := diff.Stats{}
+	expectedStats.FileEntries.Modified = 1
 
 	expectedOutput := "./file1.txt modification times differ: 2023-04-12 10:30:00 +0000 UTC 2022-04-12 10:30:00 +0000 UTC\n"
 
-	snapshotDiffStats, err := c.Compare(ctx, dir1, dir2)
-	actualStats := snapshotDiffOutput(snapshotDiffStats)
+	actualStats, err := c.Compare(ctx, dir1, dir2)
 
 	require.NoError(t, err)
 	require.Equal(t, expectedOutput, buf.String())
-	require.Equal(t, expectedOutputStats, actualStats)
+	require.Equal(t, expectedStats, actualStats)
 }
 
 func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
@@ -401,20 +389,21 @@ func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
 		_ = c.Close()
 	})
 
-	diffSnapshotStats := diff.ComparerStats{}
-	diffSnapshotStats.FileStats.EntriesWithSameOIDButDiffMetadata = 1
-	diffSnapshotStats.FileStats.EntriesWithSameOIDButDiffModTime = 1
-	diffSnapshotStats.FileStats.EntriesWithSameOIDButDiffMode = 1
-	diffSnapshotStats.FileStats.EntriesWithSameOIDButDiffOwnerUser = 1
-	diffSnapshotStats.FileStats.EntriesWithSameOIDButDiffOwnerGroup = 1
-	expectedOutputStats := snapshotDiffOutput(diffSnapshotStats)
+	expectedStats := diff.Stats{
+		FileEntries: diff.EntryTypeStats{
+			SameContentButDiffMetadata:   1,
+			SameContentButDiffModTime:    1,
+			SameContentButDiffMode:       1,
+			SameContentButDiffOwnerUser:  1,
+			SameContentButDiffOwnerGroup: 1,
+		},
+	}
 
-	snapshotDiffStats, err := c.Compare(ctx, dir1, dir2)
-	actualStats := snapshotDiffOutput(snapshotDiffStats)
+	actualStats, err := c.Compare(ctx, dir1, dir2)
 
 	require.NoError(t, err)
 	require.Empty(t, buf.String())
-	require.Equal(t, expectedOutputStats, actualStats)
+	require.Equal(t, expectedStats, actualStats)
 }
 
 func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
@@ -460,27 +449,23 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 		_ = c.Close()
 	})
 
-	diffSnapshotStats := diff.ComparerStats{}
-	diffSnapshotStats.DirectoryStats.EntriesWithSameOIDButDiffMetadata = 1
-	diffSnapshotStats.DirectoryStats.EntriesWithSameOIDButDiffModTime = 1
-	diffSnapshotStats.DirectoryStats.EntriesWithSameOIDButDiffMode = 1
-	diffSnapshotStats.DirectoryStats.EntriesWithSameOIDButDiffOwnerUser = 1
-	diffSnapshotStats.DirectoryStats.EntriesWithSameOIDButDiffOwnerGroup = 1
-	expectedOutputStats := snapshotDiffOutput(diffSnapshotStats)
+	expectedStats := diff.Stats{
+		DirectoryEntries: diff.EntryTypeStats{
+			SameContentButDiffMetadata:   1,
+			SameContentButDiffModTime:    1,
+			SameContentButDiffMode:       1,
+			SameContentButDiffOwnerUser:  1,
+			SameContentButDiffOwnerGroup: 1,
+		},
+	}
 
-	snapshotDiffStats, err := c.Compare(ctx, dir1, dir2)
-	actualStats := snapshotDiffOutput(snapshotDiffStats)
+	actualStats, err := c.Compare(ctx, dir1, dir2)
 
 	require.NoError(t, err)
 	require.Empty(t, buf.String())
-	require.Equal(t, expectedOutputStats, actualStats)
+	require.Equal(t, expectedStats, actualStats)
 }
 
 func createTestDirectory(name string, modtime time.Time, owner fs.OwnerInfo, mode os.FileMode, oid object.ID, files ...fs.Entry) *testDirectory {
 	return &testDirectory{testBaseEntry: testBaseEntry{modtime: modtime, name: name, owner: owner, mode: mode, oid: oid}, files: files}
-}
-
-func snapshotDiffOutput(v interface{}) string {
-	b, _ := json.Marshal(v)
-	return string(b)
 }

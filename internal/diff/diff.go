@@ -21,31 +21,31 @@ const dirMode = 0o700
 
 var log = logging.Module("diff")
 
-// Stats accumulates specific stats for the snapshots being compared.
-type Stats struct {
-	EntriesAdded    uint32 `json:"entriesAdded"`
-	EntriesRemoved  uint32 `json:"entriesRemoved"`
-	EntriesModified uint32 `json:"entriesModified"`
+// EntryTypeStats accumulates specific stats for the snapshots being compared.
+type EntryTypeStats struct {
+	Added    uint32 `json:"added"`
+	Removed  uint32 `json:"removed"`
+	Modified uint32 `json:"modified"`
 
 	// aggregate stats
-	EntriesWithSameOIDButDiffMetadata uint32 `json:"entriesWithSameOIDButDifferentMetadata"`
+	SameContentButDiffMetadata uint32 `json:"sameContentButDifferentMetadata"`
 
 	// stats categorized based on metadata
-	EntriesWithSameOIDButDiffMode       uint32 `json:"entriesWithSameOIDbutDifferentMode"`
-	EntriesWithSameOIDButDiffModTime    uint32 `json:"entriesWithSameOIDbutDifferentModificationTime"`
-	EntriesWithSameOIDButDiffOwnerUser  uint32 `json:"entriesWithSameOIDbutDifferentUserOwner"`
-	EntriesWithSameOIDButDiffOwnerGroup uint32 `json:"entriesWithSameOIDbutDifferentGroupOwner"`
+	SameContentButDiffMode       uint32 `json:"sameContentbutDifferentMode"`
+	SameContentButDiffModTime    uint32 `json:"sameContentbutDifferentModificationTime"`
+	SameContentButDiffOwnerUser  uint32 `json:"sameContentbutDifferentUserOwner"`
+	SameContentButDiffOwnerGroup uint32 `json:"sameContentbutDifferentGroupOwner"`
 }
 
-// ComparerStats accumulates stats between snapshots being compared.
-type ComparerStats struct {
-	FileStats      Stats `json:"fileStats"`
-	DirectoryStats Stats `json:"directoryStats"`
+// Stats accumulates stats between snapshots being compared.
+type Stats struct {
+	FileEntries      EntryTypeStats `json:"fileEntries"`
+	DirectoryEntries EntryTypeStats `json:"directoryEntries"`
 }
 
 // Comparer outputs diff information between two filesystems.
 type Comparer struct {
-	stats         ComparerStats
+	stats         Stats
 	out           io.Writer
 	tmpDir        string
 	DiffCommand   string
@@ -53,8 +53,8 @@ type Comparer struct {
 }
 
 // Compare compares two filesystem entries and emits their diff information.
-func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) (ComparerStats, error) {
-	c.stats = ComparerStats{}
+func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) (Stats, error) {
+	c.stats = Stats{}
 
 	err := c.compareEntry(ctx, e1, e2, ".")
 	if err != nil {
@@ -124,14 +124,14 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		if dir2, isDir2 := e2.(fs.Directory); isDir2 {
 			c.output("added directory %v\n", path)
 
-			c.stats.DirectoryStats.EntriesAdded++
+			c.stats.DirectoryEntries.Added++
 
 			return c.compareDirectories(ctx, nil, dir2, path)
 		}
 
 		c.output("added file %v (%v bytes)\n", path, e2.Size())
 
-		c.stats.FileStats.EntriesAdded++
+		c.stats.FileEntries.Added++
 
 		if f, ok := e2.(fs.File); ok {
 			if err := c.compareFiles(ctx, nil, f, path); err != nil {
@@ -146,14 +146,14 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		if dir1, isDir1 := e1.(fs.Directory); isDir1 {
 			c.output("removed directory %v\n", path)
 
-			c.stats.DirectoryStats.EntriesRemoved++
+			c.stats.DirectoryEntries.Removed++
 
 			return c.compareDirectories(ctx, dir1, nil, path)
 		}
 
 		c.output("removed file %v (%v bytes)\n", path, e1.Size())
 
-		c.stats.FileStats.EntriesRemoved++
+		c.stats.FileEntries.Removed++
 
 		if f, ok := e1.(fs.File); ok {
 			if err := c.compareFiles(ctx, f, nil, path); err != nil {
@@ -191,7 +191,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		if f2, ok := e2.(fs.File); ok {
 			c.output("changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
 
-			c.stats.FileStats.EntriesModified++
+			c.stats.FileEntries.Modified++
 
 			if err := c.compareFiles(ctx, f1, f2, path); err != nil {
 				return err
@@ -208,27 +208,27 @@ func (c *Comparer) compareDirMetadataAndComputeStats(ctx context.Context, e1, e2
 
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
 		equal = false
-		c.stats.DirectoryStats.EntriesWithSameOIDButDiffMode++
+		c.stats.DirectoryEntries.SameContentButDiffMode++
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
 		equal = false
-		c.stats.DirectoryStats.EntriesWithSameOIDButDiffModTime++
+		c.stats.DirectoryEntries.SameContentButDiffModTime++
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
 		equal = false
-		c.stats.DirectoryStats.EntriesWithSameOIDButDiffOwnerUser++
+		c.stats.DirectoryEntries.SameContentButDiffOwnerUser++
 	}
 
 	if o1.GroupID != o2.GroupID {
 		equal = false
-		c.stats.DirectoryStats.EntriesWithSameOIDButDiffOwnerGroup++
+		c.stats.DirectoryEntries.SameContentButDiffOwnerGroup++
 	}
 
 	if !equal {
-		c.stats.DirectoryStats.EntriesWithSameOIDButDiffMetadata++
+		c.stats.DirectoryEntries.SameContentButDiffMetadata++
 
 		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
 	}
@@ -239,27 +239,27 @@ func (c *Comparer) compareFileMetadataAndComputeStats(ctx context.Context, e1, e
 	equal := true
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
 		equal = false
-		c.stats.FileStats.EntriesWithSameOIDButDiffMode++
+		c.stats.FileEntries.SameContentButDiffMode++
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
 		equal = false
-		c.stats.FileStats.EntriesWithSameOIDButDiffModTime++
+		c.stats.FileEntries.SameContentButDiffModTime++
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
 		equal = false
-		c.stats.FileStats.EntriesWithSameOIDButDiffOwnerUser++
+		c.stats.FileEntries.SameContentButDiffOwnerUser++
 	}
 
 	if o1.GroupID != o2.GroupID {
 		equal = false
-		c.stats.FileStats.EntriesWithSameOIDButDiffOwnerGroup++
+		c.stats.FileEntries.SameContentButDiffOwnerGroup++
 	}
 
 	if !equal {
-		c.stats.FileStats.EntriesWithSameOIDButDiffMetadata++
+		c.stats.FileEntries.SameContentButDiffMetadata++
 
 		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
 	}
@@ -318,9 +318,9 @@ func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) bool {
 
 	if !equal {
 		if isDir1 && isDir2 {
-			c.stats.DirectoryStats.EntriesModified++
+			c.stats.DirectoryEntries.Modified++
 		} else {
-			c.stats.FileStats.EntriesModified++
+			c.stats.FileEntries.Modified++
 		}
 	}
 
@@ -422,7 +422,7 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 
 // Stats returns aggregated statistics computed during snapshot comparison
 // must be invoked after a call to Compare which populates ComparerStats struct.
-func (c *Comparer) Stats() ComparerStats {
+func (c *Comparer) Stats() Stats {
 	return c.stats
 }
 

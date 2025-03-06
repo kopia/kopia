@@ -75,7 +75,7 @@ func (c *commandDiff) run(ctx context.Context, rep repo.Repository) error {
 			return errors.Wrap(err, "error marshaling computed snapshot diff stats")
 		}
 
-		fmt.Fprintf(c.out.stdout(), "%v", string(b)) //nolint:errcheck
+		fmt.Fprintf(c.out.stdout(), "%s", string(b)) //nolint:errcheck
 
 		return nil
 	}
