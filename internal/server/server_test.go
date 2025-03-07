@@ -25,6 +25,7 @@ import (
 	"github.com/kopia/kopia/notification/sender"
 	"github.com/kopia/kopia/notification/sender/webhook"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -171,6 +172,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 	mustGetObjectNotFound(ctx, t, rep, mustParseObjectID(t, "abcd"))
 	mustGetManifestNotFound(ctx, t, rep, "mnosuchmanifest")
 	mustPrefetchObjectsNotFound(ctx, t, rep, mustParseObjectID(t, "abcd"))
+	mustGetCapacityNotAVolume(ctx, t, rep)
 
 	var (
 		result                  object.ID
@@ -422,4 +424,11 @@ func mustParseObjectID(t *testing.T, s string) object.ID {
 	require.NoError(t, err)
 
 	return id
+}
+
+func mustGetCapacityNotAVolume(ctx context.Context, t *testing.T, rep repo.Repository) {
+	t.Helper()
+
+	_, err := rep.GetCapacity(ctx)
+	require.ErrorIs(t, err, blob.ErrNotAVolume, "expected 'not a volume' error")
 }
