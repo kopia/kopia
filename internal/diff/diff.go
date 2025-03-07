@@ -21,18 +21,47 @@ const dirMode = 0o700
 
 var log = logging.Module("diff")
 
+// EntryTypeStats accumulates specific stats for the snapshots being compared.
+type EntryTypeStats struct {
+	Added    uint32 `json:"added"`
+	Removed  uint32 `json:"removed"`
+	Modified uint32 `json:"modified"`
+
+	// aggregate stats
+	SameContentButDifferentMetadata uint32 `json:"sameContentButDifferentMetadata"`
+
+	// stats categorized based on metadata
+	SameContentButDifferentMode             uint32 `json:"sameContentButDifferentMode"`
+	SameContentButDifferentModificationTime uint32 `json:"sameContentButDifferentModificationTime"`
+	SameContentButDifferentUserOwner        uint32 `json:"sameContentButDifferentUserOwner"`
+	SameContentButDifferentGroupOwner       uint32 `json:"sameContentButDifferentGroupOwner"`
+}
+
+// Stats accumulates stats between snapshots being compared.
+type Stats struct {
+	FileEntries      EntryTypeStats `json:"fileEntries"`
+	DirectoryEntries EntryTypeStats `json:"directoryEntries"`
+}
+
 // Comparer outputs diff information between two filesystems.
 type Comparer struct {
-	out    io.Writer
-	tmpDir string
-
+	stats         Stats
+	out           io.Writer
+	tmpDir        string
 	DiffCommand   string
 	DiffArguments []string
 }
 
 // Compare compares two filesystem entries and emits their diff information.
-func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) error {
-	return c.compareEntry(ctx, e1, e2, ".")
+func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) (Stats, error) {
+	c.stats = Stats{}
+
+	err := c.compareEntry(ctx, e1, e2, ".")
+	if err != nil {
+		return c.stats, err
+	}
+
+	return c.stats, errors.Wrap(err, "error comparing fs entries")
 }
 
 // Close removes all temporary files used by the comparer.
@@ -76,22 +105,33 @@ func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directo
 //nolint:gocyclo
 func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path string) error {
 	// see if we have the same object IDs, which implies identical objects, thanks to content-addressable-storage
-	if h1, ok := e1.(object.HasObjectID); ok {
-		if h2, ok := e2.(object.HasObjectID); ok {
-			if h1.ObjectID() == h2.ObjectID() {
-				log(ctx).Debugf("unchanged %v", path)
-				return nil
+	h1, e1HasObjectID := e1.(object.HasObjectID)
+	h2, e2HasObjectID := e2.(object.HasObjectID)
+
+	if e1HasObjectID && e2HasObjectID {
+		if h1.ObjectID() == h2.ObjectID() {
+			if _, isDir := e1.(fs.Directory); isDir {
+				c.compareDirMetadataAndComputeStats(ctx, e1, e2, path)
+			} else {
+				c.compareFileMetadataAndComputeStats(ctx, e1, e2, path)
 			}
+
+			return nil
 		}
 	}
 
 	if e1 == nil {
 		if dir2, isDir2 := e2.(fs.Directory); isDir2 {
 			c.output("added directory %v\n", path)
+
+			c.stats.DirectoryEntries.Added++
+
 			return c.compareDirectories(ctx, nil, dir2, path)
 		}
 
 		c.output("added file %v (%v bytes)\n", path, e2.Size())
+
+		c.stats.FileEntries.Added++
 
 		if f, ok := e2.(fs.File); ok {
 			if err := c.compareFiles(ctx, nil, f, path); err != nil {
@@ -105,10 +145,15 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	if e2 == nil {
 		if dir1, isDir1 := e1.(fs.Directory); isDir1 {
 			c.output("removed directory %v\n", path)
+
+			c.stats.DirectoryEntries.Removed++
+
 			return c.compareDirectories(ctx, dir1, nil, path)
 		}
 
 		c.output("removed file %v (%v bytes)\n", path, e1.Size())
+
+		c.stats.FileEntries.Removed++
 
 		if f, ok := e1.(fs.File); ok {
 			if err := c.compareFiles(ctx, f, nil, path); err != nil {
@@ -119,7 +164,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		return nil
 	}
 
-	compareEntry(e1, e2, path, c.out)
+	c.compareEntryMetadata(e1, e2, path)
 
 	dir1, isDir1 := e1.(fs.Directory)
 	dir2, isDir2 := e2.(fs.Directory)
@@ -137,12 +182,16 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	if isDir2 {
 		// left is non-directory, right is a directory
 		log(ctx).Infof("changed %v from non-directory to a directory", path)
+		c.output("changed %v from non-directory to a directory\n", path)
+
 		return nil
 	}
 
 	if f1, ok := e1.(fs.File); ok {
 		if f2, ok := e2.(fs.File); ok {
 			c.output("changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
+
+			c.stats.FileEntries.Modified++
 
 			if err := c.compareFiles(ctx, f1, f2, path); err != nil {
 				return err
@@ -153,18 +202,81 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	return nil
 }
 
-func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
+func (c *Comparer) compareDirMetadataAndComputeStats(ctx context.Context, e1, e2 fs.Entry, path string) {
+	// check for metadata changes pertaining to directories given that content hasn't changed and gather aggregate statistics
+	equal := true
+
+	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
+		equal = false
+		c.stats.DirectoryEntries.SameContentButDifferentMode++
+	}
+
+	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
+		equal = false
+		c.stats.DirectoryEntries.SameContentButDifferentModificationTime++
+	}
+
+	o1, o2 := e1.Owner(), e2.Owner()
+	if o1.UserID != o2.UserID {
+		equal = false
+		c.stats.DirectoryEntries.SameContentButDifferentUserOwner++
+	}
+
+	if o1.GroupID != o2.GroupID {
+		equal = false
+		c.stats.DirectoryEntries.SameContentButDifferentGroupOwner++
+	}
+
+	if !equal {
+		c.stats.DirectoryEntries.SameContentButDifferentMetadata++
+
+		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
+	}
+}
+
+func (c *Comparer) compareFileMetadataAndComputeStats(ctx context.Context, e1, e2 fs.Entry, path string) {
+	// check for metadata changes pertaining to files given that content hasn't changed and gather aggregate statistics
+	equal := true
+	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
+		equal = false
+		c.stats.FileEntries.SameContentButDifferentMode++
+	}
+
+	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
+		equal = false
+		c.stats.FileEntries.SameContentButDifferentModificationTime++
+	}
+
+	o1, o2 := e1.Owner(), e2.Owner()
+	if o1.UserID != o2.UserID {
+		equal = false
+		c.stats.FileEntries.SameContentButDifferentUserOwner++
+	}
+
+	if o1.GroupID != o2.GroupID {
+		equal = false
+		c.stats.FileEntries.SameContentButDifferentGroupOwner++
+	}
+
+	if !equal {
+		c.stats.FileEntries.SameContentButDifferentMetadata++
+
+		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
+	}
+}
+
+func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) bool {
 	if e1 == e2 { // in particular e1 == nil && e2 == nil
 		return true
 	}
 
 	if e1 == nil {
-		fmt.Fprintln(out, fullpath, "does not exist in source directory") //nolint:errcheck
+		c.output("%v does not exist in source directory\n", fullpath)
 		return false
 	}
 
 	if e2 == nil {
-		fmt.Fprintln(out, fullpath, "does not exist in destination directory") //nolint:errcheck
+		c.output("%v does not exist in destination directory\n", fullpath)
 		return false
 	}
 
@@ -173,32 +285,43 @@ func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "modes differ: ", m1, m2) //nolint:errcheck
+		c.output("%v modes differ: %v %v\n", fullpath, m1, m2)
 	}
 
 	if s1, s2 := e1.Size(), e2.Size(); s1 != s2 {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "sizes differ: ", s1, s2) //nolint:errcheck
+		c.output("%v sizes differ: %v %v\n", fullpath, s1, s2)
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "modification times differ: ", mt1, mt2) //nolint:errcheck
+		c.output("%v modification times differ: %v %v\n", fullpath, mt1, mt2)
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "owner users differ: ", o1.UserID, o2.UserID) //nolint:errcheck
+		c.output("%v owner users differ: %v %v\n", fullpath, o1.UserID, o2.UserID)
 	}
 
 	if o1.GroupID != o2.GroupID {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "owner groups differ: ", o1.GroupID, o2.GroupID) //nolint:errcheck
+		c.output("%v owner groups differ: %v %v\n", fullpath, o1.GroupID, o2.GroupID)
+	}
+
+	_, isDir1 := e1.(fs.Directory)
+	_, isDir2 := e2.(fs.Directory)
+
+	if !equal {
+		if isDir1 && isDir2 {
+			c.stats.DirectoryEntries.Modified++
+		} else {
+			c.stats.FileEntries.Modified++
+		}
 	}
 
 	// don't compare filesystem boundaries (e1.Device()), it's pretty useless and is not stored in backups
@@ -295,6 +418,12 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 	defer dst.Close() //nolint:errcheck
 
 	return errors.Wrap(iocopy.JustCopy(dst, src), "error downloading file")
+}
+
+// Stats returns aggregated statistics computed during snapshot comparison
+// must be invoked after a call to Compare which populates ComparerStats struct.
+func (c *Comparer) Stats() Stats {
+	return c.stats
 }
 
 func (c *Comparer) output(msg string, args ...interface{}) {

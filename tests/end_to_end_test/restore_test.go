@@ -196,7 +196,7 @@ func compareDirs(t *testing.T, source, restoreDir string) {
 		require.NoError(t, err)
 
 		cmp.DiffCommand = "cmp"
-		_ = cmp.Compare(ctx, s, r)
+		cmp.Compare(ctx, s, r)
 	}
 }
 

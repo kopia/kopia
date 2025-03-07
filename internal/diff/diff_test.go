@@ -13,6 +13,8 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/diff"
+	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/object"
 )
 
 var (
@@ -24,6 +26,8 @@ type testBaseEntry struct {
 	modtime time.Time
 	mode    os.FileMode
 	name    string
+	owner   fs.OwnerInfo
+	oid     object.ID
 }
 
 func (f *testBaseEntry) IsDir() bool                 { return false }
@@ -32,8 +36,9 @@ func (f *testBaseEntry) Close()                      {}
 func (f *testBaseEntry) Name() string                { return f.name }
 func (f *testBaseEntry) ModTime() time.Time          { return f.modtime }
 func (f *testBaseEntry) Sys() interface{}            { return nil }
-func (f *testBaseEntry) Owner() fs.OwnerInfo         { return fs.OwnerInfo{UserID: 1000, GroupID: 1000} }
+func (f *testBaseEntry) Owner() fs.OwnerInfo         { return f.owner }
 func (f *testBaseEntry) Device() fs.DeviceInfo       { return fs.DeviceInfo{Dev: 1} }
+func (f *testBaseEntry) ObjectID() object.ID         { return f.oid }
 
 func (f *testBaseEntry) Mode() os.FileMode {
 	if f.mode == 0 {
@@ -92,9 +97,18 @@ func TestCompareEmptyDirectories(t *testing.T) {
 
 	ctx := context.Background()
 
-	dmodtime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
-	dir1 := createTestDirectory("testDir1", dmodtime)
-	dir2 := createTestDirectory("testDir2", dmodtime)
+	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
+	dirMode := os.FileMode(0o777)
+
+	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
+	dirObjectID1 := object.DirectObjectID(cid)
+
+	cid, _ = index.IDFromHash("i", []byte("dfjlgn"))
+	dirObjectID2 := object.DirectObjectID(cid)
+
+	dir1 := createTestDirectory("testDir1", dirModTime, dirOwnerInfo, dirMode, dirObjectID1)
+	dir2 := createTestDirectory("testDir2", dirModTime, dirOwnerInfo, dirMode, dirObjectID2)
 
 	c, err := diff.NewComparer(&buf)
 	require.NoError(t, err)
@@ -103,9 +117,12 @@ func TestCompareEmptyDirectories(t *testing.T) {
 		_ = c.Close()
 	})
 
-	err = c.Compare(ctx, dir1, dir2)
+	expectedStats := diff.Stats{}
+	actualStats, err := c.Compare(ctx, dir1, dir2)
+
 	require.NoError(t, err)
 	require.Empty(t, buf.String())
+	require.Equal(t, expectedStats, actualStats)
 }
 
 func TestCompareIdenticalDirectories(t *testing.T) {
@@ -113,20 +130,40 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 
 	ctx := context.Background()
 
-	dmodtime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
-	fmodtime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
+	dirMode := os.FileMode(0o777)
+	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+
+	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
+	dirObjectID1 := object.DirectObjectID(cid)
+
+	cid, _ = index.IDFromHash("i", []byte("dfjlgn"))
+	dirObjectID2 := object.DirectObjectID(cid)
+
+	file1 := &testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"}
+	file2 := &testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"}
+
 	dir1 := createTestDirectory(
 		"testDir1",
-		dmodtime,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file1.txt"}, content: "abcdefghij"},
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
+		dirModTime,
+		dirOwnerInfo,
+		dirMode,
+		dirObjectID1,
+		file1,
+		file2,
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
-		dmodtime,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file1.txt"}, content: "abcdefghij"},
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
+		dirModTime,
+		dirOwnerInfo,
+		dirMode,
+		dirObjectID2,
+		file1,
+		file2,
 	)
+
+	expectedStats := diff.Stats{}
 
 	c, err := diff.NewComparer(&buf)
 	require.NoError(t, err)
@@ -135,9 +172,11 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 		_ = c.Close()
 	})
 
-	err = c.Compare(ctx, dir1, dir2)
+	actualStats, err := c.Compare(ctx, dir1, dir2)
+
 	require.NoError(t, err)
 	require.Empty(t, buf.String())
+	require.Equal(t, expectedStats, actualStats)
 }
 
 func TestCompareDifferentDirectories(t *testing.T) {
@@ -145,19 +184,34 @@ func TestCompareDifferentDirectories(t *testing.T) {
 
 	ctx := context.Background()
 
-	dmodtime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
-	fmodtime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
+	dirMode := os.FileMode(0o777)
+
+	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
+	dirObjectID1 := object.DirectObjectID(cid)
+
+	cid, _ = index.IDFromHash("i", []byte("dfjlgn"))
+	dirObjectID2 := object.DirectObjectID(cid)
+
 	dir1 := createTestDirectory(
 		"testDir1",
-		dmodtime,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file1.txt"}, content: "abcdefghij"},
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
+		dirModTime,
+		dirOwnerInfo,
+		dirMode,
+		dirObjectID1,
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
-		dmodtime,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file3.txt"}, content: "abcdefghij1"},
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file4.txt"}, content: "klmnopqrstuvwxyz2"},
+		dirModTime,
+		dirOwnerInfo,
+		dirMode,
+		dirObjectID2,
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file3.txt"}, content: "abcdefghij1"},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file4.txt"}, content: "klmnopqrstuvwxyz2"},
 	)
 
 	c, err := diff.NewComparer(&buf)
@@ -167,12 +221,18 @@ func TestCompareDifferentDirectories(t *testing.T) {
 		_ = c.Close()
 	})
 
+	expectedStats := diff.Stats{}
+	expectedStats.FileEntries.Added = 2
+	expectedStats.FileEntries.Removed = 2
+
 	expectedOutput := "added file ./file3.txt (11 bytes)\nadded file ./file4.txt (17 bytes)\n" +
 		"removed file ./file1.txt (10 bytes)\n" +
 		"removed file ./file2.txt (16 bytes)\n"
 
-	err = c.Compare(ctx, dir1, dir2)
+	actualStats, err := c.Compare(ctx, dir1, dir2)
+
 	require.NoError(t, err)
+	require.Equal(t, expectedStats, actualStats)
 	require.Equal(t, expectedOutput, buf.String())
 }
 
@@ -181,21 +241,39 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 
 	ctx := context.Background()
 
-	dmodtime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
-	dmodtime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
-	fmodtime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirModTime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
+	dirMode := os.FileMode(0o777)
+
+	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
+	dirObjectID1 := object.DirectObjectID(cid)
+
+	cid, _ = index.IDFromHash("i", []byte("dfjlgn"))
+	dirObjectID2 := object.DirectObjectID(cid)
+
 	dir1 := createTestDirectory(
 		"testDir1",
-		dmodtime1,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file1.txt"}, content: "abcdefghij"},
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
+		dirModTime1,
+		dirOwnerInfo,
+		dirMode,
+		dirObjectID1,
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
-		dmodtime2,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file1.txt"}, content: "abcdefghij"},
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
+		dirModTime2,
+		dirOwnerInfo,
+		dirMode,
+		dirObjectID2,
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"},
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
+
+	expectedStats := diff.Stats{}
+	expectedStats.DirectoryEntries.Modified = 1
 
 	c, err := diff.NewComparer(&buf)
 	require.NoError(t, err)
@@ -204,10 +282,12 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 		_ = c.Close()
 	})
 
-	expectedOutput := ". modification times differ:  2023-04-12 10:30:00 +0000 UTC 2022-04-12 10:30:00 +0000 UTC\n"
-	err = c.Compare(ctx, dir1, dir2)
+	expectedOutput := ". modification times differ: 2023-04-12 10:30:00 +0000 UTC 2022-04-12 10:30:00 +0000 UTC\n"
+	actualStats, err := c.Compare(ctx, dir1, dir2)
+
 	require.NoError(t, err)
 	require.Equal(t, expectedOutput, buf.String())
+	require.Equal(t, expectedStats, actualStats)
 }
 
 func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
@@ -215,18 +295,33 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 
 	ctx := context.Background()
 
-	fmodtime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
-	fmodtime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
-	dmodtime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	fileModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	fileModTime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
+	dirMode := os.FileMode(0o700)
+
+	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
+	OID1 := object.DirectObjectID(cid)
+
+	cid, _ = index.IDFromHash("i", []byte("hvhjb"))
+	OID2 := object.DirectObjectID(cid)
+
 	dir1 := createTestDirectory(
 		"testDir1",
-		dmodtime,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime1, name: "file1.txt"}, content: "abcdefghij"},
+		dirModTime,
+		dirOwnerInfo,
+		dirMode,
+		OID1,
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime1, name: "file1.txt", oid: OID1}, content: "abcdefghij"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
-		dmodtime,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fmodtime2, name: "file1.txt"}, content: "abcdefghij"},
+		dirModTime,
+		dirOwnerInfo,
+		dirMode,
+		OID2,
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime2, name: "file1.txt", oid: OID2}, content: "abcdefghij"},
 	)
 
 	c, err := diff.NewComparer(&buf)
@@ -236,13 +331,141 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 		_ = c.Close()
 	})
 
-	expectedOutput := "./file1.txt modification times differ:  2023-04-12 10:30:00 +0000 UTC 2022-04-12 10:30:00 +0000 UTC\n"
+	expectedStats := diff.Stats{}
+	expectedStats.FileEntries.Modified = 1
 
-	err = c.Compare(ctx, dir1, dir2)
+	expectedOutput := "./file1.txt modification times differ: 2023-04-12 10:30:00 +0000 UTC 2022-04-12 10:30:00 +0000 UTC\n"
+
+	actualStats, err := c.Compare(ctx, dir1, dir2)
+
 	require.NoError(t, err)
 	require.Equal(t, expectedOutput, buf.String())
+	require.Equal(t, expectedStats, actualStats)
 }
 
-func createTestDirectory(name string, modtime time.Time, files ...fs.Entry) *testDirectory {
-	return &testDirectory{testBaseEntry: testBaseEntry{modtime: modtime, name: name}, files: files}
+func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
+	var buf bytes.Buffer
+
+	ctx := context.Background()
+
+	fileModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	fileModTime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
+
+	fileOwnerinfo1 := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
+	fileOwnerinfo2 := fs.OwnerInfo{UserID: 1001, GroupID: 1002}
+
+	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
+	dirMode := os.FileMode(0o777)
+	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+
+	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
+	dirObjectID1 := object.DirectObjectID(cid)
+
+	cid, _ = index.IDFromHash("i", []byte("dfjlgn"))
+	dirObjectID2 := object.DirectObjectID(cid)
+
+	dir1 := createTestDirectory(
+		"testDir1",
+		dirModTime,
+		dirOwnerInfo,
+		dirMode,
+		dirObjectID1,
+		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime1, oid: object.ID{}, owner: fileOwnerinfo1, mode: 0o700}, content: "abcdefghij"},
+	)
+
+	dir2 := createTestDirectory(
+		"testDir2",
+		dirModTime,
+		dirOwnerInfo,
+		dirMode,
+		dirObjectID2,
+		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime2, oid: object.ID{}, owner: fileOwnerinfo2, mode: 0o777}, content: "abcdefghij"},
+	)
+
+	c, err := diff.NewComparer(&buf)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_ = c.Close()
+	})
+
+	expectedStats := diff.Stats{
+		FileEntries: diff.EntryTypeStats{
+			SameContentButDifferentMetadata:         1,
+			SameContentButDifferentModificationTime: 1,
+			SameContentButDifferentMode:             1,
+			SameContentButDifferentUserOwner:        1,
+			SameContentButDifferentGroupOwner:       1,
+		},
+	}
+
+	actualStats, err := c.Compare(ctx, dir1, dir2)
+
+	require.NoError(t, err)
+	require.Empty(t, buf.String())
+	require.Equal(t, expectedStats, actualStats)
+}
+
+func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
+	var buf bytes.Buffer
+
+	ctx := context.Background()
+
+	dirModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+	dirModTime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
+
+	dirOwnerInfo1 := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
+	dirOwnerInfo2 := fs.OwnerInfo{UserID: 1001, GroupID: 1002}
+
+	dirMode1 := os.FileMode(0o644)
+	dirMode2 := os.FileMode(0o777)
+
+	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
+
+	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
+	dirObjectID := object.DirectObjectID(cid)
+
+	dir1 := createTestDirectory(
+		"testDir1",
+		dirModTime1,
+		dirOwnerInfo1,
+		dirMode1,
+		dirObjectID,
+		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime}, content: "abcdefghij"},
+	)
+
+	dir2 := createTestDirectory(
+		"testDir2",
+		dirModTime2,
+		dirOwnerInfo2,
+		dirMode2,
+		dirObjectID,
+		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime}, content: "abcdefghij"},
+	)
+	c, err := diff.NewComparer(&buf)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		_ = c.Close()
+	})
+
+	expectedStats := diff.Stats{
+		DirectoryEntries: diff.EntryTypeStats{
+			SameContentButDifferentMetadata:         1,
+			SameContentButDifferentModificationTime: 1,
+			SameContentButDifferentMode:             1,
+			SameContentButDifferentUserOwner:        1,
+			SameContentButDifferentGroupOwner:       1,
+		},
+	}
+
+	actualStats, err := c.Compare(ctx, dir1, dir2)
+
+	require.NoError(t, err)
+	require.Empty(t, buf.String())
+	require.Equal(t, expectedStats, actualStats)
+}
+
+func createTestDirectory(name string, modtime time.Time, owner fs.OwnerInfo, mode os.FileMode, oid object.ID, files ...fs.Entry) *testDirectory {
+	return &testDirectory{testBaseEntry: testBaseEntry{modtime: modtime, name: name, owner: owner, mode: mode, oid: oid}, files: files}
 }
