@@ -249,7 +249,7 @@ func TestServerControlArgs(t *testing.T) {
 	// check server status using v0.22 environment variables for control username/password
 	e2 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner022)
 
-	// set v0.22 environment variables
+	// set v0.22 `server` environment variables
 	e2.Environment["KOPIA_SERVER_USERNAME"] = "admin-user"
 	e2.Environment["KOPIA_SERVER_PASSWORD"] = "admin-pwd"
 
@@ -279,5 +279,132 @@ func TestServerControlArgs(t *testing.T) {
 		"server", "status",
 		"--address", sp.BaseURL+"/",
 		"--server-cert-fingerprint", sp.SHA256Fingerprint,
+	)
+}
+
+// Verify `server start` environment variables compatibility for *control* username/password.
+func TestServerStartControlArgs(t *testing.T) {
+	t.Parallel()
+
+	if kopiaCurrentExe == "" {
+		t.Skip()
+	}
+
+	if kopia022exe == "" {
+		t.Skip()
+	}
+
+	runnerCurrent := testenv.NewExeRunnerWithBinary(t, kopiaCurrentExe)
+	runner022 := testenv.NewExeRunnerWithBinary(t, kopia022exe)
+
+	// create repository using v0.22 and start a server
+	e1 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner022)
+	e1.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e1.RepoDir)
+	e1.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
+
+	var spExePrevEnvPrev testutil.ServerParameters
+
+	// Use different key files for each `server start` invocation
+	// since ServerParameters parses output from TLS key generation
+	tlsCert1 := filepath.Join(e1.ConfigDir, "tls1.cert")
+	tlsCert2 := filepath.Join(e1.ConfigDir, "tls2.cert")
+	tlsCert3 := filepath.Join(e1.ConfigDir, "tls3.cert")
+	tlsKey1 := filepath.Join(e1.ConfigDir, "tls1.key")
+	tlsKey2 := filepath.Join(e1.ConfigDir, "tls2.key")
+	tlsKey3 := filepath.Join(e1.ConfigDir, "tls3.key")
+
+	// set v0.22 `server start` environment variables
+	e1.Environment["KOPIA_SERVER_CONTROL_USER"] = "admin-user"
+	e1.Environment["KOPIA_SERVER_CONTROL_PASSWORD"] = "admin-pwd"
+
+	wait, killServer := e1.RunAndProcessStderr(t, spExePrevEnvPrev.ProcessOutput,
+		"server", "start",
+		"--address=localhost:0",
+		"--tls-generate-cert",
+		"--tls-key-file", tlsKey1,
+		"--tls-cert-file", tlsCert1,
+		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
+	)
+
+	t.Logf("detected server parameters %#v", spExePrevEnvPrev)
+
+	defer wait()
+
+	time.Sleep(3 * time.Second)
+
+	// check server status using v0.22 environment variables for control username/password
+	e2 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner022)
+
+	// set v0.22 `server` environment variables
+	e2.Environment["KOPIA_SERVER_USERNAME"] = "admin-user"
+	e2.Environment["KOPIA_SERVER_PASSWORD"] = "admin-pwd"
+
+	e2.RunAndExpectSuccess(t,
+		"server", "status",
+		"--address", spExePrevEnvPrev.BaseURL+"/",
+		"--server-cert-fingerprint", spExePrevEnvPrev.SHA256Fingerprint,
+	)
+
+	// now switch to using latest executable with same environment variables
+	killServer()
+
+	e1.Runner = runnerCurrent
+
+	var spExeNewEnvPrev testutil.ServerParameters
+
+	wait, killServer = e1.RunAndProcessStderr(t, spExeNewEnvPrev.ProcessOutput,
+		"server", "start",
+		"--address=localhost:0",
+		"--tls-generate-cert",
+		"--tls-key-file", tlsKey2,
+		"--tls-cert-file", tlsCert2,
+		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
+	)
+
+	t.Logf("detected server parameters %#v", spExeNewEnvPrev)
+
+	defer wait()
+
+	time.Sleep(3 * time.Second)
+
+	// check server status using v0.22 environment variables for control username/password
+	// everything should still work
+	e2.RunAndExpectSuccess(t,
+		"server", "status",
+		"--address", spExeNewEnvPrev.BaseURL+"/",
+		"--server-cert-fingerprint", spExeNewEnvPrev.SHA256Fingerprint,
+	)
+
+	// restart server using post-0.22 `server start` environment variables
+	killServer()
+	delete(e1.Environment, "KOPIA_SERVER_CONTROL_USER")
+	delete(e1.Environment, "KOPIA_SERVER_CONTROL_PASSWORD")
+	e1.Environment["KOPIA_SERVER_CONTROL_USERNAME"] = "admin-user"
+	e1.Environment["KOPIA_SERVER_CONTROL_PASSWORD"] = "admin-pwd"
+
+	var spExeNewEnvNew testutil.ServerParameters
+
+	wait, killServer = e1.RunAndProcessStderr(t, spExeNewEnvNew.ProcessOutput,
+		"server", "start",
+		"--address=localhost:0",
+		"--tls-generate-cert",
+		"--tls-key-file", tlsKey3,
+		"--tls-cert-file", tlsCert3,
+		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
+	)
+
+	t.Logf("detected server parameters %#v", spExeNewEnvNew)
+
+	defer wait()
+	defer killServer()
+
+	time.Sleep(3 * time.Second)
+
+	// check server status using v0.22 environment variables for control username/password
+	// everything should still work
+	e2.RunAndExpectSuccess(t,
+		"server", "status",
+		"--address", spExeNewEnvNew.BaseURL+"/",
+		"--server-cert-fingerprint", spExeNewEnvNew.SHA256Fingerprint,
 	)
 }
