@@ -203,7 +203,7 @@ func TestClientConnectedUsingV017CanConnectUsingCurrent(t *testing.T) {
 	e2.RunAndExpectSuccess(t, "snapshot", "ls")
 }
 
-// Verify `server status` environment variables compatibility for *control* username/password
+// Verify `server status` environment variables compatibility for *control* username/password.
 func TestServerControlArgs(t *testing.T) {
 	t.Parallel()
 

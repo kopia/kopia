@@ -91,15 +91,18 @@ func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) 
 	if err != nil {
 		return apiclient.Options{}, err
 	}
+
 	if username == "" {
 		username = defaultServerControlUsername
 	}
+
 	c.serverUsername = username
 
 	password, err := mergeDeprecatedFlags(c.stderrWriter, c.serverPasswordDeprecated, c.serverPassword, "--server-password", "KOPIA_SERVER_PASSWORD", "--server-control-password", "KOPIA_SERVER_CONTROL_PASSWORD")
 	if err != nil {
 		return apiclient.Options{}, err
 	}
+
 	c.serverPassword = password
 
 	return apiclient.Options{
