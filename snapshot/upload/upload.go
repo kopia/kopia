@@ -1,4 +1,5 @@
-package snapshotfs
+// Package upload manages snapshot uploads.
+package upload
 
 import (
 	"bytes"
@@ -30,15 +31,14 @@ import (
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 // DefaultCheckpointInterval is the default frequency of mid-upload checkpointing.
 const DefaultCheckpointInterval = 45 * time.Minute
 
 var (
-	uploadLog = logging.Module("uploader")
-	repoFSLog = logging.Module("repofs")
-
+	uploadLog    = logging.Module("uploader")
 	uploadTracer = otel.Tracer("upload")
 )
 
@@ -64,7 +64,7 @@ const (
 type Uploader struct {
 	totalWrittenBytes atomic.Int64
 
-	Progress UploadProgress
+	Progress Progress
 
 	// automatically cancel the Upload after certain number of bytes
 	MaxUploadBytes int64
@@ -509,7 +509,7 @@ func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath
 // checkpointRoot invokes checkpoints on the provided registry and if a checkpoint entry was generated,
 // saves it in an incomplete snapshot manifest.
 func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) error {
-	var dmbCheckpoint DirManifestBuilder
+	var dmbCheckpoint snapshotfs.DirManifestBuilder
 	if err := cp.runCheckpoints(&dmbCheckpoint); err != nil {
 		return errors.Wrap(err, "running checkpointers")
 	}
@@ -586,7 +586,7 @@ func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointReg
 // uploadDirWithCheckpointing uploads the specified Directory to the repository.
 func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
 	var (
-		dmb DirManifestBuilder
+		dmb snapshotfs.DirManifestBuilder
 		cp  checkpointRegistry
 	)
 
@@ -654,14 +654,10 @@ func rootCauseError(err error) error {
 	return err
 }
 
-func isDir(e *snapshot.DirEntry) bool {
-	return e.Type == snapshot.EntryTypeDirectory
-}
-
 func (u *Uploader) processChildren(
 	ctx context.Context,
 	parentDirCheckpointRegistry *checkpointRegistry,
-	parentDirBuilder *DirManifestBuilder,
+	parentDirBuilder *snapshotfs.DirManifestBuilder,
 	localDirPathOrEmpty, relativePath string,
 	dir fs.Directory,
 	policyTree *policy.Tree,
@@ -786,7 +782,7 @@ func (u *Uploader) effectiveParallelFileReads(pol *policy.Policy) int {
 func (u *Uploader) processDirectoryEntries(
 	ctx context.Context,
 	parentCheckpointRegistry *checkpointRegistry,
-	parentDirBuilder *DirManifestBuilder,
+	parentDirBuilder *snapshotfs.DirManifestBuilder,
 	localDirPathOrEmpty string,
 	dirRelativePath string,
 	dir fs.Directory,
@@ -837,7 +833,7 @@ func (u *Uploader) processSingle(
 	ctx context.Context,
 	entry fs.Entry,
 	entryRelativePath string,
-	parentDirBuilder *DirManifestBuilder,
+	parentDirBuilder *snapshotfs.DirManifestBuilder,
 	policyTree *policy.Tree,
 	prevDirs []fs.Directory,
 	localDirPathOrEmpty string,
@@ -872,7 +868,7 @@ func (u *Uploader) processSingle(
 
 	switch entry := entry.(type) {
 	case fs.Directory:
-		childDirBuilder := &DirManifestBuilder{}
+		childDirBuilder := &snapshotfs.DirManifestBuilder{}
 
 		childLocalDirPathOrEmpty := ""
 		if localDirPathOrEmpty != "" {
@@ -958,7 +954,17 @@ func (u *Uploader) processSingle(
 }
 
 //nolint:unparam
-func (u *Uploader) processEntryUploadResult(ctx context.Context, de *snapshot.DirEntry, err error, entryRelativePath string, parentDirBuilder *DirManifestBuilder, isIgnored bool, logDetail policy.LogDetail, logMessage string, t0 timetrack.Timer) error {
+func (u *Uploader) processEntryUploadResult(
+	ctx context.Context,
+	de *snapshot.DirEntry,
+	err error,
+	entryRelativePath string,
+	parentDirBuilder *snapshotfs.DirManifestBuilder,
+	isIgnored bool,
+	logDetail policy.LogDetail,
+	logMessage string,
+	t0 timetrack.Timer,
+) error {
 	if err != nil {
 		u.reportErrorAndMaybeCancel(err, isIgnored, parentDirBuilder, entryRelativePath)
 	} else {
@@ -1098,7 +1104,7 @@ func uploadDirInternal(
 	policyTree *policy.Tree,
 	previousDirs []fs.Directory,
 	localDirPathOrEmpty, dirRelativePath string,
-	thisDirBuilder *DirManifestBuilder,
+	thisDirBuilder *snapshotfs.DirManifestBuilder,
 	thisCheckpointRegistry *checkpointRegistry,
 ) (resultDE *snapshot.DirEntry, resultErr error) {
 	atomic.AddInt32(&u.stats.TotalDirectoryCount, 1)
@@ -1162,7 +1168,7 @@ func uploadDirInternal(
 
 		checkpointManifest := thisCheckpointBuilder.Build(fs.UTCTimestampFromTime(directory.ModTime()), IncompleteReasonCheckpoint)
 
-		oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, checkpointManifest, metadataComp)
+		oid, err := snapshotfs.WriteDirManifest(ctx, u.repo, dirRelativePath, checkpointManifest, metadataComp)
 		if err != nil {
 			return nil, errors.Wrap(err, "error writing dir manifest")
 		}
@@ -1177,7 +1183,7 @@ func uploadDirInternal(
 
 	dirManifest := thisDirBuilder.Build(fs.UTCTimestampFromTime(directory.ModTime()), u.incompleteReason())
 
-	oid, err := writeDirManifest(ctx, u.repo, dirRelativePath, dirManifest, metadataComp)
+	oid, err := snapshotfs.WriteDirManifest(ctx, u.repo, dirRelativePath, dirManifest, metadataComp)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error writing dir manifest: %v", directory.Name())
 	}
@@ -1185,7 +1191,7 @@ func uploadDirInternal(
 	return newDirEntryWithSummary(directory, oid, dirManifest.Summary)
 }
 
-func (u *Uploader) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *DirManifestBuilder, entryRelativePath string) {
+func (u *Uploader) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *snapshotfs.DirManifestBuilder, entryRelativePath string) {
 	if u.IsCanceled() && errors.Is(err, errCanceled) {
 		// already canceled, do not report another.
 		return
@@ -1227,7 +1233,7 @@ func (u *Uploader) maybeOpenDirectoryFromManifest(ctx context.Context, man *snap
 		return nil
 	}
 
-	ent := EntryFromDirEntry(u.repo, man.RootEntry)
+	ent := snapshotfs.EntryFromDirEntry(u.repo, man.RootEntry)
 
 	dir, ok := ent.(fs.Directory)
 	if !ok {

@@ -12,9 +12,12 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 )
+
+var repoFSLog = logging.Module("repofs")
 
 // Well-known object ID prefixes.
 const (

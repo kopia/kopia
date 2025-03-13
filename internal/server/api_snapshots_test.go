@@ -14,7 +14,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 func TestListAndDeleteSnapshots(t *testing.T) {
@@ -26,7 +26,7 @@ func TestListAndDeleteSnapshots(t *testing.T) {
 	var id11, id12, id13, id14, id21 manifest.ID
 
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{Purpose: "Test"}, func(ctx context.Context, w repo.RepositoryWriter) error {
-		u := snapshotfs.NewUploader(w)
+		u := upload.NewUploader(w)
 
 		dir1 := mockfs.NewDirectory()
 
@@ -187,7 +187,7 @@ func TestEditSnapshots(t *testing.T) {
 	var id11 manifest.ID
 
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{Purpose: "Test"}, func(ctx context.Context, w repo.RepositoryWriter) error {
-		u := snapshotfs.NewUploader(w)
+		u := upload.NewUploader(w)
 
 		dir1 := mockfs.NewDirectory()
 
