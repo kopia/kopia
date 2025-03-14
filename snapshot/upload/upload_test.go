@@ -1,4 +1,4 @@
-package snapshotfs
+package upload
 
 import (
 	"bytes"
@@ -44,6 +44,7 @@ import (
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 const (
@@ -284,7 +285,7 @@ func TestUploadMetadataCompression(t *testing.T) {
 			t.Errorf("Upload error: %v", err)
 		}
 
-		dir := EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
+		dir := snapshotfs.EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
 		entries := findAllEntries(t, ctx, dir)
 		verifyMetadataCompressor(t, ctx, th.repo, entries, compression.HeaderZstdFastest)
 	})
@@ -305,7 +306,7 @@ func TestUploadMetadataCompression(t *testing.T) {
 			t.Errorf("Upload error: %v", err)
 		}
 
-		dir := EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
+		dir := snapshotfs.EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
 		entries := findAllEntries(t, ctx, dir)
 		verifyMetadataCompressor(t, ctx, th.repo, entries, content.NoCompression)
 	})
@@ -326,7 +327,7 @@ func TestUploadMetadataCompression(t *testing.T) {
 			t.Errorf("Upload error: %v", err)
 		}
 
-		dir := EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
+		dir := snapshotfs.EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
 		entries := findAllEntries(t, ctx, dir)
 		verifyMetadataCompressor(t, ctx, th.repo, entries, compression.ByName["gzip"].HeaderID())
 	})
@@ -628,12 +629,12 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 }
 
 type mockProgress struct {
-	UploadProgress
+	Progress
 	finishedFileCheck func(string, error)
 }
 
 func (mp *mockProgress) FinishedFile(relativePath string, err error) {
-	defer mp.UploadProgress.FinishedFile(relativePath, err)
+	defer mp.Progress.FinishedFile(relativePath, err)
 
 	mp.finishedFileCheck(relativePath, err)
 }
@@ -657,7 +658,7 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 	u := NewUploader(th.repo)
 	u.ForceHashPercentage = 0
 	u.Progress = &mockProgress{
-		UploadProgress: u.Progress,
+		Progress: u.Progress,
 		finishedFileCheck: func(relativePath string, err error) {
 			defer func() {
 				mu.Lock()
@@ -1280,7 +1281,7 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 
 	t.Logf("man: %v", man.RootObjectID())
 
-	dir := EntryFromDirEntry(th.repo, man.RootEntry).(fs.Directory)
+	dir := snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry).(fs.Directory)
 
 	successCount := 0
 

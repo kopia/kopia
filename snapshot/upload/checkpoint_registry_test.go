@@ -1,4 +1,4 @@
-package snapshotfs
+package upload
 
 import (
 	"os"
@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 func TestCheckpointRegistry(t *testing.T) {
@@ -54,7 +55,7 @@ func TestCheckpointRegistry(t *testing.T) {
 	cp.removeCheckpointCallback(f3.Name())
 	cp.removeCheckpointCallback(f3.Name())
 
-	var dmb DirManifestBuilder
+	var dmb snapshotfs.DirManifestBuilder
 
 	dmb.AddEntry(&snapshot.DirEntry{
 		Name: "pre-existing",

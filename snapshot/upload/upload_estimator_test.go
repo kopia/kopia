@@ -1,4 +1,4 @@
-package snapshotfs_test
+package upload_test
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	vsi "github.com/kopia/kopia/internal/volumesizeinfo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -56,15 +56,15 @@ func getMockLogger() logging.Logger {
 
 // withFailedVolumeSizeInfo returns EstimatorOption which ensures that GetVolumeSizeInfo will fail with provided error.
 // Purposed for tests.
-func withFailedVolumeSizeInfo(err error) snapshotfs.EstimatorOption {
-	return snapshotfs.WithVolumeSizeInfoFn(func(_ string) (vsi.VolumeSizeInfo, error) {
+func withFailedVolumeSizeInfo(err error) upload.EstimatorOption {
+	return upload.WithVolumeSizeInfoFn(func(_ string) (vsi.VolumeSizeInfo, error) {
 		return vsi.VolumeSizeInfo{}, err
 	})
 }
 
 // withVolumeSizeInfo returns EstimatorOption which provides fake volume size.
-func withVolumeSizeInfo(filesCount, usedFileSize, totalFileSize uint64) snapshotfs.EstimatorOption {
-	return snapshotfs.WithVolumeSizeInfoFn(func(_ string) (vsi.VolumeSizeInfo, error) {
+func withVolumeSizeInfo(filesCount, usedFileSize, totalFileSize uint64) upload.EstimatorOption {
+	return upload.WithVolumeSizeInfoFn(func(_ string) (vsi.VolumeSizeInfo, error) {
 		return vsi.VolumeSizeInfo{
 			TotalSize:  totalFileSize,
 			UsedSize:   usedFileSize,
@@ -76,7 +76,7 @@ func withVolumeSizeInfo(filesCount, usedFileSize, totalFileSize uint64) snapshot
 func expectSuccessfulEstimation(
 	ctx context.Context,
 	t *testing.T,
-	estimator snapshotfs.Estimator,
+	estimator upload.Estimator,
 	expectedNumberOfFiles,
 	expectedDataSize int64,
 ) {
@@ -121,7 +121,7 @@ func TestUploadEstimator(t *testing.T) {
 		logger := getMockLogger()
 
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
-		estimator := snapshotfs.NewEstimator(dir1, policyTree, snapshotfs.EstimationParameters{Type: snapshotfs.EstimationTypeClassic}, logger)
+		estimator := upload.NewEstimator(dir1, policyTree, upload.EstimationParameters{Type: upload.EstimationTypeClassic}, logger)
 
 		estimationCtx := context.Background()
 		expectSuccessfulEstimation(estimationCtx, t, estimator, expectedNumberOfFiles, expectedDataSize)
@@ -133,8 +133,8 @@ func TestUploadEstimator(t *testing.T) {
 		expectedDataSize := int64(2000)
 
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
-		estimator := snapshotfs.NewEstimator(
-			dir1, policyTree, snapshotfs.EstimationParameters{Type: snapshotfs.EstimationTypeRough}, logger,
+		estimator := upload.NewEstimator(
+			dir1, policyTree, upload.EstimationParameters{Type: upload.EstimationTypeRough}, logger,
 			withVolumeSizeInfo(uint64(expectedNumberOfFiles), uint64(expectedDataSize), 3000))
 
 		estimationCtx := context.Background()
@@ -145,8 +145,8 @@ func TestUploadEstimator(t *testing.T) {
 		logger := getMockLogger()
 
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
-		estimator := snapshotfs.NewEstimator(
-			dir1, policyTree, snapshotfs.EstimationParameters{Type: snapshotfs.EstimationTypeRough}, logger,
+		estimator := upload.NewEstimator(
+			dir1, policyTree, upload.EstimationParameters{Type: upload.EstimationTypeRough}, logger,
 			withFailedVolumeSizeInfo(errSimulated))
 
 		estimationCtx := context.Background()
@@ -162,9 +162,9 @@ func TestUploadEstimator(t *testing.T) {
 		expectedDataSize := int64(2000)
 
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
-		estimator := snapshotfs.NewEstimator(
+		estimator := upload.NewEstimator(
 			dir1, policyTree,
-			snapshotfs.EstimationParameters{Type: snapshotfs.EstimationTypeAdaptive, AdaptiveThreshold: 100}, logger,
+			upload.EstimationParameters{Type: upload.EstimationTypeAdaptive, AdaptiveThreshold: 100}, logger,
 			withVolumeSizeInfo(uint64(expectedNumberOfFiles), uint64(expectedDataSize), 3000))
 
 		estimationCtx := context.Background()
@@ -175,9 +175,9 @@ func TestUploadEstimator(t *testing.T) {
 		logger := getMockLogger()
 
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
-		estimator := snapshotfs.NewEstimator(
+		estimator := upload.NewEstimator(
 			dir1, policyTree,
-			snapshotfs.EstimationParameters{Type: snapshotfs.EstimationTypeAdaptive, AdaptiveThreshold: 10000}, logger,
+			upload.EstimationParameters{Type: upload.EstimationTypeAdaptive, AdaptiveThreshold: 10000}, logger,
 			withVolumeSizeInfo(uint64(1000), uint64(2000), 3000))
 
 		estimationCtx := context.Background()
@@ -188,8 +188,8 @@ func TestUploadEstimator(t *testing.T) {
 		logger := getMockLogger()
 
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
-		estimator := snapshotfs.NewEstimator(
-			dir1, policyTree, snapshotfs.EstimationParameters{Type: snapshotfs.EstimationTypeAdaptive, AdaptiveThreshold: 1}, logger,
+		estimator := upload.NewEstimator(
+			dir1, policyTree, upload.EstimationParameters{Type: upload.EstimationTypeAdaptive, AdaptiveThreshold: 1}, logger,
 			withFailedVolumeSizeInfo(errSimulated))
 
 		estimationCtx := context.Background()
@@ -214,7 +214,7 @@ func TestUploadEstimator(t *testing.T) {
 
 		logger := getMockLogger()
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
-		estimator := snapshotfs.NewEstimator(dir2, policyTree, snapshotfs.EstimationParameters{Type: snapshotfs.EstimationTypeRough}, logger)
+		estimator := upload.NewEstimator(dir2, policyTree, upload.EstimationParameters{Type: upload.EstimationTypeRough}, logger)
 
 		// In case of canceled context, we should get zeroes instead of estimated numbers
 		expectSuccessfulEstimation(testCtx, t, estimator, 0, 0)
@@ -229,7 +229,7 @@ func TestUploadEstimator(t *testing.T) {
 
 		logger := getMockLogger()
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
-		estimator := snapshotfs.NewEstimator(dir2, policyTree, snapshotfs.EstimationParameters{Type: snapshotfs.EstimationTypeClassic}, logger)
+		estimator := upload.NewEstimator(dir2, policyTree, upload.EstimationParameters{Type: upload.EstimationTypeClassic}, logger)
 
 		dir2.Subdir("d1").OnReaddir(func() {
 			estimator.Cancel()
@@ -248,7 +248,7 @@ func TestUploadEstimator(t *testing.T) {
 		}, policy.DefaultPolicy)
 
 		logger := getMockLogger()
-		estimator := snapshotfs.NewEstimator(dir1, policyTree, snapshotfs.EstimationParameters{Type: snapshotfs.EstimationTypeClassic}, logger)
+		estimator := upload.NewEstimator(dir1, policyTree, upload.EstimationParameters{Type: upload.EstimationTypeClassic}, logger)
 
 		expectSuccessfulEstimation(context.Background(), t, estimator, expectedNumberOfFiles-1, expectedDataSize-int64(len(file1Content)))
 	})

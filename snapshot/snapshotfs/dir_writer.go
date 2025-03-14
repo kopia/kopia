@@ -12,7 +12,8 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-func writeDirManifest(ctx context.Context, rep repo.RepositoryWriter, dirRelativePath string, dirManifest *snapshot.DirManifest, metadataComp compression.Name) (object.ID, error) {
+// WriteDirManifest writes a directory manifest to the repository and returns the object ID.
+func WriteDirManifest(ctx context.Context, rep repo.RepositoryWriter, dirRelativePath string, dirManifest *snapshot.DirManifest, metadataComp compression.Name) (object.ID, error) {
 	writer := rep.NewObjectWriter(ctx, object.WriterOptions{
 		Description:        "DIR:" + dirRelativePath,
 		Prefix:             objectIDPrefixDirectory,

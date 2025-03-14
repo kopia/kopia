@@ -17,7 +17,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 const (
@@ -215,8 +215,8 @@ func validateStartEndTime(st, et string) error {
 	return nil
 }
 
-func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
-	u := snapshotfs.NewUploader(rep)
+func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *upload.Uploader {
+	u := upload.NewUploader(rep)
 	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:mnd
 
 	if c.snapshotCreateForceEnableActions {
@@ -275,7 +275,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(
 	fsEntry fs.Entry,
 	setManual bool,
 	rep repo.RepositoryWriter,
-	u *snapshotfs.Uploader,
+	u *upload.Uploader,
 	sourceInfo snapshot.SourceInfo,
 	tags map[string]string,
 	st *notifydata.MultiSnapshotStatus,

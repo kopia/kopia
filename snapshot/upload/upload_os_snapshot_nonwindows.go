@@ -1,7 +1,7 @@
 //go:build !windows
 // +build !windows
 
-package snapshotfs
+package upload
 
 import (
 	"context"

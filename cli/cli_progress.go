@@ -13,7 +13,7 @@ import (
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 const (
@@ -30,15 +30,15 @@ type progressFlags struct {
 
 func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
 	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
-	app.Flag("progress-estimation-type", "Set type of estimation of the data to be snapshotted").Hidden().Default(snapshotfs.EstimationTypeClassic).
-		EnumVar(&p.progressEstimationType, snapshotfs.EstimationTypeClassic, snapshotfs.EstimationTypeRough, snapshotfs.EstimationTypeAdaptive)
+	app.Flag("progress-estimation-type", "Set type of estimation of the data to be snapshotted").Hidden().Default(upload.EstimationTypeClassic).
+		EnumVar(&p.progressEstimationType, upload.EstimationTypeClassic, upload.EstimationTypeRough, upload.EstimationTypeAdaptive)
 	app.Flag("progress-update-interval", "How often to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
-	app.Flag("adaptive-estimation-threshold", "Sets the threshold below which the classic estimation method will be used").Hidden().Default(strconv.FormatInt(snapshotfs.AdaptiveEstimationThreshold, 10)).Int64Var(&p.adaptiveEstimationThreshold)
+	app.Flag("adaptive-estimation-threshold", "Sets the threshold below which the classic estimation method will be used").Hidden().Default(strconv.FormatInt(upload.AdaptiveEstimationThreshold, 10)).Int64Var(&p.adaptiveEstimationThreshold)
 	p.out.setup(svc)
 }
 
 type cliProgress struct {
-	snapshotfs.NullUploadProgress
+	upload.NullUploadProgress
 
 	// all int64 must precede all int32 due to alignment requirements on ARM
 	uploadedBytes     atomic.Int64
@@ -270,11 +270,11 @@ func (p *cliProgress) Finish() {
 	}
 }
 
-func (p *cliProgress) EstimationParameters() snapshotfs.EstimationParameters {
-	return snapshotfs.EstimationParameters{
+func (p *cliProgress) EstimationParameters() upload.EstimationParameters {
+	return upload.EstimationParameters{
 		Type:              p.progressEstimationType,
 		AdaptiveThreshold: p.adaptiveEstimationThreshold,
 	}
 }
 
-var _ snapshotfs.UploadProgress = (*cliProgress)(nil)
+var _ upload.Progress = (*cliProgress)(nil)

@@ -118,6 +118,10 @@ func (b *DirManifestBuilder) Build(dirModTime fs.UTCTimestamp, incompleteReason 
 	}
 }
 
+func isDir(e *snapshot.DirEntry) bool {
+	return e.Type == snapshot.EntryTypeDirectory
+}
+
 func sortedTopFailures(entries []*fs.EntryWithError) []*fs.EntryWithError {
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].EntryPath < entries[j].EntryPath

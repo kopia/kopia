@@ -1,4 +1,4 @@
-package snapshotfs
+package upload
 
 import (
 	"sync"
@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 // checkpointFunc is invoked when checkpoint occurs. The callback must checkpoint current state of
@@ -41,7 +42,7 @@ func (r *checkpointRegistry) removeCheckpointCallback(entryName string) {
 // runCheckpoints invokes all registered checkpointers and adds results to the provided builder, while
 // randomizing file names for non-directory entries. this is to prevent the use of checkpointed objects
 // as authoritative on subsequent runs.
-func (r *checkpointRegistry) runCheckpoints(checkpointBuilder *DirManifestBuilder) error {
+func (r *checkpointRegistry) runCheckpoints(checkpointBuilder *snapshotfs.DirManifestBuilder) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
