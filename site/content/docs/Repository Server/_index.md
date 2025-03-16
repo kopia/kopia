@@ -234,8 +234,8 @@ Kopia server will refresh its configuration by fetching it from repository perio
 ```shell
 $ kopia server refresh \
   --address=https://server:port [--server-cert-fingerprint=FINGERPRINT] \
-  --server-username=control \
-  --server-password=PASSWORD_HERE
+  --server-control-username=control \
+  --server-control-password=PASSWORD_HERE
 ```
 
 To authenticate, pass any valid username and password configured on the server.
