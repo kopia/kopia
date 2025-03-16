@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	htpasswd "github.com/tg123/go-htpasswd"
@@ -54,7 +53,6 @@ type commandServerStart struct {
 	serverControlPassword       string
 
 	serverControlUsernameDeprecatedEnvName string
-	serverControlUsernameDeprecatedMerged  *string
 
 	serverAuthCookieSingingKey string
 
@@ -84,8 +82,6 @@ type commandServerStart struct {
 	sf  serverFlags
 	svc advancedAppServices
 	out textOutput
-
-	stderrWriter io.Writer
 }
 
 func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent) {
@@ -142,33 +138,32 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Action(svc.baseActionWithContext(c.run))
 
 	c.serverControlUsernameDeprecatedEnvName = svc.EnvName("KOPIA_SERVER_CONTROL_USER")
-	c.stderrWriter = colorable.NewColorableStderr()
 }
 
-func (c *commandServerStart) getServerControlUsername() (string, error) {
-	if c.serverControlUsernameDeprecatedMerged == nil {
-		serverControlUsernameDeprecated := os.Getenv(c.serverControlUsernameDeprecatedEnvName)
+func (c *commandServerStart) mergeDeprecatedFlags(app *App) error {
+	serverControlUsernameDeprecated := os.Getenv(c.serverControlUsernameDeprecatedEnvName)
 
-		username, err := mergeDeprecatedFlags(c.stderrWriter, serverControlUsernameDeprecated, c.serverControlUsername, "server control username env var", c.serverControlUsernameDeprecatedEnvName, "--server-control-username", "KOPIA_SERVER_CONTROL_USERNAME")
-		if err != nil {
-			return "", err
-		}
-
-		if username == "" {
-			username = defaultServerControlUsername
-		}
-
-		// store the merged result to avoid multiple "DEPRECATED" notices
-		c.serverControlUsernameDeprecatedMerged = &username
+	username, err := app.mergeDeprecatedFlags(serverControlUsernameDeprecated, c.serverControlUsername, "server control username env var", c.serverControlUsernameDeprecatedEnvName, "--server-control-username", "KOPIA_SERVER_CONTROL_USERNAME")
+	if err != nil {
+		return err
 	}
 
-	username := *c.serverControlUsernameDeprecatedMerged
+	if username == "" {
+		username = defaultServerControlUsername
+	}
 
-	return username, nil
+	c.serverControlUsername = username
+
+	return nil
 }
 
-func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Options, error) {
-	err := c.sf.mergeDeprecatedFlags(c.stderrWriter)
+func (c *commandServerStart) serverStartOptions(ctx context.Context, app *App) (*server.Options, error) {
+	err := c.sf.mergeDeprecatedFlags(app)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.mergeDeprecatedFlags(app)
 	if err != nil {
 		return nil, err
 	}
@@ -183,11 +178,6 @@ func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Op
 		uiPreferencesFile = filepath.Join(filepath.Dir(c.svc.repositoryConfigFileName()), "ui-preferences.json")
 	}
 
-	serverControlUsername, err := c.getServerControlUsername()
-	if err != nil {
-		return &server.Options{}, err
-	}
-
 	return &server.Options{
 		ConfigFile:           c.svc.repositoryConfigFileName(),
 		ConnectOptions:       c.co.toRepoConnectOptions(),
@@ -197,7 +187,7 @@ func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Op
 		Authorizer:           auth.DefaultAuthorizer(),
 		AuthCookieSigningKey: c.serverAuthCookieSingingKey,
 		UIUser:               c.sf.serverUsername,
-		ServerControlUser:    serverControlUsername,
+		ServerControlUser:    c.serverControlUsername,
 		LogRequests:          c.logServerRequests,
 		PasswordPersist:      c.svc.passwordPersistenceStrategy(),
 		UIPreferencesFile:    uiPreferencesFile,
@@ -231,7 +221,12 @@ func (c *commandServerStart) initRepositoryPossiblyAsync(ctx context.Context, sr
 }
 
 func (c *commandServerStart) run(ctx context.Context) (reterr error) {
-	opts, err := c.serverStartOptions(ctx)
+	app, ok := c.svc.(*App)
+	if !ok {
+		return errors.New("commandServerStart requires svc is App")
+	}
+
+	opts, err := c.serverStartOptions(ctx, app)
 	if err != nil {
 		return err
 	}
@@ -404,15 +399,10 @@ func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authent
 		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.sf.serverUsername, randomPassword))
 	}
 
-	serverControlUsername, err := c.getServerControlUsername()
-	if err != nil {
-		return nil, err
-	}
-
 	// handle server control password
 	switch {
 	case c.serverControlPassword != "":
-		authenticators = append(authenticators, auth.AuthenticateSingleUser(serverControlUsername, c.serverControlPassword))
+		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.serverControlUsername, c.serverControlPassword))
 
 	case c.randomServerControlPassword:
 		// generate very long random one-time password
@@ -424,7 +414,7 @@ func (c *commandServerStart) getAuthenticator(ctx context.Context) (auth.Authent
 		// print it to the stderr bypassing any log file so that the user or calling process can connect
 		fmt.Fprintln(c.out.stderr(), "SERVER CONTROL PASSWORD:", randomPassword) //nolint:errcheck
 
-		authenticators = append(authenticators, auth.AuthenticateSingleUser(serverControlUsername, randomPassword))
+		authenticators = append(authenticators, auth.AuthenticateSingleUser(c.serverControlUsername, randomPassword))
 	}
 
 	log(ctx).Infof(`

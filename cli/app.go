@@ -141,6 +141,8 @@ type App struct {
 	upgradeOwnerID      string
 	doNotWaitForUpgrade bool
 
+	strictArgs bool
+
 	errorNotifications string
 
 	currentAction         string
@@ -294,6 +296,8 @@ func (c *App) setup(app *kingpin.Application) {
 
 	c.setupOSSpecificKeychainFlags(c, app)
 
+	app.Flag("strict-args", "Error when any deprecated flags or environment variables are used").Envar(c.EnvName("KOPIA_STRICT_ARGS")).BoolVar(&c.strictArgs)
+
 	c.progress.setup(c, app)
 
 	c.blob.setup(c, app)
@@ -406,7 +410,7 @@ func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *
 
 func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		opts, err := sf.serverAPIClientOptions()
+		opts, err := sf.serverAPIClientOptions(c)
 		if err != nil {
 			return errors.Wrap(err, "unable to create API client options")
 		}
