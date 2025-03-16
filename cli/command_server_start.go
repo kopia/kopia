@@ -168,6 +168,11 @@ func (c *commandServerStart) getServerControlUsername() (string, error) {
 }
 
 func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Options, error) {
+	err := c.sf.mergeDeprecatedFlags(c.stderrWriter)
+	if err != nil {
+		return nil, err
+	}
+
 	authn, err := c.getAuthenticator(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize authentication")
