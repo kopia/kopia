@@ -1,10 +1,7 @@
 package cli
 
 import (
-	"io"
-
 	"github.com/alecthomas/kingpin/v2"
-	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/apiclient"
@@ -46,8 +43,8 @@ func (c *serverFlags) setup(svc appServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("server-password", "HTTP server password (basic auth)").Hidden().Envar(svc.EnvName("KOPIA_SERVER_PASSWORD")).StringVar(&c.serverPasswordDeprecated)
 }
 
-func (c *serverFlags) mergeDeprecatedFlags(stderrWriter io.Writer) error {
-	username, err := mergeDeprecatedFlags(stderrWriter, c.serverUsernameDeprecated, c.serverUsername, "--server-username", "KOPIA_SERVER_USERNAME", "--server-ui-username", "KOPIA_SERVER_UI_USERNAME")
+func (c *serverFlags) mergeDeprecatedFlags(app *App) error {
+	username, err := app.mergeDeprecatedFlags(c.serverUsernameDeprecated, c.serverUsername, "--server-username", "KOPIA_SERVER_USERNAME", "--server-ui-username", "KOPIA_SERVER_UI_USERNAME")
 	if err != nil {
 		return err
 	}
@@ -58,7 +55,7 @@ func (c *serverFlags) mergeDeprecatedFlags(stderrWriter io.Writer) error {
 
 	c.serverUsername = username
 
-	password, err := mergeDeprecatedFlags(stderrWriter, c.serverPasswordDeprecated, c.serverPassword, "--server-password", "KOPIA_SERVER_PASSWORD", "--server-ui-password", "KOPIA_SERVER_UI_PASSWORD")
+	password, err := app.mergeDeprecatedFlags(c.serverPasswordDeprecated, c.serverPassword, "--server-password", "KOPIA_SERVER_PASSWORD", "--server-ui-password", "KOPIA_SERVER_UI_PASSWORD")
 	if err != nil {
 		return err
 	}
@@ -76,13 +73,9 @@ type serverClientFlags struct {
 
 	serverUsernameDeprecated string
 	serverPasswordDeprecated string
-
-	stderrWriter io.Writer
 }
 
 func (c *serverClientFlags) setup(svc appServices, cmd *kingpin.CmdClause) {
-	c.stderrWriter = colorable.NewColorableStderr()
-
 	cmd.Flag("address", "Address of the server to connect to").Envar(svc.EnvName("KOPIA_SERVER_ADDRESS")).Default("http://127.0.0.1:51515").StringVar(&c.serverAddress)
 	cmd.Flag("server-control-username", "Server control username").Envar(svc.EnvName("KOPIA_SERVER_CONTROL_USERNAME")).StringVar(&c.serverUsername)
 	cmd.Flag("server-control-password", "Server control password").PlaceHolder("PASSWORD").Envar(svc.EnvName("KOPIA_SERVER_CONTROL_PASSWORD")).StringVar(&c.serverPassword)
@@ -113,12 +106,12 @@ func (c *commandServer) setup(svc advancedAppServices, parent commandParent) {
 	c.throttle.setup(svc, cmd)
 }
 
-func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) {
+func (c *serverClientFlags) serverAPIClientOptions(app *App) (apiclient.Options, error) {
 	if c.serverAddress == "" {
 		return apiclient.Options{}, errors.New("missing server address")
 	}
 
-	username, err := mergeDeprecatedFlags(c.stderrWriter, c.serverUsernameDeprecated, c.serverUsername, "--server-username", "KOPIA_SERVER_USERNAME", "--server-control-username", "KOPIA_SERVER_CONTROL_USERNAME")
+	username, err := app.mergeDeprecatedFlags(c.serverUsernameDeprecated, c.serverUsername, "--server-username", "KOPIA_SERVER_USERNAME", "--server-control-username", "KOPIA_SERVER_CONTROL_USERNAME")
 	if err != nil {
 		return apiclient.Options{}, err
 	}
@@ -129,7 +122,7 @@ func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) 
 
 	c.serverUsername = username
 
-	password, err := mergeDeprecatedFlags(c.stderrWriter, c.serverPasswordDeprecated, c.serverPassword, "--server-password", "KOPIA_SERVER_PASSWORD", "--server-control-password", "KOPIA_SERVER_CONTROL_PASSWORD")
+	password, err := app.mergeDeprecatedFlags(c.serverPasswordDeprecated, c.serverPassword, "--server-password", "KOPIA_SERVER_PASSWORD", "--server-control-password", "KOPIA_SERVER_CONTROL_PASSWORD")
 	if err != nil {
 		return apiclient.Options{}, err
 	}

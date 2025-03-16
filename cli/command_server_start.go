@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	htpasswd "github.com/tg123/go-htpasswd"
@@ -83,8 +82,6 @@ type commandServerStart struct {
 	sf  serverFlags
 	svc advancedAppServices
 	out textOutput
-
-	stderrWriter io.Writer
 }
 
 func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent) {
@@ -141,13 +138,12 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Action(svc.baseActionWithContext(c.run))
 
 	c.serverControlUsernameDeprecatedEnvName = svc.EnvName("KOPIA_SERVER_CONTROL_USER")
-	c.stderrWriter = colorable.NewColorableStderr()
 }
 
-func (c *commandServerStart) mergeDeprecatedFlags() error {
+func (c *commandServerStart) mergeDeprecatedFlags(app *App) error {
 	serverControlUsernameDeprecated := os.Getenv(c.serverControlUsernameDeprecatedEnvName)
 
-	username, err := mergeDeprecatedFlags(c.stderrWriter, serverControlUsernameDeprecated, c.serverControlUsername, "server control username env var", c.serverControlUsernameDeprecatedEnvName, "--server-control-username", "KOPIA_SERVER_CONTROL_USERNAME")
+	username, err := app.mergeDeprecatedFlags(serverControlUsernameDeprecated, c.serverControlUsername, "server control username env var", c.serverControlUsernameDeprecatedEnvName, "--server-control-username", "KOPIA_SERVER_CONTROL_USERNAME")
 	if err != nil {
 		return err
 	}
@@ -161,13 +157,13 @@ func (c *commandServerStart) mergeDeprecatedFlags() error {
 	return nil
 }
 
-func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Options, error) {
-	err := c.sf.mergeDeprecatedFlags(c.stderrWriter)
+func (c *commandServerStart) serverStartOptions(ctx context.Context, app *App) (*server.Options, error) {
+	err := c.sf.mergeDeprecatedFlags(app)
 	if err != nil {
 		return nil, err
 	}
 
-	err = c.mergeDeprecatedFlags()
+	err = c.mergeDeprecatedFlags(app)
 	if err != nil {
 		return nil, err
 	}
@@ -224,8 +220,8 @@ func (c *commandServerStart) initRepositoryPossiblyAsync(ctx context.Context, sr
 	return nil
 }
 
-func (c *commandServerStart) run(ctx context.Context) (reterr error) {
-	opts, err := c.serverStartOptions(ctx)
+func (c *commandServerStart) run(ctx context.Context, app *App) (reterr error) {
+	opts, err := c.serverStartOptions(ctx, app)
 	if err != nil {
 		return err
 	}

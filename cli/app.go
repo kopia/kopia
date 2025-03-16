@@ -86,7 +86,7 @@ type appServices interface {
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	repositoryHintAction(act func(ctx context.Context, rep repo.Repository) []string) func() []string
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
-	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
+	baseActionWithContext(act func(ctx context.Context, app *App) error) func(ctx *kingpin.ParseContext) error
 	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
 	advancedCommand(ctx context.Context)
 	repositoryConfigFileName() string
@@ -144,6 +144,8 @@ type App struct {
 	observability       observabilityFlags
 	upgradeOwnerID      string
 	doNotWaitForUpgrade bool
+
+	strictArgs bool
 
 	errorNotifications string
 
@@ -296,12 +298,14 @@ func (c *App) setup(app *kingpin.Application) {
 	c.setupOSSpecificKeychainFlags(c, app)
 
 	_ = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Hidden().Action(
-		deprecatedFlag(c.stderrWriter, "The '--caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
+		c.deprecatedFlagNoEffect("--caching", "use 'kopia cache set' instead"),
 	).Bool()
 
 	_ = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Hidden().Action(
-		deprecatedFlag(c.stderrWriter, "The '--list-caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
+		c.deprecatedFlagNoEffect("--list-caching", "use 'kopia cache set' instead"),
 	).Bool()
+
+	app.Flag("strict-args", "Error when any deprecated flags or environment variables are used").Envar(c.EnvName("KOPIA_STRICT_ARGS")).BoolVar(&c.strictArgs)
 
 	c.pf.setup(app)
 	c.progress.setup(c, app)
@@ -424,7 +428,7 @@ func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *
 
 func (c *App) serverAction(sf *serverClientFlags, act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		opts, err := sf.serverAPIClientOptions()
+		opts, err := sf.serverAPIClientOptions(c)
 		if err != nil {
 			return errors.Wrap(err, "unable to create API client options")
 		}
@@ -553,7 +557,7 @@ type repositoryAccessMode struct {
 	disableMaintenance bool
 }
 
-func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
+func (c *App) baseActionWithContext(act func(ctx context.Context, app *App) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 			return c.pf.withProfiling(func() error {
@@ -561,14 +565,14 @@ func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ct
 					defer gather.DumpStats(ctx)
 				}
 
-				return act(ctx)
+				return act(ctx, c)
 			})
 		})
 	}
 }
 
 func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
-	return c.baseActionWithContext(func(ctx context.Context) error {
+	return c.baseActionWithContext(func(ctx context.Context, _ *App) error {
 		rep, err := c.openRepository(ctx, mode.mustBeConnected)
 		if err != nil && mode.mustBeConnected {
 			return errors.Wrap(err, "open repository")
