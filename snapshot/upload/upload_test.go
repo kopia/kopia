@@ -809,23 +809,26 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		})
 	}
 
-	if _, err := u.Upload(ctx, th.sourceDir, policyTree, si); err != nil {
+	s, err := u.Upload(ctx, th.sourceDir, policyTree, si)
+	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
 
-	snapshots, err := snapshot.ListSnapshots(ctx, th.repo, si)
+	checkpoints, err := snapshot.ListSnapshots(ctx, th.repo, si)
 	if err != nil {
 		t.Fatalf("error listing snapshots: %v", err)
 	}
 
-	require.Len(t, snapshots, len(dirsToCheckpointAt))
+	require.Len(t, checkpoints, len(dirsToCheckpointAt))
 
-	for _, sn := range snapshots {
-		if got, want := sn.IncompleteReason, IncompleteReasonCheckpoint; got != want {
+	for _, cp := range checkpoints {
+		if got, want := cp.IncompleteReason, IncompleteReasonCheckpoint; got != want {
 			t.Errorf("unexpected incompleteReason %q, want %q", got, want)
 		}
 
-		assert.Equal(t, labels, sn.Tags)
+		assert.Equal(t, time.Duration(1), s.StartTime.Sub(cp.StartTime))
+
+		assert.Equal(t, labels, cp.Tags)
 	}
 }
 
