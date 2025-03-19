@@ -25,6 +25,12 @@ https://github.com/gotestyourself/gotestsum/releases/download/v1.11.0/gotestsum_
 https://github.com/gotestyourself/gotestsum/releases/download/v1.11.0/gotestsum_1.11.0_linux_arm64.tar.gz: 51c7fe29216678edaaa96bb67e38d58437fd54a83468f58a32513995f575dcc3
 https://github.com/gotestyourself/gotestsum/releases/download/v1.11.0/gotestsum_1.11.0_linux_armv6.tar.gz: 79a6a904d73a7b6b010f82205803e0c0a8a202a63f51e93e555e2f9be8aa3ba3
 https://github.com/gotestyourself/gotestsum/releases/download/v1.11.0/gotestsum_1.11.0_windows_amd64.tar.gz: 1518b3dd6a44b5684e9732121933f52b9c3ccab3a6e9efdeac41e7b03f97d019
+https://github.com/kopia/kopia/releases/download/v0.19.0/kopia-0.19.0-linux-arm.tar.gz: fdfeceb195b81a7566c1b494b87eef30b4da1ff90c53450959f5a28efb66767f
+https://github.com/kopia/kopia/releases/download/v0.19.0/kopia-0.19.0-linux-arm64.tar.gz: 632db9d72f2116f1758350bf7c20aa57c22c220480aaccb5f839e75669210ed9
+https://github.com/kopia/kopia/releases/download/v0.19.0/kopia-0.19.0-linux-x64.tar.gz: c07843822c82ec752e5ee749774a18820b858215aabd7da448ce665b9b9107aa
+https://github.com/kopia/kopia/releases/download/v0.19.0/kopia-0.19.0-macOS-arm64.tar.gz: 27c3fbbf4b563beda18c2fea7657fd9bd8f1193e5b918f907c9c639737c747df
+https://github.com/kopia/kopia/releases/download/v0.19.0/kopia-0.19.0-macOS-x64.tar.gz: 6becac56107ab5bd9000e9fa84e8aa1a9876a713293192670bb751dcdadfad9d
+https://github.com/kopia/kopia/releases/download/v0.19.0/kopia-0.19.0-windows-x64.zip: f1e7675715c07574cadf7aa491b8326c7fcb847ed503992394146bd178dcb184
 https://github.com/kopia/kopia/releases/download/v0.17.0/kopia-0.17.0-linux-arm.tar.gz: 25804d7271a0dfe6d0821270c5640caa01da5e05a03a7c4783fd1edafb234d51
 https://github.com/kopia/kopia/releases/download/v0.17.0/kopia-0.17.0-linux-arm64.tar.gz: 9679415cd2717a90cb6a793aa2d4accde4059084245b27fa4807d7e13fbe40a0
 https://github.com/kopia/kopia/releases/download/v0.17.0/kopia-0.17.0-linux-x64.tar.gz: 6851bba9f49c2ca2cabc5bec85a813149a180472d1e338fad42a8285dad047ee
