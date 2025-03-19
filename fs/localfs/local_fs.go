@@ -14,12 +14,13 @@ import (
 const numEntriesToRead = 100 // number of directory entries to read in one shot
 
 type filesystemEntry struct {
-	name       string
-	size       int64
-	mtimeNanos int64
-	mode       os.FileMode
-	owner      fs.OwnerInfo
-	device     fs.DeviceInfo
+	name         string
+	size         int64
+	mtimeNanos   int64
+	mode         os.FileMode
+	owner        fs.OwnerInfo
+	device       fs.DeviceInfo
+	hardLinkInfo fs.HardLinkInfo
 
 	prefix string
 }
@@ -58,6 +59,10 @@ func (e *filesystemEntry) Owner() fs.OwnerInfo {
 
 func (e *filesystemEntry) Device() fs.DeviceInfo {
 	return e.device
+}
+
+func (e *filesystemEntry) HardLinkInfo() fs.HardLinkInfo {
+	return e.hardLinkInfo
 }
 
 func (e *filesystemEntry) LocalFilesystemPath() string {
