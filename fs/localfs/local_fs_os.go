@@ -162,13 +162,5 @@ func entryFromDirEntry(fi os.FileInfo, prefix string) fs.Entry {
 var _ os.FileInfo = (*filesystemEntry)(nil)
 
 func newEntry(fi os.FileInfo, prefix string) filesystemEntry {
-	return filesystemEntry{
-		TrimShallowSuffix(fi.Name()),
-		fi.Size(),
-		fi.ModTime().UnixNano(),
-		fi.Mode(),
-		platformSpecificOwnerInfo(fi),
-		platformSpecificDeviceInfo(fi),
-		prefix,
-	}
+	return platformSpecificNewEntry(fi, prefix)
 }
