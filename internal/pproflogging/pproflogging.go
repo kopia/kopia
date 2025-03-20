@@ -1,4 +1,4 @@
-// Package pproflogging for pproflogging helper functions.
+// Package pproflogging for pprof helper functions.
 package pproflogging
 
 import (
@@ -279,17 +279,19 @@ func StartProfileBuffers(ctx context.Context) {
 
 	// cpu has special initialization
 	v, ok := pprofConfigs.pcm[ProfileNameCPU]
-	if ok {
-		err := pprof.StartCPUProfile(v.buf)
-		if err != nil {
-			log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
-			delete(pprofConfigs.pcm, ProfileNameCPU)
-		}
+	if !ok {
+		return
+	}
+
+	err = pprof.StartCPUProfile(v.buf)
+	if err != nil {
+		log(ctx).With("cause", err).Warn("cannot start cpu PPROF")
+		delete(pprofConfigs.pcm, ProfileNameCPU)
 	}
 }
 
 // DumpPem dump a PEM version of the byte slice, bs, into writer, wrt.
-func DumpPem(bs []byte, types string, wrt *os.File) error {
+func DumpPem(ctx context.Context, bs []byte, types string, wrt Writer) error {
 	// err0 for background process
 	var err0 error
 
@@ -310,13 +312,13 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 	// fashion - this prevents the need for a large buffer to hold
 	// the encoded PEM.
 	go func() {
+		// do the encoding
+		err0 = pem.Encode(pw, blk)
+
 		// writer close on exit of background process
 		// pipe writer will not return a meaningful error
 		//nolint:errcheck
-		defer pw.Close()
-
-		// do the encoding
-		err0 = pem.Encode(pw, blk)
+		pw.Close()
 	}()
 
 	// connect rdr to pipe reader
@@ -324,15 +326,27 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 
 	// err1 for reading
 	// err2 for writing
-	var err1, err2 error
-	for err1 == nil && err2 == nil {
+	// err3 for context
+	var err1, err2, err3 error
+
+	err3 = ctx.Err()
+	for err1 == nil && err2 == nil && err3 == nil {
 		var ln []byte
+		// ReadBytes may hang and ignore context timout
+		// err1 can return ln and non-nil err1, so always call write
 		ln, err1 = rdr.ReadBytes('\n')
 		// err1 can return ln and non-nil err1, so always call write
 		_, err2 = wrt.Write(ln)
+		// update the context error
+		err3 = ctx.Err()
 	}
 
-	// got a write error.  this has precedent
+	// context cancellation has precedence
+	if err3 != nil {
+		return fmt.Errorf("could not write PEM: %w", err3)
+	}
+
+	// got a write error
 	if err2 != nil {
 		return fmt.Errorf("could not write PEM: %w", err2)
 	}
@@ -345,6 +359,7 @@ func DumpPem(bs []byte, types string, wrt *os.File) error {
 		return nil
 	}
 
+	// got a read error
 	// if file does not end in newline, then output one
 	if errors.Is(err1, io.EOF) {
 		_, err2 = wrt.WriteString("\n")
@@ -433,7 +448,7 @@ func StopProfileBuffers(ctx context.Context) {
 		unm := strings.ToUpper(string(k))
 		log(ctx).Infof("dumping PEM for %q", unm)
 
-		err := DumpPem(v.buf.Bytes(), unm, os.Stderr)
+		err := DumpPem(ctx, v.buf.Bytes(), unm, os.Stderr)
 		if err != nil {
 			log(ctx).With("cause", err).Error("cannot write PEM")
 		}
