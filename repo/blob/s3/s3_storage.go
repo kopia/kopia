@@ -372,7 +372,7 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 
 	bucketLookup := minio.BucketLookupAuto
 	if opt.VirtualHostedPathStyle {
-		bucketLookup := minio.BucketLookupDNS
+		bucketLookup = minio.BucketLookupDNS
 	}
 
 	minioOpts := &minio.Options{
