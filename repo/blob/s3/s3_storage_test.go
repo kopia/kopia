@@ -832,36 +832,3 @@ func customCredentialsAndProvider(accessKey, secretKey, roleARN, region string) 
 
 	return credentials.New(cp), cp
 }
-
-func testBucketLookupTypeIsAuto(t *testing.T) {
-	t.Helper()
-	creds := credentials.NewStaticV4(minioRootAccessKeyID, minioRootSecretAccessKey, "")
-	context := testlogging.Context(t)
-	storage, err := newStorageWithCredentials(ctx, context, &Options{
-		Endpoint:        minioEndpoint,
-		AccessKeyID:     minioRootAccessKeyID,
-		SecretAccessKey: minioRootSecretAccessKey,
-		BucketName:      minioBucketName,
-	})
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	require.Equal(t, minio.BucketLookupAuto, storage.cli.lookup)
-}
-
-func testBucketLookupTypeIsDns(t *testing.T) {
-	t.Helper()
-	creds := credentials.NewStaticV4(minioRootAccessKeyID, minioRootSecretAccessKey, "")
-	context := testlogging.Context(t)
-	storage, err := newStorageWithCredentials(ctx, context, &Options{
-		Endpoint:               minioEndpoint,
-		AccessKeyID:            minioRootAccessKeyID,
-		SecretAccessKey:        minioRootSecretAccessKey,
-		BucketName:             minioBucketName,
-		VirtualHostedPathStyle: true,
-	})
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	require.Equal(t, minio.BucketLookupDNS, storage.cli.lookup)
-}
