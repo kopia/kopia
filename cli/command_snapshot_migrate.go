@@ -272,9 +272,9 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 
 	log(ctx).Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime.ToTime()))
 
-	previous, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
+	previous, err := snapshot.FindPreviousManifests(ctx, destRepo, m.Source, &m.StartTime)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to find previous manifests")
 	}
 
 	policyTree, err := policy.TreeForSource(ctx, destRepo, m.Source)
