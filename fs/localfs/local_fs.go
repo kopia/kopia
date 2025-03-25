@@ -20,6 +20,7 @@ type filesystemEntry struct {
 	mode       os.FileMode
 	owner      fs.OwnerInfo
 	device     fs.DeviceInfo
+	uniqueId   uint64
 
 	prefix string
 }
@@ -62,6 +63,10 @@ func (e *filesystemEntry) Device() fs.DeviceInfo {
 
 func (e *filesystemEntry) LocalFilesystemPath() string {
 	return e.fullPath()
+}
+
+func (e *filesystemEntry) GetUniqueId() uint64 {
+	return e.uniqueId
 }
 
 type filesystemDirectory struct {
