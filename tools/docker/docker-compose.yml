@@ -18,8 +18,8 @@ services:
         - --tls-cert-file=/data/home/XXX/ssl-certs/fullchain.pem
         - --tls-key-file=/data/home/XXX/ssl-certs/privkey.pem
         - --address=0.0.0.0:51515
-        - --server-username=XXX
-        - --server-password=XXX
+        - --server-ui-username=XXX
+        - --server-ui-password=XXX
       volumes:
         - /mnt/kopia:/tmp:shared
         - /home/XXX/docker/Kopia-Ubuntu/config:/app/config
