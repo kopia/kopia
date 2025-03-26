@@ -122,6 +122,7 @@ type commandRestore struct {
 	restoreSkipTimes              bool
 	restoreSkipOwners             bool
 	restoreSkipPermissions        bool
+	restoreSkipTargetDir          bool
 	restoreIncremental            bool
 	restoreIgnoreErrors           bool
 	restoreShallowAtDepth         int32
@@ -150,6 +151,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("skip-permissions", "Skip permissions during restore").BoolVar(&c.restoreSkipPermissions)
 	cmd.Flag("skip-times", "Skip times during restore").BoolVar(&c.restoreSkipTimes)
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").Default("true").BoolVar(&c.restoreIgnorePermissionErrors)
+	cmd.Flag("skip-target-dir", "Skip creating or modifying target dir during restore").Default("false").BoolVar(&c.restoreSkipTargetDir)
 	cmd.Flag("write-files-atomically", "Write files atomically to disk, ensuring they are either fully committed, or not written at all, preventing partially written files").Default("false").BoolVar(&c.restoreWriteFilesAtomically)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
@@ -266,6 +268,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository)
 			SkipOwners:             c.restoreSkipOwners,
 			SkipPermissions:        c.restoreSkipPermissions,
 			SkipTimes:              c.restoreSkipTimes,
+			SkipTargetDir:          c.restoreSkipTargetDir,
 			WriteSparseFiles:       c.restoreWriteSparseFiles,
 		}
 
