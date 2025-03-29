@@ -71,7 +71,7 @@ func TestOneLargeFile(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
+func TestManySmallFilesAcrossDirectoryTree(t *testing.T) {
 	// TODO: Test takes too long - need to address performance issues with fio writes
 	const (
 		fileSize      = 4096

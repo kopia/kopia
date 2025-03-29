@@ -102,7 +102,7 @@ func TestOneLargeFile(t *testing.T) {
 	th.RunN(ctx, t, numClients, f)
 }
 
-func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
+func TestManySmallFilesAcrossDirectoryTree(t *testing.T) {
 	// TODO: Test takes too long - need to address performance issues with fio writes
 	const (
 		fileSize      = 4096
