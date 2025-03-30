@@ -88,7 +88,7 @@ func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) erro
 
 	impossible.PanicOnError(err)
 
-	_, err = fmt.Fprintf(output, "%s", toWrite)
+	_, err = fmt.Fprintf(output, "%s\n", toWrite)
 
 	return errors.Wrap(err, "unable to write policy to output")
 }
