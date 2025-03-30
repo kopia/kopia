@@ -51,7 +51,7 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *bigmap.
 		},
 	})
 	if twerr != nil {
-		return errors.Wrap(err, "unable to create tree walker")
+		return errors.Wrap(twerr, "unable to create tree walker")
 	}
 
 	defer w.Close(ctx)
