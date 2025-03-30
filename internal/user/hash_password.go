@@ -1,10 +1,8 @@
 package user
 
 import (
-	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
-	"io"
 
 	"github.com/pkg/errors"
 )
@@ -19,14 +17,9 @@ type passwordHash struct {
 func HashPassword(password string) (string, error) {
 	const hashVersion = defaultPasswordHashVersion
 
-	salt := make([]byte, passwordHashSaltLength)
-	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
-		return "", errors.Wrap(err, "error generating salt")
-	}
-
-	h, err := computePasswordHash(password, salt, hashVersion)
+	h, err := computeNewPasswordHash(password, hashVersion)
 	if err != nil {
-		return "", errors.Wrap(err, "error hashing password")
+		return "", err
 	}
 
 	pwh := passwordHash{
