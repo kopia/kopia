@@ -36,7 +36,7 @@ func (c *commandSnapshotFixInvalidFiles) rewriteEntry(ctx context.Context, dirRe
 	fname := dirRelativePath + "/" + ent.Name
 
 	if ent.Type != snapshot.EntryTypeDirectory {
-		if err := c.verifier.VerifyFile(ctx, ent.ObjectID, fname); err != nil {
+		if err := c.verifier.VerifyFile(ctx, ent.ObjectID, fname, ent.FileSize); err != nil {
 			log(ctx).Warnf("removing invalid file %v due to: %v", fname, err)
 
 			return c.failedFileCallback(ctx, dirRelativePath, ent, err)
