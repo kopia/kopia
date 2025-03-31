@@ -34,7 +34,7 @@ func (c *commandSnapshotFixInvalidFiles) setup(svc appServices, parent commandPa
 
 func (c *commandSnapshotFixInvalidFiles) rewriteEntry(ctx context.Context, pathFromRoot string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
 	if ent.Type != snapshot.EntryTypeDirectory {
-		if err := c.verifier.VerifyFile(ctx, ent.ObjectID, pathFromRoot); err != nil {
+		if err := c.verifier.VerifyFile(ctx, ent.ObjectID, pathFromRoot, ent.FileSize); err != nil {
 			log(ctx).Warnf("removing invalid file %v due to: %v", pathFromRoot, err)
 
 			return c.failedFileCallback(ctx, pathFromRoot, ent, err)

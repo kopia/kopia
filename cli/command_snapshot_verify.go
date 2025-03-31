@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/manifest"
@@ -66,6 +67,7 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 		FileQueueLength:    c.fileQueueLength,
 		Parallelism:        c.fileParallelism,
 		MaxErrors:          c.verifyCommandErrorThreshold,
+		JSONStats:          c.jo.jsonOutput,
 	}
 
 	if dr, ok := rep.(repo.DirectRepository); ok {
@@ -86,7 +88,7 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 		}
 	}()
 
-	result, err := v.InParallel(ctx, c.makeVerifyWalkerFunc(ctx, rep))
+	result, err := v.InParallel(ctx, c.makeVerifyWalkerFunc(ctx, rep, v))
 
 	if c.jo.jsonOutput {
 		c.out.printStdout("%s\n", c.jo.jsonIndentedBytes(result, "  "))
@@ -96,7 +98,7 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 	return err
 }
 
-func (c *commandSnapshotVerify) makeVerifyWalkerFunc(ctx context.Context, rep repo.Repository) func(tw *snapshotfs.TreeWalker) error {
+func (c *commandSnapshotVerify) makeVerifyWalkerFunc(ctx context.Context, rep repo.Repository, v *snapshotfs.Verifier) func(tw *snapshotfs.TreeWalker) error {
 	return func(tw *snapshotfs.TreeWalker) error {
 		manifests, err := c.loadSourceManifests(ctx, rep)
 		if err != nil {
@@ -110,6 +112,13 @@ func (c *commandSnapshotVerify) makeVerifyWalkerFunc(ctx context.Context, rep re
 
 		manifests = append(manifests, snapIDManifests...)
 
+		type twEntry struct {
+			root     fs.Entry
+			rootPath string
+		}
+
+		var treeWalkerEntries []twEntry
+
 		for _, man := range manifests {
 			rootPath := fmt.Sprintf("%v@%v", man.Source, formatTimestamp(man.StartTime.ToTime()))
 
@@ -122,9 +131,20 @@ func (c *commandSnapshotVerify) makeVerifyWalkerFunc(ctx context.Context, rep re
 				return errors.Wrapf(err, "unable to get snapshot root: %q", rootPath)
 			}
 
+			treeWalkerEntries = append(treeWalkerEntries, twEntry{
+				root:     root,
+				rootPath: rootPath,
+			})
+
+			if err := addExpectedWorkFromDirSummaryToVerifier(ctx, v, root); err != nil {
+				return errors.Wrapf(err, "unable to set stat totals from summary")
+			}
+		}
+
+		for _, twEntry := range treeWalkerEntries {
 			// ignore error now, return aggregate error at a higher level.
 			//nolint:errcheck
-			tw.Process(ctx, root, rootPath)
+			tw.Process(ctx, twEntry.root, twEntry.rootPath)
 		}
 
 		for _, oidStr := range c.verifyCommandDirObjectIDs {
@@ -151,6 +171,38 @@ func (c *commandSnapshotVerify) makeVerifyWalkerFunc(ctx context.Context, rep re
 
 		return nil
 	}
+}
+
+// addExpectedWorkFromDirSummaryToVerifier initializes the snapshot verifier with an
+// expected amount of work that will take place during the tree walk for this Entry.
+// If the entry is not a DirectoryWithSummary, or the Summary returns nil, no stats
+// will be added to the totals.
+func addExpectedWorkFromDirSummaryToVerifier(ctx context.Context, v *snapshotfs.Verifier, ent fs.Entry) error {
+	dws, ok := ent.(fs.DirectoryWithSummary)
+	if !ok {
+		// Entry is not a directory with summary, no stats to add.
+		return nil
+	}
+
+	s, err := dws.Summary(ctx)
+	if err != nil {
+		return errors.Wrap(err, "unable to get directory summary")
+	}
+
+	if s == nil {
+		// Summary returned nil, no stats to add.
+		return nil
+	}
+
+	// Add the maximum expected work that could be done by this walk.
+	// This can be used to gauge progress.
+	v.AddToExpectedTotals(
+		s.TotalFileCount+s.TotalDirCount+s.TotalSymlinkCount,
+		s.TotalFileCount,
+		s.TotalFileSize,
+	)
+
+	return nil
 }
 
 func (c *commandSnapshotVerify) loadSourceManifests(ctx context.Context, rep repo.Repository) ([]*snapshot.Manifest, error) {
