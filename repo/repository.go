@@ -103,7 +103,7 @@ type immutableDirectRepositoryParameters struct {
 	cliOpts         ClientOptions
 	timeNow         func() time.Time
 	fmgr            *format.Manager
-	nextWriterID    *int32
+	nextWriterID    *atomic.Int32
 	throttler       throttling.SettableThrottler
 	metricsRegistry *metrics.Registry
 	beforeFlush     []RepositoryWriterCallback
@@ -276,7 +276,7 @@ func (r *directRepository) NewWriter(ctx context.Context, opt WriteSessionOption
 
 // NewDirectWriter returns new DirectRepositoryWriter session for repository.
 func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error) {
-	writeManagerID := fmt.Sprintf("writer-%v:%v", atomic.AddInt32(r.nextWriterID, 1), opt.Purpose)
+	writeManagerID := fmt.Sprintf("writer-%v:%v", r.nextWriterID.Add(1), opt.Purpose)
 
 	cmgr := content.NewWriteManager(ctx, r.sm, content.SessionOptions{
 		SessionUser: r.cliOpts.Username,
