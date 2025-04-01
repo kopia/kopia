@@ -95,12 +95,6 @@ type DirectRepositoryWriter interface {
 	DirectRepository
 	BlobStorage() blob.Storage
 	ContentManager() *content.WriteManager
-	// SetParameters(ctx context.Context, m format.MutableParameters, blobcfg format.BlobStorageConfiguration, requiredFeatures []feature.Required) error
-	// ChangePassword(ctx context.Context, newPassword string) error
-	// GetUpgradeLockIntent(ctx context.Context) (*format.UpgradeLockIntent, error)
-	// SetUpgradeLockIntent(ctx context.Context, l format.UpgradeLockIntent) (*format.UpgradeLockIntent, error)
-	// CommitUpgrade(ctx context.Context) error
-	// RollbackUpgrade(ctx context.Context) error
 }
 
 type immutableDirectRepositoryParameters struct {
