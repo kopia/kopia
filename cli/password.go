@@ -84,7 +84,7 @@ func (c *App) getPasswordFromFlags(ctx context.Context, isCreate, allowPersisten
 		}
 
 		if !errors.Is(err, passwordpersist.ErrPasswordNotFound) {
-			return "", errors.Wrap(err, "error getting persistent password")
+			return "", errors.Wrap(err, "cannot get persistent password")
 		}
 	}
 
