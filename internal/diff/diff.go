@@ -21,7 +21,7 @@ const dirMode = 0o700
 
 var log = logging.Module("diff")
 
-// EntryTypeStats accumulates specific stats for the snapshots being compared.
+// EntryTypeStats accumulates stats for an FS entry type.
 type EntryTypeStats struct {
 	Added    uint32 `json:"added"`
 	Removed  uint32 `json:"removed"`
