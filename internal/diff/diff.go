@@ -198,6 +198,8 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		}
 	}
 
+	// don't compare filesystem boundaries (e1.Device()), it's pretty useless and is not stored in backups
+
 	return nil
 }
 
@@ -293,8 +295,6 @@ func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) bool {
 			c.stats.FileEntries.Modified++
 		}
 	}
-
-	// don't compare filesystem boundaries (e1.Device()), it's pretty useless and is not stored in backups
 
 	return equal
 }
