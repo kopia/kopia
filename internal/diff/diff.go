@@ -237,50 +237,50 @@ func compareMetadata(ctx context.Context, e1, e2 fs.Entry, path string, st *Entr
 	}
 }
 
-func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) bool {
+func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) {
 	if e1 == e2 { // in particular e1 == nil && e2 == nil
-		return true
+		return
 	}
 
 	if e1 == nil {
 		c.output("%v does not exist in source directory\n", fullpath)
-		return false
+		return
 	}
 
 	if e2 == nil {
 		c.output("%v does not exist in destination directory\n", fullpath)
-		return false
+		return
 	}
 
-	equal := true
+	var changed bool
 
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
-		equal = false
+		changed = true
 
 		c.output("%v modes differ: %v %v\n", fullpath, m1, m2)
 	}
 
 	if s1, s2 := e1.Size(), e2.Size(); s1 != s2 {
-		equal = false
+		changed = true
 
 		c.output("%v sizes differ: %v %v\n", fullpath, s1, s2)
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
-		equal = false
+		changed = true
 
 		c.output("%v modification times differ: %v %v\n", fullpath, mt1, mt2)
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
-		equal = false
+		changed = true
 
 		c.output("%v owner users differ: %v %v\n", fullpath, o1.UserID, o2.UserID)
 	}
 
 	if o1.GroupID != o2.GroupID {
-		equal = false
+		changed = true
 
 		c.output("%v owner groups differ: %v %v\n", fullpath, o1.GroupID, o2.GroupID)
 	}
@@ -288,15 +288,13 @@ func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) bool {
 	_, isDir1 := e1.(fs.Directory)
 	_, isDir2 := e2.(fs.Directory)
 
-	if !equal {
+	if changed {
 		if isDir1 && isDir2 {
 			c.stats.DirectoryEntries.Modified++
 		} else {
 			c.stats.FileEntries.Modified++
 		}
 	}
-
-	return equal
 }
 
 func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entries2 []fs.Entry, dirPath string) error {
