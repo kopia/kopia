@@ -238,16 +238,13 @@ func compareMetadata(ctx context.Context, e1, e2 fs.Entry, path string, st *Entr
 }
 
 func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) {
-	if e1 == e2 { // in particular e1 == nil && e2 == nil
+	switch {
+	case e1 == e2: // in particular e1 == nil && e2 == nil
 		return
-	}
-
-	if e1 == nil {
+	case e1 == nil:
 		c.output("%v does not exist in source directory\n", fullpath)
 		return
-	}
-
-	if e2 == nil {
+	case e2 == nil:
 		c.output("%v does not exist in destination directory\n", fullpath)
 		return
 	}
