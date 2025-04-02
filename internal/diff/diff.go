@@ -111,9 +111,9 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	if e1HasObjectID && e2HasObjectID {
 		if h1.ObjectID() == h2.ObjectID() {
 			if _, isDir := e1.(fs.Directory); isDir {
-				c.compareDirMetadataAndComputeStats(ctx, e1, e2, path)
+				compareMetadata(ctx, e1, e2, path, &c.stats.DirectoryEntries)
 			} else {
-				c.compareFileMetadataAndComputeStats(ctx, e1, e2, path)
+				compareMetadata(ctx, e1, e2, path, &c.stats.FileEntries)
 			}
 
 			return nil
@@ -201,64 +201,35 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	return nil
 }
 
-func (c *Comparer) compareDirMetadataAndComputeStats(ctx context.Context, e1, e2 fs.Entry, path string) {
-	// check for metadata changes pertaining to directories given that content hasn't changed and gather aggregate statistics
-	equal := true
+// Checks for changes in e1's and e2's metadata when they have the same content,
+// and upates the stats accordingly.
+// The function is not concurrency safe, as it updates st without any locking.
+func compareMetadata(ctx context.Context, e1, e2 fs.Entry, path string, st *EntryTypeStats) {
+	var changed bool
 
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
-		equal = false
-		c.stats.DirectoryEntries.SameContentButDifferentMode++
+		changed = true
+		st.SameContentButDifferentMode++
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
-		equal = false
-		c.stats.DirectoryEntries.SameContentButDifferentModificationTime++
+		changed = true
+		st.SameContentButDifferentModificationTime++
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
-		equal = false
-		c.stats.DirectoryEntries.SameContentButDifferentUserOwner++
+		changed = true
+		st.SameContentButDifferentUserOwner++
 	}
 
 	if o1.GroupID != o2.GroupID {
-		equal = false
-		c.stats.DirectoryEntries.SameContentButDifferentGroupOwner++
+		changed = true
+		st.SameContentButDifferentGroupOwner++
 	}
 
-	if !equal {
-		c.stats.DirectoryEntries.SameContentButDifferentMetadata++
-
-		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
-	}
-}
-
-func (c *Comparer) compareFileMetadataAndComputeStats(ctx context.Context, e1, e2 fs.Entry, path string) {
-	// check for metadata changes pertaining to files given that content hasn't changed and gather aggregate statistics
-	equal := true
-	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
-		equal = false
-		c.stats.FileEntries.SameContentButDifferentMode++
-	}
-
-	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
-		equal = false
-		c.stats.FileEntries.SameContentButDifferentModificationTime++
-	}
-
-	o1, o2 := e1.Owner(), e2.Owner()
-	if o1.UserID != o2.UserID {
-		equal = false
-		c.stats.FileEntries.SameContentButDifferentUserOwner++
-	}
-
-	if o1.GroupID != o2.GroupID {
-		equal = false
-		c.stats.FileEntries.SameContentButDifferentGroupOwner++
-	}
-
-	if !equal {
-		c.stats.FileEntries.SameContentButDifferentMetadata++
+	if changed {
+		st.SameContentButDifferentMetadata++
 
 		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
 	}
