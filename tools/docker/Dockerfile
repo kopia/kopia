@@ -14,7 +14,7 @@ ENV 		DEBIAN_FRONTEND="noninteractive" \
 
 RUN 		apt-get update && \
 		    apt-get upgrade -y --with-new-pkgs && \
-		    apt-get install -y --no-install-recommends fuse3 ca-certificates curl tzdata && \
+		    apt-get install -y --no-install-recommends fuse3 ca-certificates curl tzdata sshfs && \
 		    apt-get clean autoclean -y && \
     		apt-get autoremove -y && \
     		rm -rf /var/lib/apt/* /var/lib/cache/* /var/lib/log/* \
