@@ -21,7 +21,7 @@ const dirMode = 0o700
 
 var log = logging.Module("diff")
 
-// EntryTypeStats accumulates specific stats for the snapshots being compared.
+// EntryTypeStats accumulates stats for an FS entry type.
 type EntryTypeStats struct {
 	Added    uint32 `json:"added"`
 	Removed  uint32 `json:"removed"`
@@ -111,9 +111,9 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	if e1HasObjectID && e2HasObjectID {
 		if h1.ObjectID() == h2.ObjectID() {
 			if _, isDir := e1.(fs.Directory); isDir {
-				c.compareDirMetadataAndComputeStats(ctx, e1, e2, path)
+				compareMetadata(ctx, e1, e2, path, &c.stats.DirectoryEntries)
 			} else {
-				c.compareFileMetadataAndComputeStats(ctx, e1, e2, path)
+				compareMetadata(ctx, e1, e2, path, &c.stats.FileEntries)
 			}
 
 			return nil
@@ -181,7 +181,6 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 
 	if isDir2 {
 		// left is non-directory, right is a directory
-		log(ctx).Infof("changed %v from non-directory to a directory", path)
 		c.output("changed %v from non-directory to a directory\n", path)
 
 		return nil
@@ -199,116 +198,86 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		}
 	}
 
+	// don't compare filesystem boundaries (e1.Device()), it's pretty useless and is not stored in backups
+
 	return nil
 }
 
-func (c *Comparer) compareDirMetadataAndComputeStats(ctx context.Context, e1, e2 fs.Entry, path string) {
-	// check for metadata changes pertaining to directories given that content hasn't changed and gather aggregate statistics
-	equal := true
+// Checks for changes in e1's and e2's metadata when they have the same content,
+// and upates the stats accordingly.
+// The function is not concurrency safe, as it updates st without any locking.
+func compareMetadata(ctx context.Context, e1, e2 fs.Entry, path string, st *EntryTypeStats) {
+	var changed bool
 
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
-		equal = false
-		c.stats.DirectoryEntries.SameContentButDifferentMode++
+		changed = true
+		st.SameContentButDifferentMode++
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
-		equal = false
-		c.stats.DirectoryEntries.SameContentButDifferentModificationTime++
+		changed = true
+		st.SameContentButDifferentModificationTime++
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
-		equal = false
-		c.stats.DirectoryEntries.SameContentButDifferentUserOwner++
+		changed = true
+		st.SameContentButDifferentUserOwner++
 	}
 
 	if o1.GroupID != o2.GroupID {
-		equal = false
-		c.stats.DirectoryEntries.SameContentButDifferentGroupOwner++
+		changed = true
+		st.SameContentButDifferentGroupOwner++
 	}
 
-	if !equal {
-		c.stats.DirectoryEntries.SameContentButDifferentMetadata++
+	if changed {
+		st.SameContentButDifferentMetadata++
 
 		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
 	}
 }
 
-func (c *Comparer) compareFileMetadataAndComputeStats(ctx context.Context, e1, e2 fs.Entry, path string) {
-	// check for metadata changes pertaining to files given that content hasn't changed and gather aggregate statistics
-	equal := true
-	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
-		equal = false
-		c.stats.FileEntries.SameContentButDifferentMode++
-	}
-
-	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
-		equal = false
-		c.stats.FileEntries.SameContentButDifferentModificationTime++
-	}
-
-	o1, o2 := e1.Owner(), e2.Owner()
-	if o1.UserID != o2.UserID {
-		equal = false
-		c.stats.FileEntries.SameContentButDifferentUserOwner++
-	}
-
-	if o1.GroupID != o2.GroupID {
-		equal = false
-		c.stats.FileEntries.SameContentButDifferentGroupOwner++
-	}
-
-	if !equal {
-		c.stats.FileEntries.SameContentButDifferentMetadata++
-
-		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
-	}
-}
-
-func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) bool {
-	if e1 == e2 { // in particular e1 == nil && e2 == nil
-		return true
-	}
-
-	if e1 == nil {
+func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) {
+	switch {
+	case e1 == e2: // in particular e1 == nil && e2 == nil
+		return
+	case e1 == nil:
 		c.output("%v does not exist in source directory\n", fullpath)
-		return false
-	}
-
-	if e2 == nil {
+		return
+	case e2 == nil:
 		c.output("%v does not exist in destination directory\n", fullpath)
-		return false
+		return
 	}
 
-	equal := true
+	var changed bool
 
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
-		equal = false
+		changed = true
 
 		c.output("%v modes differ: %v %v\n", fullpath, m1, m2)
 	}
 
 	if s1, s2 := e1.Size(), e2.Size(); s1 != s2 {
-		equal = false
+		changed = true
 
 		c.output("%v sizes differ: %v %v\n", fullpath, s1, s2)
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
-		equal = false
+		changed = true
 
 		c.output("%v modification times differ: %v %v\n", fullpath, mt1, mt2)
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
-		equal = false
+		changed = true
 
 		c.output("%v owner users differ: %v %v\n", fullpath, o1.UserID, o2.UserID)
 	}
 
 	if o1.GroupID != o2.GroupID {
-		equal = false
+		changed = true
 
 		c.output("%v owner groups differ: %v %v\n", fullpath, o1.GroupID, o2.GroupID)
 	}
@@ -316,17 +285,13 @@ func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) bool {
 	_, isDir1 := e1.(fs.Directory)
 	_, isDir2 := e2.(fs.Directory)
 
-	if !equal {
+	if changed {
 		if isDir1 && isDir2 {
 			c.stats.DirectoryEntries.Modified++
 		} else {
 			c.stats.FileEntries.Modified++
 		}
 	}
-
-	// don't compare filesystem boundaries (e1.Device()), it's pretty useless and is not stored in backups
-
-	return equal
 }
 
 func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entries2 []fs.Entry, dirPath string) error {
