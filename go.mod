@@ -30,7 +30,7 @@ require (
 	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/pgzip v1.2.6
 	github.com/klauspost/reedsolomon v1.12.4
-	github.com/kopia/htmluibuild v0.0.1-0.20250303064157-676b1b5bc735
+	github.com/kopia/htmluibuild v0.0.1-0.20250404064215-8bfc34d8e3cf
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
