@@ -23,6 +23,8 @@ type Options struct {
 	SecretAccessKey string `json:"secretAccessKey" kopia:"sensitive"`
 	SessionToken    string `json:"sessionToken"    kopia:"sensitive"`
 
+	VirtualHostedStyleRequests bool `json:"virtualHostedStyleRequests,omitempty"`
+
 	// Region is an optional region to pass in authorization header.
 	Region string `json:"region,omitempty"`
 
