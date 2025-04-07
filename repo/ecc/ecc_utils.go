@@ -9,22 +9,22 @@ func computeShards(spaceOverhead float32) (data, parity int) {
 	// If it turns out it is only 1, we invert the logic and compute how many
 	// data shards are needed for 2 parity shards.
 	data = 128
-	parity = between(applyPercent(data, spaceOverhead/100), 1, 128) //nolint:gomnd
+	parity = between(applyPercent(data, spaceOverhead/100), 1, 128) //nolint:mnd
 
 	if parity == 1 {
 		parity = 2
-		data = between(applyPercent(parity, 100/spaceOverhead), 128, 254) //nolint:gomnd
+		data = between(applyPercent(parity, 100/spaceOverhead), 128, 254) //nolint:mnd
 	}
 
 	return
 }
 
-func between(val, min, max int) int {
+func between(val, minValue, maxValue int) int {
 	switch {
-	case val < min:
-		return min
-	case val > max:
-		return max
+	case val < minValue:
+		return minValue
+	case val > maxValue:
+		return maxValue
 	default:
 		return val
 	}
@@ -34,9 +34,9 @@ func applyPercent(val int, percent float32) int {
 	return int(math.Floor(float64(val) * float64(percent)))
 }
 
-func clear(bytes []byte) {
-	for i := range bytes {
-		bytes[i] = 0
+func fillWithZeros(b []byte) {
+	for i := range b {
+		b[i] = 0
 	}
 }
 

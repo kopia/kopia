@@ -102,7 +102,7 @@ done
 for a in $architectures; do
     for d in $distributions; do
         rm -rf $WORK_DIR/$d/$a/repomd
-        docker run -i -e verbose=true -v $WORK_DIR/$d/$a:/data sark/createrepo:latest
+        createrepo_c $WORK_DIR/$d/$a
     done
 done
 

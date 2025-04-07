@@ -112,7 +112,7 @@ func (c *Cache) IterateEntries(ctx context.Context, d fs.Directory, w EntryWrapp
 		return nil
 	}
 
-	return d.IterateEntries(ctx, callback) //nolint:wrapcheck
+	return fs.IterateEntries(ctx, d, callback) //nolint:wrapcheck
 }
 
 func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) []fs.Entry {
@@ -202,8 +202,8 @@ type Options struct {
 
 //nolint:gochecknoglobals
 var defaultOptions = &Options{
-	MaxCachedDirectories: 1000,   //nolint:gomnd
-	MaxCachedEntries:     100000, //nolint:gomnd
+	MaxCachedDirectories: 1000,   //nolint:mnd
+	MaxCachedEntries:     100000, //nolint:mnd
 }
 
 // NewCache creates filesystem cache.

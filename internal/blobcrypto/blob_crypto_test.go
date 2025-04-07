@@ -23,7 +23,7 @@ func TestBlobCrypto(t *testing.T) {
 	enc, err := encryption.CreateEncryptor(f)
 	require.NoError(t, err)
 
-	cr := staticCrypter{hf, enc}
+	cr := StaticCrypter{hf, enc}
 
 	var tmp, tmp2, tmp3 gather.WriteBuffer
 	defer tmp.Close()
@@ -60,17 +60,17 @@ func TestBlobCrypto(t *testing.T) {
 type badEncryptor struct{}
 
 func (badEncryptor) Encrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
-	return errors.Errorf("some error")
+	return errors.New("some error")
 }
 
 func (badEncryptor) Decrypt(input gather.Bytes, contentID []byte, output *gather.WriteBuffer) error {
-	return errors.Errorf("some error")
+	return errors.New("some error")
 }
 
 func (badEncryptor) Overhead() int { return 0 }
 
 func TestBlobCrypto_Invalid(t *testing.T) {
-	cr := staticCrypter{
+	cr := StaticCrypter{
 		func(output []byte, data gather.Bytes) []byte {
 			// invalid hash
 			return append(output, 9, 9, 9, 9)
@@ -95,21 +95,8 @@ func TestBlobCrypto_Invalid(t *testing.T) {
 	hf, err := hashing.CreateHashFunc(f)
 	require.NoError(t, err)
 
-	cr.h = hf
+	cr.Hash = hf
 
 	_, err = Encrypt(cr, gather.FromSlice([]byte{1, 2, 3}), "n", "mysessionid", &tmp)
 	require.Error(t, err)
-}
-
-type staticCrypter struct {
-	h hashing.HashFunc
-	e encryption.Encryptor
-}
-
-func (p staticCrypter) Encryptor() encryption.Encryptor {
-	return p.e
-}
-
-func (p staticCrypter) HashFunc() hashing.HashFunc {
-	return p.h
 }

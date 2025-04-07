@@ -105,7 +105,7 @@ func (r *rcloneStorage) Close(ctx context.Context) error {
 
 	// this will kill rclone process if any
 	if r.cmd != nil && r.cmd.Process != nil {
-		log(ctx).Debugf("killing rclone")
+		log(ctx).Debug("killing rclone")
 		r.cmd.Process.Kill() //nolint:errcheck
 		r.cmd.Wait()         //nolint:errcheck
 	}
@@ -240,7 +240,7 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 		return rcloneURLs{}, err
 
 	case <-time.After(startupTimeout):
-		return rcloneURLs{}, errors.Errorf("timed out waiting for rclone to start")
+		return rcloneURLs{}, errors.New("timed out waiting for rclone to start")
 	}
 }
 
@@ -276,7 +276,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	}()
 
 	// write TLS files.
-	//nolint:gomnd
+	//nolint:mnd
 	cert, key, err := tlsutil.GenerateServerCertificate(ctx, 2048, 365*24*time.Hour, []string{"127.0.0.1"})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to generate server certificate")
@@ -313,7 +313,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	if opt.EmbeddedConfig != "" {
 		tmpConfigFile := filepath.Join(r.temporaryDir, "rclone.conf")
 
-		//nolint:gomnd
+		//nolint:mnd
 		if err = os.WriteFile(tmpConfigFile, []byte(opt.EmbeddedConfig), 0o600); err != nil {
 			return nil, errors.Wrap(err, "unable to write config file")
 		}

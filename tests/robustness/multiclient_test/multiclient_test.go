@@ -7,7 +7,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"strconv"
 	"testing"
 	"time"
@@ -21,28 +20,40 @@ import (
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 )
 
-const defaultTestDur = 5 * time.Minute
+const (
+	defaultTestDur           = 5 * time.Minute
+	deleteContentsPercentage = 50
+)
 
 var randomizedTestDur = flag.Duration("rand-test-duration", defaultTestDur, "Set the duration for the randomized test")
 
 func TestManySmallFiles(t *testing.T) {
 	const (
-		fileSize   = 4096
-		numFiles   = 10000
-		numClients = 4
+		fileSize    = 4096
+		numFiles    = 10000
+		numClients  = 4
+		maxDirDepth = 1
 	)
 
 	fileWriteOpts := map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
 		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
+	deleteDirOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField:             strconv.Itoa(maxDirDepth),
+		fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage),
+	}
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
+
+		tryDeleteAction(ctx, t, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
+
+		tryDeleteAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
@@ -99,20 +110,29 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 		filesPerWrite = 10
 		actionRepeats = numFiles / filesPerWrite
 		numClients    = 4
+		maxDirDepth   = 15
 	)
 
 	fileWriteOpts := map[string]string{
-		fiofilewriter.MaxDirDepthField:         strconv.Itoa(15),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
 		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
 		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
 		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
 		engine.ActionRepeaterField:             strconv.Itoa(actionRepeats),
 	}
+	deleteDirOpts := map[string]string{
+		fiofilewriter.MaxDirDepthField:             strconv.Itoa(maxDirDepth),
+		fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage),
+	}
 
 	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
 		err := tryRestoreIntoDataDirectory(ctx, t)
 		require.NoError(t, err)
+
+		tryDeleteAction(ctx, t, engine.DeleteRandomSubdirectoryActionKey, deleteDirOpts)
+
+		tryDeleteAction(ctx, t, engine.DeleteDirectoryContentsActionKey, deleteDirOpts)
 
 		_, err = eng.ExecAction(ctx, engine.WriteRandomFilesActionKey, fileWriteOpts)
 		require.NoError(t, err)
@@ -133,19 +153,25 @@ func TestRandomizedSmall(t *testing.T) {
 
 	st := timetrack.StartTimer()
 
+	maxDirDepth := 3
+
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
 			string(engine.SnapshotDirActionKey):              strconv.Itoa(2),
 			string(engine.RestoreSnapshotActionKey):          strconv.Itoa(2),
 			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(1),
-			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(8),
+			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(2),
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(1),
+			string(engine.DeleteDirectoryContentsActionKey):  strconv.Itoa(1),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
-			fiofilewriter.IOLimitPerWriteAction:    fmt.Sprintf("%d", 512*1024*1024),
+			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(512 * 1024 * 1024),
 			fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(100),
 			fiofilewriter.MaxFileSizeField:         strconv.Itoa(64 * 1024 * 1024),
-			fiofilewriter.MaxDirDepthField:         strconv.Itoa(3),
+			fiofilewriter.MaxDirDepthField:         strconv.Itoa(maxDirDepth),
+		},
+		engine.DeleteDirectoryContentsActionKey: map[string]string{
+			fiofilewriter.DeletePercentOfContentsField: strconv.Itoa(deleteContentsPercentage),
 		},
 	}
 
@@ -158,6 +184,32 @@ func TestRandomizedSmall(t *testing.T) {
 			err := tryRandomAction(ctx, t, opts)
 			require.NoError(t, err)
 		}
+	}
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+	th.RunN(ctx, t, numClients, f)
+}
+
+func TestMaintenanceAction(t *testing.T) {
+	t.Log("running maintenance directly on the repository under test")
+
+	// bypass the server to directly run maintenance on the repository
+	// under test.
+	// It launches a kopia process that directly accesses the repository
+	// under test using the repo configuration for the server. The
+	// server is concurrently running, since the framework starts
+	// the server at the beginning of an execution of the framework.
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+	_, err := eng.ExecAction(ctx, engine.GCActionKey, nil)
+
+	require.NoError(t, err)
+}
+
+func TestDeleteRandomSnapshotAction(t *testing.T) {
+	const numClients = 1
+
+	f := func(ctx context.Context, t *testing.T) { //nolint:thelper
+		tryDeleteAction(ctx, t, engine.DeleteRandomSnapshotActionKey, nil)
 	}
 
 	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
@@ -184,4 +236,26 @@ func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) 
 	}
 
 	return err
+}
+
+// tryDeleteAction runs the given delete action,
+// delete-files or delete-random-subdirectory or delete-random-snapID
+// with options and masks no-op errors, and asserts when called for any other action.
+func tryDeleteAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) {
+	t.Helper()
+	eligibleActionsList := []engine.ActionKey{
+		engine.DeleteDirectoryContentsActionKey,
+		engine.DeleteRandomSubdirectoryActionKey,
+		engine.DeleteRandomSnapshotActionKey,
+	}
+	require.Contains(t, eligibleActionsList, action)
+
+	_, err := eng.ExecAction(ctx, action, actionOpts)
+	// Ignore the dir-not-found error wrapped as no-op error.
+	if errors.Is(err, robustness.ErrNoOp) {
+		t.Logf("Delete action '%s' resulted in no-op", action)
+		return
+	}
+
+	require.NoError(t, err)
 }

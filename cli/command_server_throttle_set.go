@@ -38,7 +38,7 @@ func (c *commandServerThrottleSet) run(ctx context.Context, cli *apiclient.Kopia
 	}
 
 	if changeCount == 0 {
-		log(ctx).Infof("No changes made.")
+		log(ctx).Info("No changes made.")
 		return nil
 	}
 

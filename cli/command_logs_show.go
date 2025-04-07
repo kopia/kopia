@@ -49,7 +49,7 @@ func (c *commandLogsShow) run(ctx context.Context, rep repo.DirectRepository) er
 	}
 
 	if len(sessions) == 0 {
-		return errors.Errorf("no logs found")
+		return errors.New("no logs found")
 	}
 
 	// by default show latest one

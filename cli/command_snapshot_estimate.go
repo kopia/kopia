@@ -13,7 +13,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 type commandSnapshotEstimate struct {
@@ -48,8 +48,8 @@ func (c *commandSnapshotEstimate) setup(svc appServices, parent commandParent) {
 
 type estimateProgress struct {
 	stats        snapshot.Stats
-	included     snapshotfs.SampleBuckets
-	excluded     snapshotfs.SampleBuckets
+	included     upload.SampleBuckets
+	excluded     upload.SampleBuckets
 	excludedDirs []string
 	quiet        bool
 }
@@ -68,7 +68,7 @@ func (ep *estimateProgress) Error(ctx context.Context, filename string, err erro
 	}
 }
 
-func (ep *estimateProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded snapshotfs.SampleBuckets, excludedDirs []string, final bool) {
+func (ep *estimateProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded upload.SampleBuckets, excludedDirs []string, final bool) {
 	_ = final
 
 	ep.stats = *st
@@ -108,7 +108,7 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 		return errors.Wrapf(err, "error creating policy tree for %v", sourceInfo)
 	}
 
-	if err := snapshotfs.Estimate(ctx, dir, policyTree, &ep, c.maxExamplesPerBucket); err != nil {
+	if err := upload.Estimate(ctx, dir, policyTree, &ep, c.maxExamplesPerBucket); err != nil {
 		return errors.Wrap(err, "error estimating")
 	}
 
@@ -137,7 +137,7 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 		c.out.printStdout("Encountered %v error(s).\n", ep.stats.ErrorCount)
 	}
 
-	megabits := float64(ep.stats.TotalFileSize) * 8 / 1000000 //nolint:gomnd
+	megabits := float64(ep.stats.TotalFileSize) * 8 / 1000000 //nolint:mnd
 	seconds := megabits / c.snapshotEstimateUploadSpeed
 
 	c.out.printStdout("\n")
@@ -146,7 +146,7 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 	return nil
 }
 
-func (c *commandSnapshotEstimate) showBuckets(buckets snapshotfs.SampleBuckets, showFiles bool) {
+func (c *commandSnapshotEstimate) showBuckets(buckets upload.SampleBuckets, showFiles bool) {
 	for i, bucket := range buckets {
 		if bucket.Count == 0 {
 			continue

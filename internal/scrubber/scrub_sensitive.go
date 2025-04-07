@@ -16,7 +16,7 @@ func ScrubSensitiveData(v reflect.Value) reflect.Value {
 	case reflect.Struct:
 		res := reflect.New(v.Type()).Elem()
 
-		for i := 0; i < v.NumField(); i++ {
+		for i := range v.NumField() {
 			fv := v.Field(i)
 
 			sf := v.Type().Field(i)
@@ -26,6 +26,23 @@ func ScrubSensitiveData(v reflect.Value) reflect.Value {
 					res.Field(i).SetString(strings.Repeat("*", fv.Len()))
 				}
 			} else if sf.IsExported() {
+				switch fv.Kind() {
+				case reflect.Pointer:
+					if !fv.IsNil() {
+						fv = ScrubSensitiveData(fv.Elem()).Addr()
+					}
+
+				case reflect.Struct:
+					fv = ScrubSensitiveData(fv)
+
+				case reflect.Interface:
+					if !fv.IsNil() {
+						fv = ScrubSensitiveData(fv.Elem())
+					}
+
+				default: // Set the field as-is.
+				}
+
 				res.Field(i).Set(fv)
 			}
 		}

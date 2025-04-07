@@ -52,11 +52,11 @@ func TestRestoreSnapshotMaxTime(t *testing.T) {
 func TestRestoreSnapshotFilter(t *testing.T) {
 	f, err := createSnapshotTimeFilter("latest")
 	require.NoError(t, err)
-	require.Equal(t, true, f(nil, 0, 2))
-	require.Equal(t, false, f(nil, 1, 2))
+	require.True(t, f(nil, 0, 2))
+	require.False(t, f(nil, 1, 2))
 
 	f, err = createSnapshotTimeFilter("oldest")
 	require.NoError(t, err)
-	require.Equal(t, false, f(nil, 0, 2))
-	require.Equal(t, true, f(nil, 1, 2))
+	require.False(t, f(nil, 0, 2))
+	require.True(t, f(nil, 1, 2))
 }

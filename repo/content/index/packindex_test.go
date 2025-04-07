@@ -3,10 +3,10 @@ package index
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/rand"
-	"reflect"
 	"strings"
 	"testing"
 
@@ -47,7 +47,7 @@ func deterministicPackBlobID(id int) blob.ID {
 	h := sha1.New()
 	fmt.Fprintf(h, "%v", id)
 
-	return blob.ID(fmt.Sprintf("%x", h.Sum(nil)))
+	return blob.ID(hex.EncodeToString(h.Sum(nil)))
 }
 
 func deterministicPackedOffset(id int) uint32 {
@@ -111,8 +111,8 @@ func TestPackIndex_V2(t *testing.T) {
 func testPackIndex(t *testing.T, version int) {
 	var infos []Info
 	// deleted contents with all information
-	for i := 0; i < 100; i++ {
-		infos = append(infos, &InfoStruct{
+	for i := range 100 {
+		infos = append(infos, Info{
 			TimestampSeconds:    randomUnixTime(),
 			Deleted:             true,
 			ContentID:           deterministicContentID(t, "deleted-packed", i),
@@ -126,8 +126,8 @@ func testPackIndex(t *testing.T, version int) {
 		})
 	}
 	// non-deleted content
-	for i := 0; i < 100; i++ {
-		infos = append(infos, &InfoStruct{
+	for i := range 100 {
+		infos = append(infos, Info{
 			TimestampSeconds:    randomUnixTime(),
 			ContentID:           deterministicContentID(t, "packed", i),
 			PackBlobID:          deterministicPackBlobID(i),
@@ -140,41 +140,38 @@ func testPackIndex(t *testing.T, version int) {
 		})
 	}
 
-	// dear future reader, if this fails because the number of methods has changed,
-	// you need to add additional test cases above.
-	if cnt := reflect.TypeOf((*Info)(nil)).Elem().NumMethod(); cnt != 11 {
-		t.Fatalf("unexpected number of methods on content.Info: %v, must update the test", cnt)
-	}
-
 	infoMap := map[ID]Info{}
 	b1 := make(Builder)
 	b2 := make(Builder)
 	b3 := make(Builder)
+	b4 := NewOneUseBuilder()
 
 	for _, info := range infos {
-		infoMap[info.GetContentID()] = info
+		infoMap[info.ContentID] = info
 		b1.Add(info)
 		b2.Add(info)
 		b3.Add(info)
+		b4.Add(info)
 	}
 
-	var buf1, buf2, buf3 bytes.Buffer
+	var buf1, buf2, buf3, buf4 bytes.Buffer
 
-	if err := b1.Build(&buf1, version); err != nil {
-		t.Fatalf("unable to build: %v", err)
-	}
+	err := b1.Build(&buf1, version)
+	require.NoError(t, err)
 
-	if err := b2.Build(&buf2, version); err != nil {
-		t.Fatalf("unable to build: %v", err)
-	}
+	err = b2.Build(&buf2, version)
+	require.NoError(t, err)
 
-	if err := b3.BuildStable(&buf3, version); err != nil {
-		t.Fatalf("unable to build: %v", err)
-	}
+	err = b3.BuildStable(&buf3, version)
+	require.NoError(t, err)
+
+	err = b4.BuildStable(&buf4, version)
+	require.NoError(t, err)
 
 	data1 := buf1.Bytes()
 	data2 := buf2.Bytes()
 	data3 := buf3.Bytes()
+	data4 := buf4.Bytes()
 
 	// each build produces exactly identical prefix except for the trailing random bytes.
 	data1Prefix := data1[0 : len(data1)-randomSuffixSize]
@@ -182,42 +179,53 @@ func testPackIndex(t *testing.T, version int) {
 
 	require.Equal(t, data1Prefix, data2Prefix)
 	require.Equal(t, data2Prefix, data3)
+	require.Equal(t, data2Prefix, data4)
 	require.NotEqual(t, data1, data2)
+	require.Equal(t, data3, data4)
 
 	t.Run("FuzzTest", func(t *testing.T) {
 		fuzzTestIndexOpen(data1)
 	})
 
-	ndx, err := Open(data1, nil, func() int { return fakeEncryptionOverhead })
+	verifyPackedIndexes(t, infos, infoMap, version, data1)
+	verifyPackedIndexes(t, infos, infoMap, version, data4)
+}
+
+func verifyPackedIndexes(t *testing.T, infos []Info, infoMap map[ID]Info, version int, packed []byte) {
+	t.Helper()
+
+	ndx, err := Open(packed, nil, func() int { return fakeEncryptionOverhead })
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}
 
 	for _, want := range infos {
-		info2, err := ndx.GetInfo(want.GetContentID())
-		if err != nil {
-			t.Errorf("unable to find %v", want.GetContentID())
+		var info2 Info
+
+		ok, err := ndx.GetInfo(want.ContentID, &info2)
+		if err != nil || !ok {
+			t.Errorf("unable to find %v", want.ContentID)
 			continue
 		}
 
 		if version == 1 {
 			// v1 does not preserve original length.
-			want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+			want = withOriginalLength(want, want.PackedLength-fakeEncryptionOverhead)
 		}
 
-		require.Equal(t, ToInfoStruct(want), ToInfoStruct(info2))
+		require.Equal(t, want, info2)
 	}
 
 	cnt := 0
 
 	require.NoError(t, ndx.Iterate(AllIDs, func(info2 Info) error {
-		want := infoMap[info2.GetContentID()]
+		want := infoMap[info2.ContentID]
 		if version == 1 {
 			// v1 does not preserve original length.
-			want = withOriginalLength{want, want.GetPackedLength() - fakeEncryptionOverhead}
+			want = withOriginalLength(want, want.PackedLength-fakeEncryptionOverhead)
 		}
 
-		require.Equal(t, ToInfoStruct(want), ToInfoStruct(info2))
+		require.Equal(t, want, info2)
 		cnt++
 		return nil
 	}))
@@ -228,26 +236,27 @@ func testPackIndex(t *testing.T, version int) {
 
 	prefixes := []IDPrefix{"a", "b", "f", "0", "3", "aa", "aaa", "aab", "fff", "m", "x", "y", "m0", "ma"}
 
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		contentID := deterministicContentID(t, "no-such-content", i)
 
-		v, err := ndx.GetInfo(contentID)
+		var v Info
+
+		ok, err := ndx.GetInfo(contentID, &v)
 		if err != nil {
 			t.Errorf("unable to get content %v: %v", contentID, err)
 		}
 
-		if v != nil {
+		if ok {
 			t.Errorf("unexpected result when getting content %v: %v", contentID, v)
 		}
 	}
 
 	for _, prefix := range prefixes {
 		cnt2 := 0
-		prefix := prefix
 		require.NoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 Info) error {
 			cnt2++
-			if !strings.HasPrefix(info2.GetContentID().String(), string(prefix)) {
-				t.Errorf("unexpected item %v when iterating prefix %v", info2.GetContentID(), prefix)
+			if !strings.HasPrefix(info2.ContentID.String(), string(prefix)) {
+				t.Errorf("unexpected item %v when iterating prefix %v", info2.ContentID, prefix)
 			}
 			return nil
 		}))
@@ -257,15 +266,15 @@ func testPackIndex(t *testing.T, version int) {
 
 func TestPackIndexPerContentLimits(t *testing.T) {
 	cases := []struct {
-		info   *InfoStruct
+		info   Info
 		errMsg string
 	}{
-		{&InfoStruct{PackedLength: v2MaxContentLength}, "maximum content length is too high"},
-		{&InfoStruct{PackedLength: v2MaxContentLength - 1}, ""},
-		{&InfoStruct{OriginalLength: v2MaxContentLength}, "maximum content length is too high"},
-		{&InfoStruct{OriginalLength: v2MaxContentLength - 1}, ""},
-		{&InfoStruct{PackOffset: v2MaxPackOffset}, "pack offset 1073741824 is too high"},
-		{&InfoStruct{PackOffset: v2MaxPackOffset - 1}, ""},
+		{Info{PackedLength: v2MaxContentLength}, "maximum content length is too high"},
+		{Info{PackedLength: v2MaxContentLength - 1}, ""},
+		{Info{OriginalLength: v2MaxContentLength}, "maximum content length is too high"},
+		{Info{OriginalLength: v2MaxContentLength - 1}, ""},
+		{Info{PackOffset: v2MaxPackOffset}, "pack offset 1073741824 is too high"},
+		{Info{PackOffset: v2MaxPackOffset - 1}, ""},
 	}
 
 	for _, tc := range cases {
@@ -279,17 +288,20 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 		var result bytes.Buffer
 
 		if tc.errMsg == "" {
-			require.NoError(t, b.buildV2(&result))
+			require.NoError(t, buildV2(b.sortedContents(), &result))
 
 			pi, err := Open(result.Bytes(), nil, func() int { return fakeEncryptionOverhead })
 			require.NoError(t, err)
 
-			got, err := pi.GetInfo(cid)
-			require.NoError(t, err)
+			var got Info
 
-			require.Equal(t, ToInfoStruct(got), ToInfoStruct(tc.info))
+			ok, err := pi.GetInfo(cid, &got)
+			require.NoError(t, err)
+			require.True(t, ok)
+
+			require.Equal(t, got, tc.info)
 		} else {
-			err := b.buildV2(&result)
+			err := buildV2(b.sortedContents(), &result)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.errMsg)
 		}
@@ -299,80 +311,84 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 func TestSortedContents(t *testing.T) {
 	b := Builder{}
 
-	for i := 0; i < 100; i++ {
-		v := deterministicContentID(t, "", i)
+	addDeterministicContents(t, b.Add)
+	verifySortedEntries(t, b.sortedContents)
+}
 
-		b.Add(&InfoStruct{
-			ContentID: v,
+func TestSortedContentsDifferentPrefixes(t *testing.T) {
+	b := Builder{}
+
+	addContentIDsWithDifferentPrefixes(t, b.Add)
+	verifySortedEntries(t, b.sortedContents)
+}
+
+func TestSortedContentsSingleUse(t *testing.T) {
+	b := NewOneUseBuilder()
+
+	addDeterministicContents(t, b.Add)
+	verifySortedEntries(t, b.sortedContents)
+}
+
+func TestSortedContentsSingleUseDifferentPrefixes(t *testing.T) {
+	b := NewOneUseBuilder()
+
+	addContentIDsWithDifferentPrefixes(t, b.Add)
+	verifySortedEntries(t, b.sortedContents)
+}
+
+func addContentIDsWithDifferentPrefixes(t *testing.T, add func(Info)) {
+	t.Helper()
+
+	for _, id := range []string{"0123", "1023", "0f23", "f023", "g0123", "g1023", "i0123", "i1023", "h0123", "h1023"} {
+		add(Info{
+			ContentID: mustParseID(t, id),
 		})
-	}
-
-	got := b.sortedContents()
-
-	var last ID
-	for _, info := range got {
-		if info.GetContentID().less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
-		}
-
-		last = info.GetContentID()
 	}
 }
 
-func TestSortedContents2(t *testing.T) {
-	b := Builder{}
+func addDeterministicContents(t *testing.T, add func(Info)) {
+	t.Helper()
 
-	b.Add(&InfoStruct{
-		ContentID: mustParseID(t, "0123"),
-	})
-	b.Add(&InfoStruct{
-		ContentID: mustParseID(t, "1023"),
-	})
-	b.Add(&InfoStruct{
-		ContentID: mustParseID(t, "0f23"),
-	})
-	b.Add(&InfoStruct{
-		ContentID: mustParseID(t, "f023"),
-	})
-	b.Add(&InfoStruct{
-		ContentID: mustParseID(t, "g0123"),
-	})
-	b.Add(&InfoStruct{
-		ContentID: mustParseID(t, "g1023"),
-	})
-	b.Add(&InfoStruct{
-		ContentID: mustParseID(t, "i0123"),
-	})
-	b.Add(&InfoStruct{
-		ContentID: mustParseID(t, "i1023"),
-	})
-	b.Add(&InfoStruct{
-		ContentID: mustParseID(t, "h0123"),
-	})
-	b.Add(&InfoStruct{
-		ContentID: mustParseID(t, "h1023"),
-	})
+	for i := range 100 {
+		add(Info{
+			ContentID: deterministicContentID(t, "", i),
+		})
+	}
+}
 
-	got := b.sortedContents()
+func addIntsAsDeterministicContent(t *testing.T, ints []int, add func(Info)) {
+	t.Helper()
+
+	for i := range ints {
+		add(Info{
+			ContentID: deterministicContentID(t, "", i),
+		})
+	}
+}
+
+func verifySortedEntries(t *testing.T, sortedContents func() []*Info) {
+	t.Helper()
+
+	got := sortedContents()
 
 	var last ID
 
 	for _, info := range got {
-		if info.GetContentID().less(last) {
-			t.Fatalf("not sorted %v (was %v)!", info.GetContentID(), last)
+		if info.ContentID.less(last) {
+			t.Fatalf("not sorted %v (last was %v)!", info.ContentID, last)
 		}
 
-		last = info.GetContentID()
+		last = info.ContentID
 	}
 }
 
 func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 	b := Builder{}
 
-	for i := 0; i < v2MaxFormatCount; i++ {
+	for i := range v2MaxFormatCount {
 		v := deterministicContentID(t, "", i)
 
-		b.Add(&InfoStruct{
+		b.Add(Info{
 			ContentID:           v,
 			PackBlobID:          blob.ID(v.String()),
 			FormatVersion:       1,
@@ -380,18 +396,18 @@ func TestPackIndexV2TooManyUniqueFormats(t *testing.T) {
 		})
 	}
 
-	require.NoError(t, b.buildV2(io.Discard))
+	require.NoError(t, buildV2(b.sortedContents(), io.Discard))
 
 	// add one more to push it over the edge
-	b.Add(&InfoStruct{
+	b.Add(Info{
 		ContentID:           deterministicContentID(t, "", v2MaxFormatCount),
 		FormatVersion:       1,
 		CompressionHeaderID: compression.HeaderID(5000),
 	})
 
-	err := b.buildV2(io.Discard)
+	err := buildV2(b.sortedContents(), io.Discard)
 	require.Error(t, err)
-	require.Equal(t, err.Error(), "unsupported - too many unique formats 256 (max 255)")
+	require.Equal(t, "unsupported - too many unique formats 256 (max 255)", err.Error())
 }
 
 func fuzzTestIndexOpen(originalData []byte) {
@@ -406,7 +422,9 @@ func fuzzTestIndexOpen(originalData []byte) {
 		cnt := 0
 		_ = ndx.Iterate(AllIDs, func(cb Info) error {
 			if cnt < 10 {
-				_, _ = ndx.GetInfo(cb.GetContentID())
+				var tmp Info
+
+				_, _ = ndx.GetInfo(cb.ContentID, &tmp)
 			}
 			cnt++
 			return nil
@@ -415,18 +433,18 @@ func fuzzTestIndexOpen(originalData []byte) {
 }
 
 func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d []byte)) {
-	for round := 0; round < rounds; round++ {
+	for range rounds {
 		data := append([]byte(nil), originalData...)
 
 		// mutate small number of bytes
 		bytesToMutate := rnd.Intn(3)
-		for i := 0; i < bytesToMutate; i++ {
+		for range bytesToMutate {
 			pos := rnd.Intn(len(data))
 			data[pos] = byte(rnd.Int())
 		}
 
 		sectionsToInsert := rnd.Intn(3)
-		for i := 0; i < sectionsToInsert; i++ {
+		for range sectionsToInsert {
 			pos := rnd.Intn(len(data))
 			insertedLength := rnd.Intn(20)
 			insertedData := make([]byte, insertedLength)
@@ -436,7 +454,7 @@ func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d [
 		}
 
 		sectionsToDelete := rnd.Intn(3)
-		for i := 0; i < sectionsToDelete; i++ {
+		for range sectionsToDelete {
 			pos := rnd.Intn(len(data))
 
 			deletedLength := rnd.Intn(10)
@@ -454,22 +472,11 @@ func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d [
 func TestShard(t *testing.T) {
 	b := Builder{}
 
-	// generate 10000 IDs in random order
-	ids := make([]int, 10000)
-	for i := range ids {
-		ids[i] = i
-	}
-
-	rand.Shuffle(len(ids), func(i, j int) {
-		ids[i], ids[j] = ids[j], ids[i]
-	})
+	// generate IDs in random order
+	ids := rand.Perm(10_000)
 
 	// add ID to the builder
-	for _, id := range ids {
-		b.Add(&InfoStruct{
-			ContentID: deterministicContentID(t, "", id),
-		})
-	}
+	addIntsAsDeterministicContent(t, ids, b.Add)
 
 	// verify number of shards
 	verifyAllShardedIDs(t, b.shard(100000), len(b), 1)
@@ -493,7 +500,7 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 	require.Len(t, sharded, numShards)
 
 	m := map[ID]bool{}
-	for i := 0; i < numTotal; i++ {
+	for i := range numTotal {
 		m[deterministicContentID(t, "", i)] = true
 	}
 
@@ -506,7 +513,7 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 		lens = append(lens, len(s))
 
 		for _, v := range s {
-			delete(m, v.GetContentID())
+			delete(m, v.ContentID)
 		}
 	}
 
@@ -516,13 +523,76 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 	return lens
 }
 
-type withOriginalLength struct {
-	Info
-	originalLength uint32
+func TestSingleUseBuilderShard(t *testing.T) {
+	// generate IDs in random order
+	ids := rand.Perm(10_000)
+
+	cases := []struct {
+		shardSize int
+		numShards int
+		shardLens []int
+	}{
+		{100000, 1, nil},
+		{100, 100, nil},
+		{500, 20, []int{460, 472, 473, 477, 479, 483, 486, 492, 498, 499, 501, 503, 504, 505, 511, 519, 524, 528, 542, 544}},
+		{1000, 10, []int{945, 964, 988, 988, 993, 1002, 1014, 1017, 1021, 1068}},
+		{2000, 5, []int{1952, 1995, 2005, 2013, 2035}},
+	}
+
+	for _, tc := range cases {
+		b := NewOneUseBuilder()
+
+		addIntsAsDeterministicContent(t, ids, b.Add)
+
+		length := b.Length()
+		shards := b.shard(tc.shardSize)
+
+		// verify number of shards
+		lens := verifyAllShardedIDsList(t, shards, length, tc.numShards)
+
+		require.Zero(t, b.Length())
+
+		// sharding will always produce stable results, verify sorted shard lengths here
+		if tc.shardLens != nil {
+			require.ElementsMatch(t, tc.shardLens, lens)
+		}
+	}
 }
 
-func (o withOriginalLength) GetOriginalLength() uint32 {
-	return o.originalLength
+func verifyAllShardedIDsList(t *testing.T, sharded [][]*Info, numTotal, numShards int) []int {
+	t.Helper()
+
+	require.Len(t, sharded, numShards)
+
+	m := map[ID]bool{}
+	for i := range numTotal {
+		m[deterministicContentID(t, "", i)] = true
+	}
+
+	cnt := 0
+
+	var lens []int
+
+	for _, s := range sharded {
+		cnt += len(s)
+		lens = append(lens, len(s))
+
+		for _, v := range s {
+			delete(m, v.ContentID)
+		}
+	}
+
+	require.Equal(t, numTotal, cnt, "invalid total number of sharded elements")
+	require.Empty(t, m)
+
+	return lens
+}
+
+func withOriginalLength(is Info, originalLength uint32) Info {
+	// clone and override original length
+	is.OriginalLength = originalLength
+
+	return is
 }
 
 func mustParseID(t *testing.T, s string) ID {

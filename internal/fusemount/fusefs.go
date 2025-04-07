@@ -50,8 +50,8 @@ func goModeToUnixMode(mode os.FileMode) uint32 {
 
 func populateAttributes(a *fuse.Attr, e fs.Entry) {
 	a.Mode = goModeToUnixMode(e.Mode())
-	a.Size = uint64(e.Size())
-	a.Mtime = uint64(e.ModTime().Unix())
+	a.Size = uint64(e.Size())            //nolint:gosec
+	a.Mtime = uint64(e.ModTime().Unix()) //nolint:gosec
 	a.Ctime = a.Mtime
 	a.Atime = a.Mtime
 	a.Nlink = 1
@@ -167,13 +167,24 @@ func (dir *fuseDirectoryNode) Readdir(ctx context.Context) (gofusefs.DirStream, 
 	// TODO: Slice not required as DirStream is also an iterator.
 	result := []fuse.DirEntry{}
 
-	err := dir.directory().IterateEntries(ctx, func(innerCtx context.Context, e fs.Entry) error {
+	iter, err := dir.directory().Iterate(ctx)
+	if err != nil {
+		log(ctx).Errorf("error reading directory %v: %v", dir.entry.Name(), err)
+		return nil, syscall.EIO
+	}
+
+	defer iter.Close()
+
+	cur, err := iter.Next(ctx)
+	for cur != nil {
 		result = append(result, fuse.DirEntry{
-			Name: e.Name(),
-			Mode: entryToFuseMode(e),
+			Name: cur.Name(),
+			Mode: entryToFuseMode(cur),
 		})
-		return nil
-	})
+
+		cur, err = iter.Next(ctx)
+	}
+
 	if err != nil {
 		log(ctx).Errorf("error reading directory %v: %v", dir.entry.Name(), err)
 		return nil, syscall.EIO

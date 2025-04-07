@@ -33,7 +33,7 @@ func (o LogRetentionOptions) OrDefault() LogRetentionOptions {
 
 // defaultLogRetention returns CleanupLogsOptions applied by default during maintenance.
 func defaultLogRetention() LogRetentionOptions {
-	//nolint:gomnd
+	//nolint:mnd
 	return LogRetentionOptions{
 		MaxTotalSize: 1 << 30,             // keep no more than 1 GiB logs
 		MaxAge:       30 * 24 * time.Hour, // no more than 30 days of data

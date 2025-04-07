@@ -31,7 +31,7 @@ func (m *Manager) SetParameters(
 	m.repoConfig.RequiredFeatures = requiredFeatures
 
 	if err := m.j.EncryptRepositoryConfig(m.repoConfig, m.formatEncryptionKey); err != nil {
-		return errors.Errorf("unable to encrypt format bytes")
+		return errors.New("unable to encrypt format bytes")
 	}
 
 	if err := m.j.WriteBlobCfgBlob(ctx, m.blobs, blobcfg, m.formatEncryptionKey); err != nil {

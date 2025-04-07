@@ -1,0 +1,113 @@
+Subject: {{.EventArgs.OverallStatus}} on {{.Hostname}}
+
+<!doctype html>
+<html>
+<head>
+<style type="text/css">
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    thead tr {
+        background-color: #f2f2f2;
+    }
+
+    th, td {
+        border: 1px solid black;
+        padding: 2px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f2f2f2;
+    }
+
+    code {
+        background-color: #f2f2f2;
+        padding: 2px;
+    }
+
+    span.path {
+        font-family: monospace;
+        color: #344652;
+        font-weight: bold;
+    }
+
+    span.increase {
+        color: green;
+        font-style: italic;
+    }
+
+    span.decrease {
+        color: red;
+        font-style: italic;
+    }
+
+    tr.snapshotstatus-fatal {
+        background-color: #fde9e4;
+    }
+
+    tr.snapshotstatus-error {
+        background-color: #fcffba;
+    }
+
+    tr.snapshotstatus-incomplete {
+        background-color: #8a8c7e;
+    }
+</style>
+</head>
+<body>
+<table border="1">
+<thead>
+    <tr>
+        <th>Source</th>
+        <th>Started</th>
+        <th>Duration</th>
+        <th>Total Size</th>
+        <th>Total Files</th>
+        <th>Total Directories</th>
+    </tr>
+</thead>
+{{ range .EventArgs.Snapshots | sortSnapshotManifestsByName}}
+<tr class="snapshotstatus-{{ .StatusCode }}">
+<td><span class="path">{{ .Manifest.Source.Path }}</span></td>
+<td>{{ .StartTimestamp | formatTime }}</td>
+<td>{{ .Duration }}</td>
+<td>{{ .TotalSize | bytes }}{{ .TotalSizeDelta | bytesDeltaHTML }}</td>
+<td>{{ .TotalFiles | formatCount }}{{ .TotalFilesDelta | countDeltaHTML }}</td>
+<td>{{ .TotalDirs | formatCount }}{{ .TotalDirsDelta | countDeltaHTML }}</td>
+</tr>
+
+{{ if .Error }}
+<tr class="snapshotstatus-{{ .StatusCode }}">
+    <td colspan="6">
+        <b style="color:red">Error:</b> {{ .Error }}
+    </td>
+</tr>
+{{ end }}
+
+{{ if .Manifest.RootEntry }}
+{{ if .Manifest.RootEntry.DirSummary }}
+{{ if .Manifest.RootEntry.DirSummary.FailedEntries }}
+<tr class="snapshotstatus-{{ .StatusCode }}">
+    <td colspan="6">
+        <b style="color:red">Failed Entries:</b>
+        <ul>
+        {{ range .Manifest.RootEntry.DirSummary.FailedEntries }}
+        <li><span class="path">{{.EntryPath}}</span>: {{.Error}}</li>
+        {{ end }}
+        </ul>
+    </td>
+</tr>
+{{ end }}
+{{ end }}
+{{ end }}
+
+{{ end }}
+</table>
+
+<p>Generated at {{ .EventTime | formatTime }} by <a href="https://kopia.io">Kopia {{ .KopiaBuildVersion }}</a>.</p>
+
+</body>
+</html>

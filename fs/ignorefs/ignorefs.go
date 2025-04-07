@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -16,7 +17,11 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var log = logging.Module("ignorefs")
+var (
+	log                = logging.Module("ignorefs")
+	errSymlinkNotAFile = errors.New("Symlink does not link to a file")
+	errTooManySymlinks = errors.New("too many levels of symbolic links")
+)
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.
 type IgnoreCallback func(ctx context.Context, path string, metadata fs.Entry, pol *policy.Tree)
@@ -84,7 +89,7 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) error {
 	)
 
 	if f.Size() < int64(validSignatureLen) {
-		return errors.Errorf("cache dir marker file too short")
+		return errors.New("cache dir marker file too short")
 	}
 
 	r, err := f.Open(ctx)
@@ -101,7 +106,7 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) error {
 	}
 
 	if string(sig) != validSignature {
-		return errors.Errorf("invalid cache dir marker file signature")
+		return errors.New("invalid cache dir marker file signature")
 	}
 
 	return nil
@@ -147,28 +152,81 @@ func (d *ignoreDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry
 	return nil, nil
 }
 
-func (d *ignoreDirectory) IterateEntries(ctx context.Context, callback func(ctx context.Context, entry fs.Entry) error) error {
+type ignoreDirIterator struct {
+	//nolint:containedctx
+	ctx         context.Context
+	d           *ignoreDirectory
+	inner       fs.DirectoryIterator
+	thisContext *ignoreContext
+}
+
+func (i *ignoreDirIterator) Next(ctx context.Context) (fs.Entry, error) {
+	cur, err := i.inner.Next(ctx)
+
+	for cur != nil {
+		//nolint:contextcheck
+		if wrapped, ok := i.d.maybeWrappedChildEntry(i.ctx, i.thisContext, cur); ok {
+			return wrapped, nil
+		}
+
+		cur, err = i.inner.Next(ctx)
+	}
+
+	return nil, err //nolint:wrapcheck
+}
+
+func (i *ignoreDirIterator) Close() {
+	i.inner.Close()
+
+	*i = ignoreDirIterator{}
+	ignoreDirIteratorPool.Put(i)
+}
+
+func (d *ignoreDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	if d.skipCacheDirectory(ctx, d.relativePath, d.policyTree) {
-		return nil
+		return fs.StaticIterator(nil, nil), nil
 	}
 
 	thisContext, err := d.buildContext(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	//nolint:wrapcheck
-	return d.Directory.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
-		if wrapped, ok := d.maybeWrappedChildEntry(ctx, thisContext, e); ok {
-			return callback(ctx, wrapped)
-		}
+	inner, err := d.Directory.Iterate(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot create iterator")
+	}
 
-		return nil
-	})
+	it := ignoreDirIteratorPool.Get().(*ignoreDirIterator) //nolint:forcetypeassert
+	it.ctx = ctx
+	it.d = d
+	it.inner = inner
+	it.thisContext = thisContext
+
+	return it, nil
+}
+
+//nolint:gochecknoglobals
+var ignoreDirectoryPool = sync.Pool{
+	New: func() any { return &ignoreDirectory{} },
+}
+
+//nolint:gochecknoglobals
+var ignoreDirIteratorPool = sync.Pool{
+	New: func() any { return &ignoreDirIterator{} },
+}
+
+func (d *ignoreDirectory) Close() {
+	d.Directory.Close()
+
+	*d = ignoreDirectory{}
+	ignoreDirectoryPool.Put(d)
 }
 
 func (d *ignoreDirectory) maybeWrappedChildEntry(ctx context.Context, ic *ignoreContext, e fs.Entry) (fs.Entry, bool) {
-	if !ic.shouldIncludeByName(ctx, d.relativePath+"/"+e.Name(), e, d.policyTree) {
+	s := d.relativePath + "/" + e.Name()
+
+	if !ic.shouldIncludeByName(ctx, s, e, d.policyTree) {
 		return nil, false
 	}
 
@@ -181,7 +239,14 @@ func (d *ignoreDirectory) maybeWrappedChildEntry(ctx context.Context, ic *ignore
 	}
 
 	if dir, ok := e.(fs.Directory); ok {
-		return &ignoreDirectory{d.relativePath + "/" + e.Name(), ic, d.policyTree.Child(e.Name()), dir}, true
+		id := ignoreDirectoryPool.Get().(*ignoreDirectory) //nolint:forcetypeassert
+
+		id.relativePath = s
+		id.parentContext = ic
+		id.policyTree = d.policyTree.Child(e.Name())
+		id.Directory = dir
+
+		return id, true
 	}
 
 	return e, true
@@ -210,6 +275,30 @@ func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, err
 	return nil, fs.ErrEntryNotFound
 }
 
+func resolveSymlink(ctx context.Context, entry fs.Symlink) (fs.File, error) {
+	const maxSymlinkFollow = 30
+
+	for range maxSymlinkFollow {
+		target, err := entry.Resolve(ctx)
+		if err != nil {
+			link, _ := entry.Readlink(ctx)
+			return nil, errors.Wrapf(err, "when resolving symlink %s of type %T, which points to %s", entry.Name(), entry, link)
+		}
+
+		switch t := target.(type) {
+		case fs.File:
+			return t, nil
+		case fs.Symlink:
+			entry = t
+			continue
+		default:
+			return nil, errors.Wrapf(errSymlinkNotAFile, "%s does not eventually link to a file", entry.Name())
+		}
+	}
+
+	return nil, errors.Wrapf(errTooManySymlinks, "cannot resolve '%q'", entry.Name())
+}
+
 func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, error) {
 	effectiveDotIgnoreFiles := d.parentContext.dotIgnoreFiles
 
@@ -222,8 +311,17 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 
 	for _, dotfile := range effectiveDotIgnoreFiles {
 		if e, err := d.Directory.Child(ctx, dotfile); err == nil {
-			if f, ok := e.(fs.File); ok {
-				dotIgnoreFiles = append(dotIgnoreFiles, f)
+			switch entry := e.(type) {
+			case fs.File:
+				dotIgnoreFiles = append(dotIgnoreFiles, entry)
+
+			case fs.Symlink:
+				target, err := resolveSymlink(ctx, entry)
+				if err != nil {
+					return nil, err
+				}
+
+				dotIgnoreFiles = append(dotIgnoreFiles, target)
 			}
 		}
 	}

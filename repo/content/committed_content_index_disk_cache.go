@@ -44,7 +44,7 @@ func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlo
 	ndx, err := index.Open(f, closeMmap, c.v1PerContentOverhead)
 	if err != nil {
 		closeMmap() //nolint:errcheck
-		return nil, errors.Wrapf(err, "error openind index from %v", indexBlobID)
+		return nil, errors.Wrapf(err, "error opening index from %v", indexBlobID)
 	}
 
 	return ndx, nil
@@ -93,7 +93,7 @@ func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(path string) (mmap.MM
 		}
 
 		return nil
-	}, errors.Wrap(err, "mmap() error")
+	}, nil
 }
 
 func (c *diskCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {
@@ -159,7 +159,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 	}
 
 	if err := tf.Close(); err != nil {
-		return "", errors.Errorf("can't close tmp file")
+		return "", errors.New("can't close tmp file")
 	}
 
 	return tf.Name(), nil

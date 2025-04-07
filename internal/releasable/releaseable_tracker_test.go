@@ -23,9 +23,9 @@ func TestReleaseable(t *testing.T) {
 	require.ErrorContains(t, releasable.Verify(), "found 1 \"some-kind\" resources that have not been released")
 
 	releasable.Released("some-kind", 2)
-	assert.Len(t, releasable.Active()["some-kind"], 0)
+	assert.Empty(t, releasable.Active()["some-kind"])
 	releasable.Released("some-kind", 2)
-	assert.Len(t, releasable.Active()["some-kind"], 0)
+	assert.Empty(t, releasable.Active()["some-kind"])
 
 	releasable.DisableTracking("some-kind")
 	require.NotContains(t, releasable.Active(), releasable.ItemKind("some-kind"))

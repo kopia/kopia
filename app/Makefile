@@ -5,7 +5,7 @@ include ../tools/tools.mk
 deps: node_modules/.up-to-date
 
 node_modules/.up-to-date: $(npm) package.json package-lock.json
-	$(retry) $(npm) $(npm_flags) install --no-audit
+	$(retry) $(npm) $(npm_flags) $(npm_install_or_ci) --no-audit
 	$(npm) $(npm_flags) audit --omit=dev
 	echo updated > node_modules/.up-to-date
 

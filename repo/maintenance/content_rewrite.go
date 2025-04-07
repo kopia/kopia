@@ -36,16 +36,16 @@ type contentInfoOrError struct {
 }
 
 // RewriteContents rewrites contents according to provided criteria and creates new
-// blobs and index entries to point at the.
+// blobs and index entries to point at them.
 func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) error {
 	if opt == nil {
-		return errors.Errorf("missing options")
+		return errors.New("missing options")
 	}
 
 	if opt.ShortPacks {
-		log(ctx).Infof("Rewriting contents from short packs...")
+		log(ctx).Info("Rewriting contents from short packs...")
 	} else {
-		log(ctx).Infof("Rewriting contents...")
+		log(ctx).Info("Rewriting contents...")
 	}
 
 	cnt := getContentToRewrite(ctx, rep, opt)
@@ -62,7 +62,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 	var wg sync.WaitGroup
 
-	for i := 0; i < opt.Parallel; i++ {
+	for range opt.Parallel {
 		wg.Add(1)
 
 		go func() {
@@ -78,32 +78,32 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 				}
 
 				var optDeleted string
-				if c.GetDeleted() {
+				if c.Deleted {
 					optDeleted = " (deleted)"
 				}
 
 				age := rep.Time().Sub(c.Timestamp())
 				if age < safety.RewriteMinAge {
-					log(ctx).Debugf("Not rewriting content %v (%v bytes) from pack %v%v %v, because it's too new.", c.GetContentID(), c.GetPackedLength(), c.GetPackBlobID(), optDeleted, age)
+					log(ctx).Debugf("Not rewriting content %v (%v bytes) from pack %v%v %v, because it's too new.", c.ContentID, c.PackedLength, c.PackBlobID, optDeleted, age)
 					continue
 				}
 
-				log(ctx).Debugf("Rewriting content %v (%v bytes) from pack %v%v %v", c.GetContentID(), c.GetPackedLength(), c.GetPackBlobID(), optDeleted, age)
+				log(ctx).Debugf("Rewriting content %v (%v bytes) from pack %v%v %v", c.ContentID, c.PackedLength, c.PackBlobID, optDeleted, age)
 				mu.Lock()
-				totalBytes += int64(c.GetPackedLength())
+				totalBytes += int64(c.PackedLength)
 				mu.Unlock()
 
 				if opt.DryRun {
 					continue
 				}
 
-				if err := rep.ContentManager().RewriteContent(ctx, c.GetContentID()); err != nil {
+				if err := rep.ContentManager().RewriteContent(ctx, c.ContentID); err != nil {
 					// provide option to ignore failures when rewriting deleted contents during maintenance
 					// this is for advanced use only
-					if os.Getenv("KOPIA_IGNORE_MAINTENANCE_REWRITE_ERROR") != "" && c.GetDeleted() {
-						log(ctx).Infof("IGNORED: unable to rewrite deleted content %q: %v", c.GetContentID(), err)
+					if os.Getenv("KOPIA_IGNORE_MAINTENANCE_REWRITE_ERROR") != "" && c.Deleted {
+						log(ctx).Infof("IGNORED: unable to rewrite deleted content %q: %v", c.ContentID, err)
 					} else {
-						log(ctx).Infof("unable to rewrite content %q: %v", c.GetContentID(), err)
+						log(ctx).Infof("unable to rewrite content %q: %v", c.ContentID, err)
 						mu.Lock()
 						failedCount++
 						mu.Unlock()
@@ -136,9 +136,9 @@ func getContentToRewrite(ctx context.Context, rep repo.DirectRepository, opt *Re
 
 		// add all content IDs from short packs
 		if opt.ShortPacks {
-			mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters()
+			mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters(ctx)
 			if mperr == nil {
-				threshold := int64(mp.MaxPackSize * shortPackThresholdPercent / 100) //nolint:gomnd
+				threshold := int64(mp.MaxPackSize * shortPackThresholdPercent / 100) //nolint:mnd
 				findContentInShortPacks(ctx, rep, ch, threshold, opt)
 			}
 		}
@@ -171,9 +171,10 @@ func findContentWithFormatVersion(ctx context.Context, rep repo.DirectRepository
 			IncludeDeleted: true,
 		},
 		func(b content.Info) error {
-			if int(b.GetFormatVersion()) == opt.FormatVersion && strings.HasPrefix(string(b.GetPackBlobID()), string(opt.PackPrefix)) {
+			if int(b.FormatVersion) == opt.FormatVersion && strings.HasPrefix(string(b.PackBlobID), string(opt.PackPrefix)) {
 				ch <- contentInfoOrError{Info: b}
 			}
+
 			return nil
 		})
 }
@@ -212,7 +213,7 @@ func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch 
 				return nil
 			}
 
-			//nolint:gomnd
+			//nolint:mnd
 			if packNumberByPrefix[prefix] == 2 {
 				// when we encounter the 2nd pack, emit contents from the first one too.
 				for _, ci := range firstPackByPrefix[prefix].ContentInfos {

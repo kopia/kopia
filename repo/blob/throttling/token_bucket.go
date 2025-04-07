@@ -87,7 +87,7 @@ func (b *tokenBucket) SetLimit(maxTokens float64) error {
 	defer b.mu.Unlock()
 
 	if maxTokens < 0 {
-		return errors.Errorf("limit cannot be negative")
+		return errors.New("limit cannot be negative")
 	}
 
 	b.maxTokens = maxTokens

@@ -168,7 +168,6 @@ func verifyLegacyAuthorizer(ctx context.Context, t *testing.T, rep repo.Reposito
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.usernameAtHost, func(t *testing.T) {
 			a := authorizer.Authorize(ctx, rep, tc.usernameAtHost)
 

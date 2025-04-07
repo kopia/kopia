@@ -13,13 +13,13 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 func TestTimeFuncWiring(t *testing.T) {
 	ctx, env := NewEnvironment(t, FormatNotImportant)
 
-	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC), 0)
+	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC))
 
 	// Re open with injected time
 	rep, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), env.Password, &repo.Options{TimeNowFunc: ft.NowFunc()})
@@ -84,7 +84,7 @@ func TestTimeFuncWiring(t *testing.T) {
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
 
 	nt = ft.Advance(1 * time.Hour)
-	u := snapshotfs.NewUploader(env.RepositoryWriter)
+	u := upload.NewUploader(env.RepositoryWriter)
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})

@@ -38,7 +38,7 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 		sizeBuckets   []uint32
 	)
 
-	for i := 0; i < 8; i++ {
+	for range 8 {
 		sizeBuckets = append(sizeBuckets, sizeThreshold)
 		sizeThreshold *= 10
 	}
@@ -48,7 +48,7 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 		return errors.Wrap(err, "error calculating totals")
 	}
 
-	sizeToString := units.BytesString
+	sizeToString := units.BytesString[int64]
 	if c.raw {
 		sizeToString = func(l int64) string {
 			return strconv.FormatInt(l, 10)
@@ -130,26 +130,27 @@ func (c *commandContentStats) calculateStats(ctx context.Context, rep repo.Direc
 			Range: c.contentRange.contentIDRange(),
 		},
 		func(b content.Info) error {
-			grandTotal.packedSize += int64(b.GetPackedLength())
-			grandTotal.originalSize += int64(b.GetOriginalLength())
+			grandTotal.packedSize += int64(b.PackedLength)
+			grandTotal.originalSize += int64(b.OriginalLength)
 			grandTotal.count++
 
-			bct := byCompressionTotal[b.GetCompressionHeaderID()]
+			bct := byCompressionTotal[b.CompressionHeaderID]
 			if bct == nil {
 				bct = &contentStatsTotals{}
-				byCompressionTotal[b.GetCompressionHeaderID()] = bct
+				byCompressionTotal[b.CompressionHeaderID] = bct
 			}
 
-			bct.packedSize += int64(b.GetPackedLength())
-			bct.originalSize += int64(b.GetOriginalLength())
+			bct.packedSize += int64(b.PackedLength)
+			bct.originalSize += int64(b.OriginalLength)
 			bct.count++
 
 			for s := range countMap {
-				if b.GetPackedLength() < s {
+				if b.PackedLength < s {
 					countMap[s]++
-					totalSizeOfContentsUnder[s] += int64(b.GetPackedLength())
+					totalSizeOfContentsUnder[s] += int64(b.PackedLength)
 				}
 			}
+
 			return nil
 		})
 

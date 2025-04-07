@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 // Create snapshots an FS entry.
@@ -28,7 +28,7 @@ func createSnapshot(ctx context.Context, rep repo.RepositoryWriter, e fs.Entry, 
 		return nil, err
 	}
 
-	u := snapshotfs.NewUploader(rep)
+	u := upload.NewUploader(rep)
 
 	manifest, err := u.Upload(ctx, e, policyTree, si, previous...)
 	if err != nil {

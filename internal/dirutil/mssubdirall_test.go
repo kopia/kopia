@@ -59,7 +59,7 @@ func TestMkSubdirAll(t *testing.T) {
 		}
 	}
 
-	osi.mkdirErr = errors.Errorf("some error")
+	osi.mkdirErr = errors.New("some error")
 
 	require.ErrorIs(t, dirutil.MkSubdirAll(osi, td, filepath.Join(td, "somedir4"), 0o755), osi.mkdirErr)
 }

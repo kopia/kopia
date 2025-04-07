@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/internal/epoch"
-	"github.com/kopia/kopia/internal/repolog"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/indexblob"
@@ -66,7 +66,7 @@ func (c *commandBlobList) shouldInclude(b blob.Metadata) bool {
 			return false
 		}
 
-		if strings.HasPrefix(string(b.BlobID), repolog.BlobPrefix) {
+		if strings.HasPrefix(string(b.BlobID), repodiag.LogBlobPrefix) {
 			return false
 		}
 

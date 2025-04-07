@@ -73,7 +73,6 @@ func (s *s3Storage) getBlobWithVersion(ctx context.Context, b blob.ID, version s
 			return nil
 		}
 
-		//nolint:wrapcheck
 		return iocopy.JustCopy(output, o)
 	}
 
@@ -302,18 +301,20 @@ func (s *s3Storage) DisplayName() string {
 }
 
 func getCustomTransport(opt *Options) (*http.Transport, error) {
+	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+
 	if opt.DoNotVerifyTLS {
 		//nolint:gosec
-		return &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}, nil
-	}
+		transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
-	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+		return transport, nil
+	}
 
 	if len(opt.RootCA) != 0 {
 		rootcas := x509.NewCertPool()
 
 		if ok := rootcas.AppendCertsFromPEM(opt.RootCA); !ok {
-			return nil, errors.Errorf("cannot parse provided CA")
+			return nil, errors.New("cannot parse provided CA")
 		}
 
 		transport.TLSClientConfig.RootCAs = rootcas
@@ -378,7 +379,6 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 	var err error
 
 	minioOpts.Transport, err = getCustomTransport(opt)
-
 	if err != nil {
 		return nil, err
 	}

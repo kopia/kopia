@@ -12,7 +12,9 @@ import (
 
 const nameLen int = 2
 
-var clientKey = struct{}{}
+type clientKeyT struct{}
+
+var clientKey clientKeyT
 
 // Client is a unique client for use in multiclient robustness tests.
 type Client struct {
@@ -38,7 +40,7 @@ func NewClientContext(ctx context.Context) context.Context {
 func NewClientContexts(ctx context.Context, n int) []context.Context {
 	ctxs := make([]context.Context, n)
 	for i := range ctxs {
-		ctxs[i] = NewClientContext(ctx)
+		ctxs[i] = NewClientContext(ctx) //nolint:fatcontext
 	}
 
 	return ctxs

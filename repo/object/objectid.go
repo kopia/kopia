@@ -15,6 +15,8 @@ import (
 //  1. In a single content block, this is the most common case for small objects.
 //  2. In a series of content blocks with an indirect block pointing at them (multiple indirections are allowed).
 //     This is used for larger files. Object IDs using indirect blocks start with "I"
+//
+//nolint:recvcheck
 type ID struct {
 	cid         content.ID
 	indirection byte
@@ -82,7 +84,7 @@ func (i ID) String() string {
 
 // Append appends string representation of ObjectID that is suitable for displaying in the UI.
 func (i ID) Append(out []byte) []byte {
-	for j := 0; j < int(i.indirection); j++ {
+	for range i.indirection {
 		out = append(out, 'I')
 	}
 
@@ -162,25 +164,25 @@ func IndirectObjectID(indexObjectID ID) ID {
 func ParseID(s string) (ID, error) {
 	var id ID
 
-	for len(s) > 0 && s[0] == 'I' {
+	for s != "" && s[0] == 'I' {
 		id.indirection++
 
 		s = s[1:]
 	}
 
-	if len(s) > 0 && s[0] == 'Z' {
+	if s != "" && s[0] == 'Z' {
 		id.compression = true
 
 		s = s[1:]
 	}
 
-	if len(s) > 0 && s[0] == 'D' {
+	if s != "" && s[0] == 'D' {
 		// no-op, legacy case
 		s = s[1:]
 	}
 
 	if id.indirection > 0 && id.compression {
-		return id, errors.Errorf("malformed object ID - compression and indirection are mutually exclusive")
+		return id, errors.New("malformed object ID - compression and indirection are mutually exclusive")
 	}
 
 	cid, err := index.ParseID(s)

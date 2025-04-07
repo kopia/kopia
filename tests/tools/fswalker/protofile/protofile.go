@@ -6,14 +6,13 @@ import (
 	"bytes"
 	"os"
 
-	//nolint:staticcheck
-	"github.com/golang/protobuf/proto"
 	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 // WriteTextProto writes a text format proto buf for the provided proto message.
 func WriteTextProto(path string, pb proto.Message) error {
-	blob, err := prototext.Marshal(proto.MessageV2(pb))
+	blob, err := prototext.Marshal(pb)
 	if err != nil {
 		return err
 	}

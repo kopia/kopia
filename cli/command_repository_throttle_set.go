@@ -30,7 +30,7 @@ func (c *commandRepositoryThrottleSet) run(ctx context.Context, rep repo.DirectR
 	}
 
 	if changeCount == 0 {
-		log(ctx).Infof("No changes made.")
+		log(ctx).Info("No changes made.")
 		return nil
 	}
 

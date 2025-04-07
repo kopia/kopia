@@ -5,5 +5,5 @@
 package localfs
 
 func platformSpecificWidenDev(dev int32) uint64 {
-	return uint64(dev)
+	return uint64(dev) //nolint:gosec
 }

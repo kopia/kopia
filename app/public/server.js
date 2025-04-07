@@ -1,11 +1,11 @@
-const { ipcMain } = require('electron');
-const path = require('path');
-const https = require('https');
+import { ipcMain } from 'electron';
+const path = await import('path');
+const https = await import('https');
 
-const { defaultServerBinary } = require('./utils');
-const { spawn } = require('child_process');
-const log = require("electron-log")
-const { configDir, isPortableConfig } = require('./config');
+import { defaultServerBinary } from './utils.js';
+import { spawn } from 'child_process';
+import log from "electron-log";
+import { configDir, isPortableConfig } from './config.js';
 
 let servers = {};
 
@@ -41,9 +41,11 @@ function newServerForRepo(repoID) {
                 '--random-server-control-password',
                 '--tls-generate-cert',
                 '--async-repo-connect',
+                '--error-notifications=always',
+                '--kopiaui-notifications', // will print notification JSON to stderr
                 '--shutdown-on-stdin', // shutdown the server when parent dies
                 '--address=127.0.0.1:0');
-    
+
 
             args.push("--config-file", path.resolve(configDir(), repoID + ".config"));
             if (isPortableConfig()) {
@@ -67,6 +69,8 @@ function newServerForRepo(repoID) {
 
             const statusUpdated = this.raiseStatusUpdatedEvent.bind(this);
 
+            const pollInterval = 3000;
+
             function pollOnce() {
                 if (!runningServerAddress || !runningServerCertificate || !runningServerPassword || !runningServerControlPassword) {
                     return;
@@ -78,12 +82,13 @@ function newServerForRepo(repoID) {
                     port: parseInt(new URL(runningServerAddress).port),
                     method: "GET",
                     path: "/api/v1/control/status",
+                    timeout: pollInterval,
                     headers: {
                         'Authorization': 'Basic ' + Buffer.from("server-control" + ':' + runningServerControlPassword).toString('base64')
-                     }  
+                    }
                 }, (resp) => {
                     if (resp.statusCode === 200) {
-                        resp.on('data', x => { 
+                        resp.on('data', x => {
                             try {
                                 const newDetails = JSON.parse(x);
                                 if (JSON.stringify(newDetails) != JSON.stringify(runningServerStatusDetails)) {
@@ -98,13 +103,13 @@ function newServerForRepo(repoID) {
                         log.warn('error fetching status', resp.statusMessage);
                     }
                 });
-                req.on('error', (e)=>{
+                req.on('error', (e) => {
                     log.info('error fetching status', e);
                 });
                 req.end();
             }
 
-            const statusPollInterval = setInterval(pollOnce, 3000);
+            const statusPollInterval = setInterval(pollOnce, pollInterval);
 
             runningServerProcess.on('close', (code, signal) => {
                 this.appendToLog(`child process exited with code ${code} and signal ${signal}`);
@@ -155,6 +160,14 @@ function newServerForRepo(repoID) {
                     case "SERVER ADDRESS":
                         runningServerAddress = value;
                         this.raiseStatusUpdatedEvent();
+                        break;
+
+                    case "NOTIFICATION":
+                        try {
+                            this.raiseNotificationEvent(JSON.parse(value));
+                        } catch (e) {
+                            log.warn('unable to parse notification JSON', e);
+                        }
                         break;
                 }
             }
@@ -228,6 +241,15 @@ function newServerForRepo(repoID) {
 
             ipcMain.emit('status-updated-event', args);
         },
+
+        raiseNotificationEvent(notification) {
+            const args = {
+                repoID: repoID,
+                notification: notification,
+            };
+
+            ipcMain.emit('repo-notification-event', args);
+        },
     };
 };
 
@@ -239,15 +261,14 @@ ipcMain.on('status-fetch', (event, args) => {
     }
 })
 
-module.exports = {
-    serverForRepo(repoID) {
-        let s = servers[repoID];
-        if (s) {
-            return s;
-        }
-
-        s = newServerForRepo(repoID);
-        servers[repoID] = s;
+export function serverForRepo(repoID) {
+    let s = servers[repoID];
+    if (s) {
         return s;
     }
+
+    s = newServerForRepo(repoID);
+    servers[repoID] = s;
+    return s;
 }
+

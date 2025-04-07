@@ -748,7 +748,7 @@ func compareMetadata(tb testing.TB, a, b versionMetadata) {
 	// deletion-marker metadata is not returned by the delete blob operation,
 	// and can only be retrieved later by listing versions.
 	if !a.IsDeleteMarker {
-		require.Equalf(tb, a.Version, b.Version, "blob versions do not match a:%v b:v", a, b)
+		require.Equalf(tb, a.Version, b.Version, "blob versions do not match a:%v b:%v", a, b)
 	}
 }
 

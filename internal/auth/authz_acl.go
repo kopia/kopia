@@ -106,7 +106,7 @@ func (ac *aclCache) Authorize(ctx context.Context, rep repo.Repository, username
 	defer ac.mu.Unlock()
 
 	parts := strings.Split(usernameAtHostname, "@")
-	if len(parts) != 2 { //nolint:gomnd
+	if len(parts) != 2 { //nolint:mnd
 		return NoAccess()
 	}
 

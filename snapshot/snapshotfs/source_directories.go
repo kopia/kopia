@@ -30,7 +30,7 @@ func (s *sourceDirectories) Name() string {
 }
 
 func (s *sourceDirectories) Mode() os.FileMode {
-	return 0o555 | os.ModeDir //nolint:gomnd
+	return 0o555 | os.ModeDir //nolint:mnd
 }
 
 func (s *sourceDirectories) ModTime() time.Time {
@@ -69,10 +69,10 @@ func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, e
 	return fs.IterateEntriesAndFindChild(ctx, s, name)
 }
 
-func (s *sourceDirectories) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+func (s *sourceDirectories) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	sources0, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {
-		return errors.Wrap(err, "unable to list sources")
+		return nil, errors.Wrap(err, "unable to list sources")
 	}
 
 	// step 1 - filter sources.
@@ -95,15 +95,13 @@ func (s *sourceDirectories) IterateEntries(ctx context.Context, cb func(context.
 
 	name2safe = disambiguateSafeNames(name2safe)
 
-	for _, src := range sources {
-		e := &sourceSnapshots{s.rep, src, name2safe[src.Path]}
+	var entries []fs.Entry
 
-		if err2 := cb(ctx, e); err2 != nil {
-			return err2
-		}
+	for _, src := range sources {
+		entries = append(entries, &sourceSnapshots{s.rep, src, name2safe[src.Path]})
 	}
 
-	return nil
+	return fs.StaticIterator(entries, nil), nil
 }
 
 func disambiguateSafeNames(m map[string]string) map[string]string {

@@ -2,6 +2,8 @@
 title: "Ransomware Protection"
 linkTitle: "Ransomware Protection"
 weight: 55
+aliases:
+- ../advanced/ransomware/
 ---
 
 Some cloud storage providers provide capabilities targeted at protecting against ransomware attacks. Kopia can be configured to take advantage of those capabilities to provide additional protection for your data.
@@ -19,9 +21,7 @@ For the context of Kopia protection, ransomware refers to viruses, trojans or ot
       Google Cloud Storage (GCS) (see below).
  * Kopia's Backblaze B2 storage engine provides support for using restricted access keys, but not for object locks at the current time.
     * To use storage locks with Backblaze B2, use the S3 storage engine.
- * Kopia's Google Cloud Services (GCS) engine provides neither restricted access key nor object-lock support.
-    * Google's S3 compatibility layer does not provide sufficient access controls to use these features, and thus Kopia cannot use
-      the ransomware mitigation discussed on this page with GCS at this time.
+* Kopia's Azure & Google storage engines support object-locks for ransomware protection.
 
 ### Using application keys to protect your data
 
@@ -46,7 +46,6 @@ Some cloud storage solutions provide the ability to generate restricted access k
                         "s3:DeleteBucket",
                         "s3:DeleteBucketPolicy",
                         "s3:DeleteBucketWebsite",
-                        "s3:DeleteObject",
                         "s3:DeleteObjectVersion"
                     ],
                     "Resource": [
@@ -115,7 +114,31 @@ Additionally note that ransomware could theoretically weaponize object-locks to 
 
 ### An additional note about Lifecycle Management vs retention-time
 
-At first glance, Lifecycle Management and retention-time may seem to serve similar purposes.  However, if only using Lifecycle Management, an attacker could still log into your account and delete the entire bucket, or otherwise force-delete a file.  Using 'Object Lock' with retention-time provides an additional gaurantee that the only way for data to be lost before the retention-time expires would be to delete your account altogether.  The S3 provider may allow enabling Object Lock without enabling Lifecycle Management.  When retention-time is applied to a file, and that file is deleted, the S3 service will set a `DELETE` marker instead of actually deleting the file. If Lifecycle Management is not enabled, then files may remain in the repository with  the `DELETED` tag.  Thus, it is recommended to enable Lifecycle Management whenever using a retention-time in Kopia.
+At first glance, Lifecycle Management and retention-time may seem to serve similar purposes.  However, if only using Lifecycle Management, an attacker could still log into your account and delete the entire bucket, or otherwise force-delete a file.  Using 'Object Lock' with retention-time provides an additional guarantee that the only way for data to be lost before the retention-time expires would be to delete your account altogether.  The S3 provider may allow enabling Object Lock without enabling Lifecycle Management.  When retention-time is applied to a file, and that file is deleted, the S3 service will set a `DELETE` marker instead of actually deleting the file. If Lifecycle Management is not enabled, then files may remain in the repository with  the `DELETED` tag indefinitely.  Thus, it is recommended to enable Lifecycle Management whenever using a retention-time in Kopia to balance protective measures against escalating storage costs.
 
 For simplicity, the recommendation is to use the same time period for Lifecycle Management and for retention-time, however, this is not a hard requirement.  It is possible to set a very short Lifecycle Management period and a long retention-time (in which case files will be permanently deleted soon after the retention-time expires.  Alternatively, the Lifecycle Management could be set to be significantly longer than the retention time.  This would provide additional restore capabilities while allowing for manual cleanup of deleted files should it be necessary (with the understanding that once the retention-time expires, the ransomware protention is reduced).  For simplicity, the recommendation is to use the same time period for Lifecycle Management and for retention-time.
 
+### Azure protection
+
+Kopia supports ransomware protection for Azure in a similar manner to S3. The container must have version-level immutability support enabled and the related storage account must have versioning enabled.
+When this is configured, the retention mode can be set to either compliance or governance mode. In both cases the blobs will be in [Locked](https://learn.microsoft.com/en-us/rest/api/storageservices/set-blob-immutability-policy?tabs=microsoft-entra-id#remarks) mode. 
+
+Follow [these steps](https://learn.microsoft.com/en-us/azure/storage/blobs/versioning-enable) to enable versioning on the storage account and [these steps](https://learn.microsoft.com/en-us/azure/storage/blobs/immutable-policy-configure-version-scope) to enable version-level immutability support on the container or related storage account.
+
+On Kopia side `--retention-mode COMPLIANCE --retention-period <retention time>` should be set like above.
+
+To have continuous protection it is also necessary to run: `kopia maintenance set --extend-object-locks true`
+* Note that the `full-interval` must be at least 1 day shorter than the `retention-period` or Kopia will not allow you to enable Object Lock extension
+
+### Google protection
+
+Kopia supports ransomware protection for Google in a similar manner to S3. The bucket must have both versioning and object retention enabled.
+When this is configured, the retention mode can be set to either compliance or governance mode. In both cases the blobs will be in [Locked](https://cloud.google.com/storage/docs/object-lock#overview) mode.
+
+On Kopia side `--retention-mode COMPLIANCE --retention-period <retention time>` should be set like above.
+
+To have continuous protection it is also necessary to run: `kopia maintenance set --extend-object-locks true`
+* Note that the `full-interval` must be at least 1 day shorter than the `retention-period` or Kopia will not allow you to enable Object Lock extension
+
+If using minimal permissions with the credentials,
+`storage.objects.setRetention` permission is also required.

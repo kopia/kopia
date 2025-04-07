@@ -12,10 +12,12 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/virtualfs"
+	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 const (
@@ -87,6 +89,7 @@ type commandSnapshotCreate struct {
 	snapshotCreateTags                    []string
 	flushPerSource                        bool
 	sourceOverride                        string
+	sendSnapshotReport                    bool
 
 	pins []string
 
@@ -118,6 +121,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("pin", "Create a pinned snapshot that will not expire automatically").StringsVar(&c.pins)
 	cmd.Flag("flush-per-source", "Flush writes at the end of each source").Hidden().BoolVar(&c.flushPerSource)
 	cmd.Flag("override-source", "Override the source of the snapshot.").StringVar(&c.sourceOverride)
+	cmd.Flag("send-snapshot-report", "Send a snapshot report notification using configured notification profiles").Default("true").BoolVar(&c.sendSnapshotReport)
 
 	c.logDirDetail = -1
 	c.logEntryDetail = -1
@@ -174,9 +178,11 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		return err
 	}
 
+	var st notifydata.MultiSnapshotStatus
+
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
-			log(ctx).Infof("Upload canceled")
+			log(ctx).Info("Upload canceled")
 			break
 		}
 
@@ -185,9 +191,13 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 			finalErrors = append(finalErrors, fmt.Sprintf("failed to prepare source: %s", err))
 		}
 
-		if err := c.snapshotSingleSource(ctx, fsEntry, setManual, rep, u, sourceInfo, tags); err != nil {
+		if err := c.snapshotSingleSource(ctx, fsEntry, setManual, rep, u, sourceInfo, tags, &st); err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
+	}
+
+	if c.sendSnapshotReport {
+		notification.Send(ctx, rep, "snapshot-report", st, notification.SeverityReport, c.svc.notificationTemplateOptions())
 	}
 
 	// ensure we flush at least once in the session to properly close all pending buffers,
@@ -252,9 +262,9 @@ func validateStartEndTime(st, et string) error {
 	return nil
 }
 
-func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
-	u := snapshotfs.NewUploader(rep)
-	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
+func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *upload.Uploader {
+	u := upload.NewUploader(rep)
+	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:mnd
 
 	if c.snapshotCreateForceEnableActions {
 		u.EnableActions = true
@@ -280,7 +290,7 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapsh
 		u.CheckpointInterval = interval
 	}
 
-	c.svc.onCtrlC(u.Cancel)
+	c.svc.onTerminate(u.Cancel)
 
 	u.ForceHashPercentage = c.snapshotCreateForceHash
 	u.ParallelUploads = c.snapshotCreateParallelUploads
@@ -306,27 +316,52 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 		startTime.After(endTime)
 }
 
-//nolint:gocyclo
-func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, fsEntry fs.Entry, setManual bool, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, tags map[string]string) error {
+//nolint:gocyclo,funlen
+func (c *commandSnapshotCreate) snapshotSingleSource(
+	ctx context.Context,
+	fsEntry fs.Entry,
+	setManual bool,
+	rep repo.RepositoryWriter,
+	u *upload.Uploader,
+	sourceInfo snapshot.SourceInfo,
+	tags map[string]string,
+	st *notifydata.MultiSnapshotStatus,
+) (finalErr error) {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
-	var err error
+	var mwe notifydata.ManifestWithError
 
-	previous, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
-	if err != nil {
-		return err
+	mwe.Manifest.Source = sourceInfo
+
+	st.Snapshots = append(st.Snapshots, &mwe)
+
+	defer func() {
+		if finalErr != nil {
+			mwe.Error = finalErr.Error()
+		}
+	}()
+
+	var previous []*snapshot.Manifest
+
+	previous, finalErr = findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
+	if finalErr != nil {
+		return finalErr
 	}
 
-	policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
-	if err != nil {
-		return errors.Wrap(err, "unable to get policy tree")
+	if len(previous) > 0 {
+		mwe.Previous = previous[0]
 	}
 
-	manifest, err := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)
-	if err != nil {
+	policyTree, finalErr := policy.TreeForSource(ctx, rep, sourceInfo)
+	if finalErr != nil {
+		return errors.Wrap(finalErr, "unable to get policy tree")
+	}
+
+	manifest, finalErr := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)
+	if finalErr != nil {
 		// fail-fast uploads will fail here without recording a manifest, other uploads will
 		// possibly fail later.
-		return errors.Wrap(err, "upload error")
+		return errors.Wrap(finalErr, "upload error")
 	}
 
 	manifest.Description = c.snapshotCreateDescription
@@ -355,25 +390,27 @@ func (c *commandSnapshotCreate) snapshotSingleSource(ctx context.Context, fsEntr
 		manifest.EndTime = fs.UTCTimestampFromTime(endTimeOverride)
 	}
 
+	mwe.Manifest = *manifest
+
 	ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
 	if ignoreIdenticalSnapshot && len(previous) > 0 {
 		if previous[0].RootObjectID() == manifest.RootObjectID() {
-			log(ctx).Infof("\n Not saving snapshot because no files have been changed since previous snapshot")
+			log(ctx).Info("\n Not saving snapshot because no files have been changed since previous snapshot")
 			return nil
 		}
 	}
 
-	if _, err = snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {
-		return errors.Wrap(err, "cannot save manifest")
+	if _, finalErr = snapshot.SaveSnapshot(ctx, rep, manifest); finalErr != nil {
+		return errors.Wrap(finalErr, "cannot save manifest")
 	}
 
-	if _, err = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true); err != nil {
-		return errors.Wrap(err, "unable to apply retention policy")
+	if _, finalErr = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true); finalErr != nil {
+		return errors.Wrap(finalErr, "unable to apply retention policy")
 	}
 
 	if setManual {
-		if err = policy.SetManual(ctx, rep, sourceInfo); err != nil {
-			return errors.Wrap(err, "unable to set manual field in scheduling policy for source")
+		if finalErr = policy.SetManual(ctx, rep, sourceInfo); finalErr != nil {
+			return errors.Wrap(finalErr, "unable to set manual field in scheduling policy for source")
 		}
 	}
 
@@ -510,7 +547,6 @@ func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir st
 
 	if c.sourceOverride != "" {
 		info, err = parseFullSource(c.sourceOverride, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
-
 		if err != nil {
 			return nil, info, false, errors.Wrapf(err, "invalid source override %v", c.sourceOverride)
 		}

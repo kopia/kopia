@@ -30,8 +30,8 @@ func (c *commandACLAdd) run(ctx context.Context, rep repo.RepositoryWriter) erro
 	r := acl.TargetRule{}
 
 	for _, v := range strings.Split(c.target, ",") {
-		parts := strings.SplitN(v, "=", 2) //nolint:gomnd
-		if len(parts) != 2 {               //nolint:gomnd
+		parts := strings.SplitN(v, "=", 2) //nolint:mnd
+		if len(parts) != 2 {               //nolint:mnd
 			return errors.Errorf("invalid target labels %q, must be key=value", v)
 		}
 

@@ -23,14 +23,14 @@ func mustFindMetric(t *testing.T, wantName string, wantType io_prometheus_client
 			continue
 		}
 
-		for _, l := range f.Metric {
-			if len(l.Label) != len(wantLabels) {
+		for _, l := range f.GetMetric() {
+			if len(l.GetLabel()) != len(wantLabels) {
 				continue
 			}
 
 			found := true
 
-			for _, lab := range l.Label {
+			for _, lab := range l.GetLabel() {
 				if wantLabels[lab.GetName()] != lab.GetValue() {
 					found = false
 				}
@@ -43,8 +43,8 @@ func mustFindMetric(t *testing.T, wantName string, wantType io_prometheus_client
 	}
 
 	for _, f := range mf {
-		for _, l := range f.Metric {
-			t.Logf("  %v %v %v", f.GetName(), f.GetType(), l.Label)
+		for _, l := range f.GetMetric() {
+			t.Logf("  %v %v %v", f.GetName(), f.GetType(), l.GetLabel())
 		}
 	}
 

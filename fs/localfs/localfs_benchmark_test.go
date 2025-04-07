@@ -47,7 +47,7 @@ func benchmarkReadDirWithCount(b *testing.B, fileCount int) {
 
 	td := b.TempDir()
 
-	for i := 0; i < fileCount; i++ {
+	for range fileCount {
 		os.WriteFile(filepath.Join(td, uuid.NewString()), []byte{1, 2, 3, 4}, 0o644)
 	}
 
@@ -55,9 +55,9 @@ func benchmarkReadDirWithCount(b *testing.B, fileCount int) {
 
 	ctx := context.Background()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		dir, _ := localfs.Directory(td)
-		dir.IterateEntries(ctx, func(context.Context, fs.Entry) error {
+		fs.IterateEntries(ctx, dir, func(context.Context, fs.Entry) error {
 			return nil
 		})
 	}

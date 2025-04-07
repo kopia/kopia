@@ -123,7 +123,7 @@ func TestThrottling(t *testing.T) {
 	m.Reset()
 
 	_, err := wrapped.GetMetadata(ctx, "blob1")
-	require.NoError(t, err, blob.ErrBlobNotFound)
+	require.NoError(t, err)
 	require.Equal(t, []string{
 		"BeforeOperation(GetMetadata)",
 		"inner.GetMetadata",

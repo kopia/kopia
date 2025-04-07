@@ -132,12 +132,12 @@ func boolOpt(key string, val bool) Options {
 	return Options{key: strconv.Itoa(0)}
 }
 
-func rangeOpt(key string, min, max int) Options {
-	if min > max {
-		min, max = max, min
+func rangeOpt(key string, minValue, maxValue int) Options {
+	if minValue > maxValue {
+		minValue, maxValue = maxValue, minValue
 	}
 
 	return Options{
-		key: fmt.Sprintf("%d%s%d", min, RangeDelimFio, max),
+		key: fmt.Sprintf("%d%s%d", minValue, RangeDelimFio, maxValue),
 	}
 }

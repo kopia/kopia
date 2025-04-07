@@ -21,12 +21,14 @@ import (
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/mount"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/scheduler"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
+	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/notifydata"
+	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
@@ -85,6 +87,9 @@ type Server struct {
 	// +checklocks:parallelSnapshotsMutex
 	maxParallelSnapshots int
 
+	// +checklocks:parallelSnapshotsMutex
+	pendingMultiSnapshotStatus notifydata.MultiSnapshotStatus
+
 	// +checklocks:serverMutex
 	rep repo.Repository
 	// +checklocks:serverMutex
@@ -103,7 +108,9 @@ type Server struct {
 	// +checklocks:serverMutex
 	sched *scheduler.Scheduler
 
-	// +checklocks:serverMutex
+	nextRefreshTimeLock sync.Mutex
+
+	// +checklocks:nextRefreshTimeLock
 	nextRefreshTime time.Time
 
 	grpcServerState
@@ -157,23 +164,13 @@ func (s *Server) SetupHTMLUIAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/tasks/{taskID}", s.handleUIPossiblyNotConnected(handleTaskInfo)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/tasks/{taskID}/logs", s.handleUIPossiblyNotConnected(handleTaskLogs)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/tasks/{taskID}/cancel", s.handleUIPossiblyNotConnected(handleTaskCancel)).Methods(http.MethodPost)
-}
 
-// SetupRepositoryAPIHandlers registers HTTP repository API handlers.
-func (s *Server) SetupRepositoryAPIHandlers(m *mux.Router) {
-	m.HandleFunc("/api/v1/flush", s.handleRepositoryAPI(anyAuthenticatedUser, handleFlush)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/repo/parameters", s.handleRepositoryAPI(anyAuthenticatedUser, handleRepoParameters)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/notificationProfiles", s.handleUI(handleNotificationProfileCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/notificationProfiles/{profileName}", s.handleUI(handleNotificationProfileDelete)).Methods(http.MethodDelete)
+	m.HandleFunc("/api/v1/notificationProfiles/{profileName}", s.handleUI(handleNotificationProfileGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/notificationProfiles", s.handleUI(handleNotificationProfileList)).Methods(http.MethodGet)
 
-	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), handleContentInfo)).Methods(http.MethodGet).Queries("info", "1")
-	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), handleContentGet)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/contents/{contentID}", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelAppend), handleContentPut)).Methods(http.MethodPut)
-	m.HandleFunc("/api/v1/contents/prefetch", s.handleRepositoryAPI(requireContentAccess(auth.AccessLevelRead), handleContentPrefetch)).Methods(http.MethodPost)
-
-	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestGet)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestDelete)).Methods(http.MethodDelete)
-	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestCreate)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/manifests", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleManifestList)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/policies/apply-retention", s.handleRepositoryAPI(handlerWillCheckAuthorization, handleApplyRetentionPolicy)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/testNotificationProfile", s.handleUI(handleNotificationProfileTest)).Methods(http.MethodPost)
 }
 
 // SetupControlAPIHandlers registers control API handlers.
@@ -192,7 +189,11 @@ func (s *Server) SetupControlAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/control/throttle", s.handleServerControlAPI(handleRepoSetThrottle)).Methods(http.MethodPut)
 }
 
-func isAuthenticated(rc requestContext) bool {
+func (s *Server) rootContext() context.Context {
+	return s.rootctx
+}
+
+func (s *Server) isAuthenticated(rc requestContext) bool {
 	authn := rc.srv.getAuthenticator()
 	if authn == nil {
 		return true
@@ -218,6 +219,9 @@ func isAuthenticated(rc requestContext) bool {
 		rc.w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
 		http.Error(rc.w, "Access denied.\n", http.StatusUnauthorized)
 
+		// Log failed authentication attempt
+		log(rc.req.Context()).Warnf("failed login attempt by client %s for user %s", rc.req.RemoteAddr, username)
+
 		return false
 	}
 
@@ -233,13 +237,18 @@ func isAuthenticated(rc requestContext) bool {
 			Expires: now.Add(kopiaAuthCookieTTL),
 			Path:    "/",
 		})
+
+		if s.options.LogRequests {
+			// Log successful authentication
+			log(rc.req.Context()).Infof("successful login by client %s for user %s", rc.req.RemoteAddr, username)
+		}
 	}
 
 	return true
 }
 
 func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
-	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
+	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.RegisteredClaims{}, func(_ *jwt.Token) (interface{}, error) {
 		return s.authCookieSigningKey, nil
 	})
 	if err != nil {
@@ -268,8 +277,8 @@ func (s *Server) generateShortTermAuthCookie(username string, now time.Time) (st
 }
 
 func (s *Server) captureRequestContext(w http.ResponseWriter, r *http.Request) requestContext {
-	s.serverMutex.Lock()
-	defer s.serverMutex.Unlock()
+	s.serverMutex.RLock()
+	defer s.serverMutex.RUnlock()
 
 	return requestContext{
 		w:   w,
@@ -300,7 +309,7 @@ func (s *Server) requireAuth(checkCSRFToken csrfTokenOption, f func(ctx context.
 		rc := s.captureRequestContext(w, r)
 
 		//nolint:contextcheck
-		if !isAuthenticated(rc) {
+		if !s.isAuthenticated(rc) {
 			return
 		}
 
@@ -313,18 +322,6 @@ func (s *Server) requireAuth(checkCSRFToken csrfTokenOption, f func(ctx context.
 
 		f(r.Context(), rc)
 	}
-}
-
-func httpAuthorizationInfo(ctx context.Context, rc requestContext) auth.AuthorizationInfo {
-	// authentication already done
-	userAtHost, _, _ := rc.req.BasicAuth()
-
-	authz := rc.srv.getAuthorizer().Authorize(ctx, rc.rep, userAtHost)
-	if authz == nil {
-		authz = auth.NoAccess()
-	}
-
-	return authz
 }
 
 type isAuthorizedFunc func(ctx context.Context, rc requestContext) bool
@@ -341,16 +338,6 @@ func (s *Server) handleServerControlAPI(f apiRequestFunc) http.HandlerFunc {
 
 func (s *Server) handleServerControlAPIPossiblyNotConnected(f apiRequestFunc) http.HandlerFunc {
 	return s.handleRequestPossiblyNotConnected(requireServerControlUser, csrfTokenNotRequired, func(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-		return f(ctx, rc)
-	})
-}
-
-func (s *Server) handleRepositoryAPI(isAuthorized isAuthorizedFunc, f apiRequestFunc) http.HandlerFunc {
-	return s.handleRequestPossiblyNotConnected(isAuthorized, csrfTokenNotRequired, func(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-		if rc.rep == nil {
-			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
-		}
-
 		return f(ctx, rc)
 	})
 }
@@ -379,6 +366,7 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 			http.Error(rc.w, "error reading request body", http.StatusInternalServerError)
 			return
 		}
+
 		rc.body = body
 
 		if s.options.LogRequests {
@@ -390,13 +378,15 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 		e := json.NewEncoder(rc.w)
 		e.SetIndent("", "  ")
 
-		var v interface{}
-		var err *apiError
+		var (
+			v   any
+			err *apiError
+		)
 
 		// process the request while ignoring the cancellation signal
 		// to ensure all goroutines started by it won't be canceled
 		// when the request finishes.
-		ctx = ctxutil.Detach(ctx)
+		ctx = context.WithoutCancel(ctx)
 
 		if isAuthorized(ctx, rc) {
 			v, err = f(ctx, rc)
@@ -433,9 +423,9 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 
 func (s *Server) refreshAsync() {
 	// prevent refresh from being runnable.
-	s.serverMutex.Lock()
+	s.nextRefreshTimeLock.Lock()
 	s.nextRefreshTime = clock.Now().Add(s.options.RefreshInterval)
-	s.serverMutex.Unlock()
+	s.nextRefreshTimeLock.Unlock()
 
 	go s.Refresh()
 }
@@ -458,7 +448,9 @@ func (s *Server) refreshLocked(ctx context.Context) error {
 		return nil
 	}
 
+	s.nextRefreshTimeLock.Lock()
 	s.nextRefreshTime = clock.Now().Add(s.options.RefreshInterval)
+	s.nextRefreshTimeLock.Unlock()
 
 	if err := s.rep.Refresh(ctx); err != nil {
 		return errors.Wrap(err, "unable to refresh repository")
@@ -506,7 +498,7 @@ func handleFlush(ctx context.Context, rc requestContext) (interface{}, *apiError
 }
 
 func handleShutdown(ctx context.Context, rc requestContext) (interface{}, *apiError) {
-	log(ctx).Infof("shutting down due to API request")
+	log(ctx).Info("shutting down due to API request")
 
 	rc.srv.requestShutdown(ctx)
 
@@ -523,11 +515,11 @@ func (s *Server) requestShutdown(ctx context.Context) {
 	}
 }
 
-func (s *Server) setMaxParallelSnapshotsLocked(max int) {
+func (s *Server) setMaxParallelSnapshotsLocked(maxParallel int) {
 	s.parallelSnapshotsMutex.Lock()
 	defer s.parallelSnapshotsMutex.Unlock()
 
-	s.maxParallelSnapshots = max
+	s.maxParallelSnapshots = maxParallel
 	s.parallelSnapshotsChanged.Broadcast()
 }
 
@@ -551,7 +543,7 @@ func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) bool 
 	return true
 }
 
-func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
+func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo, mwe *notifydata.ManifestWithError) {
 	s.parallelSnapshotsMutex.Lock()
 	defer s.parallelSnapshotsMutex.Unlock()
 
@@ -559,8 +551,37 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 
 	s.currentParallelSnapshots--
 
+	s.pendingMultiSnapshotStatus.Snapshots = append(s.pendingMultiSnapshotStatus.Snapshots, mwe)
+
+	// send a single snapshot report when last parallel snapshot completes.
+	if s.currentParallelSnapshots == 0 {
+		go s.sendSnapshotReport(s.pendingMultiSnapshotStatus)
+
+		s.pendingMultiSnapshotStatus.Snapshots = nil
+	}
+
 	// notify one of the waiters
 	s.parallelSnapshotsChanged.Signal()
+}
+
+func (s *Server) sendSnapshotReport(st notifydata.MultiSnapshotStatus) {
+	s.serverMutex.Lock()
+	rep := s.rep
+	s.serverMutex.Unlock()
+
+	// send the notification without blocking if we still have the repository
+	// it's possible that repository was closed in the meantime.
+	if rep != nil {
+		notification.Send(s.rootctx, rep, "snapshot-report", st, notification.SeverityReport, s.notificationTemplateOptions())
+	}
+}
+
+func (s *Server) enableErrorNotifications() bool {
+	return s.options.EnableErrorNotifications
+}
+
+func (s *Server) notificationTemplateOptions() notifytemplate.Options {
+	return s.options.NotifyTemplateOptions
 }
 
 // SetRepository sets the repository (nil is allowed and indicates server that is not
@@ -575,15 +596,18 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 	}
 
 	if s.rep != nil {
-		s.sched.Stop()
+		// stop previous scheduler asynchronously to avoid deadlock when
+		// scheduler is inside s.getSchedulerItems which needs a lock, which we're holding right now.
+		go s.sched.Stop()
+
 		s.sched = nil
 
 		s.unmountAllLocked(ctx)
 
 		// close previous source managers
-		log(ctx).Debugf("stopping all source managers")
+		log(ctx).Debug("stopping all source managers")
 		s.stopAllSourceManagersLocked(ctx)
-		log(ctx).Debugf("stopped all source managers")
+		log(ctx).Debug("stopped all source managers")
 
 		if err := s.rep.Close(ctx); err != nil {
 			return errors.Wrap(err, "unable to close previous repository")
@@ -608,13 +632,9 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 		return err
 	}
 
-	if dr, ok := s.rep.(repo.DirectRepository); ok {
-		s.maint = startMaintenanceManager(ctx, dr, s, s.options.MinMaintenanceInterval)
-	} else {
-		s.maint = nil
-	}
+	s.maint = maybeStartMaintenanceManager(ctx, s.rep, s, s.options.MinMaintenanceInterval)
 
-	s.sched = scheduler.Start(ctxutil.Detach(ctx), s.getSchedulerItems, scheduler.Options{
+	s.sched = scheduler.Start(context.WithoutCancel(ctx), s.getSchedulerItems, scheduler.Options{
 		TimeNow:        clock.Now,
 		Debug:          s.options.DebugScheduler,
 		RefreshChannel: s.schedulerRefresh,
@@ -773,7 +793,7 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 		rc := s.captureRequestContext(w, r)
 
 		//nolint:contextcheck
-		if !isAuthenticated(rc) {
+		if !s.isAuthenticated(rc) {
 			return
 		}
 
@@ -800,6 +820,7 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 			}
 
 			http.ServeContent(w, r, "/", clock.Now(), bytes.NewReader(s.patchIndexBytes(sessionID, indexBytes)))
+
 			return
 		}
 
@@ -809,23 +830,25 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 
 // Options encompasses all API server options.
 type Options struct {
-	ConfigFile             string
-	ConnectOptions         *repo.ConnectOptions
-	RefreshInterval        time.Duration
-	MaxConcurrency         int
-	Authenticator          auth.Authenticator
-	Authorizer             auth.Authorizer
-	PasswordPersist        passwordpersist.Strategy
-	AuthCookieSigningKey   string
-	LogRequests            bool
-	UIUser                 string // name of the user allowed to access the UI API
-	UIPreferencesFile      string // name of the JSON file storing UI preferences
-	ServerControlUser      string // name of the user allowed to access the server control API
-	DisableCSRFTokenChecks bool
-	PersistentLogs         bool
-	UITitlePrefix          string
-	DebugScheduler         bool
-	MinMaintenanceInterval time.Duration
+	ConfigFile               string
+	ConnectOptions           *repo.ConnectOptions
+	RefreshInterval          time.Duration
+	MaxConcurrency           int
+	Authenticator            auth.Authenticator
+	Authorizer               auth.Authorizer
+	PasswordPersist          passwordpersist.Strategy
+	AuthCookieSigningKey     string
+	LogRequests              bool
+	UIUser                   string // name of the user allowed to access the UI API
+	UIPreferencesFile        string // name of the JSON file storing UI preferences
+	ServerControlUser        string // name of the user allowed to access the server control API
+	DisableCSRFTokenChecks   bool
+	PersistentLogs           bool
+	UITitlePrefix            string
+	DebugScheduler           bool
+	MinMaintenanceInterval   time.Duration
+	EnableErrorNotifications bool
+	NotifyTemplateOptions    notifytemplate.Options
 }
 
 // InitRepositoryFunc is a function that attempts to connect to/open repository.
@@ -876,7 +899,7 @@ func (s *Server) InitRepositoryAsync(ctx context.Context, mode string, initializ
 
 		if cctx.Err() != nil {
 			// context canceled
-			return errors.Errorf("operation has been canceled")
+			return errors.New("operation has been canceled")
 		}
 
 		if err != nil {
@@ -884,7 +907,7 @@ func (s *Server) InitRepositoryAsync(ctx context.Context, mode string, initializ
 		}
 
 		if rep == nil {
-			log(ctx).Infof("Repository not configured.")
+			log(ctx).Info("Repository not configured.")
 		}
 
 		if err = s.SetRepository(ctx, rep); err != nil {
@@ -926,7 +949,6 @@ func RetryInitRepository(initialize InitRepositoryFunc) InitRepositoryFunc {
 			log(ctx).Warnf("unable to open repository: %v, will keep trying until canceled. Sleeping for %v", rerr, nextSleepTime)
 
 			if !clock.SleepInterruptibly(ctx, nextSleepTime) {
-				//nolint:wrapcheck
 				return nil, ctx.Err()
 			}
 
@@ -938,29 +960,35 @@ func RetryInitRepository(initialize InitRepositoryFunc) InitRepositoryFunc {
 	}
 }
 
-func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, inner func(ctx context.Context, ctrl uitask.Controller) error) error {
+func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, inner func(ctx context.Context, ctrl uitask.Controller, result *notifydata.ManifestWithError) error) error {
 	if !s.beginUpload(ctx, src) {
 		return nil
 	}
 
-	defer s.endUpload(ctx, src)
+	var result notifydata.ManifestWithError
+	result.Manifest.Source = src
 
-	return errors.Wrap(s.taskmgr.Run(
+	defer s.endUpload(ctx, src, &result)
+
+	err := errors.Wrap(s.taskmgr.Run(
 		ctx,
 		"Snapshot",
 		fmt.Sprintf("%v at %v", src, clock.Now().Format(time.RFC3339)),
 		func(ctx context.Context, ctrl uitask.Controller) error {
-			return inner(ctx, ctrl)
+			return inner(ctx, ctrl, &result)
 		}), "snapshot task")
+	if err != nil {
+		result.Error = err.Error()
+	}
+
+	return err
 }
 
 func (s *Server) runMaintenanceTask(ctx context.Context, dr repo.DirectRepository) error {
 	return errors.Wrap(s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
-		//nolint:wrapcheck
 		return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 			Purpose: "periodicMaintenance",
 		}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
-			//nolint:wrapcheck
 			return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 		})
 	}), "unable to run maintenance")
@@ -1021,11 +1049,15 @@ func (s *Server) getSchedulerItems(ctx context.Context, now time.Time) []schedul
 
 	var result []scheduler.Item
 
+	s.nextRefreshTimeLock.Lock()
+	nrt := s.nextRefreshTime
+	s.nextRefreshTimeLock.Unlock()
+
 	// add a scheduled item to refresh all sources and policies
 	result = append(result, scheduler.Item{
 		Description: "refresh",
 		Trigger:     s.refreshAsync,
-		NextTime:    s.nextRefreshTime,
+		NextTime:    nrt,
 	})
 
 	if s.maint != nil {
@@ -1071,11 +1103,11 @@ func (s *Server) refreshScheduler(reason string) {
 // The server will manage sources for a given username@hostname.
 func New(ctx context.Context, options *Options) (*Server, error) {
 	if options.Authorizer == nil {
-		return nil, errors.Errorf("missing authorizer")
+		return nil, errors.New("missing authorizer")
 	}
 
 	if options.PasswordPersist == nil {
-		return nil, errors.Errorf("missing password persistence")
+		return nil, errors.New("missing password persistence")
 	}
 
 	if options.AuthCookieSigningKey == "" {

@@ -19,11 +19,14 @@ type commandPolicySet struct {
 
 	policyActionFlags
 	policyCompressionFlags
+	policyMetadataCompressionFlags
+	policySplitterFlags
 	policyErrorFlags
 	policyFilesFlags
 	policyLoggingFlags
 	policyRetentionFlags
 	policySchedulingFlags
+	policyOSSnapshotFlags
 	policyUploadFlags
 }
 
@@ -34,11 +37,14 @@ func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
 
 	c.policyActionFlags.setup(cmd)
 	c.policyCompressionFlags.setup(cmd)
+	c.policyMetadataCompressionFlags.setup(cmd)
+	c.policySplitterFlags.setup(cmd)
 	c.policyErrorFlags.setup(cmd)
 	c.policyFilesFlags.setup(cmd)
 	c.policyLoggingFlags.setup(cmd)
 	c.policyRetentionFlags.setup(cmd)
 	c.policySchedulingFlags.setup(cmd)
+	c.policyOSSnapshotFlags.setup(cmd)
 	c.policyUploadFlags.setup(cmd)
 
 	cmd.Action(svc.repositoryWriterAction(c.run))
@@ -104,12 +110,24 @@ func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Pol
 		return errors.Wrap(err, "compression policy")
 	}
 
+	if err := c.setMetadataCompressionPolicyFromFlags(ctx, &p.MetadataCompressionPolicy, changeCount); err != nil {
+		return errors.Wrap(err, "metadata compression policy")
+	}
+
+	if err := c.setSplitterPolicyFromFlags(ctx, &p.SplitterPolicy, changeCount); err != nil {
+		return errors.Wrap(err, "splitter policy")
+	}
+
 	if err := c.setSchedulingPolicyFromFlags(ctx, &p.SchedulingPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "scheduling policy")
 	}
 
 	if err := c.setActionsFromFlags(ctx, &p.Actions, changeCount); err != nil {
 		return errors.Wrap(err, "actions policy")
+	}
+
+	if err := c.setOSSnapshotPolicyFromFlags(ctx, &p.OSSnapshotPolicy, changeCount); err != nil {
+		return errors.Wrap(err, "OS snapshot policy")
 	}
 
 	if err := c.setLoggingPolicyFromFlags(ctx, &p.LoggingPolicy, changeCount); err != nil {
@@ -130,8 +148,8 @@ func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Pol
 	return nil
 }
 
-func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add, remove []string, clear bool, changeCount *int) {
-	if clear {
+func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add, remove []string, clearList bool, changeCount *int) {
+	if clearList {
 		log(ctx).Infof(" - removing all from %q", desc)
 
 		*changeCount++
@@ -223,7 +241,7 @@ func applyOptionalInt64MiB(ctx context.Context, desc string, val **policy.Option
 	}
 
 	// convert MiB to bytes
-	v *= 1 << 20 //nolint:gomnd
+	v *= 1 << 20 //nolint:mnd
 
 	i := policy.OptionalInt64(v)
 	*changeCount++

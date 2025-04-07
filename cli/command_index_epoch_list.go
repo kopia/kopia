@@ -23,13 +23,13 @@ func (c *commandIndexEpochList) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandIndexEpochList) run(ctx context.Context, rep repo.DirectRepository) error {
-	emgr, ok, err := rep.ContentReader().EpochManager()
+	emgr, ok, err := rep.ContentReader().EpochManager(ctx)
 	if err != nil {
 		return errors.Wrap(err, "epoch manager")
 	}
 
 	if !ok {
-		return errors.Errorf("epoch manager is not active")
+		return errors.New("epoch manager is not active")
 	}
 
 	snap, err := emgr.Current(ctx)
@@ -50,16 +50,16 @@ func (c *commandIndexEpochList) run(ctx context.Context, rep repo.DirectReposito
 
 	for e := snap.WriteEpoch; e >= firstNonRangeCompacted; e-- {
 		if uces := snap.UncompactedEpochSets[e]; len(uces) > 0 {
-			min := blob.MinTimestamp(uces)
-			max := blob.MaxTimestamp(uces)
+			minTime := blob.MinTimestamp(uces)
+			maxTime := blob.MaxTimestamp(uces)
 
 			c.out.printStdout("%v %v ... %v, %v blobs, %v, span %v\n",
 				e,
-				formatTimestamp(min),
-				formatTimestamp(max),
+				formatTimestamp(minTime),
+				formatTimestamp(maxTime),
 				len(uces),
 				units.BytesString(blob.TotalLength(uces)),
-				max.Sub(min).Round(time.Second),
+				maxTime.Sub(minTime).Round(time.Second),
 			)
 		}
 

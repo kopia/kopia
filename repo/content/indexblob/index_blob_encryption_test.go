@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/blobcrypto"
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -40,7 +41,7 @@ func TestEncryptedBlobManager(t *testing.T) {
 
 	ebm := EncryptionManager{
 		st:             fs,
-		crypter:        staticCrypter{hf, enc},
+		crypter:        blobcrypto.StaticCrypter{Hash: hf, Encryption: enc},
 		indexBlobCache: nil,
 		log:            logging.NullLogger,
 	}
@@ -67,30 +68,17 @@ func TestEncryptedBlobManager(t *testing.T) {
 
 	require.ErrorIs(t, ebm.GetEncryptedBlob(ctx, "no-such-blob", &tmp), blob.ErrBlobNotFound)
 
-	someError := errors.Errorf("some error")
+	someError := errors.New("some error")
 
 	fs.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
 
 	_, err = ebm.EncryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
 	require.ErrorIs(t, err, someError)
 
-	someError2 := errors.Errorf("some error 2")
+	someError2 := errors.New("some error 2")
 
-	ebm.crypter = staticCrypter{hf, failingEncryptor{nil, someError2}}
+	ebm.crypter = blobcrypto.StaticCrypter{Hash: hf, Encryption: failingEncryptor{nil, someError2}}
 
 	_, err = ebm.EncryptAndWriteBlob(ctx, gather.FromSlice([]byte{1, 2, 3, 4}), "x", "session1")
 	require.ErrorIs(t, err, someError2)
-}
-
-type staticCrypter struct {
-	h hashing.HashFunc
-	e encryption.Encryptor
-}
-
-func (p staticCrypter) Encryptor() encryption.Encryptor {
-	return p.e
-}
-
-func (p staticCrypter) HashFunc() hashing.HashFunc {
-	return p.h
 }

@@ -72,14 +72,14 @@ func TestBeforeOpStoragePositive(t *testing.T) {
 	defer data.Close()
 
 	_ = r.GetBlob(testlogging.Context(t), "id", 0, 0, &data)
-	require.Equal(t, true, getBlobCbInvoked)
+	require.True(t, getBlobCbInvoked)
 
 	_ = r.PutBlob(testlogging.Context(t), "id", data.Bytes(), blob.PutOptions{})
-	require.Equal(t, true, putBlobCbInvoked)
+	require.True(t, putBlobCbInvoked)
 
 	_ = r.DeleteBlob(testlogging.Context(t), "id")
-	require.Equal(t, true, deleteBlobCbInvoked)
+	require.True(t, deleteBlobCbInvoked)
 
 	_, _ = r.GetMetadata(testlogging.Context(t), "id")
-	require.Equal(t, true, getBlobMetadataCbInvoked)
+	require.True(t, getBlobMetadataCbInvoked)
 }

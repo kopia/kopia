@@ -17,8 +17,8 @@ var (
 )
 
 func initCrypto(masterKey, salt []byte) (cipher.AEAD, []byte, error) {
-	aesKey := DeriveKeyFromMasterKey(masterKey, salt, purposeAESKey, 32)     //nolint:gomnd
-	authData := DeriveKeyFromMasterKey(masterKey, salt, purposeAuthData, 32) //nolint:gomnd
+	aesKey := DeriveKeyFromMasterKey(masterKey, salt, purposeAESKey, 32)     //nolint:mnd
+	authData := DeriveKeyFromMasterKey(masterKey, salt, purposeAuthData, 32) //nolint:mnd
 
 	blk, err := aes.NewCipher(aesKey)
 	if err != nil {
@@ -65,7 +65,7 @@ func DecryptAes256Gcm(data, masterKey, salt []byte) ([]byte, error) {
 
 	data = append([]byte(nil), data...)
 	if len(data) < aead.NonceSize() {
-		return nil, errors.Errorf("invalid encrypted payload, too short")
+		return nil, errors.New("invalid encrypted payload, too short")
 	}
 
 	nonce := data[0:aead.NonceSize()]
@@ -73,7 +73,7 @@ func DecryptAes256Gcm(data, masterKey, salt []byte) ([]byte, error) {
 
 	plainText, err := aead.Open(payload[:0], nonce, payload, authData)
 	if err != nil {
-		return nil, errors.Errorf("unable to decrypt repository blob, invalid credentials?")
+		return nil, errors.New("unable to decrypt repository blob, invalid credentials?")
 	}
 
 	return plainText, nil

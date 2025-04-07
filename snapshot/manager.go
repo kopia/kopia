@@ -23,7 +23,7 @@ const (
 )
 
 // ErrSnapshotNotFound is returned when a snapshot is not found.
-var ErrSnapshotNotFound = errors.Errorf("snapshot not found")
+var ErrSnapshotNotFound = errors.New("snapshot not found")
 
 const (
 	typeKey = manifest.TypeLabelKey
@@ -100,7 +100,7 @@ func LoadSnapshot(ctx context.Context, rep repo.Repository, manifestID manifest.
 	}
 
 	if em.Labels[manifest.TypeLabelKey] != ManifestType {
-		return nil, errors.Errorf("manifest is not a snapshot")
+		return nil, errors.New("manifest is not a snapshot")
 	}
 
 	sm.ID = manifestID
@@ -167,9 +167,10 @@ func LoadSnapshots(ctx context.Context, rep repo.Repository, manifestIDs []manif
 		}(i, n)
 	}
 
-	for i := 0; i < cap(sem); i++ {
+	for range cap(sem) {
 		sem <- true
 	}
+
 	close(sem)
 
 	successful := result[:0]

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 )
 
@@ -85,6 +87,7 @@ func (e *entry) Close() {
 type Directory struct {
 	entry
 
+	parent       *Directory
 	children     []fs.Entry
 	readdirError error
 	onReaddir    func()
@@ -134,6 +137,15 @@ func (imd *Directory) AddFileWithSource(name string, permissions os.FileMode, so
 	return file
 }
 
+func (imd *Directory) getRoot() *Directory {
+	root := imd
+	for root.parent != nil {
+		root = root.parent
+	}
+
+	return root
+}
+
 // AddSymlink adds a mock symlink with the specified name, target and permissions.
 func (imd *Directory) AddSymlink(name, target string, permissions os.FileMode) *Symlink {
 	imd, name = imd.resolveSubdir(name)
@@ -144,6 +156,7 @@ func (imd *Directory) AddSymlink(name, target string, permissions os.FileMode) *
 			size:    int64(len(target)),
 			modTime: DefaultModTime,
 		},
+		parent: imd,
 		target: target,
 	}
 
@@ -183,6 +196,7 @@ func (imd *Directory) AddDir(name string, permissions os.FileMode) *Directory {
 			mode:    permissions | os.ModeDir,
 			modTime: DefaultModTime,
 		},
+		parent: imd,
 	}
 
 	imd.addChild(subdir)
@@ -238,7 +252,14 @@ func (imd *Directory) addChild(e fs.Entry) {
 func (imd *Directory) resolveSubdir(name string) (parent *Directory, leaf string) {
 	parts := strings.Split(name, "/")
 	for _, n := range parts[0 : len(parts)-1] {
-		imd = imd.Subdir(n)
+		switch n {
+		case ".", "":
+			continue
+		case "..":
+			imd = imd.parent
+		default:
+			imd = imd.Subdir(n)
+		}
 	}
 
 	return imd, parts[len(parts)-1]
@@ -303,23 +324,17 @@ func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) 
 	return nil, fs.ErrEntryNotFound
 }
 
-// IterateEntries calls the given callback on each entry in the directory.
-func (imd *Directory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+// Iterate returns directory iterator.
+func (imd *Directory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	if imd.readdirError != nil {
-		return imd.readdirError
+		return nil, errors.Wrapf(imd.readdirError, "in mockfs Directory.Iterate on directory %s", imd.name)
 	}
 
 	if imd.onReaddir != nil {
 		imd.onReaddir()
 	}
 
-	for _, e := range append([]fs.Entry{}, imd.children...) {
-		if err := cb(ctx, e); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return fs.StaticIterator(append([]fs.Entry{}, imd.children...), nil), nil
 }
 
 // File is an in-memory fs.File capable of simulating failures.
@@ -362,7 +377,24 @@ func (imf *File) Open(ctx context.Context) (fs.Reader, error) {
 type Symlink struct {
 	entry
 
+	parent *Directory
 	target string
+}
+
+// Resolve implements fs.Symlink interface.
+func (imsl *Symlink) Resolve(ctx context.Context) (fs.Entry, error) {
+	dir := imsl.parent
+
+	// Mockfs uses Unix path separators
+	if imsl.target[0] == '/' {
+		// Absolute link
+		dir = dir.getRoot()
+	}
+
+	dir, name := dir.resolveSubdir(imsl.target)
+	target, err := dir.Child(ctx, name)
+
+	return target, err
 }
 
 // Readlink implements fs.Symlink interface.
@@ -375,7 +407,7 @@ func NewDirectory() *Directory {
 	return &Directory{
 		entry: entry{
 			name:    "<root>",
-			mode:    0o777 | os.ModeDir, //nolint:gomnd
+			mode:    0o777 | os.ModeDir, //nolint:mnd
 			modTime: DefaultModTime,
 		},
 	}

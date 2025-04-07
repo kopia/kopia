@@ -16,7 +16,7 @@ import (
 
 func TestStorageMetrics_PutBlob(t *testing.T) {
 	ctx := testlogging.Context(t)
-	someError := errors.Errorf("foo")
+	someError := errors.New("foo")
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
 
 	fs := blobtesting.NewFaultyStorage(st)
@@ -42,7 +42,7 @@ func TestStorageMetrics_PutBlob(t *testing.T) {
 
 func TestStorageMetrics_GetBlob(t *testing.T) {
 	ctx := testlogging.Context(t)
-	someError := errors.Errorf("foo")
+	someError := errors.New("foo")
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
 
 	require.NoError(t, st.PutBlob(ctx, "someBlob", gather.FromSlice([]byte{1, 2, 3, 4, 5}), blob.PutOptions{}))
@@ -84,7 +84,7 @@ func TestStorageMetrics_GetBlob(t *testing.T) {
 
 func TestStorageMetrics_GetMetadata(t *testing.T) {
 	ctx := testlogging.Context(t)
-	someError := errors.Errorf("foo")
+	someError := errors.New("foo")
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
 
 	require.NoError(t, st.PutBlob(ctx, "someBlob", gather.FromSlice([]byte{1, 2, 3, 4, 5}), blob.PutOptions{}))
@@ -116,7 +116,7 @@ func TestStorageMetrics_GetMetadata(t *testing.T) {
 
 func TestStorageMetrics_GetCapacity(t *testing.T) {
 	ctx := testlogging.Context(t)
-	someError := errors.Errorf("foo")
+	someError := errors.New("foo")
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
 
 	fs := blobtesting.NewFaultyStorage(st)
@@ -146,7 +146,7 @@ func TestStorageMetrics_GetCapacity(t *testing.T) {
 
 func TestStorageMetrics_DeleteBlob(t *testing.T) {
 	ctx := testlogging.Context(t)
-	someError := errors.Errorf("foo")
+	someError := errors.New("foo")
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
 
 	require.NoError(t, st.PutBlob(ctx, "someBlob", gather.FromSlice([]byte{1, 2, 3, 4, 5}), blob.PutOptions{}))
@@ -178,7 +178,7 @@ func TestStorageMetrics_DeleteBlob(t *testing.T) {
 
 func TestStorageMetrics_Close(t *testing.T) {
 	ctx := testlogging.Context(t)
-	someError := errors.Errorf("foo")
+	someError := errors.New("foo")
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
 
 	fs := blobtesting.NewFaultyStorage(st)
@@ -208,7 +208,7 @@ func TestStorageMetrics_Close(t *testing.T) {
 
 func TestStorageMetrics_FlushCaches(t *testing.T) {
 	ctx := testlogging.Context(t)
-	someError := errors.Errorf("foo")
+	someError := errors.New("foo")
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
 
 	fs := blobtesting.NewFaultyStorage(st)
@@ -238,7 +238,7 @@ func TestStorageMetrics_FlushCaches(t *testing.T) {
 
 func TestStorageMetrics_ListBlobs(t *testing.T) {
 	ctx := testlogging.Context(t)
-	someError := errors.Errorf("foo")
+	someError := errors.New("foo")
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
 	require.NoError(t, st.PutBlob(ctx, "someBlob1", gather.FromSlice([]byte{1, 2, 3, 4, 5}), blob.PutOptions{}))
 	require.NoError(t, st.PutBlob(ctx, "someBlob2", gather.FromSlice([]byte{1, 2, 3, 4, 5}), blob.PutOptions{}))

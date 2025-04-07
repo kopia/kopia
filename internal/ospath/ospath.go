@@ -31,7 +31,7 @@ func IsAbs(s string) bool {
 		if strings.HasPrefix(s, "\\\\") {
 			parts := strings.Split(s[2:], "\\")
 
-			return len(parts) > 1 && len(parts[1]) > 0
+			return len(parts) > 1 && parts[1] != ""
 		}
 	}
 

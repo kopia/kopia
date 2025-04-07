@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -27,10 +28,8 @@ func TestFormatters(t *testing.T) {
 	h0 := sha1.Sum(data)
 
 	for _, hashAlgo := range hashing.SupportedAlgorithms() {
-		hashAlgo := hashAlgo
 		t.Run(hashAlgo, func(t *testing.T) {
 			for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
-				encryptionAlgo := encryptionAlgo
 				t.Run(encryptionAlgo, func(t *testing.T) {
 					ctx := testlogging.Context(t)
 
@@ -142,7 +141,7 @@ func mustCreateFormatProvider(t *testing.T, f *format.ContentFormat) format.Prov
 	t.Helper()
 
 	fop, err := format.NewFormattingOptionsProvider(f, nil)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	return fop
 }

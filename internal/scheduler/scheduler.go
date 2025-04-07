@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -66,7 +65,7 @@ func Start(ctx context.Context, getItems GetItemsFunc, opts Options) *Scheduler 
 	go func() {
 		defer s.wg.Done()
 
-		s.run(ctxutil.Detach(ctx))
+		s.run(context.WithoutCancel(ctx))
 	}()
 
 	return s

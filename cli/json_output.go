@@ -7,7 +7,6 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -54,8 +53,6 @@ func (c *jsonOutput) cleanupSnapshotManifestListForJSON(manifests []*snapshot.Ma
 
 func (c *jsonOutput) cleanupForJSON(v interface{}) interface{} {
 	switch v := v.(type) {
-	case content.Info:
-		return content.ToInfoStruct(v)
 	case *snapshot.Manifest:
 		return c.cleanupSnapshotManifestForJSON(v)
 	case []*snapshot.Manifest:
@@ -99,7 +96,7 @@ func (l *jsonList) begin(o *jsonOutput) {
 	l.o = o
 
 	if o.jsonOutput {
-		fmt.Fprintf(l.o.out, "[")
+		fmt.Fprint(l.o.out, "[") //nolint:errcheck
 
 		if !o.jsonIndent {
 			l.separator = "\n "
@@ -110,16 +107,15 @@ func (l *jsonList) begin(o *jsonOutput) {
 func (l *jsonList) end() {
 	if l.o.jsonOutput {
 		if !l.o.jsonIndent {
-			fmt.Fprintf(l.o.out, "\n")
+			fmt.Fprint(l.o.out, "\n") //nolint:errcheck
 		}
 
-		fmt.Fprintf(l.o.out, "]")
+		fmt.Fprint(l.o.out, "]") //nolint:errcheck
 	}
 }
 
 func (l *jsonList) emit(v interface{}) {
-	fmt.Fprintf(l.o.out, l.separator)
-	fmt.Fprintf(l.o.out, "%s", l.o.jsonBytes(v))
+	fmt.Fprintf(l.o.out, "%s%s", l.separator, l.o.jsonBytes(v)) //nolint:errcheck
 
 	if l.o.jsonIndent {
 		l.separator = ","

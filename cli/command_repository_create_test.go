@@ -32,13 +32,13 @@ func TestRepositoryCreateWithConfigFile(t *testing.T) {
 		Config: filesystem.Options{Path: env.RepoDir},
 	}
 	token, err := repo.EncodeToken("12345678", ci)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// expect failure before writing to file
 	_, stderr = env.RunAndExpectFailure(t, "repo", "create", "from-config", "--token-file", storageCfgFName)
 	require.Contains(t, strings.Join(stderr, "\n"), "can't connect to storage: unable to open token file")
 
-	require.Nil(t, os.WriteFile(storageCfgFName, []byte(token), 0o600))
+	require.NoError(t, os.WriteFile(storageCfgFName, []byte(token), 0o600))
 
 	defer os.Remove(storageCfgFName) //nolint:errcheck,gosec
 
@@ -54,7 +54,7 @@ func TestRepositoryCreateWithConfigFromStdin(t *testing.T) {
 		Config: filesystem.Options{Path: env.RepoDir},
 	}
 	token, err := repo.EncodeToken("12345678", ci)
-	require.Nil(t, err)
+	require.NoError(t, err)
 
 	// set stdin
 	runner.SetNextStdin(strings.NewReader(token))

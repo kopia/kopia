@@ -54,9 +54,22 @@ func (c *commandList) run(ctx context.Context, rep repo.Repository) error {
 }
 
 func (c *commandList) listDirectory(ctx context.Context, d fs.Directory, prefix, indent string) error {
-	if err := d.IterateEntries(ctx, func(innerCtx context.Context, e fs.Entry) error {
-		return c.printDirectoryEntry(innerCtx, e, prefix, indent)
-	}); err != nil {
+	iter, err := d.Iterate(ctx)
+	if err != nil {
+		return err //nolint:wrapcheck
+	}
+	defer iter.Close()
+
+	e, err := iter.Next(ctx)
+	for e != nil {
+		if err2 := c.printDirectoryEntry(ctx, e, prefix, indent); err2 != nil {
+			return err2
+		}
+
+		e, err = iter.Next(ctx)
+	}
+
+	if err != nil {
 		return err //nolint:wrapcheck
 	}
 
@@ -76,7 +89,7 @@ func (c *commandList) listDirectory(ctx context.Context, d fs.Directory, prefix,
 func (c *commandList) printDirectoryEntry(ctx context.Context, e fs.Entry, prefix, indent string) error {
 	hoid, ok := e.(object.HasObjectID)
 	if !ok {
-		return errors.Errorf("entry without object ID")
+		return errors.New("entry without object ID")
 	}
 
 	objectID := hoid.ObjectID()

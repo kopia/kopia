@@ -3,7 +3,7 @@ package metricid
 
 // Counters contains a mapping of counter names to ID.
 //
-//nolint:gochecknoglobals,gomnd
+//nolint:gochecknoglobals,mnd
 var Counters = NewMapping(map[string]int{
 	"blob_download_full_blob_bytes":                1,
 	"blob_download_partial_blob_bytes":             2,
@@ -45,7 +45,7 @@ var Counters = NewMapping(map[string]int{
 
 // DurationDistributions contains a mapping of DurationDistribution names to ID.
 //
-//nolint:gochecknoglobals,gomnd
+//nolint:gochecknoglobals,mnd
 var DurationDistributions = NewMapping(map[string]int{
 	"blob_storage_latency[method:Close]":           1,
 	"blob_storage_latency[method:DeleteBlob]":      2,

@@ -286,8 +286,6 @@ func TestSnapshotFix(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.name, func(t *testing.T) {
 			runner := testenv.NewInProcRunner(t)
 			env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
@@ -386,14 +384,14 @@ func forgetContents(t *testing.T, env *testenv.CLITest, contentIDs ...string) {
 	env.RunAndExpectSuccess(t, append([]string{"blob", "rm"}, blobIDs...)...)
 }
 
-func mustGetContentMap(t *testing.T, env *testenv.CLITest) map[content.ID]content.InfoStruct {
+func mustGetContentMap(t *testing.T, env *testenv.CLITest) map[content.ID]content.Info {
 	t.Helper()
 
-	var contents1 []content.InfoStruct
+	var contents1 []content.Info
 
 	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "content", "ls", "--json"), &contents1)
 
-	contentMap := map[content.ID]content.InfoStruct{}
+	contentMap := map[content.ID]content.Info{}
 	for _, v := range contents1 {
 		contentMap[v.ContentID] = v
 	}
@@ -434,7 +432,7 @@ func mustWriteFileWithRepeatedData(t *testing.T, fname string, repeat int, data 
 
 	defer f.Close()
 
-	for i := 0; i < repeat; i++ {
+	for range repeat {
 		_, err := f.Write(data)
 		require.NoError(t, err)
 	}

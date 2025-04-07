@@ -22,6 +22,49 @@ type fileEnt struct {
 	isFile bool
 }
 
+func TestSymlink(t *testing.T) {
+	tmp := testutil.TempDirectory(t)
+
+	fn := filepath.Join(tmp, "target")
+	absLink := filepath.Join(tmp, "abslink")
+	relLink := filepath.Join(tmp, "rellink")
+
+	assertNoError(t, os.WriteFile(fn, []byte{1, 2, 3}, 0o777))
+	assertNoError(t, os.Symlink(fn, absLink))
+	assertNoError(t, os.Symlink("./target", relLink))
+
+	verifyLink(t, absLink, fn)
+	verifyLink(t, relLink, fn)
+}
+
+func verifyLink(t *testing.T, path, expected string) {
+	t.Helper()
+
+	ctx := testlogging.Context(t)
+
+	entry, err := NewEntry(path)
+	require.NoError(t, err)
+
+	link, ok := entry.(fs.Symlink)
+	require.True(t, ok, "entry is not a symlink:", entry)
+
+	target, err := link.Resolve(ctx)
+	require.NoError(t, err)
+
+	f, ok := target.(fs.File)
+	require.True(t, ok, "link does not point to a file:", path)
+
+	// Canonicalize paths (for example, on MacOS /var points to /private/var)
+	// EvalSymlinks calls "Clean" on the result
+	got, err := filepath.EvalSymlinks(f.LocalFilesystemPath())
+	require.NoError(t, err)
+
+	want, err := filepath.EvalSymlinks(expected)
+	require.NoError(t, err)
+
+	require.Equal(t, want, got)
+}
+
 //nolint:gocyclo
 func TestFiles(t *testing.T) {
 	ctx := testlogging.Context(t)
@@ -147,7 +190,7 @@ func TestIterateNonExistent(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	require.ErrorIs(t, dir.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+	require.ErrorIs(t, fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		t.Fatal("this won't be invoked")
 		return nil
 	}), os.ErrNotExist)
@@ -157,7 +200,7 @@ func TestIterateNonExistent(t *testing.T) {
 func testIterate(t *testing.T, nFiles int) {
 	tmp := testutil.TempDirectory(t)
 
-	for i := 0; i < nFiles; i++ {
+	for i := range nFiles {
 		assertNoError(t, os.WriteFile(filepath.Join(tmp, fmt.Sprintf("f%v", i)), []byte{1, 2, 3}, 0o777))
 	}
 
@@ -168,7 +211,7 @@ func testIterate(t *testing.T, nFiles int) {
 
 	names := map[string]int64{}
 
-	require.NoError(t, dir.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+	require.NoError(t, fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		names[e.Name()] = e.Size()
 		return nil
 	}))
@@ -179,7 +222,7 @@ func testIterate(t *testing.T, nFiles int) {
 
 	cnt := 0
 
-	require.ErrorIs(t, dir.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+	require.ErrorIs(t, fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		cnt++
 
 		if cnt == nFiles/10 {
@@ -191,7 +234,7 @@ func testIterate(t *testing.T, nFiles int) {
 
 	cnt = 0
 
-	require.ErrorIs(t, dir.IterateEntries(ctx, func(ctx context.Context, e fs.Entry) error {
+	require.ErrorIs(t, fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		cnt++
 
 		if cnt == nFiles-1 {

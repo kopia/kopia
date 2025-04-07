@@ -22,6 +22,6 @@ func newBlake3(key []byte) (hash.Hash, error) {
 }
 
 func init() {
-	Register("BLAKE3-256", truncatedKeyedHashFuncFactory(newBlake3, 32))     //nolint:gomnd
-	Register("BLAKE3-256-128", truncatedKeyedHashFuncFactory(newBlake3, 16)) //nolint:gomnd
+	Register("BLAKE3-256", truncatedKeyedHashFuncFactory(newBlake3, 32))     //nolint:mnd
+	Register("BLAKE3-256-128", truncatedKeyedHashFuncFactory(newBlake3, 16)) //nolint:mnd
 }

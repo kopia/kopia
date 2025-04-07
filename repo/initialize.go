@@ -35,12 +35,13 @@ const (
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
-	UniqueID        []byte               `json:"uniqueID"` // force the use of particular unique ID
-	BlockFormat     format.ContentFormat `json:"blockFormat"`
-	DisableHMAC     bool                 `json:"disableHMAC"`
-	ObjectFormat    format.ObjectFormat  `json:"objectFormat"` // object format
-	RetentionMode   blob.RetentionMode   `json:"retentionMode,omitempty"`
-	RetentionPeriod time.Duration        `json:"retentionPeriod,omitempty"`
+	UniqueID                          []byte               `json:"uniqueID"` // force the use of particular unique ID
+	BlockFormat                       format.ContentFormat `json:"blockFormat"`
+	DisableHMAC                       bool                 `json:"disableHMAC"`
+	ObjectFormat                      format.ObjectFormat  `json:"objectFormat"` // object format
+	RetentionMode                     blob.RetentionMode   `json:"retentionMode,omitempty"`
+	RetentionPeriod                   time.Duration        `json:"retentionPeriod,omitempty"`
+	FormatBlockKeyDerivationAlgorithm string               `json:"formatBlockKeyDerivationAlgorithm,omitempty"`
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.
@@ -66,7 +67,7 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *format.KopiaRepositoryJSO
 		Tool:                   "https://github.com/kopia/kopia",
 		BuildInfo:              BuildInfo,
 		BuildVersion:           BuildVersion,
-		KeyDerivationAlgorithm: format.DefaultKeyDerivationAlgorithm,
+		KeyDerivationAlgorithm: opt.FormatBlockKeyDerivationAlgorithm,
 		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, format.UniqueIDLengthBytes),
 		EncryptionAlgorithm:    format.DefaultFormatEncryption,
 	}
@@ -99,12 +100,12 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 			Hash:               applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
 			Encryption:         applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
 			ECC:                applyDefaultString(opt.BlockFormat.ECC, ecc.DefaultAlgorithm),
-			ECCOverheadPercent: applyDefaultIntRange(opt.BlockFormat.ECCOverheadPercent, 0, 100), //nolint:gomnd
+			ECCOverheadPercent: applyDefaultIntRange(opt.BlockFormat.ECCOverheadPercent, 0, 100), //nolint:mnd
 			HMACSecret:         applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
 			MasterKey:          applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
 			MutableParameters: format.MutableParameters{
 				Version:         fv,
-				MaxPackSize:     applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:gomnd
+				MaxPackSize:     applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:mnd
 				IndexVersion:    applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
 				EpochParameters: opt.BlockFormat.EpochParameters,
 			},
@@ -139,11 +140,11 @@ func applyDefaultInt(v, def int) int {
 	return v
 }
 
-func applyDefaultIntRange(v, min, max int) int {
-	if v < min {
-		return min
-	} else if v > max {
-		return max
+func applyDefaultIntRange(v, minValue, maxValue int) int {
+	if v < minValue {
+		return minValue
+	} else if v > maxValue {
+		return maxValue
 	}
 
 	return v

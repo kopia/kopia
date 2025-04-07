@@ -65,7 +65,7 @@ func GetPolicyHierarchy(ctx context.Context, rep repo.Repository, si snapshot.So
 	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.
-	for tmp := si; len(si.Path) > 0; {
+	for tmp := si; si.Path != ""; {
 		manifests, err := rep.FindManifests(ctx, LabelsForSource(tmp))
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to find manifest for source %v", tmp)

@@ -59,7 +59,7 @@ func (s reconnectableStorage) ConnectionInfo() blob.ConnectionInfo {
 // New creates new reconnectable storage.
 func New(ctx context.Context, opt *ReconnectableStorageOptions, isCreate bool) (blob.Storage, error) {
 	if opt.UUID == "" {
-		return nil, errors.Errorf("missing UUID")
+		return nil, errors.New("missing UUID")
 	}
 
 	v, ok := reconnectableStorageByUUID.Load(opt.UUID)

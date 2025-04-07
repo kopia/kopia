@@ -192,7 +192,7 @@ func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID, restoreDir strin
 	}
 
 	if snapID == "" {
-		// list available snaphsots
+		// list available snapshots
 		stdout, _, snapshotListErr := bm.KopiaCommandRunner.Run("snapshot", "list", "--json")
 		if snapshotListErr != nil {
 			return stdout, snapshotListErr

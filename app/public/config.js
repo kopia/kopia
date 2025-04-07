@@ -1,12 +1,12 @@
-const fs = require('fs');
-const path = require('path');
-const Electron = require('electron');
-const log = require("electron-log");
+const fs = await import('fs');
+const path = await import('path');
+const Electron = await import('electron');
+const log = await import("electron-log");
 
 let configs = {};
 const configFileSuffix = ".config";
 
-let configDir = "";
+let myConfigDir = "";
 let isPortable = false;
 let firstRun = false;
 
@@ -32,34 +32,34 @@ function portableConfigDirs() {
 }
 
 function globalConfigDir() {
-    if (!configDir) {
+    if (!myConfigDir) {
         // try portable config dirs in order.
         portableConfigDirs().forEach(d => {
-            if (configDir) {
+            if (myConfigDir) {
                 return;
             }
-            
+
             d = path.normalize(d)
 
             if (!fs.existsSync(d)) {
                 return;
             }
 
-            configDir = d;
+            myConfigDir = d;
             isPortable = true;
         });
 
         // still not set, fall back to per-user config dir.
         // we use the same directory that is used by Kopia CLI.
-        if (!configDir) {
-            configDir = path.join(Electron.app.getPath("appData"), "kopia");
+        if (!myConfigDir) {
+            myConfigDir = path.join(Electron.app.getPath("appData"), "kopia");
         }
     }
 
-    return configDir;
+    return myConfigDir;
 }
 
-function allConfigs() {
+export function allConfigs() {
     let result = [];
 
     for (let k in configs) {
@@ -69,7 +69,7 @@ function allConfigs() {
     return result;
 }
 
-function addNewConfig() {
+export function addNewConfig() {
     let id;
 
     if (!configs) {
@@ -91,7 +91,7 @@ function emitConfigListUpdated() {
     Electron.ipcMain.emit('config-list-updated-event', allConfigs());
 };
 
-function deleteConfigIfDisconnected(repoID) {
+export function deleteConfigIfDisconnected(repoID) {
     if (repoID === "repository") {
         // never delete default repository config
         return false;
@@ -106,51 +106,44 @@ function deleteConfigIfDisconnected(repoID) {
     return false;
 }
 
-module.exports = {
-    loadConfigs() {
-        fs.mkdirSync(globalConfigDir(), { recursive: true, mode: 0700 });
-        let entries = fs.readdirSync(globalConfigDir());
+export function loadConfigs() {
+    fs.mkdirSync(globalConfigDir(), { recursive: true, mode: 0o700 });
+    let entries = fs.readdirSync(globalConfigDir());
 
-        let count = 0;
-        entries.filter(e => path.extname(e) == configFileSuffix).forEach(v => {
-            const repoID = v.replace(configFileSuffix, "");
-            configs[repoID] = true;
-            count++;
-        });
-
-        if (!configs["repository"]) {
-            configs["repository"] = true;
-            firstRun = true;
-        }
-    },
-
-    isPortableConfig() {
-        globalConfigDir();
-        return isPortable;
-    },
-
-    isFirstRun() {
-        return firstRun;
-    },
-
-    configDir() {
-        return globalConfigDir();
-    },
-
-    deleteConfigIfDisconnected,
-
-    addNewConfig,
-
-    allConfigs,
-
-    configForRepo(repoID) {
-        let c = configs[repoID];
-        if (c) {
-            return c;
-        }
-
+    let count = 0;
+    entries.filter(e => path.extname(e) == configFileSuffix).forEach(v => {
+        const repoID = v.replace(configFileSuffix, "");
         configs[repoID] = true;
-        emitConfigListUpdated();
+        count++;
+    });
+
+    if (!configs["repository"]) {
+        configs["repository"] = true;
+        firstRun = true;
+    }
+};
+
+
+export function isPortableConfig() {
+    globalConfigDir();
+    return isPortable;
+};
+
+export function isFirstRun() {
+    return firstRun;
+}
+
+export function configDir() {
+    return globalConfigDir();
+}
+
+export function configForRepo(repoID) {
+    let c = configs[repoID];
+    if (c) {
         return c;
     }
+
+    configs[repoID] = true;
+    emitConfigListUpdated();
+    return c;
 }

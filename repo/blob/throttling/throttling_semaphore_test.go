@@ -26,13 +26,13 @@ func TestThrottlingSemaphore(t *testing.T) {
 			maxConcurrency int
 		)
 
-		for i := 0; i < 10; i++ {
+		for range 10 {
 			wg.Add(1)
 
 			go func() {
 				defer wg.Done()
 
-				for j := 0; j < 10; j++ {
+				for range 10 {
 					s.Acquire()
 
 					mu.Lock()
@@ -59,6 +59,6 @@ func TestThrottlingSemaphore(t *testing.T) {
 
 		// Equal() would probably work here due to Sleep(), but not risking a flake.
 		require.LessOrEqual(t, maxConcurrency, lim)
-		require.Greater(t, maxConcurrency, 0)
+		require.Positive(t, maxConcurrency)
 	}
 }

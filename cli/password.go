@@ -26,7 +26,7 @@ func askForNewRepositoryPassword(out io.Writer) (string, error) {
 		}
 
 		if p1 != p2 {
-			fmt.Fprintln(out, "Passwords don't match!")
+			fmt.Fprintln(out, "Passwords don't match!") //nolint:errcheck
 		} else {
 			return p1, nil
 		}
@@ -59,7 +59,7 @@ func askForExistingRepositoryPassword(out io.Writer) (string, error) {
 		return "", err
 	}
 
-	fmt.Fprintln(out)
+	fmt.Fprintln(out) //nolint:errcheck
 
 	return p1, nil
 }
@@ -84,7 +84,7 @@ func (c *App) getPasswordFromFlags(ctx context.Context, isCreate, allowPersisten
 		}
 
 		if !errors.Is(err, passwordpersist.ErrPasswordNotFound) {
-			return "", errors.Wrap(err, "error getting persistent password")
+			return "", errors.Wrap(err, "cannot get persistent password")
 		}
 	}
 
@@ -94,15 +94,15 @@ func (c *App) getPasswordFromFlags(ctx context.Context, isCreate, allowPersisten
 
 // askPass presents a given prompt and asks the user for password.
 func askPass(out io.Writer, prompt string) (string, error) {
-	for i := 0; i < 5; i++ {
-		fmt.Fprint(out, prompt)
+	for range 5 {
+		fmt.Fprint(out, prompt) //nolint:errcheck
 
 		passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 		if err != nil {
 			return "", errors.Wrap(err, "password prompt error")
 		}
 
-		fmt.Fprintln(out)
+		fmt.Fprintln(out) //nolint:errcheck
 
 		if len(passBytes) == 0 {
 			continue

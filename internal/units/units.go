@@ -6,6 +6,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+
+	"golang.org/x/exp/constraints"
 )
 
 //nolint:gochecknoglobals
@@ -22,7 +24,15 @@ func niceNumber(f float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.1f", f), "0"), ".")
 }
 
-func toDecimalUnitString(f, thousand float64, prefixes []string, suffix string) string {
+type realNumber interface {
+	constraints.Integer | constraints.Float
+}
+
+func toDecimalUnitString[T realNumber](f T, thousand float64, prefixes []string, suffix string) string {
+	return toDecimalUnitStringImp(float64(f), thousand, prefixes, suffix)
+}
+
+func toDecimalUnitStringImp(f, thousand float64, prefixes []string, suffix string) string {
 	for i := range prefixes {
 		if f < 0.9*thousand {
 			return fmt.Sprintf("%v %v%v", niceNumber(f), prefixes[i], suffix)
@@ -35,19 +45,19 @@ func toDecimalUnitString(f, thousand float64, prefixes []string, suffix string) 
 }
 
 // BytesStringBase10 formats the given value as bytes with the appropriate base-10 suffix (KB, MB, GB, ...)
-func BytesStringBase10(b int64) string {
-	//nolint:gomnd
-	return toDecimalUnitString(float64(b), 1000, base10UnitPrefixes, "B")
+func BytesStringBase10[T realNumber](b T) string {
+	//nolint:mnd
+	return toDecimalUnitString(b, 1000, base10UnitPrefixes, "B")
 }
 
 // BytesStringBase2 formats the given value as bytes with the appropriate base-2 suffix (KiB, MiB, GiB, ...)
-func BytesStringBase2(b int64) string {
-	//nolint:gomnd
-	return toDecimalUnitString(float64(b), 1024.0, base2UnitPrefixes, "B")
+func BytesStringBase2[T realNumber](b T) string {
+	//nolint:mnd
+	return toDecimalUnitString(b, 1024.0, base2UnitPrefixes, "B")
 }
 
 // BytesString formats the given value as bytes with the unit provided from the environment.
-func BytesString(b int64) string {
+func BytesString[T realNumber](b T) string {
 	if v, _ := strconv.ParseBool(os.Getenv(bytesStringBase2Envar)); v {
 		return BytesStringBase2(b)
 	}
@@ -56,13 +66,13 @@ func BytesString(b int64) string {
 }
 
 // BytesPerSecondsString formats the given value bytes per second with the appropriate base-10 suffix (KB/s, MB/s, GB/s, ...)
-func BytesPerSecondsString(bps float64) string {
-	//nolint:gomnd
+func BytesPerSecondsString[T realNumber](bps T) string {
+	//nolint:mnd
 	return toDecimalUnitString(bps, 1000, base10UnitPrefixes, "B/s")
 }
 
 // Count returns the given number with the appropriate base-10 suffix (K, M, G, ...)
-func Count(v int64) string {
-	//nolint:gomnd
-	return toDecimalUnitString(float64(v), 1000, base10UnitPrefixes, "")
+func Count[T constraints.Integer](v T) string {
+	//nolint:mnd
+	return toDecimalUnitString(v, 1000, base10UnitPrefixes, "")
 }

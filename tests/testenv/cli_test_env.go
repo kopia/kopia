@@ -3,6 +3,7 @@ package testenv
 
 import (
 	"bufio"
+	"context"
 	"io"
 	"io/fs"
 	"math/rand"
@@ -18,8 +19,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/timetrack"
+	"github.com/kopia/kopia/notification/sender"
+	"github.com/kopia/kopia/notification/sender/testsender"
 )
 
 const (
@@ -30,11 +34,15 @@ const (
 // CLIRunner encapsulates running kopia subcommands for testing purposes.
 // It supports implementations that use subprocesses or in-process invocations.
 type CLIRunner interface {
-	Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, kill func())
+	Start(t *testing.T, ctx context.Context, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal))
 }
 
 // CLITest encapsulates state for a CLI-based test.
 type CLITest struct {
+	// context in which all subcommands are running
+	//nolint:containedctx
+	RunContext context.Context
+
 	startTime time.Time
 
 	RepoDir   string
@@ -91,6 +99,7 @@ func NewCLITest(t *testing.T, repoCreateFlags []string, runner CLIRunner) *CLITe
 	}
 
 	return &CLITest{
+		RunContext:                   testsender.CaptureMessages(testlogging.Context(t)),
 		startTime:                    clock.Now(),
 		RepoDir:                      testutil.TempDirectory(t),
 		ConfigDir:                    configDir,
@@ -108,9 +117,7 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	t.Helper()
 
 	stdout, _, err := e.Run(t, false, args...)
-	if err != nil {
-		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
-	}
+	require.NoError(t, err, "'kopia %v' failed", strings.Join(args, " "))
 
 	return stdout
 }
@@ -124,7 +131,7 @@ func (e *CLITest) TweakFile(t *testing.T, dirn, fglob string) {
 	// find a file within the repository to corrupt
 	mch, err := fs.Glob(os.DirFS(dirn), fglob)
 	require.NoError(t, err)
-	require.Greater(t, len(mch), 0)
+	require.NotEmpty(t, mch)
 
 	// grab a random file in the directory dirn
 	fn := mch[rand.Intn(len(mch))]
@@ -154,6 +161,10 @@ func (e *CLITest) SetLogOutput(enable bool, prefix string) {
 	e.logOutputPrefix = prefix
 }
 
+func (e *CLITest) NotificationsSent() []*sender.Message {
+	return testsender.MessagesInContext(e.RunContext)
+}
+
 func (e *CLITest) getLogOutputPrefix() (string, bool) {
 	e.logMu.RLock()
 	defer e.logMu.RUnlock()
@@ -165,7 +176,32 @@ func (e *CLITest) getLogOutputPrefix() (string, bool) {
 func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) (wait func() error, kill func()) {
 	t.Helper()
 
-	stdout, stderr, wait, kill := e.Runner.Start(t, e.cmdArgs(args), e.Environment)
+	wait, interrupt := e.RunAndProcessStderrInt(t, callback, nil, args...)
+	kill = func() {
+		interrupt(os.Kill)
+	}
+
+	return wait, kill
+}
+
+// RunAndProcessStderrAsync runs the given command, and streams its output line-by-line to a given function until it returns false.
+func (e *CLITest) RunAndProcessStderrAsync(t *testing.T, callback func(line string) bool, asyncCallback func(line string), args ...string) (wait func() error, kill func()) {
+	t.Helper()
+
+	wait, interrupt := e.RunAndProcessStderrInt(t, callback, asyncCallback, args...)
+	kill = func() {
+		interrupt(os.Kill)
+	}
+
+	return wait, kill
+}
+
+// RunAndProcessStderrInt runs the given command, and streams its output
+// line-by-line to outputCallback until it returns false.
+func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line string) bool, asyncCallback func(line string), args ...string) (wait func() error, interrupt func(os.Signal)) {
+	t.Helper()
+
+	stdout, stderr, wait, interrupt := e.Runner.Start(t, e.RunContext, e.cmdArgs(args), e.Environment)
 
 	go func() {
 		scanner := bufio.NewScanner(stdout)
@@ -182,7 +218,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
-		if !callback(scanner.Text()) {
+		if !outputCallback(scanner.Text()) {
 			break
 		}
 	}
@@ -190,6 +226,10 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 	// complete the scan in background without processing lines.
 	go func() {
 		for scanner.Scan() {
+			if asyncCallback != nil {
+				asyncCallback(scanner.Text())
+			}
+
 			if prefix, ok := e.getLogOutputPrefix(); ok {
 				t.Logf("[%vstderr] %v", prefix, scanner.Text())
 			}
@@ -200,7 +240,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 		}
 	}()
 
-	return wait, kill
+	return wait, interrupt
 }
 
 // RunAndExpectSuccessWithErrOut runs the given command, expects it to succeed and returns its stdout and stderr lines.
@@ -208,9 +248,7 @@ func (e *CLITest) RunAndExpectSuccessWithErrOut(t *testing.T, args ...string) (s
 	t.Helper()
 
 	stdout, stderr, err := e.Run(t, false, args...)
-	if err != nil {
-		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
-	}
+	require.NoError(t, err, "'kopia %v' failed", strings.Join(args, " "))
 
 	return stdout, stderr
 }
@@ -222,9 +260,7 @@ func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) (stdout, std
 	var err error
 
 	stdout, stderr, err = e.Run(t, true, args...)
-	if err == nil {
-		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
-	}
+	require.Error(t, err, "'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
 
 	return stdout, stderr
 }
@@ -234,9 +270,7 @@ func (e *CLITest) RunAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 	t.Helper()
 
 	lines := e.RunAndExpectSuccess(t, args...)
-	if len(lines) != wantLines {
-		t.Fatalf("unexpected list of results of 'kopia %v': %v lines (%v) wanted %v", strings.Join(args, " "), len(lines), lines, wantLines)
-	}
+	require.Len(t, lines, wantLines, "unexpected output lines for 'kopia %v', lines:\n %s", strings.Join(args, " "), strings.Join(lines, "\n "))
 
 	return lines
 }
@@ -263,7 +297,7 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 
 	timer := timetrack.StartTimer()
 
-	stdoutReader, stderrReader, wait, _ := e.Runner.Start(t, args, e.Environment)
+	stdoutReader, stderrReader, wait, _ := e.Runner.Start(t, e.RunContext, args, e.Environment)
 
 	var wg sync.WaitGroup
 

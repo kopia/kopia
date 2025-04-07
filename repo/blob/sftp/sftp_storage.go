@@ -131,6 +131,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 		if err != nil {
 			return errors.Wrapf(err, "unrecognized error when opening SFTP file %v", fullPath)
 		}
+
 		defer r.Close() //nolint:errcheck
 
 		if length < 0 {
@@ -323,7 +324,6 @@ func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, fullPath strin
 
 func (s *sftpImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
 	return connection.UsingConnection(ctx, s.rec, "ReadDir", func(conn connection.Connection) ([]os.FileInfo, error) {
-		//nolint:wrapcheck
 		return sftpClientFromConnection(conn).ReadDir(dirname)
 	})
 }
@@ -379,7 +379,7 @@ func getHostKeyCallback(opt *Options) (ssh.HostKeyCallback, error) {
 	}
 
 	if f := opt.knownHostsFile(); !ospath.IsAbs(f) {
-		return nil, errors.Errorf("known hosts path must be absolute")
+		return nil, errors.New("known hosts path must be absolute")
 	}
 
 	//nolint:wrapcheck
@@ -400,7 +400,7 @@ func getSigner(opt *Options) (ssh.Signer, error) {
 		var err error
 
 		if f := opt.Keyfile; !ospath.IsAbs(f) {
-			return nil, errors.Errorf("key file path must be absolute")
+			return nil, errors.New("key file path must be absolute")
 		}
 
 		privateKeyData, err = os.ReadFile(opt.Keyfile)
@@ -418,7 +418,7 @@ func getSigner(opt *Options) (ssh.Signer, error) {
 }
 
 func createSSHConfig(ctx context.Context, opt *Options) (*ssh.ClientConfig, error) {
-	log(ctx).Debugf("using internal SSH client")
+	log(ctx).Debug("using internal SSH client")
 
 	hostKeyCallback, err := getHostKeyCallback(opt)
 	if err != nil {

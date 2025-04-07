@@ -48,8 +48,8 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 	}
 
 	require.NoError(t, cache.addContentToCache(ctx, "ndx1", mustBuildIndex(t, index.Builder{
-		mustParseID(t, "c1"): &InfoStruct{PackBlobID: "p1234", ContentID: mustParseID(t, "c1")},
-		mustParseID(t, "c2"): &InfoStruct{PackBlobID: "p1234", ContentID: mustParseID(t, "c2")},
+		mustParseID(t, "c1"): Info{PackBlobID: "p1234", ContentID: mustParseID(t, "c1")},
+		mustParseID(t, "c2"): Info{PackBlobID: "p1234", ContentID: mustParseID(t, "c2")},
 	})))
 
 	has, err = cache.hasIndexBlobID(ctx, "ndx1")
@@ -60,13 +60,13 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 	}
 
 	require.NoError(t, cache.addContentToCache(ctx, "ndx2", mustBuildIndex(t, index.Builder{
-		mustParseID(t, "c3"): &InfoStruct{PackBlobID: "p2345", ContentID: mustParseID(t, "c3")},
-		mustParseID(t, "c4"): &InfoStruct{PackBlobID: "p2345", ContentID: mustParseID(t, "c4")},
+		mustParseID(t, "c3"): Info{PackBlobID: "p2345", ContentID: mustParseID(t, "c3")},
+		mustParseID(t, "c4"): Info{PackBlobID: "p2345", ContentID: mustParseID(t, "c4")},
 	})))
 
 	require.NoError(t, cache.addContentToCache(ctx, "ndx2", mustBuildIndex(t, index.Builder{
-		mustParseID(t, "c3"): &InfoStruct{PackBlobID: "p2345", ContentID: mustParseID(t, "c3")},
-		mustParseID(t, "c4"): &InfoStruct{PackBlobID: "p2345", ContentID: mustParseID(t, "c4")},
+		mustParseID(t, "c3"): Info{PackBlobID: "p2345", ContentID: mustParseID(t, "c3")},
+		mustParseID(t, "c4"): Info{PackBlobID: "p2345", ContentID: mustParseID(t, "c4")},
 	})))
 
 	ndx1, err := cache.openIndex(ctx, "ndx1")
@@ -75,19 +75,23 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 	ndx2, err := cache.openIndex(ctx, "ndx2")
 	require.NoError(t, err)
 
-	i, err := ndx1.GetInfo(mustParseID(t, "c1"))
+	var i Info
+
+	ok, err := ndx1.GetInfo(mustParseID(t, "c1"), &i)
+	require.True(t, ok)
 	require.NoError(t, err)
 
-	if got, want := i.GetPackBlobID(), blob.ID("p1234"); got != want {
+	if got, want := i.PackBlobID, blob.ID("p1234"); got != want {
 		t.Fatalf("unexpected pack blob ID: %v, want %v", got, want)
 	}
 
 	require.NoError(t, ndx1.Close())
 
-	i, err = ndx2.GetInfo(mustParseID(t, "c3"))
+	ok, err = ndx2.GetInfo(mustParseID(t, "c3"), &i)
+	require.True(t, ok)
 	require.NoError(t, err)
 
-	if got, want := i.GetPackBlobID(), blob.ID("p2345"); got != want {
+	if got, want := i.PackBlobID, blob.ID("p2345"); got != want {
 		t.Fatalf("unexpected pack blob ID: %v, want %v", got, want)
 	}
 

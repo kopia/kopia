@@ -70,8 +70,8 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 	// make sure snapshot IDs are different between two attempts
 	require.NotEqual(t, env1["KOPIA_SNAPSHOT_ID"], env2["KOPIA_SNAPSHOT_ID"], "KOPIA_SNAPSHOT_ID passed to action was not different between runs")
 
-	require.Equal(t, env1["KOPIA_ACTION"], "before-snapshot-root")
-	require.Equal(t, env3["KOPIA_ACTION"], "after-snapshot-root")
+	require.Equal(t, "before-snapshot-root", env1["KOPIA_ACTION"])
+	require.Equal(t, "after-snapshot-root", env3["KOPIA_ACTION"])
 	require.NotEmpty(t, env1["KOPIA_VERSION"])
 	require.NotEmpty(t, env3["KOPIA_VERSION"])
 
@@ -238,10 +238,9 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	env1 := mustReadEnvFile(t, envFile1)
 	env2 := mustReadEnvFile(t, envFile2)
 
-	require.Equal(t, env1["KOPIA_ACTION"], "before-folder")
-	require.Equal(t, env2["KOPIA_ACTION"], "after-folder")
-	require.Equal(t, env1["KOPIA_SOURCE_PATH"], sd2)
-	require.Equal(t, env2["KOPIA_SOURCE_PATH"], sd2)
+	require.Equal(t, "before-folder", env1["KOPIA_ACTION"])
+	require.Equal(t, "after-folder", env2["KOPIA_ACTION"])
+	require.Equal(t, sd2, env1["KOPIA_SOURCE_PATH"])
 	require.NotEmpty(t, env1["KOPIA_VERSION"])
 	require.NotEmpty(t, env2["KOPIA_VERSION"])
 
@@ -316,8 +315,6 @@ func TestSnapshotActionsEnable(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 

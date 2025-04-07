@@ -145,6 +145,15 @@ message ApplyRetentionPolicyResponse {
   repeated string manifest_ids = 1;
 }
 
+message SendNotificationRequest {
+  string template_name = 1;
+  bytes event_args = 2; // JSON-encoded
+  int32 severity = 3;
+}
+
+message SendNotificationResponse {
+}
+
 message SessionRequest {
   int64 request_id = 1;
   map<string,string> trace_context = 2;
@@ -164,6 +173,7 @@ message SessionRequest {
     DeleteManifestRequest delete_manifest = 18;
     PrefetchContentsRequest prefetch_contents = 19;
     ApplyRetentionPolicyRequest apply_retention_policy = 20;
+    SendNotificationRequest send_notification = 21;
   }
 }
 
@@ -185,6 +195,7 @@ message SessionResponse {
     DeleteManifestResponse delete_manifest = 18;
     PrefetchContentsResponse prefetch_contents = 19;
     ApplyRetentionPolicyResponse apply_retention_policy = 20;
+    SendNotificationResponse send_notification = 21;
   }
 }
 

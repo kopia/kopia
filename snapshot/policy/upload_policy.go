@@ -30,7 +30,7 @@ func (p *UploadPolicy) Merge(src UploadPolicy, def *UploadPolicyDefinition, si s
 // ValidateUploadPolicy returns an error if manual field is set along with Upload fields.
 func ValidateUploadPolicy(si snapshot.SourceInfo, p UploadPolicy) error {
 	if si.Path != "" && p.MaxParallelSnapshots != nil {
-		return errors.Errorf("max parallel snapshots cannot be specified for paths, only global, username@hostname or @hostname")
+		return errors.New("max parallel snapshots cannot be specified for paths, only global, username@hostname or @hostname")
 	}
 
 	return nil

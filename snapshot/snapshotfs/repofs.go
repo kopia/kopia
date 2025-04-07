@@ -12,9 +12,12 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 )
+
+var repoFSLog = logging.Module("repofs")
 
 // Well-known object ID prefixes.
 const (
@@ -33,11 +36,11 @@ func (e *repositoryEntry) IsDir() bool {
 func (e *repositoryEntry) Mode() os.FileMode {
 	switch e.metadata.Type {
 	case snapshot.EntryTypeDirectory:
-		return os.ModeDir | os.FileMode(e.metadata.Permissions)
+		return os.ModeDir | os.FileMode(e.metadata.Permissions) //nolint:gosec
 	case snapshot.EntryTypeSymlink:
-		return os.ModeSymlink | os.FileMode(e.metadata.Permissions)
+		return os.ModeSymlink | os.FileMode(e.metadata.Permissions) //nolint:gosec
 	case snapshot.EntryTypeFile:
-		return os.FileMode(e.metadata.Permissions)
+		return os.FileMode(e.metadata.Permissions) //nolint:gosec
 	case snapshot.EntryTypeUnknown:
 		return 0
 	default:
@@ -133,18 +136,18 @@ func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry
 	return EntryFromDirEntry(rd.repo, de), nil
 }
 
-func (rd *repositoryDirectory) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+func (rd *repositoryDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	if err := rd.ensureDirEntriesLoaded(ctx); err != nil {
-		return err
+		return nil, err
 	}
+
+	var entries []fs.Entry
 
 	for _, de := range rd.dirEntries {
-		if err := cb(ctx, EntryFromDirEntry(rd.repo, de)); err != nil {
-			return err
-		}
+		entries = append(entries, EntryFromDirEntry(rd.repo, de))
 	}
 
-	return nil
+	return fs.StaticIterator(entries, nil), nil
 }
 
 func (rd *repositoryDirectory) ensureDirEntriesLoaded(ctx context.Context) error {
@@ -230,6 +233,10 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	return string(b), nil
 }
 
+func (rsl *repositorySymlink) Resolve(ctx context.Context) (fs.Entry, error) {
+	return nil, errors.New("Symlink.Resolve not implemented in Repofs")
+}
+
 func (ee *repositoryEntryError) ErrorInfo() error {
 	return ee.err
 }
@@ -274,7 +281,7 @@ func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
 func DirectoryEntry(rep repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
 	d := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        "/",
-		Permissions: 0o555, //nolint:gomnd
+		Permissions: 0o555, //nolint:mnd
 		Type:        snapshot.EntryTypeDirectory,
 		ObjectID:    objectID,
 		DirSummary:  dirSummary,
@@ -298,10 +305,13 @@ func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error)
 func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid object.ID, maybeName string) fs.Entry {
 	if IsDirectoryID(oid) {
 		dirEntry := DirectoryEntry(rep, oid, nil)
-		if err := dirEntry.IterateEntries(ctx, func(context.Context, fs.Entry) error {
-			return nil
-		}); err == nil {
+
+		iter, err := dirEntry.Iterate(ctx)
+		if err == nil {
+			iter.Close()
+
 			repoFSLog(ctx).Debugf("%v auto-detected as directory", oid)
+
 			return dirEntry
 		}
 	}
@@ -322,7 +332,7 @@ func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid o
 
 	f := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        maybeName,
-		Permissions: 0o644, //nolint:gomnd
+		Permissions: 0o644, //nolint:mnd
 		Type:        snapshot.EntryTypeFile,
 		ObjectID:    oid,
 		FileSize:    fileSize,

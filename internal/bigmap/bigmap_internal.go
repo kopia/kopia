@@ -173,13 +173,14 @@ func (m *internalMap) Get(buf, key []byte) ([]byte, bool) {
 
 	off := koff + uint32(data[koff]) + 1
 	vlen, vlenLen := binary.Uvarint(data[off:])
-	start := off + uint32(vlenLen)
+	start := off + uint32(vlenLen) //nolint:gosec
 
+	//nolint:gosec
 	return append(buf, data[start:start+uint32(vlen)]...), true
 }
 
 func (m *internalMap) hashValue(key []byte) uint64 {
-	if len(key) < 8 { //nolint:gomnd
+	if len(key) < 8 { //nolint:mnd
 		return uint64(binary.BigEndian.Uint32(key))
 	}
 
@@ -188,7 +189,7 @@ func (m *internalMap) hashValue(key []byte) uint64 {
 
 // h2 returns the secondary hash value used for double hashing.
 func (m *internalMap) h2(key []byte) uint64 {
-	if len(key) < 16 { //nolint:gomnd
+	if len(key) < 16 { //nolint:mnd
 		// use linear scan.
 		return 1
 	}
@@ -241,11 +242,11 @@ func (m *internalMap) growLocked(newSize uint64) {
 
 			if m.hasValues {
 				vlen, vlenLen := binary.Uvarint(seg[p:])
-				p += vlenLen + int(vlen)
+				p += vlenLen + int(vlen) //nolint:gosec
 			}
 
 			slot := m.findSlotInSlice(key, newSlots, newH2Prime)
-			newSlots[slot] = entry{segment: uint32(segNum) + 1, offset: uint32(koff)}
+			newSlots[slot] = entry{segment: uint32(segNum) + 1, offset: uint32(koff)} //nolint:gosec
 		}
 	}
 
@@ -291,7 +292,7 @@ func (m *internalMap) PutIfAbsent(ctx context.Context, key, value []byte) bool {
 		m.segments = append(m.segments, current)
 	}
 
-	koff := uint32(len(current))
+	koff := uint32(len(current)) //nolint:gosec
 
 	current = append(current, byte(len(key)))
 	current = append(current, key...)
@@ -310,6 +311,7 @@ func (m *internalMap) PutIfAbsent(ctx context.Context, key, value []byte) bool {
 	m.count++
 
 	m.slots[slot] = entry{
+		//nolint:gosec
 		segment: uint32(len(m.segments)), // this is 1-based, 0==empty slot
 		offset:  koff,
 	}
@@ -433,7 +435,7 @@ func newInternalMapWithOptions(ctx context.Context, hasValues bool, opts *Option
 	tablewSizeIndex := opts.InitialSizeLogarithm - minSizeLogarithm
 
 	if tablewSizeIndex < 1 {
-		return nil, errors.Errorf("invalid initial size")
+		return nil, errors.New("invalid initial size")
 	}
 
 	m := &internalMap{

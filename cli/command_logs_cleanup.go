@@ -30,7 +30,7 @@ func (c *commandLogsCleanup) setup(svc appServices, parent commandParent) {
 
 func (c *commandLogsCleanup) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	toDelete, err := maintenance.CleanupLogs(ctx, rep, maintenance.LogRetentionOptions{
-		MaxTotalSize: c.maxTotalSizeMB << 20, //nolint:gomnd
+		MaxTotalSize: c.maxTotalSizeMB << 20, //nolint:mnd
 		MaxCount:     c.maxCount,
 		MaxAge:       c.maxAge,
 		DryRun:       c.dryRun,
@@ -46,7 +46,7 @@ func (c *commandLogsCleanup) run(ctx context.Context, rep repo.DirectRepositoryW
 			log(ctx).Infof("Deleted %v logs.", len(toDelete))
 		}
 	} else {
-		log(ctx).Infof("No logs found to delete.")
+		log(ctx).Info("No logs found to delete.")
 	}
 
 	return nil

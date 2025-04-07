@@ -75,7 +75,7 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 		c.getTotalContentCount(subctx, rep, &totalCount)
 	}()
 
-	log(ctx).Infof("Verifying all contents...")
+	log(ctx).Info("Verifying all contents...")
 
 	rep.DisableIndexRefresh()
 
@@ -133,7 +133,7 @@ func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep rep
 	if err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{
 		Range:          c.contentRange.contentIDRange(),
 		IncludeDeleted: c.contentVerifyIncludeDeleted,
-	}, func(ci content.Info) error {
+	}, func(_ content.Info) error {
 		if err := ctx.Err(); err != nil {
 			return errors.Wrap(err, "context error")
 		}
@@ -149,19 +149,19 @@ func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep rep
 }
 
 func (c *commandContentVerify) contentVerify(ctx context.Context, r content.Reader, ci content.Info, blobMap map[blob.ID]blob.Metadata, downloadPercent float64) error {
-	bi, ok := blobMap[ci.GetPackBlobID()]
+	bi, ok := blobMap[ci.PackBlobID]
 	if !ok {
-		return errors.Errorf("content %v depends on missing blob %v", ci.GetContentID(), ci.GetPackBlobID())
+		return errors.Errorf("content %v depends on missing blob %v", ci.ContentID, ci.PackBlobID)
 	}
 
-	if int64(ci.GetPackOffset()+ci.GetPackedLength()) > bi.Length {
-		return errors.Errorf("content %v out of bounds of its pack blob %v", ci.GetContentID(), ci.GetPackBlobID())
+	if int64(ci.PackOffset+ci.PackedLength) > bi.Length {
+		return errors.Errorf("content %v out of bounds of its pack blob %v", ci.ContentID, ci.PackBlobID)
 	}
 
 	//nolint:gosec
 	if 100*rand.Float64() < downloadPercent {
-		if _, err := r.GetContent(ctx, ci.GetContentID()); err != nil {
-			return errors.Wrapf(err, "content %v is invalid", ci.GetContentID())
+		if _, err := r.GetContent(ctx, ci.ContentID); err != nil {
+			return errors.Wrapf(err, "content %v is invalid", ci.ContentID)
 		}
 
 		return nil

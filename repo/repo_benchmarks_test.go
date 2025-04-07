@@ -15,7 +15,7 @@ func BenchmarkWriterDedup1M(b *testing.B) {
 	ctx, env := repotesting.NewEnvironment(b, format.FormatVersion2)
 	dataBuf := make([]byte, 4<<20)
 
-	writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	writer.Write(dataBuf)
 	_, err := writer.Result()
 	require.NoError(b, err)
@@ -23,9 +23,9 @@ func BenchmarkWriterDedup1M(b *testing.B) {
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		// write exactly the same data
-		writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+		writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 		writer.Write(dataBuf)
 		writer.Result()
 		writer.Close()
@@ -43,9 +43,9 @@ func BenchmarkWriterNoDedup1M(b *testing.B) {
 
 	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		// write exactly the same data
-		writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+		writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 
 		if i+chunkSize > len(dataBuf) {
 			chunkSize++

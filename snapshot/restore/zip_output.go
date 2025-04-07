@@ -55,7 +55,7 @@ func (o *ZipOutput) Close(ctx context.Context) error {
 }
 
 // WriteFile implements restore.Output interface.
-func (o *ZipOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
+func (o *ZipOutput) WriteFile(ctx context.Context, relativePath string, f fs.File, _ FileWriteProgress) error {
 	r, err := f.Open(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error opening file")
@@ -93,7 +93,7 @@ func (o *ZipOutput) FileExists(ctx context.Context, relativePath string, l fs.Fi
 //
 //nolint:revive
 func (o *ZipOutput) CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error {
-	log(ctx).Debugf("create symlink not implemented yet")
+	log(ctx).Debug("create symlink not implemented yet")
 	return nil
 }
 

@@ -10,10 +10,16 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
+)
+
+const (
+	contentCacheLimitMBFlag  = "--content-cache-size-limit-mb"
+	metadataCacheLimitMBFlag = "--metadata-cache-size-limit-mb"
 )
 
 // MultiClientSnapshotter manages a set of client Snapshotter instances and
@@ -63,6 +69,16 @@ func (mcs *MultiClientSnapshotter) ConnectOrCreateRepo(repoPath string) error {
 	}
 
 	_, _, err := mcs.server.Run("policy", "set", "--global", "--keep-latest", strconv.Itoa(1<<31-1), "--compression", "s2-default")
+
+	return err
+}
+
+// setCacheSizeLimits sets hard size limits for the content and metadata caches
+// on an already connected repository.
+func (mcs *MultiClientSnapshotter) setCacheSizeLimits(contentLimitSizeMB, metadataLimitSizeMB int) error {
+	_, _, err := mcs.server.Run("cache", "set",
+		metadataCacheLimitMBFlag, strconv.Itoa(metadataLimitSizeMB),
+		contentCacheLimitMBFlag, strconv.Itoa(contentLimitSizeMB))
 
 	return err
 }
@@ -220,4 +236,17 @@ func (mcs *MultiClientSnapshotter) createOrGetSnapshotter(ctx context.Context) (
 	mcs.clients[c.ID] = cs
 
 	return cs, nil
+}
+
+// GetCacheDirInfo runs cache info command to get cache dir path for
+// the repository.
+func (mcs *MultiClientSnapshotter) GetCacheDirInfo() (stdout, stderr string, err error) {
+	stdout, stderr, err = mcs.server.Run("cache", "info", "--path")
+	if err == nil {
+		// The current output of the cache info command contains a new line
+		// at the end of the cache directory path.
+		stdout = strings.Trim(stdout, "\n")
+	}
+
+	return stdout, stderr, err
 }

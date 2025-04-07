@@ -20,9 +20,9 @@ import (
 )
 
 var (
-	cliLogFormat              = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z (DEBUG|INFO) [a-z/]+ .*$`)
+	cliLogFormat              = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z (DEBUG|INFO|WARN) [a-z/]+ .*$`)
 	contentLogFormat          = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z .*$`)
-	cliLogFormatLocalTimezone = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}[^Z][^ ]+ (DEBUG|INFO) [a-z/]+ .*$`)
+	cliLogFormatLocalTimezone = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}[^Z][^ ]+ (DEBUG|INFO|WARN) [a-z/]+ .*$`)
 )
 
 func TestLoggingFlags(t *testing.T) {
@@ -81,7 +81,7 @@ func TestLoggingFlags(t *testing.T) {
 		}
 	}
 
-	require.Greater(t, len(stderr), 0)
+	require.NotEmpty(t, stderr)
 
 	// run command with --log-level=warning so no log error is produced on the console
 	_, stderr, err = env.Run(t, false, "snap", "create", dir1,
@@ -121,7 +121,6 @@ func TestLogFileRotation(t *testing.T) {
 
 	for subdir, wantEntryCount := range subdirs {
 		logSubdir := filepath.Join(tmpLogDir, subdir)
-		wantEntryCount := wantEntryCount
 
 		t.Run(subdir, func(t *testing.T) {
 			entries, err := os.ReadDir(logSubdir)
@@ -177,7 +176,6 @@ func TestLogFileMaxTotalSize(t *testing.T) {
 
 	for subdir, flag := range subdirFlags {
 		logSubdir := filepath.Join(tmpLogDir, subdir)
-		flag := flag
 
 		t.Run(subdir, func(t *testing.T) {
 			size0 := getTotalDirSize(t, logSubdir)
@@ -207,7 +205,7 @@ func verifyFileLogFormat(t *testing.T, fname string, re *regexp.Regexp) {
 	s := bufio.NewScanner(f)
 
 	for s.Scan() {
-		require.True(t, re.MatchString(s.Text()), "log line does not match the format: %v (re %v)", s.Text(), re.String())
+		require.True(t, re.MatchString(s.Text()), "log line does not match the format: %q (re %q)", s.Text(), re.String())
 	}
 }
 

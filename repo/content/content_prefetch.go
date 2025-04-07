@@ -39,7 +39,7 @@ func (o *prefetchOptions) shouldPrefetchEntireBlob(infos []Info) bool {
 
 	var total int64
 	for _, i := range infos {
-		total += int64(i.GetPackedLength())
+		total += int64(i.PackedLength)
 	}
 
 	return total >= o.fullBlobPrefetchBytesThreshold
@@ -68,11 +68,11 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 
 	for _, ci := range contentIDs {
 		_, bi, _ := bm.getContentInfoReadLocked(ctx, ci)
-		if bi == nil {
+		if bi == (Info{}) {
 			continue
 		}
 
-		contentsByBlob[bi.GetPackBlobID()] = append(contentsByBlob[bi.GetPackBlobID()], bi)
+		contentsByBlob[bi.PackBlobID] = append(contentsByBlob[bi.PackBlobID], bi)
 		prefetched = append(prefetched, ci)
 	}
 
@@ -97,13 +97,13 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 				workCh <- work{blobID: b}
 			} else {
 				for _, bi := range infos {
-					workCh <- work{contentID: bi.GetContentID()}
+					workCh <- work{contentID: bi.ContentID}
 				}
 			}
 		}
 	}()
 
-	for i := 0; i < parallelFetches; i++ {
+	for range parallelFetches {
 		wg.Add(1)
 
 		go func() {

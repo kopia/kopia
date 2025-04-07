@@ -4,6 +4,8 @@ package providervalidation
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -12,7 +14,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -39,7 +40,7 @@ type Options struct {
 
 // DefaultOptions is the default set of options.
 //
-//nolint:gomnd,gochecknoglobals
+//nolint:mnd,gochecknoglobals
 var DefaultOptions = Options{
 	MaxClockDrift:                   3 * time.Minute,
 	ConcurrencyTestDuration:         30 * time.Second,
@@ -66,7 +67,7 @@ func (st equivalentBlobStorageConnections) closeAdditional(ctx context.Context) 
 	var err error
 
 	for i := 1; i < len(st); i++ {
-		err = multierr.Combine(err, st[i].Close(ctx))
+		err = stderrors.Join(err, st[i].Close(ctx))
 	}
 
 	return errors.Wrap(err, "error closing additional connections")
@@ -101,7 +102,7 @@ func openEquivalentStorageConnections(ctx context.Context, st blob.Storage, n in
 // ValidateProvider runs a series of tests against provided storage to validate that
 // it can be used with Kopia.
 //
-//nolint:gomnd,funlen,gocyclo,cyclop
+//nolint:mnd,funlen,gocyclo,cyclop
 func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error {
 	if os.Getenv("KOPIA_SKIP_PROVIDER_VALIDATION") != "" {
 		return nil
@@ -124,7 +125,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 	prefix1 := uberPrefix + "a"
 	prefix2 := uberPrefix + "b"
 
-	log(ctx).Infof("Validating storage capacity and usage")
+	log(ctx).Info("Validating storage capacity and usage")
 
 	c, err := st.pickOne().GetCapacity(ctx)
 
@@ -137,13 +138,13 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Wrapf(err, "unexpected error")
 	}
 
-	log(ctx).Infof("Validating blob list responses")
+	log(ctx).Info("Validating blob list responses")
 
 	if err := verifyBlobCount(ctx, st.pickOne(), uberPrefix, 0); err != nil {
 		return errors.Wrap(err, "invalid blob count")
 	}
 
-	log(ctx).Infof("Validating non-existent blob responses")
+	log(ctx).Info("Validating non-existent blob responses")
 
 	var out gather.WriteBuffer
 	defer out.Close()
@@ -172,7 +173,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Wrap(err, "error writing blob #1")
 	}
 
-	log(ctx).Infof("Validating conditional creates...")
+	log(ctx).Info("Validating conditional creates...")
 
 	err2 := st.pickOne().PutBlob(ctx, prefix1+"1", gather.FromSlice([]byte{99}), blob.PutOptions{DoNotRecreate: true})
 
@@ -186,7 +187,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Errorf("unexpected error returned from PutBlob with DoNotRecreate: %v", err2)
 	}
 
-	log(ctx).Infof("Validating list responses...")
+	log(ctx).Info("Validating list responses...")
 
 	if err := verifyBlobCount(ctx, st.pickOne(), uberPrefix, 1); err != nil {
 		return errors.Wrap(err, "invalid uber blob count")
@@ -200,7 +201,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Wrap(err, "invalid blob count with prefix 2")
 	}
 
-	log(ctx).Infof("Validating partial reads...")
+	log(ctx).Info("Validating partial reads...")
 
 	partialBlobCases := []struct {
 		offset int64
@@ -224,7 +225,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		}
 	}
 
-	log(ctx).Infof("Validating full reads...")
+	log(ctx).Info("Validating full reads...")
 
 	// read full blob
 	err2 = st.pickOne().GetBlob(ctx, prefix1+"1", 0, -1, &out)
@@ -236,7 +237,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Errorf("got unexpected data after reading partial blob: %x, wanted %x", got, want)
 	}
 
-	log(ctx).Infof("Validating metadata...")
+	log(ctx).Info("Validating metadata...")
 
 	// get metadata for non-existent blob
 	bm, err2 := st.pickOne().GetMetadata(ctx, prefix1+"1")
@@ -271,7 +272,7 @@ func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error 
 		return errors.Wrap(err, "error validating concurrency")
 	}
 
-	log(ctx).Infof("All good.")
+	log(ctx).Info("All good.")
 
 	return nil
 }
@@ -305,7 +306,7 @@ func newConcurrencyTest(st []blob.Storage, prefix blob.ID, opt Options) *concurr
 
 func (c *concurrencyTest) dataFromSeed(seed int64, buf []byte) []byte {
 	rnd := rand.New(rand.NewSource(seed)) //nolint:gosec
-	length := rnd.Int31n(int32(len(buf)))
+	length := rnd.Int31n(int32(len(buf))) //nolint:gosec
 	result := buf[0:length]
 	rnd.Read(result)
 
@@ -320,7 +321,7 @@ func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() 
 			seed := rand.Int63() //nolint:gosec
 			data := c.dataFromSeed(seed, data0)
 
-			id := c.prefix + blob.ID(fmt.Sprintf("%x", data[0:16]))
+			id := c.prefix + blob.ID(hex.EncodeToString(data[0:16]))
 
 			c.mu.Lock()
 			c.blobSeeds[id] = seed
@@ -349,7 +350,7 @@ func (c *concurrencyTest) putBlobWorker(ctx context.Context, worker int) func() 
 }
 
 func (c *concurrencyTest) randomSleep() {
-	time.Sleep(time.Duration(rand.Intn(int(500 * time.Millisecond)))) //nolint:gosec,gomnd
+	time.Sleep(time.Duration(rand.Intn(int(500 * time.Millisecond)))) //nolint:gosec,mnd
 }
 
 func (c *concurrencyTest) pickBlob() (blob.ID, int64, bool) {
@@ -458,19 +459,19 @@ func (c *concurrencyTest) listBlobWorker(ctx context.Context, worker int) func()
 func (c *concurrencyTest) run(ctx context.Context) error {
 	eg, ctx := errgroup.WithContext(ctx)
 
-	for worker := 0; worker < c.opt.NumPutBlobWorkers; worker++ {
+	for worker := range c.opt.NumPutBlobWorkers {
 		eg.Go(c.putBlobWorker(ctx, worker))
 	}
 
-	for worker := 0; worker < c.opt.NumGetBlobWorkers; worker++ {
+	for worker := range c.opt.NumGetBlobWorkers {
 		eg.Go(c.getBlobWorker(ctx, worker))
 	}
 
-	for worker := 0; worker < c.opt.NumGetMetadataWorkers; worker++ {
+	for worker := range c.opt.NumGetMetadataWorkers {
 		eg.Go(c.getMetadataWorker(ctx, worker))
 	}
 
-	for worker := 0; worker < c.opt.NumListBlobsWorkers; worker++ {
+	for worker := range c.opt.NumListBlobsWorkers {
 		eg.Go(c.listBlobWorker(ctx, worker))
 	}
 
@@ -478,12 +479,12 @@ func (c *concurrencyTest) run(ctx context.Context) error {
 }
 
 func cleanupAllBlobs(ctx context.Context, st blob.Storage, prefix blob.ID) {
-	log(ctx).Infof("Cleaning up temporary data...")
+	log(ctx).Info("Cleaning up temporary data...")
 
 	if err := st.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
 		return errors.Wrapf(st.DeleteBlob(ctx, bm.BlobID), "error deleting blob %v", bm.BlobID)
 	}); err != nil {
-		log(ctx).Debugf("error cleaning up")
+		log(ctx).Debug("error cleaning up")
 	}
 }
 

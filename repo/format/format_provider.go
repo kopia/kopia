@@ -1,6 +1,8 @@
 package format
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
@@ -56,11 +58,12 @@ type Provider interface {
 
 	// this is typically cached, but sometimes refreshes MutableParameters from
 	// the repository so the results should not be cached.
-	GetMutableParameters() (MutableParameters, error)
+	GetMutableParameters(ctx context.Context) (MutableParameters, error)
+	GetCachedMutableParameters() MutableParameters
 	SupportsPasswordChange() bool
 	GetMasterKey() []byte
 
-	RepositoryFormatBytes() ([]byte, error)
+	RepositoryFormatBytes(ctx context.Context) ([]byte, error)
 }
 
 type formattingOptionsProvider struct {
@@ -97,7 +100,7 @@ func NewFormattingOptionsProvider(f0 *ContentFormat, formatBytes []byte) (Provid
 	// apply default
 	if f.MaxPackSize == 0 {
 		// legacy only, apply default
-		f.MaxPackSize = 20 << 20 //nolint:gomnd
+		f.MaxPackSize = 20 << 20 //nolint:mnd
 	}
 
 	h, err := hashing.CreateHashFunc(f)
@@ -111,7 +114,7 @@ func NewFormattingOptionsProvider(f0 *ContentFormat, formatBytes []byte) (Provid
 	}
 
 	if f.GetECCAlgorithm() != "" && f.GetECCOverheadPercent() > 0 {
-		eccEncryptor, err := ecc.CreateEncryptor(f) //nolint:govet
+		eccEncryptor, err := ecc.CreateEncryptor(f)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create ECC")
 		}
@@ -149,7 +152,7 @@ func (f *formattingOptionsProvider) HashFunc() hashing.HashFunc {
 	return f.h
 }
 
-func (f *formattingOptionsProvider) RepositoryFormatBytes() ([]byte, error) {
+func (f *formattingOptionsProvider) RepositoryFormatBytes(ctx context.Context) ([]byte, error) {
 	if f.SupportsPasswordChange() {
 		return nil, nil
 	}

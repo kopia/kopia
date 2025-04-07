@@ -30,7 +30,7 @@ func (s *repositoryAllSources) ModTime() time.Time {
 }
 
 func (s *repositoryAllSources) Mode() os.FileMode {
-	return 0o555 | os.ModeDir //nolint:gomnd
+	return 0o555 | os.ModeDir //nolint:mnd
 }
 
 func (s *repositoryAllSources) Size() int64 {
@@ -65,10 +65,10 @@ func (s *repositoryAllSources) Child(ctx context.Context, name string) (fs.Entry
 	return fs.IterateEntriesAndFindChild(ctx, s, name)
 }
 
-func (s *repositoryAllSources) IterateEntries(ctx context.Context, cb func(context.Context, fs.Entry) error) error {
+func (s *repositoryAllSources) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	srcs, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {
-		return errors.Wrap(err, "error listing sources")
+		return nil, errors.Wrap(err, "error listing sources")
 	}
 
 	users := map[string]bool{}
@@ -85,19 +85,17 @@ func (s *repositoryAllSources) IterateEntries(ctx context.Context, cb func(conte
 
 	name2safe = disambiguateSafeNames(name2safe)
 
+	var entries []fs.Entry
+
 	for u := range users {
-		e := &sourceDirectories{
+		entries = append(entries, &sourceDirectories{
 			rep:      s.rep,
 			userHost: u,
 			name:     name2safe[u],
-		}
-
-		if err2 := cb(ctx, e); err2 != nil {
-			return err2
-		}
+		})
 	}
 
-	return nil
+	return fs.StaticIterator(entries, nil), nil
 }
 
 // AllSourcesEntry returns fs.Directory that contains the list of all snapshot sources found in the repository.

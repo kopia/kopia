@@ -15,5 +15,5 @@ import (
 //
 //nolint:revive
 func Directory(ctx context.Context, entry fs.Directory, mountPoint string, mountOptions Options) (Controller, error) {
-	return nil, errors.Errorf("mounting is not supported")
+	return nil, errors.New("mounting is not supported")
 }

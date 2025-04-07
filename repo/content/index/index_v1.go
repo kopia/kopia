@@ -6,12 +6,11 @@ import (
 	"encoding/binary"
 	"io"
 	"sort"
-	"time"
+	"sync"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/compression"
 )
 
 const (
@@ -35,78 +34,11 @@ type FormatV1 struct {
 
 	Entries []struct {
 		Key   []byte // key bytes (KeySize)
-		Entry indexEntryInfoV1
+		Entry []byte // entry bytes (EntrySize)
 	}
 
 	ExtraData []byte // extra data
 }
-
-type indexEntryInfoV1 struct {
-	data      []byte
-	contentID ID
-	b         *indexV1
-}
-
-func (e indexEntryInfoV1) GetContentID() ID {
-	return e.contentID
-}
-
-// entry bytes 0..5: 48-bit big-endian timestamp in seconds since 1970/01/01 UTC.
-func (e indexEntryInfoV1) GetTimestampSeconds() int64 {
-	return decodeBigEndianUint48(e.data)
-}
-
-// entry byte 6: format version (currently always == 1).
-func (e indexEntryInfoV1) GetFormatVersion() byte {
-	return e.data[6]
-}
-
-// entry byte 7: length of pack content ID
-// entry bytes 8..11: 4 bytes, big endian, offset within index file where pack (blob) ID begins.
-func (e indexEntryInfoV1) GetPackBlobID() blob.ID {
-	nameLength := int(e.data[7])
-	nameOffset := decodeBigEndianUint32(e.data[8:])
-
-	nameBuf, err := safeSlice(e.b.data, int64(nameOffset), nameLength)
-	if err != nil {
-		return invalidBlobID
-	}
-
-	return blob.ID(nameBuf[0:nameLength])
-}
-
-// entry bytes 12..15 - deleted flag (MSBit), 31 lower bits encode pack offset.
-func (e indexEntryInfoV1) GetDeleted() bool {
-	return e.data[12]&0x80 != 0
-}
-
-func (e indexEntryInfoV1) GetPackOffset() uint32 {
-	const packOffsetMask = 1<<31 - 1
-	return decodeBigEndianUint32(e.data[12:]) & packOffsetMask
-}
-
-// bytes 16..19: 4 bytes, big endian, content length.
-func (e indexEntryInfoV1) GetPackedLength() uint32 {
-	return decodeBigEndianUint32(e.data[16:])
-}
-
-func (e indexEntryInfoV1) GetOriginalLength() uint32 {
-	return e.GetPackedLength() - e.b.v1PerContentOverhead
-}
-
-func (e indexEntryInfoV1) Timestamp() time.Time {
-	return time.Unix(e.GetTimestampSeconds(), 0)
-}
-
-func (e indexEntryInfoV1) GetCompressionHeaderID() compression.HeaderID {
-	return 0
-}
-
-func (e indexEntryInfoV1) GetEncryptionKeyID() byte {
-	return 0
-}
-
-var _ Info = indexEntryInfoV1{}
 
 type indexV1 struct {
 	hdr    v1HeaderInfo
@@ -116,6 +48,57 @@ type indexV1 struct {
 	// v1 index does not explicitly store per-content length so we compute it from packed length and fixed overhead
 	// provided by the encryptor.
 	v1PerContentOverhead uint32
+
+	nameOffsetToBlobIDMutex sync.Mutex
+
+	// +checklocks:nameOffsetToBlobIDMutex
+	nameOffsetToBlobID map[uint32]blob.ID
+}
+
+func (b *indexV1) packBlobIDForOffset(nameOffset uint32, nameLength int) blob.ID {
+	b.nameOffsetToBlobIDMutex.Lock()
+	defer b.nameOffsetToBlobIDMutex.Unlock()
+
+	packBlobID, ok := b.nameOffsetToBlobID[nameOffset]
+	if !ok {
+		nameBuf, err := safeSlice(b.data, int64(nameOffset), nameLength)
+		if err != nil {
+			return invalidBlobID
+		}
+
+		packBlobID = blob.ID(nameBuf[0:nameLength])
+		b.nameOffsetToBlobID[nameOffset] = packBlobID
+	}
+
+	return packBlobID
+}
+
+func (b *indexV1) entryToInfoStruct(contentID ID, data []byte, result *Info) error {
+	if len(data) != v1EntryLength {
+		return errors.Errorf("invalid entry length: %v", len(data))
+	}
+
+	result.ContentID = contentID
+	result.TimestampSeconds = decodeBigEndianUint48(data)
+	result.FormatVersion = data[6]
+
+	// entry byte 7: length of pack content ID
+	// entry bytes 8..11: 4 bytes, big endian, offset within index file where pack (blob) ID begins.
+	nameLength := int(data[7])
+	nameOffset := decodeBigEndianUint32(data[8:])
+	result.PackBlobID = b.packBlobIDForOffset(nameOffset, nameLength)
+
+	// entry bytes 12..15 - deleted flag (MSBit), 31 lower bits encode pack offset.
+	result.Deleted = data[12]&0x80 != 0 //nolint:mnd
+
+	const packOffsetMask = 1<<31 - 1
+	result.PackOffset = decodeBigEndianUint32(data[12:]) & packOffsetMask
+	result.PackedLength = decodeBigEndianUint32(data[16:])
+	result.OriginalLength = result.PackedLength - b.v1PerContentOverhead
+	result.CompressionHeaderID = 0
+	result.EncryptionKeyID = 0
+
+	return nil
 }
 
 func (b *indexV1) ApproximateCount() int {
@@ -146,12 +129,13 @@ func (b *indexV1) Iterate(r IDRange, cb func(Info) error) error {
 			break
 		}
 
-		i, err := b.entryToInfo(contentID, entry[b.hdr.keySize:])
-		if err != nil {
+		var tmp Info
+
+		if err := b.entryToInfoStruct(contentID, entry[b.hdr.keySize:], &tmp); err != nil {
 			return errors.Wrap(err, "invalid index data")
 		}
 
-		if err := cb(i); err != nil {
+		if err := cb(tmp); err != nil {
 			return err
 		}
 	}
@@ -241,27 +225,27 @@ func (b *indexV1) findEntry(output []byte, contentID ID) ([]byte, error) {
 }
 
 // GetInfo returns information about a given content. If a content is not found, nil is returned.
-func (b *indexV1) GetInfo(contentID ID) (Info, error) {
+func (b *indexV1) GetInfo(contentID ID, result *Info) (bool, error) {
 	var entryBuf [v1MaxEntrySize]byte
 
 	e, err := b.findEntry(entryBuf[:0], contentID)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
 	if e == nil {
-		return nil, nil
+		return false, nil
 	}
 
-	return b.entryToInfo(contentID, e)
-}
-
-func (b *indexV1) entryToInfo(contentID ID, entryData []byte) (Info, error) {
-	if len(entryData) != v1EntryLength {
-		return nil, errors.Errorf("invalid entry length: %v", len(entryData))
+	if len(e) != v1EntryLength {
+		return false, errors.Errorf("invalid entry length: %v", len(e))
 	}
 
-	return indexEntryInfoV1{entryData, contentID, b}, nil
+	if err := b.entryToInfoStruct(contentID, e, result); err != nil {
+		return false, errors.Wrap(err, "unable to convert entry to info")
+	}
+
+	return true, nil
 }
 
 // Close closes the index.
@@ -282,8 +266,7 @@ type indexBuilderV1 struct {
 }
 
 // buildV1 writes the pack index to the provided output.
-func (b Builder) buildV1(output io.Writer) error {
-	allContents := b.sortedContents()
+func buildV1(allContents []*Info, output io.Writer) error {
 	b1 := &indexBuilderV1{
 		packBlobIDOffsets: map[blob.ID]uint32{},
 		keyLength:         -1,
@@ -300,8 +283,8 @@ func (b Builder) buildV1(output io.Writer) error {
 	header := make([]byte, v1HeaderSize)
 	header[0] = 1 // version
 	header[1] = byte(b1.keyLength)
-	binary.BigEndian.PutUint16(header[2:4], uint16(b1.entryLength))
-	binary.BigEndian.PutUint32(header[4:8], uint32(b1.entryCount))
+	binary.BigEndian.PutUint16(header[2:4], uint16(b1.entryLength)) //nolint:gosec
+	binary.BigEndian.PutUint32(header[4:8], uint32(b1.entryCount))  //nolint:gosec
 
 	if _, err := w.Write(header); err != nil {
 		return errors.Wrap(err, "unable to write header")
@@ -323,44 +306,44 @@ func (b Builder) buildV1(output io.Writer) error {
 	return errors.Wrap(w.Flush(), "error flushing index")
 }
 
-func (b *indexBuilderV1) prepareExtraData(allContents []Info) []byte {
+func (b *indexBuilderV1) prepareExtraData(allContents []*Info) []byte {
 	var extraData []byte
 
 	var hashBuf [maxContentIDSize]byte
 
 	for i, it := range allContents {
 		if i == 0 {
-			b.keyLength = len(contentIDToBytes(hashBuf[:0], it.GetContentID()))
+			b.keyLength = len(contentIDToBytes(hashBuf[:0], it.ContentID))
 		}
 
-		if it.GetPackBlobID() != "" {
-			if _, ok := b.packBlobIDOffsets[it.GetPackBlobID()]; !ok {
-				b.packBlobIDOffsets[it.GetPackBlobID()] = uint32(len(extraData))
-				extraData = append(extraData, []byte(it.GetPackBlobID())...)
+		if it.PackBlobID != "" {
+			if _, ok := b.packBlobIDOffsets[it.PackBlobID]; !ok {
+				b.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData)) //nolint:gosec
+				extraData = append(extraData, []byte(it.PackBlobID)...)
 			}
 		}
 	}
 
-	b.extraDataOffset = uint32(v1HeaderSize + b.entryCount*(b.keyLength+b.entryLength))
+	b.extraDataOffset = uint32(v1HeaderSize + b.entryCount*(b.keyLength+b.entryLength)) //nolint:gosec
 
 	return extraData
 }
 
-func (b *indexBuilderV1) writeEntry(w io.Writer, it Info, entry []byte) error {
+func (b *indexBuilderV1) writeEntry(w io.Writer, it *Info, entry []byte) error {
 	var hashBuf [maxContentIDSize]byte
 
-	k := contentIDToBytes(hashBuf[:0], it.GetContentID())
+	k := contentIDToBytes(hashBuf[:0], it.ContentID)
 
 	if len(k) != b.keyLength {
 		return errors.Errorf("inconsistent key length: %v vs %v", len(k), b.keyLength)
 	}
 
-	if it.GetCompressionHeaderID() != 0 {
-		return errors.Errorf("compression not supported in index v1")
+	if it.CompressionHeaderID != 0 {
+		return errors.New("compression not supported in index v1")
 	}
 
-	if it.GetEncryptionKeyID() != 0 {
-		return errors.Errorf("encryption key ID not supported in index v1")
+	if it.EncryptionKeyID != 0 {
+		return errors.New("encryption key ID not supported in index v1")
 	}
 
 	if err := b.formatEntry(entry, it); err != nil {
@@ -378,28 +361,28 @@ func (b *indexBuilderV1) writeEntry(w io.Writer, it Info, entry []byte) error {
 	return nil
 }
 
-func (b *indexBuilderV1) formatEntry(entry []byte, it Info) error {
+func (b *indexBuilderV1) formatEntry(entry []byte, it *Info) error {
 	entryTimestampAndFlags := entry[0:8]
 	entryPackFileOffset := entry[8:12]
 	entryPackedOffset := entry[12:16]
 	entryPackedLength := entry[16:20]
-	timestampAndFlags := uint64(it.GetTimestampSeconds()) << 16 //nolint:gomnd
+	timestampAndFlags := uint64(it.TimestampSeconds) << 16 //nolint:mnd,gosec
 
-	packBlobID := it.GetPackBlobID()
+	packBlobID := it.PackBlobID
 	if len(packBlobID) == 0 {
-		return errors.Errorf("empty pack content ID for %v", it.GetContentID())
+		return errors.Errorf("empty pack content ID for %v", it.ContentID)
 	}
 
 	binary.BigEndian.PutUint32(entryPackFileOffset, b.extraDataOffset+b.packBlobIDOffsets[packBlobID])
 
-	if it.GetDeleted() {
-		binary.BigEndian.PutUint32(entryPackedOffset, it.GetPackOffset()|v1DeletedMarker)
+	if it.Deleted {
+		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset|v1DeletedMarker)
 	} else {
-		binary.BigEndian.PutUint32(entryPackedOffset, it.GetPackOffset())
+		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset)
 	}
 
-	binary.BigEndian.PutUint32(entryPackedLength, it.GetPackedLength())
-	timestampAndFlags |= uint64(it.GetFormatVersion()) << 8 //nolint:gomnd
+	binary.BigEndian.PutUint32(entryPackedLength, it.PackedLength)
+	timestampAndFlags |= uint64(it.FormatVersion) << 8 //nolint:mnd
 	timestampAndFlags |= uint64(len(packBlobID))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)
 
@@ -427,12 +410,12 @@ func v1ReadHeader(data []byte) (v1HeaderInfo, error) {
 	}
 
 	if hi.keySize <= 1 || hi.valueSize < 0 || hi.entryCount < 0 {
-		return v1HeaderInfo{}, errors.Errorf("invalid header")
+		return v1HeaderInfo{}, errors.New("invalid header")
 	}
 
 	return hi, nil
 }
 
 func openV1PackIndex(hdr v1HeaderInfo, data []byte, closer func() error, overhead uint32) (Index, error) {
-	return &indexV1{hdr, data, closer, overhead}, nil
+	return &indexV1{hdr, data, closer, overhead, sync.Mutex{}, map[uint32]blob.ID{}}, nil
 }

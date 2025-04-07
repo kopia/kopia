@@ -56,7 +56,7 @@ func TestFromStrings(t *testing.T) {
 	ids, err := IDsFromStrings([]string{"f0f0", "f1f1"})
 	require.NoError(t, err)
 
-	require.Equal(t, ids, []ID{mustParseID(t, "f0f0"), mustParseID(t, "f1f1")})
+	require.Equal(t, []ID{mustParseID(t, "f0f0"), mustParseID(t, "f1f1")}, ids)
 
 	_, err = IDsFromStrings([]string{"invalidf0f0", "f1f1"})
 	require.Error(t, err)

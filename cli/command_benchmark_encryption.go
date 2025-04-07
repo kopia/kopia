@@ -45,7 +45,7 @@ func (c *commandBenchmarkEncryption) run(ctx context.Context) error {
 	c.out.printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3d. %-30v %v / second", ndx, r.encryption, units.BytesString(int64(r.throughput)))
+		c.out.printStdout("%3d. %-30v %v / second", ndx, r.encryption, units.BytesString(r.throughput))
 
 		if c.optionPrint {
 			c.out.printStdout(",   --encryption=%s", r.encryption)
@@ -69,8 +69,8 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 		enc, err := encryption.CreateEncryptor(&format.ContentFormat{
 			Encryption: ea,
 			Hash:       hashing.DefaultAlgorithm,
-			MasterKey:  make([]byte, 32), //nolint:gomnd
-			HMACSecret: make([]byte, 32), //nolint:gomnd
+			MasterKey:  make([]byte, 32), //nolint:mnd
+			HMACSecret: make([]byte, 32), //nolint:mnd
 		})
 		if err != nil {
 			continue
@@ -83,13 +83,15 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 
 		hashCount := c.repeat
 
-		runInParallelNoResult(c.parallel, func() {
+		runInParallelNoInputNoResult(c.parallel, func() {
 			var hashOutput [hashing.MaxHashSize]byte
 
 			var encryptOutput gather.WriteBuffer
 			defer encryptOutput.Close()
 
-			for i := 0; i < hashCount; i++ {
+			for range hashCount {
+				encryptOutput.Reset()
+
 				if encerr := enc.Encrypt(input, hashOutput[:32], &encryptOutput); encerr != nil {
 					log(ctx).Errorf("encryption failed: %v", encerr)
 					break

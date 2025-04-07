@@ -4,12 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	"net/url"
 	"os"
 	"testing"
 
-	"github.com/Azure/azure-storage-blob-go/azblob"
-	"github.com/pkg/errors"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/bloberror"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -23,13 +22,17 @@ import (
 )
 
 const (
-	testContainerEnv           = "KOPIA_AZURE_TEST_CONTAINER"
-	testStorageAccountEnv      = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
-	testStorageKeyEnv          = "KOPIA_AZURE_TEST_STORAGE_KEY"
-	testStorageSASTokenEnv     = "KOPIA_AZURE_TEST_SAS_TOKEN"
-	testStorageTenantIDEnv     = "KOPIA_AZURE_TEST_TENANT_ID"
-	testStorageClientIDEnv     = "KOPIA_AZURE_TEST_CLIENT_ID"
-	testStorageClientSecretEnv = "KOPIA_AZURE_TEST_CLIENT_SECRET"
+	testContainerEnv                = "KOPIA_AZURE_TEST_CONTAINER"
+	testStorageAccountEnv           = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
+	testStorageKeyEnv               = "KOPIA_AZURE_TEST_STORAGE_KEY"
+	testStorageSASTokenEnv          = "KOPIA_AZURE_TEST_SAS_TOKEN"
+	testImmutableContainerEnv       = "KOPIA_AZURE_TEST_IMMUTABLE_CONTAINER"
+	testImmutableStorageAccountEnv  = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_ACCOUNT"
+	testImmutableStorageKeyEnv      = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_KEY"
+	testImmutableStorageSASTokenEnv = "KOPIA_AZURE_TEST_IMMUTABLE_SAS_TOKEN"
+	testStorageTenantIDEnv          = "KOPIA_AZURE_TEST_TENANT_ID"
+	testStorageClientIDEnv          = "KOPIA_AZURE_TEST_CLIENT_ID"
+	testStorageClientSecretEnv      = "KOPIA_AZURE_TEST_CLIENT_SECRET"
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {
@@ -51,27 +54,21 @@ func createContainer(t *testing.T, container, storageAccount, storageKey string)
 		t.Fatalf("failed to create Azure credentials: %v", err)
 	}
 
-	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
+	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net", storageAccount)
 
-	u, err := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net", storageAccount))
+	client, err := azblob.NewClientWithSharedKeyCredential(serviceURL, credential, nil)
 	if err != nil {
-		t.Fatalf("failed to parse container URL: %v", err)
+		t.Fatalf("failed to get client: %v", err)
 	}
 
-	serviceURL := azblob.NewServiceURL(*u, p)
-	containerURL := serviceURL.NewContainerURL(container)
-
-	_, err = containerURL.Create(context.Background(), azblob.Metadata{}, azblob.PublicAccessNone)
+	_, err = client.CreateContainer(context.Background(), container, nil)
 	if err == nil {
 		return
 	}
 
 	// return if already exists
-	var stgErr azblob.StorageError
-	if errors.As(err, &stgErr) {
-		if stgErr.ServiceCode() == azblob.ServiceCodeContainerAlreadyExists {
-			return
-		}
+	if bloberror.HasCode(err, bloberror.ContainerAlreadyExists) {
+		return
 	}
 
 	t.Fatalf("failed to create blob storage container: %v", err)
@@ -119,7 +116,7 @@ func TestAzureStorage(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	cancel()
@@ -152,7 +149,7 @@ func TestAzureStorageSASToken(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		SASToken:       sasToken,
-		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	require.NoError(t, err)
@@ -190,7 +187,7 @@ func TestAzureStorageClientSecret(t *testing.T) {
 		TenantID:       tenantID,
 		ClientID:       clientID,
 		ClientSecret:   clientSecret,
-		Prefix:         fmt.Sprintf("sastest-%v-%x-", clock.Now().Unix(), data),
+		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	require.NoError(t, err)
@@ -269,4 +266,18 @@ func TestAzureStorageInvalidCreds(t *testing.T) {
 	if err == nil {
 		t.Errorf("unexpected success connecting to Azure blob storage, wanted error")
 	}
+}
+
+func getBlobCount(ctx context.Context, t *testing.T, st blob.Storage, prefix blob.ID) int {
+	t.Helper()
+
+	var count int
+
+	err := st.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
+		count++
+		return nil
+	})
+	require.NoError(t, err)
+
+	return count
 }

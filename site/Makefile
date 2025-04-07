@@ -20,7 +20,7 @@ server: install-tools
 	$(hugo) server --watch=$(WATCH)
 
 node_modules: install-tools
-	$(npm) $(npm_flags) install --no-audit
+	$(npm) $(npm_flags) $(npm_install_or_ci) --no-audit
 	$(npm) $(npm_flags) audit --omit=dev
 
 clean:

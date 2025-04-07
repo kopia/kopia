@@ -93,7 +93,7 @@ func (ki *kopiaConnector) initFilesystem(repoPath string) error {
 	return ki.snap.ConnectOrCreateFilesystem(repoPath)
 }
 
-// initS3WithServerFn initializes server mode with an S3 repository.
+// initS3WithServer initializes server mode with an S3 repository.
 func (ki *kopiaConnector) initS3WithServer(repoPath, bucketName, addr string) error {
 	cmd, fingerprint, err := ki.snap.ConnectOrCreateS3WithServer(addr, bucketName, repoPath)
 	ki.serverCmd = cmd

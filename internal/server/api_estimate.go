@@ -17,7 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 type estimateTaskProgress struct {
@@ -36,7 +36,7 @@ func (p estimateTaskProgress) Error(ctx context.Context, dirname string, err err
 	}
 }
 
-func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded snapshotfs.SampleBuckets, excludedDirs []string, final bool) {
+func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded upload.SampleBuckets, excludedDirs []string, final bool) {
 	_ = excludedDirs
 	_ = final
 
@@ -57,7 +57,7 @@ func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, inc
 	}
 }
 
-func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, prefix string, showExamples bool) {
+func logBucketSamples(ctx context.Context, buckets upload.SampleBuckets, prefix string, showExamples bool) {
 	hasAny := false
 
 	for i, bucket := range buckets {
@@ -84,7 +84,7 @@ func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, pre
 		hasAny = true
 
 		if showExamples && len(bucket.Examples) > 0 {
-			log(ctx).Infof("Examples:")
+			log(ctx).Info("Examples:")
 
 			for _, sample := range bucket.Examples {
 				log(ctx).Infof(" - %v\n", sample)
@@ -97,7 +97,7 @@ func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, pre
 	}
 }
 
-var _ snapshotfs.EstimateProgress = estimateTaskProgress{}
+var _ upload.EstimateProgress = estimateTaskProgress{}
 
 func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
 	var req serverapi.EstimateRequest
@@ -140,15 +140,14 @@ func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiEr
 
 		ctrl.OnCancel(cancel)
 
-		//nolint:wrapcheck
-		return snapshotfs.Estimate(estimatectx, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
+		return upload.Estimate(estimatectx, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
 	})
 
 	taskID := <-taskIDChan
 
 	task, ok := rc.srv.taskManager().GetTask(taskID)
 	if !ok {
-		return nil, internalServerError(errors.Errorf("task not found"))
+		return nil, internalServerError(errors.New("task not found"))
 	}
 
 	return task, nil

@@ -15,35 +15,35 @@ import (
 func InfoDiff(i1, i2 index.Info, ignore ...string) []string {
 	var diffs []string
 
-	if l, r := i1.GetContentID(), i2.GetContentID(); l != r {
+	if l, r := i1.ContentID, i2.ContentID; l != r {
 		diffs = append(diffs, fmt.Sprintf("GetContentID %v != %v", l, r))
 	}
 
-	if l, r := i1.GetPackBlobID(), i2.GetPackBlobID(); l != r {
+	if l, r := i1.PackBlobID, i2.PackBlobID; l != r {
 		diffs = append(diffs, fmt.Sprintf("GetPackBlobID %v != %v", l, r))
 	}
 
-	if l, r := i1.GetDeleted(), i2.GetDeleted(); l != r {
+	if l, r := i1.Deleted, i2.Deleted; l != r {
 		diffs = append(diffs, fmt.Sprintf("GetDeleted %v != %v", l, r))
 	}
 
-	if l, r := i1.GetFormatVersion(), i2.GetFormatVersion(); l != r {
+	if l, r := i1.FormatVersion, i2.FormatVersion; l != r {
 		diffs = append(diffs, fmt.Sprintf("GetFormatVersion %v != %v", l, r))
 	}
 
-	if l, r := i1.GetOriginalLength(), i2.GetOriginalLength(); l != r {
+	if l, r := i1.OriginalLength, i2.OriginalLength; l != r {
 		diffs = append(diffs, fmt.Sprintf("GetOriginalLength %v != %v", l, r))
 	}
 
-	if l, r := i1.GetPackOffset(), i2.GetPackOffset(); l != r {
+	if l, r := i1.PackOffset, i2.PackOffset; l != r {
 		diffs = append(diffs, fmt.Sprintf("GetPackOffset %v != %v", l, r))
 	}
 
-	if l, r := i1.GetPackedLength(), i2.GetPackedLength(); l != r {
+	if l, r := i1.PackedLength, i2.PackedLength; l != r {
 		diffs = append(diffs, fmt.Sprintf("GetPackedLength %v != %v", l, r))
 	}
 
-	if l, r := i1.GetTimestampSeconds(), i2.GetTimestampSeconds(); l != r {
+	if l, r := i1.TimestampSeconds, i2.TimestampSeconds; l != r {
 		diffs = append(diffs, fmt.Sprintf("GetTimestampSeconds %v != %v", l, r))
 	}
 
@@ -51,18 +51,17 @@ func InfoDiff(i1, i2 index.Info, ignore ...string) []string {
 		diffs = append(diffs, fmt.Sprintf("Timestamp %v != %v", l, r))
 	}
 
-	if l, r := i1.GetCompressionHeaderID(), i2.GetCompressionHeaderID(); l != r {
+	if l, r := i1.CompressionHeaderID, i2.CompressionHeaderID; l != r {
 		diffs = append(diffs, fmt.Sprintf("GetCompressionHeaderID %v != %v", l, r))
 	}
 
-	if l, r := i1.GetEncryptionKeyID(), i2.GetEncryptionKeyID(); l != r {
+	if l, r := i1.EncryptionKeyID, i2.EncryptionKeyID; l != r {
 		diffs = append(diffs, fmt.Sprintf("GetEncryptionKeyID %v != %v", l, r))
 	}
 
 	// dear future reader, if this fails because the number of methods has changed,
 	// you need to add additional verification above.
-	//nolint:gomnd
-	if cnt := reflect.TypeOf((*index.Info)(nil)).Elem().NumMethod(); cnt != 11 {
+	if cnt := reflect.TypeOf(index.Info{}).NumMethod(); cnt != 1 {
 		diffs = append(diffs, fmt.Sprintf("unexpected number of methods on content.Info: %v, must update the test", cnt))
 	}
 

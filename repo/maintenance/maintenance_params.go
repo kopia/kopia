@@ -25,6 +25,8 @@ type Params struct {
 	LogRetention LogRetentionOptions `json:"logRetention"`
 
 	ExtendObjectLocks bool `json:"extendObjectLocks"`
+
+	ListParallelism int `json:"listParallelism"`
 }
 
 // isOwnedByByThisUser determines whether current user is the maintenance owner.
@@ -37,7 +39,7 @@ func DefaultParams() Params {
 	return Params{
 		FullCycle: CycleParams{
 			Enabled:  true,
-			Interval: 24 * time.Hour, //nolint:gomnd
+			Interval: 24 * time.Hour, //nolint:mnd
 		},
 		QuickCycle: CycleParams{
 			Enabled:  true,

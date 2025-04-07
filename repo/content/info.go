@@ -13,11 +13,8 @@ type (
 	// IDPrefix represents a content ID prefix (empty string or single character between 'g' and 'z').
 	IDPrefix = index.IDPrefix
 
-	// Info is an information about a single piece of content managed by Manager.
+	// Info describes a single piece of content.
 	Info = index.Info
-
-	// InfoStruct is an implementation of Info based on a structure.
-	InfoStruct = index.InfoStruct
 
 	// IDRange represents a range of IDs.
 	IDRange = index.IDRange
@@ -27,11 +24,6 @@ type (
 //
 //nolint:gochecknoglobals
 var EmptyID = index.EmptyID
-
-// ToInfoStruct converts the provided Info to *InfoStruct.
-func ToInfoStruct(i Info) *InfoStruct {
-	return index.ToInfoStruct(i)
-}
 
 // IDFromHash creates and validates content ID from a prefix and hash.
 func IDFromHash(prefix IDPrefix, hash []byte) (ID, error) {

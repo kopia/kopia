@@ -44,15 +44,15 @@ func NewMapping(fwd map[string]int) *Mapping {
 		IndexToName: inverse(fwd),
 	}
 
-	max := 0
+	maxIndex := 0
 
 	for _, index := range fwd {
-		if index > max {
-			max = index
+		if index > maxIndex {
+			maxIndex = index
 		}
 	}
 
-	m.MaxIndex = max
+	m.MaxIndex = maxIndex
 
 	return m
 }

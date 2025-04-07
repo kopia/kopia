@@ -134,7 +134,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 
 	info, err := r2.(repo.DirectRepository).ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
-	require.False(t, info.GetDeleted(), "content must not be deleted")
+	require.False(t, info.Deleted, "content must not be deleted")
 
 	_, err = r2.VerifyObject(ctx, s2.RootObjectID())
 	require.NoError(t, err)
@@ -148,7 +148,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 
 	info, err = th.RepositoryWriter.ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
-	require.True(t, info.GetDeleted(), "content must be deleted")
+	require.True(t, info.Deleted, "content must be deleted")
 
 	_, err = th.RepositoryWriter.VerifyObject(ctx, s2.RootObjectID())
 	require.NoError(t, err)
@@ -162,7 +162,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 	// Was the previous root undeleted
 	info, err = th.RepositoryWriter.ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
-	require.False(t, info.GetDeleted(), "content must not be deleted")
+	require.False(t, info.Deleted, "content must not be deleted")
 
 	_, err = th.RepositoryWriter.VerifyObject(ctx, s2.RootObjectID())
 	require.NoError(t, err)
@@ -236,7 +236,7 @@ func newTestHarness(t *testing.T, formatVersion format.Version) *testHarness {
 
 	baseTime := time.Date(2020, 9, 10, 0, 0, 0, 0, time.UTC)
 	th := &testHarness{
-		fakeTime:  faketime.NewTimeAdvance(baseTime, time.Second),
+		fakeTime:  faketime.NewAutoAdvance(baseTime, time.Second),
 		sourceDir: mockfs.NewDirectory(),
 	}
 
@@ -320,6 +320,18 @@ func (s *formatSpecificTestSuite) TestMaintenanceAutoLiveness(t *testing.T) {
 	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsFull], maintenance.TaskRewriteContentsFull)
 	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsQuick], maintenance.TaskRewriteContentsQuick)
 	require.NotEmpty(t, sched.Runs[maintenance.TaskSnapshotGarbageCollection], maintenance.TaskSnapshotGarbageCollection)
+}
+
+func TestNoMaintenanceReadOnly(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		ConnectOptions: func(o *repo.ConnectOptions) {
+			o.ReadOnly = true
+		},
+	})
+
+	err := snapshotmaintenance.Run(ctx, env.RepositoryWriter, maintenance.ModeAuto, true, maintenance.SafetyFull)
+
+	require.ErrorIs(t, err, snapshotmaintenance.ErrReadonly)
 }
 
 func (th *testHarness) fakeTimeOpenRepoOption(o *repo.Options) {
@@ -426,6 +438,6 @@ func checkContentDeletion(t *testing.T, r repo.Repository, cids []content.ID, de
 		ci, err := r.ContentInfo(ctx, cid)
 
 		require.NoErrorf(t, err, "i:%d cid:%s", i, cid)
-		require.Equalf(t, deleted, ci.GetDeleted(), "i:%d cid:%s", i, cid)
+		require.Equalf(t, deleted, ci.Deleted, "i:%d cid:%s", i, cid)
 	}
 }

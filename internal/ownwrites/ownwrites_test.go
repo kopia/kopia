@@ -16,9 +16,9 @@ import (
 const testCacheDuration = 15 * time.Minute
 
 func TestOwnWrites(t *testing.T) {
-	realStorageTime := faketime.NewTimeAdvance(time.Date(2000, 1, 2, 3, 4, 5, 6, time.UTC), 0)
+	realStorageTime := faketime.NewTimeAdvance(time.Date(2000, 1, 2, 3, 4, 5, 6, time.UTC))
 	realStorage := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, realStorageTime.NowFunc())
-	cacheTime := faketime.NewTimeAdvance(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC), 0)
+	cacheTime := faketime.NewTimeAdvance(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC))
 	cachest := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, cacheTime.NowFunc())
 
 	ec := blobtesting.NewEventuallyConsistentStorage(realStorage, 1*time.Hour, realStorageTime.NowFunc())

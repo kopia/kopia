@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
@@ -36,16 +37,20 @@ type TaskType string
 
 // Task IDs.
 const (
-	TaskSnapshotGarbageCollection   = "snapshot-gc"
-	TaskDeleteOrphanedBlobsQuick    = "quick-delete-blobs"
-	TaskDeleteOrphanedBlobsFull     = "full-delete-blobs"
-	TaskRewriteContentsQuick        = "quick-rewrite-contents"
-	TaskRewriteContentsFull         = "full-rewrite-contents"
-	TaskDropDeletedContentsFull     = "full-drop-deleted-content"
-	TaskIndexCompaction             = "index-compaction"
-	TaskExtendBlobRetentionTimeFull = "extend-blob-retention-time"
-	TaskCleanupLogs                 = "cleanup-logs"
-	TaskCleanupEpochManager         = "cleanup-epoch-manager"
+	TaskSnapshotGarbageCollection    = "snapshot-gc"
+	TaskDeleteOrphanedBlobsQuick     = "quick-delete-blobs"
+	TaskDeleteOrphanedBlobsFull      = "full-delete-blobs"
+	TaskRewriteContentsQuick         = "quick-rewrite-contents"
+	TaskRewriteContentsFull          = "full-rewrite-contents"
+	TaskDropDeletedContentsFull      = "full-drop-deleted-content"
+	TaskIndexCompaction              = "index-compaction"
+	TaskExtendBlobRetentionTimeFull  = "extend-blob-retention-time"
+	TaskCleanupLogs                  = "cleanup-logs"
+	TaskEpochAdvance                 = "advance-epoch"
+	TaskEpochDeleteSupersededIndexes = "delete-superseded-epoch-indexes"
+	TaskEpochCleanupMarkers          = "cleanup-epoch-markers"
+	TaskEpochGenerateRange           = "generate-epoch-range-index"
+	TaskEpochCompactSingle           = "compact-single-epoch"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -63,25 +68,25 @@ func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode,
 	// check full cycle first, as it does more than the quick cycle
 	if p.FullCycle.Enabled {
 		if !rep.Time().Before(s.NextFullMaintenanceTime) {
-			log(ctx).Debugf("due for full maintenance cycle")
+			log(ctx).Debug("due for full maintenance cycle")
 			return ModeFull, nil
 		}
 
 		log(ctx).Debugf("not due for full maintenance cycle until %v", s.NextFullMaintenanceTime)
 	} else {
-		log(ctx).Debugf("full maintenance cycle not enabled")
+		log(ctx).Debug("full maintenance cycle not enabled")
 	}
 
 	// no time for full cycle, check quick cycle
 	if p.QuickCycle.Enabled {
 		if !rep.Time().Before(s.NextQuickMaintenanceTime) {
-			log(ctx).Debugf("due for quick maintenance cycle")
+			log(ctx).Debug("due for quick maintenance cycle")
 			return ModeQuick, nil
 		}
 
 		log(ctx).Debugf("not due for quick maintenance cycle until %v", s.NextQuickMaintenanceTime)
 	} else {
-		log(ctx).Debugf("quick maintenance cycle not enabled")
+		log(ctx).Debug("quick maintenance cycle not enabled")
 	}
 
 	return ModeNone, nil
@@ -165,7 +170,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	}
 
 	if mode == ModeNone {
-		log(ctx).Debugf("not due for maintenance")
+		log(ctx).Debug("not due for maintenance")
 		return nil
 	}
 
@@ -181,7 +186,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	}
 
 	if !ok {
-		log(ctx).Debugf("maintenance is already in progress locally")
+		log(ctx).Debug("maintenance is already in progress locally")
 		return nil
 	}
 
@@ -226,7 +231,7 @@ func checkClockSkewBounds(rp RunParameters) error {
 	}
 
 	if clockSkew > maxClockSkew {
-		return errors.Errorf("Clock skew detected: local clock is out of sync with repository timestamp by more than allowed %v (local: %v repository: %v). Refusing to run maintenance.", maxClockSkew, localTime, repoTime) //nolint:revive
+		return errors.Errorf("clock skew detected: local clock is out of sync with repository timestamp by more than allowed %v (local: %v repository: %v skew: %s). Refusing to run maintenance.", maxClockSkew, localTime, repoTime, clockSkew) //nolint:revive
 	}
 
 	return nil
@@ -247,19 +252,20 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 }
 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
-	_, ok, emerr := runParams.rep.ContentManager().EpochManager()
+	s, err := GetSchedule(ctx, runParams.rep)
+	if err != nil {
+		return errors.Wrap(err, "unable to get schedule")
+	}
+
+	em, ok, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if ok {
-		log(ctx).Debugf("quick maintenance not required for epoch manager")
-		return nil
+		log(ctx).Debug("running quick epoch maintenance only")
+
+		return runTaskEpochMaintenanceQuick(ctx, em, runParams, s)
 	}
 
 	if emerr != nil {
 		return errors.Wrap(emerr, "epoch manager")
-	}
-
-	s, err := GetSchedule(ctx, runParams.rep)
-	if err != nil {
-		return errors.Wrap(err, "unable to get schedule")
 	}
 
 	if shouldQuickRewriteContents(s, safety) {
@@ -280,10 +286,10 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		// running full orphaned blob deletion, otherwise next quick maintenance will start a quick rewrite
 		// and we'd never delete blobs orphaned by full rewrite.
 		if hadRecentFullRewrite(s) {
-			log(ctx).Debugf("Had recent full rewrite - performing full blob deletion.")
+			log(ctx).Debug("Had recent full rewrite - performing full blob deletion.")
 			err = runTaskDeleteOrphanedBlobsFull(ctx, runParams, s, safety)
 		} else {
-			log(ctx).Debugf("Performing quick blob deletion.")
+			log(ctx).Debug("Performing quick blob deletion.")
 			err = runTaskDeleteOrphanedBlobsQuick(ctx, runParams, s, safety)
 		}
 
@@ -299,6 +305,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		return errors.Wrap(err, "error performing index compaction")
 	}
 
+	// clean up logs last
 	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
 		return errors.Wrap(err, "error cleaning up logs")
 	}
@@ -307,7 +314,7 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 }
 
 func notRewritingContents(ctx context.Context) {
-	log(ctx).Infof("Previous content rewrite has not been finalized yet, waiting until the next blob deletion.")
+	log(ctx).Info("Previous content rewrite has not been finalized yet, waiting until the next blob deletion.")
 }
 
 func notDeletingOrphanedBlobs(ctx context.Context, s *Schedule, safety SafetyParameters) {
@@ -326,19 +333,71 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 	})
 }
 
-func runTaskCleanupEpochManager(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	em, ok, emerr := runParams.rep.ContentManager().EpochManager()
+func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
+	return ReportRun(ctx, runParams.rep, TaskEpochAdvance, s, func() error {
+		log(ctx).Info("Cleaning up no-longer-needed epoch markers...")
+		return errors.Wrap(em.MaybeAdvanceWriteEpoch(ctx), "error advancing epoch marker")
+	})
+}
+
+func runTaskEpochMaintenanceQuick(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
+	err := ReportRun(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
+		log(ctx).Info("Compacting an eligible uncompacted epoch...")
+		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
+	})
+	if err != nil {
+		return err
+	}
+
+	err = runTaskEpochAdvance(ctx, em, runParams, s)
+
+	return errors.Wrap(err, "error to advance epoch in quick epoch maintenance task")
+}
+
+func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
+	em, hasEpochManager, emerr := runParams.rep.ContentManager().EpochManager(ctx)
 	if emerr != nil {
 		return errors.Wrap(emerr, "epoch manager")
 	}
 
-	if !ok {
+	if !hasEpochManager {
 		return nil
 	}
 
-	return ReportRun(ctx, runParams.rep, TaskCleanupEpochManager, s, func() error {
-		log(ctx).Infof("Cleaning up old index blobs which have already been compacted...")
-		return errors.Wrap(em.CleanupSupersededIndexes(ctx), "error cleaning up superseded index blobs")
+	// compact a single epoch
+	if err := ReportRun(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
+		log(ctx).Info("Compacting an eligible uncompacted epoch...")
+		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
+	}); err != nil {
+		return err
+	}
+
+	if err := runTaskEpochAdvance(ctx, em, runParams, s); err != nil {
+		return err
+	}
+
+	// compact range
+	if err := ReportRun(ctx, runParams.rep, TaskEpochGenerateRange, s, func() error {
+		log(ctx).Info("Attempting to compact a range of epoch indexes ...")
+
+		return errors.Wrap(em.MaybeGenerateRangeCheckpoint(ctx), "error creating epoch range indexes")
+	}); err != nil {
+		return err
+	}
+
+	// clean up epoch markers
+	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() error {
+		log(ctx).Info("Cleaning up unneeded epoch markers...")
+
+		return errors.Wrap(em.CleanupMarkers(ctx), "error removing epoch markers")
+	})
+	if err != nil {
+		return err
+	}
+
+	return ReportRun(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() error {
+		log(ctx).Info("Cleaning up old index blobs which have already been compacted...")
+		return errors.Wrap(em.CleanupSupersededIndexes(ctx), "error removing superseded epoch index blobs")
 	})
 }
 
@@ -352,7 +411,7 @@ func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters
 	}
 
 	if safeDropTime.IsZero() {
-		log(ctx).Infof("Not enough time has passed since previous successful Snapshot GC. Will try again next time.")
+		log(ctx).Info("Not enough time has passed since previous successful Snapshot GC. Will try again next time.")
 		return nil
 	}
 
@@ -386,7 +445,9 @@ func runTaskDeleteOrphanedBlobsFull(ctx context.Context, runParams RunParameters
 	return ReportRun(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() error {
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
+			Parallel:     runParams.Params.ListParallelism,
 		}, safety)
+
 		return err
 	})
 }
@@ -396,7 +457,9 @@ func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameter
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
 			Prefix:       content.PackBlobIDPrefixSpecial,
+			Parallel:     runParams.Params.ListParallelism,
 		}, safety)
+
 		return err
 	})
 }
@@ -448,18 +511,19 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		log(ctx).Debug("Extending object lock retention-period is disabled.")
 	}
 
-	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
-		return errors.Wrap(err, "error cleaning up logs")
+	if err := runTaskEpochMaintenanceFull(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error cleaning up epoch manager")
 	}
 
-	if err := runTaskCleanupEpochManager(ctx, runParams, s); err != nil {
-		return errors.Wrap(err, "error cleaning up epoch manager")
+	// clean up logs last
+	if err := runTaskCleanupLogs(ctx, runParams, s); err != nil {
+		return errors.Wrap(err, "error cleaning up logs")
 	}
 
 	return nil
 }
 
-// shouldRewriteContents returns true if it's currently ok to rewrite contents.
+// shouldQuickRewriteContents returns true if it's currently ok to rewrite contents.
 // since each content rewrite will require deleting of orphaned blobs after some time passes,
 // we don't want to starve blob deletion by constantly doing rewrites.
 func shouldQuickRewriteContents(s *Schedule, safety SafetyParameters) bool {

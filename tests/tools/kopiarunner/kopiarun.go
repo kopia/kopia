@@ -3,12 +3,13 @@ package kopiarunner
 
 import (
 	"bytes"
-	"errors"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -88,7 +89,7 @@ func (kr *Runner) RunAsync(args ...string) (*exec.Cmd, error) {
 
 	err := c.Start()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Run async failed for "+kr.Exe)
 	}
 
 	return c, nil

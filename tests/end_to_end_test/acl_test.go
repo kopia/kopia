@@ -12,22 +12,8 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestACL_GRPC(t *testing.T) {
-	verifyACL(t, false)
-}
-
-func TestACL_HTTP(t *testing.T) {
-	verifyACL(t, true)
-}
-
-//nolint:thelper
-func verifyACL(t *testing.T, disableGRPC bool) {
+func TestACL(t *testing.T) {
 	t.Parallel()
-
-	grpcArgument := "--grpc"
-	if disableGRPC {
-		grpcArgument = "--no-grpc"
-	}
 
 	serverRunner := testenv.NewInProcRunner(t)
 	serverEnvironment := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, serverRunner)
@@ -36,7 +22,7 @@ func verifyACL(t *testing.T, disableGRPC bool) {
 
 	serverEnvironment.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", serverEnvironment.RepoDir, "--override-hostname=foo", "--override-username=foo", "--enable-actions")
 
-	require.Len(t, serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "list"), 0)
+	require.Empty(t, serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "list"))
 
 	// enable ACLs - that should insert all the rules.
 	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "enable")
@@ -98,7 +84,6 @@ func verifyACL(t *testing.T, disableGRPC bool) {
 		"--override-username", "foo",
 		"--override-hostname", "bar",
 		"--password", "baz",
-		grpcArgument,
 	)
 
 	anotherBarRunner := testenv.NewInProcRunner(t)
@@ -115,7 +100,6 @@ func verifyACL(t *testing.T, disableGRPC bool) {
 		"--override-username", "another",
 		"--override-hostname", "bar",
 		"--password", "baz",
-		grpcArgument,
 	)
 
 	aliceInWonderlandRunner := testenv.NewInProcRunner(t)
@@ -132,7 +116,6 @@ func verifyACL(t *testing.T, disableGRPC bool) {
 		"--override-username", "alice",
 		"--override-hostname", "wonderland",
 		"--password", "baz",
-		grpcArgument,
 	)
 
 	// both alice and foo@bar can see global policy

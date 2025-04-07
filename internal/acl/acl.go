@@ -73,7 +73,7 @@ type valueValidatorFunc func(v string) error
 
 func nonEmptyString(v string) error {
 	if v == "" {
-		return errors.Errorf("must be non-empty")
+		return errors.New("must be non-empty")
 	}
 
 	return nil
@@ -119,12 +119,12 @@ var allowedLabelsForType = map[string]map[string]valueValidatorFunc{
 // Validate validates entry.
 func (e *Entry) Validate() error {
 	if e == nil {
-		return errors.Errorf("nil acl")
+		return errors.New("nil acl")
 	}
 
 	parts := strings.Split(e.User, "@")
-	if len(parts) != 2 { //nolint:gomnd
-		return errors.Errorf("user must be 'username@hostname' possibly including wildcards")
+	if len(parts) != 2 { //nolint:mnd
+		return errors.New("user must be 'username@hostname' possibly including wildcards")
 	}
 
 	typ := e.Target[manifest.TypeLabelKey]
@@ -153,7 +153,7 @@ func (e *Entry) Validate() error {
 	}
 
 	if accessLevelToString[e.Access] == "" {
-		return errors.Errorf("valid access level must be specified")
+		return errors.New("valid access level must be specified")
 	}
 
 	return nil

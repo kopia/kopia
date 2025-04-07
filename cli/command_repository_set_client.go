@@ -46,34 +46,34 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 
 	if c.repoClientOptionsReadOnly {
 		if opt.ReadOnly {
-			log(ctx).Infof("Repository is already in read-only mode.")
+			log(ctx).Info("Repository is already in read-only mode.")
 		} else {
 			opt.ReadOnly = true
 			anyChange = true
 
-			log(ctx).Infof("Setting repository to read-only mode.")
+			log(ctx).Info("Setting repository to read-only mode.")
 		}
 	}
 
 	if c.repoClientOptionsReadWrite {
 		if !opt.ReadOnly {
-			log(ctx).Infof("Repository is already in read-write mode.")
+			log(ctx).Info("Repository is already in read-write mode.")
 		} else {
 			opt.ReadOnly = false
 			anyChange = true
 
-			log(ctx).Infof("Setting repository to read-write mode.")
+			log(ctx).Info("Setting repository to read-write mode.")
 		}
 	}
 
 	if c.repoClientOptionsPermissiveCacheLoading {
 		if !opt.PermissiveCacheLoading {
-			log(ctx).Infof("Repository fails on read of bad index blobs.")
+			log(ctx).Info("Repository fails on read of bad index blobs.")
 		} else {
 			opt.PermissiveCacheLoading = true
 			anyChange = true
 
-			log(ctx).Infof("Setting to load indicies into cache permissively.")
+			log(ctx).Info("Setting to load indicies into cache permissively.")
 		}
 	}
 
@@ -109,11 +109,11 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 		opt.FormatBlobCacheDuration = -1
 		anyChange = true
 
-		log(ctx).Infof("Disabling format blob cache")
+		log(ctx).Info("Disabling format blob cache")
 	}
 
 	if !anyChange {
-		return errors.Errorf("no changes")
+		return errors.New("no changes")
 	}
 
 	//nolint:wrapcheck

@@ -79,7 +79,7 @@ func main() {
 
 	t0 := clock.Now()
 
-	for i := 0; i < 300_000_000; i++ {
+	for i := range 300_000_000 {
 		if i%1_000_000 == 0 && i > 0 {
 			var ms runtime.MemStats
 
@@ -98,7 +98,7 @@ func main() {
 
 		// generate key=sha256(i) without allocations.
 		h.Reset()
-		binary.LittleEndian.PutUint64(num[:], uint64(i))
+		binary.LittleEndian.PutUint64(num[:], uint64(i)) //nolint:gosec
 		h.Write(num[:])
 		h.Sum(keyBuf[:0])
 

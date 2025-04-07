@@ -119,7 +119,7 @@ func getProviderOptions(tb testing.TB, envName string) *Options {
 	}
 
 	if o.Prefix != "" {
-		tb.Fatalf("options providd in '%v' must not specify a prefix", envName)
+		tb.Fatalf("options provided in '%v' must not specify a prefix", envName)
 	}
 
 	return &o
@@ -165,8 +165,6 @@ func TestS3StorageProviders(t *testing.T) {
 	t.Parallel()
 
 	for k, env := range providerCreds {
-		env := env
-
 		t.Run(k, func(t *testing.T) {
 			opt := getProviderOptions(t, env)
 
@@ -292,7 +290,7 @@ func TestTokenExpiration(t *testing.T) {
 	creds, customProvider := customCredentialsAndProvider(awsAccessKeyID, awsSecretAccessKeyID, role, region)
 
 	// Verify that the credentials can be used to get a new value
-	val, err := creds.Get()
+	val, err := creds.GetWithContext(nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -484,8 +482,8 @@ func TestS3StorageMinioSTS(t *testing.T) {
 		DoNotUseTLS:     true,
 	})
 
-	require.NotEqual(t, kopiaCreds.AccessKeyID, minioRootAccessKeyID)
-	require.NotEqual(t, kopiaCreds.SecretAccessKey, minioRootSecretAccessKey)
+	require.NotEqual(t, minioRootAccessKeyID, kopiaCreds.AccessKeyID)
+	require.NotEqual(t, minioRootSecretAccessKey, kopiaCreds.SecretAccessKey)
 	require.NotEmpty(t, kopiaCreds.SessionToken)
 
 	testStorage(t, &Options{
@@ -648,7 +646,6 @@ func createClient(tb testing.TB, opt *Options) *minio.Client {
 	var err error
 
 	transport, err = getCustomTransport(opt)
-
 	if err != nil {
 		tb.Fatalf("unable to get proper transport: %v", err)
 	}
@@ -757,7 +754,7 @@ func createMinioSessionToken(t *testing.T, minioEndpoint, kopiaUserName, kopiaUs
 	require.NoError(t, err, "during STSAssumeRole:", minioEndpoint)
 	require.NotNil(t, roleCreds)
 
-	credsValue, err := roleCreds.Get()
+	credsValue, err := roleCreds.GetWithContext(nil)
 	require.NoError(t, err)
 
 	return credsValue
@@ -790,6 +787,14 @@ const expiredSessionToken = "IQoJb3JpZ2luX2VjEBMaCXVzLXdlc3QtMiJIM" +
 	"82CdcwRB+t7K1LEmRErltbteGtM="
 
 func (cp *customProvider) Retrieve() (credentials.Value, error) {
+	return cp.RetrieveWithCredContext(nil)
+}
+
+func (cp *customProvider) IsExpired() bool {
+	return cp.forceExpired.Load()
+}
+
+func (cp *customProvider) RetrieveWithCredContext(cc *credentials.CredContext) (credentials.Value, error) {
 	if cp.forceExpired.Load() {
 		return credentials.Value{
 			AccessKeyID:     "ASIAQREAKNKDBR4F5F2I",
@@ -799,11 +804,7 @@ func (cp *customProvider) Retrieve() (credentials.Value, error) {
 		}, nil
 	}
 
-	return cp.stsProvider.Retrieve()
-}
-
-func (cp *customProvider) IsExpired() bool {
-	return cp.forceExpired.Load()
+	return cp.stsProvider.RetrieveWithCredContext(cc)
 }
 
 // customCredentialsAndProvider creates a custom provider and returns credentials

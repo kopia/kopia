@@ -5,16 +5,18 @@ import path from 'path';
 
 let electronApp
 
-function getKopiaUIUnpackedDir() {
+function getKopiaUIDir() {
   switch (process.platform + "/" + process.arch) {
     case "darwin/x64":
       return path.resolve("../dist/kopia-ui/mac");
     case "darwin/arm64":
       return path.resolve("../dist/kopia-ui/mac-arm64");
     case "linux/x64":
-      return path.resolve("../dist/kopia-ui/linux-unpacked");
+      // on Linux we must run from installed location due to AppArmor profile
+      return path.resolve("/opt/KopiaUI");
     case "linux/arm64":
-      return path.resolve("../dist/kopia-ui/linux-arm64-unpacked");
+      // on Linux we must run from installed location due to AppArmor profile
+      return path.resolve("/opt/KopiaUI");
     case "win32/x64":
       return path.resolve("../dist/kopia-ui/win-unpacked");
     default:
@@ -22,32 +24,32 @@ function getKopiaUIUnpackedDir() {
   }
 }
  
-function getMainPath(unpackedDir) {
+function getMainPath(kopiauiDir) {
   switch (process.platform) {
     case "darwin":
-      return path.join(unpackedDir, "KopiaUI.app", "Contents", "Resources", "app.asar", "public", "electron.js");
+      return path.join(kopiauiDir, "KopiaUI.app", "Contents", "Resources", "app.asar", "public", "electron.js");
     default:
-      return path.join(unpackedDir, "resources", "app.asar", "public", "electron.js");
+      return path.join(kopiauiDir, "resources", "app.asar", "public", "electron.js");
   }
 }
 
-function getExecutablePath(unpackedDir) {
+function getExecutablePath(kopiauiDir) {
   switch (process.platform) {
     case "win32":
-      return path.join(unpackedDir, "KopiaUI.exe");
+      return path.join(kopiauiDir, "KopiaUI.exe");
     case "darwin":
-      return path.join(unpackedDir, "KopiaUI.app", "Contents", "MacOS", "KopiaUI");
+      return path.join(kopiauiDir, "KopiaUI.app", "Contents", "MacOS", "KopiaUI");
     default:
-      return path.join(unpackedDir, "kopia-ui");
+      return path.join(kopiauiDir, "kopia-ui");
   }
 }
 
 test.beforeAll(async () => {
-  const unpackedDir = getKopiaUIUnpackedDir();
-  expect(unpackedDir).not.toBeNull();
+  const kopiauiDir = getKopiaUIDir();
+  expect(kopiauiDir).not.toBeNull();
 
-  const mainPath = getMainPath(unpackedDir);
-  const executablePath = getExecutablePath(unpackedDir);
+  const mainPath = getMainPath(kopiauiDir);
+  const executablePath = getExecutablePath(kopiauiDir);
 
   console.log('main path', mainPath);
   console.log('executable path', executablePath);
@@ -85,6 +87,7 @@ test('opens repository window', async () => {
   const page = await electronApp.firstWindow();
 
   expect(page).toBeTruthy();
+  await page.waitForNavigation({waitUntil: 'networkidle', networkIdleTimeout: 1000});
   expect(await page.title()).toMatch(/KopiaUI v\d+/);
 
   // TODO - we can exercise some UI scenario using 'page'

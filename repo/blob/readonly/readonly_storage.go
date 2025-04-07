@@ -10,7 +10,7 @@ import (
 )
 
 // ErrReadonly returns an error indicating that storage is read only.
-var ErrReadonly = errors.Errorf("storage is read-only")
+var ErrReadonly = errors.New("storage is read-only")
 
 // readonlyStorage prevents all mutations on the underlying storage.
 type readonlyStorage struct {

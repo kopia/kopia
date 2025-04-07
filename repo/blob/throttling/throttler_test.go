@@ -111,7 +111,7 @@ func testRateLimiting(t *testing.T, name string, wantRate float64, worker func(t
 
 		var wg sync.WaitGroup
 
-		for i := 0; i < numWorkers; i++ {
+		for range numWorkers {
 			wg.Add(1)
 
 			go func() {

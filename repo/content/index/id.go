@@ -26,10 +26,12 @@ func (p IDPrefix) ValidateSingle() error {
 		}
 	}
 
-	return errors.Errorf("invalid prefix, must be empty or a single letter between 'g' and 'z'")
+	return errors.New("invalid prefix, must be empty or a single letter between 'g' and 'z'")
 }
 
 // ID is an identifier of content in content-addressable storage.
+//
+//nolint:recvcheck
 type ID struct {
 	data [hashing.MaxHashSize]byte
 
@@ -158,11 +160,11 @@ func IDFromHash(prefix IDPrefix, hash []byte) (ID, error) {
 	var id ID
 
 	if len(hash) > len(id.data) {
-		return EmptyID, errors.Errorf("hash too long")
+		return EmptyID, errors.New("hash too long")
 	}
 
 	if len(hash) == 0 {
-		return EmptyID, errors.Errorf("hash too short")
+		return EmptyID, errors.New("hash too short")
 	}
 
 	if err := prefix.ValidateSingle(); err != nil {
@@ -193,14 +195,14 @@ func ParseID(s string) (ID, error) {
 		id.prefix = s[0]
 
 		if id.prefix < 'g' || id.prefix > 'z' {
-			return id, errors.Errorf("invalid content prefix")
+			return id, errors.New("invalid content prefix")
 		}
 
 		s = s[1:]
 	}
 
 	if len(s) > 2*len(id.data) {
-		return id, errors.Errorf("hash too long")
+		return id, errors.New("hash too long")
 	}
 
 	n, err := hex.Decode(id.data[:], []byte(s))

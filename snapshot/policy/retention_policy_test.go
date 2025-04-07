@@ -161,8 +161,6 @@ func TestRetentionPolicyTest(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
 			var manifests []*snapshot.Manifest
 			var manifests2 []*snapshot.Manifest

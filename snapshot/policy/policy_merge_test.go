@@ -33,7 +33,7 @@ func ensureTypesMatch(t *testing.T, policyType, definitionType reflect.Type) {
 
 	sourceInfoType := reflect.TypeOf(snapshot.SourceInfo{})
 
-	for i := 0; i < policyType.NumField(); i++ {
+	for i := range policyType.NumField() {
 		f := policyType.Field(i)
 
 		dt, ok := definitionType.FieldByName(f.Name)
@@ -60,7 +60,7 @@ func TestPolicyMerge(t *testing.T) {
 
 //nolint:thelper
 func testPolicyMerge(t *testing.T, policyType, definitionType reflect.Type, prefix string) {
-	for i := 0; i < policyType.NumField(); i++ {
+	for i := range policyType.NumField() {
 		f := policyType.Field(i)
 
 		dt, ok := definitionType.FieldByName(f.Name)
@@ -152,6 +152,14 @@ func testPolicyMergeSingleField(t *testing.T, fieldName string, typ reflect.Type
 		v0 = reflect.ValueOf(compression.Name(""))
 		v1 = reflect.ValueOf(compression.Name("foo"))
 		v2 = reflect.ValueOf(compression.Name("bar"))
+	case "*policy.OSSnapshotMode":
+		v0 = reflect.ValueOf((*policy.OSSnapshotMode)(nil))
+		v1 = reflect.ValueOf(policy.NewOSSnapshotMode(policy.OSSnapshotNever))
+		v2 = reflect.ValueOf(policy.NewOSSnapshotMode(policy.OSSnapshotAlways))
+	case "string":
+		v0 = reflect.ValueOf("")
+		v1 = reflect.ValueOf("FIXED-2M")
+		v2 = reflect.ValueOf("FIXED-4M")
 
 	default:
 		t.Fatalf("unhandled case: %v - %v - please update test", fieldName, typ)

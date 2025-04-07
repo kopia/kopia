@@ -7,6 +7,7 @@ import (
 	"github.com/pierrec/lz4"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/freepool"
 	"github.com/kopia/kopia/internal/iocopy"
 )
 
@@ -54,6 +55,13 @@ func (c *lz4Compressor) Compress(output io.Writer, input io.Reader) error {
 	return nil
 }
 
+//nolint:gochecknoglobals
+var lz4DecoderPool = freepool.New(func() *lz4.Reader {
+	return lz4.NewReader(nil)
+}, func(v *lz4.Reader) {
+	v.Reset(nil)
+})
+
 func (c *lz4Compressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
 	if withHeader {
 		if err := verifyCompressionHeader(input, c.header); err != nil {
@@ -61,9 +69,12 @@ func (c *lz4Compressor) Decompress(output io.Writer, input io.Reader, withHeader
 		}
 	}
 
-	r := lz4.NewReader(input)
+	dec := lz4DecoderPool.Take()
+	defer lz4DecoderPool.Return(dec)
 
-	if err := iocopy.JustCopy(output, r); err != nil {
+	dec.Reset(input)
+
+	if err := iocopy.JustCopy(output, dec); err != nil {
 		return errors.Wrap(err, "decompression error")
 	}
 

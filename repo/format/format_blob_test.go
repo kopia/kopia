@@ -61,7 +61,6 @@ func TestFormatBlobRecovery(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(string(tc.blobID), func(t *testing.T) {
 			v, err := RecoverFormatBlob(ctx, st, tc.blobID, -1)
 			if tc.err == nil {

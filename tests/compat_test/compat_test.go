@@ -8,12 +8,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
 var (
 	kopiaCurrentExe = os.Getenv("KOPIA_CURRENT_EXE")
 	kopia08exe      = os.Getenv("KOPIA_08_EXE")
+	kopia017exe     = os.Getenv("KOPIA_017_EXE")
 )
 
 func TestRepoCreatedWith08CanBeOpenedWithCurrent(t *testing.T) {
@@ -130,4 +132,72 @@ func TestRepoCreatedWithCurrentCannotBeOpenedWith08(t *testing.T) {
 	// can't to open it using 0.8
 	e2 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner08)
 	e2.RunAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e1.RepoDir)
+}
+
+func TestClientConnectedUsingV017CanConnectUsingCurrent(t *testing.T) {
+	t.Parallel()
+
+	if kopiaCurrentExe == "" {
+		t.Skip()
+	}
+
+	if kopia017exe == "" {
+		t.Skip()
+	}
+
+	runnerCurrent := testenv.NewExeRunnerWithBinary(t, kopiaCurrentExe)
+	runner017 := testenv.NewExeRunnerWithBinary(t, kopia017exe)
+
+	// create repository using v0.17 and start a server
+	e1 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner017)
+	e1.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e1.RepoDir)
+	e1.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
+
+	var sp testutil.ServerParameters
+
+	tlsCert := filepath.Join(e1.ConfigDir, "tls.cert")
+	tlsKey := filepath.Join(e1.ConfigDir, "tls.key")
+
+	wait, kill := e1.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start",
+		"--address=localhost:0",
+		"--server-control-username=admin-user",
+		"--server-control-password=admin-pwd",
+		"--tls-generate-cert",
+		"--tls-key-file", tlsKey,
+		"--tls-cert-file", tlsCert,
+		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
+	)
+
+	t.Logf("detected server parameters %#v", sp)
+
+	defer wait()
+	defer kill()
+
+	time.Sleep(3 * time.Second)
+
+	// connect to the server using 0.17
+	e2 := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner017)
+	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e2.RunAndExpectSuccess(t,
+		"repo", "connect", "server",
+		"--url", sp.BaseURL+"/",
+		"--server-cert-fingerprint", sp.SHA256Fingerprint,
+		"--override-username", "foo",
+		"--override-hostname", "bar",
+		"--password", "baz",
+	)
+
+	// we are providing custom password to connect, make sure we won't be providing
+	// (different) default password via environment variable, as command-line password
+	// takes precedence over persisted password.
+	delete(e2.Environment, "KOPIA_PASSWORD")
+
+	e2.RunAndExpectSuccess(t, "snapshot", "ls")
+
+	// now switch to using latest executable and old config file,
+	// everything should still work
+	e2.Runner = runnerCurrent
+	e2.RunAndExpectSuccess(t, "snapshot", "ls")
 }

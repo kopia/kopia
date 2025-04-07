@@ -1,6 +1,8 @@
 package azure
 
 import (
+	"time"
+
 	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
@@ -29,4 +31,7 @@ type Options struct {
 	StorageDomain string `json:"storageDomain,omitempty"`
 
 	throttling.Limits
+
+	// PointInTime specifies a view of the (versioned) store at that time
+	PointInTime *time.Time `json:"pointInTime,omitempty"`
 }

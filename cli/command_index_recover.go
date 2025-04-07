@@ -49,7 +49,7 @@ func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepository
 
 	defer func() {
 		if recoveredContentCount.Load() == 0 {
-			log(ctx).Infof("No contents recovered.")
+			log(ctx).Info("No contents recovered.")
 			return
 		}
 
@@ -111,7 +111,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 	go func() {
 		for _, prefix := range prefixes {
 			//nolint:errcheck
-			rep.BlobStorage().ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
+			rep.BlobStorage().ListBlobs(ctx, prefix, func(_ blob.Metadata) error {
 				discoveringBlobCount.Add(1)
 				return nil
 			})
@@ -141,9 +141,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 	})
 
 	// N goroutines to recover from incoming blobs.
-	for i := 0; i < c.parallel; i++ {
-		worker := i
-
+	for worker := range c.parallel {
 		eg.Go(func() error {
 			cnt := 0
 
@@ -151,6 +149,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 				finishedBlobs := processedBlobCount.Load()
 
 				log(ctx).Debugf("worker %v got %v", worker, cnt)
+
 				cnt++
 
 				if tt.ShouldOutput(time.Second) {
@@ -197,7 +196,7 @@ func (c *commandIndexRecover) recoverIndexFromSinglePackFile(ctx context.Context
 		return errors.Wrapf(err, "unable to recover index from %v", blobID)
 	}
 
-	recoveredContentCount.Add(int32(len(recovered)))
+	recoveredContentCount.Add(int32(len(recovered))) //nolint:gosec
 	processedBlobCount.Add(1)
 	log(ctx).Debugf("Recovered %v entries from %v (commit=%v)", len(recovered), blobID, c.commit)
 

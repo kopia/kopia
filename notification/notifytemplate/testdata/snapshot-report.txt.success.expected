@@ -1,0 +1,19 @@
+Subject: Successfully created a snapshot of /some/path on some-host
+
+Path: /some/path
+
+  Status:      success
+  Start:       Thu, 02 Jan 2020 03:04:05 +0000
+  Duration:    1.1s
+  Size:        456 B (+56 B)
+  Files:       123 (+23)
+  Directories: 33 (+3)
+
+  Failed Entries:
+
+  - /some/path: some error
+  - /some/path2: some error
+
+Generated at Thu, 02 Jan 2020 03:04:05 +0000 by Kopia v0-unofficial.
+
+https://kopia.io/

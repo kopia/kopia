@@ -14,10 +14,11 @@ import (
 	"strings"
 
 	//nolint:staticcheck
-	"github.com/golang/protobuf/proto"
+
 	"github.com/google/fswalker"
 	fspb "github.com/google/fswalker/proto/fswalker"
 	"github.com/pkg/errors"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/kopia/kopia/tests/tools/fswalker/reporter"
 	"github.com/kopia/kopia/tests/tools/fswalker/walker"
@@ -183,13 +184,13 @@ func isRootDirectoryRename(diffItem string, mod fswalker.ActionData) bool {
 
 	// The mod.Before.Path may be given from fswalker Report as "./", so
 	// clean it before compare
-	return mod.Before.Info.IsDir && filepath.Clean(mod.Before.Path) == "."
+	return mod.Before.GetInfo().GetIsDir() && filepath.Clean(mod.Before.GetPath()) == "."
 }
 
 // Directory size changes with underlying file system setups. Ignote the dir size during data consistency check to make it robust.
 // Remove this filter from GlobalFilterFuncs to detect the size difference in a directory.
 func filterDirSizeCheck(str string, mod fswalker.ActionData) bool {
-	return mod.Before.Info.IsDir && strings.Contains(str, "size: ")
+	return mod.Before.GetInfo().GetIsDir() && strings.Contains(str, "size: ")
 }
 
 func filterFileTimeDiffs(str string, mod fswalker.ActionData) bool {
@@ -201,8 +202,8 @@ func ignoreGIDIfZero(str string, mod fswalker.ActionData) bool {
 		return false
 	}
 
-	beforeGID := mod.Before.Stat.Gid
-	afterGID := mod.After.Stat.Gid
+	beforeGID := mod.Before.GetStat().GetGid()
+	afterGID := mod.After.GetStat().GetGid()
 
 	return beforeGID != afterGID && beforeGID == 0
 }
@@ -212,8 +213,8 @@ func ignoreUIDIfZero(str string, mod fswalker.ActionData) bool {
 		return false
 	}
 
-	beforeUID := mod.Before.Stat.Uid
-	afterUID := mod.After.Stat.Uid
+	beforeUID := mod.Before.GetStat().GetUid()
+	afterUID := mod.After.GetStat().GetUid()
 
 	return beforeUID != afterUID && beforeUID == 0
 }
@@ -239,10 +240,10 @@ func validateReport(report *fswalker.Report) error {
 }
 
 func rerootWalkDataPaths(walk *fspb.Walk, newRoot string) error {
-	for _, f := range walk.File {
+	for _, f := range walk.GetFile() {
 		var err error
 
-		f.Path, err = filepath.Rel(newRoot, f.Path)
+		f.Path, err = filepath.Rel(newRoot, f.GetPath())
 		if err != nil {
 			return err
 		}

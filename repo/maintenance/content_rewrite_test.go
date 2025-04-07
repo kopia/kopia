@@ -73,24 +73,22 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(fmt.Sprintf("case-%v", tc), func(t *testing.T) {
 			ctx, env := repotesting.NewEnvironment(t, s.formatVersion)
 
 			// run N sessions to create N individual pack blobs for each content prefix
-			for i := 0; i < tc.numPContents; i++ {
+			for range tc.numPContents {
 				require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
-					ow := w.NewObjectWriter(ctx, object.WriterOptions{})
+					ow := w.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 					fmt.Fprintf(ow, "%v", uuid.NewString())
 					_, err := ow.Result()
 					return err
 				}))
 			}
 
-			for i := 0; i < tc.numQContents; i++ {
+			for range tc.numQContents {
 				require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
-					ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "k"})
+					ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "k", MetadataCompressor: "zstd-fastest"})
 					fmt.Fprintf(ow, "%v", uuid.NewString())
 					_, err := ow.Result()
 					return err

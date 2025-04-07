@@ -6,7 +6,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// shouldAdvanceEpoch determines if the current epoch should be advanced based on set of blobs in it.
+// shouldAdvance determines if the current epoch should be advanced based on set of blobs in it.
 //
 // Epoch will be advanced if it's been more than 'minEpochDuration' between earliest and
 // most recent write AND at least one of the criteria has been met:
@@ -19,25 +19,25 @@ func shouldAdvance(bms []blob.Metadata, minEpochDuration time.Duration, countThr
 	}
 
 	var (
-		min       = bms[0].Timestamp
-		max       = bms[0].Timestamp
+		minTime   = bms[0].Timestamp
+		maxTime   = bms[0].Timestamp
 		totalSize = int64(0)
 	)
 
 	for _, bm := range bms {
-		if bm.Timestamp.Before(min) {
-			min = bm.Timestamp
+		if bm.Timestamp.Before(minTime) {
+			minTime = bm.Timestamp
 		}
 
-		if bm.Timestamp.After(max) {
-			max = bm.Timestamp
+		if bm.Timestamp.After(maxTime) {
+			maxTime = bm.Timestamp
 		}
 
 		totalSize += bm.Length
 	}
 
 	// not enough time between first and last write in an epoch.
-	if max.Sub(min) < minEpochDuration {
+	if maxTime.Sub(minTime) < minEpochDuration {
 		return false
 	}
 

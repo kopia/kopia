@@ -7,6 +7,7 @@ import (
 	"github.com/klauspost/compress/s2"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/freepool"
 	"github.com/kopia/kopia/internal/iocopy"
 )
 
@@ -62,6 +63,13 @@ func (c *s2Compressor) Compress(output io.Writer, input io.Reader) error {
 	return nil
 }
 
+//nolint:gochecknoglobals
+var s2DecoderPool = freepool.New(func() *s2.Reader {
+	return s2.NewReader(nil)
+}, func(v *s2.Reader) {
+	v.Reset(nil)
+})
+
 func (c *s2Compressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
 	if withHeader {
 		if err := verifyCompressionHeader(input, c.header); err != nil {
@@ -69,9 +77,12 @@ func (c *s2Compressor) Decompress(output io.Writer, input io.Reader, withHeader 
 		}
 	}
 
-	r := s2.NewReader(input)
+	dec := s2DecoderPool.Take()
+	defer s2DecoderPool.Return(dec)
 
-	if err := iocopy.JustCopy(output, r); err != nil {
+	dec.Reset(input)
+
+	if err := iocopy.JustCopy(output, dec); err != nil {
 		return errors.Wrap(err, "decompression error")
 	}
 

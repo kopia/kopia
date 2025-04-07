@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"syscall"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
@@ -20,7 +21,7 @@ import (
 
 func deprecatedFlag(w io.Writer, help string) func(_ *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
-		fmt.Fprintf(w, "DEPRECATED: %v\n", help)
+		fmt.Fprintf(w, "DEPRECATED: %v\n", help) //nolint:errcheck
 		return nil
 	}
 }
@@ -29,9 +30,9 @@ func (c *App) onRepositoryFatalError(f func(err error)) {
 	c.onFatalErrorCallbacks = append(c.onFatalErrorCallbacks, f)
 }
 
-func (c *App) onCtrlC(f func()) {
+func (c *App) onTerminate(f func()) {
 	s := make(chan os.Signal, 1)
-	signal.Notify(s, os.Interrupt)
+	signal.Notify(s, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		// invoke the function when either real or simulated Ctrl-C signal is delivered
@@ -53,7 +54,7 @@ func (c *App) openRepository(ctx context.Context, required bool) (repo.Repositor
 			return nil, nil
 		}
 
-		return nil, errors.Errorf("repository is not connected. See https://kopia.io/docs/repositories/")
+		return nil, errors.New("repository is not connected. See https://kopia.io/docs/repositories/")
 	}
 
 	c.maybePrintUpdateNotification(ctx)

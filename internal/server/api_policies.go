@@ -66,7 +66,7 @@ func handlePolicyResolve(ctx context.Context, rc requestContext) (interface{}, *
 	var req serverapi.ResolvePolicyRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+		return nil, unableToDecodeRequest(err)
 	}
 
 	target := getSnapshotSourceFromURL(rc.req.URL)
@@ -95,7 +95,7 @@ func handlePolicyResolve(ctx context.Context, rc requestContext) (interface{}, *
 
 	now := clock.Now().Local()
 
-	for i := 0; i < req.NumUpcomingSnapshotTimes; i++ {
+	for range req.NumUpcomingSnapshotTimes {
 		st, ok := resp.Effective.SchedulingPolicy.NextSnapshotTime(now, now)
 		if !ok {
 			break

@@ -143,7 +143,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		timePeriodType string
 		max            *OptionalInt
 	}{
-		{zeroTime, fmt.Sprintf("%v", i), "latest", effectiveKeepLatest},
+		{zeroTime, strconv.Itoa(i), "latest", effectiveKeepLatest},
 		{cutoff.annual, s.StartTime.Format("2006"), "annual", r.KeepAnnual},
 		{cutoff.monthly, s.StartTime.Format("2006-01"), "monthly", r.KeepMonthly},
 		{cutoff.weekly, fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", r.KeepWeekly},
@@ -197,7 +197,7 @@ func daysAgo(base time.Time, n int) time.Time {
 }
 
 func weeksAgo(base time.Time, n int) time.Time {
-	return base.AddDate(0, 0, -n*7) //nolint:gomnd
+	return base.AddDate(0, 0, -n*7) //nolint:mnd
 }
 
 func hoursAgo(base time.Time, n int) time.Time {
@@ -317,11 +317,11 @@ func CompactPins(pins []string) []string {
 func SortRetentionTags(tags []string) {
 	retentionPrefixSortValue := map[string]int{
 		"latest":  1,
-		"hourly":  2, //nolint:gomnd
-		"daily":   3, //nolint:gomnd
-		"weekly":  4, //nolint:gomnd
-		"monthly": 5, //nolint:gomnd
-		"annual":  6, //nolint:gomnd
+		"hourly":  2, //nolint:mnd
+		"daily":   3, //nolint:mnd
+		"weekly":  4, //nolint:mnd
+		"monthly": 5, //nolint:mnd
+		"annual":  6, //nolint:mnd
 	}
 
 	sort.Slice(tags, func(i, j int) bool {

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -16,10 +17,10 @@ import (
 var log = logging.Module("blob")
 
 // ErrSetTimeUnsupported is returned by implementations of Storage that don't support SetTime.
-var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
+var ErrSetTimeUnsupported = errors.New("SetTime is not supported")
 
 // ErrInvalidRange is returned when the requested blob offset or length is invalid.
-var ErrInvalidRange = errors.Errorf("invalid blob offset or length")
+var ErrInvalidRange = errors.New("invalid blob offset or length")
 
 // InvalidCredentialsErrStr is the error string returned by the provider
 // when a token has expired.
@@ -71,7 +72,7 @@ type Capacity struct {
 
 // Volume defines disk/volume access API to blob storage.
 type Volume interface {
-	// Capacity returns the capacity of a given volume.
+	// GetCapacity returns the capacity of a given volume.
 	GetCapacity(ctx context.Context) (Capacity, error)
 }
 
@@ -94,7 +95,7 @@ type Reader interface {
 	// connect to storage.
 	ConnectionInfo() ConnectionInfo
 
-	// Name of the storage used for quick identification by humans.
+	// DisplayName Name of the storage used for quick identification by humans.
 	DisplayName() string
 }
 
@@ -107,6 +108,9 @@ const (
 
 	// Compliance - compliance mode.
 	Compliance RetentionMode = "COMPLIANCE"
+
+	// Locked - Locked policy mode for Azure.
+	Locked RetentionMode = RetentionMode(blob.ImmutabilityPolicyModeLocked)
 )
 
 func (r RetentionMode) String() string {
@@ -142,7 +146,7 @@ type ExtendOptions struct {
 // common functions that are mostly provider independent and have a sensible
 // default.
 //
-// Storage providers should imbed this struct and override functions that they
+// Storage providers should embed this struct and override functions that they
 // have different return values for.
 type DefaultProviderImplementation struct{}
 
@@ -266,8 +270,6 @@ func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Stora
 	for _, prefix := range prefixes {
 		wg.Add(1)
 
-		prefix := prefix
-
 		// acquire semaphore
 		semaphore <- struct{}{}
 
@@ -329,28 +331,28 @@ func TotalLength(mds []Metadata) int64 {
 
 // MinTimestamp returns minimum timestamp for blobs in Metadata slice.
 func MinTimestamp(mds []Metadata) time.Time {
-	min := time.Time{}
+	minTime := time.Time{}
 
 	for _, md := range mds {
-		if min.IsZero() || md.Timestamp.Before(min) {
-			min = md.Timestamp
+		if minTime.IsZero() || md.Timestamp.Before(minTime) {
+			minTime = md.Timestamp
 		}
 	}
 
-	return min
+	return minTime
 }
 
 // MaxTimestamp returns maximum timestamp for blobs in Metadata slice.
 func MaxTimestamp(mds []Metadata) time.Time {
-	max := time.Time{}
+	maxTime := time.Time{}
 
 	for _, md := range mds {
-		if md.Timestamp.After(max) {
-			max = md.Timestamp
+		if md.Timestamp.After(maxTime) {
+			maxTime = md.Timestamp
 		}
 	}
 
-	return max
+	return maxTime
 }
 
 // DeleteMultiple deletes multiple blobs in parallel.
@@ -361,8 +363,6 @@ func DeleteMultiple(ctx context.Context, st Storage, ids []ID, parallelism int) 
 	for _, id := range ids {
 		// acquire semaphore
 		sem <- struct{}{}
-
-		id := id
 
 		eg.Go(func() error {
 			defer func() {
@@ -396,7 +396,7 @@ func PutBlobAndGetMetadata(ctx context.Context, st Storage, blobID ID, data Byte
 func ReadBlobMap(ctx context.Context, br Reader) (map[ID]Metadata, error) {
 	blobMap := map[ID]Metadata{}
 
-	log(ctx).Infof("Listing blobs...")
+	log(ctx).Info("Listing blobs...")
 
 	if err := br.ListBlobs(ctx, "", func(bm Metadata) error {
 		blobMap[bm.BlobID] = bm

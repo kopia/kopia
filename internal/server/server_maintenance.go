@@ -8,6 +8,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/notifydata"
+	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
 )
@@ -32,6 +35,8 @@ type srvMaintenance struct {
 type maintenanceManagerServerInterface interface {
 	runMaintenanceTask(ctx context.Context, dr repo.DirectRepository) error
 	refreshScheduler(reason string)
+	enableErrorNotifications() bool
+	notificationTemplateOptions() notifytemplate.Options
 }
 
 func (s *srvMaintenance) trigger() {
@@ -105,12 +110,31 @@ func (s *srvMaintenance) nextMaintenanceTime() time.Time {
 	return s.cachedNextMaintenanceTime
 }
 
-func startMaintenanceManager(
+// Starts a periodic, background srvMaintenance task. Returns nil if no task was created.
+func maybeStartMaintenanceManager(
 	ctx context.Context,
-	rep repo.DirectRepository,
+	rep repo.Repository,
 	srv maintenanceManagerServerInterface,
 	minMaintenanceInterval time.Duration,
 ) *srvMaintenance {
+	// Check whether maintenance can be run and avoid unnecessarily starting a task that
+	// would fail later. Don't start a task when the repo is either:
+	// - not direct; or
+	// - read only.
+	// Note: the repo owner is not checked here since the repo owner can be externally
+	// changed while the server is running. The server would pick up the new onwer
+	// the next time a maintenance task executes.
+	dr, ok := rep.(repo.DirectRepository)
+	if !ok {
+		return nil
+	}
+
+	if rep.ClientOptions().ReadOnly {
+		log(ctx).Warnln("the repository connection is read-only, maintenance tasks will not be performed on this repository")
+
+		return nil
+	}
+
 	mctx, cancel := context.WithCancel(ctx)
 
 	m := srvMaintenance{
@@ -119,7 +143,7 @@ func startMaintenanceManager(
 		srv:                    srv,
 		cancelCtx:              cancel,
 		minMaintenanceInterval: minMaintenanceInterval,
-		dr:                     rep,
+		dr:                     dr,
 	}
 
 	m.wg.Add(1)
@@ -138,9 +162,21 @@ func startMaintenanceManager(
 
 				m.beforeRun()
 
-				if err := srv.runMaintenanceTask(mctx, rep); err != nil {
+				t0 := clock.Now()
+
+				if err := srv.runMaintenanceTask(mctx, dr); err != nil {
 					log(ctx).Debugw("maintenance task failed", "err", err)
 					m.afterFailedRun()
+
+					if srv.enableErrorNotifications() {
+						notification.Send(ctx,
+							rep,
+							"generic-error",
+							notifydata.NewErrorInfo("Maintenance", "Scheduled Maintenance", t0, clock.Now(), err),
+							notification.SeverityError,
+							srv.notificationTemplateOptions(),
+						)
+					}
 				}
 
 				m.refresh(mctx, true)

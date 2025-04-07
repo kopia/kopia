@@ -1,4 +1,4 @@
-COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...,./cli/...,./internal/...
+COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...,./cli/...,./internal/...,./notification/...
 TEST_FLAGS?=
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/kopia.exe
 TESTING_ACTION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/testingaction.exe
@@ -70,29 +70,29 @@ endif
 lint: $(linter)
 ifneq ($(GOOS)/$(GOARCH),linux/arm64)
 ifneq ($(GOOS)/$(GOARCH),linux/arm)
-	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	$(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
 endif
 endif
 
 lint-fix: $(linter)
 ifneq ($(GOOS)/$(GOARCH),linux/arm64)
 ifneq ($(GOOS)/$(GOARCH),linux/arm)
-	$(linter) --deadline $(LINTER_DEADLINE) run --fix $(linter_flags)
+	$(linter) --timeout $(LINTER_DEADLINE) run --fix $(linter_flags)
 endif
 endif
 
 lint-and-log: $(linter)
-	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
+	$(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
 
 lint-all: $(linter)
-	GOOS=windows GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=linux GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=linux GOARCH=arm64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=linux GOARCH=arm $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=darwin GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=darwin GOARCH=arm64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=openbsd GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
-	GOOS=freebsd GOARCH=amd64 $(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=windows GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=linux GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=linux GOARCH=arm64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=linux GOARCH=arm $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=darwin GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=darwin GOARCH=arm64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=openbsd GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+	GOOS=freebsd GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
 
 vet:
 	go vet -all .
@@ -123,6 +123,10 @@ MAYBE_XVFB=xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" --
 endif
 
 kopia-ui-test:
+ifeq ($(GOOS)/$(GOARCH),linux/amd64)
+	# on Linux we run from installed location due to AppArmor requirement on Ubuntu 24.04
+	sudo apt-get install -y ./dist/kopia-ui/kopia-ui*_amd64.deb
+endif
 	$(MAYBE_XVFB) $(MAKE) -C app e2e-test
 
 # use this to test htmlui changes in full build of KopiaUI, this is rarely needed
@@ -197,8 +201,16 @@ endif
 kopia: $(kopia_ui_embedded_exe)
 
 ci-build:
+# install Apple API key needed to notarize Apple binaries
+ifeq ($(GOOS),darwin)
+ifneq ($(APPLE_API_KEY_BASE64),)
+ifneq ($(APPLE_API_KEY),)
+	@ echo "$(APPLE_API_KEY_BASE64)" | base64 -d > "$(APPLE_API_KEY)"
+endif
+endif
+endif
 	$(MAKE) kopia
-ifeq ($(GOARCH),amd64)
+ifneq ($(GOOS)/$(GOARCH),linux/arm64)
 	$(retry) $(MAKE) kopia-ui
 	$(retry) $(MAKE) kopia-ui-test
 endif
@@ -207,13 +219,21 @@ ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	$(MAKE) download-rclone
 endif
 
+# remove API key
+ifeq ($(GOOS),darwin)
+ifneq ($(APPLE_API_KEY),)
+	@ rm -f "$(APPLE_API_KEY)"
+endif
+endif
+
+
 download-rclone:
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_amd64/ --goos=linux --goarch=amd64
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm64/ --goos=linux --goarch=arm64
 	go run ./tools/gettool --tool rclone:$(RCLONE_VERSION) --output-dir dist/kopia_linux_arm_6/ --goos=linux --goarch=arm
 
 
-ci-tests: vet test 
+ci-tests: vet test
 
 ci-integration-tests:
 	$(MAKE) robustness-tool-tests socket-activation-tests
@@ -252,6 +272,7 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 
 test-with-coverage: export KOPIA_COVERAGE_TEST=1
+test-with-coverage: export GOEXPERIMENT=nocoverageredesign
 test-with-coverage: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
 test-with-coverage: $(gotestsum) $(TESTING_ACTION_EXE)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -short -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout $(UNIT_TESTS_TIMEOUT) ./...
@@ -259,8 +280,12 @@ test-with-coverage: $(gotestsum) $(TESTING_ACTION_EXE)
 test: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped --jsonfile=.tmp.unit-tests.json
 test: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
 test: $(gotestsum) $(TESTING_ACTION_EXE)
-	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./...
+	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) -skip '^TestIndexBlobManagerStress$$' ./...
 	-$(gotestsum) tool slowest --jsonfile .tmp.unit-tests.json  --threshold 1000ms
+
+test-index-blob-v0: GOTESTSUM_FLAGS=--format=pkgname --no-summary=output,skipped
+test-index-blob-v0: $(gotestsum) $(TESTING_ACTION_EXE)
+	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT)  -run '^TestIndexBlobManagerStress$$' ./repo/content/indexblob/...
 
 provider-tests-deps: $(gotestsum) $(rclone) $(MINIO_MC_PATH)
 
@@ -290,8 +315,9 @@ $(TESTING_ACTION_EXE): tests/testingaction/main.go
 
 compat-tests: export KOPIA_CURRENT_EXE=$(CURDIR)/$(kopia_ui_embedded_exe)
 compat-tests: export KOPIA_08_EXE=$(kopia08)
+compat-tests: export KOPIA_017_EXE=$(kopia017)
 compat-tests: GOTESTSUM_FLAGS=--format=testname --no-summary=skipped --jsonfile=.tmp.compat-tests.json
-compat-tests: $(kopia_ui_embedded_exe) $(kopia08) $(gotestsum)
+compat-tests: $(kopia_ui_embedded_exe) $(kopia08) $(kopia017) $(gotestsum)
 	$(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/compat_test
 	#  -$(gotestsum) tool slowest --jsonfile .tmp.compat-tests.json  --threshold 1000ms
 
@@ -341,6 +367,11 @@ stress-test: export KOPIA_KEEP_LOGS=1
 stress-test: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 3600s github.com/kopia/kopia/tests/stress_test
 	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 3600s github.com/kopia/kopia/tests/repository_stress_test
+
+os-snapshot-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
+os-snapshot-tests: GOTESTSUM_FORMAT=testname
+os-snapshot-tests: build-integration-test-binary $(gotestsum)
+	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/os_snapshot_test $(TEST_FLAGS)
 
 layering-test:
 ifneq ($(GOOS),windows)
@@ -484,6 +515,6 @@ perf-benchmark-test-all:
 	$(MAKE) perf-benchmark-test PERF_BENCHMARK_VERSION=0.7.0~rc1
 
 perf-benchmark-results:
-	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):psrecord-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE) 
+	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):psrecord-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
 	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):repo-size-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
 	(cd tests/perf_benchmark && go run process_results.go)

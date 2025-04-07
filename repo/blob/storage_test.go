@@ -90,7 +90,7 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 
 	require.ElementsMatch(t, []blob.ID{"foo", "bar", "boo"}, got)
 
-	errDummy := errors.Errorf("dummy")
+	errDummy := errors.New("dummy")
 
 	require.ErrorIs(t, errDummy, blob.IterateAllPrefixesInParallel(ctx, 10, st, []blob.ID{
 		"b",
@@ -183,7 +183,7 @@ func TestMetataJSONString(t *testing.T) {
 		Timestamp: time.Date(2000, 1, 2, 3, 4, 5, 6, time.UTC),
 	}
 
-	require.Equal(t, `{"id":"foo","length":12345,"timestamp":"2000-01-02T03:04:05.000000006Z"}`, bm.String())
+	require.JSONEq(t, `{"id":"foo","length":12345,"timestamp":"2000-01-02T03:04:05.000000006Z"}`, bm.String())
 }
 
 func TestPutBlobAndGetMetadata(t *testing.T) {

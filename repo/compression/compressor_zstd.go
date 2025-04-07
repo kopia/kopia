@@ -7,6 +7,7 @@ import (
 	"github.com/klauspost/compress/zstd"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/freepool"
 	"github.com/kopia/kopia/internal/iocopy"
 )
 
@@ -59,6 +60,15 @@ func (c *zstdCompressor) Compress(output io.Writer, input io.Reader) error {
 	return nil
 }
 
+//nolint:gochecknoglobals
+var zstdDecoderPool = freepool.New(func() *zstd.Decoder {
+	r, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
+	mustSucceed(err)
+	return r
+}, func(v *zstd.Decoder) {
+	mustSucceed(v.Reset(nil))
+})
+
 func (c *zstdCompressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
 	if withHeader {
 		if err := verifyCompressionHeader(input, c.header); err != nil {
@@ -66,13 +76,14 @@ func (c *zstdCompressor) Decompress(output io.Writer, input io.Reader, withHeade
 		}
 	}
 
-	r, err := zstd.NewReader(input)
-	if err != nil {
-		return errors.Wrap(err, "unable to open zstd stream")
-	}
-	defer r.Close()
+	dec := zstdDecoderPool.Take()
+	defer zstdDecoderPool.Return(dec)
 
-	if err := iocopy.JustCopy(output, r); err != nil {
+	if err := dec.Reset(input); err != nil {
+		return errors.Wrap(err, "decompression reset error")
+	}
+
+	if err := iocopy.JustCopy(output, dec); err != nil {
 		return errors.Wrap(err, "decompression error")
 	}
 

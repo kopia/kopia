@@ -245,8 +245,8 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
 To install the actions:
 
 ```shell
-kopia policy set <target_dir> --before-folder-action "powershell -WindowStyle Hidden <path_to_script>\before.ps1"
-kopia policy set <target_dir> --after-folder-action  "powershell -WindowStyle Hidden <path_to_script>\after.ps1"
+kopia policy set <target_dir> --before-folder-action "powershell -WindowStyle Hidden -File <path_to_script>\before.ps1"
+kopia policy set <target_dir> --after-folder-action  "powershell -WindowStyle Hidden -File <path_to_script>\after.ps1"
 ```
 
 ### Contributions Welcome

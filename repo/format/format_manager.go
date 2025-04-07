@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -25,12 +24,10 @@ const UniqueIDLengthBytes = 32
 
 // Manager manages the contents of `kopia.repository` and `kopia.blobcfg`.
 type Manager struct {
-	//nolint:containedctx
-	ctx           context.Context // +checklocksignore
-	blobs         blob.Storage    // +checklocksignore
-	validDuration time.Duration   // +checklocksignore
-	password      string          // +checklocksignore
-	cache         blobCache       // +checklocksignore
+	blobs         blob.Storage  // +checklocksignore
+	validDuration time.Duration // +checklocksignore
+	password      string        // +checklocksignore
+	cache         blobCache     // +checklocksignore
 
 	// provider for immutable parts of the format data, used to avoid locks.
 	immutable Provider
@@ -59,8 +56,8 @@ type Manager struct {
 	ignoreCacheOnFirstRefresh bool
 }
 
-func (m *Manager) getOrRefreshFormat() (Provider, error) {
-	if err := m.maybeRefreshNotLocked(); err != nil {
+func (m *Manager) getOrRefreshFormat(ctx context.Context) (Provider, error) {
+	if err := m.maybeRefreshNotLocked(ctx); err != nil {
 		return nil, err
 	}
 
@@ -70,7 +67,7 @@ func (m *Manager) getOrRefreshFormat() (Provider, error) {
 	return m.current, nil
 }
 
-func (m *Manager) maybeRefreshNotLocked() error {
+func (m *Manager) maybeRefreshNotLocked(ctx context.Context) error {
 	m.mu.RLock()
 	val := m.validUntil
 	m.mu.RUnlock()
@@ -80,7 +77,7 @@ func (m *Manager) maybeRefreshNotLocked() error {
 	}
 
 	// current format not valid anymore, kick off a refresh
-	return m.refresh(m.ctx)
+	return m.refresh(ctx)
 }
 
 // readAndCacheRepositoryBlobBytes reads the provided blob from the repository or cache directory.
@@ -141,26 +138,21 @@ func (m *Manager) refresh(ctx context.Context) error {
 
 	b, err = addFormatBlobChecksumAndLength(b)
 	if err != nil {
-		return errors.Errorf("unable to add checksum")
+		return errors.New("unable to add checksum")
 	}
 
-	var formatEncryptionKey []byte
-
-	// try decrypting using old key, if present to avoid deriving it, which is expensive
-	repoConfig, err := j.decryptRepositoryConfig(m.formatEncryptionKey)
-	if err == nil {
-		// still valid, no need to derive
-		formatEncryptionKey = m.formatEncryptionKey
-	} else {
+	// use old key, if present to avoid deriving it, which is expensive
+	formatEncryptionKey := m.formatEncryptionKey
+	if len(m.formatEncryptionKey) == 0 {
 		formatEncryptionKey, err = j.DeriveFormatEncryptionKeyFromPassword(m.password)
 		if err != nil {
 			return errors.Wrap(err, "derive format encryption key")
 		}
+	}
 
-		repoConfig, err = j.decryptRepositoryConfig(formatEncryptionKey)
-		if err != nil {
-			return ErrInvalidPassword
-		}
+	repoConfig, err := j.decryptRepositoryConfig(formatEncryptionKey)
+	if err != nil {
+		return ErrInvalidPassword
 	}
 
 	var blobCfg BlobStorageConfiguration
@@ -247,31 +239,43 @@ func (m *Manager) SupportsPasswordChange() bool {
 
 // RepositoryFormatBytes returns the bytes of `kopia.repository` blob.
 // This function blocks to refresh the format blob if necessary.
-func (m *Manager) RepositoryFormatBytes() ([]byte, error) {
-	f, err := m.getOrRefreshFormat()
+func (m *Manager) RepositoryFormatBytes(ctx context.Context) ([]byte, error) {
+	f, err := m.getOrRefreshFormat(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	//nolint:wrapcheck
-	return f.RepositoryFormatBytes()
+	return f.RepositoryFormatBytes(ctx)
 }
 
 // GetMutableParameters gets mutable paramers of the repository.
 // This function blocks to refresh the format blob if necessary.
-func (m *Manager) GetMutableParameters() (MutableParameters, error) {
-	f, err := m.getOrRefreshFormat()
+func (m *Manager) GetMutableParameters(ctx context.Context) (MutableParameters, error) {
+	f, err := m.getOrRefreshFormat(ctx)
 	if err != nil {
 		return MutableParameters{}, err
 	}
 
 	//nolint:wrapcheck
-	return f.GetMutableParameters()
+	return f.GetMutableParameters(ctx)
+}
+
+// GetCachedMutableParameters gets mutable paramers of the repository without blocking.
+func (m *Manager) GetCachedMutableParameters() MutableParameters {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.current == nil {
+		return MutableParameters{}
+	}
+
+	return m.current.GetCachedMutableParameters()
 }
 
 // UpgradeLockIntent returns the current lock intent.
-func (m *Manager) UpgradeLockIntent() (*UpgradeLockIntent, error) {
-	if err := m.maybeRefreshNotLocked(); err != nil {
+func (m *Manager) UpgradeLockIntent(ctx context.Context) (*UpgradeLockIntent, error) {
+	if err := m.maybeRefreshNotLocked(ctx); err != nil {
 		return nil, err
 	}
 
@@ -282,8 +286,8 @@ func (m *Manager) UpgradeLockIntent() (*UpgradeLockIntent, error) {
 }
 
 // RequiredFeatures returns the list of features required to open the repository.
-func (m *Manager) RequiredFeatures() ([]feature.Required, error) {
-	if err := m.maybeRefreshNotLocked(); err != nil {
+func (m *Manager) RequiredFeatures(ctx context.Context) ([]feature.Required, error) {
+	if err := m.maybeRefreshNotLocked(ctx); err != nil {
 		return nil, err
 	}
 
@@ -305,7 +309,7 @@ func (m *Manager) LoadedTime() time.Time {
 // +checklocks:m.mu
 func (m *Manager) updateRepoConfigLocked(ctx context.Context) error {
 	if err := m.j.EncryptRepositoryConfig(m.repoConfig, m.formatEncryptionKey); err != nil {
-		return errors.Errorf("unable to encrypt format bytes")
+		return errors.New("unable to encrypt format bytes")
 	}
 
 	if err := m.j.WriteKopiaRepositoryBlob(ctx, m.blobs, m.blobCfgBlob); err != nil {
@@ -326,8 +330,8 @@ func (m *Manager) UniqueID() []byte {
 }
 
 // BlobCfgBlob gets the BlobStorageConfiguration.
-func (m *Manager) BlobCfgBlob() (BlobStorageConfiguration, error) {
-	if err := m.maybeRefreshNotLocked(); err != nil {
+func (m *Manager) BlobCfgBlob(ctx context.Context) (BlobStorageConfiguration, error) {
+	if err := m.maybeRefreshNotLocked(ctx); err != nil {
 		return BlobStorageConfiguration{}, err
 	}
 
@@ -402,7 +406,6 @@ func NewManagerWithCache(
 	}
 
 	m := &Manager{
-		ctx:                       ctxutil.Detach(ctx),
 		blobs:                     st,
 		validDuration:             validDuration,
 		password:                  password,
@@ -417,7 +420,7 @@ func NewManagerWithCache(
 }
 
 // ErrAlreadyInitialized indicates that repository has already been initialized.
-var ErrAlreadyInitialized = errors.Errorf("repository already initialized")
+var ErrAlreadyInitialized = errors.New("repository already initialized")
 
 // Initialize initializes the format blob in a given storage.
 func Initialize(ctx context.Context, st blob.Storage, formatBlob *KopiaRepositoryJSON, repoConfig *RepositoryConfig, blobcfg BlobStorageConfiguration, password string) error {
@@ -436,7 +439,7 @@ func Initialize(ctx context.Context, st blob.Storage, formatBlob *KopiaRepositor
 
 	err = st.GetBlob(ctx, KopiaBlobCfgBlobID, 0, -1, &tmp)
 	if err == nil {
-		return errors.Errorf("possible corruption: blobcfg blob exists, but format blob is not found")
+		return errors.New("possible corruption: blobcfg blob exists, but format blob is not found")
 	}
 
 	if !errors.Is(err, blob.ErrBlobNotFound) {
@@ -447,6 +450,8 @@ func Initialize(ctx context.Context, st blob.Storage, formatBlob *KopiaRepositor
 		formatBlob.EncryptionAlgorithm = DefaultFormatEncryption
 	}
 
+	// In legacy versions, the KeyDerivationAlgorithm may not be present in the
+	// KopiaRepositoryJson. In those cases default to using Scrypt.
 	if formatBlob.KeyDerivationAlgorithm == "" {
 		formatBlob.KeyDerivationAlgorithm = DefaultKeyDerivationAlgorithm
 	}

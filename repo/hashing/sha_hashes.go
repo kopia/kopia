@@ -7,9 +7,9 @@ import (
 )
 
 func init() {
-	Register("HMAC-SHA256", truncatedHMACHashFuncFactory(sha256.New, 32))     //nolint:gomnd
-	Register("HMAC-SHA256-128", truncatedHMACHashFuncFactory(sha256.New, 16)) //nolint:gomnd
-	Register("HMAC-SHA224", truncatedHMACHashFuncFactory(sha256.New224, 28))  //nolint:gomnd
-	Register("HMAC-SHA3-224", truncatedHMACHashFuncFactory(sha3.New224, 28))  //nolint:gomnd
-	Register("HMAC-SHA3-256", truncatedHMACHashFuncFactory(sha3.New256, 32))  //nolint:gomnd
+	Register("HMAC-SHA256", truncatedHMACHashFuncFactory(sha256.New, 32))     //nolint:mnd
+	Register("HMAC-SHA256-128", truncatedHMACHashFuncFactory(sha256.New, 16)) //nolint:mnd
+	Register("HMAC-SHA224", truncatedHMACHashFuncFactory(sha256.New224, 28))  //nolint:mnd
+	Register("HMAC-SHA3-224", truncatedHMACHashFuncFactory(sha3.New224, 28))  //nolint:mnd
+	Register("HMAC-SHA3-256", truncatedHMACHashFuncFactory(sha3.New256, 32))  //nolint:mnd
 }
