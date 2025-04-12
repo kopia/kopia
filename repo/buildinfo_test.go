@@ -13,7 +13,7 @@ func TestGetRevisionString(t *testing.T) {
 		want  string
 	}{
 		{
-			want: "0.-(unknown_revision)",
+			want: "-(unknown_revision)",
 		},
 		{
 			input: []debug.BuildSetting{
@@ -22,7 +22,7 @@ func TestGetRevisionString(t *testing.T) {
 					Value: "true",
 				},
 			},
-			want: "0.-(unknown_revision)+dirty",
+			want: "-(unknown_revision)+dirty",
 		},
 		{
 			input: []debug.BuildSetting{
@@ -31,7 +31,7 @@ func TestGetRevisionString(t *testing.T) {
 					Value: "2025-04-12T16:01:30Z",
 				},
 			},
-			want: "0.2025-04-12T16:01:30Z-(unknown_revision)",
+			want: "2025-04-12T16:01:30Z-(unknown_revision)",
 		},
 		{
 			input: []debug.BuildSetting{
@@ -44,7 +44,7 @@ func TestGetRevisionString(t *testing.T) {
 					Value: "true",
 				},
 			},
-			want: "0.2025-04-12T16:01:30Z-(unknown_revision)+dirty",
+			want: "2025-04-12T16:01:30Z-(unknown_revision)+dirty",
 		},
 		{
 			input: []debug.BuildSetting{
@@ -57,7 +57,7 @@ func TestGetRevisionString(t *testing.T) {
 					Value: "353676da445938316fa00b2b812a61f4b1dd3ffa",
 				},
 			},
-			want: "0.2025-04-12T16:01:30Z-353676da4459",
+			want: "2025-04-12T16:01:30Z-353676da445938316fa00b2b812a61f4b1dd3ffa",
 		},
 		{
 			input: []debug.BuildSetting{
@@ -70,7 +70,7 @@ func TestGetRevisionString(t *testing.T) {
 					Value: "353676da4459",
 				},
 			},
-			want: "0.2025-04-12T16:01:30Z-353676da4459",
+			want: "2025-04-12T16:01:30Z-353676da4459",
 		},
 		{
 			input: []debug.BuildSetting{
@@ -83,7 +83,7 @@ func TestGetRevisionString(t *testing.T) {
 					Value: "353676da",
 				},
 			},
-			want: "0.2025-04-12T16:01:30Z-353676da",
+			want: "2025-04-12T16:01:30Z-353676da",
 		},
 		{
 			input: []debug.BuildSetting{
@@ -100,12 +100,14 @@ func TestGetRevisionString(t *testing.T) {
 					Value: "true",
 				},
 			},
-			want: "0.2025-04-12T16:01:30Z-353676da4459+dirty",
+			want: "2025-04-12T16:01:30Z-353676da445938316fa00b2b812a61f4b1dd3ffa+dirty",
 		},
 	}
 
 	for _, c := range cases {
-		got := getRevisionString(c.input)
-		require.Equal(t, c.want, got)
+		t.Run("buildinfo", func(t *testing.T) {
+			got := getRevisionString(c.input)
+			require.Equal(t, c.want, got)
+		})
 	}
 }
