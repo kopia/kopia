@@ -39,7 +39,7 @@ func getBuildInfoAndVersion(linkedInfo, linkedVersion string) (info, version str
 	if version == "" {
 		version = "v0-unofficial"
 
-		if bi.Main.Version != "" { // not set during tests
+		if bi.Main.Version != "" && bi.Main.Version != "(devel)" { // set to '(devel)' during tests in Go 1.24
 			version = bi.Main.Version
 		}
 	}
