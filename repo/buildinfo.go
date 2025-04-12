@@ -60,7 +60,7 @@ func getRevisionString(s []debug.BuildSetting) string {
 		case "vcs.time":
 			vcsTime = v.Value
 		case "vcs.modified":
-			if strings.ToLower(v.Value) == "true" {
+			if strings.EqualFold(v.Value, "true") {
 				modified = true
 			}
 		}
