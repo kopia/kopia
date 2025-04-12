@@ -37,7 +37,11 @@ func getBuildInfoAndVersion(linkedInfo, linkedVersion string) (info, version str
 	}
 
 	if version == "" {
-		version = bi.Main.Version
+		version = "v0-unofficial"
+
+		if bi.Main.Version != "" { // not set during tests
+			version = bi.Main.Version
+		}
 	}
 
 	if info == "" {
