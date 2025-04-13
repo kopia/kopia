@@ -18,15 +18,6 @@ import (
 	"github.com/kopia/kopia/repo/splitter"
 )
 
-// BuildInfo is the build information of Kopia.
-//
-//nolint:gochecknoglobals
-var (
-	BuildInfo       = "unknown"
-	BuildVersion    = "v0-unofficial"
-	BuildGitHubRepo = ""
-)
-
 const (
 	hmacSecretLength = 32
 	masterKeyLength  = 32
