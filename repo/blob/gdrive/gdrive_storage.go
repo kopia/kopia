@@ -473,12 +473,10 @@ func translateError(err error) error {
 		}
 	}
 
-	switch {
-	case err == nil:
-		return nil
-	default:
+	if err != nil {
 		return errors.Wrap(err, "unexpected Google Drive error")
 	}
+	return nil
 }
 
 func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {

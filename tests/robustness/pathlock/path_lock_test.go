@@ -133,11 +133,7 @@ func TestPathLockBasic(t *testing.T) {
 		// Wait until the internal atomic counter increments.
 		// That will only happen once the Lock call to path2 executes
 		// and blocks on the prior Lock to path1.
-		for {
-			if busyCounter.Load() > currBusyCounter {
-				break
-			}
-
+		for busyCounter.Load() <= currBusyCounter {
 			time.Sleep(1 * time.Millisecond)
 		}
 

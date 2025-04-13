@@ -409,7 +409,7 @@ func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
-	require.NotEqual(t, "", man.IncompleteReason, "snapshot not marked as incomplete")
+	require.NotEmpty(t, man.IncompleteReason, "snapshot not marked as incomplete")
 
 	// will have one error because we're canceling early.
 	verifyErrors(t, man, 1, 0,

@@ -80,7 +80,7 @@ func TestEnqueueBackAndProcess(t *testing.T) {
 func TestProcessWithError(t *testing.T) {
 	queue := parallelwork.NewQueue()
 
-	testError := errors.New("test error") //nolint:goerr113
+	testError := errors.New("test error") //nolint:err113
 
 	// Enqueue work items, one of them returns an error
 	queue.EnqueueBack(context.Background(), func() error {
@@ -165,7 +165,7 @@ func TestOnNthCompletion(t *testing.T) {
 	t.Run("callback is only called on n-th invocation", func(t *testing.T) {
 		var (
 			n               = 5                    // expect invocation on 5th attempt
-			errCalled       = errors.New("called") //nolint:goerr113
+			errCalled       = errors.New("called") //nolint:err113
 			callbackInvoked int
 			callback        = func() error {
 				callbackInvoked++
@@ -198,7 +198,7 @@ func TestOnNthCompletion(t *testing.T) {
 		var (
 			n               = 5                     // expect invocation on 5th attempt
 			results         = make(chan error, n+1) // we will have n+1, i.e. 6 attempts in total
-			errCalled       = errors.New("called")  //nolint:goerr113
+			errCalled       = errors.New("called")  //nolint:err113
 			callbackInvoked atomic.Int32
 			wg              sync.WaitGroup
 			callback        = func() error {

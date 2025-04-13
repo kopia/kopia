@@ -20,7 +20,7 @@ const (
 type errorWriter struct{}
 
 func (errorWriter) Write(p []byte) (n int, err error) {
-	return 0, errors.New("write error") //nolint:goerr113
+	return 0, errors.New("write error") //nolint:err113
 }
 
 func TestGetBuffer(t *testing.T) {

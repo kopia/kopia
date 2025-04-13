@@ -53,7 +53,7 @@ func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) erro
 
 	policies := make(map[string]*policy.Policy)
 
-	if c.policyTargetFlags.global || len(c.policyTargetFlags.targets) > 0 {
+	if c.global || len(c.targets) > 0 {
 		targets, err := c.policyTargets(ctx, rep)
 		if err != nil {
 			return err

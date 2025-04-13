@@ -84,8 +84,6 @@ const (
 )
 
 // Permissions encapsulates UNIX permissions for a filesystem entry.
-//
-//nolint:recvcheck
 type Permissions int
 
 // MarshalJSON emits permissions as octal string.
