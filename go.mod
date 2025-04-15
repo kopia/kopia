@@ -44,7 +44,7 @@ require (
 	github.com/pkg/profile v1.7.0
 	github.com/pkg/sftp v1.13.9
 	github.com/prometheus/client_golang v1.22.0
-	github.com/prometheus/client_model v0.6.1
+	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/common v0.63.0
 	github.com/sanity-io/litter v1.5.8
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
