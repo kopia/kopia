@@ -545,7 +545,7 @@ func TestNeedMD5AWS(t *testing.T) {
 func testStorage(t *testing.T, options *Options, runValidationTest bool, opts blob.PutOptions) {
 	ctx := testlogging.Context(t)
 
-	require.Equal(t, "", options.Prefix)
+	require.Empty(t, options.Prefix)
 
 	st0, err := New(ctx, options, false)
 
@@ -579,7 +579,7 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 func testPutBlobWithInvalidRetention(t *testing.T, options Options, opts blob.PutOptions) {
 	ctx := testlogging.Context(t)
 
-	require.Equal(t, "", options.Prefix)
+	require.Empty(t, options.Prefix)
 	options.Prefix = uuid.NewString()
 
 	// non-retrying storage

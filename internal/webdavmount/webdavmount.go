@@ -26,7 +26,7 @@ var (
 type webdavFile struct {
 	// webdavFile implements webdav.File but needs context
 	// +checklocks:mu
-	ctx context.Context //nolint:containedctx
+	ctx context.Context
 
 	entry fs.File
 
@@ -100,7 +100,7 @@ func (f *webdavFile) Close() error {
 
 type webdavDir struct {
 	// webdavDir implements webdav.File but needs context
-	ctx context.Context //nolint:containedctx
+	ctx context.Context
 
 	w    *webdavFS
 	info os.FileInfo

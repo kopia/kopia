@@ -760,7 +760,7 @@ func findFileDir(t *testing.T, shallow string) (dirinshallow, fileinshallow stri
 		fi, err := os.Lstat(f)
 		require.NoError(t, err)
 
-		if !(fi.Mode().IsDir() || fi.Mode().IsRegular()) {
+		if !fi.Mode().IsDir() && !fi.Mode().IsRegular() {
 			continue
 		}
 

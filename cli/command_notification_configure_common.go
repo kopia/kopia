@@ -3,10 +3,9 @@ package cli
 import (
 	"context"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifyprofile"

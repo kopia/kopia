@@ -27,6 +27,6 @@ func TestGetRepositoryStatus(t *testing.T) {
 	rs, err := ks.GetRepositoryStatus()
 	require.NoError(t, err)
 
-	prev := rs.ContentFormat.MutableParameters.Version
+	prev := rs.ContentFormat.Version
 	require.Equal(t, prev, format.Version(3), "The format version should be 3.")
 }

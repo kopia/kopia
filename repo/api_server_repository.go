@@ -22,7 +22,7 @@ type APIServerInfo struct {
 func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo, password string, opt *ConnectOptions) error {
 	lc := LocalConfig{
 		APIServer:     si,
-		ClientOptions: opt.ClientOptions.ApplyDefaults(ctx, "API Server: "+si.BaseURL),
+		ClientOptions: opt.ApplyDefaults(ctx, "API Server: "+si.BaseURL),
 	}
 
 	if err := setupCachingOptionsWithDefaults(ctx, configFile, &lc, &opt.CachingOptions, []byte(si.BaseURL)); err != nil {

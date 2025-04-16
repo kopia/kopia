@@ -765,7 +765,7 @@ func compareVersionSlices(tb testing.TB, a, b []versionMetadata) {
 		compareMetadata(tb, a[i], b[i])
 	}
 
-	require.Equal(tb, len(a), len(b), "the number of the blob versions to compare does not match", a, b)
+	require.Len(tb, b, len(a), "the number of the blob versions to compare does not match", a, b)
 }
 
 func reverseVersionSlice(m []versionMetadata) []versionMetadata {

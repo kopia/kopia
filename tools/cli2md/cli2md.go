@@ -251,7 +251,7 @@ func generateSubcommands(w io.Writer, dir, sectionTitle string, cmds []*kingpin.
 			first = false
 		}
 
-		subcommandSlug := strings.Replace(c.FullCommand, " ", "-", -1)
+		subcommandSlug := strings.ReplaceAll(c.FullCommand, " ", "-")
 		helpSummary := strings.SplitN(c.Help, "\n", 2)[0] //nolint:mnd
 		helpSummary = strings.TrimSuffix(helpSummary, ".")
 		fmt.Fprintf(w, "* [`%v`](%v) - %v\n", c.FullCommand, subcommandSlug+"/", helpSummary) //nolint:errcheck

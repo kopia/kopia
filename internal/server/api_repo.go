@@ -328,7 +328,7 @@ func handleRepoSetThrottle(ctx context.Context, rc requestContext) (interface{},
 
 func (s *Server) getConnectOptions(cliOpts repo.ClientOptions) *repo.ConnectOptions {
 	o := *s.options.ConnectOptions
-	o.ClientOptions = o.ClientOptions.Override(cliOpts)
+	o.ClientOptions = o.Override(cliOpts)
 
 	return &o
 }

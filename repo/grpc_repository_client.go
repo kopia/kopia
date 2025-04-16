@@ -878,7 +878,7 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		return nil, errors.Wrap(err, "gRPC client creation error")
 	}
 
-	par.refCountedCloser.registerEarlyCloseFunc(
+	par.registerEarlyCloseFunc(
 		func(ctx context.Context) error {
 			return errors.Wrap(conn.Close(), "error closing GRPC connection")
 		})

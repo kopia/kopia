@@ -239,7 +239,7 @@ func (az *azStorage) ConnectionInfo() blob.ConnectionInfo {
 }
 
 func (az *azStorage) DisplayName() string {
-	return fmt.Sprintf("Azure: %v", az.Options.Container)
+	return fmt.Sprintf("Azure: %v", az.Container)
 }
 
 func (az *azStorage) getBlobName(it *azblobmodels.BlobItem) blob.ID {

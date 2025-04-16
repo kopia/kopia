@@ -152,7 +152,7 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 	var writePath string
 
-	if d.Options.AtomicWrites {
+	if d.AtomicWrites {
 		writePath = filePath
 	} else {
 		writePath = fmt.Sprintf("%v-%v", filePath, rand.Int63()) //nolint:gosec
@@ -171,7 +171,7 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 			err := d.translateError(d.cli.Write(writePath, b, defaultFilePerm))
 			if err == nil {
-				if d.Options.AtomicWrites {
+				if d.AtomicWrites {
 					return nil
 				}
 
