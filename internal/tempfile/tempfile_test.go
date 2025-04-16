@@ -36,3 +36,12 @@ func TestTempFile(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, files)
 }
+
+func TestCreateSucceedsWhenDirIsNotSpecified(t *testing.T) {
+	f, err := tempfile.Create("")
+
+	require.NoError(t, err)
+
+	err = f.Close()
+	require.NoError(t, err)
+}
