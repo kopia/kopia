@@ -476,6 +476,7 @@ func translateError(err error) error {
 	if err != nil {
 		return errors.Wrap(err, "unexpected Google Drive error")
 	}
+
 	return nil
 }
 
