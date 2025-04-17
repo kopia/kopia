@@ -43,6 +43,10 @@ linters:
               recommendations:
                 - github.com/minio/minio-go
               reason: "github.com/aws/aws-sdk-go is not activily developed any longer"
+          - github.com/rs/zerolog/log:
+              recommendations:
+                - "use kopia's logging packages"
+              reason: "zerolog not currently use"
           - go.uber.org/multierr:
               recommendations:
                 - errors
@@ -111,6 +115,7 @@ linters:
     - usetesting
     - varnamelen # this one may be interesting, but too much churn
     - whitespace
+    - zerologlint # zerolog not currently used in the codebase
 
   exclusions:
     generated: lax
