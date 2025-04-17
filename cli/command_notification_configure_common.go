@@ -2,10 +2,11 @@ package cli
 
 import (
 	"context"
+	"maps"
+	"slices"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifyprofile"
@@ -23,7 +24,7 @@ type commonNotificationOptions struct {
 func (c *commonNotificationOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
 	c.notificationProfileFlag.setup(svc, cmd)
 	cmd.Flag("send-test-notification", "Test the notification").BoolVar(&c.sendTestNotification)
-	cmd.Flag("min-severity", "Minimum severity").EnumVar(&c.minSeverity, maps.Keys(notification.SeverityToNumber)...)
+	cmd.Flag("min-severity", "Minimum severity").EnumVar(&c.minSeverity, mapKeys(notification.SeverityToNumber)...)
 }
 
 // configureNotificationAction is a helper function that creates a Kingpin action that
@@ -100,4 +101,8 @@ func configureNotificationAction[T any](
 			MinSeverity: sev,
 		})
 	})
+}
+
+func mapKeys[Map ~map[K]V, K comparable, V any](m Map) []K {
+	return slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))
 }

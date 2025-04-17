@@ -732,7 +732,7 @@ func (r *grpcRepositoryClient) doWriteAsync(ctx context.Context, contentID conte
 	r.opt.OnUpload(int64(len(data)))
 
 	if _, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (content.ID, error) {
-		sess.WriteContentAsyncAndVerify(ctx, contentID, data, prefix, comp, r.asyncWritesWG)
+		sess.writeContentAsyncAndVerify(ctx, contentID, data, prefix, comp, r.asyncWritesWG)
 		return contentID, nil
 	}); err != nil {
 		return err
@@ -777,7 +777,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 	return contentID, nil
 }
 
-func (r *grpcInnerSession) WriteContentAsyncAndVerify(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID, eg *errgroup.Group) {
+func (r *grpcInnerSession) writeContentAsyncAndVerify(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID, eg *errgroup.Group) {
 	ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_WriteContent{
 			WriteContent: &apipb.WriteContentRequest{
