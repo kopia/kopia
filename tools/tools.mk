@@ -71,7 +71,7 @@ export REPO_OWNER=$(GITHUB_REPOSITORY:%/kopia=%)
 endif
 
 # e.g. 2021-02-19 06:56:21 -0800
-git_commit_date:=$(shell git TZ=UTC show -s --date=iso-local --format=%cd HEAD)
+git_commit_date:=$(shell TZ=UTC git show -s --date=iso-local --format=%cd HEAD)
 
 # compute build date and time from the current commit as yyyyMMdd
 commit_date_ymd:=$(subst -,,$(word 1, $(git_commit_date)))
