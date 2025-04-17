@@ -6,6 +6,8 @@
 #
 # you will need to have git and golang too in the PATH.
 
+.PHONY: install-linter
+
 # windows,linux,darwin
 GOOS:=$(shell go env GOOS)
 # amd64,arm64,arm
@@ -154,6 +156,8 @@ endif
 
 $(linter):
 	go run github.com/kopia/kopia/tools/gettool --tool linter:$(GOLANGCI_LINT_VERSION) --output-dir $(linter_dir)
+
+install-linter: $(linter)
 
 # checklocks
 checklocks_dir=$(TOOLS_DIR)$(slash)checklocks-$(CHECKLOCKS_VERSION)
