@@ -1,11 +1,12 @@
 package metrics
 
 import (
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"golang.org/x/exp/maps"
 )
 
 const (
@@ -28,12 +29,12 @@ func getPrometheusCounter(opts prometheus.CounterOpts, labels map[string]string)
 
 	prom := promCounters[opts.Name]
 	if prom == nil {
-		prom = promauto.NewCounterVec(opts, maps.Keys(labels))
+		prom = promauto.NewCounterVec(opts, mapKeys(labels))
 
 		promCounters[opts.Name] = prom
 	}
 
-	return prom.WithLabelValues(maps.Values(labels)...)
+	return prom.WithLabelValues(mapValues(labels)...)
 }
 
 func getPrometheusHistogram(opts prometheus.HistogramOpts, labels map[string]string) prometheus.Observer { //nolint:gocritic
@@ -42,10 +43,18 @@ func getPrometheusHistogram(opts prometheus.HistogramOpts, labels map[string]str
 
 	prom := promHistograms[opts.Name]
 	if prom == nil {
-		prom = promauto.NewHistogramVec(opts, maps.Keys(labels))
+		prom = promauto.NewHistogramVec(opts, mapKeys(labels))
 
 		promHistograms[opts.Name] = prom
 	}
 
-	return prom.WithLabelValues(maps.Values(labels)...)
+	return prom.WithLabelValues(mapValues(labels)...)
+}
+
+func mapKeys[Map ~map[K]V, K comparable, V any](m Map) []K {
+	return slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))
+}
+
+func mapValues[Map ~map[K]V, K comparable, V any](m Map) []V {
+	return slices.AppendSeq(make([]V, 0, len(m)), maps.Values(m))
 }

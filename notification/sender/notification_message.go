@@ -6,11 +6,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 )
 
 // Severity represents the severity of a notification message.
@@ -80,7 +81,7 @@ func (m Message) ToString() string {
 
 	fmt.Fprintf(&buf, "Subject: %v\n", m.Subject)
 
-	headers := maps.Keys(m.Headers)
+	headers := slices.AppendSeq(make([]string, 0, len(m.Headers)), maps.Keys(m.Headers))
 
 	sort.Strings(headers)
 
