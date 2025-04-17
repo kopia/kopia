@@ -71,7 +71,6 @@ linters:
     - gochecknoglobals
     - depguard
     - exhaustruct
-    - exptostd
     - forcetypeassert
     - funcorder
     - gochecknoinits
