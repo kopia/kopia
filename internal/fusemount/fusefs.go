@@ -134,7 +134,7 @@ func (dir *fuseDirectoryNode) directory() fs.Directory {
 func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *fuse.EntryOut) (*gofusefs.Inode, syscall.Errno) {
 	e, err := dir.directory().Child(ctx, fileName)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, fs.ErrEntryNotFound) || errors.Is(err, os.ErrNotExist) {
 			return nil, syscall.ENOENT
 		}
 
