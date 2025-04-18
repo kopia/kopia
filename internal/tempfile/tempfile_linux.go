@@ -8,6 +8,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const permissions = 0o600
+
 // Create creates a temporary file that will be automatically deleted on close.
 func Create(dir string) (*os.File, error) {
 	dir = tempDirOr(dir)
