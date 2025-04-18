@@ -14,6 +14,32 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
+const (
+	snapshotVerifyHelp = `Verify the contents of stored snapshot.
+
+This will read the snapshot manifests for all sources and make sure
+they are valid. The contents are then checked the same as content verify
+does.
+
+File contents are not downloaded by default, just checked that they exsist.
+A random subset of files can be downloaded and
+decrypted with ` + "`" + `--verify-files-percent` + "`" + `
+
+To verify the entire repository use ` + "`" + `--verify-files-percent=100` + "`" + `
+This will read the entire repository contents
+and give an error for any contents that don't match their checksum.
+Please consider bandwidth costs before doing this. Check with your object
+storage provider for more information.
+
+The scope of what snapshots are checked can be
+reduced by specifing a source with ` + "`" + `--source` + "`" + `
+
+Parallelism can also be specified using ` + "`" + `--parallel` + "`" + `
+and ` + "`" + `--file-parallelism` + "`" + `
+`
+
+)
+
 type commandSnapshotVerify struct {
 	verifyCommandErrorThreshold int
 	verifyCommandDirObjectIDs   []string
@@ -30,8 +56,8 @@ type commandSnapshotVerify struct {
 
 func (c *commandSnapshotVerify) setup(svc appServices, parent commandParent) {
 	c.fileParallelism = runtime.NumCPU()
-
-	cmd := parent.Command("verify", "Verify the contents of stored snapshot")
+  
+	cmd := parent.Command("verify", snapshotVerifyHelp)
 	cmd.Arg("snapshot-ids", "snapshot IDs to verify").StringsVar(&c.verifyCommandSnapshotIDs)
 	cmd.Flag("max-errors", "Maximum number of errors before stopping").Default("0").IntVar(&c.verifyCommandErrorThreshold)
 	cmd.Flag("directory-id", "Directory object IDs to verify").StringsVar(&c.verifyCommandDirObjectIDs)

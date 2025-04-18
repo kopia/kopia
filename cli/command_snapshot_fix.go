@@ -14,13 +14,25 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
+const (
+
+	snapshotFixHelp = `Commands to fix snapshot consistency issues.
+
+
+This can be used to remove invalid files, or remove files that should not be in
+the snapshot for security or other reasons. Use invalid-files or remove-files
+command. See help for each sub command.
+`
+
+)
+
 type commandSnapshotFix struct {
 	invalidFiles commandSnapshotFixInvalidFiles
 	removeFiles  commandSnapshotFixRemoveFiles
 }
 
 func (c *commandSnapshotFix) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("fix", "Commands to fix snapshot consistency issues")
+	cmd := parent.Command("fix", snapshotFixHelp)
 
 	c.invalidFiles.setup(svc, cmd)
 	c.removeFiles.setup(svc, cmd)
