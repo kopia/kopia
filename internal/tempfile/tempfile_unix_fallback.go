@@ -10,8 +10,8 @@ import (
 )
 
 // createUnixFallback creates a temporary file that does not need to be removed on close.
-func createUnixFallback(dir string) (*os.File, error) {
-	f, err := os.CreateTemp(dir, "kt-")
+func createUnixFallback() (*os.File, error) {
+	f, err := os.CreateTemp("", "kt-")
 	if err != nil {
 		return nil, err //nolint:wrapcheck
 	}

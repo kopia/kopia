@@ -3,56 +3,46 @@ package tempfile
 import (
 	"io"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-func VerifyTempfile(t *testing.T, create func(dir string) (*os.File, error)) {
+func VerifyTempfile(t *testing.T, create func() (*os.File, error)) {
 	t.Helper()
 
-	cases := []struct {
-		name string
-		dir  string
-	}{
-		{
-			name: "empty dir name",
-			dir:  "",
-		},
-		{
-			name: "non-empty dir name",
-			dir:  t.TempDir(),
-		},
-	}
+	f, err := create()
+	require.NoError(t, err)
 
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			testDir := tc.dir
+	n, err := f.WriteString("hello")
+	require.NoError(t, err)
+	require.Equal(t, 5, n)
 
-			f, err := create(testDir)
-			require.NoError(t, err)
+	off, err := f.Seek(1, io.SeekStart)
+	require.Equal(t, int64(1), off)
+	require.NoError(t, err)
 
-			n, err := f.WriteString("hello")
-			require.NoError(t, err)
-			require.Equal(t, 5, n)
+	buf := make([]byte, 4)
+	n2, err := f.Read(buf)
+	require.NoError(t, err)
+	require.Equal(t, 4, n2)
+	require.Equal(t, []byte("ello"), buf)
 
-			off, err := f.Seek(1, io.SeekStart)
-			require.Equal(t, int64(1), off)
-			require.NoError(t, err)
+	f.Close()
 
-			buf := make([]byte, 4)
-			n2, err := f.Read(buf)
-			require.NoError(t, err)
-			require.Equal(t, 4, n2)
-			require.Equal(t, []byte("ello"), buf)
+	if n := f.Name(); n != "" {
+		var perr *os.PathError
 
-			f.Close()
+		// there should be no directory entry for this file
+		_, err := os.Stat(n)
 
-			if testDir != "" { // $TEMPDIR often has other files, so it does not make sense to check whether it is empty
-				files, err := os.ReadDir(testDir)
-				require.NoError(t, err)
-				require.Emptyf(t, files, "number of files: %v", len(files))
-			}
-		})
+		require.Error(t, err)
+		require.ErrorAs(t, err, &perr)
+		if runtime.GOOS == "windows" {
+			require.ErrorContains(t, err, "The system cannot find the file specified")
+		} else {
+			require.ErrorContains(t, err, "no such file or directory")
+		}
 	}
 }

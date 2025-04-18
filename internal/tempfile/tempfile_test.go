@@ -7,5 +7,5 @@ import (
 )
 
 func TestTempFile(t *testing.T) {
-	tempfile.VerifyTempfile(t, tempfile.Create)
+	tempfile.VerifyTempfile(t, tempfile.CreateAutoDelete)
 }
