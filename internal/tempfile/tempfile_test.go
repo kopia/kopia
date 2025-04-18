@@ -11,37 +11,48 @@ import (
 )
 
 func TestTempFile(t *testing.T) {
-	td := t.TempDir()
+	cases := []struct {
+		name string
+		dir  string
+	}{
+		{
+			name: "empty dir name",
+			dir:  "",
+		},
+		{
+			name: "non-empty dir name",
+			dir:  t.TempDir(),
+		},
+	}
 
-	f, err := tempfile.Create(td)
-	require.NoError(t, err)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			td := tc.dir
 
-	n, err := f.WriteString("hello")
-	require.NoError(t, err)
-	require.Equal(t, 5, n)
+			f, err := tempfile.Create(td)
+			require.NoError(t, err)
 
-	off, err := f.Seek(1, io.SeekStart)
-	require.Equal(t, int64(1), off)
-	require.NoError(t, err)
+			n, err := f.WriteString("hello")
+			require.NoError(t, err)
+			require.Equal(t, 5, n)
 
-	buf := make([]byte, 4)
-	n2, err := f.Read(buf)
-	require.NoError(t, err)
-	require.Equal(t, 4, n2)
-	require.Equal(t, []byte("ello"), buf)
+			off, err := f.Seek(1, io.SeekStart)
+			require.Equal(t, int64(1), off)
+			require.NoError(t, err)
 
-	f.Close()
+			buf := make([]byte, 4)
+			n2, err := f.Read(buf)
+			require.NoError(t, err)
+			require.Equal(t, 4, n2)
+			require.Equal(t, []byte("ello"), buf)
 
-	files, err := os.ReadDir(td)
-	require.NoError(t, err)
-	require.Empty(t, files)
-}
+			f.Close()
 
-func TestCreateSucceedsWhenDirIsNotSpecified(t *testing.T) {
-	f, err := tempfile.Create("")
-
-	require.NoError(t, err)
-
-	err = f.Close()
-	require.NoError(t, err)
+			if td != "" { // $TEMPDIR often has other files, so it does not make sense to check whether it is empty
+				files, err := os.ReadDir(td)
+				require.NoError(t, err)
+				require.Emptyf(t, files, "number of files: %v", len(files))
+			}
+		})
+	}
 }
