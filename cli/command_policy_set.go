@@ -31,7 +31,7 @@ type commandPolicySet struct {
 }
 
 func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("set", "Set snapshot policy for a single directory, user@host or a global policy.")
+	cmd := parent.Command("set", "Set snapshot policy.")
 	c.policyTargetFlags.setup(cmd)
 	cmd.Flag(inheritPolicyString, "Enable or disable inheriting policies from the parent").BoolListVar(&c.inherit)
 

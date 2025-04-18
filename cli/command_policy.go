@@ -40,7 +40,7 @@ type policyTargetFlags struct {
 }
 
 func (c *policyTargetFlags) setup(cmd *kingpin.CmdClause) {
-	cmd.Arg("target", "Select a particular policy ('user@host','@host','user@host:path' or a local path). Use --global to target the global policy.").StringsVar(&c.targets)
+	cmd.Arg("target", "Select a particular policy (a specific per-user policy `user@host`, per-host policy `@host`, per-path policy `user@host:path` or a local path). Use --global to target the global policy.").StringsVar(&c.targets)
 	cmd.Flag("global", "Select the global policy.").BoolVar(&c.global)
 }
 
