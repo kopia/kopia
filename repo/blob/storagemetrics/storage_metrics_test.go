@@ -284,5 +284,5 @@ func requireCounterValue(t *testing.T, snap metrics.Snapshot, key string, want i
 
 	v, ok := snap.Counters[key]
 	require.True(t, ok)
-	require.EqualValues(t, want, v)
+	require.Equal(t, want, v)
 }

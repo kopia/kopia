@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -365,7 +366,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 			timeNow:          cmOpts.TimeNow,
 			cliOpts:          cliOpts,
 			configFile:       configFile,
-			nextWriterID:     new(int32),
+			nextWriterID:     &atomic.Int32{},
 			throttler:        throttler,
 			metricsRegistry:  mr,
 			refCountedCloser: closer,

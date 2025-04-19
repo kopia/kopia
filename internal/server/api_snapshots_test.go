@@ -233,8 +233,8 @@ func TestEditSnapshots(t *testing.T) {
 	}, &updated))
 
 	require.Len(t, updated, 1)
-	require.EqualValues(t, []string{"pin1", "pin2"}, updated[0].Pins)
-	require.EqualValues(t, newDesc1, updated[0].Description)
+	require.Equal(t, []string{"pin1", "pin2"}, updated[0].Pins)
+	require.Equal(t, newDesc1, updated[0].Description)
 
 	require.NoError(t, cli.Post(ctx, "snapshots/edit", &serverapi.EditSnapshotsRequest{
 		Snapshots:      []manifest.ID{updated[0].ID},
@@ -244,8 +244,8 @@ func TestEditSnapshots(t *testing.T) {
 	}, &updated))
 
 	require.Len(t, updated, 1)
-	require.EqualValues(t, []string{"pin2", "pin3"}, updated[0].Pins)
-	require.EqualValues(t, newDesc2, updated[0].Description)
+	require.Equal(t, []string{"pin2", "pin3"}, updated[0].Pins)
+	require.Equal(t, newDesc2, updated[0].Description)
 
 	require.NoError(t, cli.Post(ctx, "snapshots/edit", &serverapi.EditSnapshotsRequest{
 		Snapshots:  []manifest.ID{updated[0].ID},
@@ -253,6 +253,6 @@ func TestEditSnapshots(t *testing.T) {
 	}, &updated))
 
 	require.Len(t, updated, 1)
-	require.EqualValues(t, []string{"pin2"}, updated[0].Pins)
-	require.EqualValues(t, newDesc2, updated[0].Description)
+	require.Equal(t, []string{"pin2"}, updated[0].Pins)
+	require.Equal(t, newDesc2, updated[0].Description)
 }

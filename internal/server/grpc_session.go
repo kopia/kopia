@@ -41,8 +41,8 @@ type grpcServerState struct {
 
 // send sends the provided session response with the provided request ID.
 func (s *Server) send(srv grpcapi.KopiaRepository_SessionServer, requestID int64, resp *grpcapi.SessionResponse) error {
-	s.grpcServerState.sendMutex.Lock()
-	defer s.grpcServerState.sendMutex.Unlock()
+	s.sendMutex.Lock()
+	defer s.sendMutex.Unlock()
 
 	resp.RequestId = requestID
 
@@ -125,12 +125,12 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 			}
 
 			// enforce limit on concurrent handling
-			if err := s.grpcServerState.sem.Acquire(ctx, 1); err != nil {
+			if err := s.sem.Acquire(ctx, 1); err != nil {
 				return errors.Wrap(err, "unable to acquire semaphore")
 			}
 
 			go func() {
-				defer s.grpcServerState.sem.Release(1)
+				defer s.sem.Release(1)
 
 				s.handleSessionRequest(ctx, dw, authz, usernameAtHostname, req, func(resp *grpcapi.SessionResponse) {
 					if err := s.send(srv, req.GetRequestId(), resp); err != nil {

@@ -120,7 +120,7 @@ func (r *rcloneStorage) Close(ctx context.Context) error {
 }
 
 func (r *rcloneStorage) DisplayName() string {
-	return "RClone " + r.Options.RemotePath
+	return "RClone " + r.RemotePath
 }
 
 func (r *rcloneStorage) processStderrStatus(ctx context.Context, s *bufio.Scanner) {

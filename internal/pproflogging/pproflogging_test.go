@@ -5,12 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"regexp"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/maps"
 
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -163,7 +164,7 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 			require.ErrorIs(t, tc.expectError, err)
 			require.Len(t, pbs, tc.n)
 			pb, ok := pbs[tc.key] // no negative testing for missing keys (see newProfileConfigs)
-			require.Equalf(t, !tc.expectMissing, ok, "key %q for set %q expect missing %t", tc.key, maps.Keys(pbs), tc.expectMissing)
+			require.Equalf(t, !tc.expectMissing, ok, "key %q for set %q expect missing %t", tc.key, mapKeys(pbs), tc.expectMissing)
 			if tc.expectMissing {
 				return
 			}
@@ -172,6 +173,10 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 			require.Equal(t, tc.expect, pb.flags)
 		})
 	}
+}
+
+func mapKeys[Map ~map[K]V, K comparable, V any](m Map) []K {
+	return slices.AppendSeq(make([]K, 0, len(m)), maps.Keys(m))
 }
 
 func TestDebug_newProfileConfigs(t *testing.T) {

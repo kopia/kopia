@@ -3,8 +3,10 @@ package user
 
 import (
 	"context"
+	"maps"
 	"regexp"
-	"sort"
+	"slices"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -61,22 +63,16 @@ func LoadProfileMap(ctx context.Context, rep repo.Repository, old map[string]*Pr
 
 // ListUserProfiles gets the list of all user profiles in the system.
 func ListUserProfiles(ctx context.Context, rep repo.Repository) ([]*Profile, error) {
-	var result []*Profile
-
 	users, err := LoadProfileMap(ctx, rep, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, v := range users {
-		result = append(result, v)
-	}
-
-	sort.Slice(result, func(i, j int) bool {
-		return result[i].Username < result[j].Username
+	profs := slices.SortedFunc(maps.Values(users), func(p1, p2 *Profile) int {
+		return strings.Compare(p1.Username, p2.Username)
 	})
 
-	return result, nil
+	return profs, nil
 }
 
 // GetUserProfile returns the user profile with a given username.

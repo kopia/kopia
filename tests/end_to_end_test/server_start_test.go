@@ -490,7 +490,7 @@ func TestServerScheduling(t *testing.T) {
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &miAfter)
 
 	// make sure we got some maintenance runs
-	numRuns := len(miAfter.Schedule.Runs["cleanup-logs"]) - len(miBefore.Schedule.Runs["cleanup-logs"])
+	numRuns := len(miAfter.Runs["cleanup-logs"]) - len(miBefore.Runs["cleanup-logs"])
 	require.Greater(t, numRuns, 2)
 	require.Less(t, numRuns, 5)
 }
