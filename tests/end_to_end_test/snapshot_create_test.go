@@ -755,7 +755,7 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 	// all non-global policies should be manual
 	for _, p := range plist {
 		if (p.Target != snapshot.SourceInfo{}) {
-			require.True(t, p.Policy.SchedulingPolicy.Manual)
+			require.True(t, p.SchedulingPolicy.Manual)
 		}
 	}
 

@@ -292,7 +292,7 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 
 	//nolint:wrapcheck,forcetypeassert
 	err := retry.WithExponentialBackoffNoValue(ctx, "TouchBlob", func() error {
-		_, path, err := fs.Storage.GetShardedPathAndFilePath(ctx, blobID)
+		_, path, err := fs.GetShardedPathAndFilePath(ctx, blobID)
 		if err != nil {
 			return errors.Wrap(err, "error getting sharded path")
 		}

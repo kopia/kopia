@@ -9,8 +9,12 @@ import (
 	"golang.org/x/exp/constraints"
 )
 
+type realNumber interface {
+	constraints.Float | constraints.Integer
+}
+
 // DistributionState captures momentary state of a Distribution.
-type DistributionState[T constraints.Float | constraints.Integer] struct {
+type DistributionState[T realNumber] struct {
 	Min              T       `json:"min"`
 	Max              T       `json:"max"`
 	Sum              T       `json:"sum"`
@@ -65,7 +69,7 @@ func (s *DistributionState[T]) Mean() T {
 }
 
 // Distribution measures distribution/summary of values.
-type Distribution[T constraints.Integer | constraints.Float] struct {
+type Distribution[T realNumber] struct {
 	mu               sync.Mutex
 	state            atomic.Pointer[DistributionState[T]] // +checklocksignore
 	bucketThresholds []T                                  // +checklocksignore

@@ -9,7 +9,7 @@ import (
 )
 
 // Duration adds text/json (un)marshaling functions to time.Duration.
-type Duration struct { //nolint: recvcheck
+type Duration struct {
 	time.Duration
 }
 

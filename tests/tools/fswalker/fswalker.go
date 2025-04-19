@@ -13,8 +13,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	//nolint:staticcheck
-
 	"github.com/google/fswalker"
 	fspb "github.com/google/fswalker/proto/fswalker"
 	"github.com/pkg/errors"

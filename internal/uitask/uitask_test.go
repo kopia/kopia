@@ -30,7 +30,7 @@ func TestUITask_withoutPersistentLogging(t *testing.T) {
 
 	m := uitask.NewManager(false)
 	testUITaskInternal(t, ctx, m)
-	require.Equal(t, "", logBuf.String())
+	require.Empty(t, logBuf.String())
 }
 
 func TestUITask_withPersistentLogging(t *testing.T) {

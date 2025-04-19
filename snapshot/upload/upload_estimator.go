@@ -4,12 +4,12 @@ import (
 	"context"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	vsi "github.com/kopia/kopia/internal/volumesizeinfo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot/policy"
-
-	"github.com/pkg/errors"
 )
 
 // EstimationDoneFn represents the signature of the callback function which will be invoked when an estimation is done.

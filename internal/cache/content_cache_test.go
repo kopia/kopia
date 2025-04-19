@@ -3,6 +3,7 @@ package cache_test
 import (
 	"bytes"
 	"context"
+	"slices"
 	"sort"
 	"sync"
 	"testing"
@@ -11,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/cache"

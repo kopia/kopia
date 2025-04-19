@@ -18,15 +18,6 @@ import (
 	"github.com/kopia/kopia/repo/splitter"
 )
 
-// BuildInfo is the build information of Kopia.
-//
-//nolint:gochecknoglobals
-var (
-	BuildInfo       = "unknown"
-	BuildVersion    = "v0-unofficial"
-	BuildGitHubRepo = ""
-)
-
 const (
 	hmacSecretLength = 32
 	masterKeyLength  = 32
@@ -120,12 +111,12 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 		f.HMACSecret = nil
 	}
 
-	if fv == format.FormatVersion1 || f.ContentFormat.ECCOverheadPercent == 0 {
-		f.ContentFormat.ECC = ""
-		f.ContentFormat.ECCOverheadPercent = 0
+	if fv == format.FormatVersion1 || f.ECCOverheadPercent == 0 {
+		f.ECC = ""
+		f.ECCOverheadPercent = 0
 	}
 
-	if err := f.ContentFormat.ResolveFormatVersion(); err != nil {
+	if err := f.ResolveFormatVersion(); err != nil {
 		return nil, errors.Wrap(err, "error resolving format version")
 	}
 

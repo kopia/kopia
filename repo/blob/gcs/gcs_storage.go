@@ -137,11 +137,11 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, 
 	writer := obj.NewWriter(ctx)
 	writer.ChunkSize = writerChunkSize
 	writer.ContentType = "application/x-kopia"
-	writer.ObjectAttrs.Metadata = timestampmeta.ToMap(opts.SetModTime, timeMapKey)
+	writer.Metadata = timestampmeta.ToMap(opts.SetModTime, timeMapKey)
 
 	if opts.RetentionPeriod != 0 {
 		retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
-		writer.ObjectAttrs.Retention = &gcsclient.ObjectRetention{
+		writer.Retention = &gcsclient.ObjectRetention{
 			Mode:        string(blob.Locked),
 			RetainUntil: retainUntilDate,
 		}

@@ -7,8 +7,6 @@ import (
 )
 
 // ConnectionInfo represents JSON-serializable configuration of a blob storage.
-//
-//nolint:recvcheck
 type ConnectionInfo struct {
 	Type   string
 	Config interface{}

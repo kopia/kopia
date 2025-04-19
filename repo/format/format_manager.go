@@ -465,7 +465,7 @@ func Initialize(ctx context.Context, st blob.Storage, formatBlob *KopiaRepositor
 		return errors.Wrap(err, "unable to derive format encryption key")
 	}
 
-	if err = repoConfig.MutableParameters.Validate(); err != nil {
+	if err = repoConfig.Validate(); err != nil {
 		return errors.Wrap(err, "invalid parameters")
 	}
 

@@ -27,7 +27,7 @@ func (m *Manager) SetParameters(
 		return errors.Wrap(err, "invalid blob-config options")
 	}
 
-	m.repoConfig.ContentFormat.MutableParameters = mp
+	m.repoConfig.MutableParameters = mp
 	m.repoConfig.RequiredFeatures = requiredFeatures
 
 	if err := m.j.EncryptRepositoryConfig(m.repoConfig, m.formatEncryptionKey); err != nil {

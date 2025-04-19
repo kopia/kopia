@@ -67,7 +67,7 @@ func (c *commandPolicyImport) run(ctx context.Context, rep repo.RepositoryWriter
 
 	var targetLimit []snapshot.SourceInfo
 
-	if c.policyTargetFlags.global || len(c.policyTargetFlags.targets) > 0 {
+	if c.global || len(c.targets) > 0 {
 		targetLimit, err = c.policyTargets(ctx, rep)
 		if err != nil {
 			return err
