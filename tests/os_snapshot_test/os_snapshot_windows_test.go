@@ -56,6 +56,7 @@ func TestShadowCopy(t *testing.T) {
 	entries := clitestutil.ListDirectory(t, e, oid)
 
 	if isAdmin {
+		require.NotEmpty(t, entries)
 		lines := e.RunAndExpectSuccess(t, "show", entries[0].ObjectID)
 		require.Equal(t, []string{"locked file"}, lines)
 	} else {
