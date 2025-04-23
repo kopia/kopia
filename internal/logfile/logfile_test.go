@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/cachedir"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/internal/testutil"
@@ -133,7 +134,7 @@ func TestLogFileRotation(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Logf("%v %v", info.Name(), info.Size())
-				if info.Mode().IsRegular() {
+				if info.Mode().IsRegular() && info.Name() != cachedir.CacheDirMarkerFile {
 					gotEntryCount++
 				}
 
@@ -194,6 +195,20 @@ func TestLogFileMaxTotalSize(t *testing.T) {
 	}
 }
 
+func TestCacheFileExists(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	runner.CustomizeApp = logfile.Attach
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+	tmpLogDir := testutil.TempDirectory(t)
+
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--log-dir", tmpLogDir)
+
+	require.FileExists(t, filepath.Join(tmpLogDir, "cli-logs", cachedir.CacheDirMarkerFile))
+	require.FileExists(t, filepath.Join(tmpLogDir, "content-logs", cachedir.CacheDirMarkerFile))
+}
+
 func verifyFileLogFormat(t *testing.T, fname string, re *regexp.Regexp) {
 	t.Helper()
 
@@ -224,6 +239,10 @@ func getTotalDirSize(t *testing.T, dir string) int {
 	var totalSize int
 
 	for _, ent := range entries {
+		if ent.Name() == cachedir.CacheDirMarkerFile {
+			continue
+		}
+
 		info, err := ent.Info()
 		require.NoError(t, err)
 
