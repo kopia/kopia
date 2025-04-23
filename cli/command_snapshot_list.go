@@ -41,21 +41,29 @@ type commandSnapshotList struct {
 	out textOutput
 }
 
+const snapshotListHelp = `Lists out snapshots created by the host.
+
+This command will only display snapshots created by this host by default.
+Incomplete snapshots are also hidden by defualt. To display all the hidden
+snapshots use ` + "`" + `--all` + "`" + `. This will list out all snapshots created
+by all hosts and incomplete snapshots as well.
+`
+
 func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("list", "List snapshots of files and directories.").Alias("ls")
-	cmd.Arg("source", "File or directory to show history of.").StringVar(&c.snapshotListPath)
-	cmd.Flag("incomplete", "Include incomplete.").Short('i').BoolVar(&c.snapshotListIncludeIncomplete)
+	cmd := parent.Command("list", snapshotListHelp).Alias("ls")
+	cmd.Arg("source", "File or directory to show history of").StringVar(&c.snapshotListPath)
+	cmd.Flag("incomplete", "Include incomplete snapshots").Short('i').BoolVar(&c.snapshotListIncludeIncomplete)
 	cmd.Flag("human-readable", "Show human-readable units").Default("true").BoolVar(&c.snapshotListShowHumanReadable)
 	cmd.Flag("delta", "Include deltas.").Short('d').BoolVar(&c.snapshotListShowDelta)
-	cmd.Flag("manifest-id", "Include manifest item ID.").Short('m').BoolVar(&c.snapshotListShowItemID)
-	cmd.Flag("retention", "Include retention reasons.").Default("true").BoolVar(&c.snapshotListShowRetentionReasons)
+	cmd.Flag("manifest-id", "Include manifest item ID").Short('m').BoolVar(&c.snapshotListShowItemID)
+	cmd.Flag("retention", "Include retention reasons").Default("true").BoolVar(&c.snapshotListShowRetentionReasons)
 	cmd.Flag("mtime", "Include file mod time").BoolVar(&c.snapshotListShowModTime)
 	cmd.Flag("owner", "Include owner").BoolVar(&c.shapshotListShowOwner)
 	cmd.Flag("show-identical", "Show identical snapshots").Short('l').BoolVar(&c.snapshotListShowIdentical)
-	cmd.Flag("storage-stats", "Compute and show storage statistics").BoolVar(&c.storageStats)
+	cmd.Flag("storage-stats", "Compute and show storage usage for each snapshot").BoolVar(&c.storageStats)
 	cmd.Flag("reverse", "Reverse sort order").BoolVar(&c.reverseSort)
 	cmd.Flag("all", "Show all snapshots (not just current username/host)").Short('a').BoolVar(&c.snapshotListShowAll)
-	cmd.Flag("max-results", "Maximum number of entries per source.").Short('n').IntVar(&c.maxResultsPerPath)
+	cmd.Flag("max-results", "Display N number of newest results. Given as an integer").Short('n').IntVar(&c.maxResultsPerPath)
 	cmd.Flag("tags", "Tag filters to apply on the list items. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotListTags)
 	c.jo.setup(svc, cmd)
 	c.out.setup(svc)

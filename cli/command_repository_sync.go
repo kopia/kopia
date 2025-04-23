@@ -37,8 +37,24 @@ type commandRepositorySyncTo struct {
 	out textOutput
 }
 
+const repositorySyncHelp = `Synchronizes two identical copies of a repository to different locations.
+
+This command only works on repositories with the same encryption, hashing and chunking settings.
+This is useful for example to sync a local repository to a S3 bucket.
+It is similar to using rclone, with a major difference. It can sync a sharded local filesystem repository
+to a different backend while removing the sharded directories. A repository saved on a filesystem is sharded
+into subdirectories by default for performance reasons. S3 and other cloud systems don't have this limitation
+and perform better without sharding, so this command will transparently synchronize sharded and unsharded repositories.
+
+
+Multiple local repositories can be synced to a single "master" copy for example, and any snapshots created on one client
+will be saved in the cloud copy. Any changes to the remote repository will also be downloaded to the local copy.
+File deletions are not synced to the destination by default. This may result in the size of the destination continuing
+to increase. To allow deletions pass ` + "`" + `--delete` + "`" + `
+`
+
 func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandParent) {
-	cmd := parent.Command("sync-to", "Synchronizes the contents of this repository to another location")
+	cmd := parent.Command("sync-to", repositorySyncHelp)
 	cmd.Flag("update", "Whether to update blobs present in destination and source if the source is newer.").Default("true").BoolVar(&c.repositorySyncUpdate)
 	cmd.Flag("delete", "Whether to delete blobs present in destination but not source.").BoolVar(&c.repositorySyncDelete)
 	cmd.Flag("dry-run", "Do not perform copying.").Short('n').BoolVar(&c.repositorySyncDryRun)

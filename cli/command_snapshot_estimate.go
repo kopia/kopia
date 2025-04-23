@@ -26,8 +26,17 @@ type commandSnapshotEstimate struct {
 	out textOutput
 }
 
+const (
+	snapshotEstimateHelp = `Estimate the snapshot size and upload time.
+
+Useful to provide a rough estimate of the first snapshot on a
+new set of data. Does not account for deduplication of already
+backed-up files.
+	`
+)
+
 func (c *commandSnapshotEstimate) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("estimate", "Estimate the snapshot size and upload time.")
+	cmd := parent.Command("estimate", snapshotEstimateHelp)
 	cmd.Arg("source", "File or directory to analyze.").Required().ExistingFileOrDirVar(&c.snapshotEstimateSource)
 	cmd.Flag("show-files", "Show files").BoolVar(&c.snapshotEstimateShowFiles)
 	cmd.Flag("quiet", "Do not display scanning progress").Short('q').BoolVar(&c.snapshotEstimateQuiet)

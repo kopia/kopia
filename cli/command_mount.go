@@ -31,15 +31,13 @@ type commandMount struct {
 func (c *commandMount) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("mount", "Mount repository object as a local filesystem.")
 
-	cmd.Arg("path", "Identifier of the directory to mount.").Default("all").StringVar(&c.mountObjectID)
+	cmd.Arg("path", "Identifier of the directory to mount").Default("all").StringVar(&c.mountObjectID)
 	cmd.Arg("mountPoint", "Mount point").Default("*").StringVar(&c.mountPoint)
 	cmd.Flag("browse", "Open file browser").BoolVar(&c.mountPointBrowse)
 	cmd.Flag("trace-fs", "Trace filesystem operations").BoolVar(&c.mountTraceFS)
-
-	cmd.Flag("fuse-allow-other", "Allows other users to access the file system.").BoolVar(&c.mountFuseAllowOther)
+	cmd.Flag("fuse-allow-other", "Allows other users to access the file system").BoolVar(&c.mountFuseAllowOther)
 	cmd.Flag("fuse-allow-non-empty-mount", "Allows the mounting over a non-empty directory. The files in it will be shadowed by the freshly created mount.").BoolVar(&c.mountFuseAllowNonEmptyMount)
-	cmd.Flag("webdav", "Use WebDAV to mount the repository object regardless of fuse availability.").BoolVar(&c.mountPreferWebDAV)
-
+	cmd.Flag("webdav", "Use WebDAV to mount the repository object regardless of fuse availability").BoolVar(&c.mountPreferWebDAV)
 	cmd.Flag("max-cached-entries", "Limit the number of cached directory entries").Default("100000").IntVar(&c.maxCachedEntries)
 	cmd.Flag("max-cached-dirs", "Limit the number of cached directories").Default("100").IntVar(&c.maxCachedDirectories)
 

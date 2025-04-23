@@ -22,8 +22,29 @@ type commandSnapshotFixInvalidFiles struct {
 	failedFileCallback snapshotfs.RewriteFailedEntryCallback
 }
 
+const (
+	fixInvalidFilesHelp = `Remove references to any invalid (unreadable) files from snapshots.
+It is only recommended to use this command if
+$ kopia snapshot verify
+is returning errors.
+
+There are 4 ways to deal with invalid files as specified by the --invalid-file-handeling flag.
+
+stub (default) replaces the references to the invalid files with an empty stub file.
+This will show up as an empty file inside the snapshot indicating there was a file
+here but it can no longer be accessed.
+
+keep - does nothing to the found invalid files.
+
+fail - gives and error on found invalid files
+
+remove - completely deletes the references to the invalid files and removes them
+from the snapshot.
+	`
+)
+
 func (c *commandSnapshotFixInvalidFiles) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("invalid-files", "Remove references to any invalid (unreadable) files from snapshots.")
+	cmd := parent.Command("invalid-files", fixInvalidFilesHelp)
 	c.common.setup(svc, cmd)
 
 	cmd.Flag("invalid-file-handling", "How to handle invalid files").Default(invalidEntryStub).EnumVar(&c.invalidFileHandling, invalidEntryFail, invalidEntryStub, invalidEntryKeep, invalidEntryRemove)
