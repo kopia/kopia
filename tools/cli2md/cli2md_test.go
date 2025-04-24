@@ -1,6 +1,10 @@
 package main
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestEscapeFlags(t *testing.T) {
 	cases := []struct {
@@ -58,14 +62,22 @@ func TestEscapeFlags(t *testing.T) {
 			input:    "test in-place and -valid --flags",
 			expected: "test in-place and `-valid` `--flags`",
 		},
+		{
+			name:     "separator line",
+			input:    "---------------",
+			expected: "---------------",
+		},
+		{
+			name:     "too many dashes",
+			input:    "none ---of these --- dashes ----should match",
+			expected: "none ---of these --- dashes ----should match",
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := escapeFlags(tc.input)
-			if got != tc.expected {
-				t.Errorf("escapeFlags(%q)\ngot:  %q\nwant: %q", tc.input, got, tc.expected)
-			}
+			require.Equal(t, tc.expected, got)
 		})
 	}
 }
