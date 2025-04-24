@@ -15,7 +15,7 @@ type commandPolicyDelete struct {
 }
 
 func (c *commandPolicyDelete) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("delete", "Remove snapshot policy for a single directory, user@host or a global policy.").Alias("remove").Alias("rm")
+	cmd := parent.Command("delete", "Remove policy.").Alias("remove").Alias("rm")
 	c.policyTargetFlags.setup(cmd)
 	cmd.Flag("dry-run", "Do not remove").Short('n').BoolVar(&c.dryRun)
 	cmd.Action(svc.repositoryWriterAction(c.run))

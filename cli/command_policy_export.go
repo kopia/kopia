@@ -27,7 +27,7 @@ type commandPolicyExport struct {
 const exportFilePerms = 0o600
 
 func (c *commandPolicyExport) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("export", "Exports the policy to the specified file, or to stdout if none is specified.")
+	cmd := parent.Command("export", "Exports the policies to the specified file, or to stdout if none is specified.")
 	cmd.Flag("to-file", "File path to export to").StringVar(&c.filePath)
 	cmd.Flag("overwrite", "Overwrite the file if it exists").BoolVar(&c.overwrite)
 
