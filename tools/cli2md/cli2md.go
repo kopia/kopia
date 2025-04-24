@@ -32,10 +32,10 @@ const (
 	dirMode = 0o750
 )
 
-// The group at the start is to avoid matching things like "in-place"
+// The group at the start is to avoid matching things like "in-place".
 var escapeFlagsRe = regexp.MustCompile(`(^|\s)(--?\w+[-\w]*)`)
 
-// escapeFlags escapes command-line flag references in help text by wrapping them in backticks
+// escapeFlags escapes command-line flag references in help text by wrapping them in backticks.
 func escapeFlags(text string) string {
 	return escapeFlagsRe.ReplaceAllString(text, "$1`$2`")
 }
