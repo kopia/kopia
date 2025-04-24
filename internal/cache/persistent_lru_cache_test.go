@@ -25,7 +25,7 @@ func TestPersistentLRUCache(t *testing.T) {
 
 	const maxSizeBytes = 1000
 
-	cs := blobtesting.NewMapStorageWithLimit(blobtesting.DataMap{}, nil, nil, maxSizeBytes).(cache.Storage)
+	cs := testutil.EnsureType[cache.Storage](t, blobtesting.NewMapStorageWithLimit(blobtesting.DataMap{}, nil, nil, maxSizeBytes))
 
 	pc, err := cache.NewPersistentCache(ctx, "testing", cs, cacheprot.ChecksumProtection([]byte{1, 2, 3}), cache.SweepSettings{
 		MaxSizeBytes:   maxSizeBytes,

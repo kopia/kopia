@@ -126,7 +126,7 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 
 	e.Repository = rep
 
-	_, e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
+	_, e.RepositoryWriter, err = testutil.EnsureType[repo.DirectRepository](tb, rep).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() {
@@ -177,7 +177,7 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 
 	tb.Cleanup(func() { rep.Close(ctx) })
 
-	_, e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
+	_, e.RepositoryWriter, err = testutil.EnsureType[repo.DirectRepository](tb, rep).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(tb, err)
 }
 

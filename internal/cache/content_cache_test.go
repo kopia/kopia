@@ -108,13 +108,13 @@ func verifyCacheExpiration(t *testing.T, sweepSettings cache.SweepSettings, want
 
 		return currentTime
 	}
-	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, movingTimeFunc)
 
+	cacheStorage := testutil.EnsureType[cache.Storage](t, blobtesting.NewMapStorage(cacheData, nil, movingTimeFunc))
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 
 	ctx := testlogging.Context(t)
 	cc, err := cache.NewContentCache(ctx, underlyingStorage, cache.Options{
-		Storage: cacheStorage.(cache.Storage),
+		Storage: cacheStorage,
 		Sweep:   sweepSettings,
 		TimeNow: movingTimeFunc,
 	}, nil)

@@ -171,7 +171,7 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 	// second lock from a random owner
 	secondL := l.Clone()
 	secondL.OwnerID = "another-upgrade-owner"
-	_, err = secondWriter.(repo.DirectRepositoryWriter).FormatManager().SetUpgradeLockIntent(ctx, *secondL)
+	_, err = testutil.EnsureType[repo.DirectRepositoryWriter](t, secondWriter).FormatManager().SetUpgradeLockIntent(ctx, *secondL)
 	require.NoError(t, err)
 
 	// verify that we have two repository backups, the second one will contain
@@ -290,31 +290,33 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 	r, err := repo.Open(testlogging.Context(t), configFile, "password", &repo.Options{UpgradeOwnerID: "allowed-upgrade-owner"})
 	require.NoError(t, err)
 
-	_, err = r.(repo.DirectRepositoryWriter).FormatManager().SetUpgradeLockIntent(testlogging.Context(t), *faultyLock)
+	drw := testutil.EnsureType[repo.DirectRepositoryWriter](t, r)
+
+	_, err = drw.FormatManager().SetUpgradeLockIntent(testlogging.Context(t), *faultyLock)
 	require.EqualError(t, err, "failed to backup the repo format blob: unable to write format blob \"kopia.repository.backup.faulty-upgrade-owner\": unexpected error")
 
-	_, err = r.(repo.DirectRepositoryWriter).FormatManager().SetUpgradeLockIntent(testlogging.Context(t), allowedLock)
+	_, err = drw.FormatManager().SetUpgradeLockIntent(testlogging.Context(t), allowedLock)
 	require.NoError(t, err)
 
-	require.EqualError(t, r.(repo.DirectRepositoryWriter).FormatManager().RollbackUpgrade(testlogging.Context(t)),
+	require.EqualError(t, drw.FormatManager().RollbackUpgrade(testlogging.Context(t)),
 		"failed to delete the format blob backup \"kopia.repository.backup.allowed-upgrade-owner\": unexpected error")
 
-	require.EqualError(t, r.(repo.DirectRepositoryWriter).FormatManager().RollbackUpgrade(testlogging.Context(t)),
+	require.EqualError(t, drw.FormatManager().RollbackUpgrade(testlogging.Context(t)),
 		"failed to delete the format blob backup \"kopia.repository.backup.allowed-upgrade-owner\": unexpected error")
 
 	allowPuts = false
 
-	require.EqualError(t, r.(repo.DirectRepositoryWriter).FormatManager().RollbackUpgrade(testlogging.Context(t)),
+	require.EqualError(t, drw.FormatManager().RollbackUpgrade(testlogging.Context(t)),
 		"failed to restore format blob from backup \"kopia.repository.backup.allowed-upgrade-owner\": unexpected error")
 
 	allowGets = false
 
-	require.EqualError(t, r.(repo.DirectRepositoryWriter).FormatManager().RollbackUpgrade(testlogging.Context(t)),
+	require.EqualError(t, drw.FormatManager().RollbackUpgrade(testlogging.Context(t)),
 		"failed to read from backup \"kopia.repository.backup.allowed-upgrade-owner\": unexpected error on get")
 
 	allowPuts, allowGets, allowDeletes = true, true, true
 
-	require.NoError(t, r.(repo.DirectRepositoryWriter).FormatManager().RollbackUpgrade(testlogging.Context(t)))
+	require.NoError(t, drw.FormatManager().RollbackUpgrade(testlogging.Context(t)))
 }
 
 func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
@@ -330,7 +332,7 @@ func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
 
 	rep := env.Repository // read-only
 
-	lw := rep.(repo.RepositoryWriter)
+	lw := testutil.EnsureType[repo.DirectRepositoryWriter](t, rep)
 
 	// w1, w2, w3 are independent sessions.
 	_, w1, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer1"})
@@ -370,7 +372,7 @@ func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
 	}
 
 	// set upgrade lock using independent client
-	_, err = env.MustConnectOpenAnother(t).(repo.DirectRepositoryWriter).FormatManager().SetUpgradeLockIntent(ctx, l)
+	_, err = testutil.EnsureType[repo.DirectRepositoryWriter](t, env.MustConnectOpenAnother(t)).FormatManager().SetUpgradeLockIntent(ctx, l)
 	require.NoError(t, err)
 
 	// ongoing writes should NOT get interrupted because the upgrade lock
@@ -395,7 +397,6 @@ func TestFormatUpgradeDuringOngoingWriteSessions(t *testing.T) {
 
 	// ongoing writes should get interrupted this time
 	require.ErrorIs(t, w1.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgradeInProgress)
-
 	require.ErrorIs(t, w2.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgradeInProgress)
 	require.ErrorIs(t, w3.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgradeInProgress)
 	require.ErrorIs(t, lw.Flush(ctx), repo.ErrRepositoryUnavailableDueToUpgradeInProgress)

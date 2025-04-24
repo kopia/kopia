@@ -203,7 +203,7 @@ func findAllEntries(t *testing.T, ctx context.Context, dir fs.Directory) []entry
 	entries := []entry{}
 
 	fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
-		oid, err := object.ParseID(e.(object.HasObjectID).ObjectID().String())
+		oid, err := object.ParseID(testutil.EnsureType[object.HasObjectID](t, e).ObjectID().String())
 		require.NoError(t, err)
 
 		entries = append(entries, entry{
@@ -211,7 +211,7 @@ func findAllEntries(t *testing.T, ctx context.Context, dir fs.Directory) []entry
 			objectID: oid,
 		})
 		if e.IsDir() {
-			entries = append(entries, findAllEntries(t, ctx, e.(fs.Directory))...)
+			entries = append(entries, findAllEntries(t, ctx, testutil.EnsureType[fs.Directory](t, e))...)
 		}
 
 		return nil
@@ -290,7 +290,7 @@ func TestUploadMetadataCompression(t *testing.T) {
 			s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
 			require.NoError(t, err, "upload error")
 
-			dir := snapshotfs.EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
+			dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, s1.RootEntry))
 			entries := findAllEntries(t, ctx, dir)
 			verifyMetadataCompressor(t, ctx, th.repo, entries, compID)
 		})
@@ -1253,21 +1253,19 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 
 	t.Logf("man: %v", man.RootObjectID())
 
-	dir := snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry).(fs.Directory)
-
+	dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry))
 	successCount := 0
 
 	fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		if f, ok := e.(fs.File); ok {
-			hoid, hasObjectId := f.(object.HasObjectID)
-			require.True(t, hasObjectId)
+			hoid := testutil.EnsureType[object.HasObjectID](t, f)
 
 			oids := hoid.ObjectID().String()
 
 			oid, err := object.ParseID(strings.TrimPrefix(oids, "I"))
 			require.NoError(t, err, "failed to parse object id", oids)
 
-			entries, err := object.LoadIndexObject(ctx, th.repo.(repo.DirectRepositoryWriter).ContentManager(), oid)
+			entries, err := object.LoadIndexObject(ctx, testutil.EnsureType[repo.DirectRepositoryWriter](t, th.repo).ContentManager(), oid)
 			require.NoError(t, err, "failed to parse indirect object id", oid)
 
 			// ensure that index object contains breakpoints at all multiples of 'chunkSize'.

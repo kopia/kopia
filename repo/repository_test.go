@@ -310,7 +310,7 @@ func TestWriterScope(t *testing.T) {
 
 	rep := env.Repository // read-only
 
-	lw := rep.(repo.RepositoryWriter)
+	lw := testutil.EnsureType[repo.DirectRepositoryWriter](t, rep)
 
 	// w1, w2, w3 are independent sessions.
 	_, w1, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer1"})
@@ -572,7 +572,7 @@ func TestObjectWritesWithRetention(t *testing.T) {
 
 	var prefixesWithRetention []string
 
-	versionedMap := env.RootStorage().(cache.Storage)
+	versionedMap := testutil.EnsureType[cache.Storage](t, env.RootStorage())
 
 	for _, prefix := range content.PackBlobIDPrefixes {
 		prefixesWithRetention = append(prefixesWithRetention, string(prefix))
@@ -891,7 +891,7 @@ func TestDeriveKey(t *testing.T) {
 		})
 
 		// prepare upgrade
-		dw1Upgraded := env.Repository.(repo.DirectRepositoryWriter)
+		dw1Upgraded := testutil.EnsureType[repo.DirectRepositoryWriter](t, env.Repository)
 		cf := dw1Upgraded.ContentReader().ContentFormat()
 
 		mp, mperr := cf.GetMutableParameters(ctx)
@@ -908,7 +908,7 @@ func TestDeriveKey(t *testing.T) {
 
 		require.NoError(t, dw1Upgraded.FormatManager().SetParameters(ctx, mp, blobCfg, feat))
 
-		return env.MustConnectOpenAnother(t).(repo.DirectRepositoryWriter)
+		return testutil.EnsureType[repo.DirectRepositoryWriter](t, env.MustConnectOpenAnother(t))
 	}
 
 	// we verify that repositories started on V1 will continue to derive keys from

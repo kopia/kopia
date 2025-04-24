@@ -862,7 +862,7 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 func TestIndexEpochManager_Disabled(t *testing.T) {
 	te := newTestEnv(t)
 
-	te.mgr.paramProvider.(parameterProvider).Enabled = false
+	testutil.EnsureType[parameterProvider](t, te.mgr.paramProvider).Enabled = false
 
 	_, err := te.mgr.Current(testlogging.Context(t))
 	require.Error(t, err)
