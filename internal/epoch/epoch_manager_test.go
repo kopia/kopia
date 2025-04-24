@@ -441,7 +441,7 @@ func TestNoEpochAdvanceOnIndexRead(t *testing.T) {
 	}
 
 	te.mgr.Invalidate()
-	cs, err = te.mgr.Current(ctx)
+	_, err = te.mgr.Current(ctx)
 	require.NoError(t, err)
 
 	te.mgr.Flush() // wait for background work
