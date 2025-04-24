@@ -4,29 +4,25 @@
 package snapmeta
 
 import (
-	"bytes"
 	"context"
-	"log"
 	"os"
 	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
-var (
-	key = "mykey"
-	val = []byte("myval")
-)
+const key = "mykey"
+
+var val = []byte("myval")
 
 func TestStoreLoadDelete(t *testing.T) {
-	ctx := context.Background()
-
-	repoPath, err := os.MkdirTemp("", "kopia-test-repo-")
-	assertNoError(t, err)
-
-	defer os.RemoveAll(repoPath)
-
+	repoPath := t.TempDir()
 	kpl := initKPL(t, repoPath)
-	defer kpl.Cleanup()
+
+	t.Cleanup(kpl.Cleanup)
+
+	ctx := context.Background()
 
 	kpl.testStoreLoad(ctx, t, key, val)
 	kpl.testDelete(ctx, t, key)
@@ -35,13 +31,10 @@ func TestStoreLoadDelete(t *testing.T) {
 func TestConcurrency(t *testing.T) {
 	ctx := context.Background()
 
-	repoPath, err := os.MkdirTemp("", "kopia-test-repo-")
-	assertNoError(t, err)
-
-	defer os.RemoveAll(repoPath)
-
+	repoPath := t.TempDir()
 	kpl := initKPL(t, repoPath)
-	defer kpl.Cleanup()
+
+	t.Cleanup(kpl.Cleanup)
 
 	keys := []string{"key1", "key2", "key3"}
 	vals := [][]byte{[]byte("val1"), []byte("val2"), []byte("val3")}
@@ -68,14 +61,12 @@ func TestConcurrency(t *testing.T) {
 // Store and test that subsequent Load succeeds.
 func (kpl *KopiaPersisterLight) testStoreLoad(ctx context.Context, t *testing.T, key string, val []byte) { //nolint:thelper
 	err := kpl.Store(ctx, key, val)
-	assertNoError(t, err)
+	require.NoError(t, err)
 
-	valOut, err := kpl.Load(ctx, key)
-	assertNoError(t, err)
+	got, err := kpl.Load(ctx, key)
+	require.NoError(t, err)
 
-	if !bytes.Equal(valOut, val) {
-		t.Fatal("loaded value does not equal stored value", valOut, val)
-	}
+	require.Equal(t, val, got)
 }
 
 // Delete and test that subsequent Load fails.
@@ -83,85 +74,67 @@ func (kpl *KopiaPersisterLight) testDelete(ctx context.Context, t *testing.T, ke
 	kpl.Delete(ctx, key)
 
 	_, err := kpl.Load(ctx, key)
-	log.Println("err:", err)
 
-	if err == nil {
-		t.Fatal("snapshot was not deleted properly")
-	}
+	require.Error(t, err, "snapshot was not deleted properly")
 }
 
 func TestPersistence(t *testing.T) {
 	ctx := context.Background()
 
-	repoPath, err := os.MkdirTemp("", "kopia-test-repo-")
-	assertNoError(t, err)
+	repoPath := t.TempDir()
 
 	kpl := initKPL(t, repoPath)
 
 	// Persistence directory should be set.
-	if persistDir := kpl.GetPersistDir(); persistDir == "" {
-		t.Error("could not get persistence directory")
-	}
+	persistDir := kpl.GetPersistDir()
+	require.NotEmpty(t, persistDir, "could not get persistence directory")
 
 	// These are no-ops and should always succeed.
-	err = kpl.LoadMetadata()
-	assertNoError(t, err)
+	err := kpl.LoadMetadata()
+	require.NoError(t, err)
 	err = kpl.FlushMetadata()
-	assertNoError(t, err)
+	require.NoError(t, err)
 
 	// Store and cleanup kpl
 	err = kpl.Store(ctx, key, val)
-	assertNoError(t, err)
+	require.NoError(t, err)
 
 	kpl.Cleanup()
 
 	// Re-initialize and Load
 	kpl = initKPL(t, repoPath)
-	valOut, err := kpl.Load(ctx, key)
-	assertNoError(t, err)
+	t.Cleanup(kpl.Cleanup)
 
-	if !bytes.Equal(valOut, val) {
-		t.Fatal("loaded value does not equal stored value")
-	}
-
-	kpl.Cleanup()
-	os.RemoveAll(repoPath)
+	got, err := kpl.Load(ctx, key)
+	require.NoError(t, err)
+	require.Equal(t, val, got, "loaded value is not equal to stored value")
 }
 
 func TestS3Connect(t *testing.T) {
-	repoPath, err := os.MkdirTemp("", "kopia-test-repo-")
-	assertNoError(t, err)
+	repoPath := t.TempDir()
 
 	// Test the S3 code path by attempting to connect to a nonexistent bucket.
 	t.Setenv(S3BucketNameEnvKey, "does-not-exist")
 
 	kpl, err := NewPersisterLight("")
-	assertNoError(t, err)
+	require.NoError(t, err)
 
-	if err := kpl.ConnectOrCreateRepo(repoPath); err == nil {
-		t.Error("should not be able to connect to nonexistent S3 bucket")
-	}
+	err = kpl.ConnectOrCreateRepo(repoPath)
+	require.Error(t, err, "should not be able to connect to nonexistent S3 bucket")
 
 	kpl.Cleanup()
-	os.RemoveAll(repoPath)
 }
 
-func initKPL(t *testing.T, repoPath string) *KopiaPersisterLight { //nolint:thelper
+func initKPL(t *testing.T, repoPath string) *KopiaPersisterLight {
+	t.Helper()
+
 	os.Unsetenv(S3BucketNameEnvKey)
 
 	kpl, err := NewPersisterLight("")
-	assertNoError(t, err)
+	require.NoError(t, err)
 
 	err = kpl.ConnectOrCreateRepo(repoPath)
-	assertNoError(t, err)
+	require.NoError(t, err)
 
 	return kpl
-}
-
-func assertNoError(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Errorf("err: %v", err)
-	}
 }
