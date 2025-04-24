@@ -8,13 +8,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 const dirMode = 0o700
@@ -403,4 +408,63 @@ func NewComparer(out io.Writer) (*Comparer, error) {
 	}
 
 	return &Comparer{out: out, tmpDir: tmp}, nil
+}
+
+func GetPreceedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID string) (*snapshot.Manifest, error) {
+	var prevSnapshotManifest *snapshot.Manifest
+
+	snapshotManifest, err := snapshotfs.FindSnapshotByRootObjectIDOrManifestID(ctx, rep, snapshotID, false)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshotList, err := snapshot.ListSnapshots(ctx, rep, snapshotManifest.Source)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(snapshotList) <= 1 {
+		return nil, errors.New("Cannot fetch immediately preceeding snapshot manifest")
+	}
+
+	// sort snapshots in ascending order based on start time
+	sort.Slice(snapshotList, func(i, j int) bool {
+		return snapshotList[i].StartTime.Before(snapshotList[j].StartTime)
+	})
+
+	for i, snap := range snapshotList {
+		if snap.ID == manifest.ID(snapshotID) {
+			if i == 0 {
+				return nil, errors.New("Cannot fetch immediately preceeding snapshot")
+			}
+
+			// get the snapshot immediately preceeding it
+			prevSnapshotManifest = snapshotList[i-1]
+		}
+	}
+
+	return prevSnapshotManifest, nil
+}
+
+func GetTwoLatestSnapshotsForASource(ctx context.Context, rep repo.Repository, source snapshot.SourceInfo) ([]*snapshot.Manifest, error) {
+	var res []*snapshot.Manifest
+
+	snapshots, err := snapshot.ListSnapshots(ctx, rep, source)
+	if err != nil {
+		return nil, err
+	}
+
+	size_snapshots := len(snapshots)
+	if size_snapshots < 2 {
+		return nil, errors.New("Could not fetch the two latest snapshot manifests")
+	}
+
+	// sort the list of snapshots based on start time in ascending order
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].StartTime.Before(snapshots[j].StartTime)
+	})
+
+	res = append(res, snapshots[size_snapshots-2:]...)
+
+	return res, nil
 }

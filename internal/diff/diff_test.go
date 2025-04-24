@@ -13,8 +13,13 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/diff"
+	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
 )
 
 var (
@@ -468,4 +473,137 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 
 func createTestDirectory(name string, modtime time.Time, owner fs.OwnerInfo, mode os.FileMode, oid object.ID, files ...fs.Entry) *testDirectory {
 	return &testDirectory{testBaseEntry: testBaseEntry{modtime: modtime, name: name, owner: owner, mode: mode, oid: oid}, files: files}
+}
+
+func getManifests() map[string]*snapshot.Manifest {
+	// manifests store snapshot manifests based on start-time
+	manifests := make(map[string]*snapshot.Manifest)
+
+	src := getSnapshotSource()
+	currentTime := time.Now()
+
+	contentID1, _ := index.IDFromHash("p", []byte("indexID1"))
+	objectID1 := object.DirectObjectID(contentID1)
+
+	contentID2, _ := index.IDFromHash("p", []byte("indexID2"))
+	objectID2 := object.DirectObjectID(contentID2)
+
+	rootEntry1 := snapshot.DirEntry{
+		ObjectID: objectID1,
+	}
+
+	rootEntry2 := snapshot.DirEntry{
+		ObjectID: objectID2,
+	}
+
+	initialSnapshotManifest := &snapshot.Manifest{
+		ID:          "manifest_1_id",
+		Source:      src,
+		StartTime:   fs.UTCTimestamp(currentTime.Add((-24) * time.Hour).UnixNano()),
+		Description: "snapshot captured a day ago",
+		RootEntry:   &rootEntry2,
+	}
+	manifests["initial_snapshot"] = initialSnapshotManifest
+
+	intermediateSnapshotManifest := &snapshot.Manifest{
+		ID:          "manifest_2_id",
+		Source:      src,
+		StartTime:   fs.UTCTimestamp(currentTime.Add(-time.Hour).UnixNano()),
+		Description: "snapshot taken an hour ago",
+		RootEntry:   &rootEntry2,
+	}
+	manifests["intermediate_snapshot"] = intermediateSnapshotManifest
+
+	LatestSnapshotManifest := &snapshot.Manifest{
+		ID:          "manifest_3_id",
+		Source:      src,
+		StartTime:   fs.UTCTimestamp(currentTime.UnixNano()),
+		Description: "latest snapshot",
+		RootEntry:   &rootEntry1,
+	}
+	manifests["latest_snapshot"] = LatestSnapshotManifest
+
+	return manifests
+}
+
+func TestGetPreceedingSnapshot(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	manifests := getManifests()
+
+	_, err := diff.GetPreceedingSnapshot(ctx, env.RepositoryWriter, "non_existant_snapshot_ID")
+	require.Error(t, err)
+
+	initialSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["initial_snapshot"])
+	_, err = diff.GetPreceedingSnapshot(ctx, env.RepositoryWriter, string(initialSnapshotManifestID))
+	require.Error(t, err)
+
+	intermediateSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["intermediate_snapshot"])
+	gotManID, err := diff.GetPreceedingSnapshot(ctx, env.RepositoryWriter, string(intermediateSnapshotManifestID))
+	require.NoError(t, err)
+	require.Equal(t, initialSnapshotManifestID, gotManID.ID)
+
+	latestSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["latest_snapshot"])
+	gotManID2, err := diff.GetPreceedingSnapshot(ctx, env.RepositoryWriter, string(latestSnapshotManifestID))
+	require.NoError(t, err)
+	require.Equal(t, intermediateSnapshotManifestID, gotManID2.ID)
+}
+
+func TestGetTwoLatestSnapshots(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	snapshotSrc := getSnapshotSource()
+	manifests := getManifests()
+
+	_, err := diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
+	require.Error(t, err)
+
+	initialSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["initial_snapshot"])
+	_, err = diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
+	require.Error(t, err)
+
+	intermediateSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["intermediate_snapshot"])
+
+	var expectedManifestIDs []manifest.ID
+	expectedManifestIDs = append(expectedManifestIDs, initialSnapshotManifestID, intermediateSnapshotManifestID)
+
+	gotManifests, err := diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
+
+	var gotManifestIDs []manifest.ID
+	gotManifestIDs = append(gotManifestIDs, gotManifests[0].ID, gotManifests[1].ID)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedManifestIDs, gotManifestIDs)
+
+	latestSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["latest_snapshot"])
+
+	expectedManifestIDs = nil
+	expectedManifestIDs = append(expectedManifestIDs, intermediateSnapshotManifestID, latestSnapshotManifestID)
+
+	gotManifestIDs = nil
+	gotManifests2, err := diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
+	gotManifestIDs = append(gotManifestIDs, gotManifests2[0].ID, gotManifests2[1].ID)
+
+	require.NoError(t, err)
+	require.Equal(t, expectedManifestIDs, gotManifestIDs)
+}
+
+func mustSaveSnapshot(t *testing.T, rep repo.RepositoryWriter, man *snapshot.Manifest) manifest.ID {
+	t.Helper()
+
+	id, err := snapshot.SaveSnapshot(testlogging.Context(t), rep, man)
+	if err != nil {
+		t.Fatalf("error saving snapshot: %v", err)
+	}
+
+	return id
+}
+
+func getSnapshotSource() snapshot.SourceInfo {
+	src := snapshot.SourceInfo{
+		Host:     "host-1",
+		UserName: "user-1",
+		Path:     "/some/path",
+	}
+
+	return src
 }
