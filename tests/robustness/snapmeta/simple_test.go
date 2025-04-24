@@ -7,8 +7,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kopia/kopia/tests/robustness"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/tests/robustness"
 )
 
 func TestSimpleBasic(t *testing.T) {
