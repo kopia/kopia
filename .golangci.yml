@@ -185,7 +185,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/kopia/kopia)
+        - localmodule
 
 output:
   show-stats: false
