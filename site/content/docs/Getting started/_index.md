@@ -42,11 +42,11 @@ Note that you can set policies at four levels in `KopiaUI`:
 * at the `global` level (shown with `*` for `Username`, `Host` and `Path`),
 * at the per-host `@host` level (shown with `*` for `Username` and `Path`),
 * at the per-user `user@host` level (shown with `*` for `Path`),
-* and at the individual `policy` level, where the settings are applied only to that particular policy.
+* and at the individual `Path` level, where the settings are applied only to that particular policy.
 
-By default, all new policies are set to inherit settings from the `global` policy, as well as from the applicable per-host and per-user policies. More specific policies settings take priority. This means that individual policies settings come first, followed by per-user, then per-host and finally global policy settings.
+By default, all new policies are set to inherit settings from the `global` policy, as well as from the applicable per-host and per-user policies. More specific policies settings take priority. This means that individual per-path policies settings come first, followed by per-user, then per-host and finally global policy settings.
 
-For example, say you have a policy for `foo@bar:/path` which doesn't define setting `xyz`, a per-user policy for `foo@bar` setting `xyz` to `1` and the global policy setting `xyz` to `2`. In this case, the effective value of `xyz` for the policy `foo@bar:/path` will be `1`.
+For example, say you have a path policy for `foo@bar:/path` which doesn't define setting `xyz`, a per-user policy for `foo@bar` setting `xyz` to `1` and the global policy setting `xyz` to `2`. In this case, the effective value of `xyz` for the policy `foo@bar:/path` will be `1`.
 
 > PRO TIP: Kopia does not currently support the ability to save one snapshot to multiple different repositories. However, you can use `KopiaUI` to connect to multiple different repositories simultaneously and create identical policies for each repository, which essentially achieves the same outcome of saving one snapshot to multiple different repositories. Connecting to more than one repository in `KopiaUI` is easy: just right-click the icon of the desktop application and select `Connect To Another Repository...`. Currently, this is only available in the desktop version of `KopiaUI` and not the web-based `KopiaUI`. However, if you are using the web-based `KopiaUI`, you can manually run multiple instances of `KopiaUI` to achieve the same outcome.
 

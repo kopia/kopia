@@ -57,7 +57,7 @@ type commandPolicyEdit struct {
 }
 
 func (c *commandPolicyEdit) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("edit", "Set snapshot policy.")
+	cmd := parent.Command("edit", "Edit policy.")
 	c.policyTargetFlags.setup(cmd)
 	cmd.Action(svc.repositoryWriterAction(c.run))
 	c.out.setup(svc)
