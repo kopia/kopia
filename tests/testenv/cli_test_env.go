@@ -218,7 +218,11 @@ func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line 
 
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
-		if !outputCallback(scanner.Text()) {
+		text := scanner.Text()
+		if prefix, ok := e.getLogOutputPrefix(); ok {
+			t.Logf("[%vstderr] %v", prefix, text)
+		}
+		if !outputCallback(text) {
 			break
 		}
 	}
