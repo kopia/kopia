@@ -99,7 +99,6 @@ linters:
     - tparallel
     - usetesting
     - varnamelen # this one may be interesting, but too much churn
-    - wastedassign
     - whitespace
 
   exclusions:
