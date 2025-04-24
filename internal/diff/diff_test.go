@@ -480,7 +480,7 @@ func getManifests() map[string]*snapshot.Manifest {
 	manifests := make(map[string]*snapshot.Manifest)
 
 	src := getSnapshotSource()
-	currentTime := time.Now()
+	snapshotTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	contentID1, _ := index.IDFromHash("p", []byte("indexID1"))
 	objectID1 := object.DirectObjectID(contentID1)
@@ -499,7 +499,7 @@ func getManifests() map[string]*snapshot.Manifest {
 	initialSnapshotManifest := &snapshot.Manifest{
 		ID:          "manifest_1_id",
 		Source:      src,
-		StartTime:   fs.UTCTimestamp(currentTime.Add((-24) * time.Hour).UnixNano()),
+		StartTime:   fs.UTCTimestamp(snapshotTime.Add((-24) * time.Hour).UnixNano()),
 		Description: "snapshot captured a day ago",
 		RootEntry:   &rootEntry2,
 	}
@@ -508,7 +508,7 @@ func getManifests() map[string]*snapshot.Manifest {
 	intermediateSnapshotManifest := &snapshot.Manifest{
 		ID:          "manifest_2_id",
 		Source:      src,
-		StartTime:   fs.UTCTimestamp(currentTime.Add(-time.Hour).UnixNano()),
+		StartTime:   fs.UTCTimestamp(snapshotTime.Add(-time.Hour).UnixNano()),
 		Description: "snapshot taken an hour ago",
 		RootEntry:   &rootEntry2,
 	}
@@ -517,7 +517,7 @@ func getManifests() map[string]*snapshot.Manifest {
 	LatestSnapshotManifest := &snapshot.Manifest{
 		ID:          "manifest_3_id",
 		Source:      src,
-		StartTime:   fs.UTCTimestamp(currentTime.UnixNano()),
+		StartTime:   fs.UTCTimestamp(snapshotTime.UnixNano()),
 		Description: "latest snapshot",
 		RootEntry:   &rootEntry1,
 	}
@@ -530,7 +530,7 @@ func TestGetPreceedingSnapshot(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	manifests := getManifests()
 
-	_, err := diff.GetPreceedingSnapshot(ctx, env.RepositoryWriter, "non_existant_snapshot_ID")
+	_, err := diff.GetPreceedingSnapshot(ctx, env.RepositoryWriter, "non_existent_snapshot_ID")
 	require.Error(t, err)
 
 	initialSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["initial_snapshot"])
