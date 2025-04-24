@@ -84,7 +84,6 @@ linters:
   default: all
   disable:
     - exhaustruct
-    - forcetypeassert
     - funcorder
     - gochecknoglobals
     - gochecknoinits
