@@ -177,3 +177,13 @@ func MustGetTotalDirSize(t *testing.T, dirpath string) int64 {
 
 	return total
 }
+
+func EnsureType[T any](t *testing.T, source any) T {
+	var v T
+
+	v, ok := source.(T)
+
+	require.Truef(t, ok, "%T is not of type %T", source, t)
+
+	return v
+}
