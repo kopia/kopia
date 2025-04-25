@@ -61,7 +61,7 @@ func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Rep
 	return valid
 }
 
-func (ac *repositoryUserAuthenticator) Refresh(ctx context.Context) error {
+func (ac *repositoryUserAuthenticator) Refresh(_ context.Context) error {
 	ac.mu.Lock()
 	defer ac.mu.Unlock()
 

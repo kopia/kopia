@@ -234,7 +234,7 @@ func (gcs *gcsStorage) DisplayName() string {
 	return fmt.Sprintf("GCS: %v", gcs.BucketName)
 }
 
-func (gcs *gcsStorage) Close(ctx context.Context) error {
+func (gcs *gcsStorage) Close(_ context.Context) error {
 	return errors.Wrap(gcs.storageClient.Close(), "error closing GCS storage")
 }
 

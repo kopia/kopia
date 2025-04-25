@@ -12,24 +12,18 @@ type passthroughContentCache struct {
 	st blob.Storage
 }
 
-func (c passthroughContentCache) Close(ctx context.Context) {}
+func (c passthroughContentCache) Close(_ context.Context) {}
 
-func (c passthroughContentCache) GetContent(ctx context.Context, contentID string, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
-	_ = contentID
-
+func (c passthroughContentCache) GetContent(ctx context.Context, _ string, blobID blob.ID, offset, length int64, output *gather.WriteBuffer) error {
 	//nolint:wrapcheck
 	return c.st.GetBlob(ctx, blobID, offset, length, output)
 }
 
-func (c passthroughContentCache) PrefetchBlob(ctx context.Context, blobID blob.ID) error {
-	_ = blobID
-
+func (c passthroughContentCache) PrefetchBlob(_ context.Context, _ blob.ID) error {
 	return nil
 }
 
-func (c passthroughContentCache) Sync(ctx context.Context, blobPrefix blob.ID) error {
-	_ = blobPrefix
-
+func (c passthroughContentCache) Sync(_ context.Context, _ blob.ID) error {
 	return nil
 }
 

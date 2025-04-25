@@ -95,7 +95,7 @@ func handleRestore(ctx context.Context, rc requestContext) (interface{}, *apiErr
 
 		opt := req.Options
 
-		opt.ProgressCallback = func(ctx context.Context, s restore.Stats) {
+		opt.ProgressCallback = func(_ context.Context, s restore.Stats) {
 			ctrl.ReportCounters(restoreCounters(s))
 		}
 

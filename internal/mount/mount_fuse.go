@@ -89,7 +89,7 @@ func (fc fuseController) MountPath() string {
 	return fc.mountPoint
 }
 
-func (fc fuseController) Unmount(ctx context.Context) error {
+func (fc fuseController) Unmount(_ context.Context) error {
 	if err := fc.fuseConnection.Unmount(); err != nil {
 		return errors.Wrap(err, "unmount error")
 	}

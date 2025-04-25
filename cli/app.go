@@ -88,7 +88,7 @@ type appServices interface {
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
 	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
-	advancedCommand(ctx context.Context)
+	advancedCommand()
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
 	getRestoreProgress() RestoreProgress
@@ -658,7 +658,7 @@ func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) erro
 	return errors.Wrap(err, "error running maintenance")
 }
 
-func (c *App) advancedCommand(ctx context.Context) {
+func (c *App) advancedCommand() {
 	if c.AdvancedCommands != "enabled" {
 		_, _ = errorColor.Fprintf(c.stderrWriter, `
 This command could be dangerous or lead to repository corruption when used improperly.

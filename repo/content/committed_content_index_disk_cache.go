@@ -33,7 +33,7 @@ func (c *diskCommittedContentIndexCache) indexBlobPath(indexBlobID blob.ID) stri
 	return filepath.Join(c.dirname, string(indexBlobID)+simpleIndexSuffix)
 }
 
-func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (index.Index, error) {
+func (c *diskCommittedContentIndexCache) openIndex(_ context.Context, indexBlobID blob.ID) (index.Index, error) {
 	fullpath := c.indexBlobPath(indexBlobID)
 
 	f, closeMmap, err := c.mmapOpenWithRetry(fullpath)
@@ -96,7 +96,7 @@ func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(path string) (mmap.MM
 	}, nil
 }
 
-func (c *diskCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {
+func (c *diskCommittedContentIndexCache) hasIndexBlobID(_ context.Context, indexBlobID blob.ID) (bool, error) {
 	_, err := os.Stat(c.indexBlobPath(indexBlobID))
 	if err == nil {
 		return true, nil
@@ -165,7 +165,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 	return tf.Name(), nil
 }
 
-func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
+func (c *diskCommittedContentIndexCache) expireUnused(_ context.Context, used []blob.ID) error {
 	c.log.Debugw("expireUnused",
 		"except", used,
 		"minSweepAge", c.minSweepAge)

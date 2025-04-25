@@ -96,21 +96,21 @@ func checkedDirEntryFromPlaceholder(path, php string) (*snapshot.DirEntry, error
 	return dirEntryFromPlaceholder(php)
 }
 
-func (fsf *shallowFilesystemFile) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
+func (fsf *shallowFilesystemFile) DirEntryOrNil(_ context.Context) (*snapshot.DirEntry, error) {
 	path := fsf.fullPath()
 	php := path + ShallowEntrySuffix
 
 	return checkedDirEntryFromPlaceholder(path, php)
 }
 
-func (fsd *shallowFilesystemDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
+func (fsd *shallowFilesystemDirectory) DirEntryOrNil(_ context.Context) (*snapshot.DirEntry, error) {
 	path := fsd.fullPath()
 	php := filepath.Join(path+ShallowEntrySuffix, ShallowEntrySuffix)
 
 	return checkedDirEntryFromPlaceholder(path, php)
 }
 
-func (fsf *shallowFilesystemFile) Open(ctx context.Context) (fs.Reader, error) {
+func (fsf *shallowFilesystemFile) Open(_ context.Context) (fs.Reader, error) {
 	// TODO(rjk): Conceivably, we could implement all of these in terms of the repository.
 	return nil, errors.New("shallowFilesystemFile.Open not supported")
 }
@@ -124,7 +124,7 @@ func (fsd *shallowFilesystemDirectory) Child(ctx context.Context, name string) (
 	return nil, errors.New("shallowFilesystemDirectory.Child not supported")
 }
 
-func (fsd *shallowFilesystemDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+func (fsd *shallowFilesystemDirectory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	return nil, errors.New("shallowFilesystemDirectory.IterateEntries not supported")
 }
 

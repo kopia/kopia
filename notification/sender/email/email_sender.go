@@ -21,7 +21,7 @@ type emailProvider struct {
 	opt Options
 }
 
-func (p *emailProvider) Send(ctx context.Context, msg *sender.Message) error {
+func (p *emailProvider) Send(_ context.Context, msg *sender.Message) error {
 	var auth smtp.Auth
 
 	if p.opt.SMTPUsername != "" {

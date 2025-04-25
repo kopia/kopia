@@ -233,7 +233,7 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	return string(b), nil
 }
 
-func (rsl *repositorySymlink) Resolve(ctx context.Context) (fs.Entry, error) {
+func (rsl *repositorySymlink) Resolve(_ context.Context) (fs.Entry, error) {
 	return nil, errors.New("Symlink.Resolve not implemented in Repofs")
 }
 
