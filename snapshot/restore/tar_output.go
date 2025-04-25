@@ -23,7 +23,7 @@ func (o *TarOutput) Parallelizable() bool {
 }
 
 // BeginDirectory implements restore.Output interface.
-func (o *TarOutput) BeginDirectory(ctx context.Context, relativePath string, d fs.Directory) error {
+func (o *TarOutput) BeginDirectory(_ context.Context, relativePath string, d fs.Directory) error {
 	if relativePath == "" {
 		return nil
 	}
@@ -59,7 +59,7 @@ func (o *TarOutput) WriteDirEntry(ctx context.Context, relativePath string, de *
 }
 
 // Close implements restore.Output interface.
-func (o *TarOutput) Close(ctx context.Context) error {
+func (o *TarOutput) Close(_ context.Context) error {
 	if err := o.tf.Close(); err != nil {
 		return errors.Wrap(err, "error closing tar")
 	}

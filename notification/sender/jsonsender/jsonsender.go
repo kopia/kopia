@@ -18,7 +18,7 @@ type jsonSender struct {
 	minSeverity sender.Severity
 }
 
-func (p *jsonSender) Send(ctx context.Context, msg *sender.Message) error {
+func (p *jsonSender) Send(_ context.Context, msg *sender.Message) error {
 	if msg.Severity < p.minSeverity {
 		return nil
 	}

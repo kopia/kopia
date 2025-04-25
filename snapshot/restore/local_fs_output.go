@@ -142,7 +142,7 @@ func (o *FilesystemOutput) BeginDirectory(ctx context.Context, relativePath stri
 }
 
 // FinishDirectory implements restore.Output interface.
-func (o *FilesystemOutput) FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
+func (o *FilesystemOutput) FinishDirectory(_ context.Context, relativePath string, e fs.Directory) error {
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 	if err := o.setAttributes(path, e, os.FileMode(0)); err != nil {
 		return errors.Wrap(err, "error setting attributes")
@@ -159,7 +159,7 @@ func (o *FilesystemOutput) WriteDirEntry(ctx context.Context, relativePath strin
 }
 
 // Close implements restore.Output interface.
-func (o *FilesystemOutput) Close(ctx context.Context) error {
+func (o *FilesystemOutput) Close(_ context.Context) error {
 	return nil
 }
 
@@ -180,7 +180,7 @@ func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f
 }
 
 // FileExists implements restore.Output interface.
-func (o *FilesystemOutput) FileExists(ctx context.Context, relativePath string, e fs.File) bool {
+func (o *FilesystemOutput) FileExists(_ context.Context, relativePath string, e fs.File) bool {
 	st, err := os.Lstat(filepath.Join(o.TargetPath, relativePath))
 	if err != nil {
 		return false

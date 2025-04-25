@@ -504,7 +504,7 @@ func (r *grpcRepositoryClient) Time() time.Time {
 	return clock.Now()
 }
 
-func (r *grpcRepositoryClient) Refresh(ctx context.Context) error {
+func (r *grpcRepositoryClient) Refresh(_ context.Context) error {
 	return nil
 }
 
@@ -830,7 +830,7 @@ type grpcCreds struct {
 	password string
 }
 
-func (c grpcCreds) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (c grpcCreds) GetRequestMetadata(_ context.Context, uri ...string) (map[string]string, error) {
 	_ = uri
 
 	return map[string]string{
@@ -879,7 +879,7 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	}
 
 	par.registerEarlyCloseFunc(
-		func(ctx context.Context) error {
+		func(_ context.Context) error {
 			return errors.Wrap(conn.Close(), "error closing GRPC connection")
 		})
 

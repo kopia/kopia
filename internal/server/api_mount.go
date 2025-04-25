@@ -77,7 +77,7 @@ func handleMountDelete(ctx context.Context, rc requestContext) (interface{}, *ap
 	return &serverapi.Empty{}, nil
 }
 
-func handleMountList(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleMountList(_ context.Context, rc requestContext) (interface{}, *apiError) {
 	res := &serverapi.MountedSnapshots{
 		Items: []*serverapi.MountedSnapshot{},
 	}

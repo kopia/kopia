@@ -107,7 +107,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 }
 
 // SetClientOptions updates client options stored in the provided configuration file.
-func SetClientOptions(ctx context.Context, configFile string, cliOpt ClientOptions) error {
+func SetClientOptions(_ context.Context, configFile string, cliOpt ClientOptions) error {
 	lc, err := LoadConfigFromFile(configFile)
 	if err != nil {
 		return err

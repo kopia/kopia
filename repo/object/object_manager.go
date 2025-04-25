@@ -214,7 +214,7 @@ func PrefetchBackingContents(ctx context.Context, contentMgr contentManager, obj
 }
 
 // NewObjectManager creates an ObjectManager with the specified content manager and format.
-func NewObjectManager(ctx context.Context, bm contentManager, f format.ObjectFormat, mr *metrics.Registry) (*Manager, error) {
+func NewObjectManager(_ context.Context, bm contentManager, f format.ObjectFormat, mr *metrics.Registry) (*Manager, error) {
 	_ = mr
 
 	om := &Manager{

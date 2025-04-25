@@ -1,4 +1,7 @@
 version: "2"
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
 linters:
   settings:
     cyclop:
@@ -68,15 +71,15 @@ linters:
 
   default: all
   disable:
-    - gochecknoglobals
     - depguard
     - exhaustruct
     - forcetypeassert
     - funcorder
+    - gochecknoglobals
     - gochecknoinits
+    - gosmopolitan
     - importas
     - ireturn # this one may be interesting to control allocations
-    - gosmopolitan
     - musttag
     - nilnil
     - nlreturn
@@ -126,10 +129,6 @@ linters:
       - text: "tracer is a global variable"
         linters:
           - gochecknoglobals
-        # always allow ctx even when unused
-      - text: "unused-parameter: parameter 'ctx' seems to be unused"
-        linters:
-          - revive
       - text: "Magic number: 1e"
         linters:
           - mnd

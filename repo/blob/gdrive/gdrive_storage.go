@@ -334,7 +334,7 @@ func (gdrive *gdriveStorage) DisplayName() string {
 	return fmt.Sprintf("Google Drive: %v", gdrive.folderID)
 }
 
-func (gdrive *gdriveStorage) FlushCaches(ctx context.Context) error {
+func (gdrive *gdriveStorage) FlushCaches(_ context.Context) error {
 	gdrive.fileIDCache.Clear()
 	return nil
 }

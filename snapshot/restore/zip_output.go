@@ -45,7 +45,7 @@ func (o *ZipOutput) WriteDirEntry(ctx context.Context, relativePath string, de *
 }
 
 // Close implements restore.Output interface.
-func (o *ZipOutput) Close(ctx context.Context) error {
+func (o *ZipOutput) Close(_ context.Context) error {
 	if err := o.zf.Close(); err != nil {
 		return errors.Wrap(err, "error closing zip")
 	}

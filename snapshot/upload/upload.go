@@ -1359,7 +1359,7 @@ func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, polic
 		return entry
 	}
 
-	return ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(ctx context.Context, fname string, md fs.Entry, policyTree *policy.Tree) {
+	return ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(_ context.Context, fname string, md fs.Entry, policyTree *policy.Tree) {
 		if md.IsDir() {
 			maybeLogEntryProcessed(
 				logger,
