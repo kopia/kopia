@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
+	"github.com/kopia/kopia/repo/blob/timeout"
 )
 
 const (
@@ -339,7 +340,9 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, err
 	}
 
-	return retrying.NewWrapper(s), nil
+	sw := timeout.NewStorageTimeout(s, st.RequestTimeoutSeconds)
+
+	return retrying.NewWrapper(sw), nil
 }
 
 func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
