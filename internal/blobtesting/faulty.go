@@ -95,6 +95,7 @@ func (s *FaultyStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback 
 		if ok, err := s.GetNextFault(ctx, MethodListBlobsItem, prefix); ok {
 			return err
 		}
+
 		return callback(bm)
 	})
 }

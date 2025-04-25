@@ -569,6 +569,7 @@ func undeleteFakeContents(ctx context.Context, t *testing.T, m *ManagerV0, delet
 		}
 
 		delete(deleted, n)
+
 		count--
 	}
 

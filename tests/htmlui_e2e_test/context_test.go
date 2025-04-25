@@ -27,6 +27,7 @@ func (tc *TestContext) expectDialogText(txt string, respond bool) chromedp.Actio
 	return chromedp.ActionFunc(func(c context.Context) error {
 		tc.expectedDialogText = txt
 		tc.dialogResponse = respond
+
 		return nil
 	})
 }

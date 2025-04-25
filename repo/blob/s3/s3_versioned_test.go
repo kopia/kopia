@@ -59,6 +59,7 @@ func TestGetBlobVersions(t *testing.T) {
 			dm, err := deleteBlob(ctx, s, blobName)
 
 			require.NoError(t, err)
+
 			bm = append(bm, dm)
 
 			var b gather.WriteBuffer
@@ -250,6 +251,7 @@ func TestGetBlobWithVersion(t *testing.T) {
 			}
 
 			var i int
+
 			for _, b := range blobs {
 				for _, bv := range b {
 					m := metas[i]
@@ -265,6 +267,7 @@ func TestGetBlobWithVersion(t *testing.T) {
 
 					require.NoError(t, err)
 					require.Equal(t, c, b.ToByteSlice())
+
 					i++
 				}
 			}

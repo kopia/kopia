@@ -39,6 +39,7 @@ func VerifyTempfile(t *testing.T, create func() (*os.File, error)) {
 
 		require.Error(t, err)
 		require.ErrorAs(t, err, &perr)
+
 		if runtime.GOOS == "windows" {
 			require.ErrorContains(t, err, "The system cannot find the file specified")
 		} else {

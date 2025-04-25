@@ -530,6 +530,7 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 			var expected []string
 			for _, ex := range tc.expected {
 				expected = appendIfMissing(expected, ex)
+
 				if !strings.HasSuffix(ex, "/") {
 					for d, _ := path.Split(ex); d != ""; d, _ = path.Split(d) {
 						expected = appendIfMissing(expected, d)
@@ -540,6 +541,7 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 
 			sort.Strings(output)
 			sort.Strings(expected)
+
 			if diff := pretty.Compare(output, expected); diff != "" {
 				t.Errorf("unexpected directory tree, diff(-got,+want): %v\n", diff)
 			}

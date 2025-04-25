@@ -179,6 +179,7 @@ func (chk *Checker) VerifySnapshotMetadata(ctx context.Context) error {
 		if chk.RecoveryMode {
 			if liveSnapsDeleted >= chk.DeleteLimit {
 				log.Printf("delete limit (%v) reached", chk.DeleteLimit)
+
 				errCount++
 			}
 
@@ -188,6 +189,7 @@ func (chk *Checker) VerifySnapshotMetadata(ctx context.Context) error {
 			err = chk.snapshotIssuer.DeleteSnapshot(ctx, liveSnapID, map[string]string{})
 			if err != nil {
 				log.Printf("error deleting snapshot: %s", err)
+
 				errCount++
 			}
 

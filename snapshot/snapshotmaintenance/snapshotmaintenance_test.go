@@ -278,6 +278,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceAutoLiveness(t *testing.T) {
 
 		dp := maintenance.DefaultParams()
 		dp.Owner = env.Repository.ClientOptions().UsernameAtHost()
+
 		return maintenance.SetParams(ctx, w, &dp)
 	}))
 

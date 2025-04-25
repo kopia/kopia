@@ -335,6 +335,7 @@ func TestByteRepresentation(t *testing.T) {
 		snap1Path := testutil.TempDirectory(t)
 
 		var base2 string
+
 		var base10 string
 
 		// create a test snaphot

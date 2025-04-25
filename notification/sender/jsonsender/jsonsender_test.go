@@ -35,6 +35,7 @@ func TestJSONSender(t *testing.T) {
 		Body:     "test body 3",
 		Severity: notification.SeverityError,
 	}
+
 	require.NoError(t, p.Send(ctx, m1)) // will be ignored
 	require.NoError(t, p.Send(ctx, m2))
 	require.NoError(t, p.Send(ctx, m3))

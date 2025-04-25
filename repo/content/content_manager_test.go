@@ -1297,16 +1297,20 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 			defer bm.CloseShared(ctx)
 
 			var writeRetries []int
+
 			var cids []ID
+
 			for i, size := range tc.contentSizes {
 				t.Logf(">>>> writing %v", i)
 				cid, retries := writeContentWithRetriesAndVerify(ctx, t, bm, seededRandomData(i, size))
 				writeRetries = append(writeRetries, retries)
 				cids = append(cids, cid)
 			}
+
 			if got, want := flushWithRetries(ctx, t, bm), tc.expectedFlushRetries; got != want {
 				t.Fatalf("invalid # of flush retries %v, wanted %v", got, want)
 			}
+
 			if diff := cmp.Diff(writeRetries, tc.expectedWriteRetries); diff != "" {
 				t.Fatalf("invalid # of write retries (-got,+want): %v", diff)
 			}
@@ -1345,6 +1349,7 @@ func (s *contentManagerSuite) TestRewriteNonDeleted(t *testing.T) {
 					case 0:
 						t.Logf("flushing and reopening")
 						bm.Flush(ctx)
+
 						bm = s.newTestContentManagerWithCustomTime(t, st, fakeNow)
 						defer bm.CloseShared(ctx)
 					case 1:
@@ -1356,6 +1361,7 @@ func (s *contentManagerSuite) TestRewriteNonDeleted(t *testing.T) {
 				}
 
 				content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+
 				applyStep(action1)
 				require.NoError(t, bm.RewriteContent(ctx, content1))
 				applyStep(action2)
@@ -1378,6 +1384,7 @@ func (s *contentManagerSuite) TestDisableFlush(t *testing.T) {
 	for i := range 500 {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 100))
 	}
+
 	bm.Flush(ctx) // flush will not have effect
 	bm.EnableIndexFlush(ctx)
 	bm.Flush(ctx) // flush will not have effect
@@ -1404,6 +1411,7 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 					keyTime := map[blob.ID]time.Time{}
 					fakeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
 					st := blobtesting.NewMapStorage(data, keyTime, fakeNow)
+
 					bm := s.newTestContentManagerWithCustomTime(t, st, fakeNow)
 					defer bm.CloseShared(ctx)
 
@@ -1412,6 +1420,7 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 						case 0:
 							t.Logf("flushing and reopening")
 							bm.Flush(ctx)
+
 							bm = s.newTestContentManagerWithCustomTime(t, st, fakeNow)
 							defer bm.CloseShared(ctx)
 						case 1:
@@ -1424,6 +1433,7 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 
 					c1Bytes := seededRandomData(10, 100)
 					content1 := writeContentAndVerify(ctx, t, bm, c1Bytes)
+
 					applyStep(action1)
 					require.NoError(t, bm.DeleteContent(ctx, content1))
 					applyStep(action2)
@@ -1431,12 +1441,15 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 					if got, want := bm.RewriteContent(ctx, content1), ErrContentNotFound; !errors.Is(got, want) && got != nil {
 						t.Errorf("unexpected error %v, wanted %v", got, want)
 					}
+
 					applyStep(action3)
+
 					if action1 == 2 { // no flush
 						verifyContentNotFound(ctx, t, bm, content1)
 					} else {
 						verifyDeletedContentRead(ctx, t, bm, content1, c1Bytes)
 					}
+
 					dumpContentManagerData(t, data)
 				})
 			}
@@ -1503,6 +1516,7 @@ func (s *contentManagerSuite) TestDeleteAndRecreate(t *testing.T) {
 			defer bm3.CloseShared(ctx)
 
 			dumpContentManagerData(t, data)
+
 			if tc.isVisible {
 				verifyContent(ctx, t, bm3, content1, seededRandomData(10, 100))
 			} else {
@@ -1624,6 +1638,7 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
 			var mu sync.Mutex
+
 			got := map[ID]bool{}
 
 			err := bm.IterateContents(ctx, tc.options, func(ci Info) error {
@@ -1638,6 +1653,7 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 				mu.Lock()
 				got[ci.ContentID] = true
 				mu.Unlock()
+
 				return nil
 			})
 
@@ -1929,6 +1945,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 
 		dataSet[cid] = data
 	}
+
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 
 	// delete random 3 items (map iteration order is random)
@@ -1938,6 +1955,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 		t.Logf("deleting %v", blobID)
 		require.NoError(t, mgr.DeleteContent(ctx, blobID))
 		delete(dataSet, blobID)
+
 		cnt++
 
 		if cnt >= 3 {

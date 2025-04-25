@@ -31,6 +31,7 @@ func TestNonZeroDummyHash(t *testing.T) {
 // password hashers (PB key derivers in the crypto package).
 func TestSaltLengthIsSupported(t *testing.T) {
 	const badPwd = "password"
+
 	var salt [passwordHashSaltLength]byte
 
 	for _, v := range []int{ScryptHashVersion, Pbkdf2HashVersion} {

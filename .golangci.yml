@@ -119,7 +119,6 @@ linters:
           - perfsprint
           - revive
           - wrapcheck
-          - wsl
       - text: "log is a global variable"
         linters:
           - gochecknoglobals
