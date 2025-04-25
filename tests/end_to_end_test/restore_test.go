@@ -809,7 +809,7 @@ func verifyValidZipFile(t *testing.T, fname string) {
 	zr, err := zip.OpenReader(fname)
 	require.NoError(t, err)
 
-	defer zr.Close()
+	zr.Close()
 }
 
 func verifyValidTarFile(t *testing.T, fname string) {

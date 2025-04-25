@@ -133,9 +133,6 @@ linters:
       - text: "Magic number: 1e"
         linters:
           - mnd
-      - text: "unnecessaryDefer"
-        linters:
-          - gocritic
       - text: "filepathJoin"
         linters:
           - gocritic
