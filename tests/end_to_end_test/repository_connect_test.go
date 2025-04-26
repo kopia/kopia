@@ -109,6 +109,7 @@ func TestReconnectUsingToken(t *testing.T) {
 
 func TestRepoConnectKeyDerivationAlgorithm(t *testing.T) {
 	t.Parallel()
+
 	for _, algorithm := range format.SupportedFormatBlobKeyDerivationAlgorithms() {
 		runner := testenv.NewInProcRunner(t)
 		e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
@@ -121,7 +122,9 @@ func TestRepoConnectKeyDerivationAlgorithm(t *testing.T) {
 		kopiaRepoPath := filepath.Join(e.RepoDir, "kopia.repository.f")
 		dat, err := os.ReadFile(kopiaRepoPath)
 		require.NoError(t, err)
+
 		var repoJSON format.KopiaRepositoryJSON
+
 		json.Unmarshal(dat, &repoJSON)
 		require.Equal(t, repoJSON.KeyDerivationAlgorithm, algorithm)
 	}
@@ -138,7 +141,9 @@ func TestRepoConnectBadKeyDerivationAlgorithm(t *testing.T) {
 	kopiaRepoPath := filepath.Join(e.RepoDir, "kopia.repository.f")
 	dat, err := os.ReadFile(kopiaRepoPath)
 	require.NoError(t, err)
+
 	var repoJSON format.KopiaRepositoryJSON
+
 	json.Unmarshal(dat, &repoJSON)
 
 	repoJSON.KeyDerivationAlgorithm = "badalgorithm"

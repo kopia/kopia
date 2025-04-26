@@ -226,7 +226,9 @@ func verifyPackedIndexes(t *testing.T, infos []Info, infoMap map[ID]Info, versio
 		}
 
 		require.Equal(t, want, info2)
+
 		cnt++
+
 		return nil
 	}))
 
@@ -253,11 +255,14 @@ func verifyPackedIndexes(t *testing.T, infos []Info, infoMap map[ID]Info, versio
 
 	for _, prefix := range prefixes {
 		cnt2 := 0
+
 		require.NoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 Info) error {
 			cnt2++
+
 			if !strings.HasPrefix(info2.ContentID.String(), string(prefix)) {
 				t.Errorf("unexpected item %v when iterating prefix %v", info2.ContentID, prefix)
 			}
+
 			return nil
 		}))
 		t.Logf("found %v elements with prefix %q", cnt2, prefix)
@@ -419,6 +424,7 @@ func fuzzTestIndexOpen(originalData []byte) {
 		if err != nil {
 			return
 		}
+
 		cnt := 0
 		_ = ndx.Iterate(AllIDs, func(cb Info) error {
 			if cnt < 10 {
@@ -426,7 +432,9 @@ func fuzzTestIndexOpen(originalData []byte) {
 
 				_, _ = ndx.GetInfo(cb.ContentID, &tmp)
 			}
+
 			cnt++
+
 			return nil
 		})
 	})

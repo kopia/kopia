@@ -344,6 +344,7 @@ func TestSnapshotRestore(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(tc.fname, func(t *testing.T) {
 				t.Parallel()
+
 				fname := filepath.Join(restoreArchiveDir, tc.fname)
 				e.RunAndExpectSuccess(t, append([]string{"snapshot", "restore", snapID, fname}, tc.args...)...)
 				tc.validator(t, fname)

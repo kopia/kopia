@@ -97,6 +97,7 @@ func TestNotificationProfile_WebHook(t *testing.T) {
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "notification", "profile", "show", "--profile-name=myotherwebhook", "--json", "--raw"), &opt)
 
 	var summ notifyprofile.Summary
+
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "notification", "profile", "show", "--profile-name=myotherwebhook", "--json"), &summ)
 
 	require.Equal(t, []string{

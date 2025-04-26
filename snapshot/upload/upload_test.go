@@ -239,10 +239,13 @@ type entry struct {
 // findAllEntries recursively iterates over all the dirs and returns list of file entries.
 func findAllEntries(t *testing.T, ctx context.Context, dir fs.Directory) []entry {
 	t.Helper()
+
 	entries := []entry{}
+
 	fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		oid, err := object.ParseID(e.(object.HasObjectID).ObjectID().String())
 		require.NoError(t, err)
+
 		entries = append(entries, entry{
 			name:     e.Name(),
 			objectID: oid,
@@ -250,6 +253,7 @@ func findAllEntries(t *testing.T, ctx context.Context, dir fs.Directory) []entry
 		if e.IsDir() {
 			entries = append(entries, findAllEntries(t, ctx, e.(fs.Directory))...)
 		}
+
 		return nil
 	})
 
@@ -258,16 +262,20 @@ func findAllEntries(t *testing.T, ctx context.Context, dir fs.Directory) []entry
 
 func verifyMetadataCompressor(t *testing.T, ctx context.Context, rep repo.Repository, entries []entry, comp compression.HeaderID) {
 	t.Helper()
+
 	for _, e := range entries {
 		cid, _, ok := e.objectID.ContentID()
 		require.True(t, ok)
+
 		if !cid.HasPrefix() {
 			continue
 		}
+
 		info, err := rep.ContentInfo(ctx, cid)
 		if err != nil {
 			t.Errorf("failed to get content info: %v", err)
 		}
+
 		require.Equal(t, comp, info.CompressionHeaderID)
 	}
 }
@@ -845,6 +853,7 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	th.faulty.AddFault(blobtesting.MethodPutBlob).Repeat(10).Before(func() {
 		v := currentParallelCalls.Add(1)
 		maxParallelism := maxParallelCalls.Load()
+
 		if v > maxParallelism {
 			maxParallelCalls.CompareAndSwap(maxParallelism, v)
 		}
@@ -1298,6 +1307,7 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 			// and were concatenated
 			for offset := int64(0); offset < f.Size(); offset += chunkSize {
 				verifyContainsOffset(t, entries, chunkSize)
+
 				successCount++
 			}
 
@@ -1660,6 +1670,7 @@ func TestUploadLogging(t *testing.T) {
 
 			pol := *policy.DefaultPolicy
 			pol.OSSnapshotPolicy.VolumeShadowCopy.Enable = policy.NewOSSnapshotMode(policy.OSSnapshotNever)
+
 			if p := tc.globalLoggingPolicy; p != nil {
 				pol.LoggingPolicy = *p
 			}

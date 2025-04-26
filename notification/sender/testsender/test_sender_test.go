@@ -21,6 +21,7 @@ func TestProvider(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "Test sender", p.Summary())
+
 	m1 := &sender.Message{
 		Subject: "test subject 1",
 	}
@@ -30,6 +31,7 @@ func TestProvider(t *testing.T) {
 	m3 := &sender.Message{
 		Subject: "test subject 3",
 	}
+
 	p.Send(ctx, m1)
 	p.Send(ctx, m2)
 	p.Send(ctx, m3)
@@ -47,6 +49,7 @@ func TestProvider_NotConfigured(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "Test sender", p.Summary())
+
 	m1 := &sender.Message{
 		Subject: "test subject 1",
 	}

@@ -134,6 +134,7 @@ func TestLogFileRotation(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Logf("%v %v", info.Name(), info.Size())
+
 				if info.Mode().IsRegular() && info.Name() != cachedir.CacheDirMarkerFile {
 					gotEntryCount++
 				}

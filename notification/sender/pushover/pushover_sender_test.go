@@ -22,10 +22,12 @@ func TestPushover(t *testing.T) {
 	mux := http.NewServeMux()
 
 	var requests []*http.Request
+
 	var requestBodies []bytes.Buffer
 
 	mux.HandleFunc("/some-path", func(w http.ResponseWriter, r *http.Request) {
 		var b bytes.Buffer
+
 		io.Copy(&b, r.Body)
 
 		requestBodies = append(requestBodies, b)

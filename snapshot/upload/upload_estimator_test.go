@@ -31,6 +31,7 @@ func (w *mockLogger) Sync() error {
 
 func getMockLogger() logging.Logger {
 	ml := &mockLogger{}
+
 	return zap.New(
 		zapcore.NewCore(
 			zapcore.NewConsoleEncoder(zapcore.EncoderConfig{
@@ -81,6 +82,7 @@ func expectSuccessfulEstimation(
 	expectedDataSize int64,
 ) {
 	t.Helper()
+
 	var filesCount, totalFileSize int64
 
 	done := make(chan struct{})

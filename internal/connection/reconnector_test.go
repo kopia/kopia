@@ -89,6 +89,7 @@ func TestConnection(t *testing.T) {
 		// still using connection # 1
 		if cnt == 0 {
 			cnt++
+
 			require.EqualValues(t, 1, cli.(*fakeConnection).id)
 
 			cli.(*fakeConnection).isClosed = true
@@ -106,6 +107,7 @@ func TestConnection(t *testing.T) {
 	r.UsingConnectionNoResult(ctx, "third", func(cli connection.Connection) error {
 		t.Logf("third called with %v", cli.(*fakeConnection).id)
 		require.EqualValues(t, 2, cli.(*fakeConnection).id)
+
 		return nil
 	})
 
@@ -118,6 +120,7 @@ func TestConnection(t *testing.T) {
 		r.UsingConnectionNoResult(ctx, "parallel-2", func(cli connection.Connection) error {
 			t.Logf("parallel-2 called with %v", cli.(*fakeConnection).id)
 			require.EqualValues(t, 2, cli.(*fakeConnection).id)
+
 			return nil
 		})
 
@@ -129,6 +132,7 @@ func TestConnection(t *testing.T) {
 	require.NoError(t, r.UsingConnectionNoResult(ctx, "fourth", func(cli connection.Connection) error {
 		t.Logf("fourth called with %v", cli.(*fakeConnection).id)
 		require.EqualValues(t, 3, cli.(*fakeConnection).id)
+
 		return nil
 	}))
 
@@ -146,6 +150,7 @@ func TestConnection(t *testing.T) {
 	require.NoError(t, r.UsingConnectionNoResult(ctx, "sixth", func(cli connection.Connection) error {
 		t.Logf("sixth called with %v", cli.(*fakeConnection).id)
 		require.EqualValues(t, 4, cli.(*fakeConnection).id)
+
 		return nil
 	}))
 
@@ -155,6 +160,7 @@ func TestConnection(t *testing.T) {
 		return r.UsingConnectionNoResult(ctx, "parallel-a", func(cli connection.Connection) error {
 			time.Sleep(500 * time.Millisecond)
 			t.Logf("parallel-a called with %v", cli.(*fakeConnection).id)
+
 			return nil
 		})
 	})
@@ -162,6 +168,7 @@ func TestConnection(t *testing.T) {
 		return r.UsingConnectionNoResult(ctx, "parallel-b", func(cli connection.Connection) error {
 			time.Sleep(300 * time.Millisecond)
 			t.Logf("parallel-b called with %v", cli.(*fakeConnection).id)
+
 			return nil
 		})
 	})
@@ -169,6 +176,7 @@ func TestConnection(t *testing.T) {
 		return r.UsingConnectionNoResult(ctx, "parallel-c", func(cli connection.Connection) error {
 			time.Sleep(100 * time.Millisecond)
 			t.Logf("parallel-c called with %v", cli.(*fakeConnection).id)
+
 			return nil
 		})
 	})

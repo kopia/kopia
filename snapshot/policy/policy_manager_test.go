@@ -136,6 +136,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
+
 			if diff := cmp.Diff(pol, tc.wantEffective); diff != "" {
 				t.Errorf("got: %v", pol)
 				t.Errorf("want: %v", tc.wantEffective)

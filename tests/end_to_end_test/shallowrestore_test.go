@@ -627,6 +627,7 @@ func findRealFileDir(t *testing.T, original string) (dir, file string) {
 		case file != "" && dir != "":
 			return filepath.SkipDir
 		}
+
 		return nil
 	})
 	require.NoError(t, err)

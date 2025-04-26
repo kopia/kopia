@@ -160,6 +160,7 @@ func makeTempS3Bucket(t *testing.T) (bucketName string, cleanupCB func()) {
 				break
 			}
 		}
+
 		require.NoError(t, err)
 	}
 }
