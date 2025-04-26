@@ -28,6 +28,13 @@ linters:
       statements: 60
     gocognit:
       min-complexity: 40
+    gomodguard:
+      blocked:
+        modules:
+          - go.uber.org/multierr:
+              recommendations:
+                - errors
+              reason: "multierr.Append() can be replaced by native errors.Join()"
     goconst:
       min-len: 5
       min-occurrences: 3

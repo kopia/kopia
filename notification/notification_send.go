@@ -5,11 +5,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"os"
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/notification/notifyprofile"
@@ -145,7 +145,7 @@ func SendInternal(ctx context.Context, rep repo.Repository, templateName string,
 
 	for _, s := range senders {
 		if err := SendTo(ctx, rep, s, templateName, eventArgs, sev, opt); err != nil {
-			resultErr = multierr.Append(resultErr, err)
+			resultErr = stderrors.Join(resultErr, err)
 		}
 	}
 
@@ -202,7 +202,7 @@ func SendTo(ctx context.Context, rep repo.Repository, s sender.Sender, templateN
 	var resultErr error
 
 	if err := s.Send(ctx, msg); err != nil {
-		resultErr = multierr.Append(resultErr, errors.Wrap(err, "unable to send notification message"))
+		resultErr = stderrors.Join(resultErr, errors.Wrap(err, "unable to send notification message"))
 	}
 
 	return resultErr //nolint:wrapcheck
