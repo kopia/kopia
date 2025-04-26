@@ -53,12 +53,14 @@ func TestAutoUpdateEnableTest(t *testing.T) {
 			e.RunAndExpectSuccess(t, args...)
 
 			updateInfoFile := filepath.Join(e.ConfigDir, ".kopia.config.update-info.json")
+
 			_, err := os.Stat(updateInfoFile)
 			if got, want := err == nil, tc.wantEnabled; got != want {
 				t.Errorf("update check enabled: %v, wanted %v", got, want)
 			}
 
 			e.RunAndExpectSuccess(t, "repo", "disconnect")
+
 			if _, err = os.Stat(updateInfoFile); !os.IsNotExist(err) {
 				t.Errorf("update info file was not removed.")
 			}
@@ -73,6 +75,7 @@ func TestAutoUpdateEnableTest(t *testing.T) {
 			if got, want := err == nil, tc.wantEnabled; got != want {
 				t.Fatalf("update check enabled: %v, wanted %v", got, want)
 			}
+
 			if err == nil {
 				defer f.Close()
 

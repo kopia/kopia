@@ -95,6 +95,7 @@ func TestEndurance(t *testing.T) {
 		for i := range enduranceRunnerCount {
 			t.Run(fmt.Sprintf("Runner-%v", i), func(t *testing.T) {
 				t.Parallel()
+
 				defer func() {
 					if t.Failed() {
 						failureCount.Add(1)

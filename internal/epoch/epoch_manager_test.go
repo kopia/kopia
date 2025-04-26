@@ -968,6 +968,7 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 			}
 
 			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(k))
+
 			k++
 		}
 
@@ -1088,6 +1089,7 @@ func TestMaybeGenerateRangeCheckpoint_CompactionError(t *testing.T) {
 			}
 
 			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(k))
+
 			k++
 		}
 
@@ -1346,6 +1348,7 @@ func TestCleanupMarkers_FailToReadState(t *testing.T) {
 	te.ft.Advance(1 * time.Hour) // force state refresh in CleanupMarkers
 
 	cancel()
+
 	err := te.mgr.CleanupMarkers(ctx)
 
 	require.Error(t, err)
@@ -1391,6 +1394,7 @@ func TestCleanupMarkers_CleanUpManyMarkers(t *testing.T) {
 	const epochsToAdvance = 5
 
 	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(0))
+
 	for i := range epochsToAdvance {
 		te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
 		te.mgr.forceAdvanceEpoch(ctx)

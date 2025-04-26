@@ -119,7 +119,6 @@ linters:
           - perfsprint
           - revive
           - wrapcheck
-          - wsl
       - text: "log is a global variable"
         linters:
           - gochecknoglobals
@@ -133,9 +132,6 @@ linters:
       - text: "Magic number: 1e"
         linters:
           - mnd
-      - text: "unnecessaryDefer"
-        linters:
-          - gocritic
       - text: "filepathJoin"
         linters:
           - gocritic

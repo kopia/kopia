@@ -178,6 +178,7 @@ func TestSFTPStorageValid(t *testing.T) {
 
 			// use context that gets canceled after opening storage to ensure it's not used beyond New().
 			newctx, cancel := context.WithCancel(ctx)
+
 			st, err := createSFTPStorage(newctx, t, sftp.Options{
 				Path:           "/upload",
 				Host:           host,

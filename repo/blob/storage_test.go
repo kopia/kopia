@@ -54,6 +54,7 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 	}, func(m blob.Metadata) error {
 		mu.Lock()
 		defer mu.Unlock()
+
 		got = append(got, m.BlobID)
 
 		return nil
@@ -68,6 +69,7 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 	}, func(m blob.Metadata) error {
 		mu.Lock()
 		defer mu.Unlock()
+
 		got = append(got, m.BlobID)
 
 		return nil
@@ -83,6 +85,7 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 	}, func(m blob.Metadata) error {
 		mu.Lock()
 		defer mu.Unlock()
+
 		got = append(got, m.BlobID)
 
 		return nil

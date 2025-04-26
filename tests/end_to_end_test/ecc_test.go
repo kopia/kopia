@@ -100,9 +100,11 @@ func (s *formatSpecificTestSuite) flipOneByteFromEachFile(e *testenv.CLITest) er
 		if err != nil {
 			return err
 		}
+
 		if info.IsDir() {
 			return nil
 		}
+
 		if info.Name() == "kopia.repository.f" || info.Name() == ".shards" {
 			return nil
 		}
@@ -135,9 +137,11 @@ func dirSize(path string) (int64, error) {
 		if err != nil {
 			return err
 		}
+
 		if !info.IsDir() {
 			size += info.Size()
 		}
+
 		return nil
 	})
 

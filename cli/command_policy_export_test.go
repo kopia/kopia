@@ -57,6 +57,7 @@ func TestExportPolicy(t *testing.T) {
 
 	// check if we get the new policy
 	var policies3 map[string]*policy.Policy
+
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", id), &policies3)
 
 	assert.Len(t, policies3, 1, "unexpected number of policies")
@@ -64,6 +65,7 @@ func TestExportPolicy(t *testing.T) {
 
 	// specifying a local id should return the same policy
 	var policies4 map[string]*policy.Policy
+
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export", td), &policies4) // note: td, not id
 
 	assert.Len(t, policies4, 1, "unexpected number of policies")
@@ -71,6 +73,7 @@ func TestExportPolicy(t *testing.T) {
 
 	// exporting without specifying a policy should return all policies
 	var policies5 map[string]*policy.Policy
+
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export"), &policies5)
 
 	assert.Len(t, policies5, 2, "unexpected number of policies")
@@ -80,12 +83,14 @@ func TestExportPolicy(t *testing.T) {
 	exportPath := path.Join(td, "exported.json")
 
 	e.RunAndExpectSuccess(t, "policy", "export", "--to-file", exportPath)
+
 	exportedContent, err := os.ReadFile(exportPath)
 	if err != nil {
 		t.Fatalf("unable to read exported file: %v", err)
 	}
 
 	var policies6 map[string]*policy.Policy
+
 	testutil.MustParseJSONLines(t, []string{string(exportedContent)}, &policies6)
 
 	assert.Equal(t, expectedPolicies, policies6, "unexpected policy")
@@ -102,6 +107,7 @@ func TestExportPolicy(t *testing.T) {
 	}
 
 	var policies7 map[string]*policy.Policy
+
 	testutil.MustParseJSONLines(t, []string{string(exportedContent)}, &policies7)
 
 	// we specified id, so only that policy should be exported
@@ -112,10 +118,13 @@ func TestExportPolicy(t *testing.T) {
 	policies8prettyJSON := e.RunAndExpectSuccess(t, "policy", "export", "--json-indent")
 
 	var policies8pretty map[string]*policy.Policy
+
 	testutil.MustParseJSONLines(t, policies8prettyJSON, &policies8pretty)
 
 	policies8JSON := e.RunAndExpectSuccess(t, "policy", "export")
+
 	var policies8 map[string]*policy.Policy
+
 	testutil.MustParseJSONLines(t, policies8JSON, &policies8)
 
 	assert.Equal(t, policies8, policies8pretty, "pretty-printing should not change the content")

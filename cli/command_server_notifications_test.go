@@ -25,6 +25,7 @@ func TestServerNotifications(t *testing.T) {
 
 	mux.HandleFunc("/notification-webhook", func(w http.ResponseWriter, r *http.Request) {
 		var b bytes.Buffer
+
 		io.Copy(&b, r.Body)
 
 		notificationsReceived <- b.String()

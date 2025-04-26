@@ -566,6 +566,7 @@ func TestIgnoreFS(t *testing.T) {
 			if tc.setup != nil {
 				tc.setup(root)
 			}
+
 			ifs := ignorefs.New(root, tc.policyTree)
 
 			expectedFiles := addAndSubtractFiles(originalFiles, tc.addedFiles, tc.ignoredFiles)
