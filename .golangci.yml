@@ -10,19 +10,19 @@ linters:
       default-signifies-exhaustive: true
     forbidigo:
       forbid:
-        - pattern: filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
-        - pattern: ioutil.Discard # use io.Discard
+        - pattern: filepath.IsAbs   # use ospath.IsAbs which supports windows UNC paths
+        - pattern: ioutil.Discard   # use io.Discard
         - pattern: ioutil.NopCloser # use io.NopCloser
-        - pattern: ioutil.ReadAll # use io.ReadAll
-        - pattern: ioutil.ReadDir # use os.ReadDir
-        - pattern: ioutil.ReadFile # use os.ReadFile
-        - pattern: ioutil.TempDir # use os.MkdirTemp
-        - pattern: ioutil.TempFile # use os.CreateTemp
+        - pattern: ioutil.ReadAll   # use io.ReadAll
+        - pattern: ioutil.ReadDir   # use os.ReadDir
+        - pattern: ioutil.ReadFile  # use os.ReadFile
+        - pattern: ioutil.TempDir   # use os.MkdirTemp
+        - pattern: ioutil.TempFile  # use os.CreateTemp
         - pattern: ioutil.WriteFile # use os.WriteFile
-        - pattern: time.Now # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
-        - pattern: time.Since # use timetrack.Timer.Elapsed()
-        - pattern: time.Until # never use this
-        - pattern: Envar\(\" # do not use envar literals, always wrap with EnvName()
+        - pattern: time.Now         # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
+        - pattern: time.Since       # use timetrack.Timer.Elapsed()
+        - pattern: time.Until       # never use this
+        - pattern: Envar\(\"        # do not use envar literals, always wrap with EnvName()
     funlen:
       lines: 100
       statements: 60
@@ -68,15 +68,15 @@ linters:
 
   default: all
   disable:
-    - gochecknoglobals
     - depguard
     - exhaustruct
     - forcetypeassert
     - funcorder
+    - gochecknoglobals
     - gochecknoinits
+    - gosmopolitan
     - importas
     - ireturn # this one may be interesting to control allocations
-    - gosmopolitan
     - musttag
     - nilnil
     - nlreturn
@@ -100,7 +100,7 @@ linters:
     rules:
       - path: reporter.go
         linters:
-          - musttag        
+          - musttag
       - path: _test\.go|testing|tests|test_env|fshasher|fault 
         linters:
           - contextcheck
@@ -150,12 +150,6 @@ linters:
       - text: "error returned from external package is unwrapped: sig: func github.com/kopia/kopia/internal/connection.UsingConnection"
         linters:
           - wrapcheck
-      - text: timeCmpSimplify
-        linters:
-          - gocritic
-      - text: ".*Magic number\\: [01],"
-        linters:
-          - mnd
       - text: "Errors unhandled"
         linters:
           - gosec
