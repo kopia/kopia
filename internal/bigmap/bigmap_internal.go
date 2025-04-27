@@ -389,7 +389,7 @@ func (m *internalMap) newSegment(ctx context.Context) mmap.MMap {
 }
 
 // Close releases all resources associated with a map.
-func (m *internalMap) Close(ctx context.Context) {
+func (m *internalMap) Close(_ context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

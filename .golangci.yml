@@ -132,10 +132,6 @@ linters:
       - text: "tracer is a global variable"
         linters:
           - gochecknoglobals
-        # always allow ctx even when unused
-      - text: "unused-parameter: parameter 'ctx' seems to be unused"
-        linters:
-          - revive
       - text: "Magic number: 1e"
         linters:
           - mnd

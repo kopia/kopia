@@ -53,7 +53,7 @@ func (w *BlobWriter) EncryptAndWriteBlobAsync(ctx context.Context, prefix blob.I
 }
 
 // Wait waits for all the writes to complete.
-func (w *BlobWriter) Wait(ctx context.Context) error {
+func (w *BlobWriter) Wait(_ context.Context) error {
 	w.wg.Wait()
 	return nil
 }

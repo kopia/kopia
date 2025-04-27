@@ -59,7 +59,7 @@ func (ep *estimateProgress) Error(ctx context.Context, filename string, err erro
 	}
 }
 
-func (ep *estimateProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded upload.SampleBuckets, excludedDirs []string, final bool) {
+func (ep *estimateProgress) Stats(_ context.Context, st *snapshot.Stats, included, excluded upload.SampleBuckets, excludedDirs []string, final bool) {
 	_ = final
 
 	ep.stats = *st

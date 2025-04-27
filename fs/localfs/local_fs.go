@@ -103,7 +103,7 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 	return newFilesystemFile(newEntry(fi, dirPrefix(f.Name()))), nil
 }
 
-func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
+func (fsf *filesystemFile) Open(_ context.Context) (fs.Reader, error) {
 	f, err := os.Open(fsf.fullPath())
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open local file")
@@ -112,12 +112,12 @@ func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	return &fileWithMetadata{f}, nil
 }
 
-func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
+func (fsl *filesystemSymlink) Readlink(_ context.Context) (string, error) {
 	//nolint:wrapcheck
 	return os.Readlink(fsl.fullPath())
 }
 
-func (fsl *filesystemSymlink) Resolve(ctx context.Context) (fs.Entry, error) {
+func (fsl *filesystemSymlink) Resolve(_ context.Context) (fs.Entry, error) {
 	target, err := filepath.EvalSymlinks(fsl.fullPath())
 	if err != nil {
 		return nil, errors.Wrapf(err, "cannot resolve symlink for '%q'", fsl.fullPath())

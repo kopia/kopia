@@ -18,7 +18,7 @@ type Options struct {
 }
 
 // ApplyDefaultsAndValidate applies default values and validates the configuration.
-func (o *Options) ApplyDefaultsAndValidate(ctx context.Context) error {
+func (o *Options) ApplyDefaultsAndValidate(_ context.Context) error {
 	if o.Method == "" {
 		o.Method = "POST"
 	}

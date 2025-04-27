@@ -32,7 +32,7 @@ type b2Storage struct {
 	bucket *backblaze.Bucket
 }
 
-func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
+func (s *b2Storage) GetBlob(_ context.Context, id blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	fileName := s.getObjectNameString(id)
 
 	if offset < 0 {
@@ -87,7 +87,7 @@ func (s *b2Storage) resolveFileID(fileName string) (string, error) {
 	return "", nil
 }
 
-func (s *b2Storage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+func (s *b2Storage) GetMetadata(_ context.Context, id blob.ID) (blob.Metadata, error) {
 	fileName := s.getObjectNameString(id)
 
 	fileID, err := s.resolveFileID(fileName)
@@ -145,7 +145,7 @@ func translateError(err error) error {
 	return err
 }
 
-func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
+func (s *b2Storage) PutBlob(_ context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	switch {
 	case opts.HasRetentionOptions():
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
@@ -175,7 +175,7 @@ func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, op
 	return nil
 }
 
-func (s *b2Storage) DeleteBlob(ctx context.Context, id blob.ID) error {
+func (s *b2Storage) DeleteBlob(_ context.Context, id blob.ID) error {
 	_, err := s.bucket.HideFile(s.getObjectNameString(id))
 	err = translateError(err)
 
@@ -191,7 +191,7 @@ func (s *b2Storage) getObjectNameString(id blob.ID) string {
 	return s.Prefix + string(id)
 }
 
-func (s *b2Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+func (s *b2Storage) ListBlobs(_ context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
 	const maxFileQuery = 1000
 
 	fullPrefix := s.getObjectNameString(prefix)
@@ -247,7 +247,7 @@ func (s *b2Storage) String() string {
 }
 
 // New creates new B2-backed storage with specified options.
-func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+func New(_ context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	_ = isCreate
 
 	if opt.BucketName == "" {

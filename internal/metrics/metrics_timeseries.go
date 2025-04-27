@@ -53,7 +53,7 @@ type SnapshotValueAggregator[T any] interface {
 // CreateTimeSeries computes time series which represent aggregations of a given
 // counters or distributions over a set of snapshots.
 func CreateTimeSeries[TValue any](
-	ctx context.Context,
+	_ context.Context,
 	snapshots []*Snapshot,
 	valueHandler SnapshotValueAggregator[TValue],
 	opts AggregateMetricsOptions,
