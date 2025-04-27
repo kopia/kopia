@@ -149,7 +149,7 @@ func SendInternal(ctx context.Context, rep repo.Repository, templateName string,
 		}
 	}
 
-	return resultErr //nolint:wrapcheck
+	return resultErr
 }
 
 // MakeTemplateArgs wraps event-specific arguments into TemplateArgs object.
@@ -205,7 +205,7 @@ func SendTo(ctx context.Context, rep repo.Repository, s sender.Sender, templateN
 		resultErr = stderrors.Join(resultErr, errors.Wrap(err, "unable to send notification message"))
 	}
 
-	return resultErr //nolint:wrapcheck
+	return resultErr
 }
 
 // SendTestNotification sends a test notification to the given sender.
