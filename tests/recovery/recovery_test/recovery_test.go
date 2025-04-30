@@ -299,7 +299,7 @@ func CompareDirs(t *testing.T, source, destination string) {
 
 	const statsOnly = false
 
-	c, err := diff.NewComparer(&buf)
+	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {

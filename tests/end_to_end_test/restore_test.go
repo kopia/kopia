@@ -194,7 +194,7 @@ func compareDirs(t *testing.T, source, restoreDir string) {
 	require.NoError(t, err)
 
 	if !assert.Equal(t, wantHash, gotHash, "restored directory hash does not match source's hash") {
-		cmp, err := diff.NewComparer(os.Stderr)
+		cmp, err := diff.NewComparer(os.Stderr, statsOnly)
 		require.NoError(t, err)
 
 		cmp.DiffCommand = "cmp"

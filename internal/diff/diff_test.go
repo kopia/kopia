@@ -98,6 +98,7 @@ func TestCompareEmptyDirectories(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
+	statsOnly := false
 
 	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
@@ -112,7 +113,7 @@ func TestCompareEmptyDirectories(t *testing.T) {
 	dir1 := createTestDirectory("testDir1", dirModTime, dirOwnerInfo, dirMode, dirObjectID1)
 	dir2 := createTestDirectory("testDir2", dirModTime, dirOwnerInfo, dirMode, dirObjectID2)
 
-	c, err := diff.NewComparer(&buf)
+	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -131,6 +132,7 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
+	statsOnly := false
 
 	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
@@ -167,7 +169,7 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 
 	expectedStats := diff.Stats{}
 
-	c, err := diff.NewComparer(&buf)
+	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -185,6 +187,7 @@ func TestCompareDifferentDirectories(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
+	statsOnly := false
 
 	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
@@ -216,7 +219,7 @@ func TestCompareDifferentDirectories(t *testing.T) {
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file4.txt"}, content: "klmnopqrstuvwxyz2"},
 	)
 
-	c, err := diff.NewComparer(&buf)
+	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -242,6 +245,7 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
+	statsOnly := false
 
 	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	dirModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
@@ -277,7 +281,7 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	expectedStats := diff.Stats{}
 	expectedStats.DirectoryEntries.Modified = 1
 
-	c, err := diff.NewComparer(&buf)
+	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -296,6 +300,7 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
+	statsOnly := false
 
 	fileModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	fileModTime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
@@ -326,7 +331,7 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime2, name: "file1.txt", oid: OID2}, content: "abcdefghij"},
 	)
 
-	c, err := diff.NewComparer(&buf)
+	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -349,6 +354,7 @@ func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
+	statsOnly := false
 
 	fileModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	fileModTime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
@@ -384,7 +390,7 @@ func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
 		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime2, oid: object.ID{}, owner: fileOwnerinfo2, mode: 0o777}, content: "abcdefghij"},
 	)
 
-	c, err := diff.NewComparer(&buf)
+	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -412,6 +418,7 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
+	statsOnly := false
 
 	dirModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	dirModTime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
@@ -444,7 +451,7 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 		dirObjectID,
 		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime}, content: "abcdefghij"},
 	)
-	c, err := diff.NewComparer(&buf)
+	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
