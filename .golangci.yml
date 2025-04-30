@@ -39,14 +39,14 @@ linters:
     gomodguard:
       blocked:
         modules:
-          - go.uber.org/multierr:
-              recommendations:
-                - errors
-              reason: "multierr.Append() can be replaced by native errors.Join()"
           - github.com/aws/aws-sdk-go:
               recommendations:
                 - github.com/minio/minio-go
               reason: "github.com/aws/aws-sdk-go is not activily developed any longer"
+          - go.uber.org/multierr:
+              recommendations:
+                - errors
+              reason: "multierr.Append() can be replaced by native errors.Join()"
     goconst:
       min-len: 5
       min-occurrences: 3
