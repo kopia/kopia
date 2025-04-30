@@ -346,8 +346,8 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	osexec.DisableInterruptSignal(r.cmd)
 
 	startupTimeout := rcloneStartupTimeout
-	if opt.StartupTimeout != 0 {
-		startupTimeout = time.Duration(opt.StartupTimeout) * time.Second
+	if opt.StartupTimeout.Duration != 0 {
+		startupTimeout = opt.StartupTimeout.Duration
 	}
 
 	rcloneUrls, err := r.runRCloneAndWaitForServerAddress(ctx, r.cmd, startupTimeout)
