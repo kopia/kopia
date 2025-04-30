@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -61,6 +60,8 @@ type uploadTestHarness struct {
 }
 
 var errTest = errors.New("test error")
+
+type entryPathToError = map[string]error
 
 func (th *uploadTestHarness) cleanup() {
 	os.RemoveAll(th.repoDir)
@@ -420,11 +421,9 @@ func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 	require.NotEmpty(t, man.IncompleteReason, "snapshot not marked as incomplete")
 
 	// will have one error because we're canceling early.
-	verifyErrors(t, man, 1, 0,
-		[]*fs.EntryWithError{
-			{EntryPath: "d1", Error: errTest.Error()},
-		},
-	)
+	verifyErrors(t, man, 1, 0, entryPathToError{
+		"d1": errTest,
+	})
 }
 
 func objectIDsEqual(o1, o2 object.ID) bool {
@@ -455,12 +454,10 @@ func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 	require.NoError(t, err)
 
 	// 0 failed, 2 ignored
-	verifyErrors(t, man, 0, 2,
-		[]*fs.EntryWithError{
-			{EntryPath: "d1", Error: errTest.Error()},
-			{EntryPath: "d2/d1", Error: errTest.Error()},
-		},
-	)
+	verifyErrors(t, man, 0, 2, entryPathToError{
+		"d1":    errTest,
+		"d2/d1": errTest,
+	})
 }
 
 func TestUpload_ErrorEntries(t *testing.T) {
@@ -549,10 +546,10 @@ func TestUpload_ErrorEntries(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			verifyErrors(t, man, tc.wantFatalErrors, tc.wantIgnoredErrors, []*fs.EntryWithError{
-				{EntryPath: "d1/some-failed-entry", Error: "some-other-error"},
-				{EntryPath: "d1/some-unknown-entry", Error: "unknown or unsupported entry type"},
-				{EntryPath: "d2/another-failed-entry", Error: "another-error"},
+			verifyErrors(t, man, tc.wantFatalErrors, tc.wantIgnoredErrors, entryPathToError{
+				"d1/some-failed-entry":    errors.New("some-other-error"),
+				"d1/some-unknown-entry":   errors.New("unknown or unsupported entry type"),
+				"d2/another-failed-entry": errors.New("another-error"),
 			})
 		})
 	}
@@ -577,21 +574,24 @@ func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 	// make sure we have 2 errors
 	require.Equal(t, 2, man.RootEntry.DirSummary.FatalErrorCount)
 
-	verifyErrors(t, man,
-		2, 0,
-		[]*fs.EntryWithError{
-			{EntryPath: "d1", Error: errTest.Error()},
-			{EntryPath: "d2/d1", Error: errTest.Error()},
-		},
-	)
+	verifyErrors(t, man, 2, 0, entryPathToError{
+		"d1":    errTest,
+		"d2/d1": errTest,
+	})
 }
 
-func verifyErrors(t *testing.T, man *snapshot.Manifest, wantFatalErrors, wantIgnoredErrors int, wantErrors []*fs.EntryWithError) {
+func verifyErrors(t *testing.T, man *snapshot.Manifest, wantFatalErrors, wantIgnoredErrors int, wantErrors entryPathToError) {
 	t.Helper()
 
 	require.Equal(t, wantFatalErrors, man.RootEntry.DirSummary.FatalErrorCount, "invalid number of fatal errors")
 	require.Equal(t, wantIgnoredErrors, man.RootEntry.DirSummary.IgnoredErrorCount, "invalid number of ignored errors")
-	require.Empty(t, pretty.Compare(man.RootEntry.DirSummary.FailedEntries, wantErrors), "unexpected errors, diff(-got,+want)")
+
+	failedEntries := man.RootEntry.DirSummary.FailedEntries
+	for _, failedEntry := range failedEntries {
+		wantErr, ok := wantErrors[failedEntry.EntryPath]
+		require.True(t, ok, "expected error for entry path not found: %s", failedEntry.EntryPath)
+		require.Contains(t, failedEntry.Error, wantErr.Error())
+	}
 }
 
 func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
@@ -626,14 +626,11 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
-	verifyErrors(t, man,
-		2, 1,
-		[]*fs.EntryWithError{
-			{EntryPath: "d1", Error: errTest.Error()},
-			{EntryPath: "d2/d1", Error: errTest.Error()},
-			{EntryPath: "d3", Error: errTest.Error()},
-		},
-	)
+	verifyErrors(t, man, 2, 1, entryPathToError{
+		"d1":    errTest,
+		"d2/d1": errTest,
+		"d3":    errTest,
+	})
 }
 
 type mockProgress struct {

@@ -1203,9 +1203,8 @@ func (u *Uploader) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *sna
 		atomic.AddInt32(&u.stats.ErrorCount, 1)
 	}
 
-	rc := rootCauseError(err)
-	u.Progress.Error(entryRelativePath, rc, isIgnored)
-	dmb.AddFailedEntry(entryRelativePath, isIgnored, rc)
+	u.Progress.Error(entryRelativePath, err, isIgnored)
+	dmb.AddFailedEntry(entryRelativePath, isIgnored, err)
 
 	if u.FailFast && !isIgnored {
 		u.Cancel()
