@@ -19,14 +19,6 @@ linters:
     forbidigo:
       forbid:
         - pattern: filepath.IsAbs   # use ospath.IsAbs which supports windows UNC paths
-        - pattern: ioutil.Discard   # use io.Discard
-        - pattern: ioutil.NopCloser # use io.NopCloser
-        - pattern: ioutil.ReadAll   # use io.ReadAll
-        - pattern: ioutil.ReadDir   # use os.ReadDir
-        - pattern: ioutil.ReadFile  # use os.ReadFile
-        - pattern: ioutil.TempDir   # use os.MkdirTemp
-        - pattern: ioutil.TempFile  # use os.CreateTemp
-        - pattern: ioutil.WriteFile # use os.WriteFile
         - pattern: time.Now         # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
         - pattern: time.Since       # use timetrack.Timer.Elapsed()
         - pattern: time.Until       # never use this
