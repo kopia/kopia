@@ -16,7 +16,6 @@ import (
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
-	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -434,7 +433,7 @@ func GetPreceedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID 
 	})
 
 	for i, snap := range snapshotList {
-		if snap.ID == manifest.ID(snapshotID) {
+		if snap.ID == snapshotManifest.ID {
 			if i == 0 {
 				return nil, errors.New("Cannot fetch immediately preceding snapshot")
 			}
