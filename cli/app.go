@@ -463,25 +463,19 @@ func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo
 			Purpose:  "cli:" + c.currentActionName(),
 			OnUpload: c.progress.UploadedBytes,
 		}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
-	}), repositoryAccessMode{
-		disableMaintenance: true,
-	})
+	}), repositoryAccessMode{})
 }
 
 func (c *App) directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return act(ctx, rep)
-	}), repositoryAccessMode{
-		disableMaintenance: true,
-	})
+	}), repositoryAccessMode{})
 }
 
 func (c *App) repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
-	}, repositoryAccessMode{
-		disableMaintenance: true,
-	})
+	}, repositoryAccessMode{})
 }
 
 func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
@@ -492,7 +486,9 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 		}, func(ctx context.Context, w repo.RepositoryWriter) error {
 			return act(ctx, w)
 		})
-	}, repositoryAccessMode{})
+	}, repositoryAccessMode{
+		allowMaintenance: true,
+	})
 }
 
 func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.Context) error) error {
@@ -544,7 +540,7 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 }
 
 type repositoryAccessMode struct {
-	disableMaintenance bool
+	allowMaintenance bool
 }
 
 func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
@@ -574,7 +570,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 
 		err = act(ctx, rep)
 
-		if rep != nil && err == nil && !mode.disableMaintenance {
+		if rep != nil && err == nil && mode.allowMaintenance {
 			if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
 				log(ctx).Errorf("error running maintenance: %v", merr)
 			}
