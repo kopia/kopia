@@ -3,6 +3,14 @@ linters:
   settings:
     cyclop:
       max-complexity: 20
+    depguard:
+      rules:
+        main:
+          deny:
+            # v2 of the SDK comprises many modules, which means it cannot be
+            # denied with a single gomodguard entry
+            - pkg: "github.com/aws/aws-sdk-go-v2"
+              desc: "use github.com/minio/minio-go"
     exhaustive:
       # indicates that switch statements are to be considered exhaustive if a
       # 'default' case is present, even if all enum members aren't listed in the
@@ -35,6 +43,10 @@ linters:
               recommendations:
                 - errors
               reason: "multierr.Append() can be replaced by native errors.Join()"
+          - github.com/aws/aws-sdk-go:
+              recommendations:
+                - github.com/minio/minio-go
+              reason: "github.com/aws/aws-sdk-go is not activily developed any longer"
     goconst:
       min-len: 5
       min-occurrences: 3
@@ -75,7 +87,6 @@ linters:
 
   default: all
   disable:
-    - depguard
     - exhaustruct
     - forcetypeassert
     - funcorder
