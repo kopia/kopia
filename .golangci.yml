@@ -3,6 +3,14 @@ linters:
   settings:
     cyclop:
       max-complexity: 20
+    depguard:
+      rules:
+        main:
+          deny:
+            # v2 of the SDK comprises many modules, which means it cannot be
+            # denied with a single gomodguard entry
+            - pkg: "github.com/aws/aws-sdk-go-v2"
+              desc: "use github.com/minio/minio-go"
     exhaustive:
       # indicates that switch statements are to be considered exhaustive if a
       # 'default' case is present, even if all enum members aren't listed in the
@@ -31,6 +39,14 @@ linters:
     gomodguard:
       blocked:
         modules:
+          - github.com/aws/aws-sdk-go:
+              recommendations:
+                - github.com/minio/minio-go
+              reason: "github.com/aws/aws-sdk-go is not activily developed any longer"
+          - github.com/rs/zerolog/log:
+              recommendations:
+                - "use kopia's logging packages"
+              reason: "zerolog not currently use"
           - go.uber.org/multierr:
               recommendations:
                 - errors
@@ -75,7 +91,6 @@ linters:
 
   default: all
   disable:
-    - depguard
     - exhaustruct
     - forcetypeassert
     - funcorder
@@ -99,8 +114,8 @@ linters:
     - tparallel
     - usetesting
     - varnamelen # this one may be interesting, but too much churn
-    - wastedassign
     - whitespace
+    - zerologlint # zerolog not currently used in the codebase
 
   exclusions:
     generated: lax
@@ -185,7 +200,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/kopia/kopia)
+        - localmodule
 
 output:
   show-stats: false

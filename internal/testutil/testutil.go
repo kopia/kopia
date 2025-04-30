@@ -4,7 +4,7 @@ package testutil
 import (
 	"encoding/json"
 	"fmt"
-	"log" //nolint:depguard
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
