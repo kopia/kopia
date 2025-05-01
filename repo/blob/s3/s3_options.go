@@ -3,6 +3,7 @@ package s3
 import (
 	"time"
 
+	"github.com/kopia/kopia/internal/jsonencoding"
 	"github.com/kopia/kopia/repo/blob/throttling"
 )
 
@@ -24,11 +25,11 @@ type Options struct {
 	SessionToken    string `json:"sessionToken" kopia:"sensitive"`
 
 	// Used for assume role authentication.
-	RoleARN      string        `json:"roleARN"`
-	SessionName  string        `json:"sessionName"`
-	RoleDuration time.Duration `json:"duration"`
-	RoleEndpoint string        `json:"roleEndpoint"`
-	RoleRegion   string        `json:"roleRegion"`
+	RoleARN      string                `json:"roleARN"`
+	SessionName  string                `json:"sessionName"`
+	RoleDuration jsonencoding.Duration `json:"duration"`
+	RoleEndpoint string                `json:"roleEndpoint"`
+	RoleRegion   string                `json:"roleRegion"`
 
 	// Region is an optional region to pass in authorization header.
 	Region string `json:"region,omitempty"`
