@@ -554,22 +554,22 @@ func TestGetTwoLatestSnapshots(t *testing.T) {
 	snapshotSrc := getSnapshotSource()
 	manifests := getManifests()
 
-	_, err := diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
-	require.Error(t, err)
+	_, _, err := diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
+	require.Error(t, err, "expected error as there aren't enough snapshots to get the two most recent snapshots")
 
 	initialSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["initial_snapshot"])
-	_, err = diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
-	require.Error(t, err)
+	_, _, err = diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
+	require.Error(t, err, "expected error as there aren't enough snapshots to get the two most recent snapshots")
 
 	intermediateSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["intermediate_snapshot"])
 
 	var expectedManifestIDs []manifest.ID
 	expectedManifestIDs = append(expectedManifestIDs, initialSnapshotManifestID, intermediateSnapshotManifestID)
 
-	gotManifests, err := diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
+	secondLastSnapshot, lastSnapshot, err := diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
 
 	var gotManifestIDs []manifest.ID
-	gotManifestIDs = append(gotManifestIDs, gotManifests[0].ID, gotManifests[1].ID)
+	gotManifestIDs = append(gotManifestIDs, secondLastSnapshot.ID, lastSnapshot.ID)
 
 	require.NoError(t, err)
 	require.Equal(t, expectedManifestIDs, gotManifestIDs)
@@ -580,8 +580,8 @@ func TestGetTwoLatestSnapshots(t *testing.T) {
 	expectedManifestIDs = append(expectedManifestIDs, intermediateSnapshotManifestID, latestSnapshotManifestID)
 
 	gotManifestIDs = nil
-	gotManifests2, err := diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
-	gotManifestIDs = append(gotManifestIDs, gotManifests2[0].ID, gotManifests2[1].ID)
+	secondLastSnapshot, lastSnapshot, err = diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
+	gotManifestIDs = append(gotManifestIDs, secondLastSnapshot.ID, lastSnapshot.ID)
 
 	require.NoError(t, err)
 	require.Equal(t, expectedManifestIDs, gotManifestIDs)
@@ -591,9 +591,7 @@ func mustSaveSnapshot(t *testing.T, rep repo.RepositoryWriter, man *snapshot.Man
 	t.Helper()
 
 	id, err := snapshot.SaveSnapshot(testlogging.Context(t), rep, man)
-	if err != nil {
-		t.Fatalf("error saving snapshot: %v", err)
-	}
+	require.NoError(t, err, "saving snapshot")
 
 	return id
 }

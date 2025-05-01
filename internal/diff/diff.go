@@ -411,9 +411,7 @@ func NewComparer(out io.Writer) (*Comparer, error) {
 
 // GetPreceedingSnapshot fetches the snapshot manifest for the snapshot immediately preceding the given snapshotID if it exists.
 func GetPreceedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID string) (*snapshot.Manifest, error) {
-	var prevSnapshotManifest *snapshot.Manifest
-
-	snapshotManifest, err := snapshotfs.FindSnapshotByRootObjectIDOrManifestID(ctx, rep, snapshotID, false)
+	snapshotManifest, err := snapshotfs.FindSnapshotByRootObjectIDOrManifestID(ctx, rep, snapshotID, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get snapshot manifest for the given snapshotID")
 	}
@@ -421,10 +419,6 @@ func GetPreceedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID 
 	snapshotList, err := snapshot.ListSnapshots(ctx, rep, snapshotManifest.Source)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to list snapshots")
-	}
-
-	if len(snapshotList) <= 1 {
-		return nil, errors.New("Cannot fetch immediately preceding snapshot manifest")
 	}
 
 	// sort snapshots in ascending order based on start time
@@ -435,38 +429,33 @@ func GetPreceedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID 
 	for i, snap := range snapshotList {
 		if snap.ID == snapshotManifest.ID {
 			if i == 0 {
-				return nil, errors.New("Cannot fetch immediately preceding snapshot")
+				return nil, errors.New("cannot fetch immediately preceding snapshot")
 			}
 
-			// get the snapshot immediately preceding it
-			prevSnapshotManifest = snapshotList[i-1]
+			return snapshotList[i-1], nil
 		}
 	}
 
-	return prevSnapshotManifest, nil
+	return nil, errors.New("couldn't find immediately preceding snapshot")
 }
 
 // GetTwoLatestSnapshotsForASource fetches two latest snapshot manifests for a given source if they exist.
-func GetTwoLatestSnapshotsForASource(ctx context.Context, rep repo.Repository, source snapshot.SourceInfo) ([]*snapshot.Manifest, error) {
-	var res []*snapshot.Manifest
-
+func GetTwoLatestSnapshotsForASource(ctx context.Context, rep repo.Repository, source snapshot.SourceInfo) (secondLast, last *snapshot.Manifest, err error) {
 	snapshots, err := snapshot.ListSnapshots(ctx, rep, source)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to list snapshots")
+		return nil, nil, errors.Wrap(err, "failed to list snapshots")
 	}
 
-	minimumReqSnapshots := 2
+	const minimumReqSnapshots = 2
 
 	sizeSnapshots := len(snapshots)
 	if sizeSnapshots < minimumReqSnapshots {
-		return nil, errors.New("Could not fetch the two latest snapshot manifests")
+		return nil, nil, errors.New("snapshot source has less than two snapshots")
 	}
 
 	sort.Slice(snapshots, func(i, j int) bool {
 		return snapshots[i].StartTime.Before(snapshots[j].StartTime)
 	})
 
-	res = append(res, snapshots[sizeSnapshots-2:]...)
-
-	return res, nil
+	return snapshots[sizeSnapshots-2], snapshots[sizeSnapshots-1], nil
 }
