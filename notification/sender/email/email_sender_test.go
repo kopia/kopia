@@ -97,8 +97,7 @@ func TestEmailProvider_Text(t *testing.T) {
 
 	require.Equal(t, "SMTP server: \"localhost\", Mail from: \"some-user@example.com\" Mail to: \"another-user@example.com\" Format: \"txt\"", p.Summary())
 
-	require.NoError(t, p.Send(ctx, &sender.Message{Subject: "Test", Body: `
-This is a test.
+	require.NoError(t, p.Send(ctx, &sender.Message{Subject: "Test", Body: `This is a test.
 
 * one
 * two
