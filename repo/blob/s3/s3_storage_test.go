@@ -20,7 +20,6 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/internal/jsonencoding"
 	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -28,6 +27,7 @@ import (
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
+	"github.com/kopia/kopia/repo/jsonencoding"
 )
 
 const (

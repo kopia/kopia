@@ -3,8 +3,8 @@ package s3
 import (
 	"time"
 
-	"github.com/kopia/kopia/internal/jsonencoding"
 	"github.com/kopia/kopia/repo/blob/throttling"
+	"github.com/kopia/kopia/repo/jsonencoding"
 )
 
 // Options defines options for S3-based storage.

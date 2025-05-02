@@ -1,9 +1,9 @@
 package rclone
 
 import (
-	"github.com/kopia/kopia/internal/jsonencoding"
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/blob/throttling"
+	"github.com/kopia/kopia/repo/jsonencoding"
 )
 
 // Options defines options for RClone storage.
