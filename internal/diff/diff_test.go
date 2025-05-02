@@ -17,6 +17,8 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
+const statsOnly = false
+
 var (
 	_ fs.Entry     = (*testFile)(nil)
 	_ fs.Directory = (*testDirectory)(nil)

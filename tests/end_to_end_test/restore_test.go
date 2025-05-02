@@ -177,6 +177,8 @@ func TestRestoreCommand(t *testing.T) {
 func compareDirs(t *testing.T, source, restoreDir string) {
 	t.Helper()
 
+	const statsOnly = false
+
 	// Restored contents should match source
 	s, err := localfs.Directory(source)
 	require.NoError(t, err)
