@@ -429,7 +429,7 @@ func GetPreceedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID 
 	for i, snap := range snapshotList {
 		if snap.ID == snapshotManifest.ID {
 			if i == 0 {
-				return nil, errors.New("cannot fetch immediately preceding snapshot")
+				return nil, errors.New("there is no immediately preceding snapshot")
 			}
 
 			return snapshotList[i-1], nil
