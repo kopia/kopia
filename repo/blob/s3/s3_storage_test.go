@@ -20,6 +20,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/jsonencoding"
 	"github.com/kopia/kopia/internal/providervalidation"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -373,7 +374,7 @@ func TestS3StorageCustomCredentials(t *testing.T) {
 		RoleRegion:   getEnvOrSkip(t, testRegionEnv),
 		SessionName:  "test-assume-role",
 		RoleEndpoint: awsStsEndpointUSWest2,
-		RoleDuration: time.Minute * 15,
+		RoleDuration: jsonencoding.Duration{Duration: time.Minute * 15},
 	}
 
 	getOrCreateBucket(t, options)
