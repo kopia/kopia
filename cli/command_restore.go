@@ -419,7 +419,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 		}
 
 		restoreProgress := c.getRestoreProgress()
-		progressCallback := func(ctx context.Context, stats restore.Stats) {
+		progressCallback := func(_ context.Context, stats restore.Stats) {
 			restoreProgress.SetCounters(stats)
 		}
 

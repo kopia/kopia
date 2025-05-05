@@ -165,9 +165,11 @@ func TestDebug_parseProfileConfigs(t *testing.T) {
 			require.Len(t, pbs, tc.n)
 			pb, ok := pbs[tc.key] // no negative testing for missing keys (see newProfileConfigs)
 			require.Equalf(t, !tc.expectMissing, ok, "key %q for set %q expect missing %t", tc.key, mapKeys(pbs), tc.expectMissing)
+
 			if tc.expectMissing {
 				return
 			}
+
 			require.Equal(t, 1<<10, pb.buf.Cap()) // bufsize is always 1024
 			require.Equal(t, 0, pb.buf.Len())
 			require.Equal(t, tc.expect, pb.flags)
@@ -284,19 +286,25 @@ func TestDebug_LoadProfileConfigs(t *testing.T) {
 		t.Run(fmt.Sprintf("%d: %q", i, tc.inArgs), func(t *testing.T) {
 			pmp, err := LoadProfileConfig(ctx, tc.inArgs)
 			require.ErrorIs(t, tc.expectError, err)
+
 			if err != nil {
 				return
 			}
+
 			val, ok := pmp[tc.profileKey]
 			require.Equalf(t, tc.expectProfileConfigNotExists, !ok, "expecting key %q to %t exist", tc.profileKey, !tc.expectProfileConfigNotExists)
+
 			if tc.expectProfileConfigNotExists {
 				return
 			}
+
 			flagValue, ok := val.GetValue(tc.profileFlagKey)
 			require.Equal(t, tc.expectProfileFlagExists, ok, "expecting key %q to %t exist", tc.profileKey, tc.expectProfileFlagExists)
+
 			if tc.expectProfileFlagExists {
 				return
 			}
+
 			require.Equal(t, tc.expectProfileFlagValue, flagValue)
 		})
 	}

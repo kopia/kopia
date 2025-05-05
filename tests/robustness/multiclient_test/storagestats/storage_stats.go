@@ -44,6 +44,7 @@ func LogStorageStats(ctx context.Context, dirs []string) error {
 
 	logFilePath = getLogFilePath()
 	log.Printf("log file path %s", logFilePath)
+
 	err = os.WriteFile(logFilePath, jsonData, 0o644)
 	if err != nil {
 		return fmt.Errorf("error writing log file: %w", err)
@@ -65,8 +66,10 @@ func getSize(dirPath string) (int64, error) {
 			if err != nil {
 				return err
 			}
+
 			size += info.Size()
 		}
+
 		return nil
 	})
 

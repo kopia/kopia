@@ -3,6 +3,14 @@ linters:
   settings:
     cyclop:
       max-complexity: 20
+    depguard:
+      rules:
+        main:
+          deny:
+            # v2 of the SDK comprises many modules, which means it cannot be
+            # denied with a single gomodguard entry
+            - pkg: "github.com/aws/aws-sdk-go-v2"
+              desc: "use github.com/minio/minio-go"
     exhaustive:
       # indicates that switch statements are to be considered exhaustive if a
       # 'default' case is present, even if all enum members aren't listed in the
@@ -10,24 +18,31 @@ linters:
       default-signifies-exhaustive: true
     forbidigo:
       forbid:
-        - pattern: filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
-        - pattern: ioutil.Discard # use io.Discard
-        - pattern: ioutil.NopCloser # use io.NopCloser
-        - pattern: ioutil.ReadAll # use io.ReadAll
-        - pattern: ioutil.ReadDir # use os.ReadDir
-        - pattern: ioutil.ReadFile # use os.ReadFile
-        - pattern: ioutil.TempDir # use os.MkdirTemp
-        - pattern: ioutil.TempFile # use os.CreateTemp
-        - pattern: ioutil.WriteFile # use os.WriteFile
-        - pattern: time.Now # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
-        - pattern: time.Since # use timetrack.Timer.Elapsed()
-        - pattern: time.Until # never use this
-        - pattern: Envar\(\" # do not use envar literals, always wrap with EnvName()
+        - pattern: filepath.IsAbs   # use ospath.IsAbs which supports windows UNC paths
+        - pattern: time.Now         # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
+        - pattern: time.Since       # use timetrack.Timer.Elapsed()
+        - pattern: time.Until       # never use this
+        - pattern: Envar\(\"        # do not use envar literals, always wrap with EnvName()
     funlen:
       lines: 100
       statements: 60
     gocognit:
       min-complexity: 40
+    gomodguard:
+      blocked:
+        modules:
+          - github.com/aws/aws-sdk-go:
+              recommendations:
+                - github.com/minio/minio-go
+              reason: "github.com/aws/aws-sdk-go is not activily developed any longer"
+          - github.com/rs/zerolog/log:
+              recommendations:
+                - "use kopia's logging packages"
+              reason: "zerolog not currently use"
+          - go.uber.org/multierr:
+              recommendations:
+                - errors
+              reason: "multierr.Append() can be replaced by native errors.Join()"
     goconst:
       min-len: 5
       min-occurrences: 3
@@ -68,15 +83,14 @@ linters:
 
   default: all
   disable:
-    - gochecknoglobals
-    - depguard
     - exhaustruct
     - forcetypeassert
     - funcorder
+    - gochecknoglobals
     - gochecknoinits
+    - gosmopolitan
     - importas
     - ireturn # this one may be interesting to control allocations
-    - gosmopolitan
     - musttag
     - nilnil
     - nlreturn
@@ -92,15 +106,15 @@ linters:
     - tparallel
     - usetesting
     - varnamelen # this one may be interesting, but too much churn
-    - wastedassign
     - whitespace
+    - zerologlint # zerolog not currently used in the codebase
 
   exclusions:
     generated: lax
     rules:
       - path: reporter.go
         linters:
-          - musttag        
+          - musttag
       - path: _test\.go|testing|tests|test_env|fshasher|fault 
         linters:
           - contextcheck
@@ -119,23 +133,15 @@ linters:
           - perfsprint
           - revive
           - wrapcheck
-          - wsl
       - text: "log is a global variable"
         linters:
           - gochecknoglobals
       - text: "tracer is a global variable"
         linters:
           - gochecknoglobals
-        # always allow ctx even when unused
-      - text: "unused-parameter: parameter 'ctx' seems to be unused"
-        linters:
-          - revive
       - text: "Magic number: 1e"
         linters:
           - mnd
-      - text: "unnecessaryDefer"
-        linters:
-          - gocritic
       - text: "filepathJoin"
         linters:
           - gocritic
@@ -154,12 +160,6 @@ linters:
       - text: "error returned from external package is unwrapped: sig: func github.com/kopia/kopia/internal/connection.UsingConnection"
         linters:
           - wrapcheck
-      - text: timeCmpSimplify
-        linters:
-          - gocritic
-      - text: ".*Magic number\\: [01],"
-        linters:
-          - mnd
       - text: "Errors unhandled"
         linters:
           - gosec
@@ -192,7 +192,7 @@ formatters:
       sections:
         - standard
         - default
-        - prefix(github.com/kopia/kopia)
+        - localmodule
 
 output:
   show-stats: false

@@ -24,7 +24,7 @@ type estimateTaskProgress struct {
 	ctrl uitask.Controller
 }
 
-func (p estimateTaskProgress) Processing(ctx context.Context, dirname string) {
+func (p estimateTaskProgress) Processing(_ context.Context, dirname string) {
 	p.ctrl.ReportProgressInfo(dirname)
 }
 

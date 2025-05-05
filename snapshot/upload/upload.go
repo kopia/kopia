@@ -1203,9 +1203,8 @@ func (u *Uploader) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *sna
 		atomic.AddInt32(&u.stats.ErrorCount, 1)
 	}
 
-	rc := rootCauseError(err)
-	u.Progress.Error(entryRelativePath, rc, isIgnored)
-	dmb.AddFailedEntry(entryRelativePath, isIgnored, rc)
+	u.Progress.Error(entryRelativePath, err, isIgnored)
+	dmb.AddFailedEntry(entryRelativePath, isIgnored, err)
 
 	if u.FailFast && !isIgnored {
 		u.Cancel()
@@ -1359,7 +1358,7 @@ func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, polic
 		return entry
 	}
 
-	return ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(ctx context.Context, fname string, md fs.Entry, policyTree *policy.Tree) {
+	return ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(_ context.Context, fname string, md fs.Entry, policyTree *policy.Tree) {
 		if md.IsDir() {
 			maybeLogEntryProcessed(
 				logger,

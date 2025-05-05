@@ -37,7 +37,7 @@ func getUIPreferencesOrEmpty(s serverInterface) (serverapi.UIPreferences, error)
 	return p, nil
 }
 
-func handleGetUIPreferences(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleGetUIPreferences(_ context.Context, rc requestContext) (interface{}, *apiError) {
 	p, err := getUIPreferencesOrEmpty(rc.srv)
 	if err != nil {
 		return nil, internalServerError(err)
@@ -46,7 +46,7 @@ func handleGetUIPreferences(ctx context.Context, rc requestContext) (interface{}
 	return &p, nil
 }
 
-func handleSetUIPreferences(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleSetUIPreferences(_ context.Context, rc requestContext) (interface{}, *apiError) {
 	var p serverapi.UIPreferences
 
 	// verify the JSON is valid by unmarshaling it

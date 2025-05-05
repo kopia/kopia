@@ -81,11 +81,11 @@ func (la legacyAuthorizationInfo) ManifestAccessLevel(labels map[string]string) 
 
 type legacyAuthorizer struct{}
 
-func (legacyAuthorizer) Authorize(ctx context.Context, _ repo.Repository, username string) AuthorizationInfo {
+func (legacyAuthorizer) Authorize(_ context.Context, _ repo.Repository, username string) AuthorizationInfo {
 	return legacyAuthorizationInfo{usernameAtHostname: username}
 }
 
-func (legacyAuthorizer) Refresh(ctx context.Context) error {
+func (legacyAuthorizer) Refresh(_ context.Context) error {
 	return nil
 }
 

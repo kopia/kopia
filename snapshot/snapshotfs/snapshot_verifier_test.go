@@ -34,7 +34,9 @@ func TestSnapshotVerifier(t *testing.T) {
 	require.NoError(t, repo.WriteSession(ctx, te.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		snap1, err := u.Upload(ctx, dir1, nil, si1)
 		require.NoError(t, err)
+
 		obj1 = snap1.RootObjectID()
+
 		return nil
 	}))
 

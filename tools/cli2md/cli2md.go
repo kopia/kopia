@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -30,6 +31,14 @@ const (
 
 	dirMode = 0o750
 )
+
+// The group at the start is to avoid matching things like "in-place".
+var escapeFlagsRe = regexp.MustCompile(`(^|\s)(--?\w+[-\w]*)`)
+
+// escapeFlags escapes command-line flag references in help text by wrapping them in backticks.
+func escapeFlags(text string) string {
+	return escapeFlagsRe.ReplaceAllString(text, "$1`$2`")
+}
 
 //nolint:gochecknoglobals
 var overrideDefault = map[string]string{
@@ -75,9 +84,9 @@ func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 				defaultValue = "`false`"
 			}
 
-			fmt.Fprintf(w, "| `--[no-]%v` | %v | %v | %v%v |\n", f.Name, shortFlag, defaultValue, maybeAdvanced, f.Help) //nolint:errcheck
+			fmt.Fprintf(w, "| `--[no-]%v` | %v | %v | %v%v |\n", f.Name, shortFlag, defaultValue, maybeAdvanced, escapeFlags(f.Help)) //nolint:errcheck
 		} else {
-			fmt.Fprintf(w, "| `--%v` | %v | %v | %v%v |\n", f.Name, shortFlag, defaultValue, maybeAdvanced, f.Help) //nolint:errcheck
+			fmt.Fprintf(w, "| `--%v` | %v | %v | %v%v |\n", f.Name, shortFlag, defaultValue, maybeAdvanced, escapeFlags(f.Help)) //nolint:errcheck
 		}
 	}
 
@@ -122,7 +131,7 @@ func emitArgs(w io.Writer, args []*kingpin.ArgModel) {
 	})
 
 	for _, f := range args2 {
-		fmt.Fprintf(w, "| `%v` | %v |\n", f.Name, f.Help) //nolint:errcheck
+		fmt.Fprintf(w, "| `%v` | %v |\n", f.Name, escapeFlags(f.Help)) //nolint:errcheck
 	}
 
 	fmt.Fprintf(w, "\n") //nolint:errcheck
@@ -297,7 +306,7 @@ hide_summary: true
 	}
 
 	fmt.Fprintf(f, "```shell\n$ kopia %v%v%v\n```\n\n", cmd.FullCommand, flagSummary, argSummary) //nolint:errcheck
-	fmt.Fprintf(f, "%v\n\n", cmd.Help)                                                            //nolint:errcheck
+	fmt.Fprintf(f, "%v\n\n", escapeFlags(cmd.Help))                                               //nolint:errcheck
 
 	emitFlags(f, cmd.Flags)
 	emitArgs(f, cmd.Args)

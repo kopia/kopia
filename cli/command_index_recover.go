@@ -40,7 +40,7 @@ func (c *commandIndexRecover) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	c.svc.advancedCommand(ctx)
+	c.svc.advancedCommand()
 
 	var (
 		processedBlobCount    atomic.Int32

@@ -209,6 +209,7 @@ func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.S
 			} else {
 				require.ErrorContainsf(t, err, tc.err.Error(), "tc.contentID: %v", tc.contentID)
 			}
+
 			if got := v.ToByteSlice(); !bytes.Equal(got, tc.expected) {
 				t.Errorf("unexpected data for %v: %x, wanted %x", tc.contentID, got, tc.expected)
 			}

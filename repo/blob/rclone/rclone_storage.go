@@ -31,8 +31,8 @@ const (
 
 	defaultRCloneExe = "rclone"
 
-	// rcloneStartupTimeout is the time we wait for rclone to print the https address it's serving at.
-	rcloneStartupTimeout = 15 * time.Second
+	// defaultRcloneStartupTimeout is the time we wait for rclone to print the https address it's serving at.
+	defaultRcloneStartupTimeout = 15 * time.Second
 )
 
 var log = logging.Module("rclone")
@@ -345,9 +345,9 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	// https://github.com/kopia/kopia/issues/1934
 	osexec.DisableInterruptSignal(r.cmd)
 
-	startupTimeout := rcloneStartupTimeout
-	if opt.StartupTimeout != 0 {
-		startupTimeout = time.Duration(opt.StartupTimeout) * time.Second
+	startupTimeout := defaultRcloneStartupTimeout
+	if opt.StartupTimeout.Duration != 0 {
+		startupTimeout = opt.StartupTimeout.Duration
 	}
 
 	rcloneUrls, err := r.runRCloneAndWaitForServerAddress(ctx, r.cmd, startupTimeout)

@@ -111,6 +111,7 @@ func TestWaitForActiveWorkers(t *testing.T) {
 			return nil
 		})
 		results <- 1
+
 		return nil
 	})
 
@@ -214,6 +215,7 @@ func TestOnNthCompletion(t *testing.T) {
 		for range n + 1 {
 			go func() {
 				results <- onNthCompletion()
+
 				wg.Done()
 			}()
 		}

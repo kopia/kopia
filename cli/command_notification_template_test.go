@@ -97,6 +97,7 @@ func TestNotificationTemplates(t *testing.T) {
 
 			return nil
 		}
+
 		return nil
 	}
 
