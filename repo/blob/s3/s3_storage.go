@@ -168,7 +168,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		retainUntilDate = clock.Now().Add(opts.RetentionPeriod).UTC()
 	}
 
-	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), data.Reader(), int64(data.Length()), minio.PutObjectOptions{
+	putOpts := minio.PutObjectOptions{
 		ContentType: "application/x-kopia",
 		// Kopia already splits snapshot contents into small blobs to improve
 		// upload throughput. There is no need for further splitting
@@ -182,7 +182,17 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		StorageClass:    storageClass,
 		RetainUntilDate: retainUntilDate,
 		Mode:            retentionMode,
-	})
+	}
+
+	// Configure server-side encryption if specified
+	if s.ServerSideEncryption != "" {
+		putOpts.ServerSideEncryption = minio.ServerSideEncryption(s.ServerSideEncryption)
+		if s.ServerSideEncryption == "aws:kms" && s.KMSKeyID != "" {
+			putOpts.SSEKMSKeyID = s.KMSKeyID
+		}
+	}
+
+	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), data.Reader(), int64(data.Length()), putOpts)
 
 	if isInvalidCredentials(err) {
 		return versionMetadata{}, blob.ErrInvalidCredentials
@@ -196,12 +206,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 		// special case empty stream
-		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
-			ContentType:     "application/x-kopia",
-			StorageClass:    storageClass,
-			RetainUntilDate: retainUntilDate,
-			Mode:            retentionMode,
-		})
+		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, putOpts)
 	}
 
 	if err != nil {
