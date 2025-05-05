@@ -98,7 +98,6 @@ func TestCompareEmptyDirectories(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
-	statsOnly := false
 
 	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
@@ -132,7 +131,6 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
-	statsOnly := false
 
 	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
@@ -187,7 +185,6 @@ func TestCompareDifferentDirectories(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
-	statsOnly := false
 
 	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
@@ -245,7 +242,6 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
-	statsOnly := false
 
 	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	dirModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
@@ -300,7 +296,6 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
-	statsOnly := false
 
 	fileModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	fileModTime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
@@ -354,7 +349,6 @@ func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
-	statsOnly := false
 
 	fileModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	fileModTime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
@@ -418,7 +412,6 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 	var buf bytes.Buffer
 
 	ctx := context.Background()
-	statsOnly := false
 
 	dirModTime1 := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 	dirModTime2 := time.Date(2022, time.April, 12, 10, 30, 0, 0, time.UTC)
