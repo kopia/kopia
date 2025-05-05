@@ -443,7 +443,7 @@ func GetPreceedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID 
 func GetTwoLatestSnapshotsForASource(ctx context.Context, rep repo.Repository, source snapshot.SourceInfo) (secondLast, last *snapshot.Manifest, err error) {
 	snapshots, err := snapshot.ListSnapshots(ctx, rep, source)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to list snapshots")
+		return nil, nil, errors.Wrap(err, "failed to list all snapshots")
 	}
 
 	const minimumReqSnapshots = 2
