@@ -191,10 +191,14 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		case "AES256":
 			putOpts.ServerSideEncryption = encrypt.NewSSE()
 		case "aws:kms":
+			var err error
 			if s.KMSKeyID != "" {
-				putOpts.ServerSideEncryption = encrypt.NewSSEKMS(s.KMSKeyID, nil)
+				putOpts.ServerSideEncryption, err = encrypt.NewSSEKMS(s.KMSKeyID, nil)
 			} else {
-				putOpts.ServerSideEncryption = encrypt.NewSSEKMS("", nil)
+				putOpts.ServerSideEncryption, err = encrypt.NewSSEKMS("", nil)
+			}
+			if err != nil {
+				return versionMetadata{}, errors.Wrap(err, "unable to initialize KMS encryption")
 			}
 		default:
 			return versionMetadata{}, errors.Errorf("unsupported server-side encryption method: %q", s.ServerSideEncryption)
