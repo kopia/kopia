@@ -14,6 +14,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/encrypt"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -186,9 +187,17 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 
 	// Configure server-side encryption if specified
 	if s.ServerSideEncryption != "" {
-		putOpts.ServerSideEncryption = minio.ServerSideEncryption(s.ServerSideEncryption)
-		if s.ServerSideEncryption == "aws:kms" && s.KMSKeyID != "" {
-			putOpts.SSEKMSKeyID = s.KMSKeyID
+		switch s.ServerSideEncryption {
+		case "AES256":
+			putOpts.ServerSideEncryption = encrypt.NewSSE()
+		case "aws:kms":
+			if s.KMSKeyID != "" {
+				putOpts.ServerSideEncryption = encrypt.NewSSEKMS(s.KMSKeyID, nil)
+			} else {
+				putOpts.ServerSideEncryption = encrypt.NewSSEKMS("", nil)
+			}
+		default:
+			return versionMetadata{}, errors.Errorf("unsupported server-side encryption method: %q", s.ServerSideEncryption)
 		}
 	}
 
