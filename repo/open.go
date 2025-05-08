@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -365,7 +366,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 			timeNow:          cmOpts.TimeNow,
 			cliOpts:          cliOpts,
 			configFile:       configFile,
-			nextWriterID:     new(int32),
+			nextWriterID:     &atomic.Int32{},
 			throttler:        throttler,
 			metricsRegistry:  mr,
 			refCountedCloser: closer,
@@ -402,7 +403,7 @@ func wrapLockingStorage(st blob.Storage, r format.BlobStorageConfiguration) blob
 	// collect prefixes that need to be locked on put
 	prefixes := GetLockingStoragePrefixes()
 
-	return beforeop.NewWrapper(st, nil, nil, nil, func(ctx context.Context, id blob.ID, opts *blob.PutOptions) error {
+	return beforeop.NewWrapper(st, nil, nil, nil, func(_ context.Context, id blob.ID, opts *blob.PutOptions) error {
 		for _, prefix := range prefixes {
 			if strings.HasPrefix(string(id), prefix) {
 				opts.RetentionMode = r.RetentionMode

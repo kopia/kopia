@@ -54,6 +54,7 @@ func TestMerged(t *testing.T) {
 				t.Errorf("iteration preferred deleted content over non-deleted")
 			}
 		}
+
 		return nil
 	}))
 

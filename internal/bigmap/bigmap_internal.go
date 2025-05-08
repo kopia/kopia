@@ -344,7 +344,7 @@ func (m *internalMap) newMemoryMappedSegment(ctx context.Context) (mmap.MMap, er
 
 // +checklocks:m.mu
 func (m *internalMap) maybeCreateMappedFile(ctx context.Context) (*os.File, error) {
-	f, err := tempfile.Create("")
+	f, err := tempfile.CreateAutoDelete()
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create memory-mapped file")
 	}
@@ -389,7 +389,7 @@ func (m *internalMap) newSegment(ctx context.Context) mmap.MMap {
 }
 
 // Close releases all resources associated with a map.
-func (m *internalMap) Close(ctx context.Context) {
+func (m *internalMap) Close(_ context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

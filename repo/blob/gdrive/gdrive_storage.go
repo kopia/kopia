@@ -334,7 +334,7 @@ func (gdrive *gdriveStorage) DisplayName() string {
 	return fmt.Sprintf("Google Drive: %v", gdrive.folderID)
 }
 
-func (gdrive *gdriveStorage) FlushCaches(ctx context.Context) error {
+func (gdrive *gdriveStorage) FlushCaches(_ context.Context) error {
 	gdrive.fileIDCache.Clear()
 	return nil
 }
@@ -473,12 +473,11 @@ func translateError(err error) error {
 		}
 	}
 
-	switch {
-	case err == nil:
-		return nil
-	default:
+	if err != nil {
 		return errors.Wrap(err, "unexpected Google Drive error")
 	}
+
+	return nil
 }
 
 func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {

@@ -1,4 +1,4 @@
-package snapshotfs
+package upload
 
 import (
 	"sync"
@@ -26,10 +26,10 @@ type EstimationParameters struct {
 	AdaptiveThreshold int64
 }
 
-// UploadProgress is invoked by uploader to report status of file and directory uploads.
+// Progress is invoked by uploader to report status of file and directory uploads.
 //
 //nolint:interfacebloat
-type UploadProgress interface {
+type Progress interface {
 	// Enabled returns true when progress is enabled, false otherwise.
 	Enabled() bool
 
@@ -163,10 +163,10 @@ func (p *NullUploadProgress) EstimationParameters() EstimationParameters {
 	}
 }
 
-var _ UploadProgress = (*NullUploadProgress)(nil)
+var _ Progress = (*NullUploadProgress)(nil)
 
-// UploadCounters represents a snapshot of upload counters.
-type UploadCounters struct {
+// Counters represents a snapshot of upload counters.
+type Counters struct {
 	// +checkatomic
 	TotalCachedBytes int64 `json:"cachedBytes"`
 	// +checkatomic
@@ -206,13 +206,13 @@ type CountingUploadProgress struct {
 
 	mu sync.Mutex
 
-	counters UploadCounters
+	counters Counters
 }
 
 // UploadStarted implements UploadProgress.
 func (p *CountingUploadProgress) UploadStarted() {
 	// reset counters to all-zero values.
-	p.counters = UploadCounters{}
+	p.counters = Counters{}
 }
 
 // UploadedBytes implements UploadProgress.
@@ -289,11 +289,11 @@ func (p *CountingUploadProgress) StartedDirectory(dirname string) {
 }
 
 // Snapshot captures current snapshot of the upload.
-func (p *CountingUploadProgress) Snapshot() UploadCounters {
+func (p *CountingUploadProgress) Snapshot() Counters {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return UploadCounters{
+	return Counters{
 		TotalCachedFiles:  atomic.LoadInt32(&p.counters.TotalCachedFiles),
 		TotalHashedFiles:  atomic.LoadInt32(&p.counters.TotalHashedFiles),
 		TotalCachedBytes:  atomic.LoadInt64(&p.counters.TotalCachedBytes),
@@ -342,4 +342,4 @@ func (p *CountingUploadProgress) UITaskCounters(final bool) map[string]uitask.Co
 	return m
 }
 
-var _ UploadProgress = (*CountingUploadProgress)(nil)
+var _ Progress = (*CountingUploadProgress)(nil)

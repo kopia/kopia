@@ -311,6 +311,7 @@ func TestSnapshotFix(t *testing.T) {
 				env.RunAndExpectFailure(t, append([]string{"snapshot", "fix"}, tc.flags...)...)
 				env.RunAndExpectFailure(t, append(append([]string{"snapshot", "fix"}, tc.flags...), "--commit")...)
 				env.RunAndExpectFailure(t, "snapshot", "verify")
+
 				return
 			}
 

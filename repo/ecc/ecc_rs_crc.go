@@ -312,7 +312,7 @@ func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, _ []byte, output *gather
 			}
 		}
 
-		if r.Options.DeleteFirstShardForTests {
+		if r.DeleteFirstShardForTests {
 			shards[0] = nil
 		}
 

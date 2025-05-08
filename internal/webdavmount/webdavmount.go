@@ -26,7 +26,7 @@ var (
 type webdavFile struct {
 	// webdavFile implements webdav.File but needs context
 	// +checklocks:mu
-	ctx context.Context //nolint:containedctx
+	ctx context.Context
 
 	entry fs.File
 
@@ -100,7 +100,7 @@ func (f *webdavFile) Close() error {
 
 type webdavDir struct {
 	// webdavDir implements webdav.File but needs context
-	ctx context.Context //nolint:containedctx
+	ctx context.Context
 
 	w    *webdavFS
 	info os.FileInfo
@@ -172,15 +172,15 @@ type webdavFS struct {
 	dir fs.Directory
 }
 
-func (w *webdavFS) Mkdir(ctx context.Context, path string, _ os.FileMode) error {
+func (w *webdavFS) Mkdir(_ context.Context, path string, _ os.FileMode) error {
 	return errors.Errorf("can't create %q: read-only filesystem", path)
 }
 
-func (w *webdavFS) RemoveAll(ctx context.Context, path string) error {
+func (w *webdavFS) RemoveAll(_ context.Context, path string) error {
 	return errors.Errorf("can't remove %q: read-only filesystem", path)
 }
 
-func (w *webdavFS) Rename(ctx context.Context, oldPath, newPath string) error {
+func (w *webdavFS) Rename(_ context.Context, oldPath, newPath string) error {
 	return errors.Errorf("can't rename %q to %q: read-only filesystem", oldPath, newPath)
 }
 

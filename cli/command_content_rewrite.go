@@ -41,7 +41,7 @@ func (c *commandContentRewrite) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandContentRewrite) runContentRewriteCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	c.svc.advancedCommand(ctx)
+	c.svc.advancedCommand()
 
 	contentIDs, err := toContentIDs(c.contentRewriteIDs)
 	if err != nil {

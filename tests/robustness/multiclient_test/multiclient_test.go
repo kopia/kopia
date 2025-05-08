@@ -102,7 +102,7 @@ func TestOneLargeFile(t *testing.T) {
 	th.RunN(ctx, t, numClients, f)
 }
 
-func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
+func TestManySmallFilesAcrossDirectoryTree(t *testing.T) {
 	// TODO: Test takes too long - need to address performance issues with fio writes
 	const (
 		fileSize      = 4096
@@ -243,6 +243,7 @@ func tryRandomAction(ctx context.Context, t *testing.T, opts engine.ActionOpts) 
 // with options and masks no-op errors, and asserts when called for any other action.
 func tryDeleteAction(ctx context.Context, t *testing.T, action engine.ActionKey, actionOpts map[string]string) {
 	t.Helper()
+
 	eligibleActionsList := []engine.ActionKey{
 		engine.DeleteDirectoryContentsActionKey,
 		engine.DeleteRandomSubdirectoryActionKey,

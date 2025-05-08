@@ -26,7 +26,7 @@ import (
 
 const syncConnectWaitTime = 5 * time.Second
 
-func handleRepoStatus(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoStatus(_ context.Context, rc requestContext) (interface{}, *apiError) {
 	if rc.rep == nil {
 		return &serverapi.StatusResponse{
 			Connected:      false,
@@ -240,7 +240,7 @@ func handleRepoSetDescription(ctx context.Context, rc requestContext) (interface
 	return handleRepoStatus(ctx, rc)
 }
 
-func handleRepoSupportedAlgorithms(ctx context.Context, _ requestContext) (interface{}, *apiError) {
+func handleRepoSupportedAlgorithms(_ context.Context, _ requestContext) (interface{}, *apiError) {
 	res := &serverapi.SupportedAlgorithmsResponse{
 		DefaultHashAlgorithm:    hashing.DefaultAlgorithm,
 		SupportedHashAlgorithms: toAlgorithmInfo(hashing.SupportedAlgorithms(), neverDeprecated),
@@ -299,7 +299,7 @@ func sortAlgorithms(a []serverapi.AlgorithmInfo) {
 	})
 }
 
-func handleRepoGetThrottle(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoGetThrottle(_ context.Context, rc requestContext) (interface{}, *apiError) {
 	dr, ok := rc.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, requestError(serverapi.ErrorStorageConnection, "no direct storage connection")
@@ -308,7 +308,7 @@ func handleRepoGetThrottle(ctx context.Context, rc requestContext) (interface{},
 	return dr.Throttler().Limits(), nil
 }
 
-func handleRepoSetThrottle(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoSetThrottle(_ context.Context, rc requestContext) (interface{}, *apiError) {
 	dr, ok := rc.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, requestError(serverapi.ErrorStorageConnection, "no direct storage connection")
@@ -328,7 +328,7 @@ func handleRepoSetThrottle(ctx context.Context, rc requestContext) (interface{},
 
 func (s *Server) getConnectOptions(cliOpts repo.ClientOptions) *repo.ConnectOptions {
 	o := *s.options.ConnectOptions
-	o.ClientOptions = o.ClientOptions.Override(cliOpts)
+	o.ClientOptions = o.Override(cliOpts)
 
 	return &o
 }
@@ -387,7 +387,7 @@ func (s *Server) disconnect(ctx context.Context) error {
 	return nil
 }
 
-func handleRepoSync(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoSync(_ context.Context, rc requestContext) (interface{}, *apiError) {
 	rc.srv.Refresh()
 
 	return &serverapi.Empty{}, nil

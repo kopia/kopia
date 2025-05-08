@@ -32,6 +32,7 @@ func CleanupOldData(ctx context.Context, tb testing.TB, st blob.Storage, cleanup
 				return st.DeleteBlob(ctx, it.BlobID)
 			})
 		}
+
 		return nil
 	})
 

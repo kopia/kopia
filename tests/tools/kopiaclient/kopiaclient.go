@@ -26,6 +26,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 	"github.com/kopia/kopia/tests/robustness"
 )
 
@@ -112,7 +113,7 @@ func (kc *KopiaClient) SnapshotCreate(ctx context.Context, key string, val []byt
 	}
 
 	source := kc.getSourceForKeyVal(key, val)
-	u := snapshotfs.NewUploader(rw)
+	u := upload.NewUploader(rw)
 
 	man, err := u.Upload(ctx, source, policyTree, si)
 	if err != nil {

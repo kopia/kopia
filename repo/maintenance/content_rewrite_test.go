@@ -82,6 +82,7 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 					ow := w.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 					fmt.Fprintf(ow, "%v", uuid.NewString())
 					_, err := ow.Result()
+
 					return err
 				}))
 			}
@@ -91,6 +92,7 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 					ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "k", MetadataCompressor: "zstd-fastest"})
 					fmt.Fprintf(ow, "%v", uuid.NewString())
 					_, err := ow.Result()
+
 					return err
 				}))
 			}

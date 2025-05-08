@@ -51,9 +51,9 @@ func (m *Manager) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent)
 	if m.repoConfig.UpgradeLock == nil {
 		// when we are putting a new lock then ensure that we can upgrade
 		// to that version
-		if m.repoConfig.ContentFormat.Version >= MaxFormatVersion {
+		if m.repoConfig.Version >= MaxFormatVersion {
 			return nil, errors.WithMessagef(ErrFormatUptoDate, "repository is using version %d, and version %d is the maximum",
-				m.repoConfig.ContentFormat.Version, MaxFormatVersion)
+				m.repoConfig.Version, MaxFormatVersion)
 		}
 
 		// backup the current repository config from local cache to the
@@ -66,7 +66,7 @@ func (m *Manager) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent)
 		m.repoConfig.UpgradeLock = &l
 		// mark the upgrade to the new format version, this will ensure that older
 		// clients won't be able to parse the new version
-		m.repoConfig.ContentFormat.Version = MaxFormatVersion
+		m.repoConfig.Version = MaxFormatVersion
 	} else if newL, err := m.repoConfig.UpgradeLock.Update(&l); err == nil {
 		m.repoConfig.UpgradeLock = newL
 	} else {

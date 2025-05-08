@@ -278,6 +278,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceAutoLiveness(t *testing.T) {
 
 		dp := maintenance.DefaultParams()
 		dp.Owner = env.Repository.ClientOptions().UsernameAtHost()
+
 		return maintenance.SetParams(ctx, w, &dp)
 	}))
 
@@ -320,6 +321,18 @@ func (s *formatSpecificTestSuite) TestMaintenanceAutoLiveness(t *testing.T) {
 	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsFull], maintenance.TaskRewriteContentsFull)
 	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsQuick], maintenance.TaskRewriteContentsQuick)
 	require.NotEmpty(t, sched.Runs[maintenance.TaskSnapshotGarbageCollection], maintenance.TaskSnapshotGarbageCollection)
+}
+
+func TestNoMaintenanceReadOnly(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		ConnectOptions: func(o *repo.ConnectOptions) {
+			o.ReadOnly = true
+		},
+	})
+
+	err := snapshotmaintenance.Run(ctx, env.RepositoryWriter, maintenance.ModeAuto, true, maintenance.SafetyFull)
+
+	require.ErrorIs(t, err, snapshotmaintenance.ErrReadonly)
 }
 
 func (th *testHarness) fakeTimeOpenRepoOption(o *repo.Options) {

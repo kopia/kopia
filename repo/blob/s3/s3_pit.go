@@ -118,7 +118,7 @@ func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
 // maybePointInTimeStore wraps s with a point-in-time store when s is versioned
 // and a point-in-time value is specified. Otherwise s is returned.
 func maybePointInTimeStore(ctx context.Context, s *s3Storage, pointInTime *time.Time) (blob.Storage, error) {
-	if pit := s.Options.PointInTime; pit == nil || pit.IsZero() {
+	if pit := s.PointInTime; pit == nil || pit.IsZero() {
 		return s, nil
 	}
 

@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func handleSourcesList(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleSourcesList(_ context.Context, rc requestContext) (interface{}, *apiError) {
 	_, multiUser := rc.rep.(repo.DirectRepository)
 
 	resp := &serverapi.SourcesResponse{

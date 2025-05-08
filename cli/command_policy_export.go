@@ -27,7 +27,7 @@ type commandPolicyExport struct {
 const exportFilePerms = 0o600
 
 func (c *commandPolicyExport) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("export", "Exports the policy to the specified file, or to stdout if none is specified.")
+	cmd := parent.Command("export", "Exports the policies to the specified file, or to stdout if none is specified.")
 	cmd.Flag("to-file", "File path to export to").StringVar(&c.filePath)
 	cmd.Flag("overwrite", "Overwrite the file if it exists").BoolVar(&c.overwrite)
 
@@ -53,7 +53,7 @@ func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) erro
 
 	policies := make(map[string]*policy.Policy)
 
-	if c.policyTargetFlags.global || len(c.policyTargetFlags.targets) > 0 {
+	if c.global || len(c.targets) > 0 {
 		targets, err := c.policyTargets(ctx, rep)
 		if err != nil {
 			return err
@@ -88,7 +88,7 @@ func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) erro
 
 	impossible.PanicOnError(err)
 
-	_, err = fmt.Fprintf(output, "%s", toWrite)
+	_, err = fmt.Fprintf(output, "%s\n", toWrite)
 
 	return errors.Wrap(err, "unable to write policy to output")
 }

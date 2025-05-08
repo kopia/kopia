@@ -160,6 +160,7 @@ func makeTempS3Bucket(t *testing.T) (bucketName string, cleanupCB func()) {
 				break
 			}
 		}
+
 		require.NoError(t, err)
 	}
 }
@@ -541,7 +542,7 @@ func TestActionsFilesystem(t *testing.T) {
 	numActions := 10
 	for range numActions {
 		err := eng.RandomAction(ctx, actionOpts)
-		if !(err == nil || errors.Is(err, robustness.ErrNoOp)) {
+		if err != nil && !errors.Is(err, robustness.ErrNoOp) {
 			t.Error("Hit error", err)
 		}
 	}
@@ -588,7 +589,7 @@ func TestActionsS3(t *testing.T) {
 	numActions := 10
 	for range numActions {
 		err := eng.RandomAction(ctx, actionOpts)
-		if !(err == nil || errors.Is(err, robustness.ErrNoOp)) {
+		if err != nil && !errors.Is(err, robustness.ErrNoOp) {
 			t.Error("Hit error", err)
 		}
 	}

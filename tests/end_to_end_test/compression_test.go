@@ -74,7 +74,9 @@ func (s *formatSpecificTestSuite) TestCompression(t *testing.T) {
 		for _, l := range lines {
 			if strings.HasPrefix(l, entries[0].ObjectID) {
 				require.Contains(t, l, "pgzip")
+
 				found = true
+
 				break
 			}
 		}

@@ -336,7 +336,7 @@ func TestFileStorage_New_MkdirAllFailureIsIgnored(t *testing.T) {
 	}, true)
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
+	st.Close(ctx)
 }
 
 func TestFileStorage_New_ChecksDirectoryExistence(t *testing.T) {

@@ -152,7 +152,7 @@ func (f *formattingOptionsProvider) HashFunc() hashing.HashFunc {
 	return f.h
 }
 
-func (f *formattingOptionsProvider) RepositoryFormatBytes(ctx context.Context) ([]byte, error) {
+func (f *formattingOptionsProvider) RepositoryFormatBytes(_ context.Context) ([]byte, error) {
 	if f.SupportsPasswordChange() {
 		return nil, nil
 	}

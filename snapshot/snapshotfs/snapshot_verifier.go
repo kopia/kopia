@@ -178,7 +178,7 @@ func (v *Verifier) InParallel(ctx context.Context, enqueue func(tw *TreeWalker) 
 }
 
 // NewVerifier creates a verifier.
-func NewVerifier(ctx context.Context, rep repo.Repository, opts VerifierOptions) *Verifier {
+func NewVerifier(_ context.Context, rep repo.Repository, opts VerifierOptions) *Verifier {
 	if opts.Parallelism == 0 {
 		opts.Parallelism = runtime.NumCPU()
 	}

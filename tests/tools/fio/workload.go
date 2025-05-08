@@ -140,6 +140,7 @@ func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth int, prob floa
 		for _, entry := range dirEntries {
 			if rand.Float32() < prob {
 				path := filepath.Join(dirPath, entry.Name())
+
 				err = os.RemoveAll(path)
 				if err != nil {
 					return err

@@ -1,179 +1,201 @@
-linters-settings:
-  cyclop:
-    max-complexity: 20
-    skip-tests: true
-  exhaustive:
-    # indicates that switch statements are to be considered exhaustive if a
-    # 'default' case is present, even if all enum members aren't listed in the
-    # switch
-    default-signifies-exhaustive: true
-  forbidigo:
-    forbid:
-    - filepath.IsAbs # use ospath.IsAbs which supports windows UNC paths
-    - ioutil.Discard # use io.Discard
-    - ioutil.NopCloser # use io.NopCloser
-    - ioutil.ReadAll # use io.ReadAll
-    - ioutil.ReadDir # use os.ReadDir
-    - ioutil.ReadFile # use os.ReadFile
-    - ioutil.TempDir # use os.MkdirTemp
-    - ioutil.TempFile # use os.CreateTemp
-    - ioutil.WriteFile # use os.WriteFile
-    - time.Now # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
-    - time.Since # use timetrack.Timer.Elapsed()
-    - time.Until # never use this
-    - Envar\(\" # do not use envar literals, always wrap with EnvName()
-  funlen:
-    lines: 100
-    statements: 60
-  gci:
-    sections:
-    - standard
-    - default
-    - prefix(github.com/kopia/kopia)
-  gocognit:
-    min-complexity: 40
-  goconst:
-    min-len: 5
-    min-occurrences: 3
-  gocritic:
-    settings:
-      hugeParam:
-        # size in bytes that makes the warning trigger (default 80)
-        sizeThreshold: 160
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-    disabled-checks:
-      - whyNoLint
-      - wrapperFunc
-  gocyclo:
-    min-complexity: 15
-  goimports:
-    local-prefixes: github.com/kopia/kopia
-  govet:
-    shadow: true
-    settings:
-      printf:
-        funcs:
-          - (*go.uber.org/zap.SugaredLogger).Debugf
-          - (*go.uber.org/zap.SugaredLogger).Infof
-          - (*go.uber.org/zap.SugaredLogger).Warnf
-          - (*go.uber.org/zap.SugaredLogger).Errorf
-  lll:
-    line-length: 256
-  loggercheck:
-    zap: true
-    no-printf-like: true
-    rules:
-      - (*go.uber.org/zap.SugaredLogger).With
-  maligned:
-    suggest-new: true
-  misspell:
-    locale: US
-
+version: "2"
 linters:
-  enable-all: true
+  settings:
+    cyclop:
+      max-complexity: 20
+    depguard:
+      rules:
+        main:
+          deny:
+            # v2 of the SDK comprises many modules, which means it cannot be
+            # denied with a single gomodguard entry
+            - pkg: "github.com/aws/aws-sdk-go-v2"
+              desc: "use github.com/minio/minio-go"
+    exhaustive:
+      # indicates that switch statements are to be considered exhaustive if a
+      # 'default' case is present, even if all enum members aren't listed in the
+      # switch
+      default-signifies-exhaustive: true
+    forbidigo:
+      forbid:
+        - pattern: filepath.IsAbs   # use ospath.IsAbs which supports windows UNC paths
+        - pattern: time.Now         # do not use outside of 'clock' and 'timetrack' packages use clock.Now or timetrack.StartTimer
+        - pattern: time.Since       # use timetrack.Timer.Elapsed()
+        - pattern: time.Until       # never use this
+        - pattern: Envar\(\"        # do not use envar literals, always wrap with EnvName()
+    funlen:
+      lines: 100
+      statements: 60
+    gocognit:
+      min-complexity: 40
+    gomodguard:
+      blocked:
+        modules:
+          - github.com/aws/aws-sdk-go:
+              recommendations:
+                - github.com/minio/minio-go
+              reason: "github.com/aws/aws-sdk-go is not activily developed any longer"
+          - github.com/rs/zerolog/log:
+              recommendations:
+                - "use kopia's logging packages"
+              reason: "zerolog not currently use"
+          - go.uber.org/multierr:
+              recommendations:
+                - errors
+              reason: "multierr.Append() can be replaced by native errors.Join()"
+    goconst:
+      min-len: 5
+      min-occurrences: 3
+    gocritic:
+      settings:
+        hugeParam:
+          # size in bytes that makes the warning trigger (default 80)
+          sizeThreshold: 160
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      disabled-checks:
+        - whyNoLint
+        - wrapperFunc
+    gocyclo:
+      min-complexity: 15
+    govet:
+      enable-all: true
+      settings:
+        printf:
+          funcs:
+            - (*go.uber.org/zap.SugaredLogger).Debugf
+            - (*go.uber.org/zap.SugaredLogger).Infof
+            - (*go.uber.org/zap.SugaredLogger).Warnf
+            - (*go.uber.org/zap.SugaredLogger).Errorf
+    lll:
+      line-length: 256
+    loggercheck:
+      zap: true
+      no-printf-like: true
+      rules:
+        - (*go.uber.org/zap.SugaredLogger).With
+    misspell:
+      locale: US
+
+  default: all
   disable:
-    - depguard
     - exhaustruct
-    - exportloopref
+    - forcetypeassert
+    - funcorder
+    - gochecknoglobals
     - gochecknoinits
-    - gci
-    - ireturn # this one may be interesting to control allocations
     - gosmopolitan
+    - importas
+    - ireturn # this one may be interesting to control allocations
     - musttag
     - nilnil
     - nlreturn
     - nonamedreturns
     - paralleltest
     - prealloc
+    - protogetter
     - rowserrcheck
     - sqlclosecheck
     - tagalign
     - tagliatelle
     - testpackage
     - tparallel
+    - usetesting
     - varnamelen # this one may be interesting, but too much churn
-    - wastedassign
     - whitespace
+    - zerologlint # zerolog not currently used in the codebase
 
-issues:
-  exclude-use-default: false
-  exclude-rules:
-    - path: \.pb\.go
-      linters:
-      - gofmt
-    - path: reporter.go
-      linters:
-      - musttag
-    - path: _test\.go|testing|tests|test_env|fshasher|fault
-      linters:
-      - contextcheck
-      - errcheck
-      - errchkjson
-      - forcetypeassert
-      - funlen
-      - gochecknoglobals
-      - gocognit
-      - goconst
-      - mnd
-      - gosec
-      - musttag
-      - nestif
-      - perfsprint
-      - revive
-      - nolintlint
-      - wrapcheck
-      - wsl
-    - text: "log is a global variable"
-      linters:
-      - gochecknoglobals
-    - text: "tracer is a global variable"
-      linters:
-      - gochecknoglobals
-    # always allow ctx even when unused
-    - text: "unused-parameter: parameter 'ctx' seems to be unused"
-      linters:
-      - revive
-    - text: "Magic number: 1e"
-      linters:
-      - mnd
-    - text: "unnecessaryDefer"
-      linters:
-      - gocritic
-    - text: "filepathJoin"
-      linters:
-      - gocritic
-    - text: "weak cryptographic primitive"
-      linters:
-        - gosec
-    - text: "lines are duplicate of"
-      linters:
-        - dupl
-    - text: "Line contains TODO"
-      linters:
-        - godox
-    - text: "error returned from external package is unwrapped: sig: func github.com/kopia/kopia/internal/retry"
-      linters:
-        - wrapcheck
-    - text: "error returned from external package is unwrapped: sig: func github.com/kopia/kopia/internal/connection.UsingConnection"
-      linters:
-        - wrapcheck
-    - text: timeCmpSimplify
-      linters:
-        - gocritic
-    - text: ".*Magic number\\: [01],"
-      linters:
-        - mnd
-    - text: "Errors unhandled"
-      linters:
-        - gosec
-    - text: "unwrapped: sig: func github.com/kopia/kopia/fs.GetAllEntries"
-      linters:
-        - wrapcheck
-    - text: "float-compare: use require.InEpsilon"
-      linters:
-        - testifylint
+  exclusions:
+    generated: lax
+    rules:
+      - path: reporter.go
+        linters:
+          - musttag
+      - path: _test\.go|testing|tests|test_env|fshasher|fault 
+        linters:
+          - contextcheck
+          - errcheck
+          - errchkjson
+          - forcetypeassert
+          - funlen
+          - gochecknoglobals
+          - gocognit
+          - goconst
+          - gosec
+          - mnd
+          - musttag
+          - nestif
+          - nolintlint
+          - perfsprint
+          - revive
+          - wrapcheck
+      - text: "log is a global variable"
+        linters:
+          - gochecknoglobals
+      - text: "tracer is a global variable"
+        linters:
+          - gochecknoglobals
+      - text: "Magic number: 1e"
+        linters:
+          - mnd
+      - text: "filepathJoin"
+        linters:
+          - gocritic
+      - text: "weak cryptographic primitive"
+        linters:
+          - gosec
+      - text: "lines are duplicate of"
+        linters:
+          - dupl
+      - text: "Line contains TODO"
+        linters:
+          - godox
+      - text: "error returned from external package is unwrapped: sig: func github.com/kopia/kopia/internal/retry"
+        linters:
+          - wrapcheck
+      - text: "error returned from external package is unwrapped: sig: func github.com/kopia/kopia/internal/connection.UsingConnection"
+        linters:
+          - wrapcheck
+      - text: "Errors unhandled"
+        linters:
+          - gosec
+      - text: "unwrapped: sig: func github.com/kopia/kopia/fs.GetAllEntries"
+        linters:
+          - wrapcheck
+      - text: "float-compare: use require.InEpsilon"
+        linters:
+          - testifylint
+      - text: "fieldalignment:"
+        linters:
+          - govet
+      - text: "shadow:"
+        linters:
+          - govet
+      - text: "unnamedResult:"
+        linters:
+          - gocritic
+      - linters:
+          - cyclop
+        path: (.+)_test\.go
+    warn-unused: true
+
+formatters:
+  enable:
+    - gci
+    - gofumpt
+  settings:
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule
+
+output:
+  show-stats: false
+
+run:
+  timeout: 20m

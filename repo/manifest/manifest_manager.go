@@ -68,7 +68,7 @@ type Manager struct {
 }
 
 // Put serializes the provided payload to JSON and persists it. Returns unique identifier that represents the manifest.
-func (m *Manager) Put(ctx context.Context, labels map[string]string, payload interface{}) (ID, error) {
+func (m *Manager) Put(_ context.Context, labels map[string]string, payload interface{}) (ID, error) {
 	if labels[TypeLabelKey] == "" {
 		return "", errors.New("'type' label is required")
 	}
@@ -294,7 +294,7 @@ type ManagerOptions struct {
 }
 
 // NewManager returns new manifest manager for the provided content manager.
-func NewManager(ctx context.Context, b contentManager, options ManagerOptions, mr *metrics.Registry) (*Manager, error) {
+func NewManager(_ context.Context, b contentManager, options ManagerOptions, mr *metrics.Registry) (*Manager, error) {
 	_ = mr
 
 	timeNow := options.TimeNow

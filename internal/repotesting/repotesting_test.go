@@ -13,7 +13,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 func TestTimeFuncWiring(t *testing.T) {
@@ -84,7 +84,7 @@ func TestTimeFuncWiring(t *testing.T) {
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
 
 	nt = ft.Advance(1 * time.Hour)
-	u := snapshotfs.NewUploader(env.RepositoryWriter)
+	u := upload.NewUploader(env.RepositoryWriter)
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})

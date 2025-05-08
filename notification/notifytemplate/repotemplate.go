@@ -2,11 +2,12 @@ package notifytemplate
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
@@ -106,7 +107,7 @@ func ListTemplates(ctx context.Context, rep repo.Repository, prefix string) ([]I
 		}
 	}
 
-	return maps.Values(infos), nil
+	return slices.AppendSeq(make([]Info, 0, len(infos)), maps.Values(infos)), nil
 }
 
 // SetTemplate saves a template in the repository.

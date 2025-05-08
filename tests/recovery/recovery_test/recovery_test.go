@@ -297,7 +297,9 @@ func CompareDirs(t *testing.T, source, destination string) {
 
 	ctx := context.Background()
 
-	c, err := diff.NewComparer(&buf)
+	const statsOnly = false
+
+	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
@@ -310,7 +312,7 @@ func CompareDirs(t *testing.T, source, destination string) {
 	e2, err := localfs.NewEntry(destination)
 	require.NoError(t, err)
 
-	err = c.Compare(ctx, e1, e2)
+	_, err = c.Compare(ctx, e1, e2)
 	require.NoError(t, err)
 }
 

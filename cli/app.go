@@ -88,7 +88,7 @@ type appServices interface {
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
 	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
-	advancedCommand(ctx context.Context)
+	advancedCommand()
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
 	getRestoreProgress() RestoreProgress
@@ -463,28 +463,19 @@ func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo
 			Purpose:  "cli:" + c.currentActionName(),
 			OnUpload: c.progress.UploadedBytes,
 		}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
-	}), repositoryAccessMode{
-		mustBeConnected:    true,
-		disableMaintenance: true,
-	})
+	}), repositoryAccessMode{})
 }
 
 func (c *App) directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return act(ctx, rep)
-	}), repositoryAccessMode{
-		mustBeConnected:    true,
-		disableMaintenance: true,
-	})
+	}), repositoryAccessMode{})
 }
 
 func (c *App) repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
-	}, repositoryAccessMode{
-		mustBeConnected:    true,
-		disableMaintenance: true,
-	})
+	}, repositoryAccessMode{})
 }
 
 func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
@@ -496,7 +487,7 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 			return act(ctx, w)
 		})
 	}, repositoryAccessMode{
-		mustBeConnected: true,
+		allowMaintenance: true,
 	})
 }
 
@@ -549,8 +540,7 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 }
 
 type repositoryAccessMode struct {
-	mustBeConnected    bool
-	disableMaintenance bool
+	allowMaintenance bool
 }
 
 func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
@@ -569,8 +559,10 @@ func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ct
 
 func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return c.baseActionWithContext(func(ctx context.Context) error {
-		rep, err := c.openRepository(ctx, mode.mustBeConnected)
-		if err != nil && mode.mustBeConnected {
+		const requireConnected = true
+
+		rep, err := c.openRepository(ctx, requireConnected)
+		if err != nil {
 			return errors.Wrap(err, "open repository")
 		}
 
@@ -578,7 +570,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 
 		err = act(ctx, rep)
 
-		if rep != nil && err == nil && !mode.disableMaintenance {
+		if rep != nil && err == nil && mode.allowMaintenance {
 			if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
 				log(ctx).Errorf("error running maintenance: %v", merr)
 			}
@@ -595,7 +587,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 			)
 		}
 
-		if rep != nil && mode.mustBeConnected {
+		if rep != nil {
 			if cerr := rep.Close(ctx); cerr != nil {
 				return errors.Wrap(cerr, "unable to close repository")
 			}
@@ -658,7 +650,7 @@ func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) erro
 	return errors.Wrap(err, "error running maintenance")
 }
 
-func (c *App) advancedCommand(ctx context.Context) {
+func (c *App) advancedCommand() {
 	if c.AdvancedCommands != "enabled" {
 		_, _ = errorColor.Fprintf(c.stderrWriter, `
 This command could be dangerous or lead to repository corruption when used improperly.

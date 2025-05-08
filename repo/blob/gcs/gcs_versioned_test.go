@@ -268,6 +268,7 @@ func putBlobs(ctx context.Context, cli blob.Storage, blobID blob.ID, blobs []str
 
 func createBucket(t *testing.T, opts bucketOpts) {
 	t.Helper()
+
 	ctx := context.Background()
 
 	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
@@ -276,6 +277,7 @@ func createBucket(t *testing.T, opts bucketOpts) {
 	attrs := &gcsclient.BucketAttrs{}
 
 	bucketHandle := cli.Bucket(opts.bucket)
+
 	if opts.isLockedBucket {
 		attrs.VersioningEnabled = true
 		bucketHandle = bucketHandle.SetObjectRetention(true)
@@ -299,6 +301,7 @@ func createBucket(t *testing.T, opts bucketOpts) {
 
 func validateBucket(t *testing.T, opts bucketOpts) {
 	t.Helper()
+
 	ctx := context.Background()
 
 	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))

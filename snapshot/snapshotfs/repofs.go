@@ -12,9 +12,12 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 )
+
+var repoFSLog = logging.Module("repofs")
 
 // Well-known object ID prefixes.
 const (
@@ -230,7 +233,7 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	return string(b), nil
 }
 
-func (rsl *repositorySymlink) Resolve(ctx context.Context) (fs.Entry, error) {
+func (rsl *repositorySymlink) Resolve(_ context.Context) (fs.Entry, error) {
 	return nil, errors.New("Symlink.Resolve not implemented in Repofs")
 }
 
