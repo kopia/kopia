@@ -48,6 +48,7 @@ type Comparer struct {
 	stats         Stats
 	out           io.Writer
 	tmpDir        string
+	statsOnly     bool
 	DiffCommand   string
 	DiffArguments []string
 }
@@ -122,14 +123,14 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 
 	if e1 == nil {
 		if dir2, isDir2 := e2.(fs.Directory); isDir2 {
-			c.output("added directory %v\n", path)
+			c.output(c.statsOnly, "added directory %v\n", path)
 
 			c.stats.DirectoryEntries.Added++
 
 			return c.compareDirectories(ctx, nil, dir2, path)
 		}
 
-		c.output("added file %v (%v bytes)\n", path, e2.Size())
+		c.output(c.statsOnly, "added file %v (%v bytes)\n", path, e2.Size())
 
 		c.stats.FileEntries.Added++
 
@@ -144,14 +145,14 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 
 	if e2 == nil {
 		if dir1, isDir1 := e1.(fs.Directory); isDir1 {
-			c.output("removed directory %v\n", path)
+			c.output(c.statsOnly, "removed directory %v\n", path)
 
 			c.stats.DirectoryEntries.Removed++
 
 			return c.compareDirectories(ctx, dir1, nil, path)
 		}
 
-		c.output("removed file %v (%v bytes)\n", path, e1.Size())
+		c.output(c.statsOnly, "removed file %v (%v bytes)\n", path, e1.Size())
 
 		c.stats.FileEntries.Removed++
 
@@ -172,7 +173,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	if isDir1 {
 		if !isDir2 {
 			// right is a non-directory, left is a directory
-			c.output("changed %v from directory to non-directory\n", path)
+			c.output(c.statsOnly, "changed %v from directory to non-directory\n", path)
 			return nil
 		}
 
@@ -181,14 +182,14 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 
 	if isDir2 {
 		// left is non-directory, right is a directory
-		c.output("changed %v from non-directory to a directory\n", path)
+		c.output(c.statsOnly, "changed %v from non-directory to a directory\n", path)
 
 		return nil
 	}
 
 	if f1, ok := e1.(fs.File); ok {
 		if f2, ok := e2.(fs.File); ok {
-			c.output("changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
+			c.output(c.statsOnly, "changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
 
 			c.stats.FileEntries.Modified++
 
@@ -242,10 +243,10 @@ func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) {
 	case e1 == e2: // in particular e1 == nil && e2 == nil
 		return
 	case e1 == nil:
-		c.output("%v does not exist in source directory\n", fullpath)
+		c.output(c.statsOnly, "%v does not exist in source directory\n", fullpath)
 		return
 	case e2 == nil:
-		c.output("%v does not exist in destination directory\n", fullpath)
+		c.output(c.statsOnly, "%v does not exist in destination directory\n", fullpath)
 		return
 	}
 
@@ -254,32 +255,32 @@ func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) {
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
 		changed = true
 
-		c.output("%v modes differ: %v %v\n", fullpath, m1, m2)
+		c.output(c.statsOnly, "%v modes differ: %v %v\n", fullpath, m1, m2)
 	}
 
 	if s1, s2 := e1.Size(), e2.Size(); s1 != s2 {
 		changed = true
 
-		c.output("%v sizes differ: %v %v\n", fullpath, s1, s2)
+		c.output(c.statsOnly, "%v sizes differ: %v %v\n", fullpath, s1, s2)
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
 		changed = true
 
-		c.output("%v modification times differ: %v %v\n", fullpath, mt1, mt2)
+		c.output(c.statsOnly, "%v modification times differ: %v %v\n", fullpath, mt1, mt2)
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
 		changed = true
 
-		c.output("%v owner users differ: %v %v\n", fullpath, o1.UserID, o2.UserID)
+		c.output(c.statsOnly, "%v owner users differ: %v %v\n", fullpath, o1.UserID, o2.UserID)
 	}
 
 	if o1.GroupID != o2.GroupID {
 		changed = true
 
-		c.output("%v owner groups differ: %v %v\n", fullpath, o1.GroupID, o2.GroupID)
+		c.output(c.statsOnly, "%v owner groups differ: %v %v\n", fullpath, o1.GroupID, o2.GroupID)
 	}
 
 	_, isDir1 := e1.(fs.Directory)
@@ -391,16 +392,18 @@ func (c *Comparer) Stats() Stats {
 	return c.stats
 }
 
-func (c *Comparer) output(msg string, args ...interface{}) {
-	fmt.Fprintf(c.out, msg, args...) //nolint:errcheck
+func (c *Comparer) output(statsOnly bool, msg string, args ...interface{}) {
+	if !statsOnly {
+		fmt.Fprintf(c.out, msg, args...) //nolint:errcheck
+	}
 }
 
 // NewComparer creates a comparer for a given repository that will output the results to a given writer.
-func NewComparer(out io.Writer) (*Comparer, error) {
+func NewComparer(out io.Writer, statsOnly bool) (*Comparer, error) {
 	tmp, err := os.MkdirTemp("", "kopia")
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating temp directory")
 	}
 
-	return &Comparer{out: out, tmpDir: tmp}, nil
+	return &Comparer{out: out, tmpDir: tmp, statsOnly: statsOnly}, nil
 }
