@@ -170,12 +170,19 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	}
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), data.Reader(), int64(data.Length()), minio.PutObjectOptions{
-		ContentType:      "application/x-kopia",
+		ContentType: "application/x-kopia",
+		// Kopia already splits snapshot contents into small blobs to improve
+		// upload throughput. There is no need for further splitting
+		// through multipart uploads.
 		DisableMultipart: true,
-		SendContentMd5:   true,
-		StorageClass:     storageClass,
-		RetainUntilDate:  retainUntilDate,
-		Mode:             retentionMode,
+		// The Content-MD5 header is required for any request to upload an object
+		// with a retention period configured using Amazon S3 Object Lock.
+		// Unconditionally computing the content MD5, potentially incurring
+		// a slightly higher CPU overhead.
+		SendContentMd5:  true,
+		StorageClass:    storageClass,
+		RetainUntilDate: retainUntilDate,
+		Mode:            retentionMode,
 		ServerSideEncryption: func() encrypt.ServerSide {
 			if s.ServerSideEncryption == "" {
 				return nil
@@ -214,10 +221,10 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 		// special case empty stream
 		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
-			ContentType:      "application/x-kopia",
-			StorageClass:     storageClass,
-			RetainUntilDate:  retainUntilDate,
-			Mode:             retentionMode,
+			ContentType:     "application/x-kopia",
+			StorageClass:    storageClass,
+			RetainUntilDate: retainUntilDate,
+			Mode:            retentionMode,
 			ServerSideEncryption: func() encrypt.ServerSide {
 				if s.ServerSideEncryption == "" {
 					return nil
