@@ -8,13 +8,17 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 const dirMode = 0o700
@@ -406,4 +410,55 @@ func NewComparer(out io.Writer, statsOnly bool) (*Comparer, error) {
 	}
 
 	return &Comparer{out: out, tmpDir: tmp, statsOnly: statsOnly}, nil
+}
+
+// GetPrecedingSnapshot fetches the snapshot manifest for the snapshot immediately preceding the given snapshotID if it exists.
+func GetPrecedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID string) (*snapshot.Manifest, error) {
+	snapshotManifest, err := snapshotfs.FindSnapshotByRootObjectIDOrManifestID(ctx, rep, snapshotID, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get snapshot manifest for the given snapshotID")
+	}
+
+	snapshotList, err := snapshot.ListSnapshots(ctx, rep, snapshotManifest.Source)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list snapshots")
+	}
+
+	// sort snapshots in ascending order based on start time
+	sort.Slice(snapshotList, func(i, j int) bool {
+		return snapshotList[i].StartTime.Before(snapshotList[j].StartTime)
+	})
+
+	for i, snap := range snapshotList {
+		if snap.ID == snapshotManifest.ID {
+			if i == 0 {
+				return nil, errors.New("there is no immediately preceding snapshot")
+			}
+
+			return snapshotList[i-1], nil
+		}
+	}
+
+	return nil, errors.New("couldn't find immediately preceding snapshot")
+}
+
+// GetTwoLatestSnapshotsForASource fetches two latest snapshot manifests for a given source if they exist.
+func GetTwoLatestSnapshotsForASource(ctx context.Context, rep repo.Repository, source snapshot.SourceInfo) (secondLast, last *snapshot.Manifest, err error) {
+	snapshots, err := snapshot.ListSnapshots(ctx, rep, source)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to list all snapshots")
+	}
+
+	const minimumReqSnapshots = 2
+
+	sizeSnapshots := len(snapshots)
+	if sizeSnapshots < minimumReqSnapshots {
+		return nil, nil, errors.New("snapshot source has less than two snapshots")
+	}
+
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].StartTime.Before(snapshots[j].StartTime)
+	})
+
+	return snapshots[sizeSnapshots-2], snapshots[sizeSnapshots-1], nil
 }
