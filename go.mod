@@ -1,4 +1,4 @@
-module github.com/apampurin/kopia
+module github.com/kopia/kopia
 
 go 1.23.0
 

@@ -169,7 +169,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		retainUntilDate = clock.Now().Add(opts.RetentionPeriod).UTC()
 	}
 
-	putOpts := minio.PutObjectOptions{
+	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), data.Reader(), int64(data.Length()), minio.PutObjectOptions{
 		ContentType: "application/x-kopia",
 		// Kopia already splits snapshot contents into small blobs to improve
 		// upload throughput. There is no need for further splitting
@@ -183,29 +183,30 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		StorageClass:    storageClass,
 		RetainUntilDate: retainUntilDate,
 		Mode:            retentionMode,
-	}
-
-	// Configure server-side encryption if specified
-	if s.ServerSideEncryption != "" {
-		switch s.ServerSideEncryption {
-		case "AES256":
-			putOpts.ServerSideEncryption = encrypt.NewSSE()
-		case "aws:kms":
-			var err error
-			if s.KMSKeyID != "" {
-				putOpts.ServerSideEncryption, err = encrypt.NewSSEKMS(s.KMSKeyID, nil)
-			} else {
-				putOpts.ServerSideEncryption, err = encrypt.NewSSEKMS("", nil)
+		ServerSideEncryption: func() encrypt.ServerSide {
+			if s.ServerSideEncryption == "" {
+				return nil
 			}
-			if err != nil {
-				return versionMetadata{}, errors.Wrap(err, "unable to initialize KMS encryption")
+			switch s.ServerSideEncryption {
+			case "AES256":
+				return encrypt.NewSSE()
+			case "aws:kms":
+				var err error
+				var sse encrypt.ServerSide
+				if s.KMSKeyID != "" {
+					sse, err = encrypt.NewSSEKMS(s.KMSKeyID, nil)
+				} else {
+					sse, err = encrypt.NewSSEKMS("", nil)
+				}
+				if err != nil {
+					return nil
+				}
+				return sse
+			default:
+				return nil
 			}
-		default:
-			return versionMetadata{}, errors.Errorf("unsupported server-side encryption method: %q", s.ServerSideEncryption)
-		}
-	}
-
-	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), data.Reader(), int64(data.Length()), putOpts)
+		}(),
+	})
 
 	if isInvalidCredentials(err) {
 		return versionMetadata{}, blob.ErrInvalidCredentials
@@ -219,7 +220,44 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 		// special case empty stream
-		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, putOpts)
+		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
+			ContentType: "application/x-kopia",
+			// Kopia already splits snapshot contents into small blobs to improve
+			// upload throughput. There is no need for further splitting
+			// through multipart uploads.
+			DisableMultipart: true,
+			// The Content-MD5 header is required for any request to upload an object
+			// with a retention period configured using Amazon S3 Object Lock.
+			// Unconditionally computing the content MD5, potentially incurring
+			// a slightly higher CPU overhead.
+			SendContentMd5:  true,
+			StorageClass:    storageClass,
+			RetainUntilDate: retainUntilDate,
+			Mode:            retentionMode,
+			ServerSideEncryption: func() encrypt.ServerSide {
+				if s.ServerSideEncryption == "" {
+					return nil
+				}
+				switch s.ServerSideEncryption {
+				case "AES256":
+					return encrypt.NewSSE()
+				case "aws:kms":
+					var err error
+					var sse encrypt.ServerSide
+					if s.KMSKeyID != "" {
+						sse, err = encrypt.NewSSEKMS(s.KMSKeyID, nil)
+					} else {
+						sse, err = encrypt.NewSSEKMS("", nil)
+					}
+					if err != nil {
+						return nil
+					}
+					return sse
+				default:
+					return nil
+				}
+			}(),
+		})
 	}
 
 	if err != nil {
