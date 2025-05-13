@@ -557,7 +557,7 @@ func TestGetPrecedingSnapshot(t *testing.T) {
 // First call GetTwoLatestSnapshots with insufficient snapshots in the repo and
 // expect an error;
 // As snapshots are added, GetTwoLatestSnapshots is expected to return the
-// manifests for the the two most recent snapshots for a the given source.
+// manifests for the two most recent snapshots for a the given source.
 func TestGetTwoLatestSnapshots(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
