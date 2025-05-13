@@ -2,7 +2,7 @@ module github.com/kopia/kopia
 
 go 1.23.0
 
-toolchain go1.23.8
+toolchain go1.23.9
 
 require (
 	cloud.google.com/go/storage v1.54.0
