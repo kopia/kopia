@@ -526,16 +526,22 @@ func getManifests() map[string]*snapshot.Manifest {
 	return manifests
 }
 
+// Tests GetPrecedingSnapshot function
+//   - GetPrecedingSnapshot with an invalid snapshot id and expect an error;
+//   - Add a snapshot, expect an error from GetPreceedingSnapshot since there is
+//     only a single snapshot in the repo;
+//   - Subsequently add more snapshots and GetPreceedingSnapshot theimmediately
+//     preceding with no error.
 func TestGetPrecedingSnapshot(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	manifests := getManifests()
 
 	_, err := diff.GetPrecedingSnapshot(ctx, env.RepositoryWriter, "non_existent_snapshot_ID")
-	require.Error(t, err)
+	require.Error(t, err, "expect error when calling GetPrecedingSnapshot with a wrong snapshotID")
 
 	initialSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["initial_snapshot"])
 	_, err = diff.GetPrecedingSnapshot(ctx, env.RepositoryWriter, string(initialSnapshotManifestID))
-	require.Error(t, err)
+	require.Error(t, err, "expect error when there is a single snapshot in the repo")
 
 	intermediateSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["intermediate_snapshot"])
 	gotManID, err := diff.GetPrecedingSnapshot(ctx, env.RepositoryWriter, string(intermediateSnapshotManifestID))
@@ -548,6 +554,10 @@ func TestGetPrecedingSnapshot(t *testing.T) {
 	require.Equal(t, intermediateSnapshotManifestID, gotManID2.ID)
 }
 
+// First call GetTwoLatestSnapshots with insufficient snapshots in the repo and
+// expect an error;
+// As snapshots are added, GetTwoLatestSnapshots is expected to return the
+// manifests for the the two most recent snapshots for a the given source.
 func TestGetTwoLatestSnapshots(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
