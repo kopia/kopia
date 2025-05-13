@@ -409,8 +409,8 @@ func NewComparer(out io.Writer) (*Comparer, error) {
 	return &Comparer{out: out, tmpDir: tmp}, nil
 }
 
-// GetPreceedingSnapshot fetches the snapshot manifest for the snapshot immediately preceding the given snapshotID if it exists.
-func GetPreceedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID string) (*snapshot.Manifest, error) {
+// GetPrecedingSnapshot fetches the snapshot manifest for the snapshot immediately preceding the given snapshotID if it exists.
+func GetPrecedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID string) (*snapshot.Manifest, error) {
 	snapshotManifest, err := snapshotfs.FindSnapshotByRootObjectIDOrManifestID(ctx, rep, snapshotID, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get snapshot manifest for the given snapshotID")

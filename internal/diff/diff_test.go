@@ -526,24 +526,24 @@ func getManifests() map[string]*snapshot.Manifest {
 	return manifests
 }
 
-func TestGetPreceedingSnapshot(t *testing.T) {
+func TestGetPrecedingSnapshot(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	manifests := getManifests()
 
-	_, err := diff.GetPreceedingSnapshot(ctx, env.RepositoryWriter, "non_existent_snapshot_ID")
+	_, err := diff.GetPrecedingSnapshot(ctx, env.RepositoryWriter, "non_existent_snapshot_ID")
 	require.Error(t, err)
 
 	initialSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["initial_snapshot"])
-	_, err = diff.GetPreceedingSnapshot(ctx, env.RepositoryWriter, string(initialSnapshotManifestID))
+	_, err = diff.GetPrecedingSnapshot(ctx, env.RepositoryWriter, string(initialSnapshotManifestID))
 	require.Error(t, err)
 
 	intermediateSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["intermediate_snapshot"])
-	gotManID, err := diff.GetPreceedingSnapshot(ctx, env.RepositoryWriter, string(intermediateSnapshotManifestID))
+	gotManID, err := diff.GetPrecedingSnapshot(ctx, env.RepositoryWriter, string(intermediateSnapshotManifestID))
 	require.NoError(t, err)
 	require.Equal(t, initialSnapshotManifestID, gotManID.ID)
 
 	latestSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["latest_snapshot"])
-	gotManID2, err := diff.GetPreceedingSnapshot(ctx, env.RepositoryWriter, string(latestSnapshotManifestID))
+	gotManID2, err := diff.GetPrecedingSnapshot(ctx, env.RepositoryWriter, string(latestSnapshotManifestID))
 	require.NoError(t, err)
 	require.Equal(t, intermediateSnapshotManifestID, gotManID2.ID)
 }
