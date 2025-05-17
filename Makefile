@@ -458,6 +458,7 @@ ifeq ($(CI_TAG),)
 else
 	$(gitchglog) $(CI_TAG) > dist/change_log.md
 endif
+	gitchglog=$(gitchglog) $(CURDIR)/tools/htmlui_changelog.sh dist/change_log.md
 
 push-github-release:
 ifneq ($(GH_RELEASE_REPO),)

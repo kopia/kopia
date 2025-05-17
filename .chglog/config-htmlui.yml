@@ -1,8 +1,8 @@
 style: github
-template: CHANGELOG.tpl.md
+template: CHANGELOG_HTMLUI.tpl.md
 info:
   title: CHANGELOG
-  repository_url: https://github.com/kopia/kopia
+  repository_url: https://github.com/kopia/htmlui
 options:
   commits:
     filters:
@@ -19,6 +19,7 @@ options:
       - infra
       - ci
       - notifications
+      - ui
   commit_groups:
     sort_by: Custom
     group_by: "Scope"
