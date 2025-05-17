@@ -117,7 +117,7 @@ export function loadConfigs() {
         count++;
     });
 
-    if (!configs["repository"]) {
+    if (count === 0) {
         configs["repository"] = true;
         firstRun = true;
     }
