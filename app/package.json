@@ -72,7 +72,7 @@
         }
       ],
       "signtoolOptions": {
-        "sign": "./sign.cjs",
+        "sign": "./sign.mjs",
         "signingHashAlgorithms": [
           "sha256"
         ]
