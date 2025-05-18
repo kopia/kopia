@@ -43,9 +43,9 @@ https://github.com/rclone/rclone/releases/download/v1.68.2/rclone-v1.68.2-linux-
 https://github.com/rclone/rclone/releases/download/v1.68.2/rclone-v1.68.2-osx-amd64.zip: cdc685e16abbf35b6f47c95b2a5b4ad73a73921ff6842e5f4136c8b461756188
 https://github.com/rclone/rclone/releases/download/v1.68.2/rclone-v1.68.2-osx-arm64.zip: 323f387b32bcf9ddfc3874f01879a0b2689dbd91309beb8c3a4410db04d0c41f
 https://github.com/rclone/rclone/releases/download/v1.68.2/rclone-v1.68.2-windows-amd64.zip: 812bf76cc02c04cf6327f3683f3d5a88e47d36c39db84c1a745777496be7d993
-https://nodejs.org/dist/v20.15.1/node-v20.15.1-darwin-arm64.tar.gz: 4743bc042f90ba5d9edf09403207290a9cdd2f6061bdccf7caaa0bbfd49f343e
-https://nodejs.org/dist/v20.15.1/node-v20.15.1-darwin-x64.tar.gz: f5379772ffae1404cfd1fcc8cf0c6c5971306b8fb2090d348019047306de39dc
-https://nodejs.org/dist/v20.15.1/node-v20.15.1-linux-arm64.tar.gz: 8554c91ccd32782351035d3a9b168ad01c6922480800a21870fc5d6d86c2bb70
-https://nodejs.org/dist/v20.15.1/node-v20.15.1-linux-armv7l.tar.gz: 2c16717da7d2d7b00f6af146cdf436a0297cbcee52c85b754e4c9ed7cee34b51
-https://nodejs.org/dist/v20.15.1/node-v20.15.1-linux-x64.tar.gz: a9db028c0a1c63e3aa0d97de24b0966bc507d8239b3aedc4e752eea6b0580665
-https://nodejs.org/dist/v20.15.1/node-v20.15.1-win-x64.zip: ba6c3711e2c3d0638c5f7cea3c234553808a73c52a5962a6cdb47b5210b70b04
+https://nodejs.org/dist/v22.15.1/node-v22.15.1-darwin-arm64.tar.gz: d2689b86b17e1b51e76f801ffe2d9acca4225e76eda4b843c3d8438d4a7cd6fe
+https://nodejs.org/dist/v22.15.1/node-v22.15.1-darwin-x64.tar.gz: 1c722d0dd6d3f60e8b0be014ea01b8a59f5088f4419197a1b37544854d61cc6f
+https://nodejs.org/dist/v22.15.1/node-v22.15.1-linux-arm64.tar.gz: eb3f232b83dfe83397b98395ec77a973e888e8959c978b3e4eeb551b8845b74f
+https://nodejs.org/dist/v22.15.1/node-v22.15.1-linux-armv7l.tar.gz: 346426e2bca62c98fb12213c39e80b0e349d7620238f74b7208d12e18fde87fd
+https://nodejs.org/dist/v22.15.1/node-v22.15.1-linux-x64.tar.gz: f4b8eec683708acb1a2a73c7182ba2de5466a5dd5f705934a0830903df28821c
+https://nodejs.org/dist/v22.15.1/node-v22.15.1-win-x64.zip: 7c7997d6ef2efd9525a54b033fc0be6f22549a5905f5da6573a41e61a436a1b5
