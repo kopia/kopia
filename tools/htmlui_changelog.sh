@@ -1,4 +1,6 @@
 #!/bin/sh
+set -xe
+
 if [ -z "$CI_TAG" ]; then
     echo "CI_TAG is not set. Looking for previous tag."
     start_commit=$(git describe --tags --abbrev=0 HEAD^)
@@ -50,6 +52,8 @@ fi
 git clone --filter=blob:none --no-checkout --single-branch --branch main https://github.com/kopia/htmlui $htmlui_git_dir
 
 (cd $htmlui_git_dir && 
+    git config user.email "builder@kopia.io" &&
+    git config user.name "Kopia Builder" &&
     git tag v0.1.0 $old_htmlui_hash -m "hash $old_htmlui_hash" && 
     git tag v0.2.0 $new_htmlui_hash -m "hash $new_htmlui_hash" && 
     $gitchglog --sort=semver --config=$config_file v0.2.0) >> $output_file
