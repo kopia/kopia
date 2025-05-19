@@ -1,5 +1,6 @@
-const { spawnSync } = require("child_process");
-exports.default = async function (configuration) {
+import { spawnSync } from "child_process";
+
+export default async function (configuration) {
   if (process.platform !== "win32") {
     return;
   }

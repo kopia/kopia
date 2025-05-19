@@ -21,6 +21,9 @@ let tray = null
 let repositoryWindows = {};
 let repoIDForWebContents = {};
 
+if (process.env.KOPIA_CUSTOM_APPDATA) {
+  app.setPath('appData', process.env.KOPIA_CUSTOM_APPDATA);
+}
 
 if (isPortableConfig()) {
   // in portable mode, write cache under 'repositories'
@@ -435,6 +438,7 @@ app.on('ready', () => {
     app.testHooks = {
       tray: tray,
       showRepoWindow: showRepoWindow,
+      allConfigs: allConfigs,
     }
   }
 
@@ -582,6 +586,5 @@ function updateTrayContextMenu() {
     ] },
     { label: 'Quit', role: 'quit' },
   ]);
-
   tray.setContextMenu(Menu.buildFromTemplate(template));
 }
