@@ -129,7 +129,6 @@
     "dotenv": "^16.5.0",
     "electron": "^36.2.1",
     "electron-builder": "^26.0.12",
-    "electron-store": "^10.0.1",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1"
   },
