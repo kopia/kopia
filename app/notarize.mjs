@@ -1,9 +1,9 @@
-require('dotenv').config();
-const { notarize } = require('@electron/notarize');
-const fs = require('fs');
-const crypto = require('crypto');
+import 'dotenv/config';
+import { notarize } from '@electron/notarize';
+import fs from 'fs';
+import crypto from 'crypto';
 
-exports.default = async function notarizing(context) {
+export default async function notarizing(context) {
   const { electronPlatformName, appOutDir } = context;  
   if (electronPlatformName !== 'darwin') {
     return;
