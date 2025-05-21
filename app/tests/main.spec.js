@@ -1,16 +1,16 @@
-import { test, expect } from '@playwright/test'
-import { _electron as electron } from 'playwright'
+import { test, expect } from "@playwright/test";
+import { _electron as electron } from "playwright";
 
-import fs from 'fs';
-import os from 'os';
-import path from 'path';
+import fs from "fs";
+import os from "os";
+import path from "path";
 
-const DEFAULT_REPO_ID = 'repository';
+const DEFAULT_REPO_ID = "repository";
 
-let electronApp
-let mainPath
-let executablePath
-let tmpAppDataDir
+let electronApp;
+let mainPath;
+let executablePath;
+let tmpAppDataDir;
 
 function getKopiaUIDir() {
   switch (process.platform + "/" + process.arch) {
@@ -30,13 +30,27 @@ function getKopiaUIDir() {
       return null;
   }
 }
- 
+
 function getMainPath(kopiauiDir) {
   switch (process.platform) {
     case "darwin":
-      return path.join(kopiauiDir, "KopiaUI.app", "Contents", "Resources", "app.asar", "public", "electron.js");
+      return path.join(
+        kopiauiDir,
+        "KopiaUI.app",
+        "Contents",
+        "Resources",
+        "app.asar",
+        "public",
+        "electron.js",
+      );
     default:
-      return path.join(kopiauiDir, "resources", "app.asar", "public", "electron.js");
+      return path.join(
+        kopiauiDir,
+        "resources",
+        "app.asar",
+        "public",
+        "electron.js",
+      );
   }
 }
 
@@ -45,7 +59,13 @@ function getExecutablePath(kopiauiDir) {
     case "win32":
       return path.join(kopiauiDir, "KopiaUI.exe");
     case "darwin":
-      return path.join(kopiauiDir, "KopiaUI.app", "Contents", "MacOS", "KopiaUI");
+      return path.join(
+        kopiauiDir,
+        "KopiaUI.app",
+        "Contents",
+        "MacOS",
+        "KopiaUI",
+      );
     default:
       return path.join(kopiauiDir, "kopia-ui");
   }
@@ -58,8 +78,8 @@ function getExecutablePath(kopiauiDir) {
  * @returns {string} The path to the created temporary directory.
  */
 function createTemporaryAppDataDir() {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'kopia-test-'));
-  fs.mkdirSync(path.join(tmpDir, 'kopia'));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "kopia-test-"));
+  fs.mkdirSync(path.join(tmpDir, "kopia"));
   return tmpDir;
 }
 
@@ -78,22 +98,22 @@ async function launchApp(appDataDir) {
     env: {
       ...process.env,
       KOPIA_CUSTOM_APPDATA: appDataDir,
-    }
-  })
+    },
+  });
 
-  electronApp.on('window', async (page) => {
-    const filename = page.url()?.split('/').pop()
-    console.log(`Window opened: ${filename}`)
+  electronApp.on("window", async (page) => {
+    const filename = page.url()?.split("/").pop();
+    console.log(`Window opened: ${filename}`);
 
     // capture errors
-    page.on('pageerror', (error) => {
-      console.error(error)
-    })
+    page.on("pageerror", (error) => {
+      console.error(error);
+    });
     // capture console messages
-    page.on('console', (msg) => {
-      console.log(msg.text())
-    })
-  })
+    page.on("console", (msg) => {
+      console.log(msg.text());
+    });
+  });
 
   return electronApp;
 }
@@ -118,44 +138,47 @@ test.beforeAll(() => {
   mainPath = getMainPath(kopiauiDir);
   executablePath = getExecutablePath(kopiauiDir);
 
-  console.log('main path', mainPath);
-  console.log('executable path', executablePath);
+  console.log("main path", mainPath);
+  console.log("executable path", executablePath);
 
-  process.env.CI = 'e2e';
-  process.env.KOPIA_UI_TESTING = '1';
-})
+  process.env.CI = "e2e";
+  process.env.KOPIA_UI_TESTING = "1";
+});
 
 test.beforeEach(async () => {
   tmpAppDataDir = createTemporaryAppDataDir();
-})
- 
+});
+
 test.afterEach(async () => {
   await electronApp.close();
   fs.rmSync(tmpAppDataDir, { recursive: true, force: true });
-})
- 
-test('opens repository window on first start', async () => {
+});
+
+test("opens repository window on first start", async () => {
   electronApp = await launchApp(tmpAppDataDir);
 
-  await electronApp.evaluate(async ({app}) => {
-    app.testHooks.showRepoWindow('repository');
+  await electronApp.evaluate(async ({ app }) => {
+    app.testHooks.showRepoWindow("repository");
   });
 
   const page = await electronApp.firstWindow();
 
   expect(page).toBeTruthy();
-  await page.waitForNavigation({waitUntil: 'networkidle', networkIdleTimeout: 1000});
+  await page.waitForNavigation({
+    waitUntil: "networkidle",
+    networkIdleTimeout: 1000,
+  });
   expect(await page.title()).toMatch(/KopiaUI v\d+/);
 
   // TODO - we can exercise some UI scenario using 'page'
 
-  await electronApp.evaluate(async ({app}) => {
+  await electronApp.evaluate(async ({ app }) => {
     return app.testHooks.tray.popUpContextMenu();
-  })
+  });
 
-  await electronApp.evaluate(async ({app}) => {
+  await electronApp.evaluate(async ({ app }) => {
     return app.testHooks.tray.closeContextMenu();
-  })
+  });
 });
 
 test("adds default repository if no repository is configured", async () => {
@@ -163,14 +186,17 @@ test("adds default repository if no repository is configured", async () => {
 
   await waitForKopiaToStartup();
 
-  const configs = await electronApp.evaluate(async ({app}) => {
+  const configs = await electronApp.evaluate(async ({ app }) => {
     return app.testHooks.allConfigs();
-  })
+  });
   expect(configs).toStrictEqual([DEFAULT_REPO_ID]);
 });
 
 test("doesn't open repository window if the default repository config exists", async () => {
-  fs.writeFileSync(path.join(tmpAppDataDir, 'kopia', `${DEFAULT_REPO_ID}.config`), '');
+  fs.writeFileSync(
+    path.join(tmpAppDataDir, "kopia", `${DEFAULT_REPO_ID}.config`),
+    "",
+  );
 
   electronApp = await launchApp(tmpAppDataDir);
 
@@ -180,11 +206,14 @@ test("doesn't open repository window if the default repository config exists", a
 });
 
 test.describe("when non-default repository config exists", () => {
-  const NON_DEFAULT_REPO_ID = 'repository-42';
+  const NON_DEFAULT_REPO_ID = "repository-42";
 
   test.beforeEach(async () => {
-    fs.writeFileSync(path.join(tmpAppDataDir, 'kopia', `${NON_DEFAULT_REPO_ID}.config`), '');
-  })
+    fs.writeFileSync(
+      path.join(tmpAppDataDir, "kopia", `${NON_DEFAULT_REPO_ID}.config`),
+      "",
+    );
+  });
 
   test("doesn't open repository window if non-default repository config exists", async () => {
     electronApp = await launchApp(tmpAppDataDir);
@@ -199,9 +228,9 @@ test.describe("when non-default repository config exists", () => {
 
     await waitForKopiaToStartup();
 
-    const configs = await electronApp.evaluate(async ({app}) => {
+    const configs = await electronApp.evaluate(async ({ app }) => {
       return app.testHooks.allConfigs();
-    })
+    });
     expect(configs).toStrictEqual([NON_DEFAULT_REPO_ID]);
   });
-})
+});

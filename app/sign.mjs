@@ -7,23 +7,30 @@ export default async function (configuration) {
 
   const sha1 = process.env.WINDOWS_CERT_SHA1;
   if (!sha1) {
-    console.log('Not signing', configuration.path, ' because WINDOWS_CERT_SHA1 is not set');
+    console.log(
+      "Not signing",
+      configuration.path,
+      " because WINDOWS_CERT_SHA1 is not set",
+    );
     return;
   }
 
   const signTool = process.env.WINDOWS_SIGN_TOOL || "signtool.exe";
 
-  console.log('signTool', signTool);
-  
+  console.log("signTool", signTool);
+
   const signToolArgs = [
     "sign",
-    "/sha1", sha1,
-    "/fd", configuration.hash,
-    "/tr", "http://timestamp.digicert.com",
+    "/sha1",
+    sha1,
+    "/fd",
+    configuration.hash,
+    "/tr",
+    "http://timestamp.digicert.com",
   ];
 
   if (configuration.isNest) {
-    signToolArgs.push("/as")
+    signToolArgs.push("/as");
   }
 
   signToolArgs.push("/v");
@@ -32,10 +39,10 @@ export default async function (configuration) {
   let nextSleepTime = 1000;
 
   for (let attempt = 0; attempt < 10; attempt++) {
-    console.log('Signing ', configuration.path, 'attempt', attempt);
+    console.log("Signing ", configuration.path, "attempt", attempt);
     if (attempt > 0) {
-      console.log('Sleping for ', nextSleepTime);
-      await new Promise(r => setTimeout(r, nextSleepTime));
+      console.log("Sleping for ", nextSleepTime);
+      await new Promise((r) => setTimeout(r, nextSleepTime));
     }
     nextSleepTime *= 2;
 
@@ -44,12 +51,17 @@ export default async function (configuration) {
     });
 
     if (!result.error && 0 === result.status) {
-      console.log('Signing of', configuration.path, ' succeeded');
+      console.log("Signing of", configuration.path, " succeeded");
       return;
     } else {
-      console.log('Signing of' + configuration.path + ' failed with ' + JSON.stringify(result));
+      console.log(
+        "Signing of" +
+          configuration.path +
+          " failed with " +
+          JSON.stringify(result),
+      );
     }
   }
 
   throw Exception("Failed to sign " + configuration.path);
-};
+}
