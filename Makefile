@@ -521,7 +521,7 @@ perf-benchmark-results:
 	(cd tests/perf_benchmark && go run process_results.go)
 
 check-prettier: $(npm)
-	(cd $(CURDIR)/app && $(npm) run prettier:check)
+	make -C app check-prettier
 
 prettier: $(npm)
-	(cd $(CURDIR)/app && $(npm) run prettier)
+	make -C app prettier
