@@ -29,6 +29,8 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket. Put trailing slash (/) if you want to use prefix as directory. e.g my-backup-dir/ would put repository contents inside my-backup-dir directory").StringVar(&c.s3options.Prefix)
 	cmd.Flag("disable-tls", "Disable TLS security (HTTPS)").BoolVar(&c.s3options.DoNotUseTLS)
 	cmd.Flag("disable-tls-verification", "Disable TLS (HTTPS) certificate verification").BoolVar(&c.s3options.DoNotVerifyTLS)
+	cmd.Flag("server-side-encryption", "Server-side encryption method (AES256 or aws:kms)").StringVar(&c.s3options.ServerSideEncryption)
+	cmd.Flag("kms-key-id", "KMS key ID to use for server-side encryption (only used with aws:kms)").StringVar(&c.s3options.KMSKeyID)
 
 	commonThrottlingFlags(cmd, &c.s3options.Limits)
 

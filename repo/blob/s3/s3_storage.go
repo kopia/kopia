@@ -14,6 +14,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/encrypt"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -182,6 +183,29 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		StorageClass:    storageClass,
 		RetainUntilDate: retainUntilDate,
 		Mode:            retentionMode,
+		ServerSideEncryption: func() encrypt.ServerSide {
+			if s.ServerSideEncryption == "" {
+				return nil
+			}
+			switch s.ServerSideEncryption {
+			case "AES256":
+				return encrypt.NewSSE()
+			case "aws:kms":
+				var err error
+				var sse encrypt.ServerSide
+				if s.KMSKeyID != "" {
+					sse, err = encrypt.NewSSEKMS(s.KMSKeyID, nil)
+				} else {
+					sse, err = encrypt.NewSSEKMS("", nil)
+				}
+				if err != nil {
+					return nil
+				}
+				return sse
+			default:
+				return nil
+			}
+		}(),
 	})
 
 	if isInvalidCredentials(err) {
@@ -201,6 +225,29 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 			StorageClass:    storageClass,
 			RetainUntilDate: retainUntilDate,
 			Mode:            retentionMode,
+			ServerSideEncryption: func() encrypt.ServerSide {
+				if s.ServerSideEncryption == "" {
+					return nil
+				}
+				switch s.ServerSideEncryption {
+				case "AES256":
+					return encrypt.NewSSE()
+				case "aws:kms":
+					var err error
+					var sse encrypt.ServerSide
+					if s.KMSKeyID != "" {
+						sse, err = encrypt.NewSSEKMS(s.KMSKeyID, nil)
+					} else {
+						sse, err = encrypt.NewSSEKMS("", nil)
+					}
+					if err != nil {
+						return nil
+					}
+					return sse
+				default:
+					return nil
+				}
+			}(),
 		})
 	}
 
