@@ -67,6 +67,15 @@ type Directory interface {
 	SupportsMultipleIterations() bool
 }
 
+// HasUniqueId is an optional interface implemented by Entry instances that can report a number that uniquely identifies the file on the device
+//
+// In POSIX filesystems this is the file serial number (commonly referred to as inode)
+// In Microsoft filesystems this is the file ID
+// TODO: consider that inodes and file IDs are not guarantied to be unique across time
+type HasUniqueId interface {
+	GetUniqueId() uint64
+}
+
 // IterateEntries iterates entries the provided directory and invokes given callback for each entry
 // or until the callback returns an error.
 func IterateEntries(ctx context.Context, dir Directory, cb func(context.Context, Entry) error) error {

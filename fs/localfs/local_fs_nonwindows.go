@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/kopia/kopia/fs"
+	"golang.org/x/sys/unix"
 )
 
 func platformSpecificOwnerInfo(fi os.FileInfo) fs.OwnerInfo {
@@ -29,4 +30,21 @@ func platformSpecificDeviceInfo(fi os.FileInfo) fs.DeviceInfo {
 	}
 
 	return oi
+}
+
+func platformSpecificNewEntry(fi os.FileInfo, prefix string) filesystemEntry {
+	var uId uint64
+	if stat, ok := fi.Sys().(*unix.Stat_t); ok {
+		uId = stat.Ino
+	}
+	return filesystemEntry{
+		TrimShallowSuffix(fi.Name()),
+		fi.Size(),
+		fi.ModTime().UnixNano(),
+		fi.Mode(),
+		platformSpecificOwnerInfo(fi),
+		platformSpecificDeviceInfo(fi),
+		uId,
+		prefix,
+	}
 }
