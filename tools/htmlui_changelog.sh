@@ -20,7 +20,7 @@ output_file=$1
 old_new_htmluibuild_hash=$(git diff $start_commit $end_commit -- go.mod | grep htmluibuild | cut -f 2 -d' ' | cut -f3 -d'-')
 if [ -z "$old_new_htmluibuild_hash" ]; then
     echo "No changes found in htmluibuild between $start_commit and $end_commit"
-    exit 1
+    exit 0
 fi
 
 
