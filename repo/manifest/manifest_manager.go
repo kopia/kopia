@@ -222,12 +222,6 @@ func (m *Manager) Flush(ctx context.Context) error {
 	return err
 }
 
-func mustSucceed(e error) {
-	if e != nil {
-		panic("unexpected failure: " + e.Error())
-	}
-}
-
 // Delete marks the specified manifest ID for deletion.
 func (m *Manager) Delete(ctx context.Context, id ID) error {
 	com, err := m.committed.getCommittedEntryOrNil(ctx, id)
