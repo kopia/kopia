@@ -154,8 +154,8 @@ func Compressed(objectID ID) ID {
 	return objectID
 }
 
-// IndirectObjectID returns indirect object ID based on the underlying index object ID.
-func IndirectObjectID(indexObjectID ID) ID {
+// indirectObjectID returns indirect object ID based on the underlying index object ID.
+func indirectObjectID(indexObjectID ID) ID {
 	indexObjectID.indirection++
 	return indexObjectID
 }

@@ -325,7 +325,7 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 		return EmptyID, err
 	}
 
-	return IndirectObjectID(oid), nil
+	return indirectObjectID(oid), nil
 }
 
 func writeIndirectObject(w io.Writer, entries []IndirectObjectEntry) error {
