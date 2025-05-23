@@ -138,6 +138,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 	return dataLen, nil
 }
 
+// +checklocks:w.mu
 func (w *objectWriter) flushBufferLocked() error {
 	length := w.buffer.Length()
 
@@ -283,6 +284,7 @@ func (w *objectWriter) Checkpoint() (ID, error) {
 	return w.checkpointLocked()
 }
 
+// +checklocks:w.mu
 func (w *objectWriter) checkpointLocked() (ID, error) {
 	// wait for any in-flight asynchronous writes to finish
 	w.asyncWritesWG.Wait()
