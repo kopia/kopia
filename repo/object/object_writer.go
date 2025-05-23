@@ -128,7 +128,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 		// found a split point after `n` bytes, write first n bytes then flush and repeat with the remainder.
 		w.buffer.Append(data[0:n])
 
-		if err := w.flushBuffer(); err != nil {
+		if err := w.flushBufferLocked(); err != nil {
 			return 0, err
 		}
 
@@ -138,7 +138,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 	return dataLen, nil
 }
 
-func (w *objectWriter) flushBuffer() error {
+func (w *objectWriter) flushBufferLocked() error {
 	length := w.buffer.Length()
 
 	// hold a lock as we may grow the index
@@ -266,7 +266,7 @@ func (w *objectWriter) Result() (ID, error) {
 	// no need to hold a lock on w.indirectIndexGrowMutex, since growing index only happens synchronously
 	// and never in parallel with calling Result()
 	if w.buffer.Length() > 0 || len(w.indirectIndex) == 0 {
-		if err := w.flushBuffer(); err != nil {
+		if err := w.flushBufferLocked(); err != nil {
 			return EmptyID, err
 		}
 	}
