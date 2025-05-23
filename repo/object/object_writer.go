@@ -239,7 +239,7 @@ func maybeCompressedObjectID(contentID content.ID, isCompressed bool) ID {
 	oid := DirectObjectID(contentID)
 
 	if isCompressed {
-		oid = Compressed(oid)
+		oid = compressed(oid)
 	}
 
 	return oid
