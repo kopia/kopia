@@ -92,7 +92,8 @@ type objectWriter struct {
 	asyncWritesWG        sync.WaitGroup
 
 	contentWriteErrorMutex sync.Mutex
-	contentWriteError      error // stores async write error, propagated in Result()
+	// +checklocks:contentWriteErrorMutex
+	contentWriteError error // stores async write error, propagated in Result()
 }
 
 func (w *objectWriter) Close() error {
