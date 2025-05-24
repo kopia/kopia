@@ -1,4 +1,4 @@
-package notifydata
+package notifydata_test
 
 import (
 	"errors"
@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/notification/notifydata"
 )
 
 func TestNewErrorInfo(t *testing.T) {
@@ -15,7 +16,7 @@ func TestNewErrorInfo(t *testing.T) {
 	endTime := startTime.Add(2 * time.Second)
 
 	err := errors.New("test error") //nolint:err113
-	e := NewErrorInfo("test operation", "test details", startTime, endTime, err)
+	e := notifydata.NewErrorInfo("test operation", "test details", startTime, endTime, err)
 
 	require.Equal(t, "test operation", e.Operation)
 	require.Equal(t, "test details", e.OperationDetails)
@@ -27,4 +28,6 @@ func TestNewErrorInfo(t *testing.T) {
 	require.Equal(t, startTime.Truncate(time.Second), e.StartTimestamp())
 	require.Equal(t, endTime.Truncate(time.Second), e.EndTimestamp())
 	require.Equal(t, 2*time.Second, e.Duration())
+
+	testRoundTrip(t, e)
 }

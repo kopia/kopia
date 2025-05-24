@@ -468,9 +468,9 @@ func (r *grpcInnerSession) ApplyRetentionPolicy(ctx context.Context, sourcePath 
 	return nil, errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, importance int32) error {
+func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType apipb.NotificationEventArgType, importance int32) error {
 	_, err := maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (struct{}, error) {
-		return sess.SendNotification(ctx, templateName, templateDataJSON, importance)
+		return sess.SendNotification(ctx, templateName, templateDataJSON, templateDataType, importance)
 	})
 
 	return err
@@ -478,13 +478,14 @@ func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateNam
 
 var _ RemoteNotifications = (*grpcRepositoryClient)(nil)
 
-func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, severity int32) (struct{}, error) {
+func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType apipb.NotificationEventArgType, severity int32) (struct{}, error) {
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_SendNotification{
 			SendNotification: &apipb.SendNotificationRequest{
-				TemplateName: templateName,
-				EventArgs:    templateDataJSON,
-				Severity:     severity,
+				TemplateName:  templateName,
+				EventArgs:     templateDataJSON,
+				EventArgsType: templateDataType,
+				Severity:      severity,
 			},
 		},
 	}) {

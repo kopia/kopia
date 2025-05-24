@@ -3,6 +3,8 @@ package notifydata
 import (
 	"fmt"
 	"time"
+
+	"github.com/kopia/kopia/internal/grpcapi"
 )
 
 // ErrorInfo represents information about errors.
@@ -13,6 +15,11 @@ type ErrorInfo struct {
 	EndTime          time.Time `json:"end"`
 	ErrorMessage     string    `json:"error"`
 	ErrorDetails     string    `json:"errorDetails"`
+}
+
+// EventArgsType returns the type of event arguments for ErrorInfo.
+func (e *ErrorInfo) EventArgsType() grpcapi.NotificationEventArgType {
+	return grpcapi.NotificationEventArgType_ARG_TYPE_ERROR_INFO
 }
 
 // StartTimestamp returns the start time of the operation that caused the error.
