@@ -829,7 +829,7 @@ func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 		},
 	}
 
-	require.NoError(t, createFileStructure(baseDir, files)){
+	require.NoError(t, createFileStructure(baseDir, files))
 
 	startTime := clock.Now()
 
