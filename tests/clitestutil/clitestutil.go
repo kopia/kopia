@@ -69,7 +69,8 @@ func mustParseSnaphotInfo(t *testing.T, l string) SnapshotInfo {
 		t.Fatalf("err: %v", err)
 	}
 
-	manifestField := ""
+	var manifestField string
+
 	if incomplete {
 		manifestField = parts[8]
 	} else {

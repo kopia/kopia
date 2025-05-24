@@ -18,6 +18,7 @@ import (
 
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/cachedir"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -803,9 +804,11 @@ func TestSnapshotCreateWithAllAndPath(t *testing.T) {
 
 func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 	// 1 GiB of data seems to be enough for the snapshot time to exceed one second.
-	const fileSize = 1 << 30
-	const checkpointInterval = "1s"
-	const checkpointIntervalSeconds = 1
+	const (
+		fileSize                  = 1 << 30
+		checkpointInterval        = "1s"
+		checkpointIntervalSeconds = 1
+	)
 
 	t.Parallel()
 
@@ -825,13 +828,14 @@ func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 			},
 		},
 	}
-	if err := createFileStructure(baseDir, files); err != nil {
-		t.Fatal("Failed to create file structure", err)
-	}
 
-	startTime := time.Now()
+	require.NoError(t, createFileStructure(baseDir, files)){
+
+	startTime := clock.Now()
+
 	e.RunAndExpectSuccess(t, "snapshot", "create", baseDir, "--checkpoint-interval", checkpointInterval)
-	endTime := time.Now()
+
+	endTime := clock.Now()
 
 	snapshotTimeSurpassedCheckpointInterval := endTime.Sub(startTime).Seconds() > checkpointIntervalSeconds
 	require.True(t, snapshotTimeSurpassedCheckpointInterval)
@@ -839,17 +843,19 @@ func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 	// This exploits the implementation detail of `ListSnapshotsAndExpectSuccess`, that it does
 	// not sanitize `targets` to exclude flags.
 	si := clitestutil.ListSnapshotsAndExpectSuccess(t, e, "--incomplete", baseDir)
-	require.Equal(t, 1, len(si))
-	require.Equal(t, 1, len(si[0].Snapshots))
+	require.Len(t, si, 1)
+	require.Len(t, si[0].Snapshots, 1)
 	require.False(t, si[0].Snapshots[0].Incomplete)
 }
 
 // https://stackoverflow.com/a/31832326
 func generateRandomLetters(n int) string {
 	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
 	b := make([]byte, n)
 	for i := range b {
 		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
 	}
+
 	return string(b)
 }
