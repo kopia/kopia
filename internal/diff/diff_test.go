@@ -596,6 +596,8 @@ func getSnapshotSource() snapshot.SourceInfo {
 }
 
 func oidForString(t *testing.T, prefix content.IDPrefix, s string) object.ID {
+	t.Helper()
+
 	return oidForContent(t, prefix, []byte(s))
 }
 
