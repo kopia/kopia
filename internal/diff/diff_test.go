@@ -475,32 +475,29 @@ func getManifests(t *testing.T) map[string]*snapshot.Manifest {
 		ObjectID: oidForString(t, "", "indexID2"),
 	}
 
-	initialSnapshotManifest := &snapshot.Manifest{
+	manifests["initial_snapshot"] = &snapshot.Manifest{
 		ID:          "manifest_1_id",
 		Source:      src,
 		StartTime:   fs.UTCTimestamp(snapshotTime.Add((-24) * time.Hour).UnixNano()),
 		Description: "snapshot captured a day ago",
 		RootEntry:   &rootEntry2,
 	}
-	manifests["initial_snapshot"] = initialSnapshotManifest
 
-	intermediateSnapshotManifest := &snapshot.Manifest{
+	manifests["intermediate_snapshot"] = &snapshot.Manifest{
 		ID:          "manifest_2_id",
 		Source:      src,
 		StartTime:   fs.UTCTimestamp(snapshotTime.Add(-time.Hour).UnixNano()),
 		Description: "snapshot taken an hour ago",
 		RootEntry:   &rootEntry2,
 	}
-	manifests["intermediate_snapshot"] = intermediateSnapshotManifest
 
-	LatestSnapshotManifest := &snapshot.Manifest{
+	manifests["latest_snapshot"] = &snapshot.Manifest{
 		ID:          "manifest_3_id",
 		Source:      src,
 		StartTime:   fs.UTCTimestamp(snapshotTime.UnixNano()),
 		Description: "latest snapshot",
 		RootEntry:   &rootEntry1,
 	}
-	manifests["latest_snapshot"] = LatestSnapshotManifest
 
 	return manifests
 }
