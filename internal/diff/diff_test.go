@@ -109,8 +109,8 @@ func TestCompareEmptyDirectories(t *testing.T) {
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
 	dirMode := os.FileMode(0o777)
 
-	oid1 := oidForString(t, "p", "sdkjfn")
-	oid2 := oidForString(t, "p", "dfjlgn")
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "dfjlgn")
 	dir1 := createTestDirectory("testDir1", dirModTime, dirOwnerInfo, dirMode, oid1)
 	dir2 := createTestDirectory("testDir2", dirModTime, dirOwnerInfo, dirMode, oid2)
 
@@ -139,8 +139,8 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 	dirMode := os.FileMode(0o777)
 	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 
-	oid1 := oidForString(t, "p", "sdkjfn")
-	oid2 := oidForString(t, "p", "dfjlgn")
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "dfjlgn")
 
 	file1 := &testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"}
 	file2 := &testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"}
@@ -190,8 +190,8 @@ func TestCompareDifferentDirectories(t *testing.T) {
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
 	dirMode := os.FileMode(0o777)
 
-	oid1 := oidForString(t, "p", "sdkjfn")
-	oid2 := oidForString(t, "p", "dfjlgn")
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "dfjlgn")
 
 	dir1 := createTestDirectory(
 		"testDir1",
@@ -245,8 +245,8 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
 	dirMode := os.FileMode(0o777)
 
-	oid1 := oidForString(t, "p", "sdkjfn")
-	oid2 := oidForString(t, "p", "dfjlgn")
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "dfjlgn")
 
 	dir1 := createTestDirectory(
 		"testDir1",
@@ -296,8 +296,8 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
 	dirMode := os.FileMode(0o700)
 
-	oid1 := oidForString(t, "p", "sdkjfn")
-	oid2 := oidForString(t, "p", "hvhjb")
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "hvhjb")
 
 	dir1 := createTestDirectory(
 		"testDir1",
@@ -350,8 +350,8 @@ func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
 	dirMode := os.FileMode(0o777)
 	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 
-	oid1 := oidForString(t, "p", "sdkjfn")
-	oid2 := oidForString(t, "p", "dfjlgn")
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "dfjlgn")
 
 	dir1 := createTestDirectory(
 		"testDir1",
@@ -411,7 +411,7 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 
 	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 
-	oid := oidForString(t, "p", "sdkjfn")
+	oid := oidForString(t, "k", "sdkjfn")
 
 	dir1 := createTestDirectory(
 		"testDir1",
@@ -468,11 +468,11 @@ func getManifests(t *testing.T) map[string]*snapshot.Manifest {
 	snapshotTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	rootEntry1 := snapshot.DirEntry{
-		ObjectID: oidForString(t, "p", "indexID1"),
+		ObjectID: oidForString(t, "", "indexID1"),
 	}
 
 	rootEntry2 := snapshot.DirEntry{
-		ObjectID: oidForString(t, "p", "indexID2"),
+		ObjectID: oidForString(t, "", "indexID2"),
 	}
 
 	initialSnapshotManifest := &snapshot.Manifest{
