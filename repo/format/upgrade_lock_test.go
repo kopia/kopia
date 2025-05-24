@@ -178,6 +178,7 @@ func TestFormatUpgradeMultipleLocksRollback(t *testing.T) {
 	// the first owner's lock
 	{
 		var backups []string
+
 		require.NoError(t, env.RootStorage().ListBlobs(ctx, format.BackupBlobIDPrefix, func(bm blob.Metadata) error {
 			backups = append(backups, string(bm.BlobID))
 			return nil
@@ -242,6 +243,7 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 			if !allowGets && id == format.BackupBlobID(allowedLock) {
 				return errors.New("unexpected error on get")
 			}
+
 			return nil
 		}, nil,
 		func(ctx context.Context) error {
@@ -256,6 +258,7 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 			if !allowPuts || (strings.HasPrefix(string(id), format.BackupBlobIDPrefix) && id != format.BackupBlobID(allowedLock)) {
 				return errors.New("unexpected error")
 			}
+
 			return nil
 		},
 	))

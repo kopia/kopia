@@ -3,6 +3,7 @@ package cache_test
 import (
 	"bytes"
 	"context"
+	"slices"
 	"sort"
 	"sync"
 	"testing"
@@ -11,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/cache"
@@ -209,6 +209,7 @@ func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.S
 			} else {
 				require.ErrorContainsf(t, err, tc.err.Error(), "tc.contentID: %v", tc.contentID)
 			}
+
 			if got := v.ToByteSlice(); !bytes.Equal(got, tc.expected) {
 				t.Errorf("unexpected data for %v: %x, wanted %x", tc.contentID, got, tc.expected)
 			}

@@ -36,8 +36,10 @@ func (s *formatSpecificTestSuite) TestMaintenanceSafety(t *testing.T) {
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "y", MetadataCompressor: "zstd-fastest"})
 		fmt.Fprintf(ow, "hello world")
+
 		var err error
 		objectID, err = ow.Result()
+
 		return err
 	}))
 
@@ -46,6 +48,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceSafety(t *testing.T) {
 		ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "y", MetadataCompressor: "zstd-fastest"})
 		fmt.Fprintf(ow, "hello universe")
 		_, err := ow.Result()
+
 		return err
 	}))
 
@@ -115,6 +118,7 @@ func verifyObjectReadable(ctx context.Context, t *testing.T, rep repo.Repository
 		r, err := w.OpenObject(ctx, objectID)
 		require.NoError(t, err)
 		r.Close()
+
 		return nil
 	}))
 }
@@ -125,6 +129,7 @@ func verifyObjectNotFound(ctx context.Context, t *testing.T, rep repo.Repository
 	require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		_, err := w.OpenObject(ctx, objectID)
 		require.ErrorIs(t, err, object.ErrObjectNotFound)
+
 		return nil
 	}))
 }

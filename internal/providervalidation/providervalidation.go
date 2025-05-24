@@ -19,9 +19,8 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/logging"
-
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 // Options provides options for provider validation.
@@ -447,7 +446,7 @@ func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) fun
 	}
 }
 
-func (c *concurrencyTest) listBlobWorker(ctx context.Context, worker int) func() error {
+func (c *concurrencyTest) listBlobWorker(_ context.Context, worker int) func() error {
 	// TODO: implement me
 	_ = worker
 

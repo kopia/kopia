@@ -452,6 +452,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 					if id == format.KopiaRepositoryBlobID {
 						return blob.ErrBlobNotFound
 					}
+
 					return nil
 				}, nil, nil, nil,
 			),
@@ -473,9 +474,11 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 					if id == format.KopiaBlobCfgBlobID {
 						return nil
 					}
+
 					if id == format.KopiaRepositoryBlobID {
 						return blob.ErrBlobNotFound
 					}
+
 					return nil
 				}, nil, nil, nil,
 			),
@@ -496,6 +499,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 					if id == format.KopiaBlobCfgBlobID || id == format.KopiaRepositoryBlobID {
 						return blob.ErrBlobNotFound
 					}
+
 					return nil
 				},
 				nil, nil,
@@ -504,6 +508,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 					if id == format.KopiaBlobCfgBlobID {
 						return errors.New("unexpected error")
 					}
+
 					return nil
 				},
 			),
@@ -527,6 +532,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 					if id == format.KopiaRepositoryBlobID {
 						return errors.New("unexpected error")
 					}
+
 					return nil
 				},
 				nil, nil, nil,
@@ -582,11 +588,14 @@ func TestObjectWritesWithRetention(t *testing.T) {
 			if strings.HasPrefix(string(it.BlobID), prefix) {
 				_, err = versionedMap.TouchBlob(ctx, it.BlobID, 0)
 				require.Error(t, err, "expected error while touching blob %s", it.BlobID)
+
 				return nil
 			}
 		}
+
 		_, err = versionedMap.TouchBlob(ctx, it.BlobID, 0)
 		require.NoError(t, err, "unexpected error while touching blob %s", it.BlobID)
+
 		return nil
 	}))
 }

@@ -51,7 +51,7 @@ func (s *Map) PutIfAbsent(ctx context.Context, key, value []byte) bool {
 }
 
 // Get gets the element from the map and appends the value to the provided buffer.
-func (s *Map) Get(ctx context.Context, output, key []byte) (result []byte, ok bool, err error) {
+func (s *Map) Get(_ context.Context, output, key []byte) (result []byte, ok bool, err error) {
 	if v, ok := s.inner.Get(output, key); ok {
 		result, err := s.decrypt(key, v)
 

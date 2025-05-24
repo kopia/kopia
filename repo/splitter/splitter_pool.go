@@ -10,7 +10,7 @@ type recyclableSplitter struct {
 }
 
 func (s recyclableSplitter) Close() {
-	s.Splitter.Reset()
+	s.Reset()
 	s.Splitter.Close()
 	s.pool.Put(s.Splitter)
 }

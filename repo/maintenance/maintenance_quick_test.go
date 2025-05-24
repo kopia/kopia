@@ -79,6 +79,7 @@ func TestQuickMaintenanceAdvancesEpoch(t *testing.T) {
 
 	// advance time and write more index to force epoch advancement on maintenance
 	ft.Advance(epochDuration + time.Second)
+
 	ow := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
 	require.NotNil(t, ow)
 

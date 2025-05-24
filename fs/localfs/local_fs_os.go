@@ -22,7 +22,7 @@ type filesystemDirectoryIterator struct {
 	currentBatch []os.DirEntry
 }
 
-func (it *filesystemDirectoryIterator) Next(ctx context.Context) (fs.Entry, error) {
+func (it *filesystemDirectoryIterator) Next(_ context.Context) (fs.Entry, error) {
 	for {
 		// we're at the end of the current batch, fetch the next batch
 		if it.currentIndex >= len(it.currentBatch) {
@@ -63,7 +63,7 @@ func (it *filesystemDirectoryIterator) Close() {
 	it.dirHandle.Close() //nolint:errcheck
 }
 
-func (fsd *filesystemDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+func (fsd *filesystemDirectory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	fullPath := fsd.fullPath()
 
 	f, direrr := os.Open(fullPath) //nolint:gosec
@@ -76,7 +76,7 @@ func (fsd *filesystemDirectory) Iterate(ctx context.Context) (fs.DirectoryIterat
 	return &filesystemDirectoryIterator{dirHandle: f, childPrefix: childPrefix}, nil
 }
 
-func (fsd *filesystemDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+func (fsd *filesystemDirectory) Child(_ context.Context, name string) (fs.Entry, error) {
 	fullPath := fsd.fullPath()
 
 	st, err := os.Lstat(filepath.Join(fullPath, name))

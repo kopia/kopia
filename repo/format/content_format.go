@@ -46,7 +46,7 @@ func (f *ContentFormat) ResolveFormatVersion() error {
 }
 
 // GetMutableParameters implements FormattingOptionsProvider.
-func (f *ContentFormat) GetMutableParameters(ctx context.Context) (MutableParameters, error) {
+func (f *ContentFormat) GetMutableParameters(_ context.Context) (MutableParameters, error) {
 	return f.MutableParameters, nil
 }
 

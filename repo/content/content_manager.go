@@ -987,7 +987,7 @@ type SessionOptions struct {
 }
 
 // NewWriteManager returns a session write manager.
-func NewWriteManager(ctx context.Context, sm *SharedManager, options SessionOptions, writeManagerID string) *WriteManager {
+func NewWriteManager(_ context.Context, sm *SharedManager, options SessionOptions, writeManagerID string) *WriteManager {
 	if options.OnUpload == nil {
 		options.OnUpload = func(int64) {}
 	}

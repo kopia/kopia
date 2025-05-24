@@ -34,6 +34,7 @@ func TestMain(m *testing.M) {
 	// Perform setup needed to get storage stats.
 	dirs := th.GetDirsToLog(ctx)
 	log.Printf("Logging storage stats for %v", dirs)
+
 	err := storagestats.LogStorageStats(ctx, dirs)
 	if err != nil {
 		log.Printf("Error collecting the logs: %s", err.Error())

@@ -458,6 +458,7 @@ ifeq ($(CI_TAG),)
 else
 	$(gitchglog) $(CI_TAG) > dist/change_log.md
 endif
+	gitchglog=$(gitchglog) $(CURDIR)/tools/htmlui_changelog.sh dist/change_log.md
 
 push-github-release:
 ifneq ($(GH_RELEASE_REPO),)
@@ -518,3 +519,9 @@ perf-benchmark-results:
 	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):psrecord-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
 	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):repo-size-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
 	(cd tests/perf_benchmark && go run process_results.go)
+
+check-prettier: $(npm)
+	make -C app check-prettier
+
+prettier: $(npm)
+	make -C app prettier

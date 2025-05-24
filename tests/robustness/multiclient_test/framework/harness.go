@@ -59,6 +59,7 @@ func (th *TestHarness) init(ctx context.Context) {
 		log.Printf("Skipping robustness tests because repo-path-prefix is not set")
 		os.Exit(0)
 	}
+
 	dataRepoPath := path.Join(*RepoPathPrefix, dataSubPath)
 	metaRepoPath := path.Join(*RepoPathPrefix, metadataSubPath)
 
@@ -314,6 +315,7 @@ func (th *TestHarness) GetDirsToLog(ctx context.Context) []string {
 	if err == nil {
 		dirList = append(dirList, cacheDir) // cache dir for repo under test
 	}
+
 	allCacheDirs := getAllCacheDirs(cacheDir)
 	dirList = append(dirList, allCacheDirs...)
 
@@ -324,6 +326,7 @@ func getAllCacheDirs(dir string) []string {
 	if dir == "" {
 		return nil
 	}
+
 	var dirs []string
 	// Collect all cache dirs
 	// There are six types of caches, and corresponding dirs.

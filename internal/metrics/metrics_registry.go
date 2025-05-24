@@ -103,7 +103,7 @@ func (r *Registry) Snapshot(reset bool) Snapshot {
 }
 
 // Close closes the metrics registry.
-func (r *Registry) Close(ctx context.Context) error {
+func (r *Registry) Close(_ context.Context) error {
 	if r == nil {
 		return nil
 	}

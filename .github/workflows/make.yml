@@ -40,7 +40,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5.3.0
+      uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
       with:
         go-version-file: 'go.mod'
         check-latest: true
@@ -93,7 +93,7 @@ jobs:
         # macOS signing certificate (base64-encoded), used by Electron Builder
         MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
     - name: Upload Kopia Artifacts
-      uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: kopia-${{ matrix.os }}
         path: |
@@ -114,7 +114,7 @@ jobs:
           dist/kopia-ui/*.yml
         if-no-files-found: ignore
     - name: Upload Kopia Binary
-      uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: kopia_binaries-${{ matrix.os }}
         path: |
@@ -137,13 +137,13 @@ jobs:
     - name: Install Linux-specific packages
       run: "sudo apt-get install -y createrepo-c"
     - name: Download Artifacts
-      uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
       with:
         pattern: kopia-*
         merge-multiple: true
         path: dist
     - name: Download Kopia Binaries
-      uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.9
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
       with:
         pattern: kopia_binaries-*
         merge-multiple: true

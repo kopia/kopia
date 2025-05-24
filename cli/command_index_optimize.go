@@ -29,7 +29,7 @@ func (c *commandIndexOptimize) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	c.svc.advancedCommand(ctx)
+	c.svc.advancedCommand()
 
 	contentIDs, err := toContentIDs(c.optimizeDropContents)
 	if err != nil {

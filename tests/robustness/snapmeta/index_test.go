@@ -5,6 +5,8 @@ package snapmeta
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestIndex(t *testing.T) {
@@ -18,18 +20,11 @@ func TestIndex(t *testing.T) {
 	idx.AddToIndex(snapIDKey, snapshotIndexName)
 
 	keys := idx.GetKeys(snapshotIndexName)
-	if got, want := len(keys), 1; got != want {
-		t.Fatalf("expected %v keys but got %v", want, got)
-	}
-
-	if got, want := keys[0], snapIDKey; got != want {
-		t.Fatalf("expected %v but got %v", want, got)
-	}
+	require.Len(t, keys, 1, "unexpected number of keys")
+	require.Equal(t, snapIDKey, keys[0])
 
 	idx.RemoveFromIndex(snapIDKey, snapshotIndexName)
 
 	keys = idx.GetKeys(snapshotIndexName)
-	if got, want := len(keys), 0; got != want {
-		t.Fatalf("expected %v keys but got %v", want, got)
-	}
+	require.Empty(t, keys)
 }

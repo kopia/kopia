@@ -71,7 +71,7 @@ export REPO_OWNER=$(GITHUB_REPOSITORY:%/kopia=%)
 endif
 
 # e.g. 2021-02-19 06:56:21 -0800
-git_commit_date:=$(shell git show -s --format=%ci HEAD)
+git_commit_date:=$(shell TZ=UTC git show -s --date=iso-local --format=%cd HEAD)
 
 # compute build date and time from the current commit as yyyyMMdd
 commit_date_ymd:=$(subst -,,$(word 1, $(git_commit_date)))
@@ -102,9 +102,9 @@ retry:=
 endif
 
 # tool versions
-GOLANGCI_LINT_VERSION=1.62.0
+GOLANGCI_LINT_VERSION=2.1.2
 CHECKLOCKS_VERSION=release-20241104.0
-NODE_VERSION=20.15.1
+NODE_VERSION=22.15.1
 HUGO_VERSION=0.113.0
 GOTESTSUM_VERSION=1.11.0
 GORELEASER_VERSION=v0.176.0

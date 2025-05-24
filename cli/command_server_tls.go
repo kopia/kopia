@@ -17,9 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/coreos/go-systemd/v22/activation"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/tlsutil"
 )

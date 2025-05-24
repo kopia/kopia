@@ -24,7 +24,7 @@ func (c *commandBlobDelete) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandBlobDelete) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	c.svc.advancedCommand(ctx)
+	c.svc.advancedCommand()
 
 	for _, b := range c.blobIDs {
 		err := rep.BlobStorage().DeleteBlob(ctx, blob.ID(b))

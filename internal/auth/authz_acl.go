@@ -141,7 +141,7 @@ func (ac *aclCache) Authorize(ctx context.Context, rep repo.Repository, username
 	return aclEntriesAuthorizer{acl.EntriesForUser(ac.aclEntries, u, h), u, h}
 }
 
-func (ac *aclCache) Refresh(ctx context.Context) error {
+func (ac *aclCache) Refresh(_ context.Context) error {
 	ac.mu.Lock()
 	defer ac.mu.Unlock()
 

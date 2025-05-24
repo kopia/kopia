@@ -33,7 +33,7 @@ func (keyringStrategy) GetPassword(ctx context.Context, configFile string) (stri
 	case errors.Is(err, keyring.ErrUnsupportedPlatform):
 		return "", ErrPasswordNotFound
 	default:
-		return "", errors.Wrap(err, "error retrieving password from OS keyring")
+		return "", errors.Wrap(err, "error retrieving password from OS keyring, the keyring may be locked, attempt unlocking it using the OS-specific method")
 	}
 }
 
