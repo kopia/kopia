@@ -10,13 +10,14 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/blake3"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/diff"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -108,14 +109,10 @@ func TestCompareEmptyDirectories(t *testing.T) {
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
 	dirMode := os.FileMode(0o777)
 
-	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
-	dirObjectID1 := object.DirectObjectID(cid)
-
-	cid, _ = index.IDFromHash("i", []byte("dfjlgn"))
-	dirObjectID2 := object.DirectObjectID(cid)
-
-	dir1 := createTestDirectory("testDir1", dirModTime, dirOwnerInfo, dirMode, dirObjectID1)
-	dir2 := createTestDirectory("testDir2", dirModTime, dirOwnerInfo, dirMode, dirObjectID2)
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "dfjlgn")
+	dir1 := createTestDirectory("testDir1", dirModTime, dirOwnerInfo, dirMode, oid1)
+	dir2 := createTestDirectory("testDir2", dirModTime, dirOwnerInfo, dirMode, oid2)
 
 	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
@@ -142,11 +139,8 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 	dirMode := os.FileMode(0o777)
 	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 
-	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
-	dirObjectID1 := object.DirectObjectID(cid)
-
-	cid, _ = index.IDFromHash("i", []byte("dfjlgn"))
-	dirObjectID2 := object.DirectObjectID(cid)
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "dfjlgn")
 
 	file1 := &testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"}
 	file2 := &testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"}
@@ -156,7 +150,7 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 		dirModTime,
 		dirOwnerInfo,
 		dirMode,
-		dirObjectID1,
+		oid1,
 		file1,
 		file2,
 	)
@@ -165,7 +159,7 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 		dirModTime,
 		dirOwnerInfo,
 		dirMode,
-		dirObjectID2,
+		oid2,
 		file1,
 		file2,
 	)
@@ -196,18 +190,15 @@ func TestCompareDifferentDirectories(t *testing.T) {
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
 	dirMode := os.FileMode(0o777)
 
-	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
-	dirObjectID1 := object.DirectObjectID(cid)
-
-	cid, _ = index.IDFromHash("i", []byte("dfjlgn"))
-	dirObjectID2 := object.DirectObjectID(cid)
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "dfjlgn")
 
 	dir1 := createTestDirectory(
 		"testDir1",
 		dirModTime,
 		dirOwnerInfo,
 		dirMode,
-		dirObjectID1,
+		oid1,
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"},
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
@@ -216,7 +207,7 @@ func TestCompareDifferentDirectories(t *testing.T) {
 		dirModTime,
 		dirOwnerInfo,
 		dirMode,
-		dirObjectID2,
+		oid2,
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file3.txt"}, content: "abcdefghij1"},
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file4.txt"}, content: "klmnopqrstuvwxyz2"},
 	)
@@ -254,18 +245,15 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
 	dirMode := os.FileMode(0o777)
 
-	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
-	dirObjectID1 := object.DirectObjectID(cid)
-
-	cid, _ = index.IDFromHash("i", []byte("dfjlgn"))
-	dirObjectID2 := object.DirectObjectID(cid)
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "dfjlgn")
 
 	dir1 := createTestDirectory(
 		"testDir1",
 		dirModTime1,
 		dirOwnerInfo,
 		dirMode,
-		dirObjectID1,
+		oid1,
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"},
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
@@ -274,7 +262,7 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 		dirModTime2,
 		dirOwnerInfo,
 		dirMode,
-		dirObjectID2,
+		oid2,
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"},
 		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
 	)
@@ -308,27 +296,24 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 	dirOwnerInfo := fs.OwnerInfo{UserID: 1000, GroupID: 1000}
 	dirMode := os.FileMode(0o700)
 
-	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
-	OID1 := object.DirectObjectID(cid)
-
-	cid, _ = index.IDFromHash("i", []byte("hvhjb"))
-	OID2 := object.DirectObjectID(cid)
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "hvhjb")
 
 	dir1 := createTestDirectory(
 		"testDir1",
 		dirModTime,
 		dirOwnerInfo,
 		dirMode,
-		OID1,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime1, name: "file1.txt", oid: OID1}, content: "abcdefghij"},
+		oid1,
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime1, name: "file1.txt", oid: oid1}, content: "abcdefghij"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
 		dirModTime,
 		dirOwnerInfo,
 		dirMode,
-		OID2,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime2, name: "file1.txt", oid: OID2}, content: "abcdefghij"},
+		oid2,
+		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime2, name: "file1.txt", oid: oid2}, content: "abcdefghij"},
 	)
 
 	c, err := diff.NewComparer(&buf, statsOnly)
@@ -365,18 +350,15 @@ func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
 	dirMode := os.FileMode(0o777)
 	dirModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 
-	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
-	dirObjectID1 := object.DirectObjectID(cid)
-
-	cid, _ = index.IDFromHash("i", []byte("dfjlgn"))
-	dirObjectID2 := object.DirectObjectID(cid)
+	oid1 := oidForString(t, "k", "sdkjfn")
+	oid2 := oidForString(t, "k", "dfjlgn")
 
 	dir1 := createTestDirectory(
 		"testDir1",
 		dirModTime,
 		dirOwnerInfo,
 		dirMode,
-		dirObjectID1,
+		oid1,
 		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime1, oid: object.ID{}, owner: fileOwnerinfo1, mode: 0o700}, content: "abcdefghij"},
 	)
 
@@ -385,7 +367,7 @@ func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
 		dirModTime,
 		dirOwnerInfo,
 		dirMode,
-		dirObjectID2,
+		oid2,
 		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime2, oid: object.ID{}, owner: fileOwnerinfo2, mode: 0o777}, content: "abcdefghij"},
 	)
 
@@ -429,15 +411,14 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 
 	fileModTime := time.Date(2023, time.April, 12, 10, 30, 0, 0, time.UTC)
 
-	cid, _ := index.IDFromHash("p", []byte("sdkjfn"))
-	dirObjectID := object.DirectObjectID(cid)
+	oid := oidForString(t, "k", "sdkjfn")
 
 	dir1 := createTestDirectory(
 		"testDir1",
 		dirModTime1,
 		dirOwnerInfo1,
 		dirMode1,
-		dirObjectID,
+		oid,
 		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime}, content: "abcdefghij"},
 	)
 
@@ -446,7 +427,7 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 		dirModTime2,
 		dirOwnerInfo2,
 		dirMode2,
-		dirObjectID,
+		oid,
 		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime}, content: "abcdefghij"},
 	)
 	c, err := diff.NewComparer(&buf, statsOnly)
@@ -477,53 +458,46 @@ func createTestDirectory(name string, modtime time.Time, owner fs.OwnerInfo, mod
 	return &testDirectory{testBaseEntry: testBaseEntry{modtime: modtime, name: name, owner: owner, mode: mode, oid: oid}, files: files}
 }
 
-func getManifests() map[string]*snapshot.Manifest {
+func getManifests(t *testing.T) map[string]*snapshot.Manifest {
+	t.Helper()
+
 	// manifests store snapshot manifests based on start-time
-	manifests := make(map[string]*snapshot.Manifest)
+	manifests := make(map[string]*snapshot.Manifest, 3)
 
 	src := getSnapshotSource()
 	snapshotTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	contentID1, _ := index.IDFromHash("p", []byte("indexID1"))
-	objectID1 := object.DirectObjectID(contentID1)
-
-	contentID2, _ := index.IDFromHash("p", []byte("indexID2"))
-	objectID2 := object.DirectObjectID(contentID2)
-
 	rootEntry1 := snapshot.DirEntry{
-		ObjectID: objectID1,
+		ObjectID: oidForString(t, "", "indexID1"),
 	}
 
 	rootEntry2 := snapshot.DirEntry{
-		ObjectID: objectID2,
+		ObjectID: oidForString(t, "", "indexID2"),
 	}
 
-	initialSnapshotManifest := &snapshot.Manifest{
+	manifests["initial_snapshot"] = &snapshot.Manifest{
 		ID:          "manifest_1_id",
 		Source:      src,
 		StartTime:   fs.UTCTimestamp(snapshotTime.Add((-24) * time.Hour).UnixNano()),
 		Description: "snapshot captured a day ago",
 		RootEntry:   &rootEntry2,
 	}
-	manifests["initial_snapshot"] = initialSnapshotManifest
 
-	intermediateSnapshotManifest := &snapshot.Manifest{
+	manifests["intermediate_snapshot"] = &snapshot.Manifest{
 		ID:          "manifest_2_id",
 		Source:      src,
 		StartTime:   fs.UTCTimestamp(snapshotTime.Add(-time.Hour).UnixNano()),
 		Description: "snapshot taken an hour ago",
 		RootEntry:   &rootEntry2,
 	}
-	manifests["intermediate_snapshot"] = intermediateSnapshotManifest
 
-	LatestSnapshotManifest := &snapshot.Manifest{
+	manifests["latest_snapshot"] = &snapshot.Manifest{
 		ID:          "manifest_3_id",
 		Source:      src,
 		StartTime:   fs.UTCTimestamp(snapshotTime.UnixNano()),
 		Description: "latest snapshot",
 		RootEntry:   &rootEntry1,
 	}
-	manifests["latest_snapshot"] = LatestSnapshotManifest
 
 	return manifests
 }
@@ -536,7 +510,7 @@ func getManifests() map[string]*snapshot.Manifest {
 //     preceding with no error.
 func TestGetPrecedingSnapshot(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
-	manifests := getManifests()
+	manifests := getManifests(t)
 
 	_, err := diff.GetPrecedingSnapshot(ctx, env.RepositoryWriter, "non_existent_snapshot_ID")
 	require.Error(t, err, "expect error when calling GetPrecedingSnapshot with a wrong snapshotID")
@@ -564,7 +538,7 @@ func TestGetTwoLatestSnapshots(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
 	snapshotSrc := getSnapshotSource()
-	manifests := getManifests()
+	manifests := getManifests(t)
 
 	_, _, err := diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
 	require.Error(t, err, "expected error as there aren't enough snapshots to get the two most recent snapshots")
@@ -616,4 +590,24 @@ func getSnapshotSource() snapshot.SourceInfo {
 	}
 
 	return src
+}
+
+func oidForString(t *testing.T, prefix content.IDPrefix, s string) object.ID {
+	t.Helper()
+
+	return oidForContent(t, prefix, []byte(s))
+}
+
+func oidForContent(t *testing.T, prefix content.IDPrefix, c []byte) object.ID {
+	t.Helper()
+
+	h := blake3.New()
+	_, err := h.Write(c)
+
+	require.NoError(t, err)
+
+	cid, err := content.IDFromHash(prefix, h.Sum(nil))
+	require.NoError(t, err)
+
+	return object.DirectObjectID(cid)
 }
