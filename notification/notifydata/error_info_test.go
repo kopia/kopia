@@ -12,8 +12,8 @@ import (
 )
 
 func TestNewErrorInfo(t *testing.T) {
-	startTime := clock.Now()
-	endTime := startTime.Add(2 * time.Second)
+	startTime := clock.Now().UTC()
+	endTime := startTime.Add(2 * time.Second).UTC()
 
 	err := errors.New("test error") //nolint:err113
 	e := notifydata.NewErrorInfo("test operation", "test details", startTime, endTime, err)
