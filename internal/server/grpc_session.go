@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
@@ -496,9 +497,14 @@ func (s *Server) handleSendNotificationRequest(ctx context.Context, rep repo.Rep
 		return accessDeniedResponse()
 	}
 
+	eventArgs, err := notifydata.UnmarshalEventArgs(req.GetEventArgs(), req.GetEventArgsType())
+	if err != nil {
+		return errorResponse(err)
+	}
+
 	if err := notification.SendInternal(ctx, rep,
 		req.GetTemplateName(),
-		json.RawMessage(req.GetEventArgs()),
+		eventArgs,
 		notification.Severity(req.GetSeverity()),
 		s.options.NotifyTemplateOptions); err != nil {
 		return errorResponse(err)

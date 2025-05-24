@@ -145,10 +145,18 @@ message ApplyRetentionPolicyResponse {
   repeated string manifest_ids = 1;
 }
 
+enum NotificationEventArgType {
+  ARG_TYPE_UNKNOWN = 0; // unknown, not provided by old clients
+  ARG_TYPE_EMPTY = 1; // 
+  ARG_TYPE_ERROR_INFO = 2;
+  ARG_TYPE_MULTI_SNAPSHOT_STATUS = 3;
+}
+
 message SendNotificationRequest {
   string template_name = 1;
   bytes event_args = 2; // JSON-encoded
   int32 severity = 3;
+  NotificationEventArgType event_args_type = 4;
 }
 
 message SendNotificationResponse {

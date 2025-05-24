@@ -117,6 +117,7 @@ func TestOverallStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mss := notifydata.MultiSnapshotStatus{Snapshots: tt.snapshots}
 			require.Equal(t, tt.expected, mss.OverallStatus())
+			testRoundTrip(t, &mss)
 		})
 	}
 }

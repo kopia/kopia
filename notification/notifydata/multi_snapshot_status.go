@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -156,6 +157,11 @@ func (m *ManifestWithError) StatusCode() string {
 // MultiSnapshotStatus represents the status of multiple snapshots.
 type MultiSnapshotStatus struct {
 	Snapshots []*ManifestWithError `json:"snapshots"`
+}
+
+// EventArgsType returns the type of event arguments for MultiSnapshotStatus.
+func (m MultiSnapshotStatus) EventArgsType() grpcapi.NotificationEventArgType {
+	return grpcapi.NotificationEventArgType_ARG_TYPE_MULTI_SNAPSHOT_STATUS
 }
 
 // OverallStatus returns the overall status of the snapshots.

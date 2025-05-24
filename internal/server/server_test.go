@@ -7,16 +7,19 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/servertesting"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/notification/notifyprofile"
 	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/notification/sender"
@@ -290,7 +293,7 @@ func remoteRepositoryNotificationTest(t *testing.T, ctx context.Context, rep rep
 	}))
 	require.NoError(t, rw.Flush(ctx))
 
-	notification.Send(ctx, rep, notifytemplate.TestNotification, nil, notification.SeverityError, notifytemplate.DefaultOptions)
+	notification.Send(ctx, rep, notifytemplate.TestNotification, notifydata.EmptyEventData{}, notification.SeverityError, notifytemplate.DefaultOptions)
 	require.Equal(t, int32(1), numRequestsReceived.Load())
 
 	// another webhook which fails
@@ -307,7 +310,12 @@ func remoteRepositoryNotificationTest(t *testing.T, ctx context.Context, rep rep
 	}))
 
 	require.NoError(t, rw.Flush(ctx))
-	notification.Send(ctx, rep, notifytemplate.TestNotification, nil, notification.SeverityError, notifytemplate.DefaultOptions)
+
+	t0 := clock.Now()
+	t1 := clock.Now().Add(10 * time.Second)
+
+	notification.Send(ctx, rep, "generic-error",
+		notifydata.NewErrorInfo("op", "some error occurred", t0, t1, errors.New("some error")), notification.SeverityError, notifytemplate.DefaultOptions)
 	require.Equal(t, int32(1), numRequestsReceived.Load())
 }
 
