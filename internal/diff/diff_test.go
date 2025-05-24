@@ -462,7 +462,7 @@ func getManifests(t *testing.T) map[string]*snapshot.Manifest {
 	t.Helper()
 
 	// manifests store snapshot manifests based on start-time
-	manifests := make(map[string]*snapshot.Manifest)
+	manifests := make(map[string]*snapshot.Manifest, 3)
 
 	src := getSnapshotSource()
 	snapshotTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
