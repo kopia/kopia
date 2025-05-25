@@ -572,7 +572,19 @@ func (s *Server) sendSnapshotReport(st notifydata.MultiSnapshotStatus) {
 	// send the notification without blocking if we still have the repository
 	// it's possible that repository was closed in the meantime.
 	if rep != nil {
-		notification.Send(s.rootctx, rep, "snapshot-report", st, notification.SeverityReport, s.notificationTemplateOptions())
+		notification.Send(s.rootctx, rep, "snapshot-report", st, s.reportSeverity(st), s.notificationTemplateOptions())
+	}
+}
+
+func (*Server) reportSeverity(st notifydata.MultiSnapshotStatus) notification.Severity {
+	// TODO - this is a duplicate of the code in command_snapshot_create.go - we should unify this.
+	switch st.OverallStatusCode() {
+	case notifydata.StatusCodeFatal:
+		return notification.SeverityError
+	case notifydata.StatusCodeWarnings:
+		return notification.SeverityWarning
+	default:
+		return notification.SeverityReport
 	}
 }
 

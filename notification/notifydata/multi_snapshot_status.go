@@ -164,6 +164,30 @@ func (m MultiSnapshotStatus) EventArgsType() grpcapi.NotificationEventArgType {
 	return grpcapi.NotificationEventArgType_ARG_TYPE_MULTI_SNAPSHOT_STATUS
 }
 
+// OverallStatusCode returns the overall status of the snapshots (StatusCodeSuccess, StatusCodeWarnings, or StatusCodeFatal).
+func (m MultiSnapshotStatus) OverallStatusCode() string {
+	var hasWarnings, hasErrors bool
+
+	for _, s := range m.Snapshots {
+		switch s.StatusCode() {
+		case StatusCodeFatal:
+			hasErrors = true
+		case StatusCodeWarnings:
+			hasWarnings = true
+		}
+	}
+
+	if hasErrors {
+		return StatusCodeFatal
+	}
+
+	if hasWarnings {
+		return StatusCodeWarnings
+	}
+
+	return StatusCodeSuccess
+}
+
 // OverallStatus returns the overall status of the snapshots.
 func (m MultiSnapshotStatus) OverallStatus() string {
 	var (
