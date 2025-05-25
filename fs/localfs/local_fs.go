@@ -100,7 +100,9 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 		return nil, errors.Wrap(err, "unable to stat() local file")
 	}
 
-	return newFilesystemFile(newEntry(fi, dirPrefix(f.Name()))), nil
+	basename, prefix := splitDirPrefix(f.Name())
+
+	return newFilesystemFile(newEntry(basename, fi, prefix)), nil
 }
 
 func (fsf *filesystemFile) Open(_ context.Context) (fs.Reader, error) {
@@ -130,16 +132,16 @@ func (e *filesystemErrorEntry) ErrorInfo() error {
 	return e.err
 }
 
-// dirPrefix returns the directory prefix for a given path - the initial part of the path up to and including the final slash (or backslash on Windows).
-// this is similar to filepath.Dir() except dirPrefix("\\foo\bar") == "\\foo\", which is unsupported in filepath.
-func dirPrefix(s string) string {
+// splitDirPrefix returns the directory prefix for a given path - the initial part of the path up to and including the final slash (or backslash on Windows).
+// this is similar to filepath.Dir() and filepath.Base() except splitDirPrefix("\\foo\bar") == "\\foo\", which is unsupported in filepath.
+func splitDirPrefix(s string) (basename, prefix string) {
 	for i := len(s) - 1; i >= 0; i-- {
 		if s[i] == filepath.Separator || s[i] == '/' {
-			return s[0 : i+1]
+			return s[i+1:], s[0 : i+1]
 		}
 	}
 
-	return ""
+	return s, ""
 }
 
 // Directory returns fs.Directory for the specified path.
