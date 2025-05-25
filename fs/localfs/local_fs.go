@@ -101,6 +101,7 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 	}
 
 	basename, prefix := splitDirPrefix(f.Name())
+
 	return newFilesystemFile(newEntry(basename, fi, prefix)), nil
 }
 
@@ -133,7 +134,7 @@ func (e *filesystemErrorEntry) ErrorInfo() error {
 
 // splitDirPrefix returns the directory prefix for a given path - the initial part of the path up to and including the final slash (or backslash on Windows).
 // this is similar to filepath.Dir() and filepath.Base() except splitDirPrefix("\\foo\bar") == "\\foo\", which is unsupported in filepath.
-func splitDirPrefix(s string) (basename string, prefix string) {
+func splitDirPrefix(s string) (basename, prefix string) {
 	for i := len(s) - 1; i >= 0; i-- {
 		if s[i] == filepath.Separator || s[i] == '/' {
 			return s[i+1:], s[0 : i+1]

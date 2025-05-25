@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -250,7 +249,7 @@ func verifyChild(t *testing.T, dir fs.Directory) {
 }
 
 func TestLocalFilesystemPath(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if isWindows() {
 		t.Skip()
 	}
 
@@ -280,14 +279,14 @@ func TestSplitDirPrefix(t *testing.T) {
 	}
 
 	cases := map[string]pair{
-		"foo":      pair{"", "foo"},
-		"/":        pair{"/", ""},
-		"/tmp":     pair{"/", "tmp"},
-		"/tmp/":    pair{"/tmp/", ""},
-		"/tmp/foo": pair{"/tmp/", "foo"},
+		"foo":      {"", "foo"},
+		"/":        {"/", ""},
+		"/tmp":     {"/", "tmp"},
+		"/tmp/":    {"/tmp/", ""},
+		"/tmp/foo": {"/tmp/", "foo"},
 	}
 
-	if runtime.GOOS == "windows" {
+	if isWindows() {
 		cases["c:/"] = pair{"c:/", ""}
 		cases["c:\\"] = pair{"c:\\", ""}
 		cases["c:/temp"] = pair{"c:/", "temp"}

@@ -106,6 +106,10 @@ func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 	return entryFromDirEntry(n, fi, prefix), nil
 }
 
+func isWindows() bool {
+	return runtime.GOOS == "windows"
+}
+
 // NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
 // or fs.UnsupportedEntry.
 func NewEntry(path string) (fs.Entry, error) {
@@ -117,8 +121,7 @@ func NewEntry(path string) (fs.Entry, error) {
 		// cause os.Lstat to fail with "Incorrect function" error unless they
 		// end with a separator. Retry the operation with the separator added.
 		var e syscall.Errno
-		//nolint:goconst
-		if runtime.GOOS == "windows" &&
+		if isWindows() &&
 			!strings.HasSuffix(path, string(filepath.Separator)) &&
 			errors.As(err, &e) && e == 1 {
 			fi, err = os.Lstat(path + string(filepath.Separator))
@@ -134,6 +137,7 @@ func NewEntry(path string) (fs.Entry, error) {
 	}
 
 	basename, prefix := splitDirPrefix(path)
+
 	return entryFromDirEntry(basename, fi, prefix), nil
 }
 
