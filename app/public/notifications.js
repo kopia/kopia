@@ -4,9 +4,9 @@ import { configDir } from "./config.js";
 const path = await import("path");
 const fs = await import("fs");
 
-const LevelDisabled = 0;
-const LevelDefault = 1;
-const LevelAll = 2;
+export const LevelDisabled = 0;
+export const LevelWarningsAndErrors = 1;
+export const LevelAll = 2;
 
 let level = -1;
 
@@ -16,7 +16,7 @@ export function getNotificationLevel() {
       const cfg = fs.readFileSync(path.join(configDir(), "notifications.json"));
       return JSON.parse(cfg).level;
     } catch (e) {
-      level = LevelDefault;
+      level = LevelWarningsAndErrors;
     }
   }
 
@@ -26,7 +26,7 @@ export function getNotificationLevel() {
 export function setNotificationLevel(l) {
   level = l;
   if (level < LevelDisabled || level > LevelAll) {
-    level = LevelDefault;
+    level = LevelWarningsAndErrors;
   }
 
   fs.writeFileSync(

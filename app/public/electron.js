@@ -17,7 +17,12 @@ import {
   willLaunchAtStartup,
   refreshWillLaunchAtStartup,
 } from "./auto-launch.js";
-import { setNotificationLevel, getNotificationLevel } from "./notifications.js";
+import {
+  setNotificationLevel,
+  getNotificationLevel,
+  LevelDisabled,
+  LevelWarningsAndErrors,
+} from "./notifications.js";
 import { serverForRepo } from "./server.js";
 import {
   loadConfigs,
@@ -549,21 +554,26 @@ app.on("ready", () => {
 
 function showRepoNotification(e) {
   const nl = getNotificationLevel();
-  if (nl === 0) {
+  if (nl === LevelDisabled) {
     // notifications disabled
     return;
   }
 
-  if (e.severity < 10 && nl === 1) {
-    // non-important notifications disabled.
+  const severity = e.notification.severity;
+  if (severity < 10 && nl === LevelWarningsAndErrors) {
+    log.info(
+      "showRepoNotification",
+      "skipping notification",
+      e.notification.subject,
+    );
     return;
   }
 
   let urgency = "normal";
 
-  if (e.severity < 0) {
+  if (severity < 0) {
     urgency = "low";
-  } else if (e.severity >= 10) {
+  } else if (severity >= 10) {
     // warnings and errors
     urgency = "critical";
   } else {

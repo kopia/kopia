@@ -150,7 +150,7 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 	}
 
 	if c.sendSnapshotReport {
-		notification.Send(ctx, rep, "snapshot-report", st, notification.SeverityReport, c.svc.notificationTemplateOptions())
+		notification.Send(ctx, rep, "snapshot-report", st, c.reportSeverity(st), c.svc.notificationTemplateOptions())
 	}
 
 	// ensure we flush at least once in the session to properly close all pending buffers,
@@ -171,6 +171,17 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 	}
 
 	return errors.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
+}
+
+func (c *commandSnapshotCreate) reportSeverity(st notifydata.MultiSnapshotStatus) notification.Severity {
+	switch st.OverallStatusCode() {
+	case notifydata.StatusCodeFatal:
+		return notification.SeverityError
+	case notifydata.StatusCodeWarnings:
+		return notification.SeverityWarning
+	default:
+		return notification.SeverityReport
+	}
 }
 
 func getTags(tagStrings []string) (map[string]string, error) {
