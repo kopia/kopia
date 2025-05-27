@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -17,6 +18,7 @@ type storageS3Flags struct {
 	s3options       s3.Options
 	rootCaPemBase64 string
 	rootCaPemPath   string
+	sseMethod       string
 }
 
 func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClause) {
@@ -29,7 +31,27 @@ func (c *storageS3Flags) Setup(svc StorageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("prefix", "Prefix to use for objects in the bucket. Put trailing slash (/) if you want to use prefix as directory. e.g my-backup-dir/ would put repository contents inside my-backup-dir directory").StringVar(&c.s3options.Prefix)
 	cmd.Flag("disable-tls", "Disable TLS security (HTTPS)").BoolVar(&c.s3options.DoNotUseTLS)
 	cmd.Flag("disable-tls-verification", "Disable TLS (HTTPS) certificate verification").BoolVar(&c.s3options.DoNotVerifyTLS)
-	cmd.Flag("server-side-encryption", "Server-side encryption method (AES256 or aws:kms)").StringVar(&c.s3options.ServerSideEncryption)
+
+	cmd.Flag("server-side-encryption", "Server-side encryption method (NONE, AES256, or KMS)").
+		PreAction(func(_ *kingpin.ParseContext) error {
+			switch strings.ToUpper(c.sseMethod) {
+			case "NONE", "AES256", "KMS":
+			default:
+				return errors.Errorf("invalid server-side encryption method %q, must be one of: NONE, AES256, KMS", c.sseMethod)
+			}
+
+			if strings.EqualFold(c.sseMethod, "KMS") {
+				c.s3options.ServerSideEncryption = "aws:kms"
+			} else if c.sseMethod == "NONE" {
+				c.s3options.ServerSideEncryption = ""
+			} else {
+				c.s3options.ServerSideEncryption = c.sseMethod
+			}
+			return nil
+		}).
+		Default("NONE").
+		StringVar(&c.sseMethod)
+
 	cmd.Flag("kms-key-id", "KMS key ID to use for server-side encryption (only used with aws:kms)").StringVar(&c.s3options.KMSKeyID)
 
 	commonThrottlingFlags(cmd, &c.s3options.Limits)

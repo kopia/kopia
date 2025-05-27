@@ -855,12 +855,28 @@ func customCredentialsAndProvider(accessKey, secretKey, roleARN, region string) 
 	return credentials.New(cp), cp
 }
 
+func cloneS3StorageEncryptionOptions(src *Options) *Options {
+	return &Options{
+		Endpoint:        src.Endpoint,
+		AccessKeyID:     src.AccessKeyID,
+		SecretAccessKey: src.SecretAccessKey,
+		BucketName:      src.BucketName,
+		Region:          src.Region,
+		DoNotUseTLS:     src.DoNotUseTLS,
+		DoNotVerifyTLS:  src.DoNotVerifyTLS,
+
+		ServerSideEncryption: src.ServerSideEncryption,
+		KMSKeyID:            src.KMSKeyID,
+
+		Prefix: src.Prefix,
+	}
+}
+
 func TestS3StorageEncryption(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
-	// skip the test if AWS creds are not provided
-	options := &Options{
+	baseOptions := &Options{
 		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
 		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
 		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
@@ -868,26 +884,28 @@ func TestS3StorageEncryption(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	getOrCreateBucket(t, options)
+	getOrCreateBucket(t, baseOptions)
 
 	t.Run("AES256", func(t *testing.T) {
+		options := cloneS3StorageEncryptionOptions(baseOptions)
 		options.ServerSideEncryption = "AES256"
 		testStorage(t, options, false, blob.PutOptions{})
 	})
 
 	t.Run("AWSKMS-DefaultKey", func(t *testing.T) {
+		options := cloneS3StorageEncryptionOptions(baseOptions)
 		options.ServerSideEncryption = "aws:kms"
-		options.KMSKeyID = "" // Use default KMS key
+		options.KMSKeyID = ""
 		testStorage(t, options, false, blob.PutOptions{})
 	})
 
 	t.Run("AWSKMS-CustomKey", func(t *testing.T) {
-		// Skip if KMS key ID is not provided
 		kmsKeyID := getEnv("KOPIA_S3_TEST_KMS_KEY_ID", "")
 		if kmsKeyID == "" {
 			t.Skip("KMS key ID not provided in KOPIA_S3_TEST_KMS_KEY_ID")
 		}
 
+		options := cloneS3StorageEncryptionOptions(baseOptions)
 		options.ServerSideEncryption = "aws:kms"
 		options.KMSKeyID = kmsKeyID
 		testStorage(t, options, false, blob.PutOptions{})
