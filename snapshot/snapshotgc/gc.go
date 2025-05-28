@@ -73,32 +73,15 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *bigmap.
 }
 
 // Run performs garbage collection on all the snapshots in the repository.
-func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) (Stats, error) {
-	var st Stats
-
+func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) error {
 	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() error {
-		if err := runInternal(ctx, rep, gcDelete, safety, maintenanceStartTime, &st); err != nil {
-			return err
-		}
-
-		l := log(ctx)
-
-		l.Infof("GC found %v unused contents (%v)", st.UnusedCount, units.BytesString(st.UnusedBytes))
-		l.Infof("GC found %v unused contents that are too recent to delete (%v)", st.TooRecentCount, units.BytesString(st.TooRecentBytes))
-		l.Infof("GC found %v in-use contents (%v)", st.InUseCount, units.BytesString(st.InUseBytes))
-		l.Infof("GC found %v in-use system-contents (%v)", st.SystemCount, units.BytesString(st.SystemBytes))
-
-		if st.UnusedCount > 0 && !gcDelete {
-			return errors.New("Not deleting because 'gcDelete' was not set")
-		}
-
-		return nil
+		return runInternal(ctx, rep, gcDelete, safety, maintenanceStartTime)
 	})
 
-	return st, errors.Wrap(err, "error running snapshot gc")
+	return errors.Wrap(err, "error running snapshot gc")
 }
 
-func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time, st *Stats) error {
+func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) error {
 	var unused, inUse, system, tooRecent, undeleted stats.CountSum
 
 	used, serr := bigmap.NewSet(ctx)
@@ -166,15 +149,35 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 		return nil
 	})
 
-	st.UnusedCount, st.UnusedBytes = unused.Approximate()
-	st.InUseCount, st.InUseBytes = inUse.Approximate()
-	st.SystemCount, st.SystemBytes = system.Approximate()
-	st.TooRecentCount, st.TooRecentBytes = tooRecent.Approximate()
-	st.UndeletedCount, st.UndeletedBytes = undeleted.Approximate()
+	unusedCount, unusedBytes := toCountAndBytesString(&unused)
+	inUseCount, inUseBytes := toCountAndBytesString(&inUse)
+	systemCount, systemBytes := toCountAndBytesString(&system)
+	tooRecentCount, tooRecentBytes := toCountAndBytesString(&tooRecent)
+	undeletedCount, undeletedBytes := toCountAndBytesString(&undeleted)
+
+	log(ctx).Infof("GC found %v unused contents (%v)", unusedCount, unusedBytes)
+	log(ctx).Infof("GC found %v unused contents that are too recent to delete (%v)", tooRecentCount, tooRecentBytes)
+	log(ctx).Infof("GC found %v in-use contents (%v)", inUseCount, inUseBytes)
+	log(ctx).Infof("GC found %v in-use system-contents (%v)", systemCount, systemBytes)
+	log(ctx).Infof("GC undeleted %v contents (%v)", undeletedCount, undeletedBytes)
 
 	if err != nil {
 		return errors.Wrap(err, "error iterating contents")
 	}
 
-	return errors.Wrap(rep.Flush(ctx), "flush error")
+	if err := rep.Flush(ctx); err != nil {
+		return errors.Wrap(err, "flush error")
+	}
+
+	if unusedCount > 0 && !gcDelete {
+		return errors.New("Not deleting because 'gcDelete' was not set")
+	}
+
+	return nil
+}
+
+func toCountAndBytesString(cs *stats.CountSum) (uint32, string) {
+	count, sumBytes := cs.Approximate()
+
+	return count, units.BytesString(sumBytes)
 }
