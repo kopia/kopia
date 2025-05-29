@@ -39,14 +39,7 @@ func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	baseDir := testutil.TempDirectory(t)
-	f, err := os.Create(filepath.Join(baseDir, "foo"))
-
-	require.NoError(t, err)
-	require.NotNil(t, f)
-
-	n, err := io.CopyN(f, rand.New(rand.NewSource(0)), fileSize)
-	require.NoError(t, err)
-	require.Equal(t, fileSize, n)
+	writeRandomFile(t, filepath.Join(baseDir, "foo"), fileSize)
 
 	startTime := clock.Now()
 
@@ -60,4 +53,21 @@ func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 	require.Len(t, si, 1)
 	require.Len(t, si[0].Snapshots, 1)
 	require.False(t, si[0].Snapshots[0].Incomplete)
+}
+
+func writeRandomFile(t *testing.T, name string, fileSize int64) {
+	t.Helper()
+
+	f, err := os.Create(name)
+
+	require.NoError(t, err)
+	require.NotNil(t, f)
+
+	defer func() {
+		require.NoError(t, f.Close())
+	}()
+
+	n, err := io.CopyN(f, rand.New(rand.NewSource(0)), fileSize)
+	require.NoError(t, err)
+	require.Equal(t, fileSize, n)
 }
