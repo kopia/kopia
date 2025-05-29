@@ -808,7 +808,7 @@ func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 	const (
 		fileSize                  = int64(1) << 30
 		checkpointInterval        = "1s"
-		checkpointIntervalSeconds = 1
+		checkpointIntervalSeconds = float64(1)
 	)
 
 	t.Parallel()
