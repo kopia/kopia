@@ -806,7 +806,7 @@ func TestSnapshotCreateWithAllAndPath(t *testing.T) {
 func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 	// 1 GiB of data seems to be enough for the snapshot time to exceed one second.
 	const (
-		fileSize                  = 1 << 30
+		fileSize                  = int64(1) << 30
 		checkpointInterval        = "1s"
 		checkpointIntervalSeconds = 1
 	)
