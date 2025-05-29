@@ -290,8 +290,14 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 	// wait for any in-flight asynchronous writes to finish
 	w.asyncWritesWG.Wait()
 
-	if w.contentWriteError != nil {
-		return EmptyID, w.contentWriteError
+	var err error
+
+	w.contentWriteErrorMutex.Lock()
+	err = w.contentWriteError
+	w.contentWriteErrorMutex.Unlock()
+
+	if err != nil {
+		return EmptyID, err
 	}
 
 	if len(w.indirectIndex) == 0 {
