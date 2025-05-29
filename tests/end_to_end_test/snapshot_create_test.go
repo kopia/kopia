@@ -1,6 +1,7 @@
 package endtoend_test
 
 import (
+	"io"
 	"math/rand"
 	"os"
 	"path"
@@ -820,16 +821,14 @@ func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	baseDir := testutil.TempDirectory(t)
-	files := []testFileEntry{
-		{
-			Name: "/foo",
-			Content: []string{
-				generateRandomLetters(fileSize),
-			},
-		},
-	}
+	f, err := os.Create(filepath.Join(baseDir, "foo"))
 
-	require.NoError(t, createFileStructure(baseDir, files))
+	require.NoError(t, err)
+	require.NotNil(t, f)
+
+	n, err := io.CopyN(f, rand.New(rand.NewSource(0)), fileSize)
+	require.NoError(t, err)
+	require.Equal(t, fileSize, n)
 
 	startTime := clock.Now()
 
@@ -846,16 +845,4 @@ func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 	require.Len(t, si, 1)
 	require.Len(t, si[0].Snapshots, 1)
 	require.False(t, si[0].Snapshots[0].Incomplete)
-}
-
-// https://stackoverflow.com/a/31832326
-func generateRandomLetters(n int) string {
-	const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letterBytes[rand.Int63()%int64(len(letterBytes))]
-	}
-
-	return string(b)
 }
