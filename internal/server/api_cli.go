@@ -8,7 +8,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-func handleCLIInfo(_ context.Context, rc requestContext) (interface{}, *apiError) {
+func handleCLIInfo(_ context.Context, rc requestContext) (any, *apiError) {
 	executable, err := os.Executable()
 	if err != nil {
 		executable = "kopia"

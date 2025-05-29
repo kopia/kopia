@@ -19,7 +19,7 @@ func init() {
 
 func newGZipCompressor(id HeaderID, level int) Compressor {
 	return &gzipCompressor{id, compressionHeader(id), sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			w, err := gzip.NewWriterLevel(io.Discard, level)
 			mustSucceed(err)
 			return w

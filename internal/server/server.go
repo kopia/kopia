@@ -59,7 +59,7 @@ const (
 	csrfTokenNotRequired
 )
 
-type apiRequestFunc func(ctx context.Context, rc requestContext) (interface{}, *apiError)
+type apiRequestFunc func(ctx context.Context, rc requestContext) (any, *apiError)
 
 // Server exposes simple HTTP API for programmatically accessing Kopia features.
 type Server struct {
@@ -248,7 +248,7 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 }
 
 func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
-	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.RegisteredClaims{}, func(_ *jwt.Token) (interface{}, error) {
+	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.RegisteredClaims{}, func(_ *jwt.Token) (any, error) {
 		return s.authCookieSigningKey, nil
 	})
 	if err != nil {
@@ -327,7 +327,7 @@ func (s *Server) requireAuth(checkCSRFToken csrfTokenOption, f func(ctx context.
 type isAuthorizedFunc func(ctx context.Context, rc requestContext) bool
 
 func (s *Server) handleServerControlAPI(f apiRequestFunc) http.HandlerFunc {
-	return s.handleServerControlAPIPossiblyNotConnected(func(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	return s.handleServerControlAPIPossiblyNotConnected(func(ctx context.Context, rc requestContext) (any, *apiError) {
 		if rc.rep == nil {
 			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
 		}
@@ -337,13 +337,13 @@ func (s *Server) handleServerControlAPI(f apiRequestFunc) http.HandlerFunc {
 }
 
 func (s *Server) handleServerControlAPIPossiblyNotConnected(f apiRequestFunc) http.HandlerFunc {
-	return s.handleRequestPossiblyNotConnected(requireServerControlUser, csrfTokenNotRequired, func(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	return s.handleRequestPossiblyNotConnected(requireServerControlUser, csrfTokenNotRequired, func(ctx context.Context, rc requestContext) (any, *apiError) {
 		return f(ctx, rc)
 	})
 }
 
 func (s *Server) handleUI(f apiRequestFunc) http.HandlerFunc {
-	return s.handleRequestPossiblyNotConnected(requireUIUser, csrfTokenRequired, func(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+	return s.handleRequestPossiblyNotConnected(requireUIUser, csrfTokenRequired, func(ctx context.Context, rc requestContext) (any, *apiError) {
 		if rc.rep == nil {
 			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
 		}
@@ -479,12 +479,12 @@ func (s *Server) refreshLocked(ctx context.Context) error {
 	return nil
 }
 
-func handleRefresh(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRefresh(ctx context.Context, rc requestContext) (any, *apiError) {
 	// refresh is an alias for /repo/sync
 	return handleRepoSync(ctx, rc)
 }
 
-func handleFlush(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleFlush(ctx context.Context, rc requestContext) (any, *apiError) {
 	rw, ok := rc.rep.(repo.RepositoryWriter)
 	if !ok {
 		return nil, repositoryNotWritableError()
@@ -497,7 +497,7 @@ func handleFlush(ctx context.Context, rc requestContext) (interface{}, *apiError
 	return &serverapi.Empty{}, nil
 }
 
-func handleShutdown(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleShutdown(ctx context.Context, rc requestContext) (any, *apiError) {
 	log(ctx).Info("shutting down due to API request")
 
 	rc.srv.requestShutdown(ctx)

@@ -9,7 +9,7 @@ import (
 // ConnectionInfo represents JSON-serializable configuration of a blob storage.
 type ConnectionInfo struct {
 	Type   string
-	Config interface{}
+	Config any
 }
 
 // UnmarshalJSON parses the JSON-encoded data into ConnectionInfo.
@@ -42,8 +42,8 @@ func (c *ConnectionInfo) UnmarshalJSON(b []byte) error {
 func (c ConnectionInfo) MarshalJSON() ([]byte, error) {
 	//nolint:wrapcheck
 	return json.Marshal(struct {
-		Type string      `json:"type"`
-		Data interface{} `json:"config"`
+		Type string `json:"type"`
+		Data any    `json:"config"`
 	}{
 		Type: c.Type,
 		Data: c.Config,

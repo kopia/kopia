@@ -404,7 +404,7 @@ func (bm *WriteManager) verifyPackIndexBuilderLocked(mp format.MutableParameters
 	}
 }
 
-func assertInvariant(ok bool, errorMsg string, arg ...interface{}) {
+func assertInvariant(ok bool, errorMsg string, arg ...any) {
 	if ok {
 		return
 	}

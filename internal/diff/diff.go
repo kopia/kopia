@@ -396,7 +396,7 @@ func (c *Comparer) Stats() Stats {
 	return c.stats
 }
 
-func (c *Comparer) output(statsOnly bool, msg string, args ...interface{}) {
+func (c *Comparer) output(statsOnly bool, msg string, args ...any) {
 	if !statsOnly {
 		fmt.Fprintf(c.out, msg, args...) //nolint:errcheck
 	}

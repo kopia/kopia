@@ -102,7 +102,7 @@ func (gdrive *gdriveStorage) GetBlob(ctx context.Context, b blob.ID, offset, len
 }
 
 func (gdrive *gdriveStorage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata, error) {
-	f, err := gdrive.fileIDCache.Lookup(blobID, func(entry *cacheEntry) (interface{}, error) {
+	f, err := gdrive.fileIDCache.Lookup(blobID, func(entry *cacheEntry) (any, error) {
 		if entry.FileID != "" {
 			return &drive.File{
 				Id: entry.FileID,
@@ -144,7 +144,7 @@ func (gdrive *gdriveStorage) PutBlob(ctx context.Context, blobID blob.ID, data b
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "blob-retention")
 	}
 
-	_, err := gdrive.fileIDCache.Lookup(blobID, func(entry *cacheEntry) (interface{}, error) {
+	_, err := gdrive.fileIDCache.Lookup(blobID, func(entry *cacheEntry) (any, error) {
 		fileID, err := gdrive.getFileIDWithCache(ctx, entry)
 		existingFile := true
 
@@ -218,7 +218,7 @@ func (gdrive *gdriveStorage) PutBlob(ctx context.Context, blobID blob.ID, data b
 }
 
 func (gdrive *gdriveStorage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
-	_, err := gdrive.fileIDCache.Lookup(blobID, func(entry *cacheEntry) (interface{}, error) {
+	_, err := gdrive.fileIDCache.Lookup(blobID, func(entry *cacheEntry) (any, error) {
 		handleError := func(err error) error {
 			if errors.Is(err, blob.ErrBlobNotFound) {
 				log(ctx).Warnf("Trying to non-existent DeleteBlob(%s)", blobID)
@@ -340,7 +340,7 @@ func (gdrive *gdriveStorage) FlushCaches(_ context.Context) error {
 }
 
 func (gdrive *gdriveStorage) getFileID(ctx context.Context, blobID blob.ID) (string, error) {
-	fileID, err := gdrive.fileIDCache.Lookup(blobID, func(entry *cacheEntry) (interface{}, error) {
+	fileID, err := gdrive.fileIDCache.Lookup(blobID, func(entry *cacheEntry) (any, error) {
 		fileID, err := gdrive.getFileIDWithCache(ctx, entry)
 		return fileID, err
 	})

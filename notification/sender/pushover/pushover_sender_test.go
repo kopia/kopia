@@ -59,7 +59,7 @@ func TestPushover(t *testing.T) {
 	require.Len(t, requests, 2)
 	require.Equal(t, "application/json", requests[0].Header.Get("Content-Type"))
 
-	var body map[string]interface{}
+	var body map[string]any
 
 	// Plain-text request
 	require.NoError(t, json.NewDecoder(&requestBodies[0]).Decode(&body))

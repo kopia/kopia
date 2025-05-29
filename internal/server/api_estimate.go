@@ -99,7 +99,7 @@ func logBucketSamples(ctx context.Context, buckets upload.SampleBuckets, prefix 
 
 var _ upload.EstimateProgress = estimateTaskProgress{}
 
-func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleEstimate(ctx context.Context, rc requestContext) (any, *apiError) {
 	var req serverapi.EstimateRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {

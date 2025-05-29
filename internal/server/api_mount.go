@@ -8,7 +8,7 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
-func handleMountCreate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleMountCreate(ctx context.Context, rc requestContext) (any, *apiError) {
 	req := &serverapi.MountSnapshotRequest{}
 	if err := json.Unmarshal(rc.body, req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
@@ -32,7 +32,7 @@ func handleMountCreate(ctx context.Context, rc requestContext) (interface{}, *ap
 	}, nil
 }
 
-func handleMountGet(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleMountGet(ctx context.Context, rc requestContext) (any, *apiError) {
 	oid, err := object.ParseID(rc.muxVar("rootObjectID"))
 	if err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "invalid root object ID")
@@ -53,7 +53,7 @@ func handleMountGet(ctx context.Context, rc requestContext) (interface{}, *apiEr
 	}, nil
 }
 
-func handleMountDelete(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleMountDelete(ctx context.Context, rc requestContext) (any, *apiError) {
 	oid, err := object.ParseID(rc.muxVar("rootObjectID"))
 	if err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "invalid root object ID")
@@ -77,7 +77,7 @@ func handleMountDelete(ctx context.Context, rc requestContext) (interface{}, *ap
 	return &serverapi.Empty{}, nil
 }
 
-func handleMountList(_ context.Context, rc requestContext) (interface{}, *apiError) {
+func handleMountList(_ context.Context, rc requestContext) (any, *apiError) {
 	res := &serverapi.MountedSnapshots{
 		Items: []*serverapi.MountedSnapshot{},
 	}

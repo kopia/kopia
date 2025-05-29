@@ -254,7 +254,7 @@ func (s *eventuallyConsistentStorage) ListBlobs(ctx context.Context, prefix blob
 	var resultErr error
 
 	// process recently deleted items and resurrect them with some probability
-	s.recentlyDeleted.Range(func(key, value interface{}) bool {
+	s.recentlyDeleted.Range(func(key, value any) bool {
 		blobID := key.(blob.ID)
 		if !strings.HasPrefix(string(blobID), string(prefix)) {
 			return true

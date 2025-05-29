@@ -26,7 +26,7 @@ func (c *jsonOutput) setup(svc appServices, cmd *kingpin.CmdClause) {
 	c.out = svc.stdout()
 }
 
-func (c *jsonOutput) cleanupSnapshotManifestForJSON(v *snapshot.Manifest) interface{} {
+func (c *jsonOutput) cleanupSnapshotManifestForJSON(v *snapshot.Manifest) any {
 	m := *v
 
 	if !c.jsonVerbose {
@@ -41,8 +41,8 @@ func (c *jsonOutput) cleanupSnapshotManifestForJSON(v *snapshot.Manifest) interf
 	return &m
 }
 
-func (c *jsonOutput) cleanupSnapshotManifestListForJSON(manifests []*snapshot.Manifest) interface{} {
-	var res []interface{}
+func (c *jsonOutput) cleanupSnapshotManifestListForJSON(manifests []*snapshot.Manifest) any {
+	var res []any
 
 	for _, m := range manifests {
 		res = append(res, c.cleanupSnapshotManifestForJSON(m))
@@ -51,7 +51,7 @@ func (c *jsonOutput) cleanupSnapshotManifestListForJSON(manifests []*snapshot.Ma
 	return res
 }
 
-func (c *jsonOutput) cleanupForJSON(v interface{}) interface{} {
+func (c *jsonOutput) cleanupForJSON(v any) any {
 	switch v := v.(type) {
 	case *snapshot.Manifest:
 		return c.cleanupSnapshotManifestForJSON(v)
@@ -62,11 +62,11 @@ func (c *jsonOutput) cleanupForJSON(v interface{}) interface{} {
 	}
 }
 
-func (c *jsonOutput) jsonBytes(v interface{}) []byte {
+func (c *jsonOutput) jsonBytes(v any) []byte {
 	return c.jsonIndentedBytes(v, "")
 }
 
-func (c *jsonOutput) jsonIndentedBytes(v interface{}, indent string) []byte {
+func (c *jsonOutput) jsonIndentedBytes(v any, indent string) []byte {
 	v = c.cleanupForJSON(v)
 
 	var (
@@ -114,7 +114,7 @@ func (l *jsonList) end() {
 	}
 }
 
-func (l *jsonList) emit(v interface{}) {
+func (l *jsonList) emit(v any) {
 	fmt.Fprintf(l.o.out, "%s%s", l.separator, l.o.jsonBytes(v)) //nolint:errcheck
 
 	if l.o.jsonIndent {

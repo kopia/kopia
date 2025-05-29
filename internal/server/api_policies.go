@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func handlePolicyList(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handlePolicyList(ctx context.Context, rc requestContext) (any, *apiError) {
 	policies, err := policy.ListPolicies(ctx, rc.rep)
 	if err != nil {
 		return nil, internalServerError(err)
@@ -53,7 +53,7 @@ func getSnapshotSourceFromURL(u *url.URL) snapshot.SourceInfo {
 	}
 }
 
-func handlePolicyGet(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handlePolicyGet(ctx context.Context, rc requestContext) (any, *apiError) {
 	pol, err := policy.GetDefinedPolicy(ctx, rc.rep, getSnapshotSourceFromURL(rc.req.URL))
 	if errors.Is(err, policy.ErrPolicyNotFound) {
 		return nil, requestError(serverapi.ErrorNotFound, "policy not found")
@@ -62,7 +62,7 @@ func handlePolicyGet(ctx context.Context, rc requestContext) (interface{}, *apiE
 	return pol, nil
 }
 
-func handlePolicyResolve(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handlePolicyResolve(ctx context.Context, rc requestContext) (any, *apiError) {
 	var req serverapi.ResolvePolicyRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
@@ -108,7 +108,7 @@ func handlePolicyResolve(ctx context.Context, rc requestContext) (interface{}, *
 	return resp, nil
 }
 
-func handlePolicyDelete(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handlePolicyDelete(ctx context.Context, rc requestContext) (any, *apiError) {
 	if _, ok := rc.rep.(repo.RepositoryWriter); !ok {
 		return nil, repositoryNotWritableError()
 	}
@@ -128,7 +128,7 @@ func handlePolicyDelete(ctx context.Context, rc requestContext) (interface{}, *a
 	return &serverapi.Empty{}, nil
 }
 
-func handlePolicyPut(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handlePolicyPut(ctx context.Context, rc requestContext) (any, *apiError) {
 	newPolicy := &policy.Policy{}
 	if err := json.Unmarshal(rc.body, newPolicy); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")

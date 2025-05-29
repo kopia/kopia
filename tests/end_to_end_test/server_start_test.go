@@ -146,7 +146,7 @@ func TestServerStart(t *testing.T) {
 	require.NoError(t, err)
 
 	// make sure root payload is valid JSON for the directory.
-	var dummy map[string]interface{}
+	var dummy map[string]any
 	err = json.Unmarshal(rootPayload, &dummy)
 	require.NoError(t, err)
 

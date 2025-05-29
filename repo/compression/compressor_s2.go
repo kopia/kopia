@@ -25,7 +25,7 @@ func init() {
 
 func newS2Compressor(id HeaderID, opts ...s2.WriterOption) Compressor {
 	return &s2Compressor{id, compressionHeader(id), sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return s2.NewWriter(io.Discard, opts...)
 		},
 	}}

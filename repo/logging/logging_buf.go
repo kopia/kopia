@@ -16,7 +16,7 @@ type Buffer struct {
 
 //nolint:gochecknoglobals
 var bufPool = &sync.Pool{
-	New: func() interface{} {
+	New: func() any {
 		return &Buffer{}
 	},
 }

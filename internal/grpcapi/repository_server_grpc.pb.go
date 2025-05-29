@@ -91,7 +91,7 @@ func RegisterKopiaRepositoryServer(s grpc.ServiceRegistrar, srv KopiaRepositoryS
 	s.RegisterService(&KopiaRepository_ServiceDesc, srv)
 }
 
-func _KopiaRepository_Session_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _KopiaRepository_Session_Handler(srv any, stream grpc.ServerStream) error {
 	return srv.(KopiaRepositoryServer).Session(&grpc.GenericServerStream[SessionRequest, SessionResponse]{ServerStream: stream})
 }
 

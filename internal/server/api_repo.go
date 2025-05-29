@@ -26,7 +26,7 @@ import (
 
 const syncConnectWaitTime = 5 * time.Second
 
-func handleRepoStatus(_ context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoStatus(_ context.Context, rc requestContext) (any, *apiError) {
 	if rc.rep == nil {
 		return &serverapi.StatusResponse{
 			Connected:      false,
@@ -91,7 +91,7 @@ func maybeDecodeToken(req *serverapi.ConnectRepositoryRequest) *apiError {
 	return nil
 }
 
-func handleRepoCreate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoCreate(ctx context.Context, rc requestContext) (any, *apiError) {
 	if rc.rep != nil {
 		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")
 	}
@@ -148,7 +148,7 @@ func handleRepoCreate(ctx context.Context, rc requestContext) (interface{}, *api
 	return handleRepoStatus(ctx, rc)
 }
 
-func handleRepoExists(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoExists(ctx context.Context, rc requestContext) (any, *apiError) {
 	var req serverapi.CheckRepositoryExistsRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
@@ -176,7 +176,7 @@ func handleRepoExists(ctx context.Context, rc requestContext) (interface{}, *api
 	return serverapi.Empty{}, nil
 }
 
-func handleRepoConnect(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoConnect(ctx context.Context, rc requestContext) (any, *apiError) {
 	if rc.rep != nil {
 		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")
 	}
@@ -221,7 +221,7 @@ func handleRepoConnect(ctx context.Context, rc requestContext) (interface{}, *ap
 	return handleRepoStatus(ctx, rc)
 }
 
-func handleRepoSetDescription(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoSetDescription(ctx context.Context, rc requestContext) (any, *apiError) {
 	var req repo.ClientOptions
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
@@ -240,7 +240,7 @@ func handleRepoSetDescription(ctx context.Context, rc requestContext) (interface
 	return handleRepoStatus(ctx, rc)
 }
 
-func handleRepoSupportedAlgorithms(_ context.Context, _ requestContext) (interface{}, *apiError) {
+func handleRepoSupportedAlgorithms(_ context.Context, _ requestContext) (any, *apiError) {
 	res := &serverapi.SupportedAlgorithmsResponse{
 		DefaultHashAlgorithm:    hashing.DefaultAlgorithm,
 		SupportedHashAlgorithms: toAlgorithmInfo(hashing.SupportedAlgorithms(), neverDeprecated),
@@ -299,7 +299,7 @@ func sortAlgorithms(a []serverapi.AlgorithmInfo) {
 	})
 }
 
-func handleRepoGetThrottle(_ context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoGetThrottle(_ context.Context, rc requestContext) (any, *apiError) {
 	dr, ok := rc.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, requestError(serverapi.ErrorStorageConnection, "no direct storage connection")
@@ -308,7 +308,7 @@ func handleRepoGetThrottle(_ context.Context, rc requestContext) (interface{}, *
 	return dr.Throttler().Limits(), nil
 }
 
-func handleRepoSetThrottle(_ context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoSetThrottle(_ context.Context, rc requestContext) (any, *apiError) {
 	dr, ok := rc.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, requestError(serverapi.ErrorStorageConnection, "no direct storage connection")
@@ -361,7 +361,7 @@ func connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password stri
 	return repo.Open(ctx, opts.ConfigFile, password, nil)
 }
 
-func handleRepoDisconnect(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoDisconnect(ctx context.Context, rc requestContext) (any, *apiError) {
 	if err := rc.srv.disconnect(ctx); err != nil {
 		return nil, internalServerError(err)
 	}
@@ -387,7 +387,7 @@ func (s *Server) disconnect(ctx context.Context) error {
 	return nil
 }
 
-func handleRepoSync(_ context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRepoSync(_ context.Context, rc requestContext) (any, *apiError) {
 	rc.srv.Refresh()
 
 	return &serverapi.Empty{}, nil

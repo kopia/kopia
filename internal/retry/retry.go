@@ -97,7 +97,7 @@ func internalRetry[T any](ctx context.Context, desc string, attempt func() (T, e
 // WithExponentialBackoffNoValue is a shorthand for WithExponentialBackoff except the
 // attempt function does not return any value.
 func WithExponentialBackoffNoValue(ctx context.Context, desc string, attempt func() error, isRetriableError IsRetriableFunc) error {
-	_, err := WithExponentialBackoff(ctx, desc, func() (interface{}, error) {
+	_, err := WithExponentialBackoff(ctx, desc, func() (any, error) {
 		return nil, attempt()
 	}, isRetriableError)
 

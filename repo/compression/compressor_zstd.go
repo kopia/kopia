@@ -20,7 +20,7 @@ func init() {
 
 func newZstdCompressor(id HeaderID, level zstd.EncoderLevel) Compressor {
 	return &zstdCompressor{id, compressionHeader(id), sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			w, err := zstd.NewWriter(io.Discard, zstd.WithEncoderLevel(level))
 			mustSucceed(err)
 			return w

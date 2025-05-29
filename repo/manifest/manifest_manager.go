@@ -68,7 +68,7 @@ type Manager struct {
 }
 
 // Put serializes the provided payload to JSON and persists it. Returns unique identifier that represents the manifest.
-func (m *Manager) Put(_ context.Context, labels map[string]string, payload interface{}) (ID, error) {
+func (m *Manager) Put(_ context.Context, labels map[string]string, payload any) (ID, error) {
 	if labels[TypeLabelKey] == "" {
 		return "", errors.New("'type' label is required")
 	}
@@ -109,7 +109,7 @@ func (m *Manager) GetMetadata(ctx context.Context, id ID) (*EntryMetadata, error
 
 // Get retrieves the contents of the provided manifest item by deserializing it as JSON to provided object.
 // If the manifest is not found, returns ErrNotFound.
-func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetadata, error) {
+func (m *Manager) Get(ctx context.Context, id ID, data any) (*EntryMetadata, error) {
 	e, err := m.getPendingOrCommitted(ctx, id)
 	if err != nil {
 		return nil, err

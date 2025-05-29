@@ -260,7 +260,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 			openID := fmt.Sprintf("open-%v", i)
 
 			eg.Go(func() error {
-				log := testlogging.Printf(func(msg string, args ...interface{}) {
+				log := testlogging.Printf(func(msg string, args ...any) {
 					fmt.Fprintf(logFile, clock.Now().Format("2006-01-02T15:04:05.000000Z07:00")+" "+msg+"\n", args...)
 				}, "").With("cfg", fmt.Sprintf("%v::o%v", filepath.Base(configFile), i))
 

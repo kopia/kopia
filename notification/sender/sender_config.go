@@ -60,8 +60,8 @@ func (c MethodConfig) Options(result any) error {
 func (c MethodConfig) MarshalJSON() ([]byte, error) {
 	//nolint:wrapcheck
 	return json.Marshal(struct {
-		Type Method      `json:"type"`
-		Data interface{} `json:"config"`
+		Type Method `json:"type"`
+		Data any    `json:"config"`
 	}{
 		Type: c.Type,
 		Data: c.Config,

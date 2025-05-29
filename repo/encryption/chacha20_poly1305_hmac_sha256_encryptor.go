@@ -70,7 +70,7 @@ func init() {
 		}
 
 		hmacPool := &sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return hmac.New(sha256.New, keyDerivationSecret)
 			},
 		}

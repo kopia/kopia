@@ -223,7 +223,7 @@ func NewObjectManager(_ context.Context, bm contentManager, f format.ObjectForma
 	}
 
 	om.writerPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return new(objectWriter)
 		},
 	}
