@@ -15,11 +15,11 @@ import (
 func TestBroadcast(t *testing.T) {
 	var lines []string
 
-	l0 := testlogging.Printf(func(msg string, args ...interface{}) {
+	l0 := testlogging.Printf(func(msg string, args ...any) {
 		lines = append(lines, fmt.Sprintf(msg, args...))
 	}, "[first] ")
 
-	l1 := testlogging.Printf(func(msg string, args ...interface{}) {
+	l1 := testlogging.Printf(func(msg string, args ...any) {
 		lines = append(lines, fmt.Sprintf(msg, args...))
 	}, "[second] ")
 

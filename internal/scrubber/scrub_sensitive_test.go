@@ -13,10 +13,10 @@ type S struct {
 	SomePassword1 string `kopia:"sensitive"`
 	NonPassword   string
 	InnerPtr      *Q
-	InnerIf       interface{}
+	InnerIf       any
 	InnerStruct   Q
 	NilPtr        *Q
-	NilIf         interface{}
+	NilIf         any
 }
 
 type Q struct {

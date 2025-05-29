@@ -1002,7 +1002,7 @@ func maybeLogEntryProcessed(logger logging.Logger, level policy.LogDetail, msg, 
 	}
 
 	var (
-		bitsBuf       [10]interface{}
+		bitsBuf       [10]any
 		keyValuePairs = append(bitsBuf[:0], "path", relativePath)
 	)
 

@@ -86,7 +86,7 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 	ctx, cancel := chromedp.NewContext(ctx)
 	defer cancel()
 
-	chromedp.ListenTarget(ctx, func(ev interface{}) {
+	chromedp.ListenTarget(ctx, func(ev any) {
 		if do, ok := ev.(*page.EventJavascriptDialogOpening); ok {
 			t.Logf("dialog opening: %v", do.Message)
 

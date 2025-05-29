@@ -44,7 +44,7 @@ func (e *filesystemEntry) ModTime() time.Time {
 	return time.Unix(0, e.mtimeNanos)
 }
 
-func (e *filesystemEntry) Sys() interface{} {
+func (e *filesystemEntry) Sys() any {
 	return nil
 }
 

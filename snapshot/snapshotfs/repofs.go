@@ -64,7 +64,7 @@ func (e *repositoryEntry) ObjectID() object.ID {
 	return e.metadata.ObjectID
 }
 
-func (e *repositoryEntry) Sys() interface{} {
+func (e *repositoryEntry) Sys() any {
 	return nil
 }
 

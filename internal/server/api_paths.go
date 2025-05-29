@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-func handlePathResolve(_ context.Context, rc requestContext) (interface{}, *apiError) {
+func handlePathResolve(_ context.Context, rc requestContext) (any, *apiError) {
 	var req serverapi.ResolvePathRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {

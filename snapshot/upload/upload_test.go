@@ -1367,7 +1367,7 @@ func verifyContainsOffset(t *testing.T, entries []object.IndirectObjectEntry, wa
 
 type loggedAction struct {
 	msg           string
-	keysAndValues map[string]interface{}
+	keysAndValues map[string]any
 }
 
 //nolint:maintidx
@@ -1723,7 +1723,7 @@ func TestUploadLogging(t *testing.T) {
 	}
 }
 
-func verifyLogDetails(t *testing.T, desc string, wantDetailKeys []string, keysAndValues map[string]interface{}) {
+func verifyLogDetails(t *testing.T, desc string, wantDetailKeys []string, keysAndValues map[string]any) {
 	t.Helper()
 
 	var gotDetailKeys []string

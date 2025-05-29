@@ -254,13 +254,13 @@ func (r *grpcInnerSession) initializeSession(ctx context.Context, purpose string
 	return nil, errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
+func (r *grpcRepositoryClient) GetManifest(ctx context.Context, id manifest.ID, data any) (*manifest.EntryMetadata, error) {
 	return maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (*manifest.EntryMetadata, error) {
 		return sess.GetManifest(ctx, id, data)
 	})
 }
 
-func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
+func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data any) (*manifest.EntryMetadata, error) {
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetManifest{
 			GetManifest: &apipb.GetManifestRequest{
@@ -297,18 +297,18 @@ func decodeManifestEntryMetadata(md *apipb.ManifestEntryMetadata) *manifest.Entr
 	}
 }
 
-func (r *grpcRepositoryClient) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+func (r *grpcRepositoryClient) PutManifest(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error) {
 	return inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (manifest.ID, error) {
 		return sess.PutManifest(ctx, labels, payload)
 	})
 }
 
 // ReplaceManifests saves the given manifest payload with a set of labels and replaces any previous manifests with the same labels.
-func (r *grpcRepositoryClient) ReplaceManifests(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+func (r *grpcRepositoryClient) ReplaceManifests(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error) {
 	return replaceManifestsHelper(ctx, r, labels, payload)
 }
 
-func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error) {
 	v, err := json.Marshal(payload)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to marshal JSON")

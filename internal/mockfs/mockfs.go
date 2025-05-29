@@ -64,7 +64,7 @@ func (e *entry) Size() int64 {
 	return e.size
 }
 
-func (e *entry) Sys() interface{} {
+func (e *entry) Sys() any {
 	return nil
 }
 

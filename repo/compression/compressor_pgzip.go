@@ -20,7 +20,7 @@ func init() {
 
 func newpgzipCompressor(id HeaderID, level int) Compressor {
 	return &pgzipCompressor{id, compressionHeader(id), sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			w, err := pgzip.NewWriterLevel(bytes.NewBuffer(nil), level)
 			mustSucceed(err)
 			return w
