@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"maps"
 	"sort"
 	"sync"
 	"time"
@@ -86,7 +87,7 @@ func (m *Manager) Put(_ context.Context, labels map[string]string, payload any) 
 	e := &manifestEntry{
 		ID:      ID(hex.EncodeToString(random)),
 		ModTime: m.timeNow().UTC(),
-		Labels:  copyLabels(labels),
+		Labels:  maps.Clone(labels),
 		Content: b,
 	}
 
@@ -192,7 +193,7 @@ func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryM
 func cloneEntryMetadata(e *manifestEntry) *EntryMetadata {
 	return &EntryMetadata{
 		ID:      e.ID,
-		Labels:  copyLabels(e.Labels),
+		Labels:  maps.Clone(e.Labels),
 		Length:  len(e.Content),
 		ModTime: e.ModTime,
 	}
@@ -220,12 +221,6 @@ func (m *Manager) Flush(ctx context.Context) error {
 	}
 
 	return err
-}
-
-func mustSucceed(e error) {
-	if e != nil {
-		panic("unexpected failure: " + e.Error())
-	}
 }
 
 // Delete marks the specified manifest ID for deletion.
@@ -276,15 +271,6 @@ func IDsFromStrings(input []string) []ID {
 	}
 
 	return result
-}
-
-func copyLabels(m map[string]string) map[string]string {
-	r := map[string]string{}
-	for k, v := range m {
-		r[k] = v
-	}
-
-	return r
 }
 
 // ManagerOptions are optional parameters for Manager creation.

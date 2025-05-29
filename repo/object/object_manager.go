@@ -148,7 +148,7 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID, metadataComp
 		return EmptyID, errors.Wrap(err, "error writing concatenated index")
 	}
 
-	return IndirectObjectID(concatID), nil
+	return indirectObjectID(concatID), nil
 }
 
 func appendIndexEntriesForObject(ctx context.Context, cr contentReader, indexEntries []IndirectObjectEntry, startingLength int64, objectID ID) (result []IndirectObjectEntry, totalLength int64, _ error) {

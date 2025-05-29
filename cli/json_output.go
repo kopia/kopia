@@ -7,6 +7,7 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 
+	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -80,9 +81,7 @@ func (c *jsonOutput) jsonIndentedBytes(v any, indent string) []byte {
 		b, err = json.Marshal(v)
 	}
 
-	if err != nil {
-		panic("error serializing JSON, that should not happen: " + err.Error())
-	}
+	impossible.PanicOnError(err)
 
 	return b
 }
