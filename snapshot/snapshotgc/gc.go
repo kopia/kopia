@@ -82,8 +82,6 @@ func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, sa
 }
 
 func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) error {
-	var unused, inUse, system, tooRecent, undeleted stats.CountSum
-
 	used, serr := bigmap.NewSet(ctx)
 	if serr != nil {
 		return errors.Wrap(serr, "unable to create new set")
@@ -93,6 +91,19 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 	if err := findInUseContentIDs(ctx, rep, used); err != nil {
 		return errors.Wrap(err, "unable to find in-use content ID")
 	}
+
+	return findUnreferencedAndRepairRereferenced(ctx, rep, gcDelete, safety, maintenanceStartTime, used)
+}
+
+func findUnreferencedAndRepairRereferenced(
+	ctx context.Context,
+	rep repo.DirectRepositoryWriter,
+	gcDelete bool,
+	safety maintenance.SafetyParameters,
+	maintenanceStartTime time.Time,
+	used *bigmap.Set,
+) error {
+	var unused, inUse, system, tooRecent, undeleted stats.CountSum
 
 	log(ctx).Info("Looking for unreferenced contents...")
 
