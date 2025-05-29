@@ -426,10 +426,6 @@ func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 	})
 }
 
-func objectIDsEqual(o1, o2 object.ID) bool {
-	return reflect.DeepEqual(o1, o2)
-}
-
 func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
@@ -485,7 +481,7 @@ func TestUpload_ErrorEntries(t *testing.T) {
 			rootEntry:         th.sourceDir,
 			ehp:               policy.ErrorHandlingPolicy{},
 			wantFatalErrors:   2,
-			wantIgnoredErrors: 1,
+			wantIgnoredErrors: 0, // unknown entries are completely skipped when IgnoreUnknownTypes is true (default)
 		},
 		{
 			desc:      "ignore both unknown types and other errors",
@@ -496,7 +492,7 @@ func TestUpload_ErrorEntries(t *testing.T) {
 				IgnoreUnknownTypes:    &trueValue,
 			},
 			wantFatalErrors:   0,
-			wantIgnoredErrors: 3,
+			wantIgnoredErrors: 2, // only the two non-unknown errors are counted as ignored
 		},
 		{
 			desc:      "ignore no errors",
@@ -518,7 +514,7 @@ func TestUpload_ErrorEntries(t *testing.T) {
 				IgnoreUnknownTypes:    &trueValue,
 			},
 			wantFatalErrors:   2,
-			wantIgnoredErrors: 1,
+			wantIgnoredErrors: 0, // unknown entries are completely skipped when IgnoreUnknownTypes is true
 		},
 		{
 			desc:      "ignore errors except unknown type errors",
@@ -546,12 +542,32 @@ func TestUpload_ErrorEntries(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			verifyErrors(t, man, tc.wantFatalErrors, tc.wantIgnoredErrors, entryPathToError{
+			expectedErrors := entryPathToError{
 				"d1/some-failed-entry":    errors.New("some-other-error"),
-				"d1/some-unknown-entry":   errors.New("unknown or unsupported entry type"),
 				"d2/another-failed-entry": errors.New("another-error"),
-			})
+			}
+
+			// Only expect unknown entry in failed entries if IgnoreUnknownTypes is false
+			if tc.ehp.IgnoreUnknownTypes != nil && !tc.ehp.IgnoreUnknownTypes.OrDefault(true) {
+				expectedErrors["d1/some-unknown-entry"] = errors.New("unknown or unsupported entry type")
+			}
+
+			verifyErrors(t, man, tc.wantFatalErrors, tc.wantIgnoredErrors, expectedErrors)
 		})
+	}
+}
+
+func verifyErrors(t *testing.T, man *snapshot.Manifest, wantFatalErrors, wantIgnoredErrors int, wantErrors entryPathToError) {
+	t.Helper()
+
+	require.Equal(t, wantFatalErrors, man.RootEntry.DirSummary.FatalErrorCount, "invalid number of fatal errors")
+	require.Equal(t, wantIgnoredErrors, man.RootEntry.DirSummary.IgnoredErrorCount, "invalid number of ignored errors")
+
+	failedEntries := man.RootEntry.DirSummary.FailedEntries
+	for _, failedEntry := range failedEntries {
+		wantErr, ok := wantErrors[failedEntry.EntryPath]
+		require.True(t, ok, "expected error for entry path not found: %s", failedEntry.EntryPath)
+		require.Contains(t, failedEntry.Error, wantErr.Error())
 	}
 }
 
@@ -578,20 +594,6 @@ func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 		"d1":    errTest,
 		"d2/d1": errTest,
 	})
-}
-
-func verifyErrors(t *testing.T, man *snapshot.Manifest, wantFatalErrors, wantIgnoredErrors int, wantErrors entryPathToError) {
-	t.Helper()
-
-	require.Equal(t, wantFatalErrors, man.RootEntry.DirSummary.FatalErrorCount, "invalid number of fatal errors")
-	require.Equal(t, wantIgnoredErrors, man.RootEntry.DirSummary.IgnoredErrorCount, "invalid number of ignored errors")
-
-	failedEntries := man.RootEntry.DirSummary.FailedEntries
-	for _, failedEntry := range failedEntries {
-		wantErr, ok := wantErrors[failedEntry.EntryPath]
-		require.True(t, ok, "expected error for entry path not found: %s", failedEntry.EntryPath)
-		require.Contains(t, failedEntry.Error, wantErr.Error())
-	}
 }
 
 func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
@@ -1735,4 +1737,8 @@ func verifyLogDetails(t *testing.T, desc string, wantDetailKeys []string, keysAn
 	sort.Strings(gotDetailKeys)
 	sort.Strings(wantDetailKeys)
 	require.Equal(t, wantDetailKeys, gotDetailKeys, "invalid details for "+desc)
+}
+
+func objectIDsEqual(o1, o2 object.ID) bool {
+	return reflect.DeepEqual(o1, o2)
 }

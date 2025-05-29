@@ -930,6 +930,12 @@ func (u *Uploader) processSingle(
 
 		if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
 			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
+
+			// If unknown types are configured to be ignored, skip them completely without any error reporting
+			if isIgnoredError {
+				return nil
+			}
+
 			prefix = "unknown entry"
 		} else {
 			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
