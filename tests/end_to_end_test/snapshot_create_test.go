@@ -834,10 +834,7 @@ func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", baseDir, "--checkpoint-interval", checkpointInterval)
 
-	endTime := clock.Now()
-
-	snapshotTimeSurpassedCheckpointInterval := endTime.Sub(startTime).Seconds() > checkpointIntervalSeconds
-	require.True(t, snapshotTimeSurpassedCheckpointInterval)
+	require.Greater(t, clock.Now().Sub(startTime).Seconds(), checkpointIntervalSeconds)
 
 	// This exploits the implementation detail of `ListSnapshotsAndExpectSuccess`, that it does
 	// not sanitize `targets` to exclude flags.
