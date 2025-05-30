@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -763,10 +764,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 
 	// Be paranoid and make a copy of the labels in the uploader so we know stuff
 	// didn't change.
-	u.CheckpointLabels = make(map[string]string, len(labels))
-	for k, v := range labels {
-		u.CheckpointLabels[k] = v
-	}
+	u.CheckpointLabels = maps.Clone(labels)
 
 	// inject a action into mock filesystem to trigger and wait for checkpoints at few places.
 	// the places are not important, what's important that those are 3 separate points in time.
