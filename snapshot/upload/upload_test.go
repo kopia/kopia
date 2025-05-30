@@ -137,7 +137,7 @@ func TestUpload(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("Uploading s1")
 
@@ -302,7 +302,7 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.FailReaddir(errTest)
 
@@ -321,7 +321,7 @@ func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	sourceDir := mockfs.NewDirectory()
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
@@ -364,7 +364,7 @@ func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 	th.sourceDir.Subdir("d2").Subdir("d1").FailReaddir(errTest)
@@ -392,7 +392,7 @@ func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 	th.sourceDir.Subdir("d2").Subdir("d1").FailReaddir(errTest)
@@ -424,7 +424,7 @@ func TestUpload_ErrorEntries(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.Subdir("d1").AddErrorEntry("some-unknown-entry", os.ModeIrregular, fs.ErrUnknown)
 	th.sourceDir.Subdir("d1").AddErrorEntry("some-failed-entry", 0, errors.New("some-other-error"))
@@ -539,7 +539,7 @@ func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 	th.sourceDir.Subdir("d2").Subdir("d1").FailReaddir(errTest)
@@ -566,7 +566,7 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 	th.sourceDir.Subdir("d2").Subdir("d1").FailReaddir(errTest)
@@ -618,7 +618,7 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 	mu := sync.Mutex{}
 	filesFinished := 0
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("checking FinishedFile callbacks")
 
@@ -733,7 +733,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	u := NewUploader(th.repo)
 
@@ -873,7 +873,7 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("Uploading static directory with streaming file")
 
@@ -914,7 +914,7 @@ func TestUpload_VirtualDirectoryWithStreamingFile_WithCompression(t *testing.T) 
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	u := NewUploader(th.repo)
 
@@ -981,7 +981,7 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 			ctx := testlogging.Context(t)
 			th := newUploadTestHarness(ctx, t)
 
-			defer th.cleanup()
+			t.Cleanup(th.cleanup)
 
 			u := NewUploader(th.repo)
 			u.ForceHashPercentage = 0
@@ -1029,7 +1029,7 @@ func TestUpload_StreamingDirectory(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("Uploading streaming directory with mock file")
 
@@ -1063,7 +1063,7 @@ func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("Uploading streaming directory with some ignored mock files")
 
@@ -1142,7 +1142,7 @@ func TestParallelUploadDedup(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("Uploading static directory with streaming file")
 
@@ -1197,7 +1197,7 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	u := NewUploader(th.repo)
 	u.ParallelUploads = 10
@@ -1628,7 +1628,7 @@ func TestUploadLogging(t *testing.T) {
 			})
 			th := newUploadTestHarness(ctx, t)
 
-			defer th.cleanup()
+			t.Cleanup(th.cleanup)
 
 			u := NewUploader(th.repo)
 
