@@ -237,58 +237,57 @@ func verifyMetadataCompressor(t *testing.T, ctx context.Context, rep repo.Reposi
 }
 
 func TestUploadMetadataCompression(t *testing.T) {
+	buildPolicy := func(compressor compression.Name) *policy.Tree {
+		return policy.BuildTree(map[string]*policy.Policy{
+			".": {
+				MetadataCompressionPolicy: policy.MetadataCompressionPolicy{
+					CompressorName: compressor,
+				},
+			},
+		}, policy.DefaultPolicy)
+	}
+
+	cases := []struct {
+		name          string
+		policyTree    *policy.Tree
+		compressionID compression.HeaderID
+	}{
+		{
+			name:          "default metadata compression",
+			policyTree:    policy.BuildTree(nil, policy.DefaultPolicy),
+			compressionID: compression.HeaderZstdFastest,
+		},
+		{
+			name:          "disable metadata compression",
+			policyTree:    buildPolicy("none"),
+			compressionID: content.NoCompression,
+		},
+		{
+			name:          "enable metadata compression",
+			policyTree:    buildPolicy("gzip"),
+			compressionID: compression.ByName["gzip"].HeaderID(),
+		},
+	}
+
 	ctx := testlogging.Context(t)
-	t.Run("default metadata compression", func(t *testing.T) {
-		th := newUploadTestHarness(ctx, t)
-		defer th.cleanup()
-		u := NewUploader(th.repo)
-		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
-		s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-		assert.NoError(t, err, "upload error")
+	for _, tc := range cases {
+		policyTree := tc.policyTree
+		compID := tc.compressionID
 
-		dir := snapshotfs.EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
-		entries := findAllEntries(t, ctx, dir)
-		verifyMetadataCompressor(t, ctx, th.repo, entries, compression.HeaderZstdFastest)
-	})
-	t.Run("disable metadata compression", func(t *testing.T) {
-		th := newUploadTestHarness(ctx, t)
-		defer th.cleanup()
-		u := NewUploader(th.repo)
-		policyTree := policy.BuildTree(map[string]*policy.Policy{
-			".": {
-				MetadataCompressionPolicy: policy.MetadataCompressionPolicy{
-					CompressorName: "none",
-				},
-			},
-		}, policy.DefaultPolicy)
+		t.Run(tc.name, func(t *testing.T) {
+			th := newUploadTestHarness(ctx, t)
+			t.Cleanup(th.cleanup)
+			u := NewUploader(th.repo)
 
-		s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-		assert.NoError(t, err, "upload error")
+			s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+			require.NoError(t, err, "upload error")
 
-		dir := snapshotfs.EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
-		entries := findAllEntries(t, ctx, dir)
-		verifyMetadataCompressor(t, ctx, th.repo, entries, content.NoCompression)
-	})
-	t.Run("set metadata compressor", func(t *testing.T) {
-		th := newUploadTestHarness(ctx, t)
-		defer th.cleanup()
-		u := NewUploader(th.repo)
-		policyTree := policy.BuildTree(map[string]*policy.Policy{
-			".": {
-				MetadataCompressionPolicy: policy.MetadataCompressionPolicy{
-					CompressorName: "gzip",
-				},
-			},
-		}, policy.DefaultPolicy)
-
-		s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-		assert.NoError(t, err, "upload error")
-
-		dir := snapshotfs.EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
-		entries := findAllEntries(t, ctx, dir)
-		verifyMetadataCompressor(t, ctx, th.repo, entries, compression.ByName["gzip"].HeaderID())
-	})
+			dir := snapshotfs.EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
+			entries := findAllEntries(t, ctx, dir)
+			verifyMetadataCompressor(t, ctx, th.repo, entries, compID)
+		})
+	}
 }
 
 func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
