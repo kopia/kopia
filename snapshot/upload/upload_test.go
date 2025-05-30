@@ -132,6 +132,8 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 
 //nolint:gocyclo
 func TestUpload(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -237,6 +239,8 @@ func verifyMetadataCompressor(t *testing.T, ctx context.Context, rep repo.Reposi
 }
 
 func TestUploadMetadataCompression(t *testing.T) {
+	t.Parallel()
+
 	buildPolicy := func(compressor compression.Name) *policy.Tree {
 		return policy.BuildTree(map[string]*policy.Policy{
 			".": {
@@ -276,6 +280,8 @@ func TestUploadMetadataCompression(t *testing.T) {
 		compID := tc.compressionID
 
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			th := newUploadTestHarness(ctx, t)
 			t.Cleanup(th.cleanup)
 			u := NewUploader(th.repo)
@@ -291,6 +297,8 @@ func TestUploadMetadataCompression(t *testing.T) {
 }
 
 func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -308,6 +316,8 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 }
 
 func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -349,6 +359,8 @@ func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
 }
 
 func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -375,6 +387,8 @@ func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 }
 
 func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -405,6 +419,8 @@ func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 }
 
 func TestUpload_ErrorEntries(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -518,6 +534,8 @@ func verifyErrors(t *testing.T, man *snapshot.Manifest, wantFatalErrors, wantIgn
 }
 
 func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -543,6 +561,8 @@ func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 }
 
 func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -591,6 +611,8 @@ func (mp *mockProgress) FinishedFile(relativePath string, err error) {
 }
 
 func TestUpload_FinishedFileProgress(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 	mu := sync.Mutex{}
@@ -665,6 +687,8 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 }
 
 func TestUpload_SymlinkStats(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -704,6 +728,8 @@ func TestUpload_SymlinkStats(t *testing.T) {
 }
 
 func TestUploadWithCheckpointing(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -775,6 +801,8 @@ func TestUploadWithCheckpointing(t *testing.T) {
 }
 
 func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -840,6 +868,8 @@ func randomBytes(n int64) []byte {
 }
 
 func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -879,6 +909,8 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 }
 
 func TestUpload_VirtualDirectoryWithStreamingFile_WithCompression(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -914,6 +946,8 @@ func TestUpload_VirtualDirectoryWithStreamingFile_WithCompression(t *testing.T) 
 }
 
 func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
+	t.Parallel()
+
 	tmpContent := []byte("Streaming Temporary file content")
 	mt := time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
 
@@ -942,6 +976,8 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := testlogging.Context(t)
 			th := newUploadTestHarness(ctx, t)
 
@@ -988,6 +1024,8 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 }
 
 func TestUpload_StreamingDirectory(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -1020,6 +1058,8 @@ func TestUpload_StreamingDirectory(t *testing.T) {
 }
 
 func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -1097,6 +1137,8 @@ func (w *mockLogger) Sync() error {
 }
 
 func TestParallelUploadDedup(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -1150,6 +1192,8 @@ func TestParallelUploadDedup(t *testing.T) {
 }
 
 func TestParallelUploadOfLargeFiles(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -1291,6 +1335,8 @@ type loggedAction struct {
 
 //nolint:maintidx
 func TestUploadLogging(t *testing.T) {
+	t.Parallel()
+
 	sourceDir := mockfs.NewDirectory()
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
 	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, defaultPermissions)
@@ -1545,6 +1591,8 @@ func TestUploadLogging(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			ml := &mockLogger{}
 
 			logUploader := zap.New(
