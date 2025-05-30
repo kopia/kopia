@@ -173,7 +173,7 @@ func TestDiskContentCache(t *testing.T) {
 	verifyContentCache(t, cc, cacheStorage)
 }
 
-func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.Storage) {
+func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage cache.Storage) {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
@@ -335,7 +335,7 @@ func TestCacheFailureToRead(t *testing.T) {
 	}
 }
 
-func verifyStorageContentList(t *testing.T, st blob.Storage, expectedContents ...blob.ID) {
+func verifyStorageContentList(t *testing.T, st cache.Storage, expectedContents ...blob.ID) {
 	t.Helper()
 
 	var foundContents []blob.ID

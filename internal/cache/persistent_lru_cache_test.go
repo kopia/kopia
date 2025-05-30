@@ -357,7 +357,7 @@ func verifyCached(ctx context.Context, t *testing.T, pc *cache.PersistentCache, 
 	}
 }
 
-func verifyBlobExists(ctx context.Context, t *testing.T, st blob.Storage, blobID blob.ID) {
+func verifyBlobExists(ctx context.Context, t *testing.T, st cache.Storage, blobID blob.ID) {
 	t.Helper()
 
 	if _, err := st.GetMetadata(ctx, blobID); err != nil {
@@ -365,7 +365,7 @@ func verifyBlobExists(ctx context.Context, t *testing.T, st blob.Storage, blobID
 	}
 }
 
-func verifyBlobDoesNotExist(ctx context.Context, t *testing.T, st blob.Storage, blobID blob.ID) {
+func verifyBlobDoesNotExist(ctx context.Context, t *testing.T, st cache.Storage, blobID blob.ID) {
 	t.Helper()
 
 	if _, err := st.GetMetadata(ctx, blobID); !errors.Is(err, blob.ErrBlobNotFound) {
