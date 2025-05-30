@@ -804,6 +804,8 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
+	t.Cleanup(th.cleanup)
+
 	u := NewUploader(th.repo)
 	u.ParallelUploads = 13
 
