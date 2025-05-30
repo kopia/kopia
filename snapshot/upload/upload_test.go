@@ -147,13 +147,13 @@ func TestUpload(t *testing.T) {
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	assert.NoError(t, err, "upload error")
+	require.NoError(t, err, "upload error")
 
 	t.Logf("s1: %v", s1.RootEntry)
 	t.Logf("Uploading s2")
 
 	s2, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
-	assert.NoError(t, err, "upload error")
+	require.NoError(t, err, "upload error")
 
 	assert.Equal(t, s1.RootObjectID(), s2.RootObjectID(), "root object ids do not match")
 	assert.Zero(t, atomic.LoadInt32(&s1.Stats.CachedFiles), "unexpected s1 cached files")
@@ -165,7 +165,7 @@ func TestUpload(t *testing.T) {
 	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
 
 	s3, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
-	assert.NoError(t, err, "upload failed")
+	require.NoError(t, err, "upload failed")
 
 	assert.NotEqual(t, s2.RootObjectID(), s3.RootObjectID(), "expected s3.RootObjectID!=s2.RootObjectID")
 	assert.Equal(t, int32(1), atomic.LoadInt32(&s3.Stats.NonCachedFiles), "unexpected s3 stats:", s3.Stats,
@@ -175,7 +175,7 @@ func TestUpload(t *testing.T) {
 	th.sourceDir.Subdir("d2", "d1").Remove("f3")
 
 	s4, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
-	assert.NoError(t, err, "upload failed")
+	require.NoError(t, err, "upload failed")
 
 	assert.Equal(t, s4.RootObjectID(), s1.RootObjectID(), "expected s4.RootObjectID==s1.RootObjectID")
 
@@ -234,7 +234,7 @@ func verifyMetadataCompressor(t *testing.T, ctx context.Context, rep repo.Reposi
 		}
 
 		info, err := rep.ContentInfo(ctx, cid)
-		assert.NoError(t, err, "failed to get content info for %v", cid)
+		require.NoError(t, err, "failed to get content info for %v", cid)
 		assert.Equal(t, comp, info.CompressionHeaderID)
 	}
 }
