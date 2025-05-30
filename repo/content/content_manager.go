@@ -52,7 +52,7 @@ var PackBlobIDPrefixes = []blob.ID{
 
 const (
 	parallelFetches          = 5                // number of parallel reads goroutines
-	flushPackIndexTimeout    = 10 * time.Minute // time after which all pending indexes are flushes
+	flushPackIndexTimeout    = 10 * time.Minute // time after which all pending indexes are flushed
 	defaultMinPreambleLength = 32
 	defaultMaxPreambleLength = 32
 	defaultPaddingUnit       = 4096
@@ -858,7 +858,7 @@ func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte,
 
 	_, err = bm.getContentDataAndInfo(ctx, contentID, &tmp)
 	if err != nil {
-		bm.log.Debugf("getContentInfoReadLocked(%v) error %v", contentID, err)
+		bm.log.Debugf("getContentDataAndInfo(%v) error %v", contentID, err)
 		return nil, err
 	}
 
