@@ -73,7 +73,7 @@ type fuseFileNode struct {
 }
 
 func (f *fuseFileNode) Open(ctx context.Context, _ uint32) (gofusefs.FileHandle, uint32, syscall.Errno) {
-	reader, err := f.entry.(fs.File).Open(ctx)
+	reader, err := f.entry.(fs.File).Open(context.Background())
 	if err != nil {
 		log(ctx).Errorf("error opening %v: %v", f.entry.Name(), err)
 
@@ -132,7 +132,7 @@ func (dir *fuseDirectoryNode) directory() fs.Directory {
 }
 
 func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *fuse.EntryOut) (*gofusefs.Inode, syscall.Errno) {
-	e, err := dir.directory().Child(ctx, fileName)
+	e, err := dir.directory().Child(context.Background(), fileName)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, syscall.ENOENT
@@ -156,7 +156,7 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *
 		return nil, syscall.EIO
 	}
 
-	child := dir.NewInode(ctx, n, stable)
+	child := dir.NewInode(context.Background(), n, stable)
 
 	populateAttributes(&out.Attr, e)
 
@@ -167,7 +167,7 @@ func (dir *fuseDirectoryNode) Readdir(ctx context.Context) (gofusefs.DirStream, 
 	// TODO: Slice not required as DirStream is also an iterator.
 	result := []fuse.DirEntry{}
 
-	iter, err := dir.directory().Iterate(ctx)
+	iter, err := dir.directory().Iterate(context.Background())
 	if err != nil {
 		log(ctx).Errorf("error reading directory %v: %v", dir.entry.Name(), err)
 		return nil, syscall.EIO
@@ -175,7 +175,7 @@ func (dir *fuseDirectoryNode) Readdir(ctx context.Context) (gofusefs.DirStream, 
 
 	defer iter.Close()
 
-	cur, err := iter.Next(ctx)
+	cur, err := iter.Next(context.Background())
 	for cur != nil {
 		result = append(result, fuse.DirEntry{
 			Name: cur.Name(),
@@ -198,7 +198,7 @@ type fuseSymlinkNode struct {
 }
 
 func (sl *fuseSymlinkNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
-	v, err := sl.entry.(fs.Symlink).Readlink(ctx)
+	v, err := sl.entry.(fs.Symlink).Readlink(context.Background())
 	if err != nil {
 		log(ctx).Errorf("error reading symlink %v: %v", sl.entry.Name(), err)
 		return nil, syscall.EIO
