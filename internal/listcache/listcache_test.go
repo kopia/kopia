@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -22,7 +23,9 @@ func TestListCache(t *testing.T) {
 	cacheTime := faketime.NewTimeAdvance(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC))
 	cachest := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, cacheTime.NowFunc())
 
-	lc := NewWrapper(realStorage, cachest, []blob.ID{"n", "xe", "xb"}, []byte("hmac-secret"), 1*time.Minute).(*listCacheStorage)
+	w := NewWrapper(realStorage, cachest, []blob.ID{"n", "xe", "xb"}, []byte("hmac-secret"), 1*time.Minute)
+	lc := testutil.EnsureType[*listCacheStorage](t, w)
+
 	lc.cacheTimeFunc = cacheTime.NowFunc()
 
 	ctx := testlogging.Context(t)
