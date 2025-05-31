@@ -1259,11 +1259,16 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 
 	fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		if f, ok := e.(fs.File); ok {
-			oid, err := object.ParseID(strings.TrimPrefix(f.(object.HasObjectID).ObjectID().String(), "I"))
-			require.NoError(t, err)
+			hoid, hasObjectId := f.(object.HasObjectID)
+			require.True(t, hasObjectId)
+
+			oids := hoid.ObjectID().String()
+
+			oid, err := object.ParseID(strings.TrimPrefix(oids, "I"))
+			require.NoError(t, err, "failed to parse object id", oids)
 
 			entries, err := object.LoadIndexObject(ctx, th.repo.(repo.DirectRepositoryWriter).ContentManager(), oid)
-			require.NoError(t, err)
+			require.NoError(t, err, "failed to parse indirect object id", oid)
 
 			// ensure that index object contains breakpoints at all multiples of 'chunkSize'.
 			// Because we picked unusual chunkSize, this proves that uploads happened individually
