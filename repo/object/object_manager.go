@@ -86,7 +86,9 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 	}
 
 	w.buffer.Reset()
+	w.contentWriteErrorMutex.Lock()
 	w.contentWriteError = nil
+	w.contentWriteErrorMutex.Unlock()
 
 	return w
 }
