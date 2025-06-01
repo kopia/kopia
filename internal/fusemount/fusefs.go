@@ -73,7 +73,7 @@ type fuseFileNode struct {
 }
 
 func (f *fuseFileNode) Open(ctx context.Context, _ uint32) (gofusefs.FileHandle, uint32, syscall.Errno) {
-	reader, err := f.entry.(fs.File).Open(ctx)
+	reader, err := f.entry.(fs.File).Open(ctx) //nolint:forcetypeassert
 	if err != nil {
 		log(ctx).Errorf("error opening %v: %v", f.entry.Name(), err)
 
@@ -198,7 +198,7 @@ type fuseSymlinkNode struct {
 }
 
 func (sl *fuseSymlinkNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
-	v, err := sl.entry.(fs.Symlink).Readlink(ctx)
+	v, err := sl.entry.(fs.Symlink).Readlink(ctx) //nolint:forcetypeassert
 	if err != nil {
 		log(ctx).Errorf("error reading symlink %v: %v", sl.entry.Name(), err)
 		return nil, syscall.EIO

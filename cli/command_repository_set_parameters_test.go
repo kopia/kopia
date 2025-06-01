@@ -20,9 +20,9 @@ func (s *formatSpecificTestSuite) setupInMemoryRepo(t *testing.T) *testenv.CLITe
 	runner := testenv.NewInProcRunner(t)
 	env := testenv.NewCLITest(t, s.formatFlags, runner)
 	st := repotesting.NewReconnectableStorage(t, blobtesting.NewVersionedMapStorage(nil))
+	o := testutil.EnsureType[*repotesting.ReconnectableStorageOptions](t, st.ConnectionInfo().Config)
 
-	env.RunAndExpectSuccess(t, "repo", "create", "in-memory", "--uuid",
-		st.ConnectionInfo().Config.(*repotesting.ReconnectableStorageOptions).UUID)
+	env.RunAndExpectSuccess(t, "repo", "create", "in-memory", "--uuid", o.UUID)
 
 	return env
 }

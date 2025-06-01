@@ -177,3 +177,17 @@ func MustGetTotalDirSize(t *testing.T, dirpath string) int64 {
 
 	return total
 }
+
+// EnsureType asserts that v of type E.
+func EnsureType[E any](tb testing.TB, v any) E {
+	tb.Helper()
+
+	var e E
+
+	// require.IsType would not elide the forced type assertion
+	e, ok := v.(E)
+
+	require.Truef(tb, ok, "%T is not of type %T", v, e)
+
+	return e
+}

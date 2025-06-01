@@ -498,7 +498,7 @@ func TestIndirection(t *testing.T) {
 		contentBytes := make([]byte, c.dataLength)
 
 		writer := om.NewWriter(ctx, WriterOptions{MetadataCompressor: c.metadataCompressor})
-		writer.(*objectWriter).splitter = splitterFactory()
+		testutil.EnsureType[*objectWriter](t, writer).splitter = splitterFactory()
 
 		if _, err := writer.Write(contentBytes); err != nil {
 			t.Errorf("write error: %v", err)

@@ -43,7 +43,7 @@ func TestServerControlSocketActivated(t *testing.T) {
 		l1.Close()
 	}()
 
-	port = l1.Addr().(*net.TCPAddr).Port
+	port = testutil.EnsureType[*net.TCPAddr](t, l1.Addr()).Port
 
 	t.Logf("Activating socket on port %v", port)
 
@@ -53,7 +53,7 @@ func TestServerControlSocketActivated(t *testing.T) {
 	var sp testutil.ServerParameters
 
 	go func() {
-		l1File, err := l1.(*net.TCPListener).File()
+		l1File, err := testutil.EnsureType[*net.TCPListener](t, l1).File()
 		if err != nil {
 			t.Log("ERROR: Failed to get filehandle for socket")
 			close(serverStarted)
@@ -121,14 +121,16 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 		l1.Close()
 	}()
 
-	port = l1.Addr().(*net.TCPAddr).Port
+	port = testutil.EnsureType[*net.TCPAddr](t, l1.Addr()).Port
 
 	t.Logf("Activating socket on port %v", port)
 
 	serverStarted := make(chan []string)
 
 	go func() {
-		l1File, err := l1.(*net.TCPListener).File()
+		listener := testutil.EnsureType[*net.TCPListener](t, l1)
+
+		l1File, err := listener.File()
 		if err != nil {
 			t.Log("Failed to get filehandle for socket")
 			close(serverStarted)
@@ -136,7 +138,7 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 			return
 		}
 
-		l2File, err := l1.(*net.TCPListener).File()
+		l2File, err := listener.File()
 		if err != nil {
 			t.Log("Failed to get 2nd filehandle for socket")
 			close(serverStarted)

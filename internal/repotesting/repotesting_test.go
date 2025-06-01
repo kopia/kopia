@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/mockfs"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/snapshot"
@@ -27,7 +28,7 @@ func TestTimeFuncWiring(t *testing.T) {
 		t.Fatal("Failed to open repo:", err)
 	}
 
-	r0 := rep.(repo.DirectRepository)
+	r0 := testutil.EnsureType[repo.DirectRepository](t, rep)
 
 	_, env.RepositoryWriter, err = r0.NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(t, err)

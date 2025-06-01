@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
@@ -56,7 +57,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 	require.Len(t, blobsBefore, 4, "unexpected number of blobs after writing")
 
 	lastBlobIdx := len(blobsBefore) - 1
-	st := env.RootStorage().(blobtesting.RetentionStorage)
+	st := testutil.EnsureType[blobtesting.RetentionStorage](t, env.RootStorage())
 
 	gotMode, expiry, err := st.GetRetention(ctx, blobsBefore[lastBlobIdx].BlobID)
 	require.NoError(t, err, "getting blob retention info")
@@ -111,7 +112,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 	// Need to continue using TouchBlob because the environment only supports the
 	// locking map if no retention time is given.
 	lastBlobIdx := len(blobsBefore) - 1
-	st := env.RootStorage().(cache.Storage)
+	st := testutil.EnsureType[cache.Storage](t, env.RootStorage())
 
 	ta.Advance(7 * 24 * time.Hour)
 

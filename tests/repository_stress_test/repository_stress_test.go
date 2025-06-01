@@ -303,7 +303,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, openID, configFi
 	for i := range opt.SessionsPerOpenRepository {
 		ors := or.NewSession(fmt.Sprintf("session-%v", i))
 
-		_, w, err := rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{
+		_, w, err := testutil.EnsureType[repo.DirectRepository](t, rep).NewDirectWriter(ctx, repo.WriteSessionOptions{
 			Purpose: fmt.Sprintf("longLivedRepositoryTest-w%v", i),
 		})
 		if err != nil {

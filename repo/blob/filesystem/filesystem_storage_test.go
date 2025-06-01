@@ -102,7 +102,7 @@ func TestFileStorageTouch(t *testing.T) {
 		t.Errorf("unexpected result: %v %v", r, err)
 	}
 
-	fs := r.(*fsStorage)
+	fs := testutil.EnsureType[*fsStorage](t, r)
 	assertNoError(t, fs.PutBlob(ctx, t1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 	assertNoError(t, fs.PutBlob(ctx, t2, gather.FromSlice([]byte{1}), blob.PutOptions{}))
@@ -232,10 +232,18 @@ func TestFileStorage_GetMetadata_RetriesOnError(t *testing.T) {
 
 	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
+	asFsImpl(t, st).osi = osi
 
 	_, err = st.GetMetadata(ctx, "someblob1234567812345678")
 	require.NoError(t, err)
+}
+
+func asFsImpl(t *testing.T, st blob.Storage) *fsImpl {
+	t.Helper()
+
+	fsSt := testutil.EnsureType[*fsStorage](t, st)
+
+	return testutil.EnsureType[*fsImpl](t, fsSt.Impl)
 }
 
 func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
@@ -269,7 +277,7 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 	}, true)
 	require.NoError(t, err)
 
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
+	asFsImpl(t, st).osi = osi
 
 	defer st.Close(ctx)
 
@@ -310,7 +318,7 @@ func TestFileStorage_DeleteBlob_ErrorHandling(t *testing.T) {
 	}, true)
 	require.NoError(t, err)
 
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
+	asFsImpl(t, st).osi = osi
 
 	defer st.Close(ctx)
 
@@ -381,7 +389,7 @@ func TestFileStorage_ListBlobs_ErrorHandling(t *testing.T) {
 	}, true)
 	require.NoError(t, err)
 
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
+	asFsImpl(t, st).osi = osi
 
 	defer st.Close(ctx)
 
@@ -419,7 +427,7 @@ func TestFileStorage_TouchBlob_ErrorHandling(t *testing.T) {
 	}, true)
 	require.NoError(t, err)
 
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
+	asFsImpl(t, st).osi = osi
 
 	defer st.Close(ctx)
 
@@ -427,7 +435,7 @@ func TestFileStorage_TouchBlob_ErrorHandling(t *testing.T) {
 
 	osi.statRemainingErrors.Store(1)
 
-	_, err = st.(*fsStorage).TouchBlob(ctx, "someblob1234567812345678", 0)
+	_, err = testutil.EnsureType[*fsStorage](t, st).TouchBlob(ctx, "someblob1234567812345678", 0)
 	require.NoError(t, err)
 }
 
