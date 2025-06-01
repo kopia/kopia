@@ -123,34 +123,30 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 	serverStarted := make(chan []string)
 
 	go func() {
+		defer close(serverStarted)
 		listener := testutil.EnsureType[*net.TCPListener](t, l1)
 
 		l1File, err := listener.File()
 		if err != nil {
 			t.Log("Failed to get filehandle for socket")
-			close(serverStarted)
 
 			return
 		}
+		defer l1File.Close()
 
 		l2File, err := listener.File()
 		if err != nil {
 			t.Log("Failed to get 2nd filehandle for socket")
-			close(serverStarted)
 
 			return
 		}
+		defer l2File.Close()
 
 		runner.ExtraFiles = append(runner.ExtraFiles, l1File, l2File)
 
 		_, stderr := env.RunAndExpectFailure(t, "server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 
-		l1File.Close()
-		l2File.Close()
-
 		serverStarted <- stderr
-
-		close(serverStarted)
 	}()
 
 	select {
