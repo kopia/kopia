@@ -223,7 +223,7 @@ func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line 
 		}
 	}
 
-	// complete the scan in background without processing lines.
+	// complete stderr scanning in the background without processing lines.
 	go func() {
 		for scanner.Scan() {
 			if asyncCallback != nil {
