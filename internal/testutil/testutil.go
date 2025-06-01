@@ -3,7 +3,6 @@ package testutil
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -32,22 +31,6 @@ func SkipNonDeterministicTestUnderCodeCoverage(t *testing.T) {
 
 	if os.Getenv("KOPIA_COVERAGE_TEST") != "" {
 		t.Skip("Skipping non-deterministic test in code coverage run")
-	}
-}
-
-// TestSkipUnlessCI skips the current test with a provided message, except when running
-// in CI environment, in which case it causes hard failure.
-func TestSkipUnlessCI(tb testing.TB, msg string, args ...any) {
-	tb.Helper()
-
-	if len(args) > 0 {
-		msg = fmt.Sprintf(msg, args...)
-	}
-
-	if os.Getenv("CI") != "" {
-		tb.Fatal(msg)
-	} else {
-		tb.Skip(msg)
 	}
 }
 
