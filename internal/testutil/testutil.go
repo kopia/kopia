@@ -43,8 +43,8 @@ func SkipTestUnlessLinux(tb testing.TB) {
 	}
 }
 
-// TestSkipOnCIUnlessLinuxAMD64 skips the current test if running on CI unless the environment is Linux/AMD64.
-func TestSkipOnCIUnlessLinuxAMD64(tb testing.TB) {
+// SkipTestOnCIUnlessLinuxAMD64 skips the current test if running on CI unless the environment is Linux/AMD64.
+func SkipTestOnCIUnlessLinuxAMD64(tb testing.TB) {
 	tb.Helper()
 
 	if os.Getenv("CI") != "" && runtime.GOOS+"/"+runtime.GOARCH != "linux/amd64" {
