@@ -255,12 +255,12 @@ func (s *eventuallyConsistentStorage) ListBlobs(ctx context.Context, prefix blob
 
 	// process recently deleted items and resurrect them with some probability
 	s.recentlyDeleted.Range(func(key, value any) bool {
-		blobID := key.(blob.ID)
+		blobID := key.(blob.ID) //nolint:forcetypeassert
 		if !strings.HasPrefix(string(blobID), string(prefix)) {
 			return true
 		}
 
-		bm := value.(blob.Metadata)
+		bm := value.(blob.Metadata) //nolint:forcetypeassert
 		if age := now.Sub(bm.Timestamp); s.shouldApplyInconsistency(ctx, age, "resurrect recently deleted "+string(bm.BlobID)) {
 			if resultErr = callback(bm); resultErr != nil {
 				return false

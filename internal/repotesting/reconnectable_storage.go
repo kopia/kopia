@@ -67,7 +67,7 @@ func New(ctx context.Context, opt *ReconnectableStorageOptions, isCreate bool) (
 		return nil, errors.Errorf("reconnectable storage not found: %v", opt.UUID)
 	}
 
-	return v.(blob.Storage), nil
+	return v.(blob.Storage), nil //nolint:forcetypeassert
 }
 
 func init() {

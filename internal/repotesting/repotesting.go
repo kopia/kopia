@@ -45,7 +45,7 @@ type Options struct {
 
 // RepositoryMetrics returns metrics.Registry associated with a repository.
 func (e *Environment) RepositoryMetrics() *metrics.Registry {
-	return e.Repository.(interface {
+	return e.Repository.(interface { //nolint:forcetypeassert
 		Metrics() *metrics.Registry
 	}).Metrics()
 }
@@ -53,7 +53,7 @@ func (e *Environment) RepositoryMetrics() *metrics.Registry {
 // RootStorage returns the base storage map that implements the base in-memory
 // map at the base of all storage wrappers on top.
 func (e *Environment) RootStorage() blob.Storage {
-	return e.st.(reconnectableStorage).Storage
+	return e.st.(reconnectableStorage).Storage //nolint:forcetypeassert
 }
 
 // setup sets up a test environment.
