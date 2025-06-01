@@ -45,7 +45,7 @@ func getPrometheusGauge(opts prometheus.GaugeOpts, labels map[string]string) *pr
 
 	prom := promGauges[opts.Name]
 	if prom == nil {
-		prom = promauto.NewGaugeVec(opts, maps.Keys(labels))
+		prom = promauto.NewGaugeVec(opts, mapKeys(labels))
 
 		promGauges[opts.Name] = prom
 	}

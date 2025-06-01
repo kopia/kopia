@@ -19,7 +19,6 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/upload"
-	"github.com/pkg/errors"
 )
 
 const (
