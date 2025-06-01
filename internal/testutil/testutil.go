@@ -51,8 +51,8 @@ func TestSkipUnlessCI(tb testing.TB, msg string, args ...any) {
 	}
 }
 
-// TestSkipUnlessLinux skips the current test if the test environment is not Linux.
-func TestSkipUnlessLinux(tb testing.TB) {
+// SkipTestUnlessLinux skips the current test if the test environment is not Linux.
+func SkipTestUnlessLinux(tb testing.TB) {
 	tb.Helper()
 
 	if runtime.GOOS != "linux" {
