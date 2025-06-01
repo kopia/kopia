@@ -229,12 +229,17 @@ func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data gather.Byte
 func (w *objectWriter) saveError(err error) error {
 	if err != nil {
 		// store write error so that we fail at Result() later.
-		w.contentWriteErrorMutex.Lock()
-		w.contentWriteError = err
-		w.contentWriteErrorMutex.Unlock()
+		w.setError(err)
 	}
 
 	return err
+}
+
+func (w *objectWriter) setError(err error) {
+	w.contentWriteErrorMutex.Lock()
+	defer w.contentWriteErrorMutex.Unlock()
+
+	w.contentWriteError = err
 }
 
 func maybeCompressedObjectID(contentID content.ID, isCompressed bool) ID {
