@@ -203,15 +203,17 @@ func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line 
 
 	stdout, stderr, wait, interrupt := e.Runner.Start(t, e.RunContext, e.cmdArgs(args), e.Environment)
 
+	prefix, logOutput := e.getLogOutputPrefix()
+
 	go func() {
 		scanner := bufio.NewScanner(stdout)
 		for scanner.Scan() {
-			if prefix, ok := e.getLogOutputPrefix(); ok {
+			if logOutput {
 				t.Logf("[%vstdout] %v", prefix, scanner.Text())
 			}
 		}
 
-		if prefix, ok := e.getLogOutputPrefix(); ok {
+		if logOutput {
 			t.Logf("[%vstdout] EOF", prefix)
 		}
 	}()
@@ -230,12 +232,12 @@ func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line 
 				asyncCallback(scanner.Text())
 			}
 
-			if prefix, ok := e.getLogOutputPrefix(); ok {
+			if logOutput {
 				t.Logf("[%vstderr] %v", prefix, scanner.Text())
 			}
 		}
 
-		if prefix, ok := e.getLogOutputPrefix(); ok {
+		if logOutput {
 			t.Logf("[%vstderr] EOF", prefix)
 		}
 	}()
