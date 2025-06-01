@@ -38,9 +38,7 @@ func TestServerControlSocketActivated(t *testing.T) {
 	l1, err := net.Listen("tcp", ":0")
 	require.NoError(t, err, "Failed to open Listener")
 
-	defer func() {
-		l1.Close()
-	}()
+	t.Cleanup(func() { l1.Close() })
 
 	port = testutil.EnsureType[*net.TCPAddr](t, l1.Addr()).Port
 
@@ -116,9 +114,7 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 	l1, err := net.Listen("tcp", ":0")
 	require.NoError(t, err, "Failed to open Listener")
 
-	defer func() {
-		l1.Close()
-	}()
+	t.Cleanup(func() { l1.Close() })
 
 	port = testutil.EnsureType[*net.TCPAddr](t, l1.Addr()).Port
 
