@@ -236,11 +236,14 @@ func TestServerMetricsWithSpecificDisablePolicy(t *testing.T) {
 
 func getMetrics(ctx context.Context, t *testing.T, baseURL string) string {
 	t.Helper()
+
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+baseURL+"/metrics", http.NoBody)
 	require.NoError(t, err)
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	require.NoError(t, err)
+
 	defer resp.Body.Close()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	// Response body should not be empty
