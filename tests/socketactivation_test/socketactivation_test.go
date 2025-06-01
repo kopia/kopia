@@ -44,20 +44,15 @@ func TestServerControlSocketActivated(t *testing.T) {
 
 	t.Logf("Activating socket on port %v", port)
 
+	l1File, err := testutil.EnsureType[*net.TCPListener](t, l1).File()
+	require.NoError(t, err, "failed to get filehandle for socket")
+
 	serverStarted := make(chan struct{})
 	serverStopped := make(chan struct{})
 
 	var sp testutil.ServerParameters
 
 	go func() {
-		l1File, err := testutil.EnsureType[*net.TCPListener](t, l1).File()
-		if err != nil {
-			t.Log("ERROR: Failed to get filehandle for socket")
-			close(serverStarted)
-
-			return
-		}
-
 		runner.ExtraFiles = append(runner.ExtraFiles, l1File)
 		wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
 			"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
@@ -122,25 +117,20 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 
 	serverStarted := make(chan []string)
 
+	listener := testutil.EnsureType[*net.TCPListener](t, l1)
+
+	l1File, err := listener.File()
+	require.NoError(t, err, "failed to get 1st filehandle for socket")
+
+	t.Cleanup(func() { l1File.Close() })
+
+	l2File, err := listener.File()
+	require.NoError(t, err, "failed to get 2nd filehandle for socket")
+
+	t.Cleanup(func() { l2File.Close() })
+
 	go func() {
 		defer close(serverStarted)
-		listener := testutil.EnsureType[*net.TCPListener](t, l1)
-
-		l1File, err := listener.File()
-		if err != nil {
-			t.Log("Failed to get filehandle for socket")
-
-			return
-		}
-		defer l1File.Close()
-
-		l2File, err := listener.File()
-		if err != nil {
-			t.Log("Failed to get 2nd filehandle for socket")
-
-			return
-		}
-		defer l2File.Close()
 
 		runner.ExtraFiles = append(runner.ExtraFiles, l1File, l2File)
 
