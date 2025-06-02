@@ -239,7 +239,7 @@ func (az *azStorage) ConnectionInfo() blob.ConnectionInfo {
 }
 
 func (az *azStorage) DisplayName() string {
-	return fmt.Sprintf("Azure: %v", az.Options.Container)
+	return fmt.Sprintf("Azure: %v", az.Container)
 }
 
 func (az *azStorage) getBlobName(it *azblobmodels.BlobItem) blob.ID {
@@ -365,11 +365,6 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, errors.New("container name must be specified")
 	}
 
-	var (
-		service    *azblob.Client
-		serviceErr error
-	)
-
 	storageDomain := opt.StorageDomain
 	if storageDomain == "" {
 		storageDomain = "blob.core.windows.net"
@@ -377,36 +372,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 
 	storageHostname := fmt.Sprintf("%v.%v", opt.StorageAccount, storageDomain)
 
-	switch {
-	// shared access signature
-	case opt.SASToken != "":
-		service, serviceErr = azblob.NewClientWithNoCredential(
-			fmt.Sprintf("https://%s?%s", storageHostname, opt.SASToken), nil)
-
-	// storage account access key
-	case opt.StorageKey != "":
-		// create a credentials object.
-		cred, err := azblob.NewSharedKeyCredential(opt.StorageAccount, opt.StorageKey)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to initialize storage access key credentials")
-		}
-
-		service, serviceErr = azblob.NewClientWithSharedKeyCredential(
-			fmt.Sprintf("https://%s/", storageHostname), cred, nil,
-		)
-	// client secret
-	case opt.TenantID != "" && opt.ClientID != "" && opt.ClientSecret != "":
-		cred, err := azidentity.NewClientSecretCredential(opt.TenantID, opt.ClientID, opt.ClientSecret, nil)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to initialize client secret credential")
-		}
-
-		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
-
-	default:
-		return nil, errors.New("one of the storage key, SAS token or client secret must be provided")
-	}
-
+	service, serviceErr := getAZService(opt, storageHostname)
 	if serviceErr != nil {
 		return nil, errors.Wrap(serviceErr, "opening azure service")
 	}
@@ -435,6 +401,56 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	}
 
 	return az, nil
+}
+
+func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) {
+	var (
+		service    *azblob.Client
+		serviceErr error
+	)
+
+	switch {
+	// shared access signature
+	case opt.SASToken != "":
+		service, serviceErr = azblob.NewClientWithNoCredential(
+			fmt.Sprintf("https://%s?%s", storageHostname, opt.SASToken), nil)
+	// storage account access key
+	case opt.StorageKey != "":
+		// create a credentials object.
+		cred, err := azblob.NewSharedKeyCredential(opt.StorageAccount, opt.StorageKey)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to initialize storage access key credentials")
+		}
+
+		service, serviceErr = azblob.NewClientWithSharedKeyCredential(
+			fmt.Sprintf("https://%s/", storageHostname), cred, nil,
+		)
+	// client secret
+	case opt.TenantID != "" && opt.ClientID != "" && opt.ClientSecret != "":
+		cred, err := azidentity.NewClientSecretCredential(opt.TenantID, opt.ClientID, opt.ClientSecret, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to initialize client secret credential")
+		}
+
+		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
+	// client certificate
+	case opt.TenantID != "" && opt.ClientID != "" && opt.ClientCert != "":
+		certs, key, certErr := azidentity.ParseCertificates([]byte(opt.ClientCert), nil)
+		if certErr != nil {
+			return nil, errors.Wrap(certErr, "failed to read client cert")
+		}
+
+		cred, credErr := azidentity.NewClientCertificateCredential(opt.TenantID, opt.ClientID, certs, key, nil)
+		if credErr != nil {
+			return nil, errors.Wrap(credErr, "unable to initialize client cert credential")
+		}
+
+		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
+	default:
+		return nil, errors.New("one of the storage key, SAS token, client secret or client certificate must be provided")
+	}
+
+	return service, errors.Wrap(serviceErr, "unable to create azure client")
 }
 
 func init() {

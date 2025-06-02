@@ -59,6 +59,7 @@ func TestGetBlobVersions(t *testing.T) {
 			dm, err := deleteBlob(ctx, s, blobName)
 
 			require.NoError(t, err)
+
 			bm = append(bm, dm)
 
 			var b gather.WriteBuffer
@@ -250,6 +251,7 @@ func TestGetBlobWithVersion(t *testing.T) {
 			}
 
 			var i int
+
 			for _, b := range blobs {
 				for _, bv := range b {
 					m := metas[i]
@@ -265,6 +267,7 @@ func TestGetBlobWithVersion(t *testing.T) {
 
 					require.NoError(t, err)
 					require.Equal(t, c, b.ToByteSlice())
+
 					i++
 				}
 			}
@@ -765,7 +768,7 @@ func compareVersionSlices(tb testing.TB, a, b []versionMetadata) {
 		compareMetadata(tb, a[i], b[i])
 	}
 
-	require.Equal(tb, len(a), len(b), "the number of the blob versions to compare does not match", a, b)
+	require.Len(tb, b, len(a), "the number of the blob versions to compare does not match", a, b)
 }
 
 func reverseVersionSlice(m []versionMetadata) []versionMetadata {

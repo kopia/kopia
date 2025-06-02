@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -89,7 +90,7 @@ func testContentCachePrefetchBlocksGetContent(t *testing.T, newCache newContentC
 	faulty := blobtesting.NewFaultyStorage(underlying)
 
 	cacheData := blobtesting.DataMap{}
-	metadataCacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil).(cache.Storage)
+	metadataCacheStorage := testutil.EnsureType[cache.Storage](t, blobtesting.NewMapStorage(cacheData, nil, nil))
 
 	dataCache, err := newCache(ctx, faulty, metadataCacheStorage)
 	require.NoError(t, err)
@@ -157,7 +158,7 @@ func testGetContentForDifferentContentIDsExecutesInParallel(t *testing.T, newCac
 	faulty := blobtesting.NewFaultyStorage(underlying)
 
 	cacheData := blobtesting.DataMap{}
-	metadataCacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil).(cache.Storage)
+	metadataCacheStorage := testutil.EnsureType[cache.Storage](t, blobtesting.NewMapStorage(cacheData, nil, nil))
 
 	dataCache, err := newCache(ctx, faulty, metadataCacheStorage)
 	require.NoError(t, err)
@@ -203,7 +204,7 @@ func testGetContentForDifferentBlobsExecutesInParallel(t *testing.T, newCache ne
 	faulty := blobtesting.NewFaultyStorage(underlying)
 
 	cacheData := blobtesting.DataMap{}
-	metadataCacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil).(cache.Storage)
+	metadataCacheStorage := testutil.EnsureType[cache.Storage](t, blobtesting.NewMapStorage(cacheData, nil, nil))
 
 	dataCache, err := newCache(ctx, faulty, metadataCacheStorage)
 	require.NoError(t, err)
@@ -251,7 +252,7 @@ func testGetContentRaceFetchesOnce(t *testing.T, newCache newContentCacheFunc) {
 	faulty := blobtesting.NewFaultyStorage(underlying)
 
 	cacheData := blobtesting.DataMap{}
-	metadataCacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil).(cache.Storage)
+	metadataCacheStorage := testutil.EnsureType[cache.Storage](t, blobtesting.NewMapStorage(cacheData, nil, nil))
 
 	dataCache, err := newCache(ctx, faulty, metadataCacheStorage)
 	require.NoError(t, err)

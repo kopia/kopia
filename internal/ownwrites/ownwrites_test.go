@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -23,7 +24,7 @@ func TestOwnWrites(t *testing.T) {
 
 	ec := blobtesting.NewEventuallyConsistentStorage(realStorage, 1*time.Hour, realStorageTime.NowFunc())
 	ow := NewWrapper(ec, cachest, []blob.ID{"n"}, testCacheDuration)
-	ow.(*CacheStorage).cacheTimeFunc = cacheTime.NowFunc()
+	testutil.EnsureType[*CacheStorage](t, ow).cacheTimeFunc = cacheTime.NowFunc()
 
 	ctx := testlogging.Context(t)
 

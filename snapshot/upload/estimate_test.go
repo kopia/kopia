@@ -1,4 +1,4 @@
-package snapshotfs_test
+package upload_test
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 type fakeProgress struct {
@@ -31,7 +31,7 @@ func (p *fakeProgress) Error(context.Context, string, error, bool) {}
 func (p *fakeProgress) Stats(
 	ctx context.Context,
 	s *snapshot.Stats,
-	includedFiles, excludedFiles snapshotfs.SampleBuckets,
+	includedFiles, excludedFiles upload.SampleBuckets,
 	excludedDirs []string,
 	final bool,
 ) {
@@ -62,6 +62,6 @@ func TestEstimate_SkipsStreamingDirectory(t *testing.T) {
 		expectedErrors:      0,
 	}
 
-	err := snapshotfs.Estimate(testlogging.Context(t), rootDir, policyTree, p, 1)
+	err := upload.Estimate(testlogging.Context(t), rootDir, policyTree, p, 1)
 	require.NoError(t, err)
 }

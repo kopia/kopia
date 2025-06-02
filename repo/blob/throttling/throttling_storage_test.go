@@ -45,7 +45,7 @@ func (m *mockThrottler) ReturnUnusedDownloadBytes(ctx context.Context, numBytes 
 	m.activity = append(m.activity, fmt.Sprintf("ReturnUnusedDownloadBytes(%v)", numBytes))
 }
 
-func (m *mockThrottler) Printf(msg string, args ...interface{}) {
+func (m *mockThrottler) Printf(msg string, args ...any) {
 	msg = fmt.Sprintf(msg, args...)
 	msg = strings.Split(msg, "\t")[0] // ignore parameters
 	m.activity = append(m.activity, msg)

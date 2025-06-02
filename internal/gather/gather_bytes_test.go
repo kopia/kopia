@@ -10,6 +10,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/internal/testutil"
 )
 
 var sample1 = []byte("hello! how are you? nice to meet you.")
@@ -236,7 +238,7 @@ func TestGatherBytesReaderAtErrorResponses(t *testing.T) {
 			defer reader.Close() //nolint:errcheck
 
 			// get the reader as a ReaderAt
-			readerAt := reader.(io.ReaderAt)
+			readerAt := testutil.EnsureType[io.ReaderAt](t, reader)
 
 			// make an output buffer of the required length
 			bs := make([]byte, tc.inBsLen)

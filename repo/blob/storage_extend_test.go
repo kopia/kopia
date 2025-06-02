@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
@@ -57,7 +58,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 	}
 
 	lastBlobIdx := len(blobsBefore) - 1
-	st := env.RootStorage().(blobtesting.RetentionStorage)
+	st := testutil.EnsureType[blobtesting.RetentionStorage](t, env.RootStorage())
 
 	// Verify that file is locked
 	gotMode, expiry, err := st.GetRetention(ctx, blobsBefore[lastBlobIdx].BlobID)

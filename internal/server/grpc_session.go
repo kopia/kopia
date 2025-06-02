@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
@@ -41,8 +42,8 @@ type grpcServerState struct {
 
 // send sends the provided session response with the provided request ID.
 func (s *Server) send(srv grpcapi.KopiaRepository_SessionServer, requestID int64, resp *grpcapi.SessionResponse) error {
-	s.grpcServerState.sendMutex.Lock()
-	defer s.grpcServerState.sendMutex.Unlock()
+	s.sendMutex.Lock()
+	defer s.sendMutex.Unlock()
 
 	resp.RequestId = requestID
 
@@ -125,12 +126,12 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 			}
 
 			// enforce limit on concurrent handling
-			if err := s.grpcServerState.sem.Acquire(ctx, 1); err != nil {
+			if err := s.sem.Acquire(ctx, 1); err != nil {
 				return errors.Wrap(err, "unable to acquire semaphore")
 			}
 
 			go func() {
-				defer s.grpcServerState.sem.Release(1)
+				defer s.sem.Release(1)
 
 				s.handleSessionRequest(ctx, dw, authz, usernameAtHostname, req, func(resp *grpcapi.SessionResponse) {
 					if err := s.send(srv, req.GetRequestId(), resp); err != nil {
@@ -496,9 +497,14 @@ func (s *Server) handleSendNotificationRequest(ctx context.Context, rep repo.Rep
 		return accessDeniedResponse()
 	}
 
+	eventArgs, err := notifydata.UnmarshalEventArgs(req.GetEventArgs(), req.GetEventArgsType())
+	if err != nil {
+		return errorResponse(err)
+	}
+
 	if err := notification.SendInternal(ctx, rep,
 		req.GetTemplateName(),
-		json.RawMessage(req.GetEventArgs()),
+		eventArgs,
 		notification.Severity(req.GetSeverity()),
 		s.options.NotifyTemplateOptions); err != nil {
 		return errorResponse(err)

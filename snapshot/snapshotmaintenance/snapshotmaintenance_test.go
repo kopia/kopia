@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/format"
@@ -132,7 +133,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceReuseDirManifest(t *testing.T) 
 	err = snapshotmaintenance.Run(ctx, th.RepositoryWriter, maintenance.ModeFull, true, maintenance.SafetyFull)
 	require.NoError(t, err)
 
-	info, err := r2.(repo.DirectRepository).ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
+	info, err := testutil.EnsureType[repo.DirectRepository](t, r2).ContentInfo(ctx, mustGetContentID(t, s2.RootObjectID()))
 	require.NoError(t, err)
 	require.False(t, info.Deleted, "content must not be deleted")
 
@@ -278,6 +279,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceAutoLiveness(t *testing.T) {
 
 		dp := maintenance.DefaultParams()
 		dp.Owner = env.Repository.ClientOptions().UsernameAtHost()
+
 		return maintenance.SetParams(ctx, w, &dp)
 	}))
 
@@ -320,6 +322,18 @@ func (s *formatSpecificTestSuite) TestMaintenanceAutoLiveness(t *testing.T) {
 	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsFull], maintenance.TaskRewriteContentsFull)
 	require.NotEmpty(t, sched.Runs[maintenance.TaskRewriteContentsQuick], maintenance.TaskRewriteContentsQuick)
 	require.NotEmpty(t, sched.Runs[maintenance.TaskSnapshotGarbageCollection], maintenance.TaskSnapshotGarbageCollection)
+}
+
+func TestNoMaintenanceReadOnly(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		ConnectOptions: func(o *repo.ConnectOptions) {
+			o.ReadOnly = true
+		},
+	})
+
+	err := snapshotmaintenance.Run(ctx, env.RepositoryWriter, maintenance.ModeAuto, true, maintenance.SafetyFull)
+
+	require.ErrorIs(t, err, snapshotmaintenance.ErrReadonly)
 }
 
 func (th *testHarness) fakeTimeOpenRepoOption(o *repo.Options) {

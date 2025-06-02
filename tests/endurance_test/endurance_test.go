@@ -50,7 +50,7 @@ func (d webdavDirWithFakeClock) OpenFile(ctx context.Context, fname string, flag
 	}
 
 	// change file time after creation to simulate fake time scale.
-	osf := f.(*os.File)
+	osf := f.(*os.File) //nolint:forcetypeassert
 	now := d.fts.Now()
 
 	if err := os.Chtimes(osf.Name(), now, now); err != nil {
@@ -95,6 +95,7 @@ func TestEndurance(t *testing.T) {
 		for i := range enduranceRunnerCount {
 			t.Run(fmt.Sprintf("Runner-%v", i), func(t *testing.T) {
 				t.Parallel()
+
 				defer func() {
 					if t.Failed() {
 						failureCount.Add(1)

@@ -17,14 +17,14 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 type estimateTaskProgress struct {
 	ctrl uitask.Controller
 }
 
-func (p estimateTaskProgress) Processing(ctx context.Context, dirname string) {
+func (p estimateTaskProgress) Processing(_ context.Context, dirname string) {
 	p.ctrl.ReportProgressInfo(dirname)
 }
 
@@ -36,7 +36,7 @@ func (p estimateTaskProgress) Error(ctx context.Context, dirname string, err err
 	}
 }
 
-func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded snapshotfs.SampleBuckets, excludedDirs []string, final bool) {
+func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded upload.SampleBuckets, excludedDirs []string, final bool) {
 	_ = excludedDirs
 	_ = final
 
@@ -57,7 +57,7 @@ func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, inc
 	}
 }
 
-func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, prefix string, showExamples bool) {
+func logBucketSamples(ctx context.Context, buckets upload.SampleBuckets, prefix string, showExamples bool) {
 	hasAny := false
 
 	for i, bucket := range buckets {
@@ -97,9 +97,9 @@ func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, pre
 	}
 }
 
-var _ snapshotfs.EstimateProgress = estimateTaskProgress{}
+var _ upload.EstimateProgress = estimateTaskProgress{}
 
-func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleEstimate(ctx context.Context, rc requestContext) (any, *apiError) {
 	var req serverapi.EstimateRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
@@ -140,7 +140,7 @@ func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiEr
 
 		ctrl.OnCancel(cancel)
 
-		return snapshotfs.Estimate(estimatectx, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
+		return upload.Estimate(estimatectx, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
 	})
 
 	taskID := <-taskIDChan

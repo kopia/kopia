@@ -93,7 +93,7 @@ func (c *commandMaintenanceSet) setLogCleanupParametersFromFlags(ctx context.Con
 	}
 }
 
-func (c *commandMaintenanceSet) setDeleteUnreferencedBlobsParams(ctx context.Context, p *maintenance.Params, changed *bool) {
+func (c *commandMaintenanceSet) setListBlobsParallelismFromFlags(ctx context.Context, p *maintenance.Params, changed *bool) {
 	if v := c.listParallelism; v != -1 {
 		p.ListParallelism = v
 		*changed = true
@@ -172,7 +172,7 @@ func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectReposito
 	c.setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.QuickCycle, "quick", c.maintenanceSetEnableQuick, c.maintenanceSetQuickFrequency, &changedParams)
 	c.setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.FullCycle, "full", c.maintenanceSetEnableFull, c.maintenanceSetFullFrequency, &changedParams)
 	c.setLogCleanupParametersFromFlags(ctx, p, &changedParams)
-	c.setDeleteUnreferencedBlobsParams(ctx, p, &changedParams)
+	c.setListBlobsParallelismFromFlags(ctx, p, &changedParams)
 	c.setMaintenanceObjectLockExtendFromFlags(ctx, p, &changedParams)
 
 	if pauseDuration := c.maintenanceSetPauseQuick; pauseDuration != -1 {

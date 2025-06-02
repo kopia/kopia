@@ -14,12 +14,13 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 func TestSnapshotVerifier(t *testing.T) {
 	ctx, te := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
-	u := snapshotfs.NewUploader(te.RepositoryWriter)
+	u := upload.NewUploader(te.RepositoryWriter)
 	dir1 := mockfs.NewDirectory()
 
 	si1 := te.LocalPathSourceInfo("/dummy/path")
@@ -33,7 +34,9 @@ func TestSnapshotVerifier(t *testing.T) {
 	require.NoError(t, repo.WriteSession(ctx, te.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		snap1, err := u.Upload(ctx, dir1, nil, si1)
 		require.NoError(t, err)
+
 		obj1 = snap1.RootObjectID()
+
 		return nil
 	}))
 

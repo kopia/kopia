@@ -5,9 +5,8 @@ import (
 	"hash/fnv"
 	"io"
 
-	"github.com/pkg/errors"
-
 	"github.com/petar/GoLLRB/llrb"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
 )

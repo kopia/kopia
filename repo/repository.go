@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/crypto"
+	"github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
@@ -30,7 +31,7 @@ var tracer = otel.Tracer("kopia/repository")
 type Repository interface {
 	OpenObject(ctx context.Context, id object.ID) (object.Reader, error)
 	VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error)
-	GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error)
+	GetManifest(ctx context.Context, id manifest.ID, data any) (*manifest.EntryMetadata, error)
 	FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error)
 	ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error)
 	PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) []content.ID
@@ -49,8 +50,8 @@ type RepositoryWriter interface {
 
 	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
 	ConcatenateObjects(ctx context.Context, objectIDs []object.ID, opt ConcatenateOptions) (object.ID, error)
-	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
-	ReplaceManifests(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
+	PutManifest(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error)
+	ReplaceManifests(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
 	OnSuccessfulFlush(callback RepositoryWriterCallback)
 	Flush(ctx context.Context) error
@@ -64,7 +65,7 @@ type RemoteRetentionPolicy interface {
 
 // RemoteNotifications is an interface implemented by repository clients that support remote notifications.
 type RemoteNotifications interface {
-	SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, severity int32) error
+	SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType grpcapi.NotificationEventArgType, severity int32) error
 }
 
 // DirectRepository provides additional low-level repository functionality.
@@ -95,12 +96,6 @@ type DirectRepositoryWriter interface {
 	DirectRepository
 	BlobStorage() blob.Storage
 	ContentManager() *content.WriteManager
-	// SetParameters(ctx context.Context, m format.MutableParameters, blobcfg format.BlobStorageConfiguration, requiredFeatures []feature.Required) error
-	// ChangePassword(ctx context.Context, newPassword string) error
-	// GetUpgradeLockIntent(ctx context.Context) (*format.UpgradeLockIntent, error)
-	// SetUpgradeLockIntent(ctx context.Context, l format.UpgradeLockIntent) (*format.UpgradeLockIntent, error)
-	// CommitUpgrade(ctx context.Context) error
-	// RollbackUpgrade(ctx context.Context) error
 }
 
 type immutableDirectRepositoryParameters struct {
@@ -109,7 +104,7 @@ type immutableDirectRepositoryParameters struct {
 	cliOpts         ClientOptions
 	timeNow         func() time.Time
 	fmgr            *format.Manager
-	nextWriterID    *int32
+	nextWriterID    *atomic.Int32
 	throttler       throttling.SettableThrottler
 	metricsRegistry *metrics.Registry
 	beforeFlush     []RepositoryWriterCallback
@@ -214,19 +209,19 @@ func (r *directRepository) VerifyObject(ctx context.Context, id object.ID) ([]co
 }
 
 // GetManifest returns the given manifest data and metadata.
-func (r *directRepository) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
+func (r *directRepository) GetManifest(ctx context.Context, id manifest.ID, data any) (*manifest.EntryMetadata, error) {
 	//nolint:wrapcheck
 	return r.mmgr.Get(ctx, id, data)
 }
 
 // PutManifest saves the given manifest payload with a set of labels.
-func (r *directRepository) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+func (r *directRepository) PutManifest(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error) {
 	//nolint:wrapcheck
 	return r.mmgr.Put(ctx, labels, payload)
 }
 
 // ReplaceManifests saves the given manifest payload with a set of labels and replaces any previous manifests with the same labels.
-func (r *directRepository) ReplaceManifests(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+func (r *directRepository) ReplaceManifests(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error) {
 	return replaceManifestsHelper(ctx, r, labels, payload)
 }
 
@@ -282,7 +277,7 @@ func (r *directRepository) NewWriter(ctx context.Context, opt WriteSessionOption
 
 // NewDirectWriter returns new DirectRepositoryWriter session for repository.
 func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error) {
-	writeManagerID := fmt.Sprintf("writer-%v:%v", atomic.AddInt32(r.nextWriterID, 1), opt.Purpose)
+	writeManagerID := fmt.Sprintf("writer-%v:%v", r.nextWriterID.Add(1), opt.Purpose)
 
 	cmgr := content.NewWriteManager(ctx, r.sm, content.SessionOptions{
 		SessionUser: r.cliOpts.Username,
@@ -427,7 +422,7 @@ func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessio
 }
 
 // replaceManifestsHelper is a helper that deletes all manifests matching provided labels and replaces them with the provided one.
-func replaceManifestsHelper(ctx context.Context, rep RepositoryWriter, labels map[string]string, payload interface{}) (manifest.ID, error) {
+func replaceManifestsHelper(ctx context.Context, rep RepositoryWriter, labels map[string]string, payload any) (manifest.ID, error) {
 	const minReplaceManifestTimeDelta = 100 * time.Millisecond
 
 	md, err := rep.FindManifests(ctx, labels)

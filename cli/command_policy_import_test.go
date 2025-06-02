@@ -30,7 +30,9 @@ func TestImportPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to marshal policy: %v", err)
 	}
+
 	var defaultPolicy *policy.Policy
+
 	testutil.MustParseJSONLines(t, []string{string(defaultPolicyJSON)}, &defaultPolicy)
 
 	specifiedPolicies := map[string]*policy.Policy{
@@ -53,6 +55,7 @@ func TestImportPolicy(t *testing.T) {
 
 	// change the global policy
 	specifiedPolicies["(global)"].SplitterPolicy.Algorithm = "FIXED-4M"
+
 	makePolicyFile()
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath)
 	assertPoliciesEqual(t, e, specifiedPolicies)
@@ -69,6 +72,7 @@ func TestImportPolicy(t *testing.T) {
 			Algorithm: "FIXED-8M",
 		},
 	}
+
 	makePolicyFile()
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath)
 	assertPoliciesEqual(t, e, specifiedPolicies)
@@ -76,6 +80,7 @@ func TestImportPolicy(t *testing.T) {
 	// import from a file specifying changes in both policies but limiting import to only one
 	specifiedPolicies["(global)"].CompressionPolicy.CompressorName = "zstd"
 	specifiedPolicies[id].CompressionPolicy.CompressorName = "gzip"
+
 	makePolicyFile()
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, "(global)")
 
@@ -84,11 +89,13 @@ func TestImportPolicy(t *testing.T) {
 	assertPoliciesEqual(t, e, specifiedPolicies)
 
 	specifiedPolicies[id].CompressionPolicy.CompressorName = "gzip"
+
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, id)
 	assertPoliciesEqual(t, e, specifiedPolicies)
 
 	// deleting values should work
 	specifiedPolicies[id].CompressionPolicy.CompressorName = ""
+
 	makePolicyFile()
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, id)
 	assertPoliciesEqual(t, e, specifiedPolicies)
@@ -106,6 +113,7 @@ func TestImportPolicy(t *testing.T) {
 		},
 	}
 	specifiedPolicies[id2] = policy2
+
 	makePolicyFile()
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, id2)
 	assertPoliciesEqual(t, e, specifiedPolicies)
@@ -130,6 +138,7 @@ func TestImportPolicy(t *testing.T) {
 
 	// add it back in
 	specifiedPolicies[id2] = policy2
+
 	makePolicyFile()
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath)
 	assertPoliciesEqual(t, e, specifiedPolicies)
@@ -142,6 +151,7 @@ func TestImportPolicy(t *testing.T) {
 
 	// --global should be equivalent to (global)
 	specifiedPolicies[id2] = policy2
+
 	makePolicyFile()
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath, "--global")
 	delete(specifiedPolicies, id2) // should NOT have been imported
@@ -153,6 +163,7 @@ func TestImportPolicy(t *testing.T) {
 
 	// another sanity check
 	e.RunAndExpectSuccess(t, "policy", "import", "--from-file", policyFilePath)
+
 	specifiedPolicies[id2] = policy2
 	assertPoliciesEqual(t, e, specifiedPolicies)
 
@@ -164,12 +175,15 @@ func TestImportPolicy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to write policy file: %v", err)
 	}
+
 	e.RunAndExpectFailure(t, "policy", "import", "--from-file", policyFilePath)
 }
 
 func assertPoliciesEqual(t *testing.T, e *testenv.CLITest, expected map[string]*policy.Policy) {
 	t.Helper()
+
 	var policies map[string]*policy.Policy
+
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export"), &policies)
 
 	assert.Equal(t, expected, policies, "unexpected policies")

@@ -444,10 +444,12 @@ func verifyIndirectBlock(ctx context.Context, t *testing.T, om *Manager, oid ID,
 				if !c.HasPrefix() {
 					t.Errorf("expected base content ID to be prefixed, was %v", c)
 				}
+
 				info, err := om.contentMgr.ContentInfo(ctx, c)
 				if err != nil {
 					t.Errorf("error getting content info for %v", err.Error())
 				}
+
 				require.Equal(t, expectedComp, info.CompressionHeaderID)
 			}
 
@@ -496,7 +498,7 @@ func TestIndirection(t *testing.T) {
 		contentBytes := make([]byte, c.dataLength)
 
 		writer := om.NewWriter(ctx, WriterOptions{MetadataCompressor: c.metadataCompressor})
-		writer.(*objectWriter).splitter = splitterFactory()
+		testutil.EnsureType[*objectWriter](t, writer).splitter = splitterFactory()
 
 		if _, err := writer.Write(contentBytes); err != nil {
 			t.Errorf("write error: %v", err)
@@ -530,6 +532,7 @@ func TestIndirection(t *testing.T) {
 		if len(c.metadataCompressor) > 0 && c.metadataCompressor != "none" {
 			expectedCompressor = compression.ByName[c.metadataCompressor].HeaderID()
 		}
+
 		verifyIndirectBlock(ctx, t, om, result, expectedCompressor)
 	}
 }

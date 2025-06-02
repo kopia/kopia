@@ -1,4 +1,4 @@
-package snapshotfs
+package upload
 
 import (
 	"bytes"
@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,6 +43,7 @@ import (
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 const (
@@ -61,6 +61,8 @@ type uploadTestHarness struct {
 
 var errTest = errors.New("test error")
 
+type entryPathToError = map[string]error
+
 func (th *uploadTestHarness) cleanup() {
 	os.RemoveAll(th.repoDir)
 }
@@ -73,33 +75,27 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 	storage, err := filesystem.New(ctx, &filesystem.Options{
 		Path: repoDir,
 	}, true)
-	if err != nil {
-		panic("cannot create storage directory: " + err.Error())
-	}
+	require.NoError(t, err, "cannot create storage directory")
 
 	faulty := blobtesting.NewFaultyStorage(storage)
 	logged := bloblogging.NewWrapper(faulty, testlogging.Printf(t.Logf, "{STORAGE} "), "")
 	rec := repotesting.NewReconnectableStorage(t, logged)
 
-	if initerr := repo.Initialize(ctx, rec, &repo.NewRepositoryOptions{}, masterPassword); initerr != nil {
-		panic("unable to create repository: " + initerr.Error())
-	}
+	err = repo.Initialize(ctx, rec, &repo.NewRepositoryOptions{}, masterPassword)
+	require.NoError(t, err, "unable to create repository")
 
 	t.Logf("repo dir: %v", repoDir)
 
 	configFile := filepath.Join(repoDir, ".kopia.config")
-	if conerr := repo.Connect(ctx, configFile, rec, masterPassword, nil); conerr != nil {
-		panic("unable to connect to repository: " + conerr.Error())
-	}
+	err = repo.Connect(ctx, configFile, rec, masterPassword, nil)
+	require.NoError(t, err, "unable to connect to repository")
 
 	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC))
 
 	rep, err := repo.Open(ctx, configFile, masterPassword, &repo.Options{
 		TimeNowFunc: ft.NowFunc(),
 	})
-	if err != nil {
-		panic("unable to open repository: " + err.Error())
-	}
+	require.NoError(t, err, "unable to open repository")
 
 	sourceDir := mockfs.NewDirectory()
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
@@ -122,9 +118,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 	sourceDir.AddFile("d2/d1/f2", []byte{1, 2, 3, 4}, defaultPermissions)
 
 	_, w, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
-	if err != nil {
-		panic("writer creation error: " + err.Error())
-	}
+	require.NoError(t, err, "writer creation error")
 
 	th := &uploadTestHarness{
 		sourceDir: sourceDir,
@@ -139,10 +133,12 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 
 //nolint:gocyclo
 func TestUpload(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("Uploading s1")
 
@@ -151,83 +147,48 @@ func TestUpload(t *testing.T) {
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Errorf("Upload error: %v", err)
-	}
+	require.NoError(t, err, "upload error")
 
 	t.Logf("s1: %v", s1.RootEntry)
-
 	t.Logf("Uploading s2")
 
 	s2, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
-	if err != nil {
-		t.Errorf("Upload error: %v", err)
-	}
+	require.NoError(t, err, "upload error")
 
-	if !objectIDsEqual(s2.RootObjectID(), s1.RootObjectID()) {
-		t.Errorf("expected s1.RootObjectID==s2.RootObjectID, got %v and %v", s1.RootObjectID().String(), s2.RootObjectID().String())
-	}
-
-	if got, want := atomic.LoadInt32(&s1.Stats.CachedFiles), int32(0); got != want {
-		t.Errorf("unexpected s1 cached files: %v, want %v", got, want)
-	}
-
-	// All non-cached files from s1 are now cached and there are no non-cached files since nothing changed.
-	if got, want := atomic.LoadInt32(&s2.Stats.CachedFiles), atomic.LoadInt32(&s1.Stats.NonCachedFiles); got != want {
-		t.Errorf("unexpected s2 cached files: %v, want %v", got, want)
-	}
-
-	if got, want := atomic.LoadInt32(&s2.Stats.NonCachedFiles), int32(0); got != want {
-		t.Errorf("unexpected non-cached files: %v", got)
-	}
+	assert.Equal(t, s1.RootObjectID(), s2.RootObjectID(), "root object ids do not match")
+	assert.Zero(t, atomic.LoadInt32(&s1.Stats.CachedFiles), "unexpected s1 cached files")
+	assert.Equal(t, atomic.LoadInt32(&s1.Stats.NonCachedFiles), atomic.LoadInt32(&s2.Stats.CachedFiles),
+		"unexpected s2 cached files: all non-cached files from s1 are now cached and there are no non-cached files since nothing changed")
+	assert.Zero(t, atomic.LoadInt32(&s2.Stats.NonCachedFiles), "unexpected non-cached files")
 
 	// Add one more file, the s1.RootObjectID should change.
 	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
 
 	s3, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
-	if err != nil {
-		t.Errorf("upload failed: %v", err)
-	}
+	require.NoError(t, err, "upload failed")
 
-	if objectIDsEqual(s2.RootObjectID(), s3.RootObjectID()) {
-		t.Errorf("expected s3.RootObjectID!=s2.RootObjectID, got %v", s3.RootObjectID().String())
-	}
-
-	if atomic.LoadInt32(&s3.Stats.NonCachedFiles) != 1 {
-		// one file is not cached, which causes "./d2/d1/", "./d2/" and "./" to be changed.
-		t.Errorf("unexpected s3 stats: %+v", s3.Stats)
-	}
+	assert.NotEqual(t, s2.RootObjectID(), s3.RootObjectID(), "expected s3.RootObjectID!=s2.RootObjectID")
+	assert.Equal(t, int32(1), atomic.LoadInt32(&s3.Stats.NonCachedFiles), "unexpected s3 stats:", s3.Stats,
+		"one file is not cached, which causes './d2/d1/', './d2/' and './' to be changed.")
 
 	// Now remove the added file, OID should be identical to the original before the file got added.
 	th.sourceDir.Subdir("d2", "d1").Remove("f3")
 
 	s4, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
-	if err != nil {
-		t.Errorf("upload failed: %v", err)
-	}
+	require.NoError(t, err, "upload failed")
 
-	if !objectIDsEqual(s4.RootObjectID(), s1.RootObjectID()) {
-		t.Errorf("expected s4.RootObjectID==s1.RootObjectID, got %v and %v", s4.RootObjectID(), s1.RootObjectID())
-	}
+	assert.Equal(t, s4.RootObjectID(), s1.RootObjectID(), "expected s4.RootObjectID==s1.RootObjectID")
 
 	// Everything is still cached.
-	if atomic.LoadInt32(&s4.Stats.CachedFiles) != atomic.LoadInt32(&s1.Stats.NonCachedFiles) || atomic.LoadInt32(&s4.Stats.NonCachedFiles) != 0 {
-		t.Errorf("unexpected s4 stats: %+v", s4.Stats)
-	}
+	assert.Equal(t, atomic.LoadInt32(&s4.Stats.CachedFiles), atomic.LoadInt32(&s1.Stats.NonCachedFiles), "unexpected s4 stats:", s4.Stats)
+	assert.Zero(t, atomic.LoadInt32(&s4.Stats.NonCachedFiles), "unexpected s4 stats:", s4.Stats)
 
 	s5, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s3)
-	if err != nil {
-		t.Errorf("upload failed: %v", err)
-	}
+	require.NoError(t, err, "upload failed")
 
-	if !objectIDsEqual(s4.RootObjectID(), s5.RootObjectID()) {
-		t.Errorf("expected s4.RootObjectID==s5.RootObjectID, got %v and %v", s4.RootObjectID(), s5.RootObjectID())
-	}
-
-	if atomic.LoadInt32(&s5.Stats.NonCachedFiles) != 0 {
-		// no files are changed, but one file disappeared which caused "./d2/d1/", "./d2/" and "./" to be changed.
-		t.Errorf("unexpected s5 stats: %+v", s5.Stats)
-	}
+	assert.Equal(t, s4.RootObjectID(), s5.RootObjectID(), "expected s4.RootObjectID==s5.RootObjectID")
+	require.Zero(t, atomic.LoadInt32(&s5.Stats.NonCachedFiles), "unexpected s5 stats:", s5.Stats,
+		"no files are changed, but one file disappeared which caused './d2/d1/', './d2/' and './' to be changed")
 }
 
 type entry struct {
@@ -238,17 +199,21 @@ type entry struct {
 // findAllEntries recursively iterates over all the dirs and returns list of file entries.
 func findAllEntries(t *testing.T, ctx context.Context, dir fs.Directory) []entry {
 	t.Helper()
+
 	entries := []entry{}
+
 	fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
-		oid, err := object.ParseID(e.(object.HasObjectID).ObjectID().String())
+		oid, err := object.ParseID(testutil.EnsureType[object.HasObjectID](t, e).ObjectID().String())
 		require.NoError(t, err)
+
 		entries = append(entries, entry{
 			name:     e.Name(),
 			objectID: oid,
 		})
 		if e.IsDir() {
-			entries = append(entries, findAllEntries(t, ctx, e.(fs.Directory))...)
+			entries = append(entries, findAllEntries(t, ctx, testutil.EnsureType[fs.Directory](t, e))...)
 		}
+
 		return nil
 	})
 
@@ -257,86 +222,88 @@ func findAllEntries(t *testing.T, ctx context.Context, dir fs.Directory) []entry
 
 func verifyMetadataCompressor(t *testing.T, ctx context.Context, rep repo.Repository, entries []entry, comp compression.HeaderID) {
 	t.Helper()
+
 	for _, e := range entries {
 		cid, _, ok := e.objectID.ContentID()
-		require.True(t, ok)
+		if !assert.True(t, ok) {
+			continue
+		}
+
 		if !cid.HasPrefix() {
 			continue
 		}
+
 		info, err := rep.ContentInfo(ctx, cid)
-		if err != nil {
-			t.Errorf("failed to get content info: %v", err)
-		}
-		require.Equal(t, comp, info.CompressionHeaderID)
+		require.NoError(t, err, "failed to get content info for %v", cid)
+		assert.Equal(t, comp, info.CompressionHeaderID)
 	}
 }
 
 func TestUploadMetadataCompression(t *testing.T) {
+	t.Parallel()
+
+	buildPolicy := func(compressor compression.Name) *policy.Tree {
+		return policy.BuildTree(map[string]*policy.Policy{
+			".": {
+				MetadataCompressionPolicy: policy.MetadataCompressionPolicy{
+					CompressorName: compressor,
+				},
+			},
+		}, policy.DefaultPolicy)
+	}
+
+	cases := []struct {
+		name          string
+		policyTree    *policy.Tree
+		compressionID compression.HeaderID
+	}{
+		{
+			name:          "default metadata compression",
+			policyTree:    policy.BuildTree(nil, policy.DefaultPolicy),
+			compressionID: compression.HeaderZstdFastest,
+		},
+		{
+			name:          "disable metadata compression",
+			policyTree:    buildPolicy("none"),
+			compressionID: content.NoCompression,
+		},
+		{
+			name:          "enable metadata compression",
+			policyTree:    buildPolicy("gzip"),
+			compressionID: compression.ByName["gzip"].HeaderID(),
+		},
+	}
+
 	ctx := testlogging.Context(t)
-	t.Run("default metadata compression", func(t *testing.T) {
-		th := newUploadTestHarness(ctx, t)
-		defer th.cleanup()
-		u := NewUploader(th.repo)
-		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
-		s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-		if err != nil {
-			t.Errorf("Upload error: %v", err)
-		}
+	for _, tc := range cases {
+		policyTree := tc.policyTree
+		compID := tc.compressionID
 
-		dir := EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
-		entries := findAllEntries(t, ctx, dir)
-		verifyMetadataCompressor(t, ctx, th.repo, entries, compression.HeaderZstdFastest)
-	})
-	t.Run("disable metadata compression", func(t *testing.T) {
-		th := newUploadTestHarness(ctx, t)
-		defer th.cleanup()
-		u := NewUploader(th.repo)
-		policyTree := policy.BuildTree(map[string]*policy.Policy{
-			".": {
-				MetadataCompressionPolicy: policy.MetadataCompressionPolicy{
-					CompressorName: "none",
-				},
-			},
-		}, policy.DefaultPolicy)
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 
-		s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-		if err != nil {
-			t.Errorf("Upload error: %v", err)
-		}
+			th := newUploadTestHarness(ctx, t)
+			t.Cleanup(th.cleanup)
+			u := NewUploader(th.repo)
 
-		dir := EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
-		entries := findAllEntries(t, ctx, dir)
-		verifyMetadataCompressor(t, ctx, th.repo, entries, content.NoCompression)
-	})
-	t.Run("set metadata compressor", func(t *testing.T) {
-		th := newUploadTestHarness(ctx, t)
-		defer th.cleanup()
-		u := NewUploader(th.repo)
-		policyTree := policy.BuildTree(map[string]*policy.Policy{
-			".": {
-				MetadataCompressionPolicy: policy.MetadataCompressionPolicy{
-					CompressorName: "gzip",
-				},
-			},
-		}, policy.DefaultPolicy)
+			s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+			require.NoError(t, err, "upload error")
 
-		s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-		if err != nil {
-			t.Errorf("Upload error: %v", err)
-		}
-
-		dir := EntryFromDirEntry(th.repo, s1.RootEntry).(fs.Directory)
-		entries := findAllEntries(t, ctx, dir)
-		verifyMetadataCompressor(t, ctx, th.repo, entries, compression.ByName["gzip"].HeaderID())
-	})
+			dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, s1.RootEntry))
+			entries := findAllEntries(t, ctx, dir)
+			verifyMetadataCompressor(t, ctx, th.repo, entries, compID)
+		})
+	}
 }
 
 func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.FailReaddir(errTest)
 
@@ -350,10 +317,12 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 }
 
 func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	sourceDir := mockfs.NewDirectory()
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
@@ -391,10 +360,12 @@ func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
 }
 
 func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 	th.sourceDir.Subdir("d2").Subdir("d1").FailReaddir(errTest)
@@ -408,25 +379,21 @@ func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
-	require.NotEqual(t, "", man.IncompleteReason, "snapshot not marked as incomplete")
+	require.NotEmpty(t, man.IncompleteReason, "snapshot not marked as incomplete")
 
 	// will have one error because we're canceling early.
-	verifyErrors(t, man, 1, 0,
-		[]*fs.EntryWithError{
-			{EntryPath: "d1", Error: errTest.Error()},
-		},
-	)
-}
-
-func objectIDsEqual(o1, o2 object.ID) bool {
-	return reflect.DeepEqual(o1, o2)
+	verifyErrors(t, man, 1, 0, entryPathToError{
+		"d1": errTest,
+	})
 }
 
 func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 	th.sourceDir.Subdir("d2").Subdir("d1").FailReaddir(errTest)
@@ -446,19 +413,19 @@ func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 	require.NoError(t, err)
 
 	// 0 failed, 2 ignored
-	verifyErrors(t, man, 0, 2,
-		[]*fs.EntryWithError{
-			{EntryPath: "d1", Error: errTest.Error()},
-			{EntryPath: "d2/d1", Error: errTest.Error()},
-		},
-	)
+	verifyErrors(t, man, 0, 2, entryPathToError{
+		"d1":    errTest,
+		"d2/d1": errTest,
+	})
 }
 
 func TestUpload_ErrorEntries(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.Subdir("d1").AddErrorEntry("some-unknown-entry", os.ModeIrregular, fs.ErrUnknown)
 	th.sourceDir.Subdir("d1").AddErrorEntry("some-failed-entry", 0, errors.New("some-other-error"))
@@ -479,7 +446,7 @@ func TestUpload_ErrorEntries(t *testing.T) {
 			rootEntry:         th.sourceDir,
 			ehp:               policy.ErrorHandlingPolicy{},
 			wantFatalErrors:   2,
-			wantIgnoredErrors: 1,
+			wantIgnoredErrors: 0, // unknown entries are completely skipped when IgnoreUnknownTypes is true (default)
 		},
 		{
 			desc:      "ignore both unknown types and other errors",
@@ -490,7 +457,7 @@ func TestUpload_ErrorEntries(t *testing.T) {
 				IgnoreUnknownTypes:    &trueValue,
 			},
 			wantFatalErrors:   0,
-			wantIgnoredErrors: 3,
+			wantIgnoredErrors: 2, // only the two non-unknown errors are counted as ignored
 		},
 		{
 			desc:      "ignore no errors",
@@ -512,7 +479,7 @@ func TestUpload_ErrorEntries(t *testing.T) {
 				IgnoreUnknownTypes:    &trueValue,
 			},
 			wantFatalErrors:   2,
-			wantIgnoredErrors: 1,
+			wantIgnoredErrors: 0, // unknown entries are completely skipped when IgnoreUnknownTypes is true
 		},
 		{
 			desc:      "ignore errors except unknown type errors",
@@ -536,24 +503,44 @@ func TestUpload_ErrorEntries(t *testing.T) {
 			})
 
 			man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
-			if err != nil {
-				t.Fatal(err)
+			require.NoError(t, err)
+
+			expectedErrors := entryPathToError{
+				"d1/some-failed-entry":    errors.New("some-other-error"),
+				"d2/another-failed-entry": errors.New("another-error"),
 			}
 
-			verifyErrors(t, man, tc.wantFatalErrors, tc.wantIgnoredErrors, []*fs.EntryWithError{
-				{EntryPath: "d1/some-failed-entry", Error: "some-other-error"},
-				{EntryPath: "d1/some-unknown-entry", Error: "unknown or unsupported entry type"},
-				{EntryPath: "d2/another-failed-entry", Error: "another-error"},
-			})
+			// Only expect unknown entry in failed entries if IgnoreUnknownTypes is false
+			if tc.ehp.IgnoreUnknownTypes != nil && !tc.ehp.IgnoreUnknownTypes.OrDefault(true) {
+				expectedErrors["d1/some-unknown-entry"] = errors.New("unknown or unsupported entry type")
+			}
+
+			verifyErrors(t, man, tc.wantFatalErrors, tc.wantIgnoredErrors, expectedErrors)
 		})
 	}
 }
 
+func verifyErrors(t *testing.T, man *snapshot.Manifest, wantFatalErrors, wantIgnoredErrors int, wantErrors entryPathToError) {
+	t.Helper()
+
+	require.Equal(t, wantFatalErrors, man.RootEntry.DirSummary.FatalErrorCount, "invalid number of fatal errors")
+	require.Equal(t, wantIgnoredErrors, man.RootEntry.DirSummary.IgnoredErrorCount, "invalid number of ignored errors")
+
+	failedEntries := man.RootEntry.DirSummary.FailedEntries
+	for _, failedEntry := range failedEntries {
+		wantErr, ok := wantErrors[failedEntry.EntryPath]
+		require.True(t, ok, "expected error for entry path not found: %s", failedEntry.EntryPath)
+		require.Contains(t, failedEntry.Error, wantErr.Error())
+	}
+}
+
 func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 	th.sourceDir.Subdir("d2").Subdir("d1").FailReaddir(errTest)
@@ -568,28 +555,19 @@ func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 	// make sure we have 2 errors
 	require.Equal(t, 2, man.RootEntry.DirSummary.FatalErrorCount)
 
-	verifyErrors(t, man,
-		2, 0,
-		[]*fs.EntryWithError{
-			{EntryPath: "d1", Error: errTest.Error()},
-			{EntryPath: "d2/d1", Error: errTest.Error()},
-		},
-	)
-}
-
-func verifyErrors(t *testing.T, man *snapshot.Manifest, wantFatalErrors, wantIgnoredErrors int, wantErrors []*fs.EntryWithError) {
-	t.Helper()
-
-	require.Equal(t, wantFatalErrors, man.RootEntry.DirSummary.FatalErrorCount, "invalid number of fatal errors")
-	require.Equal(t, wantIgnoredErrors, man.RootEntry.DirSummary.IgnoredErrorCount, "invalid number of ignored errors")
-	require.Empty(t, pretty.Compare(man.RootEntry.DirSummary.FailedEntries, wantErrors), "unexpected errors, diff(-got,+want)")
+	verifyErrors(t, man, 2, 0, entryPathToError{
+		"d1":    errTest,
+		"d2/d1": errTest,
+	})
 }
 
 func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 	th.sourceDir.Subdir("d2").Subdir("d1").FailReaddir(errTest)
@@ -610,41 +588,38 @@ func TestUpload_SubDirectoryReadFailureSomeIgnoredNoFailFast(t *testing.T) {
 		},
 	}, policy.DefaultPolicy)
 
-	if got, want := policyTree.Child("d3").EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false), true; got != want {
-		t.Fatalf("policy not effective")
-	}
+	require.True(t, policyTree.Child("d3").EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrors.OrDefault(false), "policy not effective")
 
 	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
-	verifyErrors(t, man,
-		2, 1,
-		[]*fs.EntryWithError{
-			{EntryPath: "d1", Error: errTest.Error()},
-			{EntryPath: "d2/d1", Error: errTest.Error()},
-			{EntryPath: "d3", Error: errTest.Error()},
-		},
-	)
+	verifyErrors(t, man, 2, 1, entryPathToError{
+		"d1":    errTest,
+		"d2/d1": errTest,
+		"d3":    errTest,
+	})
 }
 
 type mockProgress struct {
-	UploadProgress
+	Progress
 	finishedFileCheck func(string, error)
 }
 
 func (mp *mockProgress) FinishedFile(relativePath string, err error) {
-	defer mp.UploadProgress.FinishedFile(relativePath, err)
+	defer mp.Progress.FinishedFile(relativePath, err)
 
 	mp.finishedFileCheck(relativePath, err)
 }
 
 func TestUpload_FinishedFileProgress(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 	mu := sync.Mutex{}
 	filesFinished := 0
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("checking FinishedFile callbacks")
 
@@ -657,7 +632,7 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 	u := NewUploader(th.repo)
 	u.ForceHashPercentage = 0
 	u.Progress = &mockProgress{
-		UploadProgress: u.Progress,
+		Progress: u.Progress,
 		finishedFileCheck: func(relativePath string, err error) {
 			defer func() {
 				mu.Lock()
@@ -712,11 +687,54 @@ func TestUpload_FinishedFileProgress(t *testing.T) {
 	assert.Equal(t, 2, filesFinished, "FinishedFile calls")
 }
 
-func TestUploadWithCheckpointing(t *testing.T) {
+func TestUpload_SymlinkStats(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	root := mockfs.NewDirectory()
+	root.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
+	root.AddDir("d1", defaultPermissions)
+	root.AddDir("d1/d1", defaultPermissions)
+	root.AddFile("d1/d1/f1", []byte{1, 2, 3}, defaultPermissions)
+	root.AddSymlink("s1", "d1/d1/f1", defaultPermissions)
+	root.AddSymlink("s2", "f1", defaultPermissions)
+	root.AddSymlink("s3", "d1", defaultPermissions)
+
+	u := NewUploader(th.repo)
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	// First upload of the root directory.
+	man1, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	// Expect the directory summary to have the correct breakdown of files and symlinks.
+	require.Equal(t, int64(3), man1.RootEntry.DirSummary.TotalSymlinkCount, "Directory summary TotalSymlinkCount")
+	require.Equal(t, int64(2), man1.RootEntry.DirSummary.TotalFileCount, "Directory summary TotalSymlinkCount")
+
+	// Expect the directory summary total file size to match the stats total file size.
+	require.Equal(t, atomic.LoadInt64(&man1.Stats.TotalFileSize), man1.RootEntry.DirSummary.TotalFileSize, "Total file size")
+
+	// Upload a second time to check the stats from cached files.
+	man2, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{}, man1)
+	require.NoError(t, err)
+
+	// Expect total file count for the second upload to be zero - all files are cached.
+	require.Equal(t, int32(0), atomic.LoadInt32(&man2.Stats.TotalFileCount), "Directory summary TotalFileCount")
+
+	// Expect the directory summary to have the correct breakdown of files and symlinks.
+	require.Equal(t, int64(3), man2.RootEntry.DirSummary.TotalSymlinkCount, "Directory summary TotalSymlinkCount")
+	require.Equal(t, int64(2), man2.RootEntry.DirSummary.TotalFileCount, "Directory summary TotalSymlinkCount")
+}
+
+func TestUploadWithCheckpointing(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
 
 	u := NewUploader(th.repo)
 
@@ -746,10 +764,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 
 	// Be paranoid and make a copy of the labels in the uploader so we know stuff
 	// didn't change.
-	u.CheckpointLabels = make(map[string]string, len(labels))
-	for k, v := range labels {
-		u.CheckpointLabels[k] = v
-	}
+	u.CheckpointLabels = maps.Clone(labels)
 
 	// inject a action into mock filesystem to trigger and wait for checkpoints at few places.
 	// the places are not important, what's important that those are 3 separate points in time.
@@ -769,29 +784,27 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		})
 	}
 
-	if _, err := u.Upload(ctx, th.sourceDir, policyTree, si); err != nil {
-		t.Errorf("Upload error: %v", err)
-	}
+	s, err := u.Upload(ctx, th.sourceDir, policyTree, si)
+	require.NoError(t, err, "upload error")
 
-	snapshots, err := snapshot.ListSnapshots(ctx, th.repo, si)
-	if err != nil {
-		t.Fatalf("error listing snapshots: %v", err)
-	}
+	checkpoints, err := snapshot.ListSnapshots(ctx, th.repo, si)
+	require.NoError(t, err, "error listing snapshots")
+	require.Len(t, checkpoints, len(dirsToCheckpointAt))
 
-	require.Len(t, snapshots, len(dirsToCheckpointAt))
-
-	for _, sn := range snapshots {
-		if got, want := sn.IncompleteReason, IncompleteReasonCheckpoint; got != want {
-			t.Errorf("unexpected incompleteReason %q, want %q", got, want)
-		}
-
-		assert.Equal(t, labels, sn.Tags)
+	for _, cp := range checkpoints {
+		assert.Equal(t, IncompleteReasonCheckpoint, cp.IncompleteReason, "unexpected incompleteReason")
+		assert.Equal(t, time.Duration(1), s.StartTime.Sub(cp.StartTime))
+		assert.Equal(t, labels, cp.Tags)
 	}
 }
 
 func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
 
 	u := NewUploader(th.repo)
 	u.ParallelUploads = 13
@@ -805,6 +818,7 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	th.faulty.AddFault(blobtesting.MethodPutBlob).Repeat(10).Before(func() {
 		v := currentParallelCalls.Add(1)
 		maxParallelism := maxParallelCalls.Load()
+
 		if v > maxParallelism {
 			maxParallelCalls.CompareAndSwap(maxParallelism, v)
 		}
@@ -843,7 +857,6 @@ func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, th.repo.Flush(ctx))
-
 	require.Positive(t, maxParallelCalls.Load())
 }
 
@@ -855,10 +868,12 @@ func randomBytes(n int64) []byte {
 }
 
 func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("Uploading static directory with streaming file")
 
@@ -870,13 +885,10 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 	tmpContent := []byte("Streaming Temporary file content")
 
 	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatalf("error creating pipe file: %v", err)
-	}
+	require.NoError(t, err, "error creating pipe file")
 
-	if _, err = w.Write(tmpContent); err != nil {
-		t.Fatalf("error writing to pipe file: %v", err)
-	}
+	_, err = w.Write(tmpContent)
+	require.NoError(t, err, "error writing to pipe file")
 
 	w.Close()
 
@@ -885,35 +897,24 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 	})
 
 	man, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Fatalf("Upload error: %v", err)
-	}
+	require.NoError(t, err, "upload error")
 
-	if got, want := atomic.LoadInt32(&man.Stats.CachedFiles), int32(0); got != want {
-		t.Fatalf("unexpected manifest cached files: %v, want %v", got, want)
-	}
-
-	if got, want := atomic.LoadInt32(&man.Stats.NonCachedFiles), int32(1); got != want {
-		// one file is not cached
-		t.Fatalf("unexpected manifest non-cached files: %v, want %v", got, want)
-	}
-
-	if got, want := atomic.LoadInt32(&man.Stats.TotalDirectoryCount), int32(1); got != want {
-		// must have one directory
-		t.Fatalf("unexpected manifest directory count: %v, want %v", got, want)
-	}
-
-	if got, want := atomic.LoadInt32(&man.Stats.TotalFileCount), int32(1); got != want {
-		// must have one file
-		t.Fatalf("unexpected manifest file count: %v, want %v", got, want)
-	}
+	require.Zero(t, atomic.LoadInt32(&man.Stats.CachedFiles), "unexpected manifest cached files")
+	// one file is not cached
+	require.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.NonCachedFiles), "unexpected manifest non-cached files")
+	// must have one directory
+	require.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.TotalDirectoryCount), "unexpected manifest directory count")
+	// must have one file
+	require.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.TotalFileCount), "unexpected manifest file count")
 }
 
 func TestUpload_VirtualDirectoryWithStreamingFile_WithCompression(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	u := NewUploader(th.repo)
 
@@ -941,11 +942,12 @@ func TestUpload_VirtualDirectoryWithStreamingFile_WithCompression(t *testing.T) 
 
 	// Write out pending data so the below size check compares properly.
 	require.NoError(t, th.repo.Flush(ctx), "flushing repo")
-
-	assert.Less(t, testutil.MustGetTotalDirSize(t, th.repoDir), int64(14000))
+	require.Less(t, testutil.MustGetTotalDirSize(t, th.repoDir), int64(14000))
 }
 
 func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
+	t.Parallel()
+
 	tmpContent := []byte("Streaming Temporary file content")
 	mt := time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
 
@@ -974,10 +976,12 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			ctx := testlogging.Context(t)
 			th := newUploadTestHarness(ctx, t)
 
-			defer th.cleanup()
+			t.Cleanup(th.cleanup)
 
 			u := NewUploader(th.repo)
 			u.ForceHashPercentage = 0
@@ -1020,10 +1024,12 @@ func TestUpload_VirtualDirectoryWithStreamingFileWithModTime(t *testing.T) {
 }
 
 func TestUpload_StreamingDirectory(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("Uploading streaming directory with mock file")
 
@@ -1052,10 +1058,12 @@ func TestUpload_StreamingDirectory(t *testing.T) {
 }
 
 func TestUpload_StreamingDirectoryWithIgnoredFile(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("Uploading streaming directory with some ignored mock files")
 
@@ -1129,10 +1137,12 @@ func (w *mockLogger) Sync() error {
 }
 
 func TestParallelUploadDedup(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	t.Logf("Uploading static directory with streaming file")
 
@@ -1182,10 +1192,12 @@ func TestParallelUploadDedup(t *testing.T) {
 }
 
 func TestParallelUploadOfLargeFiles(t *testing.T) {
+	t.Parallel()
+
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
-	defer th.cleanup()
+	t.Cleanup(th.cleanup)
 
 	u := NewUploader(th.repo)
 	u.ParallelUploads = 10
@@ -1241,23 +1253,27 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 
 	t.Logf("man: %v", man.RootObjectID())
 
-	dir := EntryFromDirEntry(th.repo, man.RootEntry).(fs.Directory)
-
+	dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry))
 	successCount := 0
 
 	fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
 		if f, ok := e.(fs.File); ok {
-			oid, err := object.ParseID(strings.TrimPrefix(f.(object.HasObjectID).ObjectID().String(), "I"))
-			require.NoError(t, err)
+			hoid := testutil.EnsureType[object.HasObjectID](t, f)
 
-			entries, err := object.LoadIndexObject(ctx, th.repo.(repo.DirectRepositoryWriter).ContentManager(), oid)
-			require.NoError(t, err)
+			oids := hoid.ObjectID().String()
+
+			oid, err := object.ParseID(strings.TrimPrefix(oids, "I"))
+			require.NoError(t, err, "failed to parse object id", oids)
+
+			entries, err := object.LoadIndexObject(ctx, testutil.EnsureType[repo.DirectRepositoryWriter](t, th.repo).ContentManager(), oid)
+			require.NoError(t, err, "failed to parse indirect object id", oid)
 
 			// ensure that index object contains breakpoints at all multiples of 'chunkSize'.
 			// Because we picked unusual chunkSize, this proves that uploads happened individually
 			// and were concatenated
 			for offset := int64(0); offset < f.Size(); offset += chunkSize {
 				verifyContainsOffset(t, entries, chunkSize)
+
 				successCount++
 			}
 
@@ -1317,11 +1333,13 @@ func verifyContainsOffset(t *testing.T, entries []object.IndirectObjectEntry, wa
 
 type loggedAction struct {
 	msg           string
-	keysAndValues map[string]interface{}
+	keysAndValues map[string]any
 }
 
 //nolint:maintidx
 func TestUploadLogging(t *testing.T) {
+	t.Parallel()
+
 	sourceDir := mockfs.NewDirectory()
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
 	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, defaultPermissions)
@@ -1576,6 +1594,8 @@ func TestUploadLogging(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
 			ml := &mockLogger{}
 
 			logUploader := zap.New(
@@ -1611,7 +1631,7 @@ func TestUploadLogging(t *testing.T) {
 			})
 			th := newUploadTestHarness(ctx, t)
 
-			defer th.cleanup()
+			t.Cleanup(th.cleanup)
 
 			u := NewUploader(th.repo)
 
@@ -1620,6 +1640,7 @@ func TestUploadLogging(t *testing.T) {
 
 			pol := *policy.DefaultPolicy
 			pol.OSSnapshotPolicy.VolumeShadowCopy.Enable = policy.NewOSSnapshotMode(policy.OSSnapshotNever)
+
 			if p := tc.globalLoggingPolicy; p != nil {
 				pol.LoggingPolicy = *p
 			}
@@ -1672,7 +1693,7 @@ func TestUploadLogging(t *testing.T) {
 	}
 }
 
-func verifyLogDetails(t *testing.T, desc string, wantDetailKeys []string, keysAndValues map[string]interface{}) {
+func verifyLogDetails(t *testing.T, desc string, wantDetailKeys []string, keysAndValues map[string]any) {
 	t.Helper()
 
 	var gotDetailKeys []string

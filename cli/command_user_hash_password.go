@@ -30,7 +30,7 @@ func (c *commandServerUserHashPassword) setup(svc appServices, parent commandPar
 // connected repository. To avoid a future incompatible change where the
 // 'hash-password' command stops working without a connected repository,
 // a connected repository is required now.
-func (c *commandServerUserHashPassword) runServerUserHashPassword(ctx context.Context, _ repo.RepositoryWriter) error {
+func (c *commandServerUserHashPassword) runServerUserHashPassword(_ context.Context, _ repo.RepositoryWriter) error {
 	if c.password == "" {
 		// when password hash is empty, ask for password
 		pwd, err := askConfirmPass(c.out.stdout(), "Enter password to hash: ")

@@ -148,7 +148,7 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID, metadataComp
 		return EmptyID, errors.Wrap(err, "error writing concatenated index")
 	}
 
-	return IndirectObjectID(concatID), nil
+	return indirectObjectID(concatID), nil
 }
 
 func appendIndexEntriesForObject(ctx context.Context, cr contentReader, indexEntries []IndirectObjectEntry, startingLength int64, objectID ID) (result []IndirectObjectEntry, totalLength int64, _ error) {
@@ -214,7 +214,7 @@ func PrefetchBackingContents(ctx context.Context, contentMgr contentManager, obj
 }
 
 // NewObjectManager creates an ObjectManager with the specified content manager and format.
-func NewObjectManager(ctx context.Context, bm contentManager, f format.ObjectFormat, mr *metrics.Registry) (*Manager, error) {
+func NewObjectManager(_ context.Context, bm contentManager, f format.ObjectFormat, mr *metrics.Registry) (*Manager, error) {
 	_ = mr
 
 	om := &Manager{
@@ -223,7 +223,7 @@ func NewObjectManager(ctx context.Context, bm contentManager, f format.ObjectFor
 	}
 
 	om.writerPool = sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return new(objectWriter)
 		},
 	}

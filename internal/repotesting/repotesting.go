@@ -38,13 +38,14 @@ type Environment struct {
 
 // Options used during Environment Setup.
 type Options struct {
+	ConnectOptions       func(*repo.ConnectOptions)
 	NewRepositoryOptions func(*repo.NewRepositoryOptions)
 	OpenOptions          func(*repo.Options)
 }
 
 // RepositoryMetrics returns metrics.Registry associated with a repository.
 func (e *Environment) RepositoryMetrics() *metrics.Registry {
-	return e.Repository.(interface {
+	return e.Repository.(interface { //nolint:forcetypeassert
 		Metrics() *metrics.Registry
 	}).Metrics()
 }
@@ -52,7 +53,7 @@ func (e *Environment) RepositoryMetrics() *metrics.Registry {
 // RootStorage returns the base storage map that implements the base in-memory
 // map at the base of all storage wrappers on top.
 func (e *Environment) RootStorage() blob.Storage {
-	return e.st.(reconnectableStorage).Storage
+	return e.st.(reconnectableStorage).Storage //nolint:forcetypeassert
 }
 
 // setup sets up a test environment.
@@ -62,6 +63,7 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	ctx := testlogging.Context(tb)
 	e.configDir = testutil.TempDirectory(tb)
 	openOpt := &repo.Options{}
+	connectOpt := &repo.ConnectOptions{}
 
 	opt := &repo.NewRepositoryOptions{
 		BlockFormat: format.ContentFormat{
@@ -86,6 +88,10 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 		if mod.OpenOptions != nil {
 			mod.OpenOptions(openOpt)
 		}
+
+		if mod.ConnectOptions != nil {
+			mod.ConnectOptions(connectOpt)
+		}
 	}
 
 	var st blob.Storage
@@ -106,7 +112,7 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	err := repo.Initialize(ctx, st, opt, e.Password)
 	require.NoError(tb, err)
 
-	err = repo.Connect(ctx, e.ConfigFile(), st, e.Password, nil)
+	err = repo.Connect(ctx, e.ConfigFile(), st, e.Password, connectOpt)
 	require.NoError(tb, err, "can't connect")
 
 	e.connected = true
@@ -120,7 +126,7 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 
 	e.Repository = rep
 
-	_, e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
+	_, e.RepositoryWriter, err = testutil.EnsureType[repo.DirectRepository](tb, rep).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() {
@@ -171,7 +177,7 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 
 	tb.Cleanup(func() { rep.Close(ctx) })
 
-	_, e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
+	_, e.RepositoryWriter, err = testutil.EnsureType[repo.DirectRepository](tb, rep).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(tb, err)
 }
 

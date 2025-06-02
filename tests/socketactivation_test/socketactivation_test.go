@@ -37,15 +37,13 @@ func TestServerControlSocketActivated(t *testing.T) {
 	env.Environment["LISTEN_FDS"] = "1"
 
 	l1, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("Failed to open Listener")
-	}
+	require.NoError(t, err, "Failed to open Listener")
 
 	defer func() {
 		l1.Close()
 	}()
 
-	port = l1.Addr().(*net.TCPAddr).Port
+	port = testutil.EnsureType[*net.TCPAddr](t, l1.Addr()).Port
 
 	t.Logf("Activating socket on port %v", port)
 
@@ -55,9 +53,9 @@ func TestServerControlSocketActivated(t *testing.T) {
 	var sp testutil.ServerParameters
 
 	go func() {
-		l1File, err := l1.(*net.TCPListener).File()
+		l1File, err := testutil.EnsureType[*net.TCPListener](t, l1).File()
 		if err != nil {
-			t.Logf("ERROR: Failed to get filehandle for socket")
+			t.Log("ERROR: Failed to get filehandle for socket")
 			close(serverStarted)
 
 			return
@@ -77,14 +75,11 @@ func TestServerControlSocketActivated(t *testing.T) {
 
 	select {
 	case <-serverStarted:
-		if sp.BaseURL == "" {
-			t.Fatalf("Failed to start server")
-		}
-
+		require.NotEmpty(t, sp.BaseURL, "Failed to start server")
 		t.Logf("server started on %v", sp.BaseURL)
 
 	case <-time.After(5 * time.Second):
-		t.Fatalf("server did not start in time")
+		t.Fatal("server did not start in time")
 	}
 
 	require.Contains(t, sp.BaseURL, ":"+strconv.Itoa(port))
@@ -97,10 +92,10 @@ func TestServerControlSocketActivated(t *testing.T) {
 
 	select {
 	case <-serverStopped:
-		t.Logf("server shut down")
+		t.Log("server shut down")
 
 	case <-time.After(15 * time.Second):
-		t.Fatalf("server did not shutdown in time")
+		t.Fatal("server did not shutdown in time")
 	}
 }
 
@@ -120,32 +115,32 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 	env.Environment["LISTEN_FDS"] = "2"
 
 	l1, err := net.Listen("tcp", ":0")
-	if err != nil {
-		t.Fatalf("Failed to open Listener")
-	}
+	require.NoError(t, err, "Failed to open Listener")
 
 	defer func() {
 		l1.Close()
 	}()
 
-	port = l1.Addr().(*net.TCPAddr).Port
+	port = testutil.EnsureType[*net.TCPAddr](t, l1.Addr()).Port
 
 	t.Logf("Activating socket on port %v", port)
 
 	serverStarted := make(chan []string)
 
 	go func() {
-		l1File, err := l1.(*net.TCPListener).File()
+		listener := testutil.EnsureType[*net.TCPListener](t, l1)
+
+		l1File, err := listener.File()
 		if err != nil {
-			t.Logf("Failed to get filehandle for socket")
+			t.Log("Failed to get filehandle for socket")
 			close(serverStarted)
 
 			return
 		}
 
-		l2File, err := l1.(*net.TCPListener).File()
+		l2File, err := listener.File()
 		if err != nil {
-			t.Logf("Failed to get 2nd filehandle for socket")
+			t.Log("Failed to get 2nd filehandle for socket")
 			close(serverStarted)
 
 			return
@@ -164,9 +159,9 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 	select {
 	case stderr := <-serverStarted:
 		require.Contains(t, strings.Join(stderr, ""), "Too many activated sockets found.  Expected 1, got 2")
-		t.Logf("Done")
+		t.Log("Done")
 
 	case <-time.After(5 * time.Second):
-		t.Fatalf("server did not exit in time")
+		t.Fatal("server did not exit in time")
 	}
 }

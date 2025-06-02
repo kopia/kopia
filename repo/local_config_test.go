@@ -66,7 +66,7 @@ func TestLocalConfig_notFound(t *testing.T) {
 	}
 }
 
-func mustParseJSONFile(t *testing.T, fname string, o interface{}) {
+func mustParseJSONFile(t *testing.T, fname string, o any) {
 	t.Helper()
 
 	f, err := os.Open(fname)

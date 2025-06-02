@@ -22,7 +22,7 @@ type filesystemDirectoryIterator struct {
 	currentBatch []os.DirEntry
 }
 
-func (it *filesystemDirectoryIterator) Next(ctx context.Context) (fs.Entry, error) {
+func (it *filesystemDirectoryIterator) Next(_ context.Context) (fs.Entry, error) {
 	for {
 		// we're at the end of the current batch, fetch the next batch
 		if it.currentIndex >= len(it.currentBatch) {
@@ -63,7 +63,7 @@ func (it *filesystemDirectoryIterator) Close() {
 	it.dirHandle.Close() //nolint:errcheck
 }
 
-func (fsd *filesystemDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+func (fsd *filesystemDirectory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	fullPath := fsd.fullPath()
 
 	f, direrr := os.Open(fullPath) //nolint:gosec
@@ -76,7 +76,7 @@ func (fsd *filesystemDirectory) Iterate(ctx context.Context) (fs.DirectoryIterat
 	return &filesystemDirectoryIterator{dirHandle: f, childPrefix: childPrefix}, nil
 }
 
-func (fsd *filesystemDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+func (fsd *filesystemDirectory) Child(_ context.Context, name string) (fs.Entry, error) {
 	fullPath := fsd.fullPath()
 
 	st, err := os.Lstat(filepath.Join(fullPath, name))
@@ -88,11 +88,13 @@ func (fsd *filesystemDirectory) Child(ctx context.Context, name string) (fs.Entr
 		return nil, errors.Wrap(err, "unable to get child")
 	}
 
-	return entryFromDirEntry(st, fullPath+string(filepath.Separator)), nil
+	return entryFromDirEntry(name, st, fullPath+string(filepath.Separator)), nil
 }
 
 func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
-	fi, err := os.Lstat(prefix + dirEntry.Name())
+	n := dirEntry.Name()
+
+	fi, err := os.Lstat(prefix + n)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -101,7 +103,11 @@ func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 		return nil, errors.Wrap(err, "error reading directory")
 	}
 
-	return entryFromDirEntry(fi, prefix), nil
+	return entryFromDirEntry(n, fi, prefix), nil
+}
+
+func isWindows() bool {
+	return runtime.GOOS == "windows"
 }
 
 // NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
@@ -115,8 +121,7 @@ func NewEntry(path string) (fs.Entry, error) {
 		// cause os.Lstat to fail with "Incorrect function" error unless they
 		// end with a separator. Retry the operation with the separator added.
 		var e syscall.Errno
-		//nolint:goconst
-		if runtime.GOOS == "windows" &&
+		if isWindows() &&
 			!strings.HasSuffix(path, string(filepath.Separator)) &&
 			errors.As(err, &e) && e == 1 {
 			fi, err = os.Lstat(path + string(filepath.Separator))
@@ -128,42 +133,44 @@ func NewEntry(path string) (fs.Entry, error) {
 	}
 
 	if path == "/" {
-		return entryFromDirEntry(fi, ""), nil
+		return entryFromDirEntry("/", fi, ""), nil
 	}
 
-	return entryFromDirEntry(fi, dirPrefix(path)), nil
+	basename, prefix := splitDirPrefix(path)
+
+	return entryFromDirEntry(basename, fi, prefix), nil
 }
 
-func entryFromDirEntry(fi os.FileInfo, prefix string) fs.Entry {
-	isplaceholder := strings.HasSuffix(fi.Name(), ShallowEntrySuffix)
+func entryFromDirEntry(basename string, fi os.FileInfo, prefix string) fs.Entry {
+	isplaceholder := strings.HasSuffix(basename, ShallowEntrySuffix)
 	maskedmode := fi.Mode() & os.ModeType
 
 	switch {
 	case maskedmode == os.ModeDir && !isplaceholder:
-		return newFilesystemDirectory(newEntry(fi, prefix))
+		return newFilesystemDirectory(newEntry(basename, fi, prefix))
 
 	case maskedmode == os.ModeDir && isplaceholder:
-		return newShallowFilesystemDirectory(newEntry(fi, prefix))
+		return newShallowFilesystemDirectory(newEntry(basename, fi, prefix))
 
 	case maskedmode == os.ModeSymlink && !isplaceholder:
-		return newFilesystemSymlink(newEntry(fi, prefix))
+		return newFilesystemSymlink(newEntry(basename, fi, prefix))
 
 	case maskedmode == 0 && !isplaceholder:
-		return newFilesystemFile(newEntry(fi, prefix))
+		return newFilesystemFile(newEntry(basename, fi, prefix))
 
 	case maskedmode == 0 && isplaceholder:
-		return newShallowFilesystemFile(newEntry(fi, prefix))
+		return newShallowFilesystemFile(newEntry(basename, fi, prefix))
 
 	default:
-		return newFilesystemErrorEntry(newEntry(fi, prefix), fs.ErrUnknown)
+		return newFilesystemErrorEntry(newEntry(basename, fi, prefix), fs.ErrUnknown)
 	}
 }
 
 var _ os.FileInfo = (*filesystemEntry)(nil)
 
-func newEntry(fi os.FileInfo, prefix string) filesystemEntry {
+func newEntry(basename string, fi os.FileInfo, prefix string) filesystemEntry {
 	return filesystemEntry{
-		TrimShallowSuffix(fi.Name()),
+		TrimShallowSuffix(basename),
 		fi.Size(),
 		fi.ModTime().UnixNano(),
 		fi.Mode(),

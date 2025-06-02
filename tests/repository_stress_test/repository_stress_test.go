@@ -260,7 +260,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 			openID := fmt.Sprintf("open-%v", i)
 
 			eg.Go(func() error {
-				log := testlogging.Printf(func(msg string, args ...interface{}) {
+				log := testlogging.Printf(func(msg string, args ...any) {
 					fmt.Fprintf(logFile, clock.Now().Format("2006-01-02T15:04:05.000000Z07:00")+" "+msg+"\n", args...)
 				}, "").With("cfg", fmt.Sprintf("%v::o%v", filepath.Base(configFile), i))
 
@@ -303,7 +303,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, openID, configFi
 	for i := range opt.SessionsPerOpenRepository {
 		ors := or.NewSession(fmt.Sprintf("session-%v", i))
 
-		_, w, err := rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{
+		_, w, err := testutil.EnsureType[repo.DirectRepository](t, rep).NewDirectWriter(ctx, repo.WriteSessionOptions{
 			Purpose: fmt.Sprintf("longLivedRepositoryTest-w%v", i),
 		})
 		if err != nil {
@@ -422,6 +422,7 @@ func listAndReadAllContents(ctx context.Context, r repo.DirectRepositoryWriter, 
 		content.IterateOptions{},
 		func(ci content.Info) error {
 			cid := ci.ContentID
+
 			_, err := r.ContentReader().GetContent(ctx, cid)
 			if err != nil {
 				return errors.Wrapf(err, "error reading content %v", cid)

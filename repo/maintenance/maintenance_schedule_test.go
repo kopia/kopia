@@ -116,7 +116,7 @@ func TestTimeToAttemptNextMaintenance(t *testing.T) {
 	}
 }
 
-func toJSON(t *testing.T, v interface{}) string {
+func toJSON(t *testing.T, v any) string {
 	t.Helper()
 
 	b, err := json.MarshalIndent(v, "", "  ")

@@ -21,7 +21,7 @@ type emailProvider struct {
 	opt Options
 }
 
-func (p *emailProvider) Send(ctx context.Context, msg *sender.Message) error {
+func (p *emailProvider) Send(_ context.Context, msg *sender.Message) error {
 	var auth smtp.Auth
 
 	if p.opt.SMTPUsername != "" {
@@ -47,7 +47,7 @@ func (p *emailProvider) Send(ctx context.Context, msg *sender.Message) error {
 		headers = append(headers, fmt.Sprintf("%v: %v", k, v))
 	}
 
-	msgPayload = []byte(strings.Join(headers, "\r\n") + "\r\n" + msg.Body)
+	msgPayload = []byte(strings.Join(headers, "\r\n") + "\r\n\r\n" + msg.Body)
 
 	//nolint:wrapcheck
 	return smtp.SendMail(

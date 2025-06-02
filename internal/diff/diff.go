@@ -8,31 +8,65 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 const dirMode = 0o700
 
 var log = logging.Module("diff")
 
+// EntryTypeStats accumulates stats for an FS entry type.
+type EntryTypeStats struct {
+	Added    uint32 `json:"added"`
+	Removed  uint32 `json:"removed"`
+	Modified uint32 `json:"modified"`
+
+	// aggregate stats
+	SameContentButDifferentMetadata uint32 `json:"sameContentButDifferentMetadata"`
+
+	// stats categorized based on metadata
+	SameContentButDifferentMode             uint32 `json:"sameContentButDifferentMode"`
+	SameContentButDifferentModificationTime uint32 `json:"sameContentButDifferentModificationTime"`
+	SameContentButDifferentUserOwner        uint32 `json:"sameContentButDifferentUserOwner"`
+	SameContentButDifferentGroupOwner       uint32 `json:"sameContentButDifferentGroupOwner"`
+}
+
+// Stats accumulates stats between snapshots being compared.
+type Stats struct {
+	FileEntries      EntryTypeStats `json:"fileEntries"`
+	DirectoryEntries EntryTypeStats `json:"directoryEntries"`
+}
+
 // Comparer outputs diff information between two filesystems.
 type Comparer struct {
-	out    io.Writer
-	tmpDir string
-
+	stats         Stats
+	out           io.Writer
+	tmpDir        string
+	statsOnly     bool
 	DiffCommand   string
 	DiffArguments []string
 }
 
 // Compare compares two filesystem entries and emits their diff information.
-func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) error {
-	return c.compareEntry(ctx, e1, e2, ".")
+func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) (Stats, error) {
+	c.stats = Stats{}
+
+	err := c.compareEntry(ctx, e1, e2, ".")
+	if err != nil {
+		return c.stats, err
+	}
+
+	return c.stats, errors.Wrap(err, "error comparing fs entries")
 }
 
 // Close removes all temporary files used by the comparer.
@@ -76,22 +110,33 @@ func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directo
 //nolint:gocyclo
 func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path string) error {
 	// see if we have the same object IDs, which implies identical objects, thanks to content-addressable-storage
-	if h1, ok := e1.(object.HasObjectID); ok {
-		if h2, ok := e2.(object.HasObjectID); ok {
-			if h1.ObjectID() == h2.ObjectID() {
-				log(ctx).Debugf("unchanged %v", path)
-				return nil
+	h1, e1HasObjectID := e1.(object.HasObjectID)
+	h2, e2HasObjectID := e2.(object.HasObjectID)
+
+	if e1HasObjectID && e2HasObjectID {
+		if h1.ObjectID() == h2.ObjectID() {
+			if _, isDir := e1.(fs.Directory); isDir {
+				compareMetadata(ctx, e1, e2, path, &c.stats.DirectoryEntries)
+			} else {
+				compareMetadata(ctx, e1, e2, path, &c.stats.FileEntries)
 			}
+
+			return nil
 		}
 	}
 
 	if e1 == nil {
 		if dir2, isDir2 := e2.(fs.Directory); isDir2 {
-			c.output("added directory %v\n", path)
+			c.output(c.statsOnly, "added directory %v\n", path)
+
+			c.stats.DirectoryEntries.Added++
+
 			return c.compareDirectories(ctx, nil, dir2, path)
 		}
 
-		c.output("added file %v (%v bytes)\n", path, e2.Size())
+		c.output(c.statsOnly, "added file %v (%v bytes)\n", path, e2.Size())
+
+		c.stats.FileEntries.Added++
 
 		if f, ok := e2.(fs.File); ok {
 			if err := c.compareFiles(ctx, nil, f, path); err != nil {
@@ -104,11 +149,16 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 
 	if e2 == nil {
 		if dir1, isDir1 := e1.(fs.Directory); isDir1 {
-			c.output("removed directory %v\n", path)
+			c.output(c.statsOnly, "removed directory %v\n", path)
+
+			c.stats.DirectoryEntries.Removed++
+
 			return c.compareDirectories(ctx, dir1, nil, path)
 		}
 
-		c.output("removed file %v (%v bytes)\n", path, e1.Size())
+		c.output(c.statsOnly, "removed file %v (%v bytes)\n", path, e1.Size())
+
+		c.stats.FileEntries.Removed++
 
 		if f, ok := e1.(fs.File); ok {
 			if err := c.compareFiles(ctx, f, nil, path); err != nil {
@@ -119,7 +169,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		return nil
 	}
 
-	compareEntry(e1, e2, path, c.out)
+	c.compareEntryMetadata(e1, e2, path)
 
 	dir1, isDir1 := e1.(fs.Directory)
 	dir2, isDir2 := e2.(fs.Directory)
@@ -127,7 +177,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	if isDir1 {
 		if !isDir2 {
 			// right is a non-directory, left is a directory
-			c.output("changed %v from directory to non-directory\n", path)
+			c.output(c.statsOnly, "changed %v from directory to non-directory\n", path)
 			return nil
 		}
 
@@ -136,13 +186,16 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 
 	if isDir2 {
 		// left is non-directory, right is a directory
-		log(ctx).Infof("changed %v from non-directory to a directory", path)
+		c.output(c.statsOnly, "changed %v from non-directory to a directory\n", path)
+
 		return nil
 	}
 
 	if f1, ok := e1.(fs.File); ok {
 		if f2, ok := e2.(fs.File); ok {
-			c.output("changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
+			c.output(c.statsOnly, "changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
+
+			c.stats.FileEntries.Modified++
 
 			if err := c.compareFiles(ctx, f1, f2, path); err != nil {
 				return err
@@ -150,60 +203,100 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		}
 	}
 
+	// don't compare filesystem boundaries (e1.Device()), it's pretty useless and is not stored in backups
+
 	return nil
 }
 
-func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
-	if e1 == e2 { // in particular e1 == nil && e2 == nil
-		return true
-	}
-
-	if e1 == nil {
-		fmt.Fprintln(out, fullpath, "does not exist in source directory") //nolint:errcheck
-		return false
-	}
-
-	if e2 == nil {
-		fmt.Fprintln(out, fullpath, "does not exist in destination directory") //nolint:errcheck
-		return false
-	}
-
-	equal := true
+// Checks for changes in e1's and e2's metadata when they have the same content,
+// and upates the stats accordingly.
+// The function is not concurrency safe, as it updates st without any locking.
+func compareMetadata(ctx context.Context, e1, e2 fs.Entry, path string, st *EntryTypeStats) {
+	var changed bool
 
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
-		equal = false
-
-		fmt.Fprintln(out, fullpath, "modes differ: ", m1, m2) //nolint:errcheck
-	}
-
-	if s1, s2 := e1.Size(), e2.Size(); s1 != s2 {
-		equal = false
-
-		fmt.Fprintln(out, fullpath, "sizes differ: ", s1, s2) //nolint:errcheck
+		changed = true
+		st.SameContentButDifferentMode++
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
-		equal = false
-
-		fmt.Fprintln(out, fullpath, "modification times differ: ", mt1, mt2) //nolint:errcheck
+		changed = true
+		st.SameContentButDifferentModificationTime++
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
-		equal = false
-
-		fmt.Fprintln(out, fullpath, "owner users differ: ", o1.UserID, o2.UserID) //nolint:errcheck
+		changed = true
+		st.SameContentButDifferentUserOwner++
 	}
 
 	if o1.GroupID != o2.GroupID {
-		equal = false
-
-		fmt.Fprintln(out, fullpath, "owner groups differ: ", o1.GroupID, o2.GroupID) //nolint:errcheck
+		changed = true
+		st.SameContentButDifferentGroupOwner++
 	}
 
-	// don't compare filesystem boundaries (e1.Device()), it's pretty useless and is not stored in backups
+	if changed {
+		st.SameContentButDifferentMetadata++
 
-	return equal
+		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
+	}
+}
+
+func (c *Comparer) compareEntryMetadata(e1, e2 fs.Entry, fullpath string) {
+	switch {
+	case e1 == e2: // in particular e1 == nil && e2 == nil
+		return
+	case e1 == nil:
+		c.output(c.statsOnly, "%v does not exist in source directory\n", fullpath)
+		return
+	case e2 == nil:
+		c.output(c.statsOnly, "%v does not exist in destination directory\n", fullpath)
+		return
+	}
+
+	var changed bool
+
+	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
+		changed = true
+
+		c.output(c.statsOnly, "%v modes differ: %v %v\n", fullpath, m1, m2)
+	}
+
+	if s1, s2 := e1.Size(), e2.Size(); s1 != s2 {
+		changed = true
+
+		c.output(c.statsOnly, "%v sizes differ: %v %v\n", fullpath, s1, s2)
+	}
+
+	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
+		changed = true
+
+		c.output(c.statsOnly, "%v modification times differ: %v %v\n", fullpath, mt1, mt2)
+	}
+
+	o1, o2 := e1.Owner(), e2.Owner()
+	if o1.UserID != o2.UserID {
+		changed = true
+
+		c.output(c.statsOnly, "%v owner users differ: %v %v\n", fullpath, o1.UserID, o2.UserID)
+	}
+
+	if o1.GroupID != o2.GroupID {
+		changed = true
+
+		c.output(c.statsOnly, "%v owner groups differ: %v %v\n", fullpath, o1.GroupID, o2.GroupID)
+	}
+
+	_, isDir1 := e1.(fs.Directory)
+	_, isDir2 := e2.(fs.Directory)
+
+	if changed {
+		if isDir1 && isDir2 {
+			c.stats.DirectoryEntries.Modified++
+		} else {
+			c.stats.FileEntries.Modified++
+		}
+	}
 }
 
 func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entries2 []fs.Entry, dirPath string) error {
@@ -297,16 +390,75 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 	return errors.Wrap(iocopy.JustCopy(dst, src), "error downloading file")
 }
 
-func (c *Comparer) output(msg string, args ...interface{}) {
-	fmt.Fprintf(c.out, msg, args...) //nolint:errcheck
+// Stats returns aggregated statistics computed during snapshot comparison
+// must be invoked after a call to Compare which populates ComparerStats struct.
+func (c *Comparer) Stats() Stats {
+	return c.stats
+}
+
+func (c *Comparer) output(statsOnly bool, msg string, args ...any) {
+	if !statsOnly {
+		fmt.Fprintf(c.out, msg, args...) //nolint:errcheck
+	}
 }
 
 // NewComparer creates a comparer for a given repository that will output the results to a given writer.
-func NewComparer(out io.Writer) (*Comparer, error) {
+func NewComparer(out io.Writer, statsOnly bool) (*Comparer, error) {
 	tmp, err := os.MkdirTemp("", "kopia")
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating temp directory")
 	}
 
-	return &Comparer{out: out, tmpDir: tmp}, nil
+	return &Comparer{out: out, tmpDir: tmp, statsOnly: statsOnly}, nil
+}
+
+// GetPrecedingSnapshot fetches the snapshot manifest for the snapshot immediately preceding the given snapshotID if it exists.
+func GetPrecedingSnapshot(ctx context.Context, rep repo.Repository, snapshotID string) (*snapshot.Manifest, error) {
+	snapshotManifest, err := snapshotfs.FindSnapshotByRootObjectIDOrManifestID(ctx, rep, snapshotID, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get snapshot manifest for the given snapshotID")
+	}
+
+	snapshotList, err := snapshot.ListSnapshots(ctx, rep, snapshotManifest.Source)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to list snapshots")
+	}
+
+	// sort snapshots in ascending order based on start time
+	sort.Slice(snapshotList, func(i, j int) bool {
+		return snapshotList[i].StartTime.Before(snapshotList[j].StartTime)
+	})
+
+	for i, snap := range snapshotList {
+		if snap.ID == snapshotManifest.ID {
+			if i == 0 {
+				return nil, errors.New("there is no immediately preceding snapshot")
+			}
+
+			return snapshotList[i-1], nil
+		}
+	}
+
+	return nil, errors.New("couldn't find immediately preceding snapshot")
+}
+
+// GetTwoLatestSnapshotsForASource fetches two latest snapshot manifests for a given source if they exist.
+func GetTwoLatestSnapshotsForASource(ctx context.Context, rep repo.Repository, source snapshot.SourceInfo) (secondLast, last *snapshot.Manifest, err error) {
+	snapshots, err := snapshot.ListSnapshots(ctx, rep, source)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to list all snapshots")
+	}
+
+	const minimumReqSnapshots = 2
+
+	sizeSnapshots := len(snapshots)
+	if sizeSnapshots < minimumReqSnapshots {
+		return nil, nil, errors.New("snapshot source has less than two snapshots")
+	}
+
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].StartTime.Before(snapshots[j].StartTime)
+	})
+
+	return snapshots[sizeSnapshots-2], snapshots[sizeSnapshots-1], nil
 }

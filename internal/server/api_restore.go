@@ -26,7 +26,7 @@ func restoreCounters(s restore.Stats) map[string]uitask.CounterValue {
 	}
 }
 
-func handleRestore(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRestore(ctx context.Context, rc requestContext) (any, *apiError) {
 	var req serverapi.RestoreRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
@@ -95,7 +95,7 @@ func handleRestore(ctx context.Context, rc requestContext) (interface{}, *apiErr
 
 		opt := req.Options
 
-		opt.ProgressCallback = func(ctx context.Context, s restore.Stats) {
+		opt.ProgressCallback = func(_ context.Context, s restore.Stats) {
 			ctrl.ReportCounters(restoreCounters(s))
 		}
 

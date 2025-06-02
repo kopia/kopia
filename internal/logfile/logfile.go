@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/kopia/kopia/cli"
+	"github.com/kopia/kopia/internal/cachedir"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/zaplogutil"
@@ -211,6 +212,10 @@ func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, lo
 
 	if err := os.MkdirAll(logDir, logsDirMode); err != nil {
 		fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err)
+	}
+
+	if err := cachedir.WriteCacheMarker(logDir); err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create cache marker in log directory %q: %s", logDir, err)
 	}
 
 	sweepLogWG := &sync.WaitGroup{}

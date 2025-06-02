@@ -64,7 +64,7 @@ func (e *entry) Size() int64 {
 	return e.size
 }
 
-func (e *entry) Sys() interface{} {
+func (e *entry) Sys() any {
 	return nil
 }
 
@@ -315,7 +315,7 @@ func (imd *Directory) SupportsMultipleIterations() bool {
 }
 
 // Child gets the named child of a directory.
-func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
+func (imd *Directory) Child(_ context.Context, name string) (fs.Entry, error) {
 	e := fs.FindByName(imd.children, name)
 	if e != nil {
 		return e, nil
@@ -325,7 +325,7 @@ func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) 
 }
 
 // Iterate returns directory iterator.
-func (imd *Directory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+func (imd *Directory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	if imd.readdirError != nil {
 		return nil, errors.Wrapf(imd.readdirError, "in mockfs Directory.Iterate on directory %s", imd.name)
 	}
@@ -361,7 +361,7 @@ func (ifr *fileReader) Entry() (fs.Entry, error) {
 }
 
 // Open opens the file for reading, optionally simulating error.
-func (imf *File) Open(ctx context.Context) (fs.Reader, error) {
+func (imf *File) Open(_ context.Context) (fs.Reader, error) {
 	r, err := imf.source()
 	if err != nil {
 		return nil, err
@@ -398,7 +398,7 @@ func (imsl *Symlink) Resolve(ctx context.Context) (fs.Entry, error) {
 }
 
 // Readlink implements fs.Symlink interface.
-func (imsl *Symlink) Readlink(ctx context.Context) (string, error) {
+func (imsl *Symlink) Readlink(_ context.Context) (string, error) {
 	return imsl.target, nil
 }
 

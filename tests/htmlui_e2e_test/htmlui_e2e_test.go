@@ -86,7 +86,7 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 	ctx, cancel := chromedp.NewContext(ctx)
 	defer cancel()
 
-	chromedp.ListenTarget(ctx, func(ev interface{}) {
+	chromedp.ListenTarget(ctx, func(ev any) {
 		if do, ok := ev.(*page.EventJavascriptDialogOpening); ok {
 			t.Logf("dialog opening: %v", do.Message)
 
@@ -335,6 +335,7 @@ func TestByteRepresentation(t *testing.T) {
 		snap1Path := testutil.TempDirectory(t)
 
 		var base2 string
+
 		var base10 string
 
 		// create a test snaphot
@@ -355,7 +356,7 @@ func TestByteRepresentation(t *testing.T) {
 			tc.log("clicking on snapshots tab"),
 			chromedp.Click("a[data-testid='tab-snapshots']", chromedp.BySearch),
 			// getting text from the third column of the first row indicating the size of the snapshot
-			chromedp.Text(`#root > div > table > tbody > tr:nth-child(1) > td:nth-child(3)`, &base2, chromedp.ByQuery),
+			chromedp.Text(`#root table > tbody > tr:nth-child(1) > td:nth-child(3)`, &base2, chromedp.ByQuery),
 			tc.captureScreenshot("snapshot-base-2"),
 
 			tc.log("clicking on preferences tab"),
@@ -368,7 +369,7 @@ func TestByteRepresentation(t *testing.T) {
 			tc.log("clicking on snapshots tab"),
 			chromedp.Click("a[data-testid='tab-snapshots']", chromedp.BySearch),
 			// getting text from the third column of the first row indicating the size of the snapshot
-			chromedp.Text(`#root > div > table > tbody > tr:nth-child(1) > td:nth-child(3)`, &base10, chromedp.BySearch),
+			chromedp.Text(`#root table > tbody > tr:nth-child(1) > td:nth-child(3)`, &base10, chromedp.BySearch),
 			tc.captureScreenshot("snapshot-base-10"),
 		))
 

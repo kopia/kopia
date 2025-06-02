@@ -254,13 +254,13 @@ func (r *grpcInnerSession) initializeSession(ctx context.Context, purpose string
 	return nil, errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
+func (r *grpcRepositoryClient) GetManifest(ctx context.Context, id manifest.ID, data any) (*manifest.EntryMetadata, error) {
 	return maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (*manifest.EntryMetadata, error) {
 		return sess.GetManifest(ctx, id, data)
 	})
 }
 
-func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
+func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data any) (*manifest.EntryMetadata, error) {
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetManifest{
 			GetManifest: &apipb.GetManifestRequest{
@@ -297,18 +297,18 @@ func decodeManifestEntryMetadata(md *apipb.ManifestEntryMetadata) *manifest.Entr
 	}
 }
 
-func (r *grpcRepositoryClient) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+func (r *grpcRepositoryClient) PutManifest(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error) {
 	return inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (manifest.ID, error) {
 		return sess.PutManifest(ctx, labels, payload)
 	})
 }
 
 // ReplaceManifests saves the given manifest payload with a set of labels and replaces any previous manifests with the same labels.
-func (r *grpcRepositoryClient) ReplaceManifests(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+func (r *grpcRepositoryClient) ReplaceManifests(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error) {
 	return replaceManifestsHelper(ctx, r, labels, payload)
 }
 
-func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error) {
 	v, err := json.Marshal(payload)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to marshal JSON")
@@ -468,9 +468,9 @@ func (r *grpcInnerSession) ApplyRetentionPolicy(ctx context.Context, sourcePath 
 	return nil, errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, importance int32) error {
+func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType apipb.NotificationEventArgType, importance int32) error {
 	_, err := maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (struct{}, error) {
-		return sess.SendNotification(ctx, templateName, templateDataJSON, importance)
+		return sess.SendNotification(ctx, templateName, templateDataJSON, templateDataType, importance)
 	})
 
 	return err
@@ -478,13 +478,14 @@ func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateNam
 
 var _ RemoteNotifications = (*grpcRepositoryClient)(nil)
 
-func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, severity int32) (struct{}, error) {
+func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType apipb.NotificationEventArgType, severity int32) (struct{}, error) {
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_SendNotification{
 			SendNotification: &apipb.SendNotificationRequest{
-				TemplateName: templateName,
-				EventArgs:    templateDataJSON,
-				Severity:     severity,
+				TemplateName:  templateName,
+				EventArgs:     templateDataJSON,
+				EventArgsType: templateDataType,
+				Severity:      severity,
 			},
 		},
 	}) {
@@ -504,7 +505,7 @@ func (r *grpcRepositoryClient) Time() time.Time {
 	return clock.Now()
 }
 
-func (r *grpcRepositoryClient) Refresh(ctx context.Context) error {
+func (r *grpcRepositoryClient) Refresh(_ context.Context) error {
 	return nil
 }
 
@@ -732,7 +733,7 @@ func (r *grpcRepositoryClient) doWriteAsync(ctx context.Context, contentID conte
 	r.opt.OnUpload(int64(len(data)))
 
 	if _, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (content.ID, error) {
-		sess.WriteContentAsyncAndVerify(ctx, contentID, data, prefix, comp, r.asyncWritesWG)
+		sess.writeContentAsyncAndVerify(ctx, contentID, data, prefix, comp, r.asyncWritesWG)
 		return contentID, nil
 	}); err != nil {
 		return err
@@ -777,7 +778,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 	return contentID, nil
 }
 
-func (r *grpcInnerSession) WriteContentAsyncAndVerify(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID, eg *errgroup.Group) {
+func (r *grpcInnerSession) writeContentAsyncAndVerify(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID, eg *errgroup.Group) {
 	ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_WriteContent{
 			WriteContent: &apipb.WriteContentRequest{
@@ -830,7 +831,7 @@ type grpcCreds struct {
 	password string
 }
 
-func (c grpcCreds) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (c grpcCreds) GetRequestMetadata(_ context.Context, uri ...string) (map[string]string, error) {
 	_ = uri
 
 	return map[string]string{
@@ -878,8 +879,8 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		return nil, errors.Wrap(err, "gRPC client creation error")
 	}
 
-	par.refCountedCloser.registerEarlyCloseFunc(
-		func(ctx context.Context) error {
+	par.registerEarlyCloseFunc(
+		func(_ context.Context) error {
 			return errors.Wrap(conn.Close(), "error closing GRPC connection")
 		})
 

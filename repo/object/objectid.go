@@ -148,14 +148,14 @@ func DirectObjectID(contentID content.ID) ID {
 	return ID{cid: contentID}
 }
 
-// Compressed returns object ID with 'Z' prefix indicating it's compressed.
-func Compressed(objectID ID) ID {
+// compressed returns object ID with 'Z' prefix indicating it's compressed.
+func compressed(objectID ID) ID {
 	objectID.compression = true
 	return objectID
 }
 
-// IndirectObjectID returns indirect object ID based on the underlying index object ID.
-func IndirectObjectID(indexObjectID ID) ID {
+// indirectObjectID returns indirect object ID based on the underlying index object ID.
+func indirectObjectID(indexObjectID ID) ID {
 	indexObjectID.indirection++
 	return indexObjectID
 }

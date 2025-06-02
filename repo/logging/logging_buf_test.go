@@ -50,7 +50,7 @@ func TestLoggingBuffer_Append(t *testing.T) {
 	b := logging.GetBuffer()
 	defer b.Release()
 
-	require.Equal(t, "", b.String())
+	require.Empty(t, b.String())
 
 	require.Equal(t,
 		"xx ABC D -42 -23 true 42 false 23 2000-01-02T03:04:05Z",

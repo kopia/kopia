@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/restore"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 // StatusResponse is the response of 'status' HTTP API command.
@@ -52,13 +52,13 @@ type SourcesResponse struct {
 
 // SourceStatus describes the status of a single source.
 type SourceStatus struct {
-	Source           snapshot.SourceInfo        `json:"source"`
-	Status           string                     `json:"status"`
-	SchedulingPolicy policy.SchedulingPolicy    `json:"schedule"`
-	LastSnapshot     *snapshot.Manifest         `json:"lastSnapshot,omitempty"`
-	NextSnapshotTime *time.Time                 `json:"nextSnapshotTime,omitempty"`
-	UploadCounters   *snapshotfs.UploadCounters `json:"upload,omitempty"`
-	CurrentTask      string                     `json:"currentTask,omitempty"`
+	Source           snapshot.SourceInfo     `json:"source"`
+	Status           string                  `json:"status"`
+	SchedulingPolicy policy.SchedulingPolicy `json:"schedule"`
+	LastSnapshot     *snapshot.Manifest      `json:"lastSnapshot,omitempty"`
+	NextSnapshotTime *time.Time              `json:"nextSnapshotTime,omitempty"`
+	UploadCounters   *upload.Counters        `json:"upload,omitempty"`
+	CurrentTask      string                  `json:"currentTask,omitempty"`
 }
 
 // PolicyListEntry describes single policy.

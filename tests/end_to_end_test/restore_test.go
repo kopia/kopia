@@ -177,6 +177,8 @@ func TestRestoreCommand(t *testing.T) {
 func compareDirs(t *testing.T, source, restoreDir string) {
 	t.Helper()
 
+	const statsOnly = false
+
 	// Restored contents should match source
 	s, err := localfs.Directory(source)
 	require.NoError(t, err)
@@ -192,11 +194,11 @@ func compareDirs(t *testing.T, source, restoreDir string) {
 	require.NoError(t, err)
 
 	if !assert.Equal(t, wantHash, gotHash, "restored directory hash does not match source's hash") {
-		cmp, err := diff.NewComparer(os.Stderr)
+		cmp, err := diff.NewComparer(os.Stderr, statsOnly)
 		require.NoError(t, err)
 
 		cmp.DiffCommand = "cmp"
-		_ = cmp.Compare(ctx, s, r)
+		cmp.Compare(ctx, s, r)
 	}
 }
 
@@ -344,6 +346,7 @@ func TestSnapshotRestore(t *testing.T) {
 		for _, tc := range cases {
 			t.Run(tc.fname, func(t *testing.T) {
 				t.Parallel()
+
 				fname := filepath.Join(restoreArchiveDir, tc.fname)
 				e.RunAndExpectSuccess(t, append([]string{"snapshot", "restore", snapID, fname}, tc.args...)...)
 				tc.validator(t, fname)
@@ -809,7 +812,7 @@ func verifyValidZipFile(t *testing.T, fname string) {
 	zr, err := zip.OpenReader(fname)
 	require.NoError(t, err)
 
-	defer zr.Close()
+	zr.Close()
 }
 
 func verifyValidTarFile(t *testing.T, fname string) {

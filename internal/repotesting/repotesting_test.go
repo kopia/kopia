@@ -9,11 +9,12 @@ import (
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/mockfs"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 func TestTimeFuncWiring(t *testing.T) {
@@ -27,7 +28,7 @@ func TestTimeFuncWiring(t *testing.T) {
 		t.Fatal("Failed to open repo:", err)
 	}
 
-	r0 := rep.(repo.DirectRepository)
+	r0 := testutil.EnsureType[repo.DirectRepository](t, rep)
 
 	_, env.RepositoryWriter, err = r0.NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(t, err)
@@ -84,7 +85,7 @@ func TestTimeFuncWiring(t *testing.T) {
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
 
 	nt = ft.Advance(1 * time.Hour)
-	u := snapshotfs.NewUploader(env.RepositoryWriter)
+	u := upload.NewUploader(env.RepositoryWriter)
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})

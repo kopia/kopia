@@ -28,6 +28,9 @@ type Options struct {
 	ClientID     string
 	ClientSecret string
 
+	// ClientCert are used for creating ClientCertificateCredentials
+	ClientCert string
+
 	StorageDomain string `json:"storageDomain,omitempty"`
 
 	throttling.Limits

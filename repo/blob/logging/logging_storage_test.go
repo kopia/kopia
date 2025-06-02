@@ -17,7 +17,7 @@ func TestLoggingStorage(t *testing.T) {
 	outputCount := new(int32)
 
 	myPrefix := "myprefix"
-	myOutput := func(msg string, args ...interface{}) {
+	myOutput := func(msg string, args ...any) {
 		msg = fmt.Sprintf(msg, args...)
 
 		if !strings.HasPrefix(msg, myPrefix) {

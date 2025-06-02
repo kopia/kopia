@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func handleSourcesList(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleSourcesList(_ context.Context, rc requestContext) (any, *apiError) {
 	_, multiUser := rc.rep.(repo.DirectRepository)
 
 	resp := &serverapi.SourcesResponse{
@@ -38,7 +38,7 @@ func handleSourcesList(ctx context.Context, rc requestContext) (interface{}, *ap
 	return resp, nil
 }
 
-func handleSourcesCreate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleSourcesCreate(ctx context.Context, rc requestContext) (any, *apiError) {
 	var req serverapi.CreateSnapshotSourceRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {

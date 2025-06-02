@@ -44,7 +44,7 @@ func (e *filesystemEntry) ModTime() time.Time {
 	return time.Unix(0, e.mtimeNanos)
 }
 
-func (e *filesystemEntry) Sys() interface{} {
+func (e *filesystemEntry) Sys() any {
 	return nil
 }
 
@@ -100,10 +100,12 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 		return nil, errors.Wrap(err, "unable to stat() local file")
 	}
 
-	return newFilesystemFile(newEntry(fi, dirPrefix(f.Name()))), nil
+	basename, prefix := splitDirPrefix(f.Name())
+
+	return newFilesystemFile(newEntry(basename, fi, prefix)), nil
 }
 
-func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
+func (fsf *filesystemFile) Open(_ context.Context) (fs.Reader, error) {
 	f, err := os.Open(fsf.fullPath())
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open local file")
@@ -112,36 +114,34 @@ func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	return &fileWithMetadata{f}, nil
 }
 
-func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
+func (fsl *filesystemSymlink) Readlink(_ context.Context) (string, error) {
 	//nolint:wrapcheck
 	return os.Readlink(fsl.fullPath())
 }
 
-func (fsl *filesystemSymlink) Resolve(ctx context.Context) (fs.Entry, error) {
+func (fsl *filesystemSymlink) Resolve(_ context.Context) (fs.Entry, error) {
 	target, err := filepath.EvalSymlinks(fsl.fullPath())
 	if err != nil {
-		return nil, errors.Wrapf(err, "while reading symlink %s", fsl.fullPath())
+		return nil, errors.Wrapf(err, "cannot resolve symlink for '%q'", fsl.fullPath())
 	}
 
-	entry, err := NewEntry(target)
-
-	return entry, err
+	return NewEntry(target)
 }
 
 func (e *filesystemErrorEntry) ErrorInfo() error {
 	return e.err
 }
 
-// dirPrefix returns the directory prefix for a given path - the initial part of the path up to and including the final slash (or backslash on Windows).
-// this is similar to filepath.Dir() except dirPrefix("\\foo\bar") == "\\foo\", which is unsupported in filepath.
-func dirPrefix(s string) string {
+// splitDirPrefix returns the directory prefix for a given path - the initial part of the path up to and including the final slash (or backslash on Windows).
+// this is similar to filepath.Dir() and filepath.Base() except splitDirPrefix("\\foo\bar") == "\\foo\", which is unsupported in filepath.
+func splitDirPrefix(s string) (basename, prefix string) {
 	for i := len(s) - 1; i >= 0; i-- {
 		if s[i] == filepath.Separator || s[i] == '/' {
-			return s[0 : i+1]
+			return s[i+1:], s[0 : i+1]
 		}
 	}
 
-	return ""
+	return s, ""
 }
 
 // Directory returns fs.Directory for the specified path.

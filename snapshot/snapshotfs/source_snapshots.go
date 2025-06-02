@@ -35,7 +35,7 @@ func (s *sourceSnapshots) Size() int64 {
 	return 0
 }
 
-func (s *sourceSnapshots) Sys() interface{} {
+func (s *sourceSnapshots) Sys() any {
 	return nil
 }
 

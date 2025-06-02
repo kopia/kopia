@@ -17,7 +17,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 const (
@@ -150,7 +150,7 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 	}
 
 	if c.sendSnapshotReport {
-		notification.Send(ctx, rep, "snapshot-report", st, notification.SeverityReport, c.svc.notificationTemplateOptions())
+		notification.Send(ctx, rep, "snapshot-report", st, c.reportSeverity(st), c.svc.notificationTemplateOptions())
 	}
 
 	// ensure we flush at least once in the session to properly close all pending buffers,
@@ -171,6 +171,17 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 	}
 
 	return errors.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
+}
+
+func (c *commandSnapshotCreate) reportSeverity(st notifydata.MultiSnapshotStatus) notification.Severity {
+	switch st.OverallStatusCode() {
+	case notifydata.StatusCodeFatal:
+		return notification.SeverityError
+	case notifydata.StatusCodeWarnings:
+		return notification.SeverityWarning
+	default:
+		return notification.SeverityReport
+	}
 }
 
 func getTags(tagStrings []string) (map[string]string, error) {
@@ -215,8 +226,8 @@ func validateStartEndTime(st, et string) error {
 	return nil
 }
 
-func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
-	u := snapshotfs.NewUploader(rep)
+func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *upload.Uploader {
+	u := upload.NewUploader(rep)
 	u.MaxUploadBytes = c.snapshotCreateCheckpointUploadLimitMB << 20 //nolint:mnd
 
 	if c.snapshotCreateForceEnableActions {
@@ -275,7 +286,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(
 	fsEntry fs.Entry,
 	setManual bool,
 	rep repo.RepositoryWriter,
-	u *snapshotfs.Uploader,
+	u *upload.Uploader,
 	sourceInfo snapshot.SourceInfo,
 	tags map[string]string,
 	st *notifydata.MultiSnapshotStatus,
@@ -296,9 +307,9 @@ func (c *commandSnapshotCreate) snapshotSingleSource(
 
 	var previous []*snapshot.Manifest
 
-	previous, finalErr = findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
+	previous, finalErr = snapshot.FindPreviousManifests(ctx, rep, sourceInfo, nil)
 	if finalErr != nil {
-		return finalErr
+		return errors.Wrap(finalErr, "unable to find previous manifests")
 	}
 
 	if len(previous) > 0 {
@@ -405,50 +416,6 @@ func (c *commandSnapshotCreate) reportSnapshotStatus(ctx context.Context, manife
 	}
 
 	return nil
-}
-
-// findPreviousSnapshotManifest returns the list of previous snapshots for a given source, including
-// last complete snapshot and possibly some number of incomplete snapshots following it.
-func findPreviousSnapshotManifest(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, noLaterThan *fs.UTCTimestamp) ([]*snapshot.Manifest, error) {
-	man, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
-	if err != nil {
-		return nil, errors.Wrap(err, "error listing previous snapshots")
-	}
-
-	// phase 1 - find latest complete snapshot.
-	var previousComplete *snapshot.Manifest
-
-	var previousCompleteStartTime fs.UTCTimestamp
-
-	var result []*snapshot.Manifest
-
-	for _, p := range man {
-		if noLaterThan != nil && p.StartTime.After(*noLaterThan) {
-			continue
-		}
-
-		if p.IncompleteReason == "" && (previousComplete == nil || p.StartTime.After(previousComplete.StartTime)) {
-			previousComplete = p
-			previousCompleteStartTime = p.StartTime
-		}
-	}
-
-	if previousComplete != nil {
-		result = append(result, previousComplete)
-	}
-
-	// add all incomplete snapshots after that
-	for _, p := range man {
-		if noLaterThan != nil && p.StartTime.After(*noLaterThan) {
-			continue
-		}
-
-		if p.IncompleteReason != "" && p.StartTime.After(previousCompleteStartTime) {
-			result = append(result, p)
-		}
-	}
-
-	return result, nil
 }
 
 func getLocalBackupPaths(ctx context.Context, rep repo.Repository) ([]string, error) {

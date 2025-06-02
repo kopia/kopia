@@ -76,8 +76,17 @@ type Volume interface {
 	GetCapacity(ctx context.Context) (Capacity, error)
 }
 
+// Lister defines the ListBlobs method.
+type Lister interface {
+	// ListBlobs invokes the provided callback for each blob in the storage.
+	// Iteration continues until the callback returns an error or until all matching blobs have been reported.
+	ListBlobs(ctx context.Context, blobIDPrefix ID, cb func(bm Metadata) error) error
+}
+
 // Reader defines read access API to blob storage.
 type Reader interface {
+	Lister
+
 	// GetBlob returns full or partial contents of a blob with given ID.
 	// If length>0, the function retrieves a range of bytes [offset,offset+length)
 	// If length<0, the entire blob must be fetched.
@@ -86,10 +95,6 @@ type Reader interface {
 
 	// GetMetadata returns Metadata about single blob.
 	GetMetadata(ctx context.Context, blobID ID) (Metadata, error)
-
-	// ListBlobs invokes the provided callback for each blob in the storage.
-	// Iteration continues until the callback returns an error or until all matching blobs have been reported.
-	ListBlobs(ctx context.Context, blobIDPrefix ID, cb func(bm Metadata) error) error
 
 	// ConnectionInfo returns JSON-serializable data structure containing information required to
 	// connect to storage.
@@ -240,7 +245,7 @@ func (m *Metadata) String() string {
 var ErrBlobNotFound = errors.New("BLOB not found")
 
 // ListAllBlobs returns Metadata for all blobs in a given storage that have the provided name prefix.
-func ListAllBlobs(ctx context.Context, st Reader, prefix ID) ([]Metadata, error) {
+func ListAllBlobs(ctx context.Context, st Lister, prefix ID) ([]Metadata, error) {
 	var result []Metadata
 
 	err := st.ListBlobs(ctx, prefix, func(bm Metadata) error {
@@ -252,7 +257,7 @@ func ListAllBlobs(ctx context.Context, st Reader, prefix ID) ([]Metadata, error)
 }
 
 // IterateAllPrefixesInParallel invokes the provided callback and returns the first error returned by the callback or nil.
-func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Storage, prefixes []ID, callback func(Metadata) error) error {
+func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Lister, prefixes []ID, callback func(Metadata) error) error {
 	if len(prefixes) == 1 {
 		//nolint:wrapcheck
 		return st.ListBlobs(ctx, prefixes[0], callback)

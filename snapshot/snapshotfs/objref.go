@@ -75,12 +75,12 @@ func parseNestedObjectID(ctx context.Context, startingDir fs.Entry, parts []stri
 	return hoid.ObjectID(), nil
 }
 
-// findSnapshotByRootObjectIDOrManifestID returns the list of matching snapshots for a given rootID.
+// FindSnapshotByRootObjectIDOrManifestID returns the list of matching snapshots for a given rootID.
 // which can be either snapshot manifst ID (which matches 0 or 1 snapshots)
 // or the root object ID (which can match arbitrary number of snapshots).
 // If multiple snapshots match and they don't agree on root object attributes and consistentAttributes==true
 // the function fails, otherwise it returns the latest of the snapshots.
-func findSnapshotByRootObjectIDOrManifestID(ctx context.Context, rep repo.Repository, rootID string, consistentAttributes bool) (*snapshot.Manifest, error) {
+func FindSnapshotByRootObjectIDOrManifestID(ctx context.Context, rep repo.Repository, rootID string, consistentAttributes bool) (*snapshot.Manifest, error) {
 	m, err := snapshot.LoadSnapshot(ctx, rep, manifest.ID(rootID))
 	if err == nil {
 		return m, nil
@@ -154,7 +154,7 @@ func FilesystemEntryFromIDWithPath(ctx context.Context, rep repo.Repository, roo
 
 	var startingEntry fs.Entry
 
-	man, err := findSnapshotByRootObjectIDOrManifestID(ctx, rep, pathElements[0], consistentAttributes)
+	man, err := FindSnapshotByRootObjectIDOrManifestID(ctx, rep, pathElements[0], consistentAttributes)
 	if err != nil {
 		return nil, err
 	}

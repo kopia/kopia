@@ -5,13 +5,15 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"os"
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/grpcapi"
+	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/notification/notifyprofile"
 	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/notification/sender"
@@ -31,6 +33,7 @@ type TemplateArgs struct {
 	Hostname          string
 	EventTime         time.Time
 	EventArgs         any
+	EventArgsType     grpcapi.NotificationEventArgType
 	KopiaRepo         string
 	KopiaBuildInfo    string
 	KopiaBuildVersion string
@@ -110,7 +113,7 @@ func notificationSendersFromRepo(ctx context.Context, rep repo.Repository, sever
 
 // Send sends a notification for the given event.
 // Any errors encountered during the process are logged.
-func Send(ctx context.Context, rep repo.Repository, templateName string, eventArgs any, sev Severity, opt notifytemplate.Options) {
+func Send(ctx context.Context, rep repo.Repository, templateName string, eventArgs notifydata.TypedEventArgs, sev Severity, opt notifytemplate.Options) {
 	// if we're connected to a repository server, send the notification there.
 	if rem, ok := rep.(repo.RemoteNotifications); ok {
 		jsonData, err := json.Marshal(eventArgs)
@@ -120,7 +123,7 @@ func Send(ctx context.Context, rep repo.Repository, templateName string, eventAr
 			return
 		}
 
-		if err := rem.SendNotification(ctx, templateName, jsonData, int32(sev)); err != nil {
+		if err := rem.SendNotification(ctx, templateName, jsonData, eventArgs.EventArgsType(), int32(sev)); err != nil {
 			log(ctx).Warnw("unable to send notification", "err", err)
 		}
 
@@ -133,7 +136,7 @@ func Send(ctx context.Context, rep repo.Repository, templateName string, eventAr
 }
 
 // SendInternal sends a notification for the given event and returns an error.
-func SendInternal(ctx context.Context, rep repo.Repository, templateName string, eventArgs any, sev Severity, opt notifytemplate.Options) error {
+func SendInternal(ctx context.Context, rep repo.Repository, templateName string, eventArgs notifydata.TypedEventArgs, sev Severity, opt notifytemplate.Options) error {
 	senders, err := notificationSendersFromRepo(ctx, rep, sev)
 	if err != nil {
 		return errors.Wrap(err, "unable to get notification senders")
@@ -145,15 +148,15 @@ func SendInternal(ctx context.Context, rep repo.Repository, templateName string,
 
 	for _, s := range senders {
 		if err := SendTo(ctx, rep, s, templateName, eventArgs, sev, opt); err != nil {
-			resultErr = multierr.Append(resultErr, err)
+			resultErr = stderrors.Join(resultErr, err)
 		}
 	}
 
-	return resultErr //nolint:wrapcheck
+	return resultErr
 }
 
 // MakeTemplateArgs wraps event-specific arguments into TemplateArgs object.
-func MakeTemplateArgs(eventArgs any) TemplateArgs {
+func MakeTemplateArgs(eventArgs notifydata.TypedEventArgs) TemplateArgs {
 	now := clock.Now()
 
 	h, _ := os.Hostname()
@@ -173,7 +176,7 @@ func MakeTemplateArgs(eventArgs any) TemplateArgs {
 }
 
 // SendTo sends a notification to the given sender.
-func SendTo(ctx context.Context, rep repo.Repository, s sender.Sender, templateName string, eventArgs any, sev Severity, opt notifytemplate.Options) error {
+func SendTo(ctx context.Context, rep repo.Repository, s sender.Sender, templateName string, eventArgs notifydata.TypedEventArgs, sev Severity, opt notifytemplate.Options) error {
 	// execute template
 	var bodyBuf bytes.Buffer
 
@@ -202,15 +205,15 @@ func SendTo(ctx context.Context, rep repo.Repository, s sender.Sender, templateN
 	var resultErr error
 
 	if err := s.Send(ctx, msg); err != nil {
-		resultErr = multierr.Append(resultErr, errors.Wrap(err, "unable to send notification message"))
+		resultErr = stderrors.Join(resultErr, errors.Wrap(err, "unable to send notification message"))
 	}
 
-	return resultErr //nolint:wrapcheck
+	return resultErr
 }
 
 // SendTestNotification sends a test notification to the given sender.
 func SendTestNotification(ctx context.Context, rep repo.Repository, s sender.Sender) error {
 	log(ctx).Infof("Sending test notification to %v", s.Summary())
 
-	return SendTo(ctx, rep, s, notifytemplate.TestNotification, struct{}{}, SeveritySuccess, notifytemplate.DefaultOptions)
+	return SendTo(ctx, rep, s, notifytemplate.TestNotification, notifydata.EmptyEventData{}, SeveritySuccess, notifytemplate.DefaultOptions)
 }

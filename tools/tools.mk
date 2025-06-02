@@ -6,6 +6,8 @@
 #
 # you will need to have git and golang too in the PATH.
 
+.PHONY: all-tools install-linter install-gotestsum
+
 # windows,linux,darwin
 GOOS:=$(shell go env GOOS)
 # amd64,arm64,arm
@@ -71,7 +73,7 @@ export REPO_OWNER=$(GITHUB_REPOSITORY:%/kopia=%)
 endif
 
 # e.g. 2021-02-19 06:56:21 -0800
-git_commit_date:=$(shell git show -s --format=%ci HEAD)
+git_commit_date:=$(shell TZ=UTC git show -s --date=iso-local --format=%cd HEAD)
 
 # compute build date and time from the current commit as yyyyMMdd
 commit_date_ymd:=$(subst -,,$(word 1, $(git_commit_date)))
@@ -102,9 +104,9 @@ retry:=
 endif
 
 # tool versions
-GOLANGCI_LINT_VERSION=1.62.0
+GOLANGCI_LINT_VERSION=2.1.2
 CHECKLOCKS_VERSION=release-20241104.0
-NODE_VERSION=20.15.1
+NODE_VERSION=22.15.1
 HUGO_VERSION=0.113.0
 GOTESTSUM_VERSION=1.11.0
 GORELEASER_VERSION=v0.176.0
@@ -155,6 +157,8 @@ endif
 $(linter):
 	go run github.com/kopia/kopia/tools/gettool --tool linter:$(GOLANGCI_LINT_VERSION) --output-dir $(linter_dir)
 
+install-linter: $(linter)
+
 # checklocks
 checklocks_dir=$(TOOLS_DIR)$(slash)checklocks-$(CHECKLOCKS_VERSION)
 checklocks=$(checklocks_dir)$(slash)bin$(slash)checklocks$(exe_suffix)
@@ -197,6 +201,8 @@ gotestsum=$(gotestsum_dir)$(slash)gotestsum$(exe_suffix)
 
 $(gotestsum):
 	go run github.com/kopia/kopia/tools/gettool --tool gotestsum:$(GOTESTSUM_VERSION) --output-dir $(gotestsum_dir)
+
+install-gotestsum: $(gotestsum)
 
 # kopia 0.8 for backwards compat testing
 kopia08_version=0.8.4
@@ -319,4 +325,4 @@ regenerate-checksums:
 	  --output-dir /tmp/all-tools \
 	  --tool $(ALL_TOOL_VERSIONS)
 
-all-tools: $(gotestsum) $(npm) $(linter) $(maybehugo)
+all-tools: install-gotestsum $(npm) install-linter $(maybehugo)

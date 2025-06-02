@@ -69,6 +69,7 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 				}
 
 				err := st.GetBlob(ctx, blobID, offset, length, &data)
+
 				switch {
 				case err == nil:
 					if got, want := string(data.ToByteSlice()), string(blobID); !strings.HasPrefix(got, want) {
@@ -93,6 +94,7 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 			for range options.Iterations {
 				blobID := randomBlobID()
 				data := fmt.Sprintf("%v-%v", blobID, rand.Int63())
+
 				err := st.PutBlob(ctx, blobID, gather.FromSlice([]byte(data)), blob.PutOptions{})
 				if err != nil {
 					return errors.Wrapf(err, "PutBlob %v returned unexpected error", blobID)
@@ -109,6 +111,7 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 			for range options.Iterations {
 				blobID := randomBlobID()
 				err := st.DeleteBlob(ctx, blobID)
+
 				switch {
 				case err == nil:
 					// clean success
@@ -130,6 +133,7 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 		eg.Go(func() error {
 			for range options.Iterations {
 				blobID := randomBlobID()
+
 				prefix := blobID[0:rand.Intn(len(blobID))]
 				if rand.Intn(100) < options.NonExistentListPrefixPercentage {
 					prefix = "zzz"

@@ -163,6 +163,7 @@ func TestRetentionPolicyTest(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
 			var manifests []*snapshot.Manifest
+
 			var manifests2 []*snapshot.Manifest
 
 			for ts, want := range tc.timeToExpectedTags {
@@ -170,6 +171,7 @@ func TestRetentionPolicyTest(t *testing.T) {
 				if strings.HasPrefix(ts, "incomplete-") {
 					incompleteReason = "some-reason"
 				}
+
 				startTime, err := time.Parse(time.RFC3339, strings.TrimPrefix(ts, "incomplete-"))
 				if err != nil {
 					t.Fatal(err)

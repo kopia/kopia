@@ -22,10 +22,12 @@ func TestPushover(t *testing.T) {
 	mux := http.NewServeMux()
 
 	var requests []*http.Request
+
 	var requestBodies []bytes.Buffer
 
 	mux.HandleFunc("/some-path", func(w http.ResponseWriter, r *http.Request) {
 		var b bytes.Buffer
+
 		io.Copy(&b, r.Body)
 
 		requestBodies = append(requestBodies, b)
@@ -57,7 +59,7 @@ func TestPushover(t *testing.T) {
 	require.Len(t, requests, 2)
 	require.Equal(t, "application/json", requests[0].Header.Get("Content-Type"))
 
-	var body map[string]interface{}
+	var body map[string]any
 
 	// Plain-text request
 	require.NoError(t, json.NewDecoder(&requestBodies[0]).Decode(&body))

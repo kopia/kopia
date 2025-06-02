@@ -47,7 +47,7 @@ func (e *virtualEntry) Size() int64 {
 	return e.size
 }
 
-func (e *virtualEntry) Sys() interface{} {
+func (e *virtualEntry) Sys() any {
 	return nil
 }
 
@@ -78,7 +78,7 @@ func (sd *staticDirectory) Child(ctx context.Context, name string) (fs.Entry, er
 	return fs.IterateEntriesAndFindChild(ctx, sd, name)
 }
 
-func (sd *staticDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+func (sd *staticDirectory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	return fs.StaticIterator(append([]fs.Entry{}, sd.entries...), nil), nil
 }
 
@@ -108,13 +108,13 @@ type streamingDirectory struct {
 
 var errChildNotSupported = errors.New("streamingDirectory.Child not supported")
 
-func (sd *streamingDirectory) Child(ctx context.Context, _ string) (fs.Entry, error) {
+func (sd *streamingDirectory) Child(_ context.Context, _ string) (fs.Entry, error) {
 	return nil, errChildNotSupported
 }
 
 var errIteratorAlreadyUsed = errors.New("cannot use streaming directory iterator more than once") // +checklocksignore: mu
 
-func (sd *streamingDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+func (sd *streamingDirectory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	sd.mu.Lock()
 	defer sd.mu.Unlock()
 
@@ -158,7 +158,7 @@ var errReaderAlreadyUsed = errors.New("cannot use streaming file reader more tha
 // GetReader returns the streaming file's reader.
 // Note: Caller of this function has to ensure concurrency safety.
 // The file's reader is set to nil after the first call.
-func (vf *virtualFile) GetReader(ctx context.Context) (io.ReadCloser, error) {
+func (vf *virtualFile) GetReader(_ context.Context) (io.ReadCloser, error) {
 	if vf.reader == nil {
 		return nil, errReaderAlreadyUsed
 	}

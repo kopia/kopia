@@ -48,7 +48,7 @@ type changeEntry struct {
 // Lookup finds the cache entry for blobID.
 // The entry may be read or mutated.
 // The callback is guaranteed to have exclusive access to the entry.
-func (cache *fileIDCache) Lookup(blobID blob.ID, callback func(entry *cacheEntry) (interface{}, error)) (interface{}, error) {
+func (cache *fileIDCache) Lookup(blobID blob.ID, callback func(entry *cacheEntry) (any, error)) (any, error) {
 	entry := cache.getEntry(blobID)
 
 	entry.Mut.Lock()
@@ -73,7 +73,7 @@ func (cache *fileIDCache) getEntry(blobID blob.ID) *cacheEntry {
 
 // BlindPut blindly mutates the association for a blobID.
 func (cache *fileIDCache) BlindPut(blobID blob.ID, fileID string) {
-	_, _ = cache.Lookup(blobID, func(entry *cacheEntry) (interface{}, error) {
+	_, _ = cache.Lookup(blobID, func(entry *cacheEntry) (any, error) {
 		entry.FileID = fileID
 		return nil, nil
 	})

@@ -37,7 +37,7 @@ type ID struct {
 
 	// those 2 could be packed into one byte, but that seems like overkill
 	prefix byte
-	idLen  byte
+	idLen  uint8
 }
 
 // MarshalJSON implements JSON serialization.

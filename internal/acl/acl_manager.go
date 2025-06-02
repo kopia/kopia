@@ -3,10 +3,10 @@ package acl
 
 import (
 	"context"
+	"maps"
 	"strings"
 
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"

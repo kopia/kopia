@@ -106,6 +106,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 		for _, b := range blocks {
 			t.Run(string(b.blk), func(t *testing.T) {
 				t.Parallel()
+
 				err := r.PutBlob(ctx, b.blk, gather.FromSlice(newContents), opts)
 				if opts.DoNotRecreate {
 					require.ErrorIsf(t, err, blob.ErrBlobAlreadyExists, "overwrote blob: %v", b)

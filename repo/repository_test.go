@@ -310,7 +310,7 @@ func TestWriterScope(t *testing.T) {
 
 	rep := env.Repository // read-only
 
-	lw := rep.(repo.RepositoryWriter)
+	lw := testutil.EnsureType[repo.DirectRepositoryWriter](t, rep)
 
 	// w1, w2, w3 are independent sessions.
 	_, w1, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer1"})
@@ -452,6 +452,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 					if id == format.KopiaRepositoryBlobID {
 						return blob.ErrBlobNotFound
 					}
+
 					return nil
 				}, nil, nil, nil,
 			),
@@ -473,9 +474,11 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 					if id == format.KopiaBlobCfgBlobID {
 						return nil
 					}
+
 					if id == format.KopiaRepositoryBlobID {
 						return blob.ErrBlobNotFound
 					}
+
 					return nil
 				}, nil, nil, nil,
 			),
@@ -496,6 +499,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 					if id == format.KopiaBlobCfgBlobID || id == format.KopiaRepositoryBlobID {
 						return blob.ErrBlobNotFound
 					}
+
 					return nil
 				},
 				nil, nil,
@@ -504,6 +508,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 					if id == format.KopiaBlobCfgBlobID {
 						return errors.New("unexpected error")
 					}
+
 					return nil
 				},
 			),
@@ -527,6 +532,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 					if id == format.KopiaRepositoryBlobID {
 						return errors.New("unexpected error")
 					}
+
 					return nil
 				},
 				nil, nil, nil,
@@ -566,7 +572,7 @@ func TestObjectWritesWithRetention(t *testing.T) {
 
 	var prefixesWithRetention []string
 
-	versionedMap := env.RootStorage().(cache.Storage)
+	versionedMap := testutil.EnsureType[cache.Storage](t, env.RootStorage())
 
 	for _, prefix := range content.PackBlobIDPrefixes {
 		prefixesWithRetention = append(prefixesWithRetention, string(prefix))
@@ -582,11 +588,14 @@ func TestObjectWritesWithRetention(t *testing.T) {
 			if strings.HasPrefix(string(it.BlobID), prefix) {
 				_, err = versionedMap.TouchBlob(ctx, it.BlobID, 0)
 				require.Error(t, err, "expected error while touching blob %s", it.BlobID)
+
 				return nil
 			}
 		}
+
 		_, err = versionedMap.TouchBlob(ctx, it.BlobID, 0)
 		require.NoError(t, err, "unexpected error while touching blob %s", it.BlobID)
+
 		return nil
 	}))
 }
@@ -882,7 +891,7 @@ func TestDeriveKey(t *testing.T) {
 		})
 
 		// prepare upgrade
-		dw1Upgraded := env.Repository.(repo.DirectRepositoryWriter)
+		dw1Upgraded := testutil.EnsureType[repo.DirectRepositoryWriter](t, env.Repository)
 		cf := dw1Upgraded.ContentReader().ContentFormat()
 
 		mp, mperr := cf.GetMutableParameters(ctx)
@@ -899,7 +908,7 @@ func TestDeriveKey(t *testing.T) {
 
 		require.NoError(t, dw1Upgraded.FormatManager().SetParameters(ctx, mp, blobCfg, feat))
 
-		return env.MustConnectOpenAnother(t).(repo.DirectRepositoryWriter)
+		return testutil.EnsureType[repo.DirectRepositoryWriter](t, env.MustConnectOpenAnother(t))
 	}
 
 	// we verify that repositories started on V1 will continue to derive keys from

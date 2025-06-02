@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"maps"
 	"sort"
 	"sync"
 	"time"
@@ -68,7 +69,7 @@ type Manager struct {
 }
 
 // Put serializes the provided payload to JSON and persists it. Returns unique identifier that represents the manifest.
-func (m *Manager) Put(ctx context.Context, labels map[string]string, payload interface{}) (ID, error) {
+func (m *Manager) Put(_ context.Context, labels map[string]string, payload any) (ID, error) {
 	if labels[TypeLabelKey] == "" {
 		return "", errors.New("'type' label is required")
 	}
@@ -86,7 +87,7 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 	e := &manifestEntry{
 		ID:      ID(hex.EncodeToString(random)),
 		ModTime: m.timeNow().UTC(),
-		Labels:  copyLabels(labels),
+		Labels:  maps.Clone(labels),
 		Content: b,
 	}
 
@@ -109,7 +110,7 @@ func (m *Manager) GetMetadata(ctx context.Context, id ID) (*EntryMetadata, error
 
 // Get retrieves the contents of the provided manifest item by deserializing it as JSON to provided object.
 // If the manifest is not found, returns ErrNotFound.
-func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetadata, error) {
+func (m *Manager) Get(ctx context.Context, id ID, data any) (*EntryMetadata, error) {
 	e, err := m.getPendingOrCommitted(ctx, id)
 	if err != nil {
 		return nil, err
@@ -192,7 +193,7 @@ func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryM
 func cloneEntryMetadata(e *manifestEntry) *EntryMetadata {
 	return &EntryMetadata{
 		ID:      e.ID,
-		Labels:  copyLabels(e.Labels),
+		Labels:  maps.Clone(e.Labels),
 		Length:  len(e.Content),
 		ModTime: e.ModTime,
 	}
@@ -220,12 +221,6 @@ func (m *Manager) Flush(ctx context.Context) error {
 	}
 
 	return err
-}
-
-func mustSucceed(e error) {
-	if e != nil {
-		panic("unexpected failure: " + e.Error())
-	}
 }
 
 // Delete marks the specified manifest ID for deletion.
@@ -278,15 +273,6 @@ func IDsFromStrings(input []string) []ID {
 	return result
 }
 
-func copyLabels(m map[string]string) map[string]string {
-	r := map[string]string{}
-	for k, v := range m {
-		r[k] = v
-	}
-
-	return r
-}
-
 // ManagerOptions are optional parameters for Manager creation.
 type ManagerOptions struct {
 	TimeNow                 func() time.Time // Time provider
@@ -294,7 +280,7 @@ type ManagerOptions struct {
 }
 
 // NewManager returns new manifest manager for the provided content manager.
-func NewManager(ctx context.Context, b contentManager, options ManagerOptions, mr *metrics.Registry) (*Manager, error) {
+func NewManager(_ context.Context, b contentManager, options ManagerOptions, mr *metrics.Registry) (*Manager, error) {
 	_ = mr
 
 	timeNow := options.TimeNow
