@@ -32,14 +32,12 @@ func (c *commandSnapshotFixInvalidFiles) setup(svc appServices, parent commandPa
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
-func (c *commandSnapshotFixInvalidFiles) rewriteEntry(ctx context.Context, dirRelativePath string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
-	fname := dirRelativePath + "/" + ent.Name
-
+func (c *commandSnapshotFixInvalidFiles) rewriteEntry(ctx context.Context, pathFromRoot string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
 	if ent.Type != snapshot.EntryTypeDirectory {
-		if err := c.verifier.VerifyFile(ctx, ent.ObjectID, fname); err != nil {
-			log(ctx).Warnf("removing invalid file %v due to: %v", fname, err)
+		if err := c.verifier.VerifyFile(ctx, ent.ObjectID, pathFromRoot); err != nil {
+			log(ctx).Warnf("removing invalid file %v due to: %v", pathFromRoot, err)
 
-			return c.failedFileCallback(ctx, dirRelativePath, ent, err)
+			return c.failedFileCallback(ctx, pathFromRoot, ent, err)
 		}
 	}
 
