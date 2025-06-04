@@ -77,6 +77,11 @@ func TestSnapshotCreate(t *testing.T) {
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 	require.Len(t, sources, 3)
 
+	var manifests3 []cli.SnapshotManifest
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json", "--max-snapshots=1"), &manifests3)
+	require.Len(t, manifests3, 1)
+
 	// test ignore-identical-snapshot
 	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--ignore-identical-snapshots", "true")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
