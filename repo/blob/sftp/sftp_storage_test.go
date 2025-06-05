@@ -163,7 +163,7 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 func TestSFTPStorageValid(t *testing.T) {
 	t.Parallel()
 
-	testutil.TestSkipOnCIUnlessLinuxAMD64(t)
+	testutil.SkipTestOnCIUnlessLinuxAMD64(t)
 
 	tmpDir := mustGetLocalTmpDir(t)
 	idRSA := filepath.Join(tmpDir, "id_rsa")

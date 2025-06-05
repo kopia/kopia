@@ -3,7 +3,6 @@ package testutil
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -35,24 +34,8 @@ func SkipNonDeterministicTestUnderCodeCoverage(t *testing.T) {
 	}
 }
 
-// TestSkipUnlessCI skips the current test with a provided message, except when running
-// in CI environment, in which case it causes hard failure.
-func TestSkipUnlessCI(tb testing.TB, msg string, args ...any) {
-	tb.Helper()
-
-	if len(args) > 0 {
-		msg = fmt.Sprintf(msg, args...)
-	}
-
-	if os.Getenv("CI") != "" {
-		tb.Fatal(msg)
-	} else {
-		tb.Skip(msg)
-	}
-}
-
-// TestSkipUnlessLinux skips the current test if the test environment is not Linux.
-func TestSkipUnlessLinux(tb testing.TB) {
+// SkipTestUnlessLinux skips the current test if the test environment is not Linux.
+func SkipTestUnlessLinux(tb testing.TB) {
 	tb.Helper()
 
 	if runtime.GOOS != "linux" {
@@ -60,8 +43,8 @@ func TestSkipUnlessLinux(tb testing.TB) {
 	}
 }
 
-// TestSkipOnCIUnlessLinuxAMD64 skips the current test if running on CI unless the environment is Linux/AMD64.
-func TestSkipOnCIUnlessLinuxAMD64(tb testing.TB) {
+// SkipTestOnCIUnlessLinuxAMD64 skips the current test if running on CI unless the environment is Linux/AMD64.
+func SkipTestOnCIUnlessLinuxAMD64(tb testing.TB) {
 	tb.Helper()
 
 	if os.Getenv("CI") != "" && runtime.GOOS+"/"+runtime.GOARCH != "linux/amd64" {
