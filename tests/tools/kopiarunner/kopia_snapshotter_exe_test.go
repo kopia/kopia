@@ -43,7 +43,7 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 
 		require.NoError(t, err)
 		require.Len(t, snapIDListMan, snapCount+1, "snapshot list length does not match expected number of snapshots")
-		require.True(t, snapIDIsLastInList(snapID, snapIDListMan), "snapshot ID that was just created was not in the snapshot list", snapID)
+		require.Truef(t, snapIDIsLastInList(snapID, snapIDListMan), "snapshot ID that was just created was not in the snapshot list: %s", snapID)
 	}
 }
 
