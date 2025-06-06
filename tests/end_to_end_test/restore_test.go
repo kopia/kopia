@@ -540,7 +540,7 @@ func TestSnapshotSparseRestore(t *testing.T) {
 
 	// The behavior of the Darwin (APFS) is not published, and sparse restores
 	// are not supported on Windows. As such, we cannot (reliably) test them here.
-	testutil.TestSkipUnlessLinux(t)
+	testutil.SkipTestUnlessLinux(t)
 
 	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)

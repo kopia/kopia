@@ -287,17 +287,17 @@ func TestSplitDirPrefix(t *testing.T) {
 	}
 
 	if isWindows() {
-		cases["c:/"] = pair{"c:/", ""}
-		cases["c:\\"] = pair{"c:\\", ""}
-		cases["c:/temp"] = pair{"c:/", "temp"}
-		cases["c:\\temp"] = pair{"c:\\", "temp"}
-		cases["c:/temp/orary"] = pair{"c:/temp/", "orary"}
-		cases["c:\\temp\\orary"] = pair{"c:\\temp\\", "orary"}
-		cases["c:/temp\\orary"] = pair{"c:/temp\\", "orary"}
-		cases["c:\\temp/orary"] = pair{"c:\\temp/", "orary"}
-		cases["\\\\server\\path"] = pair{"\\\\server\\", "path"}
-		cases["\\\\server\\path\\"] = pair{"\\\\server\\path\\", ""}
-		cases["\\\\server\\path\\subdir"] = pair{"\\\\server\\path\\", "subdir"}
+		cases[`c:/`] = pair{`c:/`, ``}
+		cases[`c:\`] = pair{`c:\`, ``}
+		cases[`c:/temp`] = pair{`c:/`, `temp`}
+		cases[`c:\temp`] = pair{`c:\`, `temp`}
+		cases[`c:/temp/orary`] = pair{`c:/temp/`, `orary`}
+		cases[`c:\temp\orary`] = pair{`c:\temp\`, `orary`}
+		cases[`c:/temp\orary`] = pair{`c:/temp\`, `orary`}
+		cases[`c:\temp/orary`] = pair{`c:\temp/`, `orary`}
+		cases[`\\server\path`] = pair{`\\server\`, `path`}
+		cases[`\\server\path\`] = pair{`\\server\path\`, ``}
+		cases[`\\server\path\subdir`] = pair{`\\server\path\`, `subdir`}
 	}
 
 	for input, want := range cases {

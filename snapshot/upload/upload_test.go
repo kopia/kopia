@@ -793,7 +793,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 
 	for _, cp := range checkpoints {
 		assert.Equal(t, IncompleteReasonCheckpoint, cp.IncompleteReason, "unexpected incompleteReason")
-		assert.Equal(t, time.Duration(1), s.StartTime.Sub(cp.StartTime))
+		assert.Equal(t, time.Duration(1), s.StartTime.Sub(cp.StartTime), "snapshot start time is expected to be after checkpoint time")
 		assert.Equal(t, labels, cp.Tags)
 	}
 }
@@ -1154,7 +1154,7 @@ func TestParallelUploadDedup(t *testing.T) {
 
 	policyTree := policy.BuildTree(nil, &pol)
 
-	testutil.TestSkipOnCIUnlessLinuxAMD64(t)
+	testutil.SkipTestOnCIUnlessLinuxAMD64(t)
 	td := testutil.TempDirectory(t)
 
 	// 10 identical non-compressible files, 50MB each
@@ -1217,7 +1217,7 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 
 	policyTree := policy.BuildTree(nil, &pol)
 
-	testutil.TestSkipOnCIUnlessLinuxAMD64(t)
+	testutil.SkipTestOnCIUnlessLinuxAMD64(t)
 	td := testutil.TempDirectory(t)
 
 	// Write 2 x 50MB files

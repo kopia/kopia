@@ -73,7 +73,7 @@ var providerCreds = map[string]string{
 func startDockerMinioOrSkip(t *testing.T, minioConfigDir string) string {
 	t.Helper()
 
-	testutil.TestSkipOnCIUnlessLinuxAMD64(t)
+	testutil.SkipTestOnCIUnlessLinuxAMD64(t)
 
 	containerID := testutil.RunContainerAndKillOnCloseOrSkip(t,
 		"run", "--rm", "-p", "0:9000",

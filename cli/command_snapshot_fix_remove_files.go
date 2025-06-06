@@ -27,10 +27,10 @@ func (c *commandSnapshotFixRemoveFiles) setup(svc appServices, parent commandPar
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
-func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, dirRelativePath string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
+func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, pathFromRoot string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
 	for _, id := range c.removeObjectIDs {
 		if ent.ObjectID.String() == id {
-			log(ctx).Infof("will remove file %v", path.Join(dirRelativePath, ent.Name))
+			log(ctx).Infof("will remove file %v", pathFromRoot)
 
 			return nil, nil
 		}
@@ -43,7 +43,7 @@ func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, dirRel
 		}
 
 		if matched {
-			log(ctx).Infof("will remove file %v", path.Join(dirRelativePath, ent.Name))
+			log(ctx).Infof("will remove file %v", pathFromRoot)
 
 			return nil, nil
 		}

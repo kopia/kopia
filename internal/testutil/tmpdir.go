@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -24,7 +25,7 @@ var interestingLengths = []int{10, 50, 100, 240, 250, 260, 270}
 
 // GetInterestingTempDirectoryName returns interesting directory name used for testing.
 func GetInterestingTempDirectoryName() (string, error) {
-	td, err := os.MkdirTemp("", "kopia-test")
+	td, err := os.MkdirTemp("", "kopia-test-"+time.Now().UTC().Format("20060102-150405")) //nolint:forbidigo
 	if err != nil {
 		return "", errors.Wrap(err, "unable to create temp directory")
 	}
@@ -73,7 +74,7 @@ func TempDirectory(tb testing.TB) string {
 func TempDirectoryShort(tb testing.TB) string {
 	tb.Helper()
 
-	d, err := os.MkdirTemp("", "kopia-test")
+	d, err := os.MkdirTemp("", "kopia-test-"+time.Now().UTC().Format("20060102-150405")) //nolint:forbidigo
 	if err != nil {
 		tb.Fatal(errors.Wrap(err, "unable to create temp directory"))
 	}

@@ -13,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -38,7 +37,7 @@ func TestSnapshotNoLeftoverCheckpoints(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	baseDir := testutil.TempDirectory(t)
+	baseDir := t.TempDir()
 	writeRandomFile(t, filepath.Join(baseDir, "foo"), fileSize)
 
 	startTime := clock.Now()
