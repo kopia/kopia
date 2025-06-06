@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -76,4 +78,73 @@ func TestSnapshotVerify(t *testing.T) {
 
 	// Requesting a snapshot verify of a non-existent manifest ID results in error.
 	env.RunAndExpectFailure(t, "snapshot", "verify", "not-a-manifest-id")
+
+	// Redo the above snapshot verify commands with the --json flag and check the outputs.
+
+	// Verifying everything is expected to fail.
+	stdout, _ := env.RunAndExpectFailure(t, "snapshot", "verify", "--json")
+	require.Len(t, stdout, 1)
+	result := unmarshalSnapVerify(t, stdout[0])
+	require.NotZero(t, result.ProcessedObjectCount)
+	require.NotZero(t, result.ErrorCount)
+	require.Len(t, result.ErrorStrings, 1)
+
+	// Verifying the untouched snapshot is expected to succeed.
+	stdout = env.RunAndExpectSuccess(t, "snapshot", "verify", "--json", string(intactMan.ID))
+	require.Len(t, stdout, 1)
+	result = unmarshalSnapVerify(t, stdout[0])
+	require.NotZero(t, result.ProcessedObjectCount)
+	require.Zero(t, result.ErrorCount)
+	require.Empty(t, result.ErrorStrings)
+
+	// Verifying the corrupted snapshot is expected to fail.
+	stdout, _ = env.RunAndExpectFailure(t, "snapshot", "verify", "--json", string(corruptMan1.ID))
+	require.Len(t, stdout, 1)
+	result = unmarshalSnapVerify(t, stdout[0])
+	require.NotZero(t, result.ProcessedObjectCount)
+	require.NotZero(t, result.ErrorCount)
+	require.Len(t, result.ErrorStrings, 1)
+
+	// Verifying the corrupted snapshot is expected to fail.
+	stdout, _ = env.RunAndExpectFailure(t, "snapshot", "verify", "--json", string(corruptMan2.ID))
+	require.Len(t, stdout, 1)
+	result = unmarshalSnapVerify(t, stdout[0])
+	require.NotZero(t, result.ProcessedObjectCount)
+	require.NotZero(t, result.ErrorCount)
+	require.Len(t, result.ErrorStrings, 1)
+
+	// Find one matching error corresponding to the single corrupted contents.
+	stdout, stderr, err = env.Run(t, true, "snapshot", "verify", "--json", "--max-errors", "3", string(corruptMan1.ID))
+	require.Error(t, err)
+	assert.Equal(t, 1, strings.Count(strings.Join(stderr, "\n"), "error processing"))
+	result = unmarshalSnapVerify(t, stdout[0])
+	require.NotZero(t, result.ProcessedObjectCount)
+	require.Equal(t, 1, result.ErrorCount)
+	require.Len(t, result.ErrorStrings, 1)
+
+	// Find two matching errors in the verify output, corresponding to each
+	// of the two corrupted contents.
+	stdout, stderr, err = env.Run(t, true, "snapshot", "verify", "--json", "--max-errors", "3", string(corruptMan2.ID))
+	require.Error(t, err)
+	assert.Equal(t, 2, strings.Count(strings.Join(stderr, "\n"), "error processing"))
+	result = unmarshalSnapVerify(t, stdout[0])
+	require.NotZero(t, result.ProcessedObjectCount)
+	require.Equal(t, 2, result.ErrorCount)
+	require.Len(t, result.ErrorStrings, 2)
+
+	// Requesting a snapshot verify of a non-existent manifest ID results in error.
+	stdout, _ = env.RunAndExpectFailure(t, "snapshot", "verify", "--json", "not-a-manifest-id")
+	result = unmarshalSnapVerify(t, stdout[0])
+	require.Zero(t, result.ProcessedObjectCount)
+	require.Equal(t, 1, result.ErrorCount)
+	require.Len(t, result.ErrorStrings, 1)
+}
+
+func unmarshalSnapVerify(t *testing.T, stdout string) *snapshotfs.VerifierResult {
+	t.Helper()
+
+	r := &snapshotfs.VerifierResult{}
+	require.NoError(t, json.Unmarshal([]byte(stdout), r))
+
+	return r
 }

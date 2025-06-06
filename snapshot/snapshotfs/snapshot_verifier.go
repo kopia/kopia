@@ -131,16 +131,24 @@ type VerifierOptions struct {
 	BlobMap            map[blob.ID]blob.Metadata
 }
 
+// VerifierResult returns results from the verifier.
+type VerifierResult struct {
+	ProcessedObjectCount int      `json:"processedObjectCount"`
+	ErrorCount           int      `json:"errorCount"`
+	Errors               []error  `json:"-"`
+	ErrorStrings         []string `json:"errorStrings,omitempty"`
+}
+
 // InParallel starts parallel verification and invokes the provided function which can
 // call Process() on in the provided TreeWalker.
-func (v *Verifier) InParallel(ctx context.Context, enqueue func(tw *TreeWalker) error) error {
+func (v *Verifier) InParallel(ctx context.Context, enqueue func(tw *TreeWalker) error) (*VerifierResult, error) {
 	tw, twerr := NewTreeWalker(ctx, TreeWalkerOptions{
 		Parallelism:   v.opts.Parallelism,
 		EntryCallback: v.verifyObject,
 		MaxErrors:     v.opts.MaxErrors,
 	})
 	if twerr != nil {
-		return errors.Wrap(twerr, "tree walker")
+		return nil, errors.Wrap(twerr, "tree walker")
 	}
 	defer tw.Close(ctx)
 
@@ -170,11 +178,33 @@ func (v *Verifier) InParallel(ctx context.Context, enqueue func(tw *TreeWalker) 
 	v.workersWG.Wait()
 	v.fileWorkQueue = nil
 
-	if err != nil {
-		return err
+	twErrs, numErrors := tw.GetErrors()
+
+	errStrs := make([]string, 0, len(twErrs))
+	for _, twErr := range twErrs {
+		errStrs = append(errStrs, twErr.Error())
 	}
 
-	return tw.Err()
+	result := &VerifierResult{
+		ProcessedObjectCount: int(v.processed.Load()),
+		ErrorCount:           numErrors,
+		Errors:               twErrs,
+		ErrorStrings:         errStrs,
+	}
+
+	if err != nil {
+		// In some circumstances, the enqueue function may return an error itself, for instance
+		// if it failed to resolve the snapshot manifest from the ID.
+		// Append that error to the result output and return.
+		result.Errors = append(result.Errors, err)
+		result.ErrorStrings = append(result.ErrorStrings, err.Error())
+		result.ErrorCount++
+
+		return result, err
+	}
+
+	// Otherwise return the tree walker error output along with result details.
+	return result, tw.Err()
 }
 
 // NewVerifier creates a verifier.
