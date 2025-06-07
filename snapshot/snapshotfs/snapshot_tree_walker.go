@@ -58,6 +58,15 @@ func (w *TreeWalker) ReportError(ctx context.Context, entryPath string, err erro
 	w.numErrors++
 }
 
+// GetErrors returns a copy of the list of errors found during the tree walk, as well
+// as the total count of errors encountered.
+func (w *TreeWalker) GetErrors() (errs []error, numErrors int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return append([]error{}, w.errors...), w.numErrors
+}
+
 // Err returns the error encountered when walking the tree.
 func (w *TreeWalker) Err() error {
 	w.mu.Lock()
