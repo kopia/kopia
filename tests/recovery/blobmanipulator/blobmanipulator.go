@@ -30,7 +30,7 @@ var (
 // BlobManipulator provides a way to run a kopia command.
 type BlobManipulator struct {
 	KopiaCommandRunner *kopiarunner.KopiaSnapshotter
-	DirCreater         *snapmeta.KopiaSnapshotter
+	DirCreator         *snapmeta.KopiaSnapshotter
 	fileWriter         *fiofilewriter.FileWriter
 
 	DataRepoPath       string
@@ -52,7 +52,7 @@ func NewBlobManipulator(baseDirPath, dataRepoPath string) (*BlobManipulator, err
 
 	return &BlobManipulator{
 		KopiaCommandRunner: runner,
-		DirCreater:         ks,
+		DirCreator:         ks,
 	}, nil
 }
 
@@ -84,7 +84,7 @@ func (bm *BlobManipulator) ConnectOrCreateRepo(dataRepoPath string) error {
 		return errKopiaRepoNotFound
 	}
 
-	return bm.DirCreater.ConnectOrCreateRepo(bm.DataRepoPath)
+	return bm.DirCreator.ConnectOrCreateRepo(bm.DataRepoPath)
 }
 
 // DeleteBlob deletes the provided blob or a random blob, in kopia repo.

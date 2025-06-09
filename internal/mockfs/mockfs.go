@@ -434,7 +434,7 @@ type ErrorEntry struct {
 	err error
 }
 
-// ErrorInfo implements fs.ErrorErntry.
+// ErrorInfo implements fs.ErrorEntry.
 func (e *ErrorEntry) ErrorInfo() error {
 	return e.err
 }

@@ -122,7 +122,7 @@ func maybeStartMaintenanceManager(
 	// - not direct; or
 	// - read only.
 	// Note: the repo owner is not checked here since the repo owner can be externally
-	// changed while the server is running. The server would pick up the new onwer
+	// changed while the server is running. The server would pick up the new owner
 	// the next time a maintenance task executes.
 	dr, ok := rep.(repo.DirectRepository)
 	if !ok {

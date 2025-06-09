@@ -203,7 +203,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 	defer contig.Close()
 
 	if _, err := data.WriteTo(contig); err != nil {
-		return errors.Wrap(err, "can't write to comtiguous buffer")
+		return errors.Wrap(err, "can't write to contiguous buffer")
 	}
 
 	//nolint:wrapcheck

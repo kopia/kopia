@@ -98,7 +98,7 @@ func assign(iif content.Info, i int, m map[content.ID][2]content.Info) {
 	m[iif.ContentID] = v
 }
 
-// loadIndexBlobs load index blobs into indexEntries map.  indexEntries map will allow comparison betweel two indexes (index at which == 0 and index at which == 1).
+// loadIndexBlobs load index blobs into indexEntries map.  indexEntries map will allow comparison between two indexes (index at which == 0 and index at which == 1).
 func loadIndexBlobs(ctx context.Context, indexEntries map[content.ID][2]content.Info, sm *content.SharedManager, which int, indexBlobInfos []indexblob.Metadata) error {
 	d := gather.WriteBuffer{}
 
@@ -157,7 +157,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 	var zeroInfo content.Info
 
-	// both indexes will have matching contentiDs with matching indexInfo structures.
+	// both indexes will have matching contentIDs with matching indexInfo structures.
 	//nolint:gocritic
 	for contentID, indexEntryPairs := range indexEntries {
 		iep0 := indexEntryPairs[0] // first entry of index entry pair

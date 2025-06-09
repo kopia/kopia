@@ -23,7 +23,7 @@ const (
 // on a repository that is already using the latest format version.
 var ErrFormatUptoDate = errors.New("repository format is up to date") // +checklocksignore
 
-// BackupBlobID gets the upgrade backu pblob-id fro mthe lock.
+// BackupBlobID gets the upgrade backup blob-id from the lock.
 func BackupBlobID(l UpgradeLockIntent) blob.ID {
 	return blob.ID(BackupBlobIDPrefix + l.OwnerID)
 }

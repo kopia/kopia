@@ -34,7 +34,7 @@ linters:
           - github.com/aws/aws-sdk-go:
               recommendations:
                 - github.com/minio/minio-go
-              reason: "github.com/aws/aws-sdk-go is not activily developed any longer"
+              reason: "github.com/aws/aws-sdk-go is not actively developed any longer"
           - github.com/rs/zerolog/log:
               recommendations:
                 - "use kopia's logging packages"

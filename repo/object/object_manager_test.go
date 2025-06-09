@@ -37,7 +37,7 @@ type fakeContentManager struct {
 	// +checklocks:mu
 	data map[content.ID][]byte
 	// +checklocks:mu
-	compresionIDs map[content.ID]compression.HeaderID
+	compressionIDs map[content.ID]compression.HeaderID
 
 	supportsContentCompression bool
 	writeContentError          error
@@ -72,8 +72,8 @@ func (f *fakeContentManager) WriteContent(ctx context.Context, data gather.Bytes
 	defer f.mu.Unlock()
 
 	f.data[contentID] = data.ToByteSlice()
-	if f.compresionIDs != nil {
-		f.compresionIDs[contentID] = comp
+	if f.compressionIDs != nil {
+		f.compressionIDs[contentID] = comp
 	}
 
 	return contentID, nil
@@ -88,7 +88,7 @@ func (f *fakeContentManager) ContentInfo(ctx context.Context, contentID content.
 	defer f.mu.Unlock()
 
 	if d, ok := f.data[contentID]; ok {
-		return content.Info{ContentID: contentID, PackedLength: uint32(len(d)), CompressionHeaderID: f.compresionIDs[contentID]}, nil
+		return content.Info{ContentID: contentID, PackedLength: uint32(len(d)), CompressionHeaderID: f.compressionIDs[contentID]}, nil
 	}
 
 	return content.Info{}, blob.ErrBlobNotFound
@@ -106,7 +106,7 @@ func setupTest(t *testing.T, compressionHeaderID map[content.ID]compression.Head
 	fcm := &fakeContentManager{
 		data:                       data,
 		supportsContentCompression: compressionHeaderID != nil,
-		compresionIDs:              compressionHeaderID,
+		compressionIDs:              compressionHeaderID,
 	}
 
 	r, err := NewObjectManager(testlogging.Context(t), fcm, format.ObjectFormat{

@@ -25,7 +25,7 @@ func (w failingWriter) Write(buf []byte) (int, error) {
 }
 
 func TestGatherBytes(t *testing.T) {
-	// split the 'whole' into equivalent Bytes slicings in some interesting ways
+	// split the 'whole' into equivalent Bytes slices in some interesting ways
 	cases := []struct {
 		whole  []byte
 		sliced Bytes
@@ -113,7 +113,7 @@ func TestGatherBytes(t *testing.T) {
 				t.Errorf("unexpected data from GetBytes() %v, want %v", string(all), string(tc.whole))
 			}
 
-			// AppendSectionTo - test exhaustively all combinationf os start, length
+			// AppendSectionTo - test exhaustively all combinations of start, length
 			var tmp WriteBuffer
 			defer tmp.Close()
 
@@ -316,7 +316,7 @@ func TestGatherBytesReaderAtVariableInputBufferSizes(t *testing.T) {
 
 			// write the generated data
 			n, err := preWrt.Write(buf)
-			require.NoErrorf(t, err, "Write() faiiled, inputBufferSize: %v", tc.inputBufferSize)
+			require.NoErrorf(t, err, "Write() failed, inputBufferSize: %v", tc.inputBufferSize)
 			require.Equalf(t, defaultAllocator.chunkSize, preWrt.alloc.chunkSize,
 				"this test expects that the default-allocator will be used, but we are using: %#v", preWrt.alloc)
 

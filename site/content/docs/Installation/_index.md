@@ -310,7 +310,7 @@ services:
             - /path/to/data/dir:/data:ro
             # Mount repository location
             - /path/to/repository/dir:/repository
-            # Mount path for browsing mounted snaphots
+            # Mount path for browsing mounted snapshots
             - /path/to/tmp/dir:/tmp:shared
 ```
 

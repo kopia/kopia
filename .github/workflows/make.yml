@@ -77,7 +77,7 @@ jobs:
       run: make ci-build
       timeout-minutes: 40
       env:
-        # Apple credentials for notarizaton, used by Electron Builder
+        # Apple credentials for notarization, used by Electron Builder
         APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
         APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}

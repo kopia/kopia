@@ -24,7 +24,7 @@ type OpenRepository struct {
 	openID string
 }
 
-// Refresh refreshes the set of committed Contents and manifest from repositor.
+// Refresh refreshes the set of committed Contents and manifest from repository.
 func (o *OpenRepository) Refresh(ctx context.Context, cids *TrackingSet[content.ID], mids *TrackingSet[manifest.ID]) {
 	o.ReadableContents.Replace(ctx, cids.ids)
 	o.ReadableManifests.Replace(ctx, mids.ids)

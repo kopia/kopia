@@ -209,7 +209,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 }
 
 // Checks for changes in e1's and e2's metadata when they have the same content,
-// and upates the stats accordingly.
+// and updates the stats accordingly.
 // The function is not concurrency safe, as it updates st without any locking.
 func compareMetadata(ctx context.Context, e1, e2 fs.Entry, path string, st *EntryTypeStats) {
 	var changed bool

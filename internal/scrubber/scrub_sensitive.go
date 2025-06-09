@@ -7,7 +7,7 @@ import (
 )
 
 // ScrubSensitiveData returns a copy of a given value with sensitive fields scrubbed.
-// Fields are marked as sensitive with truct field tag `kopia:"sensitive"`.
+// Fields are marked as sensitive with struct field tag `kopia:"sensitive"`.
 func ScrubSensitiveData(v reflect.Value) reflect.Value {
 	switch v.Kind() {
 	case reflect.Ptr:

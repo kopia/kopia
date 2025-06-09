@@ -325,7 +325,7 @@ func (p *CountingUploadProgress) UITaskCounters(final bool) map[string]uitask.Co
 		"Hashed Bytes":    uitask.BytesCounter(hashedBytes),
 		"Processed Bytes": uitask.BytesCounter(hashedBytes + cachedBytes),
 
-		// bytes actually ploaded to the server (non-deduplicated)
+		// bytes actually uploaded to the server (non-deduplicated)
 		"Uploaded Bytes": uitask.BytesCounter(atomic.LoadInt64(&p.counters.TotalUploadedBytes)),
 
 		"Excluded Files":       uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalExcludedFiles))),

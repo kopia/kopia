@@ -48,6 +48,6 @@ func TestLoggingStorage(t *testing.T) {
 	}
 
 	if got, want := st.ConnectionInfo().Type, underlying.ConnectionInfo().Type; got != want {
-		t.Errorf("unexpected connection infor %v, want %v", got, want)
+		t.Errorf("unexpected connection info %v, want %v", got, want)
 	}
 }

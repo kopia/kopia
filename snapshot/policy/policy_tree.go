@@ -116,7 +116,7 @@ func (t *Tree) EffectivePolicy() *Policy {
 	return t.effective
 }
 
-// IsInherited returns true if the policy inherited to the given tree hode has been inherited from its parent.
+// IsInherited returns true if the policy inherited to the given tree node has been inherited from its parent.
 func (t *Tree) IsInherited() bool {
 	if t == nil {
 		return true
