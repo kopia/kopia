@@ -100,7 +100,7 @@ func TestWebhook(t *testing.T) {
 		Body:    `This is a test.`,
 	}), "404")
 
-	// POST in Discord format
+	// third request - POST in Discord format
 	pDiscord, err := sender.GetSender(ctx, "my-profile", "webhook", &webhook.Options{
 		Endpoint: server.URL + "/some-path",
 		Method:   "it-should-not-matter",
@@ -108,6 +108,7 @@ func TestWebhook(t *testing.T) {
 		Discord:  true,
 	})
 	require.NoError(t, err)
+	require.Equal(t, "txt", pDiscord.Format())
 
 	require.NoError(t, pDiscord.Send(ctx, &sender.Message{
 		Subject: "Discord test",
