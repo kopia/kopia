@@ -58,6 +58,7 @@ func MergeOptions(ctx context.Context, src Options, dst *Options, isUpdate bool)
 	copyOrMerge(&dst.Method, src.Method, isUpdate)
 	copyOrMerge(&dst.Headers, src.Headers, isUpdate)
 	copyOrMerge(&dst.Format, src.Format, isUpdate)
+	copyOrMerge(&dst.Discord, src.Discord, isUpdate)
 
 	return dst.ApplyDefaultsAndValidate(ctx)
 }
