@@ -2,6 +2,7 @@ package webhook
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 
 	"github.com/pkg/errors"
@@ -15,12 +16,20 @@ type Options struct {
 	Method   string `json:"method"`
 	Format   string `json:"format"`
 	Headers  string `json:"headers"` // newline-separated list of headers (key: value)
+	Discord  bool   `json:"Discord"`
 }
 
 // ApplyDefaultsAndValidate applies default values and validates the configuration.
 func (o *Options) ApplyDefaultsAndValidate(_ context.Context) error {
 	if o.Method == "" {
 		o.Method = "POST"
+	}
+
+	if o.Discord {
+		// If this webhook is meant for discord then we want to always format to txt aka markdown and not HTML.
+		o.Format = sender.FormatPlainText
+		o.Method = "POST"
+		o.Headers = fmt.Sprintf("%s\n%s", o.Headers, "Content-Type:application/json")
 	}
 
 	if err := sender.ValidateMessageFormatAndSetDefault(&o.Format, sender.FormatPlainText); err != nil {

@@ -99,6 +99,27 @@ func TestWebhook(t *testing.T) {
 		Subject: "Test",
 		Body:    `This is a test.`,
 	}), "404")
+
+	// POST in Discord format
+	pDiscord, err := sender.GetSender(ctx, "my-profile", "webhook", &webhook.Options{
+		Endpoint: server.URL + "/some-path",
+		Method:   "it-should-not-matter",
+		Format:   "it-should-not-matter",
+		Discord:  true,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, pDiscord.Send(ctx, &sender.Message{
+		Subject: "Discord test",
+		Body:    "This is a test.\n\n* one\n* two\n* three",
+	}))
+	require.NoError(t, err)
+
+	require.Equal(t, "POST", requests[2].Method)
+	require.Equal(t, "application/json", requests[2].Header.Get("Content-Type"))
+	expectedDiscordBody := `{"content":"Discord test","embeds":[{"description":"This is a test.\n\n* one\n* two\n* three"}]}`
+	require.JSONEq(t, expectedDiscordBody, requestBodies[2].String())
+	require.Equal(t, "Discord test", requests[2].Header.Get("Subject"))
 }
 
 func TestWebhook_Failure(t *testing.T) {
