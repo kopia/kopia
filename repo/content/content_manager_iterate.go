@@ -228,7 +228,7 @@ func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOpt
 }
 
 // IterateUnreferencedBlobs returns the list of unreferenced storage blobs.
-func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefixes []blob.ID, parallellism int, callback func(blob.Metadata) error) error {
+func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefixes []blob.ID, parallelism int, callback func(blob.Metadata) error) error {
 	usedPacks, err := bigmap.NewSet(ctx)
 	if err != nil {
 		return errors.Wrap(err, "new set")
@@ -261,7 +261,7 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 
 	var prefixes []blob.ID
 
-	if parallellism <= len(blobPrefixes) {
+	if parallelism <= len(blobPrefixes) {
 		prefixes = append(prefixes, blobPrefixes...)
 	} else {
 		// iterate {p,q}[0-9,a-f]
@@ -274,7 +274,7 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 
 	bm.log.Debugf("scanning prefixes %v", prefixes)
 
-	if err := blob.IterateAllPrefixesInParallel(ctx, parallellism, bm.st, prefixes,
+	if err := blob.IterateAllPrefixesInParallel(ctx, parallelism, bm.st, prefixes,
 		func(bm blob.Metadata) error {
 			if usedPacks.Contains([]byte(bm.BlobID)) {
 				return nil

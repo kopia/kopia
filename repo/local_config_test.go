@@ -56,7 +56,7 @@ func TestLocalConfig_noCaching(t *testing.T) {
 	require.NoError(t, err)
 
 	if got, want := loadedLC.Caching, originalLC.Caching; got != want {
-		t.Fatalf("cacheing did not round trip: %v, want %v", got, want)
+		t.Fatalf("caching did not round trip: %v, want %v", got, want)
 	}
 }
 
@@ -66,7 +66,7 @@ func TestLocalConfig_notFound(t *testing.T) {
 	}
 }
 
-func mustParseJSONFile(t *testing.T, fname string, o interface{}) {
+func mustParseJSONFile(t *testing.T, fname string, o any) {
 	t.Helper()
 
 	f, err := os.Open(fname)

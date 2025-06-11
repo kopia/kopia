@@ -66,7 +66,7 @@ func (b *DirManifestBuilder) AddEntry(de *snapshot.DirEntry) {
 	}
 }
 
-// AddFailedEntry adds a failed directory entry to the builder and increments enither ignored or fatal error count.
+// AddFailedEntry adds a failed directory entry to the builder and increments either ignored or fatal error count.
 func (b *DirManifestBuilder) AddFailedEntry(relPath string, isIgnoredError bool, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()

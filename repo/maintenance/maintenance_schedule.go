@@ -46,7 +46,7 @@ type Schedule struct {
 	Runs map[TaskType][]RunInfo `json:"runs"`
 }
 
-// ReportRun adds the provided run information to the history and discards oldest entried.
+// ReportRun adds the provided run information to the history and discards oldest entries.
 func (s *Schedule) ReportRun(taskType TaskType, info RunInfo) {
 	if s.Runs == nil {
 		s.Runs = map[TaskType][]RunInfo{}

@@ -2,24 +2,14 @@ package kopiarunner
 
 import (
 	"errors"
-	"fmt"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestParseSnapListAllExeTest(t *testing.T) {
-	baseDir, err := os.MkdirTemp("", t.Name())
-	require.NoError(t, err)
-
-	defer os.RemoveAll(baseDir)
-
-	repoDir, err := os.MkdirTemp(baseDir, "repo")
-	require.NoError(t, err)
-
-	sourceDir, err := os.MkdirTemp(baseDir, "source")
-	require.NoError(t, err)
+	repoDir := t.TempDir()
+	sourceDir := t.TempDir()
 
 	ks, err := NewKopiaSnapshotter(repoDir)
 	if errors.Is(err, ErrExeVariableNotSet) {
@@ -34,12 +24,7 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 	// Empty snapshot list
 	snapIDListSnap, err := ks.snapIDsFromSnapListAll()
 	require.NoError(t, err)
-
-	if got, want := len(snapIDListSnap), 0; got != want {
-		t.Errorf("Snapshot list (len %d) should be empty", got)
-	}
-
-	fmt.Println(snapIDIsLastInList("asdf", snapIDListSnap))
+	require.Empty(t, snapIDListSnap, "Snapshot list should be empty")
 
 	const numSnapsToTest = 5
 	for snapCount := range numSnapsToTest {
@@ -48,27 +33,17 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 
 		// Validate the list against kopia snapshot list --all
 		snapIDListSnap, err := ks.snapIDsFromSnapListAll()
+
 		require.NoError(t, err)
-
-		if got, want := len(snapIDListSnap), snapCount+1; got != want {
-			t.Errorf("Snapshot list len (%d) does not match expected number of snapshots (%d)", got, want)
-		}
-
-		if !snapIDIsLastInList(snapID, snapIDListSnap) {
-			t.Errorf("Snapshot ID that was just created %s was not in the snapshot list", snapID)
-		}
+		require.Len(t, snapIDListSnap, snapCount+1, "snapshot list length does not match expected number of snapshots")
+		require.Truef(t, snapIDIsLastInList(snapID, snapIDListSnap), "snapshot ID that was just created was not in the snapshot list %s", snapID)
 
 		// Validate the list against kopia snapshot list --all
 		snapIDListMan, err := ks.snapIDsFromManifestList()
+
 		require.NoError(t, err)
-
-		if got, want := len(snapIDListMan), snapCount+1; got != want {
-			t.Errorf("Snapshot list len (%d) does not match expected number of snapshots (%d)", got, want)
-		}
-
-		if !snapIDIsLastInList(snapID, snapIDListSnap) {
-			t.Errorf("Snapshot ID that was just created %s was not in the manifest list", snapID)
-		}
+		require.Len(t, snapIDListMan, snapCount+1, "snapshot list length does not match expected number of snapshots")
+		require.Truef(t, snapIDIsLastInList(snapID, snapIDListMan), "snapshot ID that was just created was not in the snapshot list: %s", snapID)
 	}
 }
 

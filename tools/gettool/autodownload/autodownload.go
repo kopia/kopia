@@ -161,7 +161,7 @@ func unzip(dir string, r io.Reader, stripPathComponents int) error {
 }
 
 // Download downloads the provided URL and extracts it to the provided directory, retrying
-// exponentionally until succeeded.
+// exponentially until succeeded.
 func Download(url, dir string, checksum map[string]string, stripPathComponents int) error {
 	const (
 		// sleep durations 5, 10, 20, 40, 80, 160, 320

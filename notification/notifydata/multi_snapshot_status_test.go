@@ -14,9 +14,10 @@ import (
 
 func TestOverallStatus(t *testing.T) {
 	tests := []struct {
-		name      string
-		snapshots []*notifydata.ManifestWithError
-		expected  string
+		name         string
+		snapshots    []*notifydata.ManifestWithError
+		expected     string
+		expectedCode string
 	}{
 		{
 			name: "one success",
@@ -29,7 +30,8 @@ func TestOverallStatus(t *testing.T) {
 					},
 				}},
 			},
-			expected: "Successfully created a snapshot of /some/path",
+			expected:     "Successfully created a snapshot of /some/path",
+			expectedCode: notifydata.StatusCodeSuccess,
 		},
 		{
 			name: "all success",
@@ -37,7 +39,8 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{}},
 				{Manifest: snapshot.Manifest{}},
 			},
-			expected: "Successfully created 2 snapshots",
+			expected:     "Successfully created 2 snapshots",
+			expectedCode: notifydata.StatusCodeSuccess,
 		},
 		{
 			name: "one fatal error",
@@ -45,7 +48,8 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{}, Error: "fatal error"},
 				{Manifest: snapshot.Manifest{}},
 			},
-			expected: "Failed to create 1 of 2 snapshots",
+			expected:     "Failed to create 1 of 2 snapshots",
+			expectedCode: notifydata.StatusCodeFatal,
 		},
 		{
 			name: "one fatal error",
@@ -58,7 +62,8 @@ func TestOverallStatus(t *testing.T) {
 					},
 				}, Error: "fatal error"},
 			},
-			expected: "Failed to create a snapshot of /some/path",
+			expected:     "Failed to create a snapshot of /some/path",
+			expectedCode: notifydata.StatusCodeFatal,
 		},
 		{
 			name: "multiple fatal errors",
@@ -66,7 +71,8 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{}, Error: "fatal error"},
 				{Manifest: snapshot.Manifest{}, Error: "fatal error"},
 			},
-			expected: "Failed to create 2 of 2 snapshots",
+			expected:     "Failed to create 2 of 2 snapshots",
+			expectedCode: notifydata.StatusCodeFatal,
 		},
 		{
 			name: "one error",
@@ -74,7 +80,8 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 				{Manifest: snapshot.Manifest{}},
 			},
-			expected: "Successfully created 2 snapshots",
+			expected:     "Successfully created 2 snapshots",
+			expectedCode: notifydata.StatusCodeWarnings,
 		},
 		{
 			name: "one fatal error and two errors",
@@ -84,7 +91,8 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 			},
-			expected: "Failed to create 1 of 4 snapshots",
+			expected:     "Failed to create 1 of 4 snapshots",
+			expectedCode: notifydata.StatusCodeFatal,
 		},
 		{
 			name: "one fatal error and one errors",
@@ -93,7 +101,8 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{}},
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 			},
-			expected: "Failed to create 1 of 3 snapshots",
+			expected:     "Failed to create 1 of 3 snapshots",
+			expectedCode: notifydata.StatusCodeFatal,
 		},
 		{
 			name: "multiple errors",
@@ -101,7 +110,8 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 				{Manifest: snapshot.Manifest{RootEntry: &snapshot.DirEntry{DirSummary: &fs.DirectorySummary{IgnoredErrorCount: 1}}}},
 			},
-			expected: "Successfully created 2 snapshots",
+			expected:     "Successfully created 2 snapshots",
+			expectedCode: notifydata.StatusCodeWarnings,
 		},
 		{
 			name: "incomplete snapshot",
@@ -109,7 +119,8 @@ func TestOverallStatus(t *testing.T) {
 				{Manifest: snapshot.Manifest{IncompleteReason: "incomplete"}},
 				{Manifest: snapshot.Manifest{}},
 			},
-			expected: "Successfully created 2 snapshots",
+			expected:     "Successfully created 2 snapshots",
+			expectedCode: notifydata.StatusCodeSuccess,
 		},
 	}
 
@@ -117,6 +128,8 @@ func TestOverallStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mss := notifydata.MultiSnapshotStatus{Snapshots: tt.snapshots}
 			require.Equal(t, tt.expected, mss.OverallStatus())
+			require.Equal(t, tt.expectedCode, mss.OverallStatusCode())
+			testRoundTrip(t, &mss)
 		})
 	}
 }

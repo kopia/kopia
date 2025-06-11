@@ -179,7 +179,7 @@ func TestDeleteMultiple(t *testing.T) {
 	}, data)
 }
 
-func TestMetataJSONString(t *testing.T) {
+func TestMetadataJSONString(t *testing.T) {
 	bm := blob.Metadata{
 		BlobID:    "foo",
 		Length:    12345,

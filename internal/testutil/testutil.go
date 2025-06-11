@@ -3,7 +3,6 @@ package testutil
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"path/filepath"
@@ -35,24 +34,8 @@ func SkipNonDeterministicTestUnderCodeCoverage(t *testing.T) {
 	}
 }
 
-// TestSkipUnlessCI skips the current test with a provided message, except when running
-// in CI environment, in which case it causes hard failure.
-func TestSkipUnlessCI(tb testing.TB, msg string, args ...interface{}) {
-	tb.Helper()
-
-	if len(args) > 0 {
-		msg = fmt.Sprintf(msg, args...)
-	}
-
-	if os.Getenv("CI") != "" {
-		tb.Fatal(msg)
-	} else {
-		tb.Skip(msg)
-	}
-}
-
-// TestSkipUnlessLinux skips the current test if the test environment is not Linux.
-func TestSkipUnlessLinux(tb testing.TB) {
+// SkipTestUnlessLinux skips the current test if the test environment is not Linux.
+func SkipTestUnlessLinux(tb testing.TB) {
 	tb.Helper()
 
 	if runtime.GOOS != "linux" {
@@ -60,8 +43,8 @@ func TestSkipUnlessLinux(tb testing.TB) {
 	}
 }
 
-// TestSkipOnCIUnlessLinuxAMD64 skips the current test if running on CI unless the environment is Linux/AMD64.
-func TestSkipOnCIUnlessLinuxAMD64(tb testing.TB) {
+// SkipTestOnCIUnlessLinuxAMD64 skips the current test if running on CI unless the environment is Linux/AMD64.
+func SkipTestOnCIUnlessLinuxAMD64(tb testing.TB) {
 	tb.Helper()
 
 	if os.Getenv("CI") != "" && runtime.GOOS+"/"+runtime.GOARCH != "linux/amd64" {
@@ -124,7 +107,7 @@ func MyTestMain(m *testing.M, cleanups ...func()) {
 }
 
 // MustParseJSONLines parses the lines containing JSON into the provided object.
-func MustParseJSONLines(t *testing.T, lines []string, v interface{}) {
+func MustParseJSONLines(t *testing.T, lines []string, v any) {
 	t.Helper()
 
 	allJSON := strings.Join(lines, "\n")
@@ -139,7 +122,7 @@ func MustParseJSONLines(t *testing.T, lines []string, v interface{}) {
 // RunAllTestsWithParam uses reflection to run all test methods starting with 'Test' on the provided object.
 //
 //nolint:thelper
-func RunAllTestsWithParam(t *testing.T, v interface{}) {
+func RunAllTestsWithParam(t *testing.T, v any) {
 	m := reflect.ValueOf(v)
 	typ := m.Type()
 
@@ -176,4 +159,18 @@ func MustGetTotalDirSize(t *testing.T, dirpath string) int64 {
 	}
 
 	return total
+}
+
+// EnsureType asserts that v of type E.
+func EnsureType[E any](tb testing.TB, v any) E {
+	tb.Helper()
+
+	var e E
+
+	// require.IsType would not elide the forced type assertion
+	e, ok := v.(E)
+
+	require.Truef(tb, ok, "%T is not of type %T", v, e)
+
+	return e
 }

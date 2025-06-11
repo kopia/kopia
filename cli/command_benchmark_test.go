@@ -37,7 +37,7 @@ func TestCommandBenchmarkHashing(t *testing.T) {
 	e.RunAndExpectSuccess(t, "benchmark", "hashing", "--repeat=1", "--block-size=1KB", "--print-options")
 }
 
-func TestCommandBenchmarkSpliter(t *testing.T) {
+func TestCommandBenchmarkSplitter(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)

@@ -15,21 +15,21 @@ type ItemKind string
 
 // Created should be called whenever an item is created. If tracking is enabled, it captures the stack trace of
 // the current goroutine and stores it in a map.
-func Created(kind ItemKind, itemID interface{}) {
+func Created(kind ItemKind, itemID any) {
 	getPerKind(kind).created(itemID)
 }
 
 // Released should be called whenever an item is released.
-func Released(kind ItemKind, itemID interface{}) {
+func Released(kind ItemKind, itemID any) {
 	getPerKind(kind).released(itemID)
 }
 
 // Active returns the map of all active items.
-func Active() map[ItemKind]map[interface{}]string {
+func Active() map[ItemKind]map[any]string {
 	perKindMutex.Lock()
 	defer perKindMutex.Unlock()
 
-	res := map[ItemKind]map[interface{}]string{}
+	res := map[ItemKind]map[any]string{}
 	for k, v := range perKindTrackers {
 		res[k] = v.active()
 	}
@@ -62,10 +62,10 @@ type perKindTracker struct {
 	mu sync.Mutex
 
 	// +checklocks:mu
-	items map[interface{}]string
+	items map[any]string
 }
 
-func (s *perKindTracker) created(itemID interface{}) {
+func (s *perKindTracker) created(itemID any) {
 	if s == nil {
 		return
 	}
@@ -76,7 +76,7 @@ func (s *perKindTracker) created(itemID interface{}) {
 	s.items[itemID] = string(debug.Stack())
 }
 
-func (s *perKindTracker) released(itemID interface{}) {
+func (s *perKindTracker) released(itemID any) {
 	if s == nil {
 		return
 	}
@@ -87,11 +87,11 @@ func (s *perKindTracker) released(itemID interface{}) {
 	delete(s.items, itemID)
 }
 
-func (s *perKindTracker) active() map[interface{}]string {
+func (s *perKindTracker) active() map[any]string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	res := map[interface{}]string{}
+	res := map[any]string{}
 	for k, v := range s.items {
 		res[k] = v
 	}
@@ -116,7 +116,7 @@ func EnableTracking(kind ItemKind) {
 	}
 
 	perKindTrackers[kind] = &perKindTracker{
-		items: map[interface{}]string{},
+		items: map[any]string{},
 	}
 }
 

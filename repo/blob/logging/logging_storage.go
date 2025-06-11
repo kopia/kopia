@@ -235,7 +235,7 @@ func (s *loggingStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opt
 	return err
 }
 
-func (s *loggingStorage) translateError(err error) interface{} {
+func (s *loggingStorage) translateError(err error) any {
 	if err == nil {
 		return nil
 	}

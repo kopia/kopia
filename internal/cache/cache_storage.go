@@ -20,10 +20,20 @@ var mkdirAll = os.MkdirAll // for testability
 // DirMode is the directory mode for all caches.
 const DirMode = 0o700
 
-// Storage is the storage interface required by the cache and is implemented by the filesystem Storage.
+// Storage is the storage interface required by the cache and is a subset of methods implemented by the filesystem Storage.
 type Storage interface {
-	blob.Storage
+	GetBlob(ctx context.Context, id blob.ID, offset, length int64, out blob.OutputBuffer) error
+	GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error)
+	PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, opts blob.PutOptions) error
+	DeleteBlob(ctx context.Context, id blob.ID) error
+	ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error
 	TouchBlob(ctx context.Context, contentID blob.ID, threshold time.Duration) (time.Time, error)
+}
+
+// filesystemImplWrapper is a wrapper around the filesystem.Storage that exposes the cache.Storage interface
+// but prevents casting to blob.Storage.
+type filesystemImplWrapper struct {
+	Storage
 }
 
 // NewStorageOrNil returns cache.Storage backed by the provided directory.
@@ -51,5 +61,5 @@ func NewStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdi
 		},
 	}, false)
 
-	return fs.(Storage), errors.Wrap(err, "error initializing filesystem cache") //nolint:forcetypeassert
+	return filesystemImplWrapper{fs.(Storage)}, errors.Wrap(err, "error initializing filesystem cache") //nolint:forcetypeassert
 }

@@ -40,7 +40,7 @@ jobs:
       with:
         fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@0aaccfd150d50ccaeb58ebd88d36e91967a5f35b # v5.4.0
+      uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
       with:
         go-version-file: 'go.mod'
         check-latest: true
@@ -77,7 +77,7 @@ jobs:
       run: make ci-build
       timeout-minutes: 40
       env:
-        # Apple credentials for notarizaton, used by Electron Builder
+        # Apple credentials for notarization, used by Electron Builder
         APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
         APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
         APPLE_API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}

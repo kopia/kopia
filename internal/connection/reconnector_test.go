@@ -13,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/internal/connection"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 )
 
 var (
@@ -73,8 +74,9 @@ func TestConnection(t *testing.T) {
 
 	r := connection.NewReconnector(fc)
 
-	v, err := connection.UsingConnection(ctx, r, "first", func(cli connection.Connection) (interface{}, error) {
-		require.EqualValues(t, 1, cli.(*fakeConnection).id)
+	v, err := connection.UsingConnection(ctx, r, "first", func(cli connection.Connection) (any, error) {
+		require.EqualValues(t, 1, testutil.EnsureType[*fakeConnection](t, cli).id)
+
 		return "foo", nil
 	})
 
@@ -84,20 +86,22 @@ func TestConnection(t *testing.T) {
 	cnt := 0
 
 	r.UsingConnectionNoResult(ctx, "second", func(cli connection.Connection) error {
-		t.Logf("second called with %v", cli.(*fakeConnection).id)
+		fcon := testutil.EnsureType[*fakeConnection](t, cli)
+
+		t.Log("second called with", fcon.id)
 
 		// still using connection # 1
 		if cnt == 0 {
 			cnt++
 
-			require.EqualValues(t, 1, cli.(*fakeConnection).id)
+			require.EqualValues(t, 1, fcon.id)
 
-			cli.(*fakeConnection).isClosed = true
+			fcon.isClosed = true
 
 			return errFakeConnectionFailed
 		}
 
-		require.EqualValues(t, 2, cli.(*fakeConnection).id)
+		require.EqualValues(t, 2, fcon.id)
 
 		return nil
 	})
@@ -105,8 +109,10 @@ func TestConnection(t *testing.T) {
 	require.EqualValues(t, 2, fc.nextConnectionID.Load())
 
 	r.UsingConnectionNoResult(ctx, "third", func(cli connection.Connection) error {
-		t.Logf("third called with %v", cli.(*fakeConnection).id)
-		require.EqualValues(t, 2, cli.(*fakeConnection).id)
+		id0 := testutil.EnsureType[*fakeConnection](t, cli).id
+
+		t.Log("third called with", id0)
+		require.EqualValues(t, 2, id0)
 
 		return nil
 	})
@@ -114,12 +120,16 @@ func TestConnection(t *testing.T) {
 	require.EqualValues(t, 2, fc.nextConnectionID.Load())
 
 	r.UsingConnectionNoResult(ctx, "parallel-1", func(cli connection.Connection) error {
-		t.Logf("parallel-1 called with %v", cli.(*fakeConnection).id)
-		require.EqualValues(t, 2, cli.(*fakeConnection).id)
+		id1 := testutil.EnsureType[*fakeConnection](t, cli).id
+
+		t.Log("parallel-1 called with", id1)
+		require.EqualValues(t, 2, id1)
 
 		r.UsingConnectionNoResult(ctx, "parallel-2", func(cli connection.Connection) error {
-			t.Logf("parallel-2 called with %v", cli.(*fakeConnection).id)
-			require.EqualValues(t, 2, cli.(*fakeConnection).id)
+			id2 := testutil.EnsureType[*fakeConnection](t, cli).id
+
+			t.Log("parallel-2 called with", id2)
+			require.EqualValues(t, 2, id2)
 
 			return nil
 		})
@@ -130,8 +140,10 @@ func TestConnection(t *testing.T) {
 	r.CloseActiveConnection(ctx)
 
 	require.NoError(t, r.UsingConnectionNoResult(ctx, "fourth", func(cli connection.Connection) error {
-		t.Logf("fourth called with %v", cli.(*fakeConnection).id)
-		require.EqualValues(t, 3, cli.(*fakeConnection).id)
+		id3 := testutil.EnsureType[*fakeConnection](t, cli).id
+
+		t.Log("fourth called with", id3)
+		require.EqualValues(t, 3, id3)
 
 		return nil
 	}))
@@ -148,8 +160,10 @@ func TestConnection(t *testing.T) {
 	fc.nextError = errFakeConnectionFailed
 
 	require.NoError(t, r.UsingConnectionNoResult(ctx, "sixth", func(cli connection.Connection) error {
-		t.Logf("sixth called with %v", cli.(*fakeConnection).id)
-		require.EqualValues(t, 4, cli.(*fakeConnection).id)
+		id4 := testutil.EnsureType[*fakeConnection](t, cli).id
+
+		t.Log("sixth called with", id4)
+		require.EqualValues(t, 4, id4)
 
 		return nil
 	}))
@@ -159,7 +173,7 @@ func TestConnection(t *testing.T) {
 	eg.Go(func() error {
 		return r.UsingConnectionNoResult(ctx, "parallel-a", func(cli connection.Connection) error {
 			time.Sleep(500 * time.Millisecond)
-			t.Logf("parallel-a called with %v", cli.(*fakeConnection).id)
+			t.Log("parallel-a called with", testutil.EnsureType[*fakeConnection](t, cli).id)
 
 			return nil
 		})
@@ -167,7 +181,7 @@ func TestConnection(t *testing.T) {
 	eg.Go(func() error {
 		return r.UsingConnectionNoResult(ctx, "parallel-b", func(cli connection.Connection) error {
 			time.Sleep(300 * time.Millisecond)
-			t.Logf("parallel-b called with %v", cli.(*fakeConnection).id)
+			t.Log("parallel-b called with", testutil.EnsureType[*fakeConnection](t, cli).id)
 
 			return nil
 		})
@@ -175,7 +189,7 @@ func TestConnection(t *testing.T) {
 	eg.Go(func() error {
 		return r.UsingConnectionNoResult(ctx, "parallel-c", func(cli connection.Connection) error {
 			time.Sleep(100 * time.Millisecond)
-			t.Logf("parallel-c called with %v", cli.(*fakeConnection).id)
+			t.Log("parallel-c called with", testutil.EnsureType[*fakeConnection](t, cli).id)
 
 			return nil
 		})

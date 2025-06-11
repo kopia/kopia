@@ -357,7 +357,7 @@ func TestManifestInvalidPut(t *testing.T) {
 
 	cases := []struct {
 		labels        map[string]string
-		payload       interface{}
+		payload       any
 		expectedError string
 	}{
 		{map[string]string{"": ""}, "xxx", "'type' label is required"},

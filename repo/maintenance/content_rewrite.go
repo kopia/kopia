@@ -187,8 +187,8 @@ func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch 
 	}
 
 	var (
-		packNumberByPrefix = map[blob.ID]int{}
-		firstPackByPrefix  = map[blob.ID]content.PackInfo{}
+		packCountByPrefix = map[blob.ID]int{}
+		firstPackByPrefix = map[blob.ID]content.PackInfo{}
 	)
 
 	err := rep.ContentReader().IteratePacks(
@@ -205,16 +205,16 @@ func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch 
 
 			prefix := pi.PackID[0:1]
 
-			packNumberByPrefix[prefix]++
+			packCountByPrefix[prefix]++
 
-			if packNumberByPrefix[prefix] == 1 {
+			if packCountByPrefix[prefix] == 1 {
 				// do not immediately compact the first pack, in case it's the only pack.
 				firstPackByPrefix[prefix] = pi
 				return nil
 			}
 
 			//nolint:mnd
-			if packNumberByPrefix[prefix] == 2 {
+			if packCountByPrefix[prefix] == 2 {
 				// when we encounter the 2nd pack, emit contents from the first one too.
 				for _, ci := range firstPackByPrefix[prefix].ContentInfos {
 					ch <- contentInfoOrError{Info: ci}

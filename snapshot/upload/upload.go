@@ -488,10 +488,12 @@ func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, e
 }
 
 // uploadFileWithCheckpointing uploads the specified File to the repository.
-func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo, startTime fs.UTCTimestamp) (*snapshot.DirEntry, error) {
 	var cp checkpointRegistry
 
-	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo})
+	// Make checkpoints one nanosecond older than the current snapshot, so that they are cleaned
+	// up by retention policies upon creation of the snapshot.
+	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo, StartTime: startTime - 1})
 	defer cancelCheckpointer()
 
 	res, err := u.uploadFileInternal(ctx, &cp, relativePath, file, pol)
@@ -531,7 +533,6 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 	man := *prototypeManifest
 	man.RootEntry = rootEntry
 	man.EndTime = fs.UTCTimestampFromTime(u.repo.Time())
-	man.StartTime = man.EndTime
 	man.IncompleteReason = IncompleteReasonCheckpoint
 	man.Tags = u.CheckpointLabels
 
@@ -584,13 +585,15 @@ func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointReg
 }
 
 // uploadDirWithCheckpointing uploads the specified Directory to the repository.
-func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo, startTime fs.UTCTimestamp) (*snapshot.DirEntry, error) {
 	var (
 		dmb snapshotfs.DirManifestBuilder
 		cp  checkpointRegistry
 	)
 
-	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo})
+	// Make checkpoints one nanosecond older than the current snapshot, so that they are cleaned
+	// up by retention policies upon creation of the snapshot.
+	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo, StartTime: startTime - 1})
 	defer cancelCheckpointer()
 
 	var hc actionContext
@@ -927,6 +930,12 @@ func (u *Uploader) processSingle(
 
 		if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
 			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
+
+			// If unknown types are configured to be ignored, skip them completely without any error reporting
+			if isIgnoredError {
+				return nil
+			}
+
 			prefix = "unknown entry"
 		} else {
 			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
@@ -999,7 +1008,7 @@ func maybeLogEntryProcessed(logger logging.Logger, level policy.LogDetail, msg, 
 	}
 
 	var (
-		bitsBuf       [10]interface{}
+		bitsBuf       [10]any
 		keyValuePairs = append(bitsBuf[:0], "path", relativePath)
 	)
 
@@ -1284,11 +1293,11 @@ func (u *Uploader) Upload(
 
 	switch entry := source.(type) {
 	case fs.Directory:
-		s.RootEntry, err = u.uploadDir(ctx, previousManifests, entry, policyTree, sourceInfo)
+		s.RootEntry, err = u.uploadDir(ctx, previousManifests, entry, policyTree, sourceInfo, s.StartTime)
 
 	case fs.File:
 		u.Progress.EstimatedDataSize(1, entry.Size())
-		s.RootEntry, err = u.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo)
+		s.RootEntry, err = u.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo, s.StartTime)
 
 	default:
 		return nil, errors.Errorf("unsupported source: %v", s.Source)
@@ -1311,6 +1320,7 @@ func (u *Uploader) uploadDir(
 	entry fs.Directory,
 	policyTree *policy.Tree,
 	sourceInfo snapshot.SourceInfo,
+	startTime fs.UTCTimestamp,
 ) (*snapshot.DirEntry, error) {
 	var previousDirs []fs.Directory
 
@@ -1328,7 +1338,7 @@ func (u *Uploader) uploadDir(
 
 	wrapped := u.wrapIgnorefs(uploadLog(ctx), entry, policyTree, true /* reportIgnoreStats */)
 
-	return u.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo)
+	return u.uploadDirWithCheckpointing(ctx, wrapped, policyTree, previousDirs, sourceInfo, startTime)
 }
 
 func (u *Uploader) startDataSizeEstimation(

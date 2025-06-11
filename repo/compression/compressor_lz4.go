@@ -17,7 +17,7 @@ func init() {
 
 func newLZ4Compressor(id HeaderID) Compressor {
 	return &lz4Compressor{id, compressionHeader(id), sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			return lz4.NewWriter(io.Discard)
 		},
 	}}

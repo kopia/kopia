@@ -2,6 +2,7 @@ package snapshotfs_test
 
 import (
 	"context"
+	"maps"
 	"testing"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -87,11 +89,10 @@ func iterateAllNames(ctx context.Context, t *testing.T, dir fs.Directory, prefix
 	err := fs.IterateEntries(ctx, dir, func(innerCtx context.Context, ent fs.Entry) error {
 		if ent.IsDir() {
 			result[prefix+ent.Name()+"/"] = struct{}{}
-			childEntries := iterateAllNames(ctx, t, ent.(fs.Directory), prefix+ent.Name()+"/")
 
-			for k, v := range childEntries {
-				result[k] = v
-			}
+			childEntries := iterateAllNames(ctx, t, testutil.EnsureType[fs.Directory](t, ent), prefix+ent.Name()+"/")
+
+			maps.Copy(result, childEntries)
 		} else {
 			result[prefix+ent.Name()] = struct{}{}
 		}

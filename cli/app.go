@@ -66,11 +66,11 @@ func (o *textOutput) stderr() io.Writer {
 	return o.svc.Stderr()
 }
 
-func (o *textOutput) printStdout(msg string, args ...interface{}) {
+func (o *textOutput) printStdout(msg string, args ...any) {
 	fmt.Fprintf(o.stdout(), msg, args...) //nolint:errcheck
 }
 
-func (o *textOutput) printStderr(msg string, args ...interface{}) {
+func (o *textOutput) printStderr(msg string, args ...any) {
 	fmt.Fprintf(o.stderr(), msg, args...) //nolint:errcheck
 }
 

@@ -297,7 +297,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		st = wrapLockingStorage(st, blobcfg)
 	}
 
-	_, err = retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (interface{}, error) {
+	_, err = retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (any, error) {
 		uli, err := fmgr.UpgradeLockIntent(ctx)
 		if err != nil {
 			//nolint:wrapcheck

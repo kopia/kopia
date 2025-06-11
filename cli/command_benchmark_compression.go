@@ -80,7 +80,7 @@ func (c *commandBenchmarkCompression) readInputFile(ctx context.Context) ([]byte
 	return data, nil
 }
 
-type compressionBechmarkResult struct {
+type compressionBenchmarkResult struct {
 	compression    compression.Name
 	throughput     float64
 	compressedSize uint64
@@ -166,7 +166,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 }
 
 func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data []byte, repeatCount int, algorithms map[compression.Name]compression.Compressor) error {
-	var results []compressionBechmarkResult
+	var results []compressionBenchmarkResult
 
 	log(ctx).Infof("Compressing input file %q (%v) using %v compression methods.", c.dataFile, units.BytesString(len(data)), len(algorithms))
 
@@ -225,7 +225,7 @@ func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data [
 		_, perSecond := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(cnt))
 
 		results = append(results,
-			compressionBechmarkResult{
+			compressionBenchmarkResult{
 				compression:    name,
 				throughput:     perSecond,
 				compressedSize: compressedSize,
@@ -241,7 +241,7 @@ func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data [
 }
 
 func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data []byte, repeatCount int, algorithms map[compression.Name]compression.Compressor) error {
-	var results []compressionBechmarkResult
+	var results []compressionBenchmarkResult
 
 	log(ctx).Infof("Decompressing input file %q (%v) using %v compression methods.", c.dataFile, units.BytesString(len(data)), len(algorithms))
 
@@ -294,7 +294,7 @@ func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data
 		_, perSecond := tt.Completed(float64(c.parallel) * float64(len(data)) * float64(cnt))
 
 		results = append(results,
-			compressionBechmarkResult{
+			compressionBenchmarkResult{
 				compression:    name,
 				throughput:     perSecond,
 				compressedSize: compressedSize,
@@ -309,7 +309,7 @@ func (c *commandBenchmarkCompression) runDecompression(ctx context.Context, data
 	return nil
 }
 
-func (c *commandBenchmarkCompression) sortResults(results []compressionBechmarkResult) {
+func (c *commandBenchmarkCompression) sortResults(results []compressionBenchmarkResult) {
 	switch {
 	case c.bySize:
 		sort.Slice(results, func(i, j int) bool {
@@ -326,7 +326,7 @@ func (c *commandBenchmarkCompression) sortResults(results []compressionBechmarkR
 	}
 }
 
-func (c *commandBenchmarkCompression) printResults(results []compressionBechmarkResult) {
+func (c *commandBenchmarkCompression) printResults(results []compressionBenchmarkResult) {
 	c.out.printStdout("     %-26v %-12v %-12v %v\n", "Compression", "Compressed", "Throughput", "Allocs   Memory Usage")
 	c.out.printStdout("------------------------------------------------------------------------------------------------\n")
 

@@ -39,14 +39,14 @@ var GlobalPolicySourceInfo = snapshot.SourceInfo{}
 
 var log = logging.Module("kopia/snapshot/policy")
 
-// GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
+// GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specific policy (if any)
 // with parent policies. The source must contain a path.
 // Returns the effective policies and all source policies that contributed to that (most specific first).
 func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (effective *Policy, definition *Definition, sources []*Policy, e error) {
 	return GetEffectivePolicyWithOverride(ctx, rep, si, nil)
 }
 
-// GetEffectivePolicyWithOverride calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
+// GetEffectivePolicyWithOverride calculates effective snapshot policy for a given source by combining the source-specific policy (if any)
 // with parent policies. The source must contain a path.
 // Returns the effective policies and all source policies that contributed to that (most specific first).
 func GetEffectivePolicyWithOverride(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo, optionalPolicyOverride *Policy) (effective *Policy, definition *Definition, sources []*Policy, e error) {
@@ -142,7 +142,7 @@ func GetDefinedPolicy(ctx context.Context, rep repo.Repository, si snapshot.Sour
 		return nil, ErrPolicyNotFound
 	}
 
-	// arbitrality pick first pick ID to return in case there's more than one
+	// arbitrarily pick first pick ID to return in case there's more than one
 	// this is possible when two repository clients independently create manifests at approximately the same time
 	// so it should not really matter which one we pick.
 	// see https://github.com/kopia/kopia/issues/391

@@ -18,7 +18,7 @@ func init() {
 
 func newDeflateCompressor(id HeaderID, level int) Compressor {
 	return &deflateCompressor{id, compressionHeader(id), sync.Pool{
-		New: func() interface{} {
+		New: func() any {
 			v, err := flate.NewWriter(io.Discard, level)
 			if err != nil {
 				panic("unable to create deflate compressor")

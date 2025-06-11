@@ -47,7 +47,7 @@ func (e *virtualEntry) Size() int64 {
 	return e.size
 }
 
-func (e *virtualEntry) Sys() interface{} {
+func (e *virtualEntry) Sys() any {
 	return nil
 }
 

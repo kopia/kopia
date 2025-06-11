@@ -190,23 +190,25 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 		case <-s.snapshotRequests:
 			if s.isPaused() {
 				s.setStatus("PAUSED")
-			} else {
-				s.setStatus("PENDING")
 
-				log(ctx).Debugw("snapshotting", "source", s.src)
-
-				if err := s.server.runSnapshotTask(ctx, s.src, s.snapshotInternal); err != nil {
-					log(ctx).Errorf("snapshot error: %v", err)
-
-					s.backoffBeforeNextSnapshot()
-				} else {
-					s.refreshStatus(ctx)
-				}
-
-				s.server.refreshScheduler("snapshot finished")
-
-				s.setStatus("IDLE")
+				continue
 			}
+
+			s.setStatus("PENDING")
+
+			log(ctx).Debugw("snapshotting", "source", s.src)
+
+			if err := s.server.runSnapshotTask(ctx, s.src, s.snapshotInternal); err != nil {
+				log(ctx).Errorf("snapshot error: %v", err)
+
+				s.backoffBeforeNextSnapshot()
+			} else {
+				s.refreshStatus(ctx)
+			}
+
+			s.server.refreshScheduler("snapshot finished")
+
+			s.setStatus("IDLE")
 		}
 	}
 }

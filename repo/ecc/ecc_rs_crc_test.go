@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/encryption"
 )
 
@@ -114,7 +115,8 @@ func testRsCrc32ChangeInData(t *testing.T, opts *Options, originalSize, changedB
 
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
 		func(impl encryption.Encryptor, data []byte) {
-			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
+			ecc := testutil.EnsureType[*ReedSolomonCrcECC](t, impl)
+			sizes := ecc.computeSizesFromOriginal(originalSize)
 			parity := sizes.ParityShards * (crcSize + sizes.ShardSize) * sizes.Blocks
 
 			for i := range changedBytes {
@@ -128,7 +130,8 @@ func testRsCrc32ChangeInDataCrc(t *testing.T, opts *Options, originalSize, chang
 
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
 		func(impl encryption.Encryptor, data []byte) {
-			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
+			ecc := testutil.EnsureType[*ReedSolomonCrcECC](t, impl)
+			sizes := ecc.computeSizesFromOriginal(originalSize)
 			parity := sizes.ParityShards * (crcSize + sizes.ShardSize) * sizes.Blocks
 
 			for i := range changedBytes {
@@ -142,7 +145,8 @@ func testRsCrc32ChangeInParity(t *testing.T, opts *Options, originalSize, change
 
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
 		func(impl encryption.Encryptor, data []byte) {
-			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
+			ecc := testutil.EnsureType[*ReedSolomonCrcECC](t, impl)
+			sizes := ecc.computeSizesFromOriginal(originalSize)
 
 			for i := range changedBytes {
 				flipByte(data, i*(crcSize+sizes.ShardSize)+crcSize)
@@ -155,7 +159,8 @@ func testRsCrc32ChangeInParityCrc(t *testing.T, opts *Options, originalSize, cha
 
 	testPutAndGet(t, opts, originalSize, expectedEccSize, expectedSuccess,
 		func(impl encryption.Encryptor, data []byte) {
-			sizes := impl.(*ReedSolomonCrcECC).computeSizesFromOriginal(originalSize)
+			ecc := testutil.EnsureType[*ReedSolomonCrcECC](t, impl)
+			sizes := ecc.computeSizesFromOriginal(originalSize)
 
 			for i := range changedBytes {
 				flipByte(data, i*(crcSize+sizes.ShardSize))

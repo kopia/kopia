@@ -109,7 +109,7 @@ func TestRestoreCommand(t *testing.T) {
 	// Attempt to restore using snapshot ID
 	restoreFailDir := testutil.TempDirectory(t)
 
-	// Remember original app cusomization
+	// Remember original app customization
 	origCustomizeApp := runner.CustomizeApp
 
 	// Prepare fake restore progress and set it when needed
@@ -540,7 +540,7 @@ func TestSnapshotSparseRestore(t *testing.T) {
 
 	// The behavior of the Darwin (APFS) is not published, and sparse restores
 	// are not supported on Windows. As such, we cannot (reliably) test them here.
-	testutil.TestSkipUnlessLinux(t)
+	testutil.SkipTestUnlessLinux(t)
 
 	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)

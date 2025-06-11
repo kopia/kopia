@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -250,7 +249,7 @@ func verifyChild(t *testing.T, dir fs.Directory) {
 }
 
 func TestLocalFilesystemPath(t *testing.T) {
-	if runtime.GOOS == "windows" {
+	if isWindows() {
 		t.Skip()
 	}
 
@@ -273,29 +272,37 @@ func TestLocalFilesystemPath(t *testing.T) {
 	}
 }
 
-func TestDirPrefix(t *testing.T) {
-	cases := map[string]string{
-		"foo":      "",
-		"/":        "/",
-		"/tmp":     "/",
-		"/tmp/":    "/tmp/",
-		"/tmp/foo": "/tmp/",
+func TestSplitDirPrefix(t *testing.T) {
+	type pair struct {
+		prefix   string
+		basename string
 	}
 
-	if runtime.GOOS == "windows" {
-		cases["c:/"] = "c:/"
-		cases["c:\\"] = "c:\\"
-		cases["c:/temp"] = "c:/"
-		cases["c:\\temp"] = "c:\\"
-		cases["c:/temp/orary"] = "c:/temp/"
-		cases["c:\\temp\\orary"] = "c:\\temp\\"
-		cases["c:/temp\\orary"] = "c:/temp\\"
-		cases["c:\\temp/orary"] = "c:\\temp/"
-		cases["\\\\server\\path"] = "\\\\server\\"
-		cases["\\\\server\\path\\subdir"] = "\\\\server\\path\\"
+	cases := map[string]pair{
+		"foo":      {"", "foo"},
+		"/":        {"/", ""},
+		"/tmp":     {"/", "tmp"},
+		"/tmp/":    {"/tmp/", ""},
+		"/tmp/foo": {"/tmp/", "foo"},
+	}
+
+	if isWindows() {
+		cases[`c:/`] = pair{`c:/`, ``}
+		cases[`c:\`] = pair{`c:\`, ``}
+		cases[`c:/temp`] = pair{`c:/`, `temp`}
+		cases[`c:\temp`] = pair{`c:\`, `temp`}
+		cases[`c:/temp/orary`] = pair{`c:/temp/`, `orary`}
+		cases[`c:\temp\orary`] = pair{`c:\temp\`, `orary`}
+		cases[`c:/temp\orary`] = pair{`c:/temp\`, `orary`}
+		cases[`c:\temp/orary`] = pair{`c:\temp/`, `orary`}
+		cases[`\\server\path`] = pair{`\\server\`, `path`}
+		cases[`\\server\path\`] = pair{`\\server\path\`, ``}
+		cases[`\\server\path\subdir`] = pair{`\\server\path\`, `subdir`}
 	}
 
 	for input, want := range cases {
-		require.Equal(t, want, dirPrefix(input), input)
+		basename, prefix := splitDirPrefix(input)
+		require.Equal(t, want.basename, basename, input)
+		require.Equal(t, want.prefix, prefix, input)
 	}
 }

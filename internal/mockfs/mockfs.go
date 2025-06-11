@@ -64,7 +64,7 @@ func (e *entry) Size() int64 {
 	return e.size
 }
 
-func (e *entry) Sys() interface{} {
+func (e *entry) Sys() any {
 	return nil
 }
 
@@ -434,7 +434,7 @@ type ErrorEntry struct {
 	err error
 }
 
-// ErrorInfo implements fs.ErrorErntry.
+// ErrorInfo implements fs.ErrorEntry.
 func (e *ErrorEntry) ErrorInfo() error {
 	return e.err
 }

@@ -17,7 +17,7 @@ func TestLoggingStorage(t *testing.T) {
 	outputCount := new(int32)
 
 	myPrefix := "myprefix"
-	myOutput := func(msg string, args ...interface{}) {
+	myOutput := func(msg string, args ...any) {
 		msg = fmt.Sprintf(msg, args...)
 
 		if !strings.HasPrefix(msg, myPrefix) {
@@ -48,6 +48,6 @@ func TestLoggingStorage(t *testing.T) {
 	}
 
 	if got, want := st.ConnectionInfo().Type, underlying.ConnectionInfo().Type; got != want {
-		t.Errorf("unexpected connection infor %v, want %v", got, want)
+		t.Errorf("unexpected connection info %v, want %v", got, want)
 	}
 }

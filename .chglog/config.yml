@@ -16,12 +16,9 @@ options:
       - snapshots
       - testing
       - lint
-      - deps
-      - deps-dev
       - infra
       - ci
       - notifications
-      - ui
   commit_groups:
     sort_by: Custom
     group_by: "Scope"

@@ -33,7 +33,7 @@ func verifyMapping(t *testing.T, mapping *metricid.Mapping) {
 		require.Equal(t, k, mapping.IndexToName[v])
 	}
 
-	// make sure we use consecurive numbers
+	// make sure we use consecutive numbers
 	require.Len(t, id2name, maxv)
 	require.Equal(t, mapping.MaxIndex, maxv)
 }

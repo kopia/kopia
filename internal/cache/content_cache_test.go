@@ -108,13 +108,13 @@ func verifyCacheExpiration(t *testing.T, sweepSettings cache.SweepSettings, want
 
 		return currentTime
 	}
-	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, movingTimeFunc)
 
+	cacheStorage := testutil.EnsureType[cache.Storage](t, blobtesting.NewMapStorage(cacheData, nil, movingTimeFunc))
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 
 	ctx := testlogging.Context(t)
 	cc, err := cache.NewContentCache(ctx, underlyingStorage, cache.Options{
-		Storage: cacheStorage.(cache.Storage),
+		Storage: cacheStorage,
 		Sweep:   sweepSettings,
 		TimeNow: movingTimeFunc,
 	}, nil)
@@ -173,7 +173,7 @@ func TestDiskContentCache(t *testing.T) {
 	verifyContentCache(t, cc, cacheStorage)
 }
 
-func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage blob.Storage) {
+func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage cache.Storage) {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
@@ -335,7 +335,7 @@ func TestCacheFailureToRead(t *testing.T) {
 	}
 }
 
-func verifyStorageContentList(t *testing.T, st blob.Storage, expectedContents ...blob.ID) {
+func verifyStorageContentList(t *testing.T, st cache.Storage, expectedContents ...blob.ID) {
 	t.Helper()
 
 	var foundContents []blob.ID

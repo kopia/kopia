@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -11,7 +12,7 @@ const durationPrecision = 100 * time.Millisecond
 
 // ManifestWithError represents information about the snapshot manifest with optional error.
 type ManifestWithError struct {
-	Manifest snapshot.Manifest  `json:"manifest"` // may not be filled out if there was an error, Manifst.Source is always set.
+	Manifest snapshot.Manifest  `json:"manifest"` // may not be filled out if there was an error, Manifest.Source is always set.
 	Previous *snapshot.Manifest `json:"previous"` // may not be filled out
 
 	Error string `json:"error"` // will be present if there was an error
@@ -156,6 +157,35 @@ func (m *ManifestWithError) StatusCode() string {
 // MultiSnapshotStatus represents the status of multiple snapshots.
 type MultiSnapshotStatus struct {
 	Snapshots []*ManifestWithError `json:"snapshots"`
+}
+
+// EventArgsType returns the type of event arguments for MultiSnapshotStatus.
+func (m MultiSnapshotStatus) EventArgsType() grpcapi.NotificationEventArgType {
+	return grpcapi.NotificationEventArgType_ARG_TYPE_MULTI_SNAPSHOT_STATUS
+}
+
+// OverallStatusCode returns the overall status of the snapshots (StatusCodeSuccess, StatusCodeWarnings, or StatusCodeFatal).
+func (m MultiSnapshotStatus) OverallStatusCode() string {
+	var hasWarnings, hasErrors bool
+
+	for _, s := range m.Snapshots {
+		switch s.StatusCode() {
+		case StatusCodeFatal:
+			hasErrors = true
+		case StatusCodeWarnings:
+			hasWarnings = true
+		}
+	}
+
+	if hasErrors {
+		return StatusCodeFatal
+	}
+
+	if hasWarnings {
+		return StatusCodeWarnings
+	}
+
+	return StatusCodeSuccess
 }
 
 // OverallStatus returns the overall status of the snapshots.

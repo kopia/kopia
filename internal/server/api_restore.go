@@ -26,7 +26,7 @@ func restoreCounters(s restore.Stats) map[string]uitask.CounterValue {
 	}
 }
 
-func handleRestore(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleRestore(ctx context.Context, rc requestContext) (any, *apiError) {
 	var req serverapi.RestoreRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {

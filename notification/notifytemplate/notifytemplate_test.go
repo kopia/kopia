@@ -215,7 +215,7 @@ func TestNotifyTemplate_snapshot_report_single_success(t *testing.T) {
 	verifyTemplate(t, "snapshot-report.html", ".success", args, defaultTestOptions)
 }
 
-func verifyTemplate(t *testing.T, embeddedTemplateName, expectedSuffix string, args interface{}, opt notifytemplate.Options) {
+func verifyTemplate(t *testing.T, embeddedTemplateName, expectedSuffix string, args any, opt notifytemplate.Options) {
 	t.Helper()
 
 	tmpl, err := notifytemplate.GetEmbeddedTemplate(embeddedTemplateName)

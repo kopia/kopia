@@ -17,9 +17,11 @@ type SourceInfo struct {
 
 // SnapshotInfo represents a single snapshot information.
 type SnapshotInfo struct {
-	ObjectID   string
-	SnapshotID string
-	Time       time.Time
+	ObjectID         string
+	SnapshotID       string
+	Time             time.Time
+	Incomplete       bool
+	IncompleteReason string
 }
 
 // MustParseSnapshots parsers the output of 'snapshot list'.
@@ -42,7 +44,7 @@ func MustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
 				return nil
 			}
 
-			currentSource.Snapshots = append(currentSource.Snapshots, mustParseSnaphotInfo(t, l[2:]))
+			currentSource.Snapshots = append(currentSource.Snapshots, mustParseSnapshotInfo(t, l[2:]))
 
 			continue
 		}
@@ -55,8 +57,10 @@ func MustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
 	return result
 }
 
-func mustParseSnaphotInfo(t *testing.T, l string) SnapshotInfo {
+func mustParseSnapshotInfo(t *testing.T, l string) SnapshotInfo {
 	t.Helper()
+
+	incomplete := strings.Contains(l, "incomplete")
 
 	parts := strings.Split(l, " ")
 
@@ -65,13 +69,27 @@ func mustParseSnaphotInfo(t *testing.T, l string) SnapshotInfo {
 		t.Fatalf("err: %v", err)
 	}
 
-	manifestField := parts[7]
+	var manifestField string
+
+	if incomplete {
+		manifestField = parts[8]
+	} else {
+		manifestField = parts[7]
+	}
+
 	snapID := strings.TrimPrefix(manifestField, "manifest:")
 
+	incompleteReason := ""
+	if incomplete {
+		incompleteReason = strings.Split(parts[4], ":")[1]
+	}
+
 	return SnapshotInfo{
-		Time:       ts,
-		ObjectID:   parts[3],
-		SnapshotID: snapID,
+		Time:             ts,
+		ObjectID:         parts[3],
+		SnapshotID:       snapID,
+		Incomplete:       incomplete,
+		IncompleteReason: incompleteReason,
 	}
 }
 
