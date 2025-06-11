@@ -50,7 +50,7 @@ var (
 	s3DataRepoPath     = filepath.Join(s3RepoBaseDirPath, dataRepoPath)
 )
 
-func TestEngineWritefilesBasicFS(t *testing.T) {
+func TestEngineWriteFilesBasicFS(t *testing.T) {
 	t.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
 	t.Setenv(snapmeta.S3BucketNameEnvKey, "")
 

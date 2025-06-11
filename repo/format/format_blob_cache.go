@@ -159,7 +159,7 @@ func NewMemoryBlobCache(timeNow func() time.Time) blobCache {
 	}
 }
 
-// NewFormatBlobCache creates an implementationof blobCache for particular cache settings.
+// NewFormatBlobCache creates an implementation of blobCache for particular cache settings.
 func NewFormatBlobCache(cacheDir string, validDuration time.Duration, timeNow func() time.Time) blobCache {
 	if cacheDir != "" {
 		return NewDiskCache(cacheDir)

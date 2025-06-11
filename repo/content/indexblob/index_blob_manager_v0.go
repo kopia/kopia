@@ -204,14 +204,14 @@ func (m *ManagerV0) registerCompaction(ctx context.Context, inputs, outputs []bl
 	return nil
 }
 
-// WriteIndexBlobs writes the provided data shards into new index blobs oprionally appending the provided suffix.
+// WriteIndexBlobs writes the provided data shards into new index blobs optionally appending the provided suffix.
 func (m *ManagerV0) WriteIndexBlobs(ctx context.Context, dataShards []gather.Bytes, suffix blob.ID) ([]blob.Metadata, error) {
 	var result []blob.Metadata
 
 	for _, data := range dataShards {
 		bm, err := m.enc.EncryptAndWriteBlob(ctx, data, V0IndexBlobPrefix, suffix)
 		if err != nil {
-			return nil, errors.Wrap(err, "error writing index blbo")
+			return nil, errors.Wrap(err, "error writing index blob")
 		}
 
 		result = append(result, bm)
@@ -323,7 +323,7 @@ func (m *ManagerV0) findIndexBlobsToDelete(latestServerBlobTime time.Time, entri
 	tmp := map[blob.ID]bool{}
 
 	for _, cl := range entries {
-		// are the input index blobs in this compaction eligble for deletion?
+		// are the input index blobs in this compaction eligible for deletion?
 		if age := latestServerBlobTime.Sub(cl.metadata.Timestamp); age < maxEventualConsistencySettleTime {
 			m.log.Debugf("not deleting compacted index blob used as inputs for compaction %v, because it's too recent: %v < %v", cl.metadata.BlobID, age, maxEventualConsistencySettleTime)
 			continue

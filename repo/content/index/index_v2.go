@@ -30,8 +30,8 @@ const (
 	v2MaxFormatCount        = invalidFormatVersion
 	v2MaxUniquePackIDCount  = 1 << 24 // max number of packs that can be stored
 	v2MaxShortPackIDCount   = 1 << 16 // max number that can be represented using 2 bytes
-	v2MaxContentLength      = 1 << 28 // max supported content length (representible using 3.5 bytes)
-	v2MaxShortContentLength = 1 << 24 // max content length representible using 3 bytes
+	v2MaxContentLength      = 1 << 28 // max supported content length (representable using 3.5 bytes)
+	v2MaxShortContentLength = 1 << 24 // max content length representable using 3 bytes
 	v2MaxPackOffset         = 1 << 30 // max pack offset 1GiB to leave 2 bits for flags
 	v2DeletedMarker         = 0x80000000
 	v2MaxEntrySize          = 256 // maximum length of content ID + per-entry data combined

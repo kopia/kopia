@@ -81,7 +81,7 @@ kopia policy set </path/to/source/directory/> --compression=<none|deflate-best-c
 ```shell
 kopia policy set --global --compression=<none|deflate-best-compression|deflate-best-speed|deflate-default|gzip|gzip-best-compression|gzip-best-speed|pgzip|pgzip-best-compression|pgzip-best-speed|s2-better|s2-default|s2-parallel-4|s2-parallel-8|zstd|zstd-better-compression|zstd-fastest>
 ```
-If you enable or disable compression or change the compression algorithm, the new setting is applied going forward and not reteroactively. In other words, Kopia will not modify the compression for files/directories already uploaded to your repository.
+If you enable or disable compression or change the compression algorithm, the new setting is applied going forward and not retroactively. In other words, Kopia will not modify the compression for files/directories already uploaded to your repository.
 
 If you are unclear about what compression algorithm to use, `zstd` is considered one of the top algorithms currently.
 

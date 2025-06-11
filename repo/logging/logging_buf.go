@@ -131,7 +131,7 @@ func (b *Buffer) AppendUint(val uint64, base int) *Buffer {
 	return b.AppendBytes(strconv.AppendUint(buf[:0], val, base))
 }
 
-// String returns a string value of a buffer. The value is valud as long as
+// String returns a string value of a buffer. The value is valid as long as
 // string remains allocated and no Append*() methods have been called.
 func (b *Buffer) String() string {
 	if b.validLen == 0 {

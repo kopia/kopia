@@ -29,7 +29,7 @@ type commandSnapshotList struct {
 	snapshotListShowItemID           bool
 	snapshotListShowRetentionReasons bool
 	snapshotListShowModTime          bool
-	shapshotListShowOwner            bool
+	snapshotListShowOwner            bool
 	snapshotListShowIdentical        bool
 	snapshotListShowAll              bool
 	maxResultsPerPath                int
@@ -50,7 +50,7 @@ func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
 	cmd.Flag("manifest-id", "Include manifest item ID.").Short('m').BoolVar(&c.snapshotListShowItemID)
 	cmd.Flag("retention", "Include retention reasons.").Default("true").BoolVar(&c.snapshotListShowRetentionReasons)
 	cmd.Flag("mtime", "Include file mod time").BoolVar(&c.snapshotListShowModTime)
-	cmd.Flag("owner", "Include owner").BoolVar(&c.shapshotListShowOwner)
+	cmd.Flag("owner", "Include owner").BoolVar(&c.snapshotListShowOwner)
 	cmd.Flag("show-identical", "Show identical snapshots").Short('l').BoolVar(&c.snapshotListShowIdentical)
 	cmd.Flag("storage-stats", "Compute and show storage statistics").BoolVar(&c.storageStats)
 	cmd.Flag("reverse", "Reverse sort order").BoolVar(&c.reverseSort)
@@ -410,7 +410,7 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 	bits = append(bits,
 		maybeHumanReadableBytes(c.snapshotListShowHumanReadable, totalBytes),
 		ent.Mode().String())
-	if c.shapshotListShowOwner {
+	if c.snapshotListShowOwner {
 		bits = append(bits,
 			fmt.Sprintf("uid:%v", ent.Owner().UserID),
 			fmt.Sprintf("gid:%v", ent.Owner().GroupID))

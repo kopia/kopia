@@ -25,7 +25,7 @@ func (s *RepositorySession) WriteManifest(ctx context.Context, mid manifest.ID) 
 	s.WrittenManifests.Add(ctx, mid)
 }
 
-// Refresh refreshes the set of committed contents and manifest from repositor.
+// Refresh refreshes the set of committed contents and manifest from repository.
 func (s *RepositorySession) Refresh(ctx context.Context, cids *TrackingSet[content.ID], mids *TrackingSet[manifest.ID]) {
 	s.OpenRepo.Refresh(ctx, cids, mids)
 }

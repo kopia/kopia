@@ -109,7 +109,7 @@ func TestRestoreCommand(t *testing.T) {
 	// Attempt to restore using snapshot ID
 	restoreFailDir := testutil.TempDirectory(t)
 
-	// Remember original app cusomization
+	// Remember original app customization
 	origCustomizeApp := runner.CustomizeApp
 
 	// Prepare fake restore progress and set it when needed

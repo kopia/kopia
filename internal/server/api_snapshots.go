@@ -102,7 +102,7 @@ func handleDeleteSnapshots(ctx context.Context, rc requestContext) (any, *apiErr
 
 		for _, m := range manifestIDs {
 			if err := w.DeleteManifest(ctx, m); err != nil {
-				return errors.Wrap(err, "uanble to delete snapshot")
+				return errors.Wrap(err, "unable to delete snapshot")
 			}
 		}
 

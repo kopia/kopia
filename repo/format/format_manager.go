@@ -249,7 +249,7 @@ func (m *Manager) RepositoryFormatBytes(ctx context.Context) ([]byte, error) {
 	return f.RepositoryFormatBytes(ctx)
 }
 
-// GetMutableParameters gets mutable paramers of the repository.
+// GetMutableParameters gets mutable parameters of the repository.
 // This function blocks to refresh the format blob if necessary.
 func (m *Manager) GetMutableParameters(ctx context.Context) (MutableParameters, error) {
 	f, err := m.getOrRefreshFormat(ctx)
@@ -261,7 +261,7 @@ func (m *Manager) GetMutableParameters(ctx context.Context) (MutableParameters, 
 	return f.GetMutableParameters(ctx)
 }
 
-// GetCachedMutableParameters gets mutable paramers of the repository without blocking.
+// GetCachedMutableParameters gets mutable parameters of the repository without blocking.
 func (m *Manager) GetCachedMutableParameters() MutableParameters {
 	m.mu.RLock()
 	defer m.mu.RUnlock()

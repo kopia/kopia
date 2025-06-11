@@ -1260,7 +1260,7 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 	// count how many times we retried writes/flushes
 	// also, verify that all the data is durable
 	cases := []struct {
-		faults               []*fault.Fault // failures to similuate
+		faults               []*fault.Fault // failures to simulate
 		contentSizes         []int          // sizes of contents to write
 		expectedWriteRetries []int
 		expectedFlushRetries int

@@ -17,7 +17,7 @@ func Frozen(t time.Time) func() time.Time {
 }
 
 // AutoAdvance returns a time source function that returns a time equal to
-// 'start + ((n - 1) * dt)' wheren n is the number of serialized invocations of
+// 'start + ((n - 1) * dt)' where n is the number of serialized invocations of
 // the returned function. The returned function will generate a time series of
 // the form [start, start+dt, start+2dt, start+3dt, ...].
 func AutoAdvance(start time.Time, dt time.Duration) func() time.Time {

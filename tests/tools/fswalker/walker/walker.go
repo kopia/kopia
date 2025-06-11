@@ -57,7 +57,7 @@ func Walk(ctx context.Context, policy *fspb.Policy) (*fspb.Walk, error) { //noli
 	return retWalk, nil
 }
 
-// WalkPathHash performs a walk at the path prvided and returns a pointer
+// WalkPathHash performs a walk at the path provided and returns a pointer
 // to the Walk result.
 func WalkPathHash(ctx context.Context, path string) (*fspb.Walk, error) {
 	return Walk(ctx, &fspb.Policy{

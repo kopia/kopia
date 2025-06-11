@@ -20,7 +20,7 @@ type BlobWriter struct {
 }
 
 // EncryptAndWriteBlobAsync encrypts given content and writes it to the repository asynchronously,
-// folllowed by calling the provided closeFunc.
+// followed by calling the provided closeFunc.
 func (w *BlobWriter) EncryptAndWriteBlobAsync(ctx context.Context, prefix blob.ID, data gather.Bytes, closeFunc func()) {
 	encrypted := gather.NewWriteBuffer()
 	// Close happens in a goroutine

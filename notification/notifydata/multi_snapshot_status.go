@@ -12,7 +12,7 @@ const durationPrecision = 100 * time.Millisecond
 
 // ManifestWithError represents information about the snapshot manifest with optional error.
 type ManifestWithError struct {
-	Manifest snapshot.Manifest  `json:"manifest"` // may not be filled out if there was an error, Manifst.Source is always set.
+	Manifest snapshot.Manifest  `json:"manifest"` // may not be filled out if there was an error, Manifest.Source is always set.
 	Previous *snapshot.Manifest `json:"previous"` // may not be filled out
 
 	Error string `json:"error"` // will be present if there was an error

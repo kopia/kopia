@@ -185,7 +185,7 @@ func isRootDirectoryRename(diffItem string, mod fswalker.ActionData) bool {
 	return mod.Before.GetInfo().GetIsDir() && filepath.Clean(mod.Before.GetPath()) == "."
 }
 
-// Directory size changes with underlying file system setups. Ignote the dir size during data consistency check to make it robust.
+// Directory size changes with underlying file system setups. Ignore the dir size during data consistency check to make it robust.
 // Remove this filter from GlobalFilterFuncs to detect the size difference in a directory.
 func filterDirSizeCheck(str string, mod fswalker.ActionData) bool {
 	return mod.Before.GetInfo().GetIsDir() && strings.Contains(str, "size: ")

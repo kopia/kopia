@@ -14,7 +14,7 @@ import (
 	"github.com/kopia/kopia/repo/hashing"
 )
 
-// Crypter ecapsulates hashing and encryption.
+// Crypter encapsulates hashing and encryption.
 type Crypter interface {
 	HashFunc() hashing.HashFunc
 	Encryptor() encryption.Encryptor

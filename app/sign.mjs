@@ -41,7 +41,7 @@ export default async function (configuration) {
   for (let attempt = 0; attempt < 10; attempt++) {
     console.log("Signing ", configuration.path, "attempt", attempt);
     if (attempt > 0) {
-      console.log("Sleping for ", nextSleepTime);
+      console.log("Sleeping for ", nextSleepTime);
       await new Promise((r) => setTimeout(r, nextSleepTime));
     }
     nextSleepTime *= 2;
