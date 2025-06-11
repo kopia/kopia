@@ -40,7 +40,8 @@ func GetBlockSize(path string) (uint64, error) {
 		uintptr(unsafe.Pointer(&totalClusters)),
 	)
 	if ret == 0 {
-		return 0, errors.Wrapf(err, "error while getting block size for %v", runtime.GOOS)
+		// err is always non-nil
+		return 0, errors.Wrapf(err, "failed to get block size for '%s' on %v", path, runtime.GOOS)
 	}
 
 	// Calculate the block size as sectors per cluster * bytes per sector
