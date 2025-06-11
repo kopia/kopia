@@ -1,17 +1,19 @@
-//go:build !windows
-// +build !windows
-
 package stat
 
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
 func TestGetBlockSize(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("GetBlockSize does not work with device", os.DevNull)
+	}
+
 	size, err := GetBlockSize(os.DevNull)
 	require.NoError(t, err)
 
@@ -26,6 +28,10 @@ func TestGetBlockSizeFromCurrentFS(t *testing.T) {
 }
 
 func TestGetFileAllocSize(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("GetFileAllocSize not implemented on windows")
+	}
+
 	const expectedMinAllocSize = 512 // minimum block size on most platforms
 
 	d := t.TempDir()
