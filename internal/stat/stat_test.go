@@ -20,11 +20,11 @@ func TestGetBlockSize(t *testing.T) {
 }
 
 func TestGetFileAllocSize(t *testing.T) {
-	const writeSize = 512
+	const expectedMinAllocSize = 512
 
 	d := t.TempDir()
 	f := filepath.Join(d, "test")
-	data := bytes.Repeat([]byte{1}, writeSize)
+	data := bytes.Repeat([]byte{1}, expectedMinAllocSize)
 
 	err := os.WriteFile(f, data, os.ModePerm)
 	require.NoError(t, err)
@@ -32,6 +32,6 @@ func TestGetFileAllocSize(t *testing.T) {
 	s, err := GetFileAllocSize(f)
 
 	require.NoError(t, err, "error getting file alloc size for %s: %v", f, err)
-	require.GreaterOrEqual(t, s, uint64(writeSize), "invalid allocated file size %d, expected at least %d", s, writeSize)
+	require.GreaterOrEqual(t, s, uint64(expectedMinAllocSize), "invalid allocated file size %d, expected at least %d", s, expectedMinAllocSize)
 	t.Log("file alloc size:", s)
 }
