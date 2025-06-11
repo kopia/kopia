@@ -18,6 +18,12 @@ func TestGetBlockSize(t *testing.T) {
 	require.Positive(t, size)
 }
 
+func TestGetBlockSizeFromCurrentFS(t *testing.T) {
+	size, err := GetBlockSize(".")
+	require.NoError(t, err)
+	require.Greater(t, size, uint64(0))
+}
+
 func TestGetFileAllocSize(t *testing.T) {
 	const expectedMinAllocSize = 512
 
