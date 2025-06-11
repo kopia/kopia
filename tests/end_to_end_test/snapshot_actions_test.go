@@ -265,7 +265,7 @@ func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 		badRedirectScript  = tmpfileWithContents(t, "echo KOPIA_SNAPSHOT_PATH=/no/such/directory")
 	)
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOSName {
 		failingScript = tmpfileWithContents(t, "exit /b 1")
 		successScript2 = tmpfileWithContents(t, "echo Hello world!")
 	} else {
