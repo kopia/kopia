@@ -123,11 +123,11 @@
   },
   "devDependencies": {
     "@electron/notarize": "^3.0.1",
-    "@playwright/test": "^1.52.0",
+    "@playwright/test": "^1.53.0",
     "asar": "^3.2.0",
     "concurrently": "^9.1.2",
     "dotenv": "^16.5.0",
-    "electron": "^36.3.2",
+    "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1",
