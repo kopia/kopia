@@ -106,7 +106,7 @@ func setupTest(t *testing.T, compressionHeaderID map[content.ID]compression.Head
 	fcm := &fakeContentManager{
 		data:                       data,
 		supportsContentCompression: compressionHeaderID != nil,
-		compressionIDs:              compressionHeaderID,
+		compressionIDs:             compressionHeaderID,
 	}
 
 	r, err := NewObjectManager(testlogging.Context(t), fcm, format.ObjectFormat{
