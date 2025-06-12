@@ -722,7 +722,7 @@ func TestSnapshotCreateAllFlushPerSource(t *testing.T) {
 	require.Len(t, indexList2, len(indexList1)+1)
 	require.Len(t, metadataBlobList2, len(metadataBlobList1)+1)
 
-	// snapshot with --flush-per-source, since there are 3 soufces, we'll have 3 index blobs
+	// snapshot with --flush-per-source, since there are 3 sources, we'll have 3 index blobs
 	e.RunAndExpectSuccess(t, "snapshot", "create", "--all", "--flush-per-source")
 
 	indexList3 := e.RunAndExpectSuccess(t, "index", "ls")

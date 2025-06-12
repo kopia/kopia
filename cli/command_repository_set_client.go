@@ -73,7 +73,7 @@ func (c *commandRepositorySetClient) run(ctx context.Context, rep repo.Repositor
 			opt.PermissiveCacheLoading = true
 			anyChange = true
 
-			log(ctx).Info("Setting to load indicies into cache permissively.")
+			log(ctx).Info("Setting to load indices into cache permissively.")
 		}
 	}
 

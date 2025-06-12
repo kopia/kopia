@@ -24,7 +24,7 @@ func TestFileStorage(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	// Test varioush shard configurations.
+	// Test various shard configurations.
 	for _, shardSpec := range [][]int{
 		{0},
 		{1},

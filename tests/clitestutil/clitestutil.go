@@ -44,7 +44,7 @@ func MustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
 				return nil
 			}
 
-			currentSource.Snapshots = append(currentSource.Snapshots, mustParseSnaphotInfo(t, l[2:]))
+			currentSource.Snapshots = append(currentSource.Snapshots, mustParseSnapshotInfo(t, l[2:]))
 
 			continue
 		}
@@ -57,7 +57,7 @@ func MustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
 	return result
 }
 
-func mustParseSnaphotInfo(t *testing.T, l string) SnapshotInfo {
+func mustParseSnapshotInfo(t *testing.T, l string) SnapshotInfo {
 	t.Helper()
 
 	incomplete := strings.Contains(l, "incomplete")

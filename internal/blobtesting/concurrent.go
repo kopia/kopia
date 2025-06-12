@@ -18,7 +18,7 @@ import (
 
 // ConcurrentAccessOptions encapsulates parameters for VerifyConcurrentAccess.
 type ConcurrentAccessOptions struct {
-	NumBlobs int // number of shared blos in the pool
+	NumBlobs int // number of shared blobs in the pool
 
 	Getters  int
 	Putters  int

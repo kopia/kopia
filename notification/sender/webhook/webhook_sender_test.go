@@ -89,7 +89,7 @@ func TestWebhook(t *testing.T) {
 	require.Equal(t, "This is a test.\n\n* one\n* two\n* three", requestBodies[1].String())
 
 	p3, err := sender.GetSender(ctx, "my-profile", "webhook", &webhook.Options{
-		Endpoint: server.URL + "/nonexixtent-path",
+		Endpoint: server.URL + "/nonexistent-path",
 	})
 	require.NoError(t, err)
 

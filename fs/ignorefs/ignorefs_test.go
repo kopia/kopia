@@ -310,7 +310,7 @@ var cases = []struct {
 		},
 	},
 	{
-		desc: "absolut match",
+		desc: "absolute match",
 		setup: func(root *mockfs.Directory) {
 			root.Subdir("src").AddFileLines(".extraignore", []string{
 				"/sub/*.foo",

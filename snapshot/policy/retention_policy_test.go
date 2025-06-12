@@ -226,7 +226,7 @@ func TestCompactPins(t *testing.T) {
 		}))
 }
 
-func TestCompactRetentionrRasons(t *testing.T) {
+func TestCompactRetentionReasons(t *testing.T) {
 	cases := []struct {
 		input []string
 		want  []string

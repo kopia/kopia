@@ -52,7 +52,7 @@ func NewStdConsoleEncoder(ec StdConsoleEncoderConfig) zapcore.Encoder {
 	}), ec}
 }
 
-// StdConsoleEncoderConfig provides configurationfor NewStdConsoleEncoder.
+// StdConsoleEncoderConfig provides configuration for NewStdConsoleEncoder.
 type StdConsoleEncoderConfig struct {
 	TimeLayout         string
 	LocalTime          bool

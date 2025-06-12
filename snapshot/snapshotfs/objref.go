@@ -76,7 +76,7 @@ func parseNestedObjectID(ctx context.Context, startingDir fs.Entry, parts []stri
 }
 
 // FindSnapshotByRootObjectIDOrManifestID returns the list of matching snapshots for a given rootID.
-// which can be either snapshot manifst ID (which matches 0 or 1 snapshots)
+// which can be either snapshot manifest ID (which matches 0 or 1 snapshots)
 // or the root object ID (which can match arbitrary number of snapshots).
 // If multiple snapshots match and they don't agree on root object attributes and consistentAttributes==true
 // the function fails, otherwise it returns the latest of the snapshots.

@@ -51,7 +51,7 @@ func decodeHashedPassword(encodedHash string) (*passwordHash, error) {
 	}
 
 	if err := json.Unmarshal(passwordHashJSON, &h); err != nil {
-		return nil, errors.Wrap(err, "unmarshalling password hash")
+		return nil, errors.Wrap(err, "unmarshaling password hash")
 	}
 
 	return &h, nil

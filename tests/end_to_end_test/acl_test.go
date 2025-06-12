@@ -32,7 +32,7 @@ func TestACL(t *testing.T) {
 	// reduce default access to snapshots to APPEND - this will fail because exactly identical rule already exists and grants FULL access.
 	serverEnvironment.RunAndExpectFailure(t, "server", "acl", "add", "--user", "*@*", "--target", "type=snapshot,username=OWN_USER,hostname=OWN_HOST", "--access=APPEND")
 
-	// reduce default access to snapshots to APPEND with --overwrite, this wil succeed.
+	// reduce default access to snapshots to APPEND with --overwrite, this will succeed.
 	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "*@*", "--target", "type=snapshot,username=OWN_USER,hostname=OWN_HOST", "--access=APPEND", "--overwrite")
 
 	// add read access to all snapshots and policies for user foo@bar

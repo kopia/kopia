@@ -24,19 +24,19 @@ func TestMaintenanceSetExtendObjectLocks(t *testing.T) {
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 
-	require.False(t, mi.ExtendObjectLocks, "ExtendOjectLocks should not default to enabled.")
+	require.False(t, mi.ExtendObjectLocks, "ExtendObjectLocks should not default to enabled.")
 
 	e.RunAndExpectSuccess(t, "maintenance", "set", "--extend-object-locks", "true")
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 
-	require.True(t, mi.ExtendObjectLocks, "ExtendOjectLocks should be enabled.")
+	require.True(t, mi.ExtendObjectLocks, "ExtendObjectLocks should be enabled.")
 
 	e.RunAndExpectSuccess(t, "maintenance", "set", "--extend-object-locks", "false")
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 
-	require.False(t, mi.ExtendObjectLocks, "ExtendOjectLocks should be disabled.")
+	require.False(t, mi.ExtendObjectLocks, "ExtendObjectLocks should be disabled.")
 }
 
 func TestMaintenanceSetListParallelism(t *testing.T) {
@@ -78,7 +78,7 @@ func (s *formatSpecificTestSuite) TestInvalidExtendRetainOptions(t *testing.T) {
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 
-	require.False(t, mi.ExtendObjectLocks, "ExtendOjectLocks should be disabled.")
+	require.False(t, mi.ExtendObjectLocks, "ExtendObjectLocks should be disabled.")
 
 	// Enable extend object locks when retention_period-full_maintenance_interval > 24h
 	e.RunAndExpectSuccess(t, "maintenance", "set", "--full-interval", "23h59m")
@@ -90,7 +90,7 @@ func (s *formatSpecificTestSuite) TestInvalidExtendRetainOptions(t *testing.T) {
 
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 
-	require.True(t, mi.ExtendObjectLocks, "ExtendOjectLocks should be enabled.")
+	require.True(t, mi.ExtendObjectLocks, "ExtendObjectLocks should be enabled.")
 	require.Equal(t, mi.FullCycle.Interval, time.Duration(86340000000000), "maintenance-interval should be unchanged.")
 
 	// Cannot change retention_period when retention_period-full_maintenance_interval < 24h

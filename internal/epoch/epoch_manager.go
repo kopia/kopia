@@ -23,7 +23,7 @@ import (
 const LatestEpoch = -1
 
 const (
-	initiaRefreshAttemptSleep      = 100 * time.Millisecond
+	initialRefreshAttemptSleep     = 100 * time.Millisecond
 	maxRefreshAttemptSleep         = 15 * time.Second
 	maxRefreshAttemptSleepExponent = 1.5
 )
@@ -448,7 +448,7 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 		return err
 	}
 
-	nextDelayTime := initiaRefreshAttemptSleep
+	nextDelayTime := initialRefreshAttemptSleep
 
 	if !p.Enabled {
 		return errors.New("epoch manager not enabled")

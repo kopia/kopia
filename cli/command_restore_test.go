@@ -21,8 +21,8 @@ func TestRestoreSnapshotMaxTime(t *testing.T) {
 		return time.Date(y, time.Month(mo), d, h, m, s, 0, now.Location())
 	}
 
-	requireTime := func(expected time.Time, timespect string) {
-		mt, err := computeMaxTime(timespect)
+	requireTime := func(expected time.Time, timespec string) {
+		mt, err := computeMaxTime(timespec)
 		require.NoError(t, err)
 		require.Equal(t, expected, mt)
 	}
