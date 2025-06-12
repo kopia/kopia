@@ -26,7 +26,7 @@ func (p *webhookProvider) Send(ctx context.Context, msg *sender.Message) error {
 	targetURL := p.opt.Endpoint
 	method := p.opt.Method
 
-	body := []byte(msg.Body)
+	var body []byte
 
 	if p.opt.Discord {
 		payload := map[string]any{
@@ -36,11 +36,14 @@ func (p *webhookProvider) Send(ctx context.Context, msg *sender.Message) error {
 			}},
 		}
 
-		var err error
-		body, err = json.Marshal(payload)
+		jsonBody, err := json.Marshal(payload)
 		if err != nil {
 			return errors.Wrap(err, "error preparing discord notification")
 		}
+
+		body = jsonBody
+	} else {
+		body = []byte(msg.Body)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, targetURL, bytes.NewReader(body))
@@ -75,6 +78,7 @@ func (p *webhookProvider) Send(ctx context.Context, msg *sender.Message) error {
 		if err != nil {
 			return errors.Wrapf(err, "error sending webhook notification: %v (failed to read response body)", resp.Status)
 		}
+
 		return errors.Errorf("error sending webhook notification: %v, %s", resp.Status, string(bodyBytes))
 	}
 

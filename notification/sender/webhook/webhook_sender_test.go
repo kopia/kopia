@@ -118,9 +118,10 @@ func TestWebhook(t *testing.T) {
 
 	require.Equal(t, "POST", requests[2].Method)
 	require.Equal(t, "application/json", requests[2].Header.Get("Content-Type"))
+	require.Equal(t, "Discord test", requests[2].Header.Get("Subject"))
+
 	expectedDiscordBody := `{"content":"Discord test","embeds":[{"description":"This is a test.\n\n* one\n* two\n* three"}]}`
 	require.JSONEq(t, expectedDiscordBody, requestBodies[2].String())
-	require.Equal(t, "Discord test", requests[2].Header.Get("Subject"))
 }
 
 func TestWebhook_Failure(t *testing.T) {
