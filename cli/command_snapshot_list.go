@@ -33,6 +33,7 @@ type commandSnapshotList struct {
 	snapshotListShowIdentical        bool
 	snapshotListShowAll              bool
 	maxResultsPerPath                int
+	maxSnapshots                     int
 	snapshotListTags                 []string
 	storageStats                     bool
 	reverseSort                      bool
@@ -56,6 +57,7 @@ func (c *commandSnapshotList) setup(svc appServices, parent commandParent) {
 	cmd.Flag("reverse", "Reverse sort order").BoolVar(&c.reverseSort)
 	cmd.Flag("all", "Show all snapshots (not just current username/host)").Short('a').BoolVar(&c.snapshotListShowAll)
 	cmd.Flag("max-results", "Maximum number of entries per source.").Short('n').IntVar(&c.maxResultsPerPath)
+	cmd.Flag("max-snapshots", "Maximum number of snapshots.").Short('s').IntVar(&c.maxSnapshots)
 	cmd.Flag("tags", "Tag filters to apply on the list items. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotListTags)
 	c.jo.setup(svc, cmd)
 	c.out.setup(svc)
@@ -133,6 +135,10 @@ func (c *commandSnapshotList) run(ctx context.Context, rep repo.Repository) erro
 	manifests, err := snapshot.LoadSnapshots(ctx, rep, manifestIDs)
 	if err != nil {
 		return errors.Wrap(err, "unable to load snapshots")
+	}
+
+	if c.maxSnapshots > 0 && len(manifests) > 0 {
+		manifests = manifests[:c.maxSnapshots]
 	}
 
 	if c.jo.jsonOutput {
