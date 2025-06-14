@@ -127,7 +127,7 @@ func (c *PersistentCache) deleteInvalidBlob(ctx context.Context, key string) {
 }
 
 // getPartial fetches the contents of a cached blob when (length < 0) or a subset
-// of it (when length >= 0) and returns tru if it is found.
+// of it (when length >= 0) and returns true if it is found.
 func (c *PersistentCache) getPartial(ctx context.Context, key string, offset, length int64, output *gather.WriteBuffer) bool {
 	if c == nil {
 		return false
