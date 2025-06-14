@@ -63,7 +63,7 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 		return fetch(output)
 	}
 
-	if c.GetFull(ctx, key, output) {
+	if c.getFull(ctx, key, output) {
 		return nil
 	}
 
@@ -73,7 +73,7 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 	defer c.exclusiveUnlock(key)
 
 	// check again while holding the mutex
-	if c.GetFull(ctx, key, output) {
+	if c.getFull(ctx, key, output) {
 		return nil
 	}
 
@@ -90,9 +90,9 @@ func (c *PersistentCache) GetOrLoad(ctx context.Context, key string, fetch func(
 	return nil
 }
 
-// GetFull fetches the contents of a full blob. Returns false if not found.
-func (c *PersistentCache) GetFull(ctx context.Context, key string, output *gather.WriteBuffer) bool {
-	return c.GetPartial(ctx, key, 0, -1, output)
+// getFull fetches the contents of a full blob. Returns false if not found.
+func (c *PersistentCache) getFull(ctx context.Context, key string, output *gather.WriteBuffer) bool {
+	return c.getPartial(ctx, key, 0, -1, output)
 }
 
 func (c *PersistentCache) getPartialCacheHit(ctx context.Context, key string, length int64, output *gather.WriteBuffer) {
@@ -126,9 +126,9 @@ func (c *PersistentCache) deleteInvalidBlob(ctx context.Context, key string) {
 	}
 }
 
-// GetPartial fetches the contents of a cached blob when (length < 0) or a subset of it (when length >= 0).
-// returns false if not found.
-func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, length int64, output *gather.WriteBuffer) bool {
+// getPartial fetches the contents of a cached blob when (length < 0) or a subset
+// of it (when length >= 0) and returns true if it is found.
+func (c *PersistentCache) getPartial(ctx context.Context, key string, offset, length int64, output *gather.WriteBuffer) bool {
 	if c == nil {
 		return false
 	}
@@ -155,12 +155,7 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 	}
 
 	// cache miss
-	l := length
-	if l < 0 {
-		l = 0
-	}
-
-	c.reportMissBytes(l)
+	c.reportMissBytes(max(length, 0))
 
 	return false
 }

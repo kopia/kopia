@@ -58,7 +58,7 @@ func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
 	})
 
 	// Remove subsequent duplicates
-	return slices.Compact[[]TimeOfDay, TimeOfDay](tod)
+	return slices.Compact(tod)
 }
 
 // SchedulingPolicy describes policy for scheduling snapshots.

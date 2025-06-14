@@ -66,7 +66,7 @@ func (c *contentCacheImpl) getContentFromFullBlob(ctx context.Context, blobID bl
 	defer c.pc.exclusiveUnlock(string(blobID))
 
 	// check again to see if we perhaps lost the race and the data is now in cache.
-	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), offset, length, output) {
+	if c.pc.getPartial(ctx, BlobIDCacheKey(blobID), offset, length, output) {
 		return nil
 	}
 
@@ -116,7 +116,7 @@ func (c *contentCacheImpl) getContentFromFullOrPartialBlob(ctx context.Context, 
 	defer c.pc.sharedUnlock(string(blobID))
 
 	// see if we have the full blob cached by extracting a partial range.
-	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), offset, length, output) {
+	if c.pc.getPartial(ctx, BlobIDCacheKey(blobID), offset, length, output) {
 		return nil
 	}
 
@@ -126,7 +126,7 @@ func (c *contentCacheImpl) getContentFromFullOrPartialBlob(ctx context.Context, 
 
 	output.Reset()
 
-	if c.pc.GetFull(ctx, ContentIDCacheKey(contentID), output) {
+	if c.pc.getFull(ctx, ContentIDCacheKey(contentID), output) {
 		return nil
 	}
 
@@ -152,7 +152,7 @@ func (c *contentCacheImpl) PrefetchBlob(ctx context.Context, blobID blob.ID) err
 	defer blobData.Close()
 
 	// see if it's already cached before taking a lock
-	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), 0, 1, &blobData) {
+	if c.pc.getPartial(ctx, BlobIDCacheKey(blobID), 0, 1, &blobData) {
 		return nil
 	}
 
@@ -160,7 +160,7 @@ func (c *contentCacheImpl) PrefetchBlob(ctx context.Context, blobID blob.ID) err
 	c.pc.exclusiveLock(string(blobID))
 	defer c.pc.exclusiveUnlock(string(blobID))
 
-	if c.pc.GetPartial(ctx, BlobIDCacheKey(blobID), 0, 1, &blobData) {
+	if c.pc.getPartial(ctx, BlobIDCacheKey(blobID), 0, 1, &blobData) {
 		return nil
 	}
 
