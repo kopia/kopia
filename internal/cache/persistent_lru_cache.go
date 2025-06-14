@@ -155,12 +155,7 @@ func (c *PersistentCache) GetPartial(ctx context.Context, key string, offset, le
 	}
 
 	// cache miss
-	l := length
-	if l < 0 {
-		l = 0
-	}
-
-	c.reportMissBytes(l)
+	c.reportMissBytes(max(length, 0))
 
 	return false
 }
