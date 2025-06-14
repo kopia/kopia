@@ -20,8 +20,9 @@ func TestGetBlockSize(t *testing.T) {
 
 func TestGetBlockSizeFromCurrentFS(t *testing.T) {
 	size, err := GetBlockSize(".")
+
 	require.NoError(t, err)
-	require.Greater(t, size, uint64(0))
+	require.Positive(t, size)
 }
 
 func TestGetFileAllocSize(t *testing.T) {
