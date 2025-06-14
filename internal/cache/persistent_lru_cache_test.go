@@ -74,7 +74,7 @@ func TestPersistentLRUCache(t *testing.T) {
 	}, nil, clock.Now)
 	require.NoError(t, err)
 
-	verifyCached(ctx, t, pc, "key1", nil)
+	verifyNotCached(ctx, t, pc, "key1")
 	verifyCached(ctx, t, pc, "key2", someData)
 	verifyCached(ctx, t, pc, "key3", someData)
 	verifyCached(ctx, t, pc, "key4", someData)
@@ -106,7 +106,7 @@ func TestPersistentLRUCache(t *testing.T) {
 
 	// at this point 'cs' was updated with a different checksum, so attempting to read it using
 	// 'pc' will return cache miss.
-	verifyCached(ctx, t, pc, "key2", nil)
+	verifyNotCached(ctx, t, pc, "key2")
 
 	require.ErrorIs(t, pc2.GetOrLoad(ctx, "key9", func(output *gather.WriteBuffer) error {
 		return someError
@@ -355,6 +355,12 @@ func verifyCached(ctx context.Context, t *testing.T, pc *cache.PersistentCache, 
 			t.Fatalf("invalid cached result for %v: %x, want %x", key, got, want)
 		}
 	}
+}
+
+func verifyNotCached(ctx context.Context, t *testing.T, pc *cache.PersistentCache, key string) {
+	t.Helper()
+
+	verifyCached(ctx, t, pc, key, nil)
 }
 
 func verifyBlobExists(ctx context.Context, t *testing.T, st cache.Storage, blobID blob.ID) {
