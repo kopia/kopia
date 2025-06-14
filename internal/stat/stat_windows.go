@@ -30,10 +30,15 @@ func GetBlockSize(path string) (uint64, error) {
 	kernel32 := windows.NewLazyDLL("kernel32.dll")
 	getDiskFreeSpace := kernel32.NewProc("GetDiskFreeSpaceW")
 
+	pathPtr, err := windows.UTF16PtrFromString(path)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to convert path '%s' to UTF-16 pointer", path)
+	}
+
 	var sectorsPerCluster, bytesPerSector, freeClusters, totalClusters uint32
 
 	ret, _, err := getDiskFreeSpace.Call(
-		uintptr(unsafe.Pointer(windows.StringToUTF16Ptr(path))),
+		uintptr(unsafe.Pointer(pathPtr)),
 		uintptr(unsafe.Pointer(&sectorsPerCluster)),
 		uintptr(unsafe.Pointer(&bytesPerSector)),
 		uintptr(unsafe.Pointer(&freeClusters)),
