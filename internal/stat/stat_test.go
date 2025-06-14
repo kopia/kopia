@@ -37,6 +37,6 @@ func TestGetFileAllocSize(t *testing.T) {
 	s, err := GetFileAllocSize(f)
 
 	require.NoError(t, err, "error getting file alloc size for %s: %v", f, err)
-	require.GreaterOrEqual(t, s, uint64(expectedMinAllocSize), "invalid allocated file size %d, expected at least %d", s, expectedMinAllocSize)
 	t.Log("file alloc size:", s)
+	require.GreaterOrEqual(t, s, uint64(expectedMinAllocSize), "invalid allocated file size %d, expected at least %d", s, expectedMinAllocSize)
 }
