@@ -33,12 +33,7 @@ func TestPersistentLRUCache(t *testing.T) {
 	}, nil, clock.Now)
 	require.NoError(t, err)
 
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
-	if got := pc.TestingGetFull(ctx, "key", &tmp); got {
-		t.Fatalf("unexpected cache hit on empty cache")
-	}
+	verifyNotCached(ctx, t, pc, "key") // no hits on an empty cache
 
 	someData := bytes.Repeat([]byte{1}, 300)
 
@@ -52,11 +47,7 @@ func TestPersistentLRUCache(t *testing.T) {
 	pc.Put(ctx, "key4", gather.FromSlice(someData))
 	verifyBlobExists(ctx, t, cs, "key4")
 
-	require.True(t, pc.TestingGetFull(ctx, "key2", &tmp))
-
-	if got, want := tmp.ToByteSlice(), someData; !bytes.Equal(got, want) {
-		t.Fatalf("invalid data retrieved from cache: %x", got)
-	}
+	verifyCached(ctx, t, pc, "key2", someData)
 
 	// final sweep is performed on close at which time key1 becomes candidate
 	// for expulsion from cache because it's the oldest and we have 1200 bytes in the cache
@@ -158,17 +149,16 @@ func TestPersistentLRUCache_GetDeletesInvalidBlob(t *testing.T) {
 	require.NoError(t, err)
 
 	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
+	verifyCached(ctx, t, pc, "key", []byte{1, 2, 3})
 
 	// corrupt cached data
 	data["key"][0] ^= 1
 
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
 	// simulate failure when trying to delete.
 	fs.AddFault(blobtesting.MethodDeleteBlob).ErrorInstead(someError)
 
-	pc.TestingGetFull(ctx, "key", &tmp)
+	// retrieving should not return anything after the data is corrupted
+	verifyNotCached(ctx, t, pc, "key")
 }
 
 func TestPersistentLRUCache_PutIgnoresStorageFailure(t *testing.T) {
@@ -190,11 +180,7 @@ func TestPersistentLRUCache_PutIgnoresStorageFailure(t *testing.T) {
 	fs.AddFault(blobtesting.MethodPutBlob).ErrorInstead(someError)
 
 	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
-
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
-	require.False(t, pc.TestingGetFull(ctx, "key", &tmp))
+	verifyNotCached(ctx, t, pc, "key")
 
 	require.Equal(t, 1, fs.NumCalls(blobtesting.MethodPutBlob))
 }
@@ -298,10 +284,10 @@ func TestPersistentLRUCacheNil(t *testing.T) {
 	// no-op
 	pc.Close(ctx)
 	pc.Put(ctx, "key", gather.FromSlice([]byte{1, 2, 3}))
+	verifyNotCached(ctx, t, pc, "key")
 
 	var tmp gather.WriteBuffer
-
-	require.False(t, pc.TestingGetFull(ctx, "key", &tmp))
+	defer tmp.Close()
 
 	called := false
 
@@ -332,12 +318,7 @@ func TestPersistentLRUCache_Defaults(t *testing.T) {
 	defer pc.Close(ctx)
 
 	pc.Put(ctx, "key1", gather.FromSlice([]byte{1, 2, 3}))
-
-	var tmp gather.WriteBuffer
-	defer tmp.Close()
-
-	cs.GetBlob(ctx, "key1", 0, -1, &tmp)
-	require.Len(t, tmp.ToByteSlice(), 3)
+	verifyCached(ctx, t, pc, "key1", []byte{1, 2, 3})
 }
 
 func verifyCached(ctx context.Context, t *testing.T, pc *cache.PersistentCache, key string, want []byte) {
