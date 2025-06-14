@@ -24,8 +24,6 @@ func GetFileAllocSize(fname string) (uint64, error) {
 }
 
 // GetBlockSize gets the disk block size of the underlying system.
-//
-//nolint:revive
 func GetBlockSize(path string) (uint64, error) {
 	kernel32 := windows.NewLazyDLL("kernel32.dll")
 	getDiskFreeSpace := kernel32.NewProc("GetDiskFreeSpaceW")
