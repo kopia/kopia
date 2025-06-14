@@ -126,7 +126,7 @@ func (c *contentCacheImpl) getContentFromFullOrPartialBlob(ctx context.Context, 
 
 	output.Reset()
 
-	if c.pc.GetFull(ctx, ContentIDCacheKey(contentID), output) {
+	if c.pc.getFull(ctx, ContentIDCacheKey(contentID), output) {
 		return nil
 	}
 

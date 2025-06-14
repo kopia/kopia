@@ -36,7 +36,7 @@ func TestPersistentLRUCache(t *testing.T) {
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	if got := pc.GetFull(ctx, "key", &tmp); got {
+	if got := pc.TestingGetFull(ctx, "key", &tmp); got {
 		t.Fatalf("unexpected cache hit on empty cache")
 	}
 
@@ -52,7 +52,7 @@ func TestPersistentLRUCache(t *testing.T) {
 	pc.Put(ctx, "key4", gather.FromSlice(someData))
 	verifyBlobExists(ctx, t, cs, "key4")
 
-	require.True(t, pc.GetFull(ctx, "key2", &tmp))
+	require.True(t, pc.TestingGetFull(ctx, "key2", &tmp))
 
 	if got, want := tmp.ToByteSlice(), someData; !bytes.Equal(got, want) {
 		t.Fatalf("invalid data retrieved from cache: %x", got)
@@ -168,7 +168,7 @@ func TestPersistentLRUCache_GetDeletesInvalidBlob(t *testing.T) {
 	// simulate failure when trying to delete.
 	fs.AddFault(blobtesting.MethodDeleteBlob).ErrorInstead(someError)
 
-	pc.GetFull(ctx, "key", &tmp)
+	pc.TestingGetFull(ctx, "key", &tmp)
 }
 
 func TestPersistentLRUCache_PutIgnoresStorageFailure(t *testing.T) {
@@ -194,7 +194,7 @@ func TestPersistentLRUCache_PutIgnoresStorageFailure(t *testing.T) {
 	var tmp gather.WriteBuffer
 	defer tmp.Close()
 
-	require.False(t, pc.GetFull(ctx, "key", &tmp))
+	require.False(t, pc.TestingGetFull(ctx, "key", &tmp))
 
 	require.Equal(t, 1, fs.NumCalls(blobtesting.MethodPutBlob))
 }
@@ -301,7 +301,7 @@ func TestPersistentLRUCacheNil(t *testing.T) {
 
 	var tmp gather.WriteBuffer
 
-	require.False(t, pc.GetFull(ctx, "key", &tmp))
+	require.False(t, pc.TestingGetFull(ctx, "key", &tmp))
 
 	called := false
 
@@ -347,9 +347,9 @@ func verifyCached(ctx context.Context, t *testing.T, pc *cache.PersistentCache, 
 	defer tmp.Close()
 
 	if want == nil {
-		require.False(t, pc.GetFull(ctx, key, &tmp))
+		require.False(t, pc.TestingGetFull(ctx, key, &tmp))
 	} else {
-		require.True(t, pc.GetFull(ctx, key, &tmp))
+		require.True(t, pc.TestingGetFull(ctx, key, &tmp))
 
 		if got := tmp.ToByteSlice(); !bytes.Equal(got, want) {
 			t.Fatalf("invalid cached result for %v: %x, want %x", key, got, want)
