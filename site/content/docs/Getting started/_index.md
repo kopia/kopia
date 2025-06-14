@@ -130,6 +130,26 @@ uploaded snapshot 8a45c3b079cf5e7b99fb855a3701607a
 
 Notice that snapshot creation was nearly instantaneous. This is because Kopia did not have to upload almost any files to the repository, except tiny piece of metadata about the snapshot itself.
 
+#### Combining Multiple Sources into a Single Snapshot
+
+By default, when you specify multiple source paths, Kopia creates separate snapshots for each source:
+
+```shell
+# Creates 3 separate snapshots
+$ kopia snapshot create $HOME/Documents $HOME/Photos /tmp/important-file.txt
+```
+
+However, you can use the `--combine` flag to merge multiple sources into a single snapshot while preserving their complete path hierarchy:
+
+```shell
+# Creates 1 combined snapshot with preserved paths
+$ kopia snapshot create $HOME/Documents $HOME/Photos /tmp/important-file.txt --combine
+```
+
+The combined snapshot maintains the full directory structure relative to your current working directory, so when restored, each source appears in its original location within the snapshot. This is useful when you want to logically group multiple directories or files into a single backup unit.
+
+> **Note**: The `--combine` flag requires at least two source paths and cannot be used with the `--all` flag.
+
 All snapshots in Kopia are [always incremental](../features/#backup-files-and-directories-using-snapshots); a snapshot will only upload files/file contents that are not in the repository yet, which saves storage space and upload time. This even applies to files that were moved or renamed. In fact, if two computers have exactly the same file and both computers are backing up to the same `repository`, the file will still be stored only once.
 
 #### Managing Snapshots
