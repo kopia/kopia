@@ -350,10 +350,7 @@ func verifyCached(ctx context.Context, t *testing.T, pc *cache.PersistentCache, 
 		require.False(t, pc.TestingGetFull(ctx, key, &tmp))
 	} else {
 		require.True(t, pc.TestingGetFull(ctx, key, &tmp))
-
-		if got := tmp.ToByteSlice(); !bytes.Equal(got, want) {
-			t.Fatalf("invalid cached result for %v: %x, want %x", key, got, want)
-		}
+		require.Equalf(t, want, tmp.ToByteSlice(), "invalid cached result for '%s'", key)
 	}
 }
 
@@ -366,15 +363,13 @@ func verifyNotCached(ctx context.Context, t *testing.T, pc *cache.PersistentCach
 func verifyBlobExists(ctx context.Context, t *testing.T, st cache.Storage, blobID blob.ID) {
 	t.Helper()
 
-	if _, err := st.GetMetadata(ctx, blobID); err != nil {
-		t.Fatalf("blob %v error: %v", blobID, err)
-	}
+	_, err := st.GetMetadata(ctx, blobID)
+	require.NoErrorf(t, err, "blob '%s'", blobID)
 }
 
 func verifyBlobDoesNotExist(ctx context.Context, t *testing.T, st cache.Storage, blobID blob.ID) {
 	t.Helper()
 
-	if _, err := st.GetMetadata(ctx, blobID); !errors.Is(err, blob.ErrBlobNotFound) {
-		t.Fatalf("unexpected blob %v error: %v", blobID, err)
-	}
+	_, err := st.GetMetadata(ctx, blobID)
+	require.ErrorIsf(t, err, blob.ErrBlobNotFound, "expected blob not found for '%s'", blobID)
 }
