@@ -94,8 +94,8 @@ func mergeExtensionSets(target *ExtensionSet, targetNoParent *bool, src Extensio
 	}
 
 	// The tests are a little picky and want the merged result to be a nil map if neither input has values
-	var merged ExtensionSet = nil
-	if len(*target) + len(src) > 0 {
+	var merged ExtensionSet
+	if len(*target)+len(src) > 0 {
 		merged = make(ExtensionSet)
 	}
 
@@ -105,6 +105,7 @@ func mergeExtensionSets(target *ExtensionSet, targetNoParent *bool, src Extensio
 
 	for ext := range src {
 		merged.Add(ext)
+
 		*def = si
 	}
 
