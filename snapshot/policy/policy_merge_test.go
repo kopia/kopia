@@ -238,13 +238,13 @@ func disableParentMerging(p *policy.Policy) {
 func TestPolicyMergeOnlyCompressIncludingParents(t *testing.T) {
 	p0 := &policy.Policy{
 		CompressionPolicy: policy.CompressionPolicy{
-			OnlyCompress: *policy.NewExtensionSet("a", "c", "e"),
+			OnlyCompress: *policy.NewExtensionSet("a", "C", "e"),
 		},
 	}
 
 	p1 := &policy.Policy{
 		CompressionPolicy: policy.CompressionPolicy{
-			OnlyCompress: *policy.NewExtensionSet("b", "d"),
+			OnlyCompress: *policy.NewExtensionSet("b", "D"),
 		},
 	}
 
