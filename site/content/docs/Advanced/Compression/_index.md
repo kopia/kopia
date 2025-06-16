@@ -94,7 +94,12 @@ As discussed above, some compression algorithms make sense only if the payload i
 
 On the other hand, if Kopia notices that a data chunk grows size after compression, it will simply use the original data (which explains why you might still see significant "(uncompressed)" in the `kopia content stats` output). So if you don't know the optimal minimum file size for the algorithm with your data set, and you don't mind wasting some CPU time to compress the data then get discarded, you don't need to set a minimum file size.
 
-As for extensions, some file formats are already heavily compressed, such as video files. Applying general-purposed compression would not have much effect, while wasting CPU time. These file extensions are suggested to be set to never compressed.
+Kopia provides a mechanism to selective enable/disable compression based on file extensions. Policies have two lists of file extensions: "only compress" and "never compress."
+If the policy's "only compress" extension list is empty, then all files whose extensions do not belong to the "never compress" will be compressed.
+If the "only compress" extension list is _not_ empty, then all files whose extension belongs to that list _and_ does not belong to the "never compress" list will be compressed.
+The rest will not be compressed.
+
+Some file formats are already heavily compressed, such as video files. Applying general-purposed compression would not have much effect, while wasting CPU time. These file extensions are suggested to be set to never compressed.
 
 ### Side note
 
