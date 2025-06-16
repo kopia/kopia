@@ -148,11 +148,12 @@ func (es *ExtensionSet) Remove(ext string) {
 	delete(*es, normalizeExtension(ext))
 }
 
-// NewExtensionSet creates a new set containing the given extensions
-func NewExtensionSet(extensions... string) *ExtensionSet {
+// NewExtensionSet creates a new set containing the given extensions.
+func NewExtensionSet(extensions ...string) *ExtensionSet {
 	set := make(ExtensionSet)
 	for _, ext := range extensions {
 		set.Add(ext)
 	}
+
 	return &set
 }
