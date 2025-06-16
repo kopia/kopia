@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo/compression"
@@ -126,20 +127,25 @@ func (es ExtensionSet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(stringList)
 }
 
-// Contains returns true if the given extension is in the set.
+// normalizeExtension normalizes an extension by converting it to lowercase and removing the leading dot ('.') if one exists.
+func normalizeExtension(ext string) string {
+	return strings.ToLower(strings.TrimPrefix(ext, "."))
+}
+
+// Contains returns true if the given extension is in the set (case insensitive).
 func (es *ExtensionSet) Contains(ext string) bool {
-	_, ok := (*es)[ext]
+	_, ok := (*es)[normalizeExtension(ext)]
 	return ok
 }
 
 // Add adds the given extension to the set.
 func (es *ExtensionSet) Add(ext string) {
-	(*es)[ext] = struct{}{}
+	(*es)[normalizeExtension(ext)] = struct{}{}
 }
 
 // Remove removes the given extension from the set.
 func (es *ExtensionSet) Remove(ext string) {
-	delete(*es, ext)
+	delete(*es, normalizeExtension(ext))
 }
 
 // NewExtensionSet creates a new set containing the given extensions
