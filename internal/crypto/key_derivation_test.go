@@ -17,22 +17,23 @@ var (
 
 func TestDeriveKeyFromMasterKey(t *testing.T) {
 	t.Run("ReturnsKey", func(t *testing.T) {
-		key := crypto.DeriveKeyFromMasterKey(TestMasterKey, TestSalt, TestPurpose, 32)
+		key, err := crypto.DeriveKeyFromMasterKey(TestMasterKey, TestSalt, TestPurpose, 32)
+		require.NoError(t, err)
 
 		expected := "828769ee8969bc37f11dbaa32838f8db6c19daa6e3ae5f5eed2da2d94d8faddb"
 		got := fmt.Sprintf("%02x", key)
 		require.Equal(t, expected, got)
 	})
 
-	t.Run("PanicsOnNilMasterKey", func(t *testing.T) {
-		require.Panics(t, func() {
-			crypto.DeriveKeyFromMasterKey(nil, TestSalt, TestPurpose, 32)
-		})
+	t.Run("ErrorOnNilMasterKey", func(t *testing.T) {
+		k, err := crypto.DeriveKeyFromMasterKey(nil, TestSalt, TestPurpose, 32)
+		require.Error(t, err)
+		require.Nil(t, k)
 	})
 
-	t.Run("PanicsOnEmptyMasterKey", func(t *testing.T) {
-		require.Panics(t, func() {
-			crypto.DeriveKeyFromMasterKey([]byte{}, TestSalt, TestPurpose, 32)
-		})
+	t.Run("ErrorOnEmptyMasterKey", func(t *testing.T) {
+		k, err := crypto.DeriveKeyFromMasterKey([]byte{}, TestSalt, TestPurpose, 32)
+		require.Error(t, err)
+		require.Nil(t, k)
 	})
 }

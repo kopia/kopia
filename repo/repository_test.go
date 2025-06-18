@@ -867,8 +867,11 @@ func TestDeriveKey(t *testing.T) {
 	formatEncryptionKeyFromPassword, err := j.DeriveFormatEncryptionKeyFromPassword(repotesting.DefaultPasswordForTesting)
 	require.NoError(t, err)
 
-	validV1KeyDerivedFromPassword := crypto.DeriveKeyFromMasterKey(formatEncryptionKeyFromPassword, uniqueID, testPurpose, testKeyLength)
-	validV2KeyDerivedFromMasterKey := crypto.DeriveKeyFromMasterKey(masterKey, uniqueID, testPurpose, testKeyLength)
+	validV1KeyDerivedFromPassword, err := crypto.DeriveKeyFromMasterKey(formatEncryptionKeyFromPassword, uniqueID, testPurpose, testKeyLength)
+	require.NoError(t, err)
+
+	validV2KeyDerivedFromMasterKey, err := crypto.DeriveKeyFromMasterKey(masterKey, uniqueID, testPurpose, testKeyLength)
+	require.NoError(t, err)
 
 	setup := func(v format.Version) repo.DirectRepositoryWriter {
 		_, env := repotesting.NewEnvironment(t, v, repotesting.Options{
@@ -930,9 +933,11 @@ func TestDeriveKey(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			mp, err := tc.dw.FormatManager().GetMutableParameters(testlogging.Context(t))
 			require.NoError(t, err)
-
 			require.Equal(t, tc.wantFormat, mp.Version)
-			require.Equal(t, tc.wantKey, tc.dw.DeriveKey(testPurpose, testKeyLength))
+
+			k, err := tc.dw.DeriveKey(testPurpose, testKeyLength)
+			require.NoError(t, err)
+			require.Equal(t, tc.wantKey, k)
 		})
 	}
 }

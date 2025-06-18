@@ -261,10 +261,16 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	}
 
 	if fmgr.SupportsPasswordChange() {
-		cacheOpts.HMACSecret = crypto.DeriveKeyFromMasterKey(fmgr.GetHmacSecret(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+		cacheOpts.HMACSecret, ferr = crypto.DeriveKeyFromMasterKey(fmgr.GetHmacSecret(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+		if ferr != nil {
+			return nil, errors.Wrap(ferr, "cannot derive cache HMAC secret")
+		}
 	} else {
-		// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters will change when we change the password
-		cacheOpts.HMACSecret = crypto.DeriveKeyFromMasterKey(fmgr.FormatEncryptionKey(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+		// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters when we changing repo password
+		cacheOpts.HMACSecret, ferr = crypto.DeriveKeyFromMasterKey(fmgr.FormatEncryptionKey(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+		if ferr != nil {
+			return nil, errors.Wrap(ferr, "cannot derive cache HMAC secret")
+		}
 	}
 
 	limits := throttlingLimitsFromConnectionInfo(ctx, st.ConnectionInfo())
