@@ -260,17 +260,9 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		return nil, err
 	}
 
-	if fmgr.SupportsPasswordChange() {
-		cacheOpts.HMACSecret, ferr = crypto.DeriveKeyFromMasterKey(fmgr.GetHmacSecret(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
-		if ferr != nil {
-			return nil, errors.Wrap(ferr, "cannot derive cache HMAC secret")
-		}
-	} else {
-		// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters when we changing repo password
-		cacheOpts.HMACSecret, ferr = crypto.DeriveKeyFromMasterKey(fmgr.FormatEncryptionKey(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
-		if ferr != nil {
-			return nil, errors.Wrap(ferr, "cannot derive cache HMAC secret")
-		}
+	cacheOpts.HMACSecret, ferr = deriveHMACSecret(fmgr)
+	if ferr != nil {
+		return nil, ferr
 	}
 
 	limits := throttlingLimitsFromConnectionInfo(ctx, st.ConnectionInfo())
@@ -381,6 +373,25 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	}
 
 	return dr, nil
+}
+
+func deriveHMACSecret(fmgr *format.Manager) ([]byte, error) {
+	if fmgr.SupportsPasswordChange() {
+		k, err := crypto.DeriveKeyFromMasterKey(fmgr.GetHmacSecret(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+		if err != nil {
+			return nil, errors.Wrap(err, "cannot derive cache HMAC secret")
+		}
+
+		return k, nil
+	}
+
+	// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters when we changing repo password
+	k, err := crypto.DeriveKeyFromMasterKey(fmgr.FormatEncryptionKey(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot derive cache HMAC secret")
+	}
+
+	return k, nil
 }
 
 func handleMissingRequiredFeatures(ctx context.Context, fmgr *format.Manager, ignoreErrors bool) error {
