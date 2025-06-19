@@ -777,7 +777,7 @@ func TestSnapshotCreateAllSnapshotPath(t *testing.T) {
 	require.Equal(t, "foo", si[2].User)
 	require.Equal(t, "foo", si[2].Host)
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOSName {
 		require.Regexp(t, `[A-Z]:\\foo\\bar`, si[2].Path)
 	} else {
 		require.Equal(t, "/foo/bar", si[2].Path)

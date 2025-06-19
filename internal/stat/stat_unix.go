@@ -1,8 +1,7 @@
 //go:build linux || freebsd || darwin
 // +build linux freebsd darwin
 
-// Package stat provides a cross-platform abstraction for
-// common stat commands.
+// Package stat provides a cross-platform abstraction for common stat commands.
 package stat
 
 import (
