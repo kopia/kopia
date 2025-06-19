@@ -376,17 +376,14 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 }
 
 func deriveHMACSecret(fmgr *format.Manager) ([]byte, error) {
-	if fmgr.SupportsPasswordChange() {
-		k, err := crypto.DeriveKeyFromMasterKey(fmgr.GetHmacSecret(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
-		if err != nil {
-			return nil, errors.Wrap(err, "cannot derive cache HMAC secret")
-		}
+	primaryHMACKey := fmgr.GetHmacSecret()
 
-		return k, nil
+	if !fmgr.SupportsPasswordChange() {
+		// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters when we changing repo password
+		primaryHMACKey = fmgr.FormatEncryptionKey()
 	}
 
-	// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters when we changing repo password
-	k, err := crypto.DeriveKeyFromMasterKey(fmgr.FormatEncryptionKey(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+	k, err := crypto.DeriveKeyFromMasterKey(primaryHMACKey, fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot derive cache HMAC secret")
 	}
