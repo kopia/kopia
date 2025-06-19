@@ -112,9 +112,9 @@ func (s *Scheduler) run(ctx context.Context) {
 		now := s.TimeNow()
 		nextTriggerTime, toTrigger := s.upcomingItems(ctx, now)
 
-		sleepUntil := nextTriggerTime
-		if sleepUntil.IsZero() {
-			sleepUntil = now.Add(sleepTimeWhenNoUpcomingSnapshots)
+		targetTime := nextTriggerTime
+		if targetTime.IsZero() {
+			targetTime = now.Add(sleepTimeWhenNoUpcomingSnapshots)
 		}
 
 		if s.Debug {
@@ -129,7 +129,7 @@ func (s *Scheduler) run(ctx context.Context) {
 			timer.Stop()
 		}
 
-		timer = sleepable.NewTimer(s.TimeNow, sleepUntil)
+		timer = sleepable.NewTimer(s.TimeNow, targetTime)
 
 		select {
 		case <-s.closed:

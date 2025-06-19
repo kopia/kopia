@@ -45,6 +45,7 @@ func NewTimer(nowFunc func() time.Time, until time.Time) *Timer {
 		for {
 			now := nowFunc()
 
+			// when the current time is after the target time, the timer immediately triggers by closing the channel.
 			if now.After(until) {
 				close(ch)
 				return
