@@ -34,6 +34,9 @@ func NewTimer(nowFunc func() time.Time, until time.Time) *Timer {
 
 	var currentTimer *time.Timer
 
+	// capture maxSleepTime at the start of the goroutine to avoid race conditions.
+	maxSleepTime := MaxSleepTime
+
 	// start a goroutine that will sleep until the timer is triggered or the timer is stopped.
 	go func() {
 		defer func() {
@@ -52,8 +55,8 @@ func NewTimer(nowFunc func() time.Time, until time.Time) *Timer {
 			}
 
 			nextSleepTime := until.Sub(now)
-			if nextSleepTime > MaxSleepTime {
-				nextSleepTime = MaxSleepTime
+			if nextSleepTime > maxSleepTime {
+				nextSleepTime = maxSleepTime
 			}
 
 			if currentTimer != nil {
