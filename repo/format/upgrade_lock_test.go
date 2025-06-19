@@ -268,7 +268,7 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 			MutableParameters: format.MutableParameters{
 				Version: format.FormatVersion1,
 			},
-			HMACSecret:           []byte{},
+			HMACSecret:           []byte("test-hmac-secret"),
 			Hash:                 "HMAC-SHA256",
 			Encryption:           encryption.DefaultAlgorithm,
 			EnablePasswordChange: true,
