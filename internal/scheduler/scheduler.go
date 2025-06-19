@@ -119,7 +119,7 @@ func (s *Scheduler) run(ctx context.Context) {
 
 		if s.Debug {
 			log(ctx).Debugf("sleeping until %v (%v)",
-				nextTriggerTime.Format(time.RFC3339),
+				targetTime.Format(time.RFC3339),
 				TriggerNames(toTrigger),
 			)
 		}
