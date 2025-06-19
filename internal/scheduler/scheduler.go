@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/sleepable"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -98,15 +99,6 @@ func (s *Scheduler) upcomingItems(ctx context.Context, now time.Time) (nextTrigg
 	return nextTriggerTime, toTrigger
 }
 
-func sleepTimeOrDefault(now, t time.Time, def time.Duration) time.Duration {
-	if t.IsZero() {
-		return def
-	}
-
-	// note this may negative if the getItems returns items in the past.
-	return t.Sub(now)
-}
-
 // Stop stops the scheduler.
 func (s *Scheduler) Stop() {
 	close(s.closed)
@@ -114,20 +106,19 @@ func (s *Scheduler) Stop() {
 }
 
 func (s *Scheduler) run(ctx context.Context) {
-	var timer *time.Timer
+	var timer *sleepable.Timer
 
 	for {
 		now := s.TimeNow()
 		nextTriggerTime, toTrigger := s.upcomingItems(ctx, now)
 
-		sleepTimeUntilNextTrigger := sleepTimeOrDefault(now, nextTriggerTime, sleepTimeWhenNoUpcomingSnapshots)
-		if sleepTimeUntilNextTrigger < 0 {
-			sleepTimeUntilNextTrigger = 0
+		sleepUntil := nextTriggerTime
+		if sleepUntil.IsZero() {
+			sleepUntil = now.Add(sleepTimeWhenNoUpcomingSnapshots)
 		}
 
-		if s.Debug && sleepTimeUntilNextTrigger > 0 {
-			log(ctx).Debugf("sleeping for %v until %v (%v)",
-				sleepTimeUntilNextTrigger,
+		if s.Debug {
+			log(ctx).Debugf("sleeping until %v (%v)",
 				nextTriggerTime.Format(time.RFC3339),
 				TriggerNames(toTrigger),
 			)
@@ -138,11 +129,13 @@ func (s *Scheduler) run(ctx context.Context) {
 			timer.Stop()
 		}
 
-		timer = time.NewTimer(sleepTimeUntilNextTrigger)
+		timer = sleepable.NewTimer(s.TimeNow, sleepUntil)
 
 		select {
 		case <-s.closed:
 			// stopping, just exit
+			timer.Stop()
+
 			return
 
 		case <-timer.C:
