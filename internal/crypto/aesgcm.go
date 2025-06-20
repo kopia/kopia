@@ -17,8 +17,15 @@ var (
 )
 
 func initCrypto(masterKey, salt []byte) (cipher.AEAD, []byte, error) {
-	aesKey := DeriveKeyFromMasterKey(masterKey, salt, purposeAESKey, 32)     //nolint:mnd
-	authData := DeriveKeyFromMasterKey(masterKey, salt, purposeAuthData, 32) //nolint:mnd
+	aesKey, err := DeriveKeyFromMasterKey(masterKey, salt, purposeAESKey, 32) //nolint:mnd
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "cannot derive AES key")
+	}
+
+	authData, err := DeriveKeyFromMasterKey(masterKey, salt, purposeAuthData, 32) //nolint:mnd
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "cannot derive auth data")
+	}
 
 	blk, err := aes.NewCipher(aesKey)
 	if err != nil {

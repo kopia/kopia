@@ -84,7 +84,7 @@ type DirectRepository interface {
 	AlsoLogToContentLog(ctx context.Context) context.Context
 	UniqueID() []byte
 	ConfigFilename() string
-	DeriveKey(purpose []byte, keyLength int) []byte
+	DeriveKey(purpose []byte, keyLength int) ([]byte, error)
 	Token(password string) (string, error)
 	Throttler() throttling.SettableThrottler
 	DisableIndexRefresh()
@@ -139,15 +139,25 @@ type directRepository struct {
 }
 
 // DeriveKey derives encryption key of the provided length from the master key.
-func (r *directRepository) DeriveKey(purpose []byte, keyLength int) []byte {
+func (r *directRepository) DeriveKey(purpose []byte, keyLength int) (derivedKey []byte, err error) {
 	if r.cmgr.ContentFormat().SupportsPasswordChange() {
-		return crypto.DeriveKeyFromMasterKey(r.cmgr.ContentFormat().GetMasterKey(), r.UniqueID(), purpose, keyLength)
+		derivedKey, err = crypto.DeriveKeyFromMasterKey(r.cmgr.ContentFormat().GetMasterKey(), r.UniqueID(), purpose, keyLength)
+		if err != nil {
+			return nil, errors.Wrap(err, "key derivation error")
+		}
+
+		return derivedKey, nil
 	}
 
 	// version of kopia <v0.9 had a bug where certain keys were derived directly from
 	// the password and not from the random master key. This made it impossible to change
 	// password.
-	return crypto.DeriveKeyFromMasterKey(r.fmgr.FormatEncryptionKey(), r.UniqueID(), purpose, keyLength)
+	derivedKey, err = crypto.DeriveKeyFromMasterKey(r.fmgr.FormatEncryptionKey(), r.UniqueID(), purpose, keyLength)
+	if err != nil {
+		return nil, errors.Wrap(err, "key derivation error")
+	}
+
+	return derivedKey, nil
 }
 
 // ClientOptions returns client options.
