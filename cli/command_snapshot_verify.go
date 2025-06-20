@@ -26,6 +26,9 @@ type commandSnapshotVerify struct {
 
 	fileQueueLength int
 	fileParallelism int
+
+	jo  jsonOutput
+	out textOutput
 }
 
 func (c *commandSnapshotVerify) setup(svc appServices, parent commandParent) {
@@ -42,6 +45,10 @@ func (c *commandSnapshotVerify) setup(svc appServices, parent commandParent) {
 	cmd.Flag("file-queue-length", "Queue length for file verification").Default("20000").IntVar(&c.fileQueueLength)
 	cmd.Flag("file-parallelism", "Parallelism for file verification").IntVar(&c.fileParallelism)
 	cmd.Flag("verify-files-percent", "Randomly verify a percentage of files by downloading them [0.0 .. 100.0]").Default("0").Float64Var(&c.verifyCommandFilesPercent)
+
+	c.jo.setup(svc, cmd)
+	c.out.setup(svc)
+
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -71,10 +78,26 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 	}
 
 	v := snapshotfs.NewVerifier(ctx, rep, opts)
-	defer v.ShowFinalStats(ctx)
+
+	defer func() {
+		// Suppress final stats output if --json flag provided.
+		if !c.jo.jsonOutput {
+			v.ShowFinalStats(ctx)
+		}
+	}()
+
+	result, err := v.InParallel(ctx, c.makeVerifyWalkerFunc(ctx, rep))
+
+	if c.jo.jsonOutput {
+		c.out.printStdout("%s\n", c.jo.jsonIndentedBytes(result, "  "))
+	}
 
 	//nolint:wrapcheck
-	return v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+	return err
+}
+
+func (c *commandSnapshotVerify) makeVerifyWalkerFunc(ctx context.Context, rep repo.Repository) func(tw *snapshotfs.TreeWalker) error {
+	return func(tw *snapshotfs.TreeWalker) error {
 		manifests, err := c.loadSourceManifests(ctx, rep)
 		if err != nil {
 			return err
@@ -127,7 +150,7 @@ func (c *commandSnapshotVerify) run(ctx context.Context, rep repo.Repository) er
 		}
 
 		return nil
-	})
+	}
 }
 
 func (c *commandSnapshotVerify) loadSourceManifests(ctx context.Context, rep repo.Repository) ([]*snapshot.Manifest, error) {
