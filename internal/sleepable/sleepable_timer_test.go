@@ -25,19 +25,6 @@ func setMaxSleepTimeForTest(t *testing.T, duration time.Duration) {
 	})
 }
 
-// setMaxSleepTimeForBenchmark sets MaxSleepTime to the given duration and uses defer to restore
-// the original value when the benchmark completes.
-func setMaxSleepTimeForBenchmark(b *testing.B, duration time.Duration) {
-	b.Helper()
-
-	originalMaxSleepTime := MaxSleepTime
-	MaxSleepTime = duration
-
-	b.Cleanup(func() {
-		MaxSleepTime = originalMaxSleepTime
-	})
-}
-
 func TestNewTimer(t *testing.T) {
 	// Set a small MaxSleepTime for testing
 	setMaxSleepTimeForTest(t, testMaxSleepTime)
@@ -230,29 +217,6 @@ func TestTimerChannelBehavior(t *testing.T) {
 		case <-timer.C:
 			t.Error("stopped timer channel should not be closed")
 		default:
-		}
-	})
-}
-
-func BenchmarkNewTimer(b *testing.B) {
-	// Set a small MaxSleepTime for testing
-	setMaxSleepTimeForBenchmark(b, testMaxSleepTime)
-
-	b.Run("short duration", func(b *testing.B) {
-		for range b.N {
-			start := clock.Now()
-			target := start.Add(1 * time.Millisecond)
-			timer := NewTimer(clock.Now, target)
-			<-timer.C
-		}
-	})
-
-	b.Run("long duration", func(b *testing.B) {
-		for range b.N {
-			start := clock.Now()
-			target := start.Add(1 * time.Second)
-			timer := NewTimer(clock.Now, target)
-			<-timer.C
 		}
 	})
 }
