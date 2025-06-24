@@ -85,7 +85,7 @@ func TestSnapshotVerify(t *testing.T) {
 	stdout, _ := env.RunAndExpectFailure(t, "snapshot", "verify", "--json")
 	require.Len(t, stdout, 1)
 	result := unmarshalSnapVerify(t, stdout[0])
-	require.NotZero(t, result.ProcessedObjectCount)
+	require.NotZero(t, result.Stats.ProcessedObjectCount)
 	require.NotZero(t, result.ErrorCount)
 	require.Len(t, result.ErrorStrings, 1)
 
@@ -93,7 +93,7 @@ func TestSnapshotVerify(t *testing.T) {
 	stdout = env.RunAndExpectSuccess(t, "snapshot", "verify", "--json", string(intactMan.ID))
 	require.Len(t, stdout, 1)
 	result = unmarshalSnapVerify(t, stdout[0])
-	require.NotZero(t, result.ProcessedObjectCount)
+	require.NotZero(t, result.Stats.ProcessedObjectCount)
 	require.Zero(t, result.ErrorCount)
 	require.Empty(t, result.ErrorStrings)
 
@@ -101,7 +101,7 @@ func TestSnapshotVerify(t *testing.T) {
 	stdout, _ = env.RunAndExpectFailure(t, "snapshot", "verify", "--json", string(corruptMan1.ID))
 	require.Len(t, stdout, 1)
 	result = unmarshalSnapVerify(t, stdout[0])
-	require.NotZero(t, result.ProcessedObjectCount)
+	require.NotZero(t, result.Stats.ProcessedObjectCount)
 	require.NotZero(t, result.ErrorCount)
 	require.Len(t, result.ErrorStrings, 1)
 
@@ -109,7 +109,7 @@ func TestSnapshotVerify(t *testing.T) {
 	stdout, _ = env.RunAndExpectFailure(t, "snapshot", "verify", "--json", string(corruptMan2.ID))
 	require.Len(t, stdout, 1)
 	result = unmarshalSnapVerify(t, stdout[0])
-	require.NotZero(t, result.ProcessedObjectCount)
+	require.NotZero(t, result.Stats.ProcessedObjectCount)
 	require.NotZero(t, result.ErrorCount)
 	require.Len(t, result.ErrorStrings, 1)
 
@@ -118,7 +118,7 @@ func TestSnapshotVerify(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, 1, strings.Count(strings.Join(stderr, "\n"), "error processing"))
 	result = unmarshalSnapVerify(t, stdout[0])
-	require.NotZero(t, result.ProcessedObjectCount)
+	require.NotZero(t, result.Stats.ProcessedObjectCount)
 	require.Equal(t, 1, result.ErrorCount)
 	require.Len(t, result.ErrorStrings, 1)
 
@@ -128,14 +128,14 @@ func TestSnapshotVerify(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, 2, strings.Count(strings.Join(stderr, "\n"), "error processing"))
 	result = unmarshalSnapVerify(t, stdout[0])
-	require.NotZero(t, result.ProcessedObjectCount)
+	require.NotZero(t, result.Stats.ProcessedObjectCount)
 	require.Equal(t, 2, result.ErrorCount)
 	require.Len(t, result.ErrorStrings, 2)
 
 	// Requesting a snapshot verify of a non-existent manifest ID results in error.
 	stdout, _ = env.RunAndExpectFailure(t, "snapshot", "verify", "--json", "not-a-manifest-id")
 	result = unmarshalSnapVerify(t, stdout[0])
-	require.Zero(t, result.ProcessedObjectCount)
+	require.Zero(t, result.Stats.ProcessedObjectCount)
 	require.Equal(t, 1, result.ErrorCount)
 	require.Len(t, result.ErrorStrings, 1)
 }

@@ -68,6 +68,9 @@ func TestSnapshotVerifier(t *testing.T) {
 		require.Equal(t, 1, result.ErrorCount)
 		require.Len(t, result.Errors, 1)
 		require.ErrorIs(t, result.Errors[0], someErr)
+		require.Zero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 
 		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			return someErr
@@ -76,6 +79,9 @@ func TestSnapshotVerifier(t *testing.T) {
 		require.Equal(t, 1, result.ErrorCount)
 		require.Len(t, result.Errors, 1)
 		require.ErrorIs(t, result.Errors[0], someErr)
+		require.Zero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 
 		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			return nil
@@ -83,6 +89,9 @@ func TestSnapshotVerifier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, result.ErrorCount)
 		require.Empty(t, result.Errors)
+		require.Zero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 
 		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			tw.Process(ctx, snapshotfs.DirectoryEntry(te.Repository, obj1, nil), ".")
@@ -91,6 +100,9 @@ func TestSnapshotVerifier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, result.ErrorCount)
 		require.Empty(t, result.Errors)
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 	})
 
 	t.Run("FullFileReadsAndBlobMap", func(t *testing.T) {
@@ -114,6 +126,9 @@ func TestSnapshotVerifier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, result.ErrorCount)
 		require.Empty(t, result.Errors)
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.NotZero(t, result.Stats.ReadFileCount)
+		require.NotZero(t, result.Stats.ReadBytes)
 
 		// now remove all 'p' blobs from the blob map
 		for k := range opts.BlobMap {
@@ -133,6 +148,10 @@ func TestSnapshotVerifier(t *testing.T) {
 		for _, err := range result.Errors {
 			require.ErrorContains(t, err, "is backed by missing blob")
 		}
+
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.NotZero(t, result.Stats.ReadFileCount)
+		require.NotZero(t, result.Stats.ReadBytes)
 	})
 
 	t.Run("MaxErrors", func(t *testing.T) {
@@ -149,7 +168,7 @@ func TestSnapshotVerifier(t *testing.T) {
 
 		v := snapshotfs.NewVerifier(ctx, te2, opts)
 
-		var result *snapshotfs.VerifierResult
+		var result snapshotfs.VerifierResult
 
 		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			tw.Process(ctx, snapshotfs.DirectoryEntry(te.Repository, obj1, nil), ".")
@@ -158,6 +177,9 @@ func TestSnapshotVerifier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, result.ErrorCount)
 		require.Empty(t, result.Errors)
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 
 		// now remove all 'p' blobs from the blob map
 		for k := range opts.BlobMap {
@@ -175,6 +197,9 @@ func TestSnapshotVerifier(t *testing.T) {
 		require.Equal(t, 1, result.ErrorCount)
 		require.Len(t, result.Errors, 1)
 		require.ErrorContains(t, result.Errors[0], "is backed by missing blob")
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 	})
 
 	t.Run("FullFileReadsNoBlobMap", func(t *testing.T) {
@@ -191,6 +216,9 @@ func TestSnapshotVerifier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, result.ErrorCount)
 		require.Empty(t, result.Errors)
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.NotZero(t, result.Stats.ReadFileCount)
+		require.NotZero(t, result.Stats.ReadBytes)
 
 		blobs, err := blob.ListAllBlobs(ctx, te.RepositoryWriter.BlobReader(), "p")
 		require.NoError(t, err)
@@ -211,5 +239,9 @@ func TestSnapshotVerifier(t *testing.T) {
 		for _, err := range result.Errors {
 			require.ErrorContains(t, err, "BLOB not found")
 		}
+
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.NotZero(t, result.Stats.ReadFileCount)
+		require.NotZero(t, result.Stats.ReadBytes)
 	})
 }
