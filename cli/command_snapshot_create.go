@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,11 +25,13 @@ import (
 const (
 	maxSnapshotDescriptionLength = 1024
 	timeFormat                   = "2006-01-02 15:04:05 MST"
+	virtualDirMode               = 0o755
 )
 
 type commandSnapshotCreate struct {
 	snapshotCreateSources                 []string
 	snapshotCreateAll                     bool
+	snapshotCreateCombine                 bool
 	snapshotCreateDescription             string
 	snapshotCreateCheckpointInterval      time.Duration
 	snapshotCreateFailFast                bool
@@ -59,6 +63,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 
 	cmd.Arg("source", "Files or directories to create snapshot(s) of.").StringsVar(&c.snapshotCreateSources)
 	cmd.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer. Cannot be used when a source path argument is also specified.").BoolVar(&c.snapshotCreateAll)
+	cmd.Flag("combine", "Combine multiple sources into a single snapshot instead of creating separate snapshots for each source.").BoolVar(&c.snapshotCreateCombine)
 	cmd.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64Var(&c.snapshotCreateCheckpointUploadLimitMB)
 	cmd.Flag("checkpoint-interval", "Interval between periodic checkpoints (must be <= 45 minutes).").Hidden().DurationVar(&c.snapshotCreateCheckpointInterval)
 	cmd.Flag("description", "Free-form snapshot description.").StringVar(&c.snapshotCreateDescription)
@@ -97,6 +102,10 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 		return errors.New("cannot use --all when a source path argument is specified")
 	}
 
+	if c.snapshotCreateCombine && len(sources) <= 1 {
+		return errors.New("--combine requires multiple source paths")
+	}
+
 	if err := maybeAutoUpgradeRepository(ctx, rep); err != nil {
 		return errors.Wrap(err, "error upgrading repository")
 	}
@@ -133,20 +142,10 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 
 	var st notifydata.MultiSnapshotStatus
 
-	for _, snapshotDir := range sources {
-		if u.IsCanceled() {
-			log(ctx).Info("Upload canceled")
-			break
-		}
-
-		fsEntry, sourceInfo, setManual, err := c.getContentToSnapshot(ctx, snapshotDir, rep)
-		if err != nil {
-			finalErrors = append(finalErrors, fmt.Sprintf("failed to prepare source: %s", err))
-		}
-
-		if err := c.snapshotSingleSource(ctx, fsEntry, setManual, rep, u, sourceInfo, tags, &st); err != nil {
-			finalErrors = append(finalErrors, err.Error())
-		}
+	if c.snapshotCreateCombine && len(sources) > 1 {
+		finalErrors = c.processCombinedSources(ctx, sources, rep, u, tags, &st, finalErrors)
+	} else {
+		finalErrors = c.processIndividualSources(ctx, sources, rep, u, tags, &st, finalErrors)
 	}
 
 	if c.sendSnapshotReport {
@@ -171,6 +170,41 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 	}
 
 	return errors.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
+}
+
+func (c *commandSnapshotCreate) processCombinedSources(ctx context.Context, sources []string, rep repo.RepositoryWriter, u *upload.Uploader, tags map[string]string, st *notifydata.MultiSnapshotStatus, finalErrors []string) []string {
+	// Combine all sources into a single snapshot
+	fsEntry, sourceInfo, setManual, err := c.getCombinedContentToSnapshot(ctx, sources, rep)
+	if err != nil {
+		return append(finalErrors, fmt.Sprintf("failed to prepare combined sources: %s", err))
+	}
+
+	if err := c.snapshotSingleSource(ctx, fsEntry, setManual, rep, u, sourceInfo, tags, st); err != nil {
+		return append(finalErrors, err.Error())
+	}
+
+	return finalErrors
+}
+
+func (c *commandSnapshotCreate) processIndividualSources(ctx context.Context, sources []string, rep repo.RepositoryWriter, u *upload.Uploader, tags map[string]string, st *notifydata.MultiSnapshotStatus, finalErrors []string) []string {
+	// Original behavior: create separate snapshots for each source
+	for _, snapshotDir := range sources {
+		if u.IsCanceled() {
+			log(ctx).Info("Upload canceled")
+			break
+		}
+
+		fsEntry, sourceInfo, setManual, err := c.getContentToSnapshot(ctx, snapshotDir, rep)
+		if err != nil {
+			finalErrors = append(finalErrors, fmt.Sprintf("failed to prepare source: %s", err))
+		}
+
+		if err := c.snapshotSingleSource(ctx, fsEntry, setManual, rep, u, sourceInfo, tags, st); err != nil {
+			finalErrors = append(finalErrors, err.Error())
+		}
+	}
+
+	return finalErrors
 }
 
 func (c *commandSnapshotCreate) reportSeverity(st notifydata.MultiSnapshotStatus) notification.Severity {
@@ -507,4 +541,314 @@ func parseFullSource(str, hostname, username string) (snapshot.SourceInfo, error
 	}
 
 	return sourceInfo, nil
+}
+
+func (c *commandSnapshotCreate) getCombinedContentToSnapshot(ctx context.Context, sources []string, rep repo.RepositoryWriter) (fsEntry fs.Entry, info snapshot.SourceInfo, setManual bool, err error) {
+	if len(sources) <= 1 {
+		return nil, info, false, errors.New("getCombinedContentToSnapshot requires multiple sources")
+	}
+
+	// Get current working directory as the base for relative paths
+	var cwd string
+
+	cwd, err = os.Getwd()
+	if err != nil {
+		return nil, info, false, errors.Wrap(err, "unable to get current working directory")
+	}
+
+	// Create a virtual filesystem that preserves the full path hierarchy
+	rootFS, err := c.createCombinedVirtualFS(ctx, sources, cwd)
+	if err != nil {
+		return nil, info, false, errors.Wrap(err, "failed to create combined virtual filesystem")
+	}
+
+	// Create source info for the combined snapshot
+	if c.sourceOverride != "" {
+		info, err = parseFullSource(c.sourceOverride, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+		if err != nil {
+			return nil, info, false, errors.Wrapf(err, "invalid source override %v", c.sourceOverride)
+		}
+
+		setManual = true
+	} else {
+		info = snapshot.SourceInfo{
+			Path:     filepath.Clean(cwd),
+			Host:     rep.ClientOptions().Hostname,
+			UserName: rep.ClientOptions().Username,
+		}
+	}
+
+	return rootFS, info, setManual, nil
+}
+
+// createCombinedVirtualFS creates a virtual filesystem that preserves the complete path hierarchy
+// of all source paths relative to the base directory.
+func (c *commandSnapshotCreate) createCombinedVirtualFS(_ context.Context, sources []string, basePath string) (fs.Entry, error) {
+	// Instead of trying to relocate filesystem entries, create a mapping
+	// from virtual paths to actual filesystem paths
+	pathMappings := make(map[string]string) // virtual path -> actual filesystem path
+
+	// Process each source path
+	for _, source := range sources {
+		// First, convert the source to an absolute path
+		// This correctly handles relative paths when the working directory has changed
+		absSource, err := filepath.Abs(source)
+		if err != nil {
+			return nil, errors.Wrapf(err, "invalid source %v", source)
+		}
+
+		// For the virtual path in the combined snapshot, we want to preserve
+		// the original relative structure as provided by the user
+		var virtualPath string
+
+		// If the source was already absolute, calculate relative to basePath
+		if strings.HasPrefix(source, string(filepath.Separator)) {
+			relPath, err := filepath.Rel(basePath, absSource)
+			if err != nil {
+				return nil, errors.Wrapf(err, "unable to get relative path from %v to %v", basePath, absSource)
+			}
+
+			// Handle cases where source is outside basePath (starts with ..)
+			if strings.HasPrefix(relPath, "..") {
+				// For paths outside the base, use the absolute path structure
+				// but strip the leading path separator and make it relative to root
+				virtualPath = strings.TrimPrefix(absSource, string(filepath.Separator))
+			} else {
+				virtualPath = relPath
+			}
+		} else {
+			// If the source was relative, use it as-is for the virtual path
+			// This preserves the user's intended structure
+			virtualPath = source
+		}
+
+		// Clean the virtual path
+		virtualPath = filepath.Clean(virtualPath)
+
+		// Check for conflicts
+		if _, exists := pathMappings[virtualPath]; exists {
+			return nil, errors.Errorf("path conflict: %v already exists", virtualPath)
+		}
+
+		// Store the mapping
+		pathMappings[virtualPath] = absSource
+	}
+
+	// Create a combined source directory that knows how to map virtual paths to real paths
+	return &combinedSourceDirectory{
+		name:         filepath.Base(basePath),
+		basePath:     basePath,
+		pathMappings: pathMappings,
+	}, nil
+}
+
+// combinedSourceDirectory is the root directory for combined snapshots.
+// It maps virtual paths to actual filesystem locations.
+type combinedSourceDirectory struct {
+	name         string
+	basePath     string
+	pathMappings map[string]string // virtual path -> actual filesystem path
+}
+
+func (csd *combinedSourceDirectory) Name() string {
+	return csd.name
+}
+
+func (csd *combinedSourceDirectory) Size() int64 {
+	return 0
+}
+
+func (csd *combinedSourceDirectory) Mode() os.FileMode {
+	return os.ModeDir | virtualDirMode
+}
+
+func (csd *combinedSourceDirectory) ModTime() time.Time {
+	return time.Time{}
+}
+
+func (csd *combinedSourceDirectory) IsDir() bool {
+	return true
+}
+
+func (csd *combinedSourceDirectory) Sys() interface{} {
+	return nil
+}
+
+func (csd *combinedSourceDirectory) Owner() fs.OwnerInfo {
+	return fs.OwnerInfo{}
+}
+
+func (csd *combinedSourceDirectory) Device() fs.DeviceInfo {
+	return fs.DeviceInfo{}
+}
+
+func (csd *combinedSourceDirectory) LocalFilesystemPath() string {
+	return csd.basePath
+}
+
+func (csd *combinedSourceDirectory) Close() {}
+
+func (csd *combinedSourceDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	// Check if there's a direct mapping for this name
+	if actualPath, exists := csd.pathMappings[name]; exists {
+		return getLocalFSEntry(ctx, actualPath)
+	}
+
+	// Check if this name is a directory containing mapped entries
+	prefix := name + string(filepath.Separator)
+	for virtualPath := range csd.pathMappings {
+		if strings.HasPrefix(virtualPath, prefix) {
+			// This is a virtual intermediate directory
+			return &virtualIntermediateDirectory{
+				name:         name,
+				basePath:     csd.basePath,
+				pathPrefix:   name,
+				pathMappings: csd.pathMappings,
+			}, nil
+		}
+	}
+
+	return nil, fs.ErrEntryNotFound
+}
+
+func (csd *combinedSourceDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+	// Build the list of root-level entries
+	rootEntries := make(map[string]bool)
+
+	for virtualPath := range csd.pathMappings {
+		parts := strings.Split(virtualPath, string(filepath.Separator))
+		if len(parts) > 0 && parts[0] != "" {
+			rootEntries[parts[0]] = true
+		}
+	}
+
+	// Get actual entries
+	var entries []fs.Entry
+
+	for name := range rootEntries {
+		entry, err := csd.Child(ctx, name)
+		if err == nil {
+			entries = append(entries, entry)
+		}
+	}
+
+	// Sort by name
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+
+	return fs.StaticIterator(entries, nil), nil
+}
+
+func (csd *combinedSourceDirectory) SupportsMultipleIterations() bool {
+	return true
+}
+
+// virtualIntermediateDirectory represents an intermediate directory in the virtual path hierarchy.
+type virtualIntermediateDirectory struct {
+	name         string
+	basePath     string
+	pathPrefix   string
+	pathMappings map[string]string
+}
+
+func (vid *virtualIntermediateDirectory) Name() string {
+	return vid.name
+}
+
+func (vid *virtualIntermediateDirectory) Size() int64 {
+	return 0
+}
+
+func (vid *virtualIntermediateDirectory) Mode() os.FileMode {
+	return os.ModeDir | virtualDirMode
+}
+
+func (vid *virtualIntermediateDirectory) ModTime() time.Time {
+	return time.Time{}
+}
+
+func (vid *virtualIntermediateDirectory) IsDir() bool {
+	return true
+}
+
+func (vid *virtualIntermediateDirectory) Sys() interface{} {
+	return nil
+}
+
+func (vid *virtualIntermediateDirectory) Owner() fs.OwnerInfo {
+	return fs.OwnerInfo{}
+}
+
+func (vid *virtualIntermediateDirectory) Device() fs.DeviceInfo {
+	return fs.DeviceInfo{}
+}
+
+func (vid *virtualIntermediateDirectory) LocalFilesystemPath() string {
+	// Return base path to avoid empty path errors
+	return vid.basePath
+}
+
+func (vid *virtualIntermediateDirectory) Close() {}
+
+func (vid *virtualIntermediateDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	fullPath := filepath.Join(vid.pathPrefix, name)
+
+	// Check if there's a direct mapping
+	if actualPath, exists := vid.pathMappings[fullPath]; exists {
+		return getLocalFSEntry(ctx, actualPath)
+	}
+
+	// Check if this is another intermediate directory
+	prefix := fullPath + string(filepath.Separator)
+	for virtualPath := range vid.pathMappings {
+		if strings.HasPrefix(virtualPath, prefix) {
+			return &virtualIntermediateDirectory{
+				name:         name,
+				basePath:     vid.basePath,
+				pathPrefix:   fullPath,
+				pathMappings: vid.pathMappings,
+			}, nil
+		}
+	}
+
+	return nil, fs.ErrEntryNotFound
+}
+
+func (vid *virtualIntermediateDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+	// Find all entries at this level
+	childNames := make(map[string]bool)
+	prefix := vid.pathPrefix + string(filepath.Separator)
+
+	for virtualPath := range vid.pathMappings {
+		if strings.HasPrefix(virtualPath, prefix) {
+			remainder := strings.TrimPrefix(virtualPath, prefix)
+			parts := strings.Split(remainder, string(filepath.Separator))
+
+			if len(parts) > 0 && parts[0] != "" {
+				childNames[parts[0]] = true
+			}
+		}
+	}
+
+	// Get actual entries
+	var entries []fs.Entry
+
+	for name := range childNames {
+		entry, err := vid.Child(ctx, name)
+		if err == nil {
+			entries = append(entries, entry)
+		}
+	}
+
+	// Sort by name
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Name() < entries[j].Name()
+	})
+
+	return fs.StaticIterator(entries, nil), nil
+}
+
+func (vid *virtualIntermediateDirectory) SupportsMultipleIterations() bool {
+	return true
 }
