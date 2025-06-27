@@ -418,7 +418,7 @@ func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters
 	log(ctx).Infof("Found safe time to drop indexes: %v", safeDropTime)
 
 	return ReportRun(ctx, runParams.rep, TaskDropDeletedContentsFull, s, func() error {
-		return DropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
+		return dropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
 	})
 }
 
