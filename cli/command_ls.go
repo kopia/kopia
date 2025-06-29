@@ -15,6 +15,7 @@ import (
 
 type commandList struct {
 	long         bool
+	humanSizes   bool
 	recursive    bool
 	showOID      bool
 	errorSummary bool
@@ -27,6 +28,7 @@ func (c *commandList) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("list", "List a directory stored in repository object.").Alias("ls")
 
 	cmd.Flag("long", "Long output").Short('l').BoolVar(&c.long)
+	cmd.Flag("human-readable", "Show human-readable sizes").Short('h').BoolVar(&c.humanSizes)
 	cmd.Flag("recursive", "Recursive output").Short('r').BoolVar(&c.recursive)
 	cmd.Flag("show-object-id", "Show object IDs").Short('o').BoolVar(&c.showOID)
 	cmd.Flag("error-summary", "Emit error summary").Default("true").BoolVar(&c.errorSummary)
@@ -111,9 +113,9 @@ func (c *commandList) printDirectoryEntry(ctx context.Context, e fs.Entry, prefi
 	switch {
 	case c.long:
 		info = fmt.Sprintf(
-			"%v %12d %v %-34v %v%v",
+			"%v %12s %v %-34v %v%v",
 			e.Mode(),
-			e.Size(),
+			maybeHumanReadableBytes(c.humanSizes, e.Size()),
 			formatTimestamp(e.ModTime().Local()),
 			oid,
 			c.nameToDisplay(prefix, e),
