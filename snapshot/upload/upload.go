@@ -1286,10 +1286,6 @@ func (u *Uploader) Upload(
 	// remain immutable.
 	prototypeMan := s
 
-	// Make checkpoints one nanosecond older than the current snapshot, so that
-	// they are cleaned up by retention policies upon creation of the snapshot.
-	prototypeMan.StartTime -= 1
-
 	u.stats = &snapshot.Stats{}
 	u.totalWrittenBytes.Store(0)
 
