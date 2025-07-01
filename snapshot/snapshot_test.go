@@ -5,10 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs"
@@ -95,9 +96,7 @@ func verifySnapshotManifestIDs(t *testing.T, rep repo.Repository, src *snapshot.
 	t.Helper()
 
 	res, err := snapshot.ListSnapshotManifests(testlogging.Context(t), rep, src, nil)
-	if err != nil {
-		t.Errorf("error listing snapshot manifests: %v", err)
-	}
+	require.NoError(t, err, "error listing snapshot manifests")
 
 	sortManifestIDs(res)
 	sortManifestIDs(expected)
@@ -108,18 +107,14 @@ func verifySnapshotManifestIDs(t *testing.T, rep repo.Repository, src *snapshot.
 }
 
 func sortManifestIDs(s []manifest.ID) {
-	sort.Slice(s, func(i, j int) bool {
-		return s[i] < s[j]
-	})
+	slices.Sort(s)
 }
 
 func mustSaveSnapshot(t *testing.T, rep repo.RepositoryWriter, man *snapshot.Manifest) manifest.ID {
 	t.Helper()
 
 	id, err := snapshot.SaveSnapshot(testlogging.Context(t), rep, man)
-	if err != nil {
-		t.Fatalf("error saving snapshot: %v", err)
-	}
+	require.NoError(t, err, "error saving snapshot")
 
 	return id
 }
@@ -128,27 +123,22 @@ func verifySources(t *testing.T, rep repo.Repository, sources ...snapshot.Source
 	t.Helper()
 
 	actualSources, err := snapshot.ListSources(testlogging.Context(t), rep)
-	if err != nil {
-		t.Errorf("error listing sources: %v", err)
-	}
-
-	if got, want := sorted(sourcesToStrings(actualSources...)), sorted(sourcesToStrings(sources...)); !reflect.DeepEqual(got, want) {
-		t.Errorf("unexpected sources: %v want %v", got, want)
-	}
+	require.NoError(t, err, "error listing sources")
+	require.ElementsMatch(t, sources, actualSources, "unexpected sources")
 }
 
 func verifyListSnapshots(t *testing.T, rep repo.Repository, src snapshot.SourceInfo, expected []*snapshot.Manifest) {
 	t.Helper()
 
 	got, err := snapshot.ListSnapshots(testlogging.Context(t), rep, src)
-	if err != nil {
-		t.Errorf("error loading manifests: %v", err)
-		return
-	}
+	require.NoError(t, err, "error loading manifests")
+	verifyEqualManifests(t, expected, got)
+}
 
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("unexpected manifests: %v, wanted %v", got, expected)
+func verifyEqualManifests(t *testing.T, expected, got []*snapshot.Manifest) {
+	t.Helper()
 
+	if !assert.Equal(t, expected, got, "unexpected manifests") {
 		for i, m := range got {
 			t.Logf("got[%v]=%#v", i, m)
 		}
@@ -163,39 +153,8 @@ func verifyLoadSnapshots(t *testing.T, rep repo.Repository, ids []manifest.ID, e
 	t.Helper()
 
 	got, err := snapshot.LoadSnapshots(testlogging.Context(t), rep, ids)
-	if err != nil {
-		t.Errorf("error loading manifests: %v", err)
-		return
-	}
-
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("unexpected manifests: %v, wanted %v", got, expected)
-
-		for i, m := range got {
-			t.Logf("got[%v]=%#v", i, m)
-		}
-
-		for i, m := range expected {
-			t.Logf("want[%v]=%#v", i, m)
-		}
-	}
-}
-
-func sorted(s []string) []string {
-	res := append([]string(nil), s...)
-	sort.Strings(res)
-
-	return res
-}
-
-func sourcesToStrings(sources ...snapshot.SourceInfo) []string {
-	var res []string
-
-	for _, src := range sources {
-		res = append(res, src.String())
-	}
-
-	return res
+	require.NoError(t, err, "error loading manifests")
+	verifyEqualManifests(t, expected, got)
 }
 
 func mustAbs(t *testing.T, p string) string {
@@ -227,24 +186,12 @@ func TestParseSourceInfo(t *testing.T) {
 
 	for _, tc := range cases {
 		got, err := snapshot.ParseSourceInfo(tc.path, "default-host", "default-user")
-		if err != nil {
-			t.Errorf("error parsing %q: %v", tc.path, err)
-			continue
-		}
-
-		if got != tc.want {
-			t.Errorf("unexpected parsed value of %q: %v, wanted %v", tc.path, got, tc.want)
-		}
+		require.NoErrorf(t, err, "error parsing %q", tc.path)
+		require.Equal(t, tc.want, got, "unexpected parsed value")
 
 		got2, err := snapshot.ParseSourceInfo(got.String(), "default-host", "default-user")
-		if err != nil {
-			t.Errorf("error parsing %q: %v", tc.path, err)
-			continue
-		}
-
-		if got != got2 {
-			t.Errorf("unexpected parsed value of %q: %v, wanted %v", got.String(), got2, got)
-		}
+		require.NoErrorf(t, err, "error parsing %q", tc.path)
+		require.Equal(t, got, got2, "unexpected parsed value")
 	}
 }
 
@@ -255,9 +202,7 @@ func TestParseInvalidSourceInfo(t *testing.T) {
 
 	for _, tc := range cases {
 		si, err := snapshot.ParseSourceInfo(tc, "default-host", "default-user")
-		if err == nil {
-			t.Errorf("unexpected success when parsing %v: %v", tc, si)
-		}
+		require.Errorf(t, err, "unexpected success when parsing %v: %v", tc, si)
 	}
 }
 
