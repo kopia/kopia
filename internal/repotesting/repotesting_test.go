@@ -74,6 +74,6 @@ func TestTimeFuncWiring(t *testing.T) {
 
 	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
 
-	require.NoError(t, err, "failed to get create snapshot")
+	require.NoError(t, err, "failed to create snapshot")
 	require.WithinDuration(t, nt, s1.StartTime.ToTime(), 0, "snapshot time does not match")
 }
