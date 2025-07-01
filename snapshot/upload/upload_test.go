@@ -793,7 +793,8 @@ func TestUploadWithCheckpointing(t *testing.T) {
 
 	for _, cp := range checkpoints {
 		assert.Equal(t, IncompleteReasonCheckpoint, cp.IncompleteReason, "unexpected incompleteReason")
-		assert.Equal(t, time.Duration(1), s.StartTime.Sub(cp.StartTime), "snapshot start time is expected to be after checkpoint time")
+		assert.Equal(t, s.StartTime, cp.StartTime, "checkpoint start time is expected to match snapshot time")
+		assert.Falsef(t, s.EndTime.Before(cp.EndTime), "snapshot end time (%s) is before checkpoint end time (%s), snapshot end time should be equal or after checkpoint time ", s.EndTime.Format(time.RFC3339Nano), cp.EndTime.Format(time.RFC3339Nano))
 		assert.Equal(t, labels, cp.Tags)
 	}
 }
