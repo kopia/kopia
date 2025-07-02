@@ -1,8 +1,10 @@
 package units
 
 import (
-	"os"
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var base10Cases = []struct {
@@ -57,40 +59,40 @@ var base2Cases = []struct {
 
 func TestBytesStringBase10(t *testing.T) {
 	for i, c := range base10Cases {
-		actual := BytesStringBase10(c.value)
-		if actual != c.expected {
-			t.Errorf("case #%v failed for %v, expected: '%v', got '%v'", i, c.value, c.expected, actual)
-		}
+		t.Run(fmt.Sprint(i, "-", c.value), func(t *testing.T) {
+			actual := BytesStringBase10(c.value)
+			require.Equal(t, c.expected, actual)
+		})
 	}
 }
 
 func TestBytesStringBase2(t *testing.T) {
 	for i, c := range base2Cases {
-		actual := BytesStringBase2(c.value)
-		if actual != c.expected {
-			t.Errorf("case #%v failed for %v, expected: '%v', got '%v'", i, c.value, c.expected, actual)
-		}
+		t.Run(fmt.Sprint(i, "-", c.value), func(t *testing.T) {
+			actual := BytesStringBase2(c.value)
+			require.Equal(t, c.expected, actual)
+		})
 	}
 }
 
-func TestBytesString(t *testing.T) {
-	defer os.Unsetenv(bytesStringBase2Envar)
-
+func TestBytesString_base2EnvFalse(t *testing.T) {
 	t.Setenv(bytesStringBase2Envar, "false")
 
 	for i, c := range base10Cases {
-		actual := BytesString(c.value)
-		if actual != c.expected {
-			t.Errorf("case #%v failed for %v, expected: '%v', got '%v'", i, c.value, c.expected, actual)
-		}
+		t.Run(fmt.Sprint(i, "-", c.value), func(t *testing.T) {
+			actual := BytesString(c.value)
+			require.Equal(t, c.expected, actual)
+		})
 	}
+}
 
+func TestBytesString_base2EnvTrue(t *testing.T) {
 	t.Setenv(bytesStringBase2Envar, "true")
 
 	for i, c := range base2Cases {
-		actual := BytesString(c.value)
-		if actual != c.expected {
-			t.Errorf("case #%v failed for %v, expected: '%v', got '%v'", i, c.value, c.expected, actual)
-		}
+		t.Run(fmt.Sprint(i, "-", c.value), func(t *testing.T) {
+			actual := BytesString(c.value)
+			require.Equal(t, c.expected, actual)
+		})
 	}
 }
