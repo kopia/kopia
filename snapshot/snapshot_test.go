@@ -7,9 +7,11 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
@@ -269,4 +271,80 @@ func TestUpdatePins(t *testing.T) {
 	require.True(t, m.UpdatePins([]string{"e", "a"}, []string{"c"}))
 	require.False(t, m.UpdatePins([]string{"e", "a"}, []string{"c"}))
 	require.Equal(t, []string{"a", "b", "d", "e"}, m.Pins)
+}
+
+// Helper to create a Manifest with given times.
+func newManifest(start, end time.Time) *snapshot.Manifest {
+	return &snapshot.Manifest{
+		StartTime: fs.UTCTimestampFromTime(start),
+		EndTime:   fs.UTCTimestampFromTime(end),
+	}
+}
+
+func TestSortByTimeAscending(t *testing.T) {
+	start0 := time.Date(2018, time.January, 10, 13, 23, 21, 0, time.UTC)
+	start1 := start0.Add(3 * time.Hour)
+	start2 := time.Date(2018, time.January, 10, 13, 30, 1, 0, time.UTC)
+	start3 := start2
+	start4 := time.Date(2018, time.January, 10, 14, 0, 1, 0, time.UTC)
+
+	end1 := start1.Add(20 * time.Second)
+	end2 := start2.Add(40 * time.Second)
+	end3 := start3.Add(2 * time.Minute)
+	end4 := start4.Add(5 * time.Minute)
+	end0 := start0.Add(1000 * time.Hour) // overlaps with other snapshots
+
+	manifests := []*snapshot.Manifest{
+		newManifest(start2, end2),
+		newManifest(start3, end3), // same start time as start2, later end time
+		newManifest(start1, end1),
+		newManifest(start0, end0),
+		newManifest(start4, end4),
+	}
+
+	// Test normal sort (most recent last)
+	sorted := snapshot.SortByTime(manifests, false)
+
+	prev := sorted[0]
+	for _, s := range sorted[1:] {
+		require.LessOrEqual(t, prev.StartTime, s.StartTime, "start time is after")
+
+		if prev.StartTime == s.StartTime {
+			require.LessOrEqual(t, prev.EndTime, s.EndTime, "end time is after")
+		}
+	}
+}
+
+func TestSortByTimeDescending(t *testing.T) {
+	start0 := time.Date(2018, time.January, 10, 13, 23, 21, 0, time.UTC)
+	start1 := start0.Add(3 * time.Hour)
+	start2 := time.Date(2018, time.January, 10, 13, 30, 1, 0, time.UTC)
+	start3 := start2
+	start4 := time.Date(2018, time.January, 10, 14, 0, 1, 0, time.UTC)
+
+	end1 := start1.Add(20 * time.Second)
+	end2 := start2.Add(40 * time.Second)
+	end3 := start3.Add(2 * time.Minute)
+	end4 := start4.Add(5 * time.Minute)
+	end0 := start0.Add(1000 * time.Hour) // overlaps with other snapshots
+
+	manifests := []*snapshot.Manifest{
+		newManifest(start2, end2),
+		newManifest(start3, end3), // same start time as start2, later end time
+		newManifest(start1, end1),
+		newManifest(start0, end0),
+		newManifest(start4, end4),
+	}
+
+	// Test reverse sort (most recent first)
+	sorted := snapshot.SortByTime(manifests, true)
+
+	prev := sorted[0]
+	for _, s := range sorted[1:] {
+		require.GreaterOrEqual(t, prev.StartTime, s.StartTime, "start time before after")
+
+		if prev.StartTime == s.StartTime {
+			require.GreaterOrEqual(t, prev.EndTime, s.EndTime, "end time is after")
+		}
+	}
 }
