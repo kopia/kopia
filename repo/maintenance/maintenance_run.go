@@ -411,7 +411,7 @@ func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters
 	}
 
 	if safeDropTime.IsZero() {
-		log(ctx).Info("Not enough time has passed since previous successful Snapshot GC. Will try again next time.")
+		log(ctx).Info("Not forgetting deleted contents yet since not enough time has passed since previous successful Snapshot GC. Will try again next time.")
 		return nil
 	}
 
