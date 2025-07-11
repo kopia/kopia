@@ -92,7 +92,8 @@ type objectWriter struct {
 	asyncWritesWG        sync.WaitGroup
 
 	contentWriteErrorMutex sync.Mutex
-	contentWriteError      error // stores async write error, propagated in Result()
+	// +checklocks:contentWriteErrorMutex
+	contentWriteError error // stores async write error, propagated in Result()
 }
 
 func (w *objectWriter) Close() error {
@@ -228,12 +229,17 @@ func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data gather.Byte
 func (w *objectWriter) saveError(err error) error {
 	if err != nil {
 		// store write error so that we fail at Result() later.
-		w.contentWriteErrorMutex.Lock()
-		w.contentWriteError = err
-		w.contentWriteErrorMutex.Unlock()
+		w.setError(err)
 	}
 
 	return err
+}
+
+func (w *objectWriter) setError(err error) {
+	w.contentWriteErrorMutex.Lock()
+	defer w.contentWriteErrorMutex.Unlock()
+
+	w.contentWriteError = err
 }
 
 func maybeCompressedObjectID(contentID content.ID, isCompressed bool) ID {
@@ -289,8 +295,14 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 	// wait for any in-flight asynchronous writes to finish
 	w.asyncWritesWG.Wait()
 
-	if w.contentWriteError != nil {
-		return EmptyID, w.contentWriteError
+	var err error
+
+	w.contentWriteErrorMutex.Lock()
+	err = w.contentWriteError
+	w.contentWriteErrorMutex.Unlock()
+
+	if err != nil {
+		return EmptyID, err
 	}
 
 	if len(w.indirectIndex) == 0 {
