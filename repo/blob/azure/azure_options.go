@@ -26,10 +26,10 @@ type Options struct {
 	// the tenant-ID/client-ID/client-Secret of the service principal
 	TenantID     string
 	ClientID     string
-	ClientSecret string
+	ClientSecret string `kopia:"sensitive"`
 
 	// ClientCert are used for creating ClientCertificateCredentials
-	ClientCert string
+	ClientCert string `kopia:"sensitive"`
 
 	StorageDomain string `json:"storageDomain,omitempty"`
 
