@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"hash/fnv"
 	"io"
+	"maps"
 	"runtime"
 	"sort"
 	"sync"
@@ -25,17 +26,7 @@ type BuilderCreator interface {
 
 // Clone returns a deep Clone of the Builder.
 func (b Builder) Clone() Builder {
-	if b == nil {
-		return nil
-	}
-
-	r := Builder{}
-
-	for k, v := range b {
-		r[k] = v
-	}
-
-	return r
+	return maps.Clone(b)
 }
 
 // Add adds a new entry to the builder or conditionally replaces it if the timestamp is greater.
