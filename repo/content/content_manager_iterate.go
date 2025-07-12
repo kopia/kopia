@@ -253,8 +253,6 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 		return errors.Wrap(err, "error iterating packs")
 	}
 
-	unusedCount := new(int32)
-
 	if len(blobPrefixes) == 0 {
 		blobPrefixes = PackBlobIDPrefixes
 	}
@@ -274,20 +272,22 @@ func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefix
 
 	bm.log.Debugf("scanning prefixes %v", prefixes)
 
+	var unusedCount atomic.Int32
+
 	if err := blob.IterateAllPrefixesInParallel(ctx, parallelism, bm.st, prefixes,
 		func(bm blob.Metadata) error {
 			if usedPacks.Contains([]byte(bm.BlobID)) {
 				return nil
 			}
 
-			atomic.AddInt32(unusedCount, 1)
+			unusedCount.Add(1)
 
 			return callback(bm)
 		}); err != nil {
 		return errors.Wrap(err, "error iterating blobs")
 	}
 
-	bm.log.Debugf("found %v pack blobs not in use", *unusedCount)
+	bm.log.Debugf("found %v pack blobs not in use", unusedCount.Load())
 
 	return nil
 }
