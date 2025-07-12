@@ -227,8 +227,8 @@ func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOpt
 	return nil
 }
 
-// IterateUnreferencedBlobs returns the list of unreferenced storage blobs.
-func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefixes []blob.ID, parallelism int, callback func(blob.Metadata) error) error {
+// IterateUnreferencedPacks returns the list of unreferenced storage blobs.
+func (bm *WriteManager) IterateUnreferencedPacks(ctx context.Context, blobPrefixes []blob.ID, parallelism int, callback func(blob.Metadata) error) error {
 	usedPacks, err := bigmap.NewSet(ctx)
 	if err != nil {
 		return errors.Wrap(err, "new set")
