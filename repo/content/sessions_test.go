@@ -115,7 +115,7 @@ func TestWriteSessionMarkerLockedWithClockSkew(t *testing.T) {
 	keyTime := map[blob.ID]time.Time{}
 
 	bmTime := faketime.NewTimeAdvance(time.Date(2018, time.January, 1, 0, 0, 0, 0, time.UTC))
-	stTime := faketime.NewTimeAdvance(time.Date(2018, time.January, 1, 0, int(maxClockSkew), 0, 0, time.UTC))
+	stTime := faketime.NewTimeAdvance(bmTime.NowFunc()().Add(maxClockSkew + time.Nanosecond))
 	st := blobtesting.NewMapStorage(data, keyTime, stTime.NowFunc())
 
 	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
