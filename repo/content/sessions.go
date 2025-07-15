@@ -57,6 +57,21 @@ func checkClockSkewBounds(localTime, modTime time.Time) error {
 	return nil
 }
 
+func maybeCheckClockSkewBounds(localTime, modTime time.Time) error {
+	v, found := os.LookupEnv("KOPIA_ENABLE_CLOCK_SKEW_CHECK")
+	if !found {
+		return nil
+	}
+
+	if !strings.EqualFold(v, "false") && v != "0" {
+		if skewError := checkClockSkewBounds(localTime, modTime); skewError != nil {
+			return errors.Wrap(skewError, "while writing session marker")
+		}
+	}
+
+	return nil
+}
+
 // generateSessionID generates a random session identifier.
 func generateSessionID(now time.Time) (SessionID, error) {
 	// generate session ID as {random-64-bit}{epoch-number}
@@ -142,12 +157,8 @@ func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 		return errors.Wrapf(err, "unable to write session marker: %v", string(sessionBlobID))
 	}
 
-	if v, found := os.LookupEnv("KOPIA_ENABLE_CLOCK_SKEW_CHECK"); found {
-		if !strings.EqualFold(v, "false") && v != "0" {
-			if skewError := checkClockSkewBounds(bm.timeNow(), modTime); skewError != nil {
-				return errors.Wrap(skewError, "while writing session marker")
-			}
-		}
+	if err := maybeCheckClockSkewBounds(bm.timeNow(), modTime); err != nil {
+		return errors.Wrap(err, "while writing session marker")
 	}
 
 	bm.sessionMarkerBlobIDs = append(bm.sessionMarkerBlobIDs, sessionBlobID)
