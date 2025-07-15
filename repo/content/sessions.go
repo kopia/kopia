@@ -5,6 +5,7 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -20,6 +21,8 @@ import (
 const BlobIDPrefixSession blob.ID = "s"
 
 const sessionIDLength = 8
+
+const maxClockSkew = 5 * time.Minute
 
 // SessionID represents identifier of a session.
 type SessionID string
@@ -38,6 +41,21 @@ var (
 	sessionIDEpochStartTime   = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	sessionIDEpochGranularity = 30 * 24 * time.Hour
 )
+
+// checkClockSkewBounds checks that the lastModified time of the blob is within acceptable bounds of local clock.
+func checkClockSkewBounds(localTime, modTime time.Time) error {
+	clockSkew := modTime.Sub(localTime)
+
+	if clockSkew < 0 {
+		clockSkew = -clockSkew
+	}
+
+	if clockSkew > maxClockSkew {
+		return errors.Errorf("clock skew detected: local clock is out of sync with modTime by more than allowed %v (local: %v modTime: %v skew: %s)", maxClockSkew, localTime, modTime, clockSkew)
+	}
+
+	return nil
+}
 
 // generateSessionID generates a random session identifier.
 func generateSessionID(now time.Time) (SessionID, error) {
@@ -119,8 +137,17 @@ func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 
 	bm.onUpload(int64(encrypted.Length()))
 
-	if err := bm.st.PutBlob(ctx, sessionBlobID, encrypted.Bytes(), blob.PutOptions{}); err != nil {
+	var modTime time.Time
+	if err := bm.st.PutBlob(ctx, sessionBlobID, encrypted.Bytes(), blob.PutOptions{GetModTime: &modTime}); err != nil {
 		return errors.Wrapf(err, "unable to write session marker: %v", string(sessionBlobID))
+	}
+
+	if v, found := os.LookupEnv("KOPIA_ENABLE_CLOCK_SKEW_CHECK"); found {
+		if !strings.EqualFold(v, "false") && v != "0" {
+			if skewError := checkClockSkewBounds(bm.timeNow(), modTime); skewError != nil {
+				return errors.Wrap(skewError, "while writing session marker")
+			}
+		}
 	}
 
 	bm.sessionMarkerBlobIDs = append(bm.sessionMarkerBlobIDs, sessionBlobID)
