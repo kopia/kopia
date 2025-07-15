@@ -92,6 +92,7 @@ func TestMaybeCheckClockSkewBounds_Disabled(t *testing.T) {
 			require.NoError(t, err)
 
 			t.Setenv("KOPIA_ENABLE_CLOCK_SKEW_CHECK", "false")
+
 			err = maybeCheckClockSkewBounds(now, tc)
 			require.NoError(t, err)
 		})
