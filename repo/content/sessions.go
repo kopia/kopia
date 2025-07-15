@@ -161,7 +161,7 @@ func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 	}
 
 	if err := maybeCheckClockSkewBounds(bm.timeNow(), modTime); err != nil {
-		return errors.Wrap(err, "unable to check for clock skew in init session marker")
+		return errors.Wrap(err, "unable to check for clock skew after writing session marker")
 	}
 
 	bm.sessionMarkerBlobIDs = append(bm.sessionMarkerBlobIDs, sessionBlobID)
