@@ -12,8 +12,8 @@ import (
 
 //nolint:gochecknoglobals
 var (
-	base10UnitPrefixes = []string{"", "K", "M", "G", "T"}
-	base2UnitPrefixes  = []string{"", "Ki", "Mi", "Gi", "Ti"}
+	base10UnitPrefixes = []string{"", "K", "M", "G", "T", "P", "E"}
+	base2UnitPrefixes  = []string{"", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
 )
 
 const (

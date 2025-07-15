@@ -8,8 +8,8 @@ import (
 	"github.com/kopia/kopia/repo/content/indexblob"
 )
 
-// DropDeletedContents rewrites indexes while dropping deleted contents above certain age.
-func DropDeletedContents(ctx context.Context, rep repo.DirectRepositoryWriter, dropDeletedBefore time.Time, safety SafetyParameters) error {
+// dropDeletedContents rewrites indexes while dropping deleted contents above certain age.
+func dropDeletedContents(ctx context.Context, rep repo.DirectRepositoryWriter, dropDeletedBefore time.Time, safety SafetyParameters) error {
 	log(ctx).Infof("Dropping contents deleted before %v", dropDeletedBefore)
 
 	//nolint:wrapcheck

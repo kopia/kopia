@@ -24,9 +24,7 @@ func TestTimeFuncWiring(t *testing.T) {
 
 	// Re open with injected time
 	rep, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), env.Password, &repo.Options{TimeNowFunc: ft.NowFunc()})
-	if err != nil {
-		t.Fatal("Failed to open repo:", err)
-	}
+	require.NoError(t, err, "failed to open test repository")
 
 	r0 := testutil.EnsureType[repo.DirectRepository](t, rep)
 
@@ -34,30 +32,22 @@ func TestTimeFuncWiring(t *testing.T) {
 	require.NoError(t, err)
 
 	// verify wiring for the repo layer
-	if got, want := env.RepositoryWriter.Time(), ft.NowFunc()(); !got.Equal(want) {
-		t.Errorf("times don't match, got %v, want %v", got, want)
-	}
+	got, want := env.RepositoryWriter.Time(), ft.NowFunc()()
+	require.WithinDuration(t, want, got, 0, "times do not match")
 
-	if want, got := ft.Advance(10*time.Minute), env.RepositoryWriter.Time(); !got.Equal(want) {
-		t.Errorf("times don't match, got %v, want %v", got, want)
-	}
+	want, got = ft.Advance(10*time.Minute), env.RepositoryWriter.Time()
+	require.WithinDuration(t, want, got, 0, "times do not match")
 
 	// verify wiring for the content layer
 	nt := ft.Advance(20 * time.Second)
 
 	cid, err := env.RepositoryWriter.ContentManager().WriteContent(ctx, gather.FromSlice([]byte("foo")), "", content.NoCompression)
-	if err != nil {
-		t.Fatal("failed to write content:", err)
-	}
+	require.NoError(t, err, "failed to write content")
 
 	info, err := env.RepositoryWriter.ContentInfo(ctx, cid)
-	if err != nil {
-		t.Fatal("failed to get content info for", cid, err)
-	}
 
-	if got, want := info.Timestamp(), nt; !got.Equal(want) {
-		t.Errorf("content time does not match, got %v, want %v", got, want)
-	}
+	require.NoErrorf(t, err, "failed to get content info for %s", cid)
+	require.WithinDuration(t, nt, info.Timestamp(), 0, "content time does not match")
 
 	// verify wiring for the manifest layer
 	nt = ft.Advance(3 * time.Minute)
@@ -65,18 +55,12 @@ func TestTimeFuncWiring(t *testing.T) {
 	labels := map[string]string{"l1": "v1", "l2": "v2", "type": "my-manifest"}
 
 	mid, err := env.RepositoryWriter.PutManifest(ctx, labels, "manifest content")
-	if err != nil {
-		t.Fatal("failed to put manifest:", err)
-	}
+	require.NoError(t, err, "failed to put manifest")
 
 	meta, err := env.RepositoryWriter.GetManifest(ctx, mid, nil)
-	if err != nil {
-		t.Fatal("failed to get manifest metadata:", err)
-	}
 
-	if got, want := meta.ModTime, nt; !got.Equal(want) {
-		t.Errorf("manifest time does not match, got %v, want %v", got, want)
-	}
+	require.NoError(t, err, "failed to get manifest metadata")
+	require.WithinDuration(t, nt, meta.ModTime, 0, "manifest modification time does not match")
 
 	const defaultPermissions = 0o777
 
@@ -89,11 +73,7 @@ func TestTimeFuncWiring(t *testing.T) {
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
-	if err != nil {
-		t.Fatal("failed to create snapshot:", err)
-	}
 
-	if got, want := nt, s1.StartTime.ToTime(); !got.Equal(want) {
-		t.Fatalf("snapshot time does not match, got: %v, want: %v", got, want)
-	}
+	require.NoError(t, err, "failed to create snapshot")
+	require.WithinDuration(t, nt, s1.StartTime.ToTime(), 0, "snapshot time does not match")
 }

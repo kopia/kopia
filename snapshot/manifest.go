@@ -3,6 +3,7 @@ package snapshot
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"sort"
 	"strconv"
 
@@ -236,11 +237,14 @@ func GroupBySource(manifests []*Manifest) [][]*Manifest {
 	return result
 }
 
-// SortByTime returns a slice of manifests sorted by start time.
+// SortByTime returns a slice of manifests sorted by start time, and end time as
+// the tie breaker when start time is the same.
 func SortByTime(manifests []*Manifest, reverse bool) []*Manifest {
-	result := append([]*Manifest(nil), manifests...)
+	result := slices.Clone(manifests)
 	sort.Slice(result, func(i, j int) bool {
-		return result[i].StartTime > result[j].StartTime == reverse
+		return (result[i].StartTime > result[j].StartTime ||
+			(result[i].StartTime == result[j].StartTime &&
+				result[i].EndTime > result[j].EndTime)) == reverse
 	})
 
 	return result

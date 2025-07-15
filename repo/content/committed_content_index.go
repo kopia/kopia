@@ -42,8 +42,8 @@ type committedContentIndex struct {
 	v1PerContentOverhead func() int
 	formatProvider       format.Provider
 
-	// fetchOne loads one index blob
-	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error
+	// fetchIndexBlob retrieves one index blob from storage
+	fetchIndexBlob func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error
 
 	log logging.Logger
 }
@@ -321,7 +321,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 			for indexBlobID := range ch {
 				data.Reset()
 
-				if err := c.fetchOne(ctx, indexBlobID, &data); err != nil {
+				if err := c.fetchIndexBlob(ctx, indexBlobID, &data); err != nil {
 					if isPermissiveCacheLoading {
 						c.log.Errorf("skipping bad read of index blob %v", indexBlobID)
 						continue
@@ -371,7 +371,7 @@ func newCommittedContentIndex(caching *CachingOptions,
 	v1PerContentOverhead func() int,
 	formatProvider format.Provider,
 	permissiveCacheLoading bool,
-	fetchOne func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
+	fetchIndexBlob func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
 	log logging.Logger,
 	minSweepAge time.Duration,
 ) *committedContentIndex {
@@ -393,7 +393,7 @@ func newCommittedContentIndex(caching *CachingOptions,
 		inUse:                  map[blob.ID]index.Index{},
 		v1PerContentOverhead:   v1PerContentOverhead,
 		formatProvider:         formatProvider,
-		fetchOne:               fetchOne,
+		fetchIndexBlob:         fetchIndexBlob,
 		log:                    log,
 	}
 }

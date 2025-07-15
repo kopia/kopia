@@ -2,12 +2,11 @@
 package encryption
 
 import (
+	"crypto/hkdf"
 	"crypto/sha256"
-	"io"
 	"sort"
 
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/hkdf"
 
 	"github.com/kopia/kopia/internal/gather"
 )
@@ -97,9 +96,10 @@ func deriveKey(p Parameters, purpose []byte, length int) ([]byte, error) {
 		return nil, errors.Errorf("derived key must be at least %d bytes, was %v", minDerivedKeyLength, length)
 	}
 
-	key := make([]byte, length)
-	k := hkdf.New(sha256.New, p.GetMasterKey(), purpose, nil)
-	io.ReadFull(k, key) //nolint:errcheck
+	derivedKey, err := hkdf.Key(sha256.New, p.GetMasterKey(), purpose, "", length)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to derive key")
+	}
 
-	return key, nil
+	return derivedKey, nil
 }
