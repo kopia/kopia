@@ -6,7 +6,7 @@ toolchain go1.24.4
 
 require (
 	cloud.google.com/go/storage v1.55.0
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.0
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.18.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.10.1
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.1
 	github.com/alecthomas/kingpin/v2 v2.4.0
@@ -58,16 +58,16 @@ require (
 	go.opentelemetry.io/otel/sdk v1.37.0
 	go.opentelemetry.io/otel/trace v1.37.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.39.0
+	golang.org/x/crypto v0.40.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/mod v0.25.0
-	golang.org/x/net v0.41.0
+	golang.org/x/mod v0.26.0
+	golang.org/x/net v0.42.0
 	golang.org/x/oauth2 v0.30.0
-	golang.org/x/sync v0.15.0
-	golang.org/x/sys v0.33.0
-	golang.org/x/term v0.32.0
-	golang.org/x/text v0.26.0
-	google.golang.org/api v0.240.0
+	golang.org/x/sync v0.16.0
+	golang.org/x/sys v0.34.0
+	golang.org/x/term v0.33.0
+	golang.org/x/text v0.27.0
+	google.golang.org/api v0.241.0
 	google.golang.org/grpc v1.73.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
