@@ -15,21 +15,21 @@ type Options struct {
 	Prefix string `json:"prefix,omitempty"`
 
 	// Storage account name
-	StorageAccount string `json:"storageAccount"`
+	StorageAccount string `json:"storageAccount,omitempty"`
 
 	// Storage account access key
-	StorageKey string `json:"storageKey"     kopia:"sensitive"`
+	StorageKey string `json:"storageKey,omitempty" kopia:"sensitive"`
 
 	// Alternatively provide SAS Token
-	SASToken string `json:"sasToken" kopia:"sensitive"`
+	SASToken string `json:"sasToken,omitempty" kopia:"sensitive"`
 
 	// the tenant-ID/client-ID/client-Secret of the service principal
-	TenantID     string
-	ClientID     string
-	ClientSecret string `kopia:"sensitive"`
+	TenantID     string `json:",omitempty"`
+	ClientID     string `json:",omitempty"`
+	ClientSecret string `json:",omitempty" kopia:"sensitive"`
 
 	// ClientCert are used for creating ClientCertificateCredentials
-	ClientCert string `kopia:"sensitive"`
+	ClientCert string `json:",omitempty" kopia:"sensitive"`
 
 	StorageDomain string `json:"storageDomain,omitempty"`
 
