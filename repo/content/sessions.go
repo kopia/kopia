@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,6 +56,23 @@ func checkClockSkewBounds(localTime, modTime time.Time) error {
 	}
 
 	return nil
+}
+
+func maybeCheckClockSkewBounds(localTime, modTime time.Time) error {
+	v, found := os.LookupEnv("KOPIA_ENABLE_CLOCK_SKEW_CHECK")
+	if !found {
+		return nil
+	}
+
+	if enabled, err := strconv.ParseBool(v); err == nil && !enabled {
+		// err was nil and the value explicitly disabled the check, for example
+		// KOPIA_ENABLE_CLOCK_SKEW_CHECK=false
+		return nil
+	}
+
+	// Perform the check by default when the environment variable is set and
+	// is not a boolean, for example KOPIA_ENABLE_CLOCK_SKEW_CHECK=foo
+	return checkClockSkewBounds(localTime, modTime)
 }
 
 // generateSessionID generates a random session identifier.
@@ -142,12 +160,8 @@ func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 		return errors.Wrapf(err, "unable to write session marker: %v", string(sessionBlobID))
 	}
 
-	if v, found := os.LookupEnv("KOPIA_ENABLE_CLOCK_SKEW_CHECK"); found {
-		if !strings.EqualFold(v, "false") && v != "0" {
-			if skewError := checkClockSkewBounds(bm.timeNow(), modTime); skewError != nil {
-				return errors.Wrap(skewError, "while writing session marker")
-			}
-		}
+	if err := maybeCheckClockSkewBounds(bm.timeNow(), modTime); err != nil {
+		return errors.Wrap(err, "unable to check for clock skew after writing session marker")
 	}
 
 	bm.sessionMarkerBlobIDs = append(bm.sessionMarkerBlobIDs, sessionBlobID)

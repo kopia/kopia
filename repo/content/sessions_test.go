@@ -76,6 +76,45 @@ func TestCheckClockSkewBounds_Negative(t *testing.T) {
 	require.Contains(t, err.Error(), "clock skew detected")
 }
 
+func TestMaybeCheckClockSkewBounds_Disabled(t *testing.T) {
+	now := clock.Now()
+
+	for _, tc := range []time.Time{
+		now.Add(-maxClockSkew - time.Hour),
+		now.Add(-maxClockSkew),
+		now,
+		now.Add(maxClockSkew),
+		now.Add(maxClockSkew + 10*time.Hour),
+	} {
+		t.Run(tc.String(), func(t *testing.T) {
+			// KOPIA_ENABLE_CLOCK_SKEW_CHECK is not set
+			err := maybeCheckClockSkewBounds(now, tc)
+			require.NoError(t, err)
+
+			t.Setenv("KOPIA_ENABLE_CLOCK_SKEW_CHECK", "false")
+
+			err = maybeCheckClockSkewBounds(now, tc)
+			require.NoError(t, err)
+		})
+	}
+}
+
+func TestMaybeCheckClockSkewBounds_Enabled(t *testing.T) {
+	t.Setenv("KOPIA_ENABLE_CLOCK_SKEW_CHECK", "true")
+
+	now := clock.Now()
+
+	for _, tc := range []time.Time{
+		now.Add(-maxClockSkew - time.Hour),
+		now.Add(maxClockSkew + 10*time.Hour),
+	} {
+		t.Run(tc.String(), func(t *testing.T) {
+			err := maybeCheckClockSkewBounds(now, tc)
+			require.Error(t, err)
+		})
+	}
+}
+
 func TestWriteSessionMarkerLockedWithoutClockSkew(t *testing.T) {
 	t.Setenv("KOPIA_ENABLE_CLOCK_SKEW_CHECK", "1")
 
@@ -115,7 +154,7 @@ func TestWriteSessionMarkerLockedWithClockSkew(t *testing.T) {
 	keyTime := map[blob.ID]time.Time{}
 
 	bmTime := faketime.NewTimeAdvance(time.Date(2018, time.January, 1, 0, 0, 0, 0, time.UTC))
-	stTime := faketime.NewTimeAdvance(time.Date(2018, time.January, 1, 0, int(maxClockSkew), 0, 0, time.UTC))
+	stTime := faketime.NewTimeAdvance(bmTime.NowFunc()().Add(maxClockSkew + time.Nanosecond))
 	st := blobtesting.NewMapStorage(data, keyTime, stTime.NowFunc())
 
 	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
