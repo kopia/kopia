@@ -2,6 +2,7 @@ package restore
 
 import (
 	"context"
+	"os"
 	"path"
 	"runtime"
 	"sync/atomic"
@@ -46,6 +47,9 @@ type Stats struct {
 	EnqueuedDirCount     int32
 	EnqueuedSymlinkCount int32
 	SkippedCount         int32
+	DeletedFilesCount    int32
+	DeletedSymlinkCount  int32
+	DeletedDirCount      int32
 	IgnoredErrorCount    int32
 }
 
@@ -62,6 +66,9 @@ type statsInternal struct {
 	EnqueuedDirCount     atomic.Int32
 	EnqueuedSymlinkCount atomic.Int32
 	SkippedCount         atomic.Int32
+	DeletedFilesCount    atomic.Int32
+	DeletedSymlinkCount  atomic.Int32
+	DeletedDirCount      atomic.Int32
 	IgnoredErrorCount    atomic.Int32
 }
 
@@ -77,6 +84,9 @@ func (s *statsInternal) clone() Stats {
 		EnqueuedDirCount:      s.EnqueuedDirCount.Load(),
 		EnqueuedSymlinkCount:  s.EnqueuedSymlinkCount.Load(),
 		SkippedCount:          s.SkippedCount.Load(),
+		DeletedFilesCount:     s.DeletedFilesCount.Load(),
+		DeletedSymlinkCount:   s.DeletedSymlinkCount.Load(),
+		DeletedDirCount:       s.DeletedDirCount.Load(),
 		IgnoredErrorCount:     s.IgnoredErrorCount.Load(),
 	}
 }
@@ -90,6 +100,7 @@ type Options struct {
 	// required bindings in the UI.
 	Parallel               int   `json:"parallel"`
 	Incremental            bool  `json:"incremental"`
+	DeleteExtra            bool  `json:"deleteExtra"`
 	IgnoreErrors           bool  `json:"ignoreErrors"`
 	RestoreDirEntryAtDepth int32 `json:"restoreDirEntryAtDepth"`
 	MinSizeForPlaceholder  int32 `json:"minSizeForPlaceholder"`
@@ -107,6 +118,7 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 		shallowoutput:    makeShallowFilesystemOutput(output, options),
 		q:                parallelwork.NewQueue(),
 		incremental:      options.Incremental,
+		deleteExtra:      options.DeleteExtra,
 		ignoreErrors:     options.IgnoreErrors,
 		cancel:           options.Cancel,
 		progressCallback: options.ProgressCallback,
@@ -149,6 +161,7 @@ type copier struct {
 	shallowoutput Output
 	q             *parallelwork.Queue
 	incremental   bool
+	deleteExtra   bool
 	ignoreErrors  bool
 	cancel        chan struct{}
 
@@ -274,6 +287,15 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 		return errors.Wrap(err, "create directory")
 	}
 
+	if c.deleteExtra {
+		// deleting existing files only makes sense in the context of an actual filesystem (compared to a tar or zip)
+		if fsOutput, isFileSystem := c.output.(*FilesystemOutput); isFileSystem {
+			if err := c.deleteExtraFilesInDir(ctx, fsOutput, d, targetPath); err != nil {
+				return errors.Wrap(err, "delete extra")
+			}
+		}
+	}
+
 	return errors.Wrap(c.copyDirectoryContent(ctx, d, targetPath, currentdepth+1, maxdepth, func() error {
 		if err := c.output.FinishDirectory(ctx, targetPath, d); err != nil {
 			return errors.Wrap(err, "finish directory")
@@ -281,6 +303,77 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 
 		return onCompletion()
 	}), "copy directory contents")
+}
+
+func (c *copier) deleteExtraFilesInDir(ctx context.Context, o *FilesystemOutput, d fs.Directory, targetPath string) error {
+	existingEntries, err := os.ReadDir(path.Join(o.TargetPath, targetPath))
+	if os.IsNotExist(err) {
+		return nil
+	}
+
+	if err != nil {
+		return errors.Wrap(err, "read existing dir entries ('"+path.Join(o.TargetPath, targetPath)+"')")
+	}
+
+	snapshotEntries, err := fs.GetAllEntries(ctx, d)
+	if err != nil {
+		return errors.Wrap(err, "error reading directory")
+	}
+
+	// first classify snapshot entries to help with deletion (treat symlinks like normal files)
+	snapshotDirectories := map[string]struct{}{}
+	snapshotFiles := map[string]struct{}{}
+
+	for _, snapshotEntry := range snapshotEntries {
+		if snapshotEntry.IsDir() {
+			snapshotDirectories[snapshotEntry.Name()] = struct{}{}
+			continue
+		}
+
+		snapshotFiles[snapshotEntry.Name()] = struct{}{}
+	}
+
+	// Delete entries that exist in the target path and are not in the snapshot.
+	// Also, delete entries with a mismatching directory / file type, that is:
+	// - delete existing directories that are files in the snapshot; and
+	// - delete existing files that are directories in the snapshot.
+	// This allows "overwriting" existing entries with when their (directory vs. file) types do not match.
+	for _, existingEntry := range existingEntries {
+		if existingEntry.IsDir() {
+			if _, ok := snapshotDirectories[existingEntry.Name()]; !ok {
+				entryPath := path.Join(o.TargetPath, targetPath, existingEntry.Name())
+
+				log(ctx).Debugf("deleting directory %v since it does not exist in snapshot", entryPath)
+
+				if err := os.RemoveAll(entryPath); err != nil {
+					return errors.Wrap(err, "delete directory "+path.Join(o.TargetPath, targetPath, existingEntry.Name()))
+				}
+
+				c.stats.DeletedDirCount.Add(1)
+			}
+
+			continue
+		}
+
+		if _, ok := snapshotFiles[existingEntry.Name()]; !ok {
+			entryPath := path.Join(o.TargetPath, targetPath, existingEntry.Name())
+
+			log(ctx).Debugf("deleting file %v since it does not exist in snapshot", entryPath)
+
+			if err := os.Remove(entryPath); err != nil {
+				return errors.Wrap(err, "delete file "+path.Join(o.TargetPath, targetPath, existingEntry.Name()))
+			}
+
+			if existingEntry.Type() == os.ModeSymlink {
+				c.stats.DeletedSymlinkCount.Add(1)
+			} else {
+				// if it's not a symlink, we are not classifying file types further.
+				c.stats.DeletedFilesCount.Add(1)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc) error {
