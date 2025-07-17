@@ -28,8 +28,8 @@ type Options struct {
 	ClientID     string `json:",omitempty"`
 	ClientSecret string `json:",omitempty" kopia:"sensitive"`
 
-	// ClientCert are used for creating ClientCertificateCredentials
-	ClientCert string `json:"clientCertificate,omitempty" kopia:"sensitive"`
+	// ClientCertificate are used for creating ClientCertificateCredentials
+	ClientCertificate string `json:"clientCertificate,omitempty" kopia:"sensitive"`
 
 	StorageDomain string `json:"storageDomain,omitempty"`
 

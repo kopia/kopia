@@ -434,8 +434,8 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 
 		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
 	// client certificate
-	case opt.TenantID != "" && opt.ClientID != "" && opt.ClientCert != "":
-		certs, key, certErr := azidentity.ParseCertificates([]byte(opt.ClientCert), nil)
+	case opt.TenantID != "" && opt.ClientID != "" && opt.ClientCertificate != "":
+		certs, key, certErr := azidentity.ParseCertificates([]byte(opt.ClientCertificate), nil)
 		if certErr != nil {
 			return nil, errors.Wrap(certErr, "failed to read client cert")
 		}
