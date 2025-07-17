@@ -221,12 +221,12 @@ func TestAzureStorageClientCertificate(t *testing.T) {
 	// to verify we do not depend on the original context past initialization.
 	newctx, cancel := context.WithCancel(ctx)
 	st, err := azure.New(newctx, &azure.Options{
-		Container:      container,
-		StorageAccount: storageAccount,
-		TenantID:       tenantID,
-		ClientID:       clientID,
-		ClientCert:     clientCert,
-		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
+		Container:         container,
+		StorageAccount:    storageAccount,
+		TenantID:          tenantID,
+		ClientID:          clientID,
+		ClientCertificate: clientCert,
+		Prefix:            fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	require.NoError(t, err)
