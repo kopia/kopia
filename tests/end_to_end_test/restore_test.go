@@ -41,6 +41,8 @@ const (
 
 	overriddenFilePermissions = 0o651
 	overriddenDirPermissions  = 0o752
+
+	statsOnly = false
 )
 
 type fakeRestoreProgress struct {
@@ -172,12 +174,34 @@ func TestRestoreCommand(t *testing.T) {
 
 	// Attempt to restore into a target directory that already exists
 	e.RunAndExpectFailure(t, "restore", rootID, restoreDir, "--no-overwrite-files")
+
+	// Attempt to restore into a target directory with extra files, and check they have been deleted
+	extraFile := filepath.Join(restoreDir, "extraFile.txt")
+
+	err := os.WriteFile(extraFile, []byte("extra file contents"), 0o644)
+	require.NoError(t, err)
+
+	extraDir := filepath.Join(restoreDir, "extraDir")
+	err = os.Mkdir(extraDir, 0o766)
+	require.NoError(t, err)
+
+	// Add extra files to the extra directory
+	for i := range 10 {
+		extraFileInDir := filepath.Join(extraDir, fmt.Sprint("extraFile-", i))
+
+		err := os.WriteFile(extraFileInDir, []byte("extra file contents"), 0o644)
+		require.NoError(t, err)
+	}
+
+	e.RunAndExpectSuccess(t, "restore", rootID, restoreDir)
+	compareDirsWithChange(t, source, restoreDir, 11, 1)
+
+	e.RunAndExpectSuccess(t, "restore", rootID, restoreDir, "--delete-extra")
+	compareDirs(t, source, restoreDir)
 }
 
 func compareDirs(t *testing.T, source, restoreDir string) {
 	t.Helper()
-
-	const statsOnly = false
 
 	// Restored contents should match source
 	s, err := localfs.Directory(source)
@@ -200,6 +224,36 @@ func compareDirs(t *testing.T, source, restoreDir string) {
 		cmp.DiffCommand = "cmp"
 		cmp.Compare(ctx, s, r)
 	}
+}
+
+func compareDirsWithChange(t *testing.T, source, restoreDir string, expectedExtraFiles, expectedExtraDirs int) {
+	t.Helper()
+
+	// Restored contents should match source
+	s, err := localfs.Directory(source)
+	require.NoError(t, err)
+	wantHash, err := fshasher.Hash(testlogging.Context(t), s)
+	require.NoError(t, err)
+
+	// check restored contents
+	r, err := localfs.Directory(restoreDir)
+	require.NoError(t, err)
+
+	ctx := testlogging.Context(t)
+	gotHash, err := fshasher.Hash(ctx, r)
+	require.NoError(t, err)
+
+	assert.NotEqual(t, wantHash, gotHash)
+
+	cmp, err := diff.NewComparer(os.Stderr, statsOnly)
+	require.NoError(t, err)
+
+	stats, err := cmp.Compare(ctx, s, r)
+	require.NoError(t, err)
+
+	require.Equal(t, uint32(expectedExtraFiles), stats.FileEntries.Added, "unexpected number of extra files")
+
+	require.Equal(t, uint32(expectedExtraDirs), stats.DirectoryEntries.Added, "unexpected number of extra directories")
 }
 
 func TestSnapshotRestore(t *testing.T) {
