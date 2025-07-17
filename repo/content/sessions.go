@@ -5,6 +5,8 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -20,6 +22,8 @@ import (
 const BlobIDPrefixSession blob.ID = "s"
 
 const sessionIDLength = 8
+
+const maxClockSkew = 5 * time.Minute
 
 // SessionID represents identifier of a session.
 type SessionID string
@@ -38,6 +42,38 @@ var (
 	sessionIDEpochStartTime   = time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 	sessionIDEpochGranularity = 30 * 24 * time.Hour
 )
+
+// checkClockSkewBounds checks that the lastModified time of the blob is within acceptable bounds of local clock.
+func checkClockSkewBounds(localTime, modTime time.Time) error {
+	clockSkew := modTime.Sub(localTime)
+
+	if clockSkew < 0 {
+		clockSkew = -clockSkew
+	}
+
+	if clockSkew > maxClockSkew {
+		return errors.Errorf("clock skew detected: local clock is out of sync with modTime by more than allowed %v (local: %v modTime: %v skew: %s)", maxClockSkew, localTime, modTime, clockSkew)
+	}
+
+	return nil
+}
+
+func maybeCheckClockSkewBounds(localTime, modTime time.Time) error {
+	v, found := os.LookupEnv("KOPIA_ENABLE_CLOCK_SKEW_CHECK")
+	if !found {
+		return nil
+	}
+
+	if enabled, err := strconv.ParseBool(v); err == nil && !enabled {
+		// err was nil and the value explicitly disabled the check, for example
+		// KOPIA_ENABLE_CLOCK_SKEW_CHECK=false
+		return nil
+	}
+
+	// Perform the check by default when the environment variable is set and
+	// is not a boolean, for example KOPIA_ENABLE_CLOCK_SKEW_CHECK=foo
+	return checkClockSkewBounds(localTime, modTime)
+}
 
 // generateSessionID generates a random session identifier.
 func generateSessionID(now time.Time) (SessionID, error) {
@@ -119,8 +155,13 @@ func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 
 	bm.onUpload(int64(encrypted.Length()))
 
-	if err := bm.st.PutBlob(ctx, sessionBlobID, encrypted.Bytes(), blob.PutOptions{}); err != nil {
+	var modTime time.Time
+	if err := bm.st.PutBlob(ctx, sessionBlobID, encrypted.Bytes(), blob.PutOptions{GetModTime: &modTime}); err != nil {
 		return errors.Wrapf(err, "unable to write session marker: %v", string(sessionBlobID))
+	}
+
+	if err := maybeCheckClockSkewBounds(bm.timeNow(), modTime); err != nil {
+		return errors.Wrap(err, "unable to check for clock skew after writing session marker")
 	}
 
 	bm.sessionMarkerBlobIDs = append(bm.sessionMarkerBlobIDs, sessionBlobID)
