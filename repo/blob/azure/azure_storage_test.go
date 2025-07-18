@@ -33,7 +33,7 @@ const (
 	testStorageTenantIDEnv          = "KOPIA_AZURE_TEST_TENANT_ID"
 	testStorageClientIDEnv          = "KOPIA_AZURE_TEST_CLIENT_ID"
 	testStorageClientSecretEnv      = "KOPIA_AZURE_TEST_CLIENT_SECRET"
-	testStorageClientCertEnv        = "KOPIA_AZURE_TEST_CLIENT_CERT"
+	testStorageClientCertEnv        = "KOPIA_AZURE_TEST_CLIENT_CERTIFICATE"
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {
