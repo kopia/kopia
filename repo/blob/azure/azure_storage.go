@@ -403,6 +403,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	return az, nil
 }
 
+//nolint:gocyclo
 func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) {
 	var (
 		service    *azblob.Client
@@ -446,8 +447,20 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 		}
 
 		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
+	// Azure Federated Token
+	case opt.TenantID != "" && opt.ClientID != "" && opt.AzureFederatedTokenFile != "":
+		cred, err := azidentity.NewWorkloadIdentityCredential(&azidentity.WorkloadIdentityCredentialOptions{
+			ClientID:      opt.ClientID,
+			TenantID:      opt.TenantID,
+			TokenFilePath: opt.AzureFederatedTokenFile,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to initialize Azure Federated Identity workload identity credential")
+		}
+
+		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
 	default:
-		return nil, errors.New("one of the storage key, SAS token, client secret or client certificate must be provided")
+		return nil, errors.New("one of the storage key, SAS token, client secret, client certificate, or Azure Federated Token must be provided")
 	}
 
 	return service, errors.Wrap(serviceErr, "unable to create azure client")
