@@ -31,6 +31,9 @@ type Options struct {
 	// ClientCertificate are used for creating ClientCertificateCredentials
 	ClientCertificate string `json:"clientCertificate,omitempty" kopia:"sensitive"`
 
+	// AzureFederatedTokenFile is the path to a file containing an Azure Federated Token.
+	AzureFederatedTokenFile string `json:"azureFederatedTokenFile,omitempty"`
+
 	StorageDomain string `json:"storageDomain,omitempty"`
 
 	throttling.Limits

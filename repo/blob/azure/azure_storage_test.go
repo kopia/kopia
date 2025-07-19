@@ -22,18 +22,19 @@ import (
 )
 
 const (
-	testContainerEnv                = "KOPIA_AZURE_TEST_CONTAINER"
-	testStorageAccountEnv           = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
-	testStorageKeyEnv               = "KOPIA_AZURE_TEST_STORAGE_KEY"
-	testStorageSASTokenEnv          = "KOPIA_AZURE_TEST_SAS_TOKEN"
-	testImmutableContainerEnv       = "KOPIA_AZURE_TEST_IMMUTABLE_CONTAINER"
-	testImmutableStorageAccountEnv  = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_ACCOUNT"
-	testImmutableStorageKeyEnv      = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_KEY"
-	testImmutableStorageSASTokenEnv = "KOPIA_AZURE_TEST_IMMUTABLE_SAS_TOKEN"
-	testStorageTenantIDEnv          = "KOPIA_AZURE_TEST_TENANT_ID"
-	testStorageClientIDEnv          = "KOPIA_AZURE_TEST_CLIENT_ID"
-	testStorageClientSecretEnv      = "KOPIA_AZURE_TEST_CLIENT_SECRET"
-	testStorageClientCertEnv        = "KOPIA_AZURE_TEST_CLIENT_CERTIFICATE"
+	testContainerEnv                      = "KOPIA_AZURE_TEST_CONTAINER"
+	testStorageAccountEnv                 = "KOPIA_AZURE_TEST_STORAGE_ACCOUNT"
+	testStorageKeyEnv                     = "KOPIA_AZURE_TEST_STORAGE_KEY"
+	testStorageSASTokenEnv                = "KOPIA_AZURE_TEST_SAS_TOKEN"
+	testImmutableContainerEnv             = "KOPIA_AZURE_TEST_IMMUTABLE_CONTAINER"
+	testImmutableStorageAccountEnv        = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_ACCOUNT"
+	testImmutableStorageKeyEnv            = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_KEY"
+	testImmutableStorageSASTokenEnv       = "KOPIA_AZURE_TEST_IMMUTABLE_SAS_TOKEN"
+	testStorageTenantIDEnv                = "KOPIA_AZURE_TEST_TENANT_ID"
+	testStorageClientIDEnv                = "KOPIA_AZURE_TEST_CLIENT_ID"
+	testStorageClientSecretEnv            = "KOPIA_AZURE_TEST_CLIENT_SECRET"
+	testStorageClientCertEnv              = "KOPIA_AZURE_TEST_CLIENT_CERTIFICATE"
+	testAzureFederatedIdentityFilePathEnv = "KOPIA_AZURE_FEDERATED_IDENTITY_FILE_PATH"
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {
@@ -227,6 +228,44 @@ func TestAzureStorageClientCertificate(t *testing.T) {
 		ClientID:          clientID,
 		ClientCertificate: clientCert,
 		Prefix:            fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
+	}, false)
+
+	require.NoError(t, err)
+	cancel()
+
+	defer st.Close(ctx)
+	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+
+	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
+	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+	require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
+}
+
+func TestAzureFederatedIdentity(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	container := getEnvOrSkip(t, testContainerEnv)
+	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
+	tenantID := getEnvOrSkip(t, testStorageTenantIDEnv)
+	clientID := getEnvOrSkip(t, testStorageClientIDEnv)
+	azureFederatedTokenFilePath := getEnvOrSkip(t, testAzureFederatedIdentityFilePathEnv)
+
+	data := make([]byte, 8)
+	rand.Read(data)
+
+	ctx := testlogging.Context(t)
+
+	// use context that gets canceled after storage is initialize,
+	// to verify we do not depend on the original context past initialization.
+	newctx, cancel := context.WithCancel(ctx)
+	st, err := azure.New(newctx, &azure.Options{
+		Container:               container,
+		StorageAccount:          storageAccount,
+		TenantID:                tenantID,
+		ClientID:                clientID,
+		AzureFederatedTokenFile: azureFederatedTokenFilePath,
+		Prefix:                  fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
 	}, false)
 
 	require.NoError(t, err)
