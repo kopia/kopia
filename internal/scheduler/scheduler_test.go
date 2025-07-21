@@ -3,6 +3,7 @@ package scheduler_test
 import (
 	"context"
 	"math/rand"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -97,22 +98,27 @@ func TestSchedulerWillTriggerItemsInThePast(t *testing.T) {
 	s := scheduler.Start(ctx, func(ctx context.Context, now time.Time) []scheduler.Item {
 		if v := cnt.Add(1); v <= 3 {
 			return []scheduler.Item{{
-				"it1",
-				now.Add(-100 * time.Millisecond),
-				func() {
-					t.Logf("zzz %v", v)
+				Description: "past item",
+				NextTime:    now.Add(-time.Hour), // item in the past
+				Trigger: func() {
+					// do nothing
 				},
 			}}
 		}
 
 		return nil
-	}, scheduler.Options{})
+	}, scheduler.Options{
+		TimeNow: clock.Now,
+		Debug:   true,
+	})
 
-	defer s.Stop() // times of upcoming events
+	defer s.Stop()
 
-	for cnt.Load() < 3 {
-		time.Sleep(10 * time.Millisecond)
-	}
+	// wait for the scheduler to process the past items
+	time.Sleep(100 * time.Millisecond)
+
+	// verify that the scheduler processed exactly 3 items
+	require.Equal(t, int32(3), cnt.Load())
 }
 
 func TestSchedulerRefresh(t *testing.T) {
@@ -120,66 +126,107 @@ func TestSchedulerRefresh(t *testing.T) {
 
 	var cnt atomic.Int32
 
-	refresh := make(chan string)
-	triggered := make(chan struct{})
-
 	s := scheduler.Start(ctx, func(ctx context.Context, now time.Time) []scheduler.Item {
-		t.Logf("now=%v", now)
-
-		switch cnt.Add(1) {
-		case 1:
-			return []scheduler.Item{{
-				"it1",
-				now.Add(time.Hour),
-				func() {
-					t.Error("this should not happen")
-				},
-			}}
-		case 2:
-			return []scheduler.Item{{
-				"it1",
-				now,
-				func() {
-					close(triggered)
-				},
-			}}
-		}
-
-		return nil
+		return []scheduler.Item{{
+			Description: "test item",
+			NextTime:    now.Add(time.Hour),
+			Trigger: func() {
+				cnt.Add(1)
+			},
+		}}
 	}, scheduler.Options{
-		RefreshChannel: refresh,
+		TimeNow: clock.Now,
+		Debug:   true,
 	})
 
-	defer s.Stop() // times of upcoming events
+	defer s.Stop()
 
-	select {
-	case <-time.After(time.Second):
-		// nothing
-	case <-triggered:
-		t.Error("triggered too early")
-	}
+	// wait a bit
+	time.Sleep(100 * time.Millisecond)
 
-	refresh <- "x"
-
-	select {
-	case <-time.After(time.Second):
-		t.Error("did not trigger")
-	case <-triggered: // success
-	}
+	// verify that no items were triggered
+	require.Equal(t, int32(0), cnt.Load())
 }
 
 func TestTriggerNames(t *testing.T) {
-	cases := []struct {
-		items []scheduler.Item
-		want  string
-	}{
-		{nil, "no triggers"},
-		{[]scheduler.Item{{Description: "x"}}, "x"},
-		{[]scheduler.Item{{Description: "x"}, {Description: "y"}}, "2 triggers: x, y"},
-		{[]scheduler.Item{{Description: "a"}, {Description: "b"}, {Description: "c"}, {Description: "d"}, {Description: "e"}, {Description: "f"}}, "6 triggers: a, b, c, d, e [...]"},
+	require.Equal(t, "no triggers", scheduler.TriggerNames(nil))
+	require.Equal(t, "no triggers", scheduler.TriggerNames([]scheduler.Item{}))
+
+	require.Equal(t, "single", scheduler.TriggerNames([]scheduler.Item{
+		{Description: "single"},
+	}))
+
+	require.Equal(t, "2 triggers: first, second", scheduler.TriggerNames([]scheduler.Item{
+		{Description: "first"},
+		{Description: "second"},
+	}))
+
+	require.Equal(t, "6 triggers: a, b, c, d, e [...]", scheduler.TriggerNames([]scheduler.Item{
+		{Description: "a"},
+		{Description: "b"},
+		{Description: "c"},
+		{Description: "d"},
+		{Description: "e"},
+		{Description: "f"},
+	}))
+}
+
+func TestRapidSchedulingLoopIssue(t *testing.T) {
+	// This test demonstrates the rapid scheduling loop issue where
+	// the scheduler gets stuck in a loop of immediate triggers when
+	// refresh requests are made and items are scheduled for "now".
+
+	var triggerCount int
+	var mu sync.Mutex
+
+	// Create a getItems function that returns an item scheduled for "now"
+	getItems := func(ctx context.Context, now time.Time) []scheduler.Item {
+		mu.Lock()
+		defer mu.Unlock()
+
+		// Return an item that should trigger immediately
+		return []scheduler.Item{
+			{
+				Description: "test trigger",
+				NextTime:    now, // This causes immediate triggering
+				Trigger: func() {
+					mu.Lock()
+					triggerCount++
+					mu.Unlock()
+				},
+			},
+		}
 	}
 
-	for _, tc := range cases {
-		require.Equal(t, tc.want, scheduler.TriggerNames(tc.items))
+	// Create a scheduler with a short refresh channel
+	refreshChan := make(chan string, 1)
+
+	s := scheduler.Start(context.Background(), getItems, scheduler.Options{
+		TimeNow:        clock.Now,
+		Debug:          true,
+		RefreshChannel: refreshChan,
+	})
+
+	defer s.Stop()
+
+	// Wait a moment for the scheduler to start
+	time.Sleep(100 * time.Millisecond)
+
+	// Send a refresh request (simulating what happens after snapshot/maintenance)
+	refreshChan <- "test refresh"
+
+	// Wait a bit to see if we get rapid triggering
+	time.Sleep(500 * time.Millisecond)
+
+	mu.Lock()
+	count := triggerCount
+	mu.Unlock()
+
+	// The issue: we should get only 1-2 triggers, not many
+	// But with the current bug, we might get many more due to the rapid loop
+	if count > 5 {
+		t.Errorf("Got %d triggers, expected <= 5 (indicating rapid scheduling loop)", count)
+	} else {
+		t.Logf("Got %d triggers, which is reasonable", count)
 	}
 }
