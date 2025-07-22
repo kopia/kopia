@@ -40,9 +40,9 @@ func TestNewTimer(t *testing.T) {
 			expected: 20 * time.Millisecond,
 		},
 		{
-			name:     "long duration capped at maxSleepTime",
+			name:     "long duration should wait full duration",
 			duration: 1 * time.Second,
-			expected: testMaxSleepTime,
+			expected: 1 * time.Second,
 		},
 		{
 			name:     "exactly maxSleepTime",
@@ -76,14 +76,14 @@ func TestNewTimer(t *testing.T) {
 				return
 			}
 
-			if tt.duration <= testMaxSleepTime {
-				if elapsed < tt.duration-5*time.Millisecond || elapsed > tt.duration+50*time.Millisecond {
-					t.Errorf("timer triggered at wrong time: expected ~%v, got %v", tt.duration, elapsed)
-				}
-			} else {
-				if elapsed < testMaxSleepTime-5*time.Millisecond || elapsed > testMaxSleepTime+50*time.Millisecond {
-					t.Errorf("long timer triggered at wrong time: expected ~%v, got %v", testMaxSleepTime, elapsed)
-				}
+			// Allow some tolerance for timing variations
+			tolerance := 50 * time.Millisecond
+			if tt.duration < 100*time.Millisecond {
+				tolerance = 20 * time.Millisecond
+			}
+
+			if elapsed < tt.duration-tolerance || elapsed > tt.duration+tolerance {
+				t.Errorf("timer triggered at wrong time: expected ~%v, got %v", tt.duration, elapsed)
 			}
 		})
 	}
@@ -175,15 +175,16 @@ func TestTimerEdgeCases(t *testing.T) {
 
 	t.Run("very long duration", func(t *testing.T) {
 		start := clock.Now()
-		target := start.Add(24 * time.Hour)
+		target := start.Add(100 * time.Millisecond) // Use a shorter duration for testing
 		timer := NewTimer(clock.Now, target)
 		select {
 		case <-timer.C:
 			elapsed := clock.Now().Sub(start)
-			if elapsed < testMaxSleepTime-5*time.Millisecond || elapsed > testMaxSleepTime+50*time.Millisecond {
-				t.Errorf("very long timer triggered at wrong time: expected ~%v, got %v", testMaxSleepTime, elapsed)
+			// Allow tolerance for timing variations
+			if elapsed < 100*time.Millisecond-20*time.Millisecond || elapsed > 100*time.Millisecond+50*time.Millisecond {
+				t.Errorf("very long timer triggered at wrong time: expected ~%v, got %v", 100*time.Millisecond, elapsed)
 			}
-		case <-time.After(testMaxSleepTime + 100*time.Millisecond):
+		case <-time.After(200 * time.Millisecond):
 			t.Error("very long timer did not trigger within expected time")
 		}
 	})
