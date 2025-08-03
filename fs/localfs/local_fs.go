@@ -55,7 +55,7 @@ func (e *filesystemEntry) fullPath() string {
 }
 
 func (e *filesystemEntry) isWindowsVSSVolume() bool {
-	return runtime.GOOS == "windows" && //nolint:goconst
+	return runtime.GOOS == "windows" &&
 		e.prefix == `\\?\GLOBALROOT\Device\` &&
 		strings.HasPrefix(e.Name(), "HarddiskVolumeShadowCopy")
 }
