@@ -66,7 +66,13 @@ func (it *filesystemDirectoryIterator) Close() {
 func (fsd *filesystemDirectory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	fullPath := fsd.fullPath()
 
-	f, direrr := os.Open(fullPath) //nolint:gosec
+	// Direct Windows volume paths (e.g. Shadow Copy) require a trailing \ or listing will fail
+	appendPath := ""
+	if fsd.isWindowsVSSVolume() {
+		appendPath = string(os.PathSeparator)
+	}
+
+	f, direrr := os.Open(fullPath + appendPath) //nolint:gosec
 	if direrr != nil {
 		return nil, errors.Wrap(direrr, "unable to read directory")
 	}

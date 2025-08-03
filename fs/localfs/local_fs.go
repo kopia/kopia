@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -50,6 +52,12 @@ func (e *filesystemEntry) Sys() any {
 
 func (e *filesystemEntry) fullPath() string {
 	return e.prefix + e.Name()
+}
+
+func (e *filesystemEntry) isWindowsVSSVolume() bool {
+	return runtime.GOOS == "windows" &&
+		e.prefix == `\\?\GLOBALROOT\Device\` &&
+		strings.HasPrefix(e.Name(), "HarddiskVolumeShadowCopy")
 }
 
 func (e *filesystemEntry) Owner() fs.OwnerInfo {
