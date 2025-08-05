@@ -29,7 +29,7 @@ require (
 	github.com/hashicorp/cronexpr v1.1.2
 	github.com/klauspost/compress v1.18.0
 	github.com/klauspost/pgzip v1.2.6
-	github.com/klauspost/reedsolomon v1.12.4
+	github.com/klauspost/reedsolomon v1.12.5
 	github.com/kopia/htmluibuild v0.0.1-0.20250607181534-77e0f3f9f557
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.14
