@@ -86,7 +86,7 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 	}
 
 	w.buffer.Reset()
-	w.contentWriteError = nil
+	w.setError(nil)
 
 	return w
 }
