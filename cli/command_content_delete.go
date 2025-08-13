@@ -15,7 +15,7 @@ type commandContentDelete struct {
 }
 
 func (c *commandContentDelete) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("delete", "Remove content").Alias("remove").Alias("rm")
+	cmd := parent.Command("delete", "Remove content").Alias("remove").Alias("rm").Hidden()
 	cmd.Arg("id", "IDs of content to remove").Required().StringsVar(&c.ids)
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
 
