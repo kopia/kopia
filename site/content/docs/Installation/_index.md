@@ -52,7 +52,7 @@ CLI and GUI packages are available for:
 * macOS 10.11 or later, 64-bit (CLI binary, GUI installer {`KopiaUI`}, and Homebrew package)
 * Linux - `amd64`, `armhf` or `arm64` (CLI binary and `KopiaUI` available via RPM and DEB repositories)
 
-### Windows CLI installation using Scoop
+### Windows CLI installation
 
 On Windows, Kopia CLI is available as a [Scoop](https://scoop.sh) package, which automates installation and upgrades.
 
@@ -71,9 +71,21 @@ Alternatively, to install the latest unreleased version of Kopia use the followi
 > scoop bucket add kopia https://github.com/kopia/scoop-test-builds.git
 ```
 
+You can also install Kopia CLI with `winget`. `winget` comes preinstalled with Windows 11 (21H2 and later), and is also available on Windows 10 via [the Microsoft Store](https://apps.microsoft.com/detail/9nblggh4nns1).
+
+```shell
+> winget install Kopia.KopiaCLI
+```
+
 ### Windows GUI installation
 
 The installer of `KopiaUI` is available on the [releases page](https://github.com/kopia/kopia/releases/latest). Simply download the file named `KopiaUI-Setup-X.Y.Z.exe` (where `X.Y.Z` is the version number), double click the file, and follow on-screen prompts.
+
+You can also install `KopiaUI` with `winget`. See the CLI installation above for `winget`.
+
+```shell
+> winget install Kopia.KopiaUI
+```
 
 ### macOS CLI using Homebrew
 
