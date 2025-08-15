@@ -4,8 +4,8 @@
   "repository": "github:kopia/kopia",
   "dependencies": {
     "auto-launch": "^5.0.6",
-    "electron-log": "^5.4.0",
-    "electron-store": "^10.0.1",
+    "electron-log": "^5.4.2",
+    "electron-store": "^10.1.0",
     "electron-updater": "^6.6.2",
     "minimist": "^1.2.8",
     "semver": "^7.7.2",
@@ -123,15 +123,15 @@
   },
   "devDependencies": {
     "@electron/notarize": "^3.0.1",
-    "@playwright/test": "^1.52.0",
+    "@playwright/test": "^1.54.2",
     "asar": "^3.2.0",
-    "concurrently": "^9.1.2",
-    "dotenv": "^16.5.0",
-    "electron": "^36.3.2",
+    "concurrently": "^9.2.0",
+    "dotenv": "^17.2.1",
+    "electron": "^37.2.5",
     "electron-builder": "^26.0.12",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1",
-    "prettier": "^3.5.3"
+    "prettier": "^3.6.2"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",
