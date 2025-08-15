@@ -19,7 +19,7 @@ type commandRepositoryRepair struct {
 }
 
 func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandParent) {
-	cmd := parent.Command("repair", "Repairs repository.")
+	cmd := parent.Command("repair", "DEPRECATED: Recover format blob from older-format packs.").Hidden()
 
 	cmd.Flag("recover-format", "Recover format blob from a copy").Default("auto").EnumVar(&c.repairCommandRecoverFormatBlob, "auto", "yes", "no")
 	cmd.Flag("recover-format-block-prefixes", "Prefixes of file names").StringsVar(&c.repairCommandRecoverFormatBlobPrefixes)
@@ -27,9 +27,11 @@ func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandP
 
 	for _, prov := range svc.storageProviders() {
 		f := prov.NewFlags()
-		cc := cmd.Command(prov.Name, "Repair repository in "+prov.Description)
+		cc := cmd.Command(prov.Name, "Repair repository in "+prov.Description).Hidden()
 		f.Setup(svc, cc)
 		cc.Action(func(kpc *kingpin.ParseContext) error {
+			svc.advancedCommand()
+
 			return svc.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 				st, err := f.Connect(ctx, false, 0)
 				if err != nil {
