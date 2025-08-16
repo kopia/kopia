@@ -109,16 +109,16 @@ func (c *commandIndexInspect) inspectAllBlobs(ctx context.Context, rep repo.Dire
 
 func (c *commandIndexInspect) dumpIndexBlobEntries(entries chan indexBlobPlusContentInfo) {
 	for ent := range entries {
+		if !c.shouldInclude(ent.contentInfo) {
+			continue
+		}
+
 		ci := ent.contentInfo
 		bm := ent.indexBlob
 
 		state := "created"
 		if ci.Deleted {
 			state = "deleted"
-		}
-
-		if !c.shouldInclude(ci) {
-			continue
 		}
 
 		c.out.printStdout("%v %v %v %v %v %v %v %v\n",
