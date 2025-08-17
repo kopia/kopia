@@ -53,8 +53,7 @@ type observabilityFlags struct {
 	metricsOutputDir    string
 	outputFilePrefix    string
 
-	enableJaeger bool
-	otlpTrace    bool
+	otlpTrace bool
 
 	stopPusher chan struct{}
 	pusherWG   sync.WaitGroup
@@ -75,7 +74,6 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 	app.Flag("metrics-push-password", "Password for push gateway").Envar(svc.EnvName("KOPIA_METRICS_PUSH_PASSWORD")).Hidden().StringVar(&c.metricsPushPassword)
 
 	// tracing (OTLP) parameters
-	app.Flag("enable-jaeger-collector", "(DEPRECATED) Emit OpenTelemetry traces to Jaeger collector").Hidden().Envar(svc.EnvName("KOPIA_ENABLE_JAEGER_COLLECTOR")).BoolVar(&c.enableJaeger)
 	app.Flag("otlp-trace", "Send OpenTelemetry traces to OTLP collector using gRPC").Hidden().Envar(svc.EnvName("KOPIA_ENABLE_OTLP_TRACE")).BoolVar(&c.otlpTrace)
 
 	var formats []string
@@ -195,10 +193,6 @@ func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error 
 }
 
 func (c *observabilityFlags) maybeStartTraceExporter(ctx context.Context) error {
-	if c.enableJaeger {
-		return errors.New("Flag '--enable-jaeger-collector' is no longer supported, use '--otlp' instead. See https://github.com/kopia/kopia/pull/3264 for more information")
-	}
-
 	if !c.otlpTrace {
 		return nil
 	}
