@@ -20,7 +20,7 @@ type commandBlobGC struct {
 }
 
 func (c *commandBlobGC) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("gc", "Garbage-collect unused blobs")
+	cmd := parent.Command("gc", "Garbage-collect unused blobs").Hidden()
 	cmd.Flag("delete", "Whether to delete unused blobs").StringVar(&c.delete)
 	cmd.Flag("parallel", "Number of parallel blob scans").Default("16").IntVar(&c.parallel)
 	cmd.Flag("prefix", "Only GC blobs with given prefix").StringVar(&c.prefix)

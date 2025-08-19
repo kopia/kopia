@@ -2,15 +2,12 @@ package cli
 
 import (
 	"context"
-	"fmt"
-	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
 	"syscall"
 
-	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
@@ -18,13 +15,6 @@ import (
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo"
 )
-
-func deprecatedFlag(w io.Writer, help string) func(_ *kingpin.ParseContext) error {
-	return func(_ *kingpin.ParseContext) error {
-		fmt.Fprintf(w, "DEPRECATED: %v\n", help) //nolint:errcheck
-		return nil
-	}
-}
 
 func (c *App) onRepositoryFatalError(f func(err error)) {
 	c.onFatalErrorCallbacks = append(c.onFatalErrorCallbacks, f)

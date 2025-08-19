@@ -25,7 +25,7 @@ type commandContentRewrite struct {
 }
 
 func (c *commandContentRewrite) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("rewrite", "Rewrite content using most recent format")
+	cmd := parent.Command("rewrite", "Rewrite content using most recent format").Hidden()
 	cmd.Arg("contentID", "Identifiers of contents to rewrite").StringsVar(&c.contentRewriteIDs)
 	cmd.Flag("parallelism", "Number of parallel workers").Default("16").IntVar(&c.contentRewriteParallelism)
 

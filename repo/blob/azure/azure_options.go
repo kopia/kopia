@@ -28,8 +28,11 @@ type Options struct {
 	ClientID     string `json:",omitempty"`
 	ClientSecret string `json:",omitempty" kopia:"sensitive"`
 
-	// ClientCert are used for creating ClientCertificateCredentials
-	ClientCert string `json:",omitempty" kopia:"sensitive"`
+	// ClientCertificate are used for creating ClientCertificateCredentials
+	ClientCertificate string `json:"clientCertificate,omitempty" kopia:"sensitive"`
+
+	// AzureFederatedTokenFile is the path to a file containing an Azure Federated Token.
+	AzureFederatedTokenFile string `json:"azureFederatedTokenFile,omitempty"`
 
 	StorageDomain string `json:"storageDomain,omitempty"`
 

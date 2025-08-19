@@ -71,9 +71,8 @@ func NewTimer(nowFunc func() time.Time, until time.Time) *Timer {
 				return
 
 			case <-currentTimer.C:
-				// timer did trigger, close the channel to signal that sleepable.Timer.C is done
-				close(ch)
-				return
+				// timer did trigger, re-execute the loop to see if we reached the target time
+				continue
 			}
 		}
 	}()
