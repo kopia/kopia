@@ -117,6 +117,7 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 		output:           output,
 		shallowoutput:    makeShallowFilesystemOutput(output, options),
 		q:                parallelwork.NewQueue(),
+		qp:               DirectoriesFirst,
 		incremental:      options.Incremental,
 		deleteExtra:      options.DeleteExtra,
 		ignoreErrors:     options.IgnoreErrors,
@@ -155,11 +156,21 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 	return c.stats.clone(), nil
 }
 
+type QueuePriority string
+
+const (
+	// DirectoriesFirst enqueue directories first, so that we quickly determine the total number and size of items.
+	DirectoriesFirst QueuePriority = "DirectoriesFirst"
+	// DirectoriesLast enqueue directories last, so that we quickly process enqueued files to free memory.
+	DirectoriesLast QueuePriority = "DirectoriesLast"
+)
+
 type copier struct {
 	stats         statsInternal
 	output        Output
 	shallowoutput Output
 	q             *parallelwork.Queue
+	qp            QueuePriority
 	incremental   bool
 	deleteExtra   bool
 	ignoreErrors  bool
@@ -391,10 +402,17 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 	for _, e := range entries {
 		if e.IsDir() {
 			c.stats.EnqueuedDirCount.Add(1)
-			// enqueue directories first, so that we quickly determine the total number and size of items.
-			c.q.EnqueueFront(ctx, func() error {
-				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
-			})
+
+			switch c.qp {
+			case DirectoriesFirst:
+				c.q.EnqueueFront(ctx, func() error {
+					return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
+				})
+			case DirectoriesLast:
+				c.q.EnqueueBack(ctx, func() error {
+					return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
+				})
+			}
 		} else {
 			if isSymlink(e) {
 				c.stats.EnqueuedSymlinkCount.Add(1)
@@ -404,9 +422,16 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 
 			c.stats.EnqueuedTotalFileSize.Add(e.Size())
 
-			c.q.EnqueueBack(ctx, func() error {
-				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
-			})
+			switch c.qp {
+			case DirectoriesFirst:
+				c.q.EnqueueBack(ctx, func() error {
+					return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
+				})
+			case DirectoriesLast:
+				c.q.EnqueueFront(ctx, func() error {
+					return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), currentdepth, maxdepth, onItemCompletion)
+				})
+			}
 		}
 	}
 
