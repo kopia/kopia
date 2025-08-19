@@ -398,12 +398,12 @@ func PutBlobAndGetMetadata(ctx context.Context, st Storage, blobID ID, data Byte
 }
 
 // ReadBlobMap reads the map of all the blobs indexed by ID.
-func ReadBlobMap(ctx context.Context, br Reader) (map[ID]Metadata, error) {
+func ReadBlobMap(ctx context.Context, bl Lister) (map[ID]Metadata, error) {
 	blobMap := map[ID]Metadata{}
 
 	log(ctx).Info("Listing blobs...")
 
-	if err := br.ListBlobs(ctx, "", func(bm Metadata) error {
+	if err := bl.ListBlobs(ctx, "", func(bm Metadata) error {
 		blobMap[bm.BlobID] = bm
 		if len(blobMap)%10000 == 0 {
 			log(ctx).Infof("  %v blobs...", len(blobMap))
