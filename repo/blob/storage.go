@@ -45,6 +45,10 @@ var ErrNotAVolume = errors.New("unsupported method, storage is not a volume")
 // function on a storage implementation that does not have the intended functionality.
 var ErrUnsupportedObjectLock = errors.New("object locking unsupported")
 
+// ApplicationID is sent to storage providers as metadata in the User-Agent of requests.
+// It is used to identify the application making the request.
+var ApplicationID = "kopia"
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
