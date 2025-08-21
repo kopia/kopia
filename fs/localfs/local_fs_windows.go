@@ -10,13 +10,11 @@ import (
 
 var isWindows = runtime.GOOS == "windows"
 
-//nolint:revive
-func platformSpecificOwnerInfo(fi os.FileInfo) fs.OwnerInfo {
+func platformSpecificOwnerInfo(_ os.FileInfo) fs.OwnerInfo {
 	return fs.OwnerInfo{}
 }
 
-//nolint:revive
-func platformSpecificDeviceInfo(fi os.FileInfo) fs.DeviceInfo {
+func platformSpecificDeviceInfo(_ os.FileInfo) fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
 
