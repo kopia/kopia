@@ -67,7 +67,7 @@ func (it *filesystemDirectoryIterator) Close() {
 func (fsd *filesystemDirectory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	fullPath := fsd.fullPath()
 
-	d, err := os.Open(fullPath + trailingSeparator(fsd))
+	d, err := os.Open(fullPath + trailingSeparator(fsd)) //nolint:gosec
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to read directory")
 	}
