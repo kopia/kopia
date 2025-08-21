@@ -13,6 +13,8 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
+const separatorStr = string(filepath.Separator)
+
 type filesystemDirectoryIterator struct {
 	dirHandle   *os.File
 	childPrefix string
@@ -65,20 +67,14 @@ func (it *filesystemDirectoryIterator) Close() {
 func (fsd *filesystemDirectory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	fullPath := fsd.fullPath()
 
-	// Direct Windows volume paths (e.g. Shadow Copy) require a trailing \ or listing will fail
-	appendPath := ""
-	if fsd.isWindowsVSSVolume() {
-		appendPath = string(os.PathSeparator)
+	d, err := os.Open(fullPath + trailingSeparator(fsd))
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read directory")
 	}
 
-	f, direrr := os.Open(fullPath + appendPath) //nolint:gosec
-	if direrr != nil {
-		return nil, errors.Wrap(direrr, "unable to read directory")
-	}
+	childPrefix := fullPath + separatorStr
 
-	childPrefix := fullPath + string(filepath.Separator)
-
-	return &filesystemDirectoryIterator{dirHandle: f, childPrefix: childPrefix}, nil
+	return &filesystemDirectoryIterator{dirHandle: d, childPrefix: childPrefix}, nil
 }
 
 func (fsd *filesystemDirectory) Child(_ context.Context, name string) (fs.Entry, error) {
@@ -93,7 +89,7 @@ func (fsd *filesystemDirectory) Child(_ context.Context, name string) (fs.Entry,
 		return nil, errors.Wrap(err, "unable to get child")
 	}
 
-	return entryFromDirEntry(name, st, fullPath+string(filepath.Separator)), nil
+	return entryFromDirEntry(name, st, fullPath+separatorStr), nil
 }
 
 func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
@@ -123,9 +119,9 @@ func NewEntry(path string) (fs.Entry, error) {
 		// end with a separator. Retry the operation with the separator added.
 		var e syscall.Errno
 		if isWindows &&
-			!strings.HasSuffix(path, string(filepath.Separator)) &&
+			!strings.HasSuffix(path, separatorStr) &&
 			errors.As(err, &e) && e == 1 {
-			fi, err = os.Lstat(path + string(filepath.Separator))
+			fi, err = os.Lstat(path + separatorStr)
 		}
 
 		if err != nil {

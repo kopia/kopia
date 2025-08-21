@@ -32,3 +32,9 @@ func platformSpecificDeviceInfo(fi os.FileInfo) fs.DeviceInfo {
 
 	return oi
 }
+
+// Direct Windows volume paths (e.g. Shadow Copy) require a trailing separator.
+// The non-windows implementation can be optimized away by the compiler.
+func trailingSeparator(_ *filesystemDirectory) string {
+	return ""
+}
