@@ -38,7 +38,6 @@ func (c *commandContentVerify) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepository) error {
-	blobMap := map[blob.ID]blob.Metadata{}
 	downloadPercent := c.contentVerifyPercent
 
 	if c.contentVerifyFull {

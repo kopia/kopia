@@ -1774,7 +1774,7 @@ func verifyUnreferencedBlobsCount(ctx context.Context, t *testing.T, bm *WriteMa
 
 	var unrefCount int32
 
-	err := bm.IterateUnreferencedBlobs(ctx, nil, 1, func(_ blob.Metadata) error {
+	err := bm.IterateUnreferencedPacks(ctx, nil, 1, func(_ blob.Metadata) error {
 		atomic.AddInt32(&unrefCount, 1)
 		return nil
 	})
