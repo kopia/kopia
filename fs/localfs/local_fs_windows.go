@@ -20,7 +20,7 @@ func platformSpecificDeviceInfo(_ os.FileInfo) fs.DeviceInfo {
 
 // Direct Windows volume paths (e.g. Shadow Copy) require a trailing separator.
 func trailingSeparator(fsd *filesystemDirectory) string {
-	// is fsd a Windows VSS Volume and has no trailing
+	// is fsd a Windows VSS Volume and has no trailing separator?
 	if isWindows &&
 		fsd.prefix == `\\?\GLOBALROOT\Device\` &&
 		strings.HasPrefix(fsd.Name(), "HarddiskVolumeShadowCopy") &&
