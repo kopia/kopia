@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -55,7 +54,7 @@ func (e *filesystemEntry) fullPath() string {
 }
 
 func (e *filesystemEntry) isWindowsVSSVolume() bool {
-	return runtime.GOOS == "windows" &&
+	return isWindows &&
 		e.prefix == `\\?\GLOBALROOT\Device\` &&
 		strings.HasPrefix(e.Name(), "HarddiskVolumeShadowCopy")
 }

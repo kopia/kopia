@@ -10,6 +10,8 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
+const isWindows = false
+
 func platformSpecificOwnerInfo(fi os.FileInfo) fs.OwnerInfo {
 	var oi fs.OwnerInfo
 	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
