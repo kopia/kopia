@@ -249,7 +249,7 @@ func verifyChild(t *testing.T, dir fs.Directory) {
 }
 
 func TestLocalFilesystemPath(t *testing.T) {
-	if isWindows() {
+	if isWindows {
 		t.Skip()
 	}
 
@@ -286,7 +286,7 @@ func TestSplitDirPrefix(t *testing.T) {
 		"/tmp/foo": {"/tmp/", "foo"},
 	}
 
-	if isWindows() {
+	if isWindows {
 		cases[`c:/`] = pair{`c:/`, ``}
 		cases[`c:\`] = pair{`c:\`, ``}
 		cases[`c:/temp`] = pair{`c:/`, `temp`}
