@@ -15,11 +15,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
 
 func TestUserAgent(t *testing.T) {
-	ctx := t.Context()
+	ctx := testlogging.Context(t)
 	container := "testContainer"
 	storageAccount := "testAccount"
 	storageKey := base64.StdEncoding.EncodeToString([]byte("testKey"))
@@ -32,7 +33,7 @@ func TestUserAgent(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte("test"))
+		w.Write([]byte("test"))
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(handler))
