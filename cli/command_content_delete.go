@@ -23,7 +23,7 @@ func (c *commandContentDelete) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandContentDelete) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	c.svc.advancedCommand()
+	c.svc.dangerousCommand()
 
 	contentIDs, err := toContentIDs(c.ids)
 	if err != nil {
