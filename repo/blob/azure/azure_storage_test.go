@@ -282,7 +282,7 @@ func TestAzureStorageInvalidBlob(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	st, err := azure.New(ctx, &azure.Options{
 		Container:      container,
@@ -308,7 +308,8 @@ func TestAzureStorageInvalidContainer(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
+
 	_, err := azure.New(ctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
@@ -325,7 +326,8 @@ func TestAzureStorageInvalidCreds(t *testing.T) {
 	storageKey := "invalid-key"
 	container := "invalid-container"
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
+
 	_, err := azure.New(ctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
