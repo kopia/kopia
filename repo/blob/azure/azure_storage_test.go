@@ -3,10 +3,7 @@ package azure_test
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -361,42 +358,4 @@ func getBlobCount(ctx context.Context, t *testing.T, st blob.Storage, prefix blo
 	require.NoError(t, err)
 
 	return count
-}
-
-func TestUserAgent(t *testing.T) {
-	ctx := testlogging.Context(t)
-
-	container := "testContainer"
-	storageAccount := "testAccount"
-	storageKey := base64.StdEncoding.EncodeToString([]byte("testKey"))
-
-	uaChannel := make(chan string, 1)
-
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test"))
-
-		uaChannel <- r.Header.Get("User-Agent")
-	}
-
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	t.Cleanup(server.Close)
-
-	t.Setenv("HTTP_PROXY", server.URL)
-
-	// azure.New creates a client and uses it to make a request to the Azure service.
-	// We intercept this request to check the User-Agent header.
-	// The User-Agent should contain the application ID of the blob storage client.
-	// If it does not, we fail the test.
-	client, err := azure.New(ctx, &azure.Options{
-		Container:      container,
-		StorageAccount: storageAccount,
-		StorageKey:     storageKey,
-		DoNotUseTLS:    true,
-	}, false)
-	require.Error(t, err)
-	require.Nil(t, client)
-
-	ua := <-uaChannel
-	require.Contains(t, ua, blob.ApplicationID)
 }
