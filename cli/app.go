@@ -88,7 +88,7 @@ type appServices interface {
 	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
 	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
-	advancedCommand()
+	dangerousCommand()
 	repositoryConfigFileName() string
 	getProgress() *cliProgress
 	getRestoreProgress() RestoreProgress
@@ -137,7 +137,7 @@ type App struct {
 	persistCredentials            bool
 	disableInternalLog            bool
 	dumpAllocatorStats            bool
-	AdvancedCommands              string
+	DangerousCommands             string
 	cliStorageProviders           []StorageProvider
 	trackReleasable               []string
 
@@ -277,7 +277,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("password", "Repository password.").Envar(c.EnvName("KOPIA_PASSWORD")).Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar(c.EnvName("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT")).BoolVar(&c.persistCredentials)
 	app.Flag("disable-internal-log", "Disable internal log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_INTERNAL_LOG")).BoolVar(&c.disableInternalLog)
-	app.Flag("advanced-commands", "Enable dangerous commands that could result in data loss and repository corruption.").Hidden().Envar(c.EnvName("KOPIA_ADVANCED_COMMANDS")).StringVar(&c.AdvancedCommands)
+	app.Flag("dangerous-commands", "Enable dangerous commands that could result in data loss and repository corruption.").Hidden().Envar(c.EnvName("KOPIA_DANGEROUS_COMMANDS")).StringVar(&c.DangerousCommands)
 	app.Flag("track-releasable", "Enable tracking of releasable resources.").Hidden().Envar(c.EnvName("KOPIA_TRACK_RELEASABLE")).StringsVar(&c.trackReleasable)
 	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(c.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
 	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar(c.EnvName("KOPIA_REPO_UPGRADE_OWNER_ID")).StringVar(&c.upgradeOwnerID)
@@ -642,13 +642,13 @@ func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) erro
 	return errors.Wrap(err, "error running maintenance")
 }
 
-func (c *App) advancedCommand() {
-	if c.AdvancedCommands != "enabled" {
+func (c *App) dangerousCommand() {
+	if c.DangerousCommands != "enabled" {
 		_, _ = errorColor.Fprintf(c.stderrWriter, `
 This command is dangerous, it can corrupt the repository and result in data loss.
 
 Running this command is not needed for using Kopia. Instead, rely on periodic repository maintenance. See https://kopia.io/docs/advanced/maintenance/ for more information.
-To run this command despite the warning, set --advanced-commands=enabled
+To run this command despite the warning, set --dangerous-commands=enabled
 
 `)
 
