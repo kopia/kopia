@@ -477,7 +477,30 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 
 		service, serviceErr = azblob.NewClient(fmt.Sprintf("%s://%s/", protocol, storageHostname), cred, clientOptions)
 	default:
-		return nil, errors.New("one of the storage key, SAS token, client secret, client certificate, or Azure Federated Token must be provided")
+		// No explicit key/SAS/secret/cert/federated-token provided -> attempt Azure AD token credential flow.
+		// If Options.UseAzureCLICredential is true, prefer Azure CLI cached credential (reads `az login` cache,
+		// which covers `az login --identity`). Otherwise, use DefaultAzureCredential which chains
+		// environment vars -> managed identity -> shared token cache -> CLI -> ...
+		var cred azcore.TokenCredential
+		// var err error
+
+		if opt.UseAzureCLICredential {
+			// Use Azure CLI credential (reads token cache created by 'az login' or 'az login --identity').
+			cliCred, cliErr := azidentity.NewAzureCLICredential(nil)
+			if cliErr != nil {
+				return nil, errors.Wrap(cliErr, "unable to initialize Azure CLI credential")
+			}
+			cred = cliCred
+		} else {
+			// Use DefaultAzureCredential as a safe default (env -> managed identity -> CLI -> ...).
+			defCred, defErr := azidentity.NewDefaultAzureCredential(nil)
+			if defErr != nil {
+				return nil, errors.Wrap(defErr, "unable to initialize default azure credential")
+			}
+			cred = defCred
+		}
+
+		service, serviceErr = azblob.NewClient(fmt.Sprintf("%s://%s/", protocol, storageHostname), cred, clientOptions)
 	}
 
 	return service, errors.Wrap(serviceErr, "unable to create azure client")
