@@ -100,7 +100,7 @@ func (bm *BlobManipulator) DeleteBlob(blobID string) error {
 
 	log.Printf("Deleting BLOB %s", blobID)
 
-	_, _, err := bm.KopiaCommandRunner.Run("blob", "delete", blobID, "--advanced-commands=enabled")
+	_, _, err := bm.KopiaCommandRunner.Run("blob", "delete", blobID, "--dangerous-commands=enabled")
 	if err != nil {
 		return err
 	}

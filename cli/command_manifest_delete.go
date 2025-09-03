@@ -23,7 +23,7 @@ func (c *commandManifestDelete) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandManifestDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {
-	c.svc.advancedCommand()
+	c.svc.dangerousCommand()
 
 	for _, it := range toManifestIDs(c.manifestRemoveItems) {
 		if err := rep.DeleteManifest(ctx, it); err != nil {
