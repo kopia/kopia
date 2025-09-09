@@ -111,7 +111,7 @@ func (b Builder) sortedContents() []*Info {
 
 // Build writes the pack index to the provided output.
 func (b Builder) Build(output io.Writer, version int) error {
-	if err := b.BuildStable(output, version); err != nil {
+	if err := b.buildStable(output, version); err != nil {
 		return err
 	}
 
@@ -128,8 +128,8 @@ func (b Builder) Build(output io.Writer, version int) error {
 	return nil
 }
 
-// BuildStable writes the pack index to the provided output.
-func (b Builder) BuildStable(output io.Writer, version int) error {
+// buildStable writes the pack index to the provided output.
+func (b Builder) buildStable(output io.Writer, version int) error {
 	return buildSortedContents(b.sortedContents(), output, version)
 }
 
@@ -206,7 +206,7 @@ func (b Builder) BuildShards(indexVersion int, stable bool, shardSize int) ([]ga
 
 		dataShardsBuf = append(dataShardsBuf, buf)
 
-		if err := s.BuildStable(buf, indexVersion); err != nil {
+		if err := s.buildStable(buf, indexVersion); err != nil {
 			closeShards()
 
 			return nil, nil, errors.Wrap(err, "error building index shard")
