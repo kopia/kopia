@@ -130,14 +130,14 @@ func (v *contentVerifier) verifyContentImpl(ctx context.Context, ci Info) {
 	bi, found := v.existingPacks[ci.PackBlobID]
 	if !found {
 		v.errorCount.Add(1)
-		v.log.Errorf("content %v depends on missing blob %v", ci.ContentID, ci.PackBlobID)
+		v.log.Warnf("content %v depends on missing blob %v", ci.ContentID, ci.PackBlobID)
 
 		return
 	}
 
 	if int64(ci.PackOffset+ci.PackedLength) > bi.Length {
 		v.errorCount.Add(1)
-		v.log.Errorf("content %v out of bounds of its pack blob %v", ci.ContentID, ci.PackBlobID)
+		v.log.Warnf("content %v out of bounds of its pack blob %v", ci.ContentID, ci.PackBlobID)
 
 		return
 	}
@@ -146,7 +146,7 @@ func (v *contentVerifier) verifyContentImpl(ctx context.Context, ci Info) {
 	if v.contentReadProbability > 0 && rand.Float64() < v.contentReadProbability {
 		if _, err := v.bm.GetContent(ctx, ci.ContentID); err != nil {
 			v.errorCount.Add(1)
-			v.log.Errorf("content %v is invalid: %v", ci.ContentID, err)
+			v.log.Warnf("content %v is invalid: %v", ci.ContentID, err)
 
 			return
 		}
