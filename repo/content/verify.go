@@ -102,7 +102,8 @@ func (v *contentVerifier) verifyContents(ctx context.Context, bm *WriteManager, 
 
 	contentCount := v.verifiedCount.Load()
 
-	v.log.Infof("Finished verifying %v contents, found %v errors.", contentCount, totalErrorCount)
+	v.log.Info("Finished verifying contents")
+	v.log.Infow("verifyCounters:", "verifiedContents", contentCount, "totalErrorCount", totalErrorCount, "contentsInMissingPacks", contentInMissingPackCount, "contentsInTruncatedPacks", contentInTruncatedPackCount, "unreadableContents", contentErrorCount)
 
 	if err != nil {
 		return err
