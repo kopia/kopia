@@ -53,8 +53,10 @@ type contentVerifier struct {
 	contentReadProbability float64
 
 	// content verification stats
-	successCount atomic.Uint32
-	errorCount   atomic.Uint32
+	successCount              atomic.Uint32
+	missingPackContentCount   atomic.Uint32
+	truncatedPackContentCount atomic.Uint32
+	errorContentCount         atomic.Uint32
 
 	verifiedCount atomic.Uint32 // used for calling the progress callback at the specified interval.
 
@@ -93,17 +95,21 @@ func (v *contentVerifier) verifyContents(ctx context.Context, bm *WriteManager, 
 
 	err = bm.IterateContents(ctx, itOpts, cb)
 
-	ec := v.errorCount.Load()
-	contentCount := v.successCount.Load() + ec
+	contentInMissingPackCount := v.missingPackContentCount.Load()
+	contentInTruncatedPackCount := v.truncatedPackContentCount.Load()
+	contentErrorCount := v.errorContentCount.Load()
+	totalErrorCount := contentInMissingPackCount + contentInTruncatedPackCount + contentErrorCount
 
-	v.log.Infof("Finished verifying %v contents, found %v errors.", contentCount, ec)
+	contentCount := v.verifiedCount.Load()
+
+	v.log.Infof("Finished verifying %v contents, found %v errors.", contentCount, totalErrorCount)
 
 	if err != nil {
 		return err
 	}
 
-	if ec != 0 {
-		return errors.Wrapf(errMissingPacks, "encountered %v errors", ec)
+	if totalErrorCount != 0 {
+		return errors.Wrapf(errMissingPacks, "encountered %v errors", totalErrorCount)
 	}
 
 	return nil
@@ -119,7 +125,7 @@ func (v *contentVerifier) verify(ctx context.Context, ci Info) {
 	if v.progressCallbackInterval > 0 && count%v.progressCallbackInterval == 0 {
 		s := VerifyProgressStats{
 			SuccessCount: v.successCount.Load(),
-			ErrorCount:   v.errorCount.Load(),
+			ErrorCount:   v.missingPackContentCount.Load() + v.truncatedPackContentCount.Load() + v.errorContentCount.Load(),
 		}
 
 		v.progressCallback(s)
@@ -129,14 +135,14 @@ func (v *contentVerifier) verify(ctx context.Context, ci Info) {
 func (v *contentVerifier) verifyContentImpl(ctx context.Context, ci Info) {
 	bi, found := v.existingPacks[ci.PackBlobID]
 	if !found {
-		v.errorCount.Add(1)
+		v.missingPackContentCount.Add(1)
 		v.log.Warnf("content %v depends on missing blob %v", ci.ContentID, ci.PackBlobID)
 
 		return
 	}
 
 	if int64(ci.PackOffset+ci.PackedLength) > bi.Length {
-		v.errorCount.Add(1)
+		v.truncatedPackContentCount.Add(1)
 		v.log.Warnf("content %v out of bounds of its pack blob %v", ci.ContentID, ci.PackBlobID)
 
 		return
@@ -145,7 +151,7 @@ func (v *contentVerifier) verifyContentImpl(ctx context.Context, ci Info) {
 	//nolint:gosec
 	if v.contentReadProbability > 0 && rand.Float64() < v.contentReadProbability {
 		if _, err := v.bm.GetContent(ctx, ci.ContentID); err != nil {
-			v.errorCount.Add(1)
+			v.errorContentCount.Add(1)
 			v.log.Warnf("content %v is invalid: %v", ci.ContentID, err)
 
 			return
