@@ -54,6 +54,7 @@ type contentVerifier struct {
 
 	// content verification stats
 	successCount              atomic.Uint32
+	readContentCount          atomic.Uint32
 	missingPackContentCount   atomic.Uint32
 	truncatedPackContentCount atomic.Uint32
 	errorContentCount         atomic.Uint32
@@ -103,7 +104,13 @@ func (v *contentVerifier) verifyContents(ctx context.Context, bm *WriteManager, 
 	contentCount := v.verifiedCount.Load()
 
 	v.log.Info("Finished verifying contents")
-	v.log.Infow("verifyCounters:", "verifiedContents", contentCount, "totalErrorCount", totalErrorCount, "contentsInMissingPacks", contentInMissingPackCount, "contentsInTruncatedPacks", contentInTruncatedPackCount, "unreadableContents", contentErrorCount)
+	v.log.Infow("verifyCounters:",
+		"verifiedContents", contentCount,
+		"totalErrorCount", totalErrorCount,
+		"contentsInMissingPacks", contentInMissingPackCount,
+		"contentsInTruncatedPacks", contentInTruncatedPackCount,
+		"unreadableContents", contentErrorCount,
+		"readContents", v.readContentCount.Load())
 
 	if err != nil {
 		return err
@@ -151,6 +158,8 @@ func (v *contentVerifier) verifyContentImpl(ctx context.Context, ci Info) {
 
 	//nolint:gosec
 	if v.contentReadProbability > 0 && rand.Float64() < v.contentReadProbability {
+		v.readContentCount.Add(1)
+
 		if _, err := v.bm.GetContent(ctx, ci.ContentID); err != nil {
 			v.errorContentCount.Add(1)
 			v.log.Warnf("content %v is invalid: %v", ci.ContentID, err)
