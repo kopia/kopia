@@ -31,7 +31,7 @@ func (e *CLIInProcRunner) Start(t *testing.T, ctx context.Context, args []string
 	t.Helper()
 
 	a := cli.NewApp()
-	a.AdvancedCommands = "enabled"
+	a.DangerousCommands = "enabled"
 
 	envPrefix := fmt.Sprintf("T%v_", atomic.AddInt32(envPrefixCounter, 1))
 	a.SetEnvNamePrefixForTesting(envPrefix)

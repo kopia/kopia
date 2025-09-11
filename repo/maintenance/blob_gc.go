@@ -87,7 +87,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	// iterate all pack blobs + session blobs and keep ones that are too young or
 	// belong to alive sessions.
-	if err := rep.ContentManager().IterateUnreferencedBlobs(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
+	if err := rep.ContentManager().IterateUnreferencedPacks(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
 		if bm.Timestamp.After(cutoffTime) {
 			log(ctx).Debugf("  preserving %v because it was created after maintenance started", bm.BlobID)
 			return nil

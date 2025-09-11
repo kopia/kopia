@@ -29,7 +29,6 @@ const (
 	testImmutableContainerEnv             = "KOPIA_AZURE_TEST_IMMUTABLE_CONTAINER"
 	testImmutableStorageAccountEnv        = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_ACCOUNT"
 	testImmutableStorageKeyEnv            = "KOPIA_AZURE_TEST_IMMUTABLE_STORAGE_KEY"
-	testImmutableStorageSASTokenEnv       = "KOPIA_AZURE_TEST_IMMUTABLE_SAS_TOKEN"
 	testStorageTenantIDEnv                = "KOPIA_AZURE_TEST_TENANT_ID"
 	testStorageClientIDEnv                = "KOPIA_AZURE_TEST_CLIENT_ID"
 	testStorageClientSecretEnv            = "KOPIA_AZURE_TEST_CLIENT_SECRET"
@@ -52,16 +51,12 @@ func createContainer(t *testing.T, container, storageAccount, storageKey string)
 	t.Helper()
 
 	credential, err := azblob.NewSharedKeyCredential(storageAccount, storageKey)
-	if err != nil {
-		t.Fatalf("failed to create Azure credentials: %v", err)
-	}
+	require.NoError(t, err, "failed to create Azure credentials")
 
 	serviceURL := fmt.Sprintf("https://%s.blob.core.windows.net", storageAccount)
 
 	client, err := azblob.NewClientWithSharedKeyCredential(serviceURL, credential, nil)
-	if err != nil {
-		t.Fatalf("failed to get client: %v", err)
-	}
+	require.NoError(t, err, "failed to get azblob client")
 
 	_, err = client.CreateContainer(context.Background(), container, nil)
 	if err == nil {
@@ -286,16 +281,15 @@ func TestAzureStorageInvalidBlob(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	st, err := azure.New(ctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
 	}, false)
-	if err != nil {
-		t.Fatalf("unable to connect to Azure container: %v", err)
-	}
+
+	require.NoError(t, err, "unable to connect to Azure container")
 
 	defer st.Close(ctx)
 
@@ -303,9 +297,7 @@ func TestAzureStorageInvalidBlob(t *testing.T) {
 	defer tmp.Close()
 
 	err = st.GetBlob(ctx, "xxx", 0, 30, &tmp)
-	if err == nil {
-		t.Errorf("unexpected success when adding to non-existent container")
-	}
+	require.Error(t, err, "unexpected success when adding to non-existent container")
 }
 
 func TestAzureStorageInvalidContainer(t *testing.T) {
@@ -315,16 +307,15 @@ func TestAzureStorageInvalidContainer(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
+
 	_, err := azure.New(ctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
 	}, false)
 
-	if err == nil {
-		t.Errorf("unexpected success connecting to Azure container, wanted error")
-	}
+	require.Error(t, err, "unexpected success connecting to Azure container, expected error")
 }
 
 func TestAzureStorageInvalidCreds(t *testing.T) {
@@ -334,16 +325,15 @@ func TestAzureStorageInvalidCreds(t *testing.T) {
 	storageKey := "invalid-key"
 	container := "invalid-container"
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
+
 	_, err := azure.New(ctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
 	}, false)
 
-	if err == nil {
-		t.Errorf("unexpected success connecting to Azure blob storage, wanted error")
-	}
+	require.Error(t, err, "unexpected success connecting to Azure blob storage, expected error")
 }
 
 func getBlobCount(ctx context.Context, t *testing.T, st blob.Storage, prefix blob.ID) int {

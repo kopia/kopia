@@ -45,6 +45,10 @@ var ErrNotAVolume = errors.New("unsupported method, storage is not a volume")
 // function on a storage implementation that does not have the intended functionality.
 var ErrUnsupportedObjectLock = errors.New("object locking unsupported")
 
+// ApplicationID is sent to storage providers as metadata in the User-Agent of requests.
+// It is used to identify the application making the request.
+var ApplicationID = "kopia"
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
@@ -398,12 +402,12 @@ func PutBlobAndGetMetadata(ctx context.Context, st Storage, blobID ID, data Byte
 }
 
 // ReadBlobMap reads the map of all the blobs indexed by ID.
-func ReadBlobMap(ctx context.Context, br Reader) (map[ID]Metadata, error) {
+func ReadBlobMap(ctx context.Context, bl Lister) (map[ID]Metadata, error) {
 	blobMap := map[ID]Metadata{}
 
 	log(ctx).Info("Listing blobs...")
 
-	if err := br.ListBlobs(ctx, "", func(bm Metadata) error {
+	if err := bl.ListBlobs(ctx, "", func(bm Metadata) error {
 		blobMap[bm.BlobID] = bm
 		if len(blobMap)%10000 == 0 {
 			log(ctx).Infof("  %v blobs...", len(blobMap))

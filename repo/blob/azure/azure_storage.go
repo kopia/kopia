@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -410,11 +411,27 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 		serviceErr error
 	)
 
+	protocol := "https"
+	coreClientOptions := azcore.ClientOptions{
+		Telemetry: policy.TelemetryOptions{
+			ApplicationID: blob.ApplicationID,
+		},
+	}
+
+	if opt.DoNotUseTLS {
+		protocol = "http"
+		coreClientOptions.InsecureAllowCredentialWithHTTP = true
+	}
+
+	clientOptions := &azblob.ClientOptions{
+		ClientOptions: coreClientOptions,
+	}
+
 	switch {
 	// shared access signature
 	case opt.SASToken != "":
 		service, serviceErr = azblob.NewClientWithNoCredential(
-			fmt.Sprintf("https://%s?%s", storageHostname, opt.SASToken), nil)
+			fmt.Sprintf("%s://%s?%s", protocol, storageHostname, opt.SASToken), clientOptions)
 	// storage account access key
 	case opt.StorageKey != "":
 		// create a credentials object.
@@ -424,7 +441,7 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 		}
 
 		service, serviceErr = azblob.NewClientWithSharedKeyCredential(
-			fmt.Sprintf("https://%s/", storageHostname), cred, nil,
+			fmt.Sprintf("%s://%s/", protocol, storageHostname), cred, clientOptions,
 		)
 	// client secret
 	case opt.TenantID != "" && opt.ClientID != "" && opt.ClientSecret != "":
@@ -433,7 +450,7 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 			return nil, errors.Wrap(err, "unable to initialize client secret credential")
 		}
 
-		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
+		service, serviceErr = azblob.NewClient(fmt.Sprintf("%s://%s/", protocol, storageHostname), cred, clientOptions)
 	// client certificate
 	case opt.TenantID != "" && opt.ClientID != "" && opt.ClientCertificate != "":
 		certs, key, certErr := azidentity.ParseCertificates([]byte(opt.ClientCertificate), nil)
@@ -446,7 +463,7 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 			return nil, errors.Wrap(credErr, "unable to initialize client cert credential")
 		}
 
-		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
+		service, serviceErr = azblob.NewClient(fmt.Sprintf("%s://%s/", protocol, storageHostname), cred, clientOptions)
 	// Azure Federated Token
 	case opt.TenantID != "" && opt.ClientID != "" && opt.AzureFederatedTokenFile != "":
 		cred, err := azidentity.NewWorkloadIdentityCredential(&azidentity.WorkloadIdentityCredentialOptions{
@@ -458,7 +475,7 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 			return nil, errors.Wrap(err, "unable to initialize Azure Federated Identity workload identity credential")
 		}
 
-		service, serviceErr = azblob.NewClient(fmt.Sprintf("https://%s/", storageHostname), cred, nil)
+		service, serviceErr = azblob.NewClient(fmt.Sprintf("%s://%s/", protocol, storageHostname), cred, clientOptions)
 	default:
 		return nil, errors.New("one of the storage key, SAS token, client secret, client certificate, or Azure Federated Token must be provided")
 	}

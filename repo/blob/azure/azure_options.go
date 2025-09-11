@@ -36,6 +36,9 @@ type Options struct {
 
 	StorageDomain string `json:"storageDomain,omitempty"`
 
+	// DoNotUseTLS connects to Azure storage over HTTP instead of HTTPS
+	DoNotUseTLS bool `json:"doNotUseTLS,omitempty"`
+
 	throttling.Limits
 
 	// PointInTime specifies a view of the (versioned) store at that time
