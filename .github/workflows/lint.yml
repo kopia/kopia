@@ -41,6 +41,7 @@ jobs:
         cache: false
         go-version-input:
         go-version-file: 'go.mod'
+        check-latest: true
         repo-checkout: false
     - name: Lint
       run: make lint
