@@ -43,7 +43,6 @@ jobs:
       uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
       with:
         go-version-file: 'go.mod'
-        check-latest: true
       id: go
     - name: Install Windows-specific packages
       run: "choco install --no-progress -y make zip unzip curl"
