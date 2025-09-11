@@ -42,6 +42,7 @@ jobs:
         go-version-input:
         go-version-file: 'go.mod'
         check-latest: true
+        output-format: sarif
         repo-checkout: false
     - name: Lint
       run: make lint
