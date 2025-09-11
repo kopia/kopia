@@ -39,10 +39,9 @@ jobs:
       uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
       with:
         cache: false
-        go-version-input:
+        go-version-input: '1.24.7'
         go-version-file: 'go.mod'
-        check-latest: true
-        output-format: sarif
+        # output-format: sarif
         repo-checkout: false
     - name: Lint
       run: make lint
