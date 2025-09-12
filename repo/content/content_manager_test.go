@@ -1073,10 +1073,9 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 
 		t.Logf("captured %v contents", len(allWritten))
 
-		if err := bm.Flush(ctx); err != nil {
-			t.Errorf("flush error: %v", err)
-		}
+		err := bm.Flush(ctx)
 
+		require.NoError(t, err, "flush error")
 		// open new content manager and verify all contents are visible there.
 		s.verifyAllDataPresent(ctx, t, st, allWritten)
 	}
@@ -2591,9 +2590,7 @@ func flushWithRetries(ctx context.Context, t *testing.T, bm *WriteManager) int {
 		retryCount++
 	}
 
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	require.NoError(t, err)
 
 	return retryCount
 }
@@ -2665,9 +2662,8 @@ func makeRandomHexID(t *testing.T, length int) index.ID {
 	t.Helper()
 
 	b := make([]byte, length/2)
-	if _, err := randRead(b); err != nil {
-		t.Fatal("Could not read random bytes", err)
-	}
+	_, err := randRead(b)
+	require.NoError(t, err, "Could not read random bytes")
 
 	id, err := IDFromHash("", b)
 	require.NoError(t, err)
@@ -2678,18 +2674,15 @@ func makeRandomHexID(t *testing.T, length int) index.ID {
 func deleteContent(ctx context.Context, t *testing.T, bm *WriteManager, c ID) {
 	t.Helper()
 
-	if err := bm.DeleteContent(ctx, c); err != nil {
-		t.Fatalf("Unable to delete content %v: %v", c, err)
-	}
+	err := bm.DeleteContent(ctx, c)
+	require.NoErrorf(t, err, "Unable to delete content %v", c)
 }
 
 func getContentInfo(t *testing.T, bm *WriteManager, c ID) Info {
 	t.Helper()
 
 	i, err := bm.ContentInfo(testlogging.Context(t), c)
-	if err != nil {
-		t.Fatalf("Unable to get content info for %q: %v", c, err)
-	}
+	require.NoErrorf(t, err, "Unable to get content info for %q", c)
 
 	return i
 }
