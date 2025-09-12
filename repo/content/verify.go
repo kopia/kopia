@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -59,6 +60,13 @@ type contentVerifier struct {
 	truncatedPackContentCount atomic.Uint32
 	errorContentCount         atomic.Uint32
 
+	// Per pack counts for content errors. Notice that a truncated pack, can
+	// also appear in the corruptedPacks map. A missing pack can only be in
+	// missingPacks, but not in the other sets.
+	missingPacks   stats.CountersMap[blob.ID]
+	truncatedPacks stats.CountersMap[blob.ID]
+	corruptedPacks stats.CountersMap[blob.ID]
+
 	verifiedCount atomic.Uint32 // used for calling the progress callback at the specified interval.
 
 	log logging.Logger
@@ -110,7 +118,15 @@ func (v *contentVerifier) verifyContents(ctx context.Context, bm *WriteManager, 
 		"contentsInMissingPacks", contentInMissingPackCount,
 		"contentsInTruncatedPacks", contentInTruncatedPackCount,
 		"unreadableContents", contentErrorCount,
-		"readContents", v.readContentCount.Load())
+		"readContents", v.readContentCount.Load(),
+		"missingPacks", v.missingPacks.Length(),
+		"truncatedPacks", v.truncatedPacks.Length(),
+		"corruptedPacks", v.corruptedPacks.Length(),
+	)
+
+	logCountMap(v.log, "missingPack", &v.missingPacks)
+	logCountMap(v.log, "truncatedPack", &v.truncatedPacks)
+	logCountMap(v.log, "corruptedPack", &v.corruptedPacks)
 
 	if err != nil {
 		return err
@@ -144,6 +160,7 @@ func (v *contentVerifier) verifyContentImpl(ctx context.Context, ci Info) {
 	bi, found := v.existingPacks[ci.PackBlobID]
 	if !found {
 		v.missingPackContentCount.Add(1)
+		v.missingPacks.Increment(ci.PackBlobID)
 		v.log.Warnf("content %v depends on missing blob %v", ci.ContentID, ci.PackBlobID)
 
 		return
@@ -151,6 +168,7 @@ func (v *contentVerifier) verifyContentImpl(ctx context.Context, ci Info) {
 
 	if int64(ci.PackOffset+ci.PackedLength) > bi.Length {
 		v.truncatedPackContentCount.Add(1)
+		v.truncatedPacks.Increment(ci.PackBlobID)
 		v.log.Warnf("content %v out of bounds of its pack blob %v", ci.ContentID, ci.PackBlobID)
 
 		return
@@ -162,6 +180,7 @@ func (v *contentVerifier) verifyContentImpl(ctx context.Context, ci Info) {
 
 		if _, err := v.bm.GetContent(ctx, ci.ContentID); err != nil {
 			v.errorContentCount.Add(1)
+			v.corruptedPacks.Increment(ci.PackBlobID)
 			v.log.Warnf("content %v is invalid: %v", ci.ContentID, err)
 
 			return
@@ -169,4 +188,13 @@ func (v *contentVerifier) verifyContentImpl(ctx context.Context, ci Info) {
 	}
 
 	v.successCount.Add(1)
+}
+
+// nothing is logged for an empty map.
+func logCountMap(log logging.Logger, mapName string, m *stats.CountersMap[blob.ID]) {
+	m.Range(func(packID blob.ID, contentCount uint32) bool {
+		log.Warnw(mapName, "packID", packID, "numberOfReferencedContents", contentCount)
+
+		return true
+	})
 }
