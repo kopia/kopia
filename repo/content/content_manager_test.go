@@ -1055,57 +1055,44 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 		}()
 	}
 
-	closeFlusher := make(chan bool)
+	flush := func() {
+		t.Logf("about to flush")
 
-	var flusherWG sync.WaitGroup
+		// capture snapshot of all content IDs while holding a writer lock
+		allWritten := map[ID]bool{}
 
-	flusherWG.Add(1)
+		workerLock.Lock()
 
-	go func() {
-		defer flusherWG.Done()
-
-		for {
-			select {
-			case <-closeFlusher:
-				t.Logf("closing flusher goroutine")
-				return
-			case <-time.After(2 * time.Second):
-				t.Logf("about to flush")
-
-				// capture snapshot of all content IDs while holding a writer lock
-				allWritten := map[ID]bool{}
-
-				workerLock.Lock()
-
-				for _, ww := range workerWritten {
-					for _, id := range ww {
-						allWritten[id] = true
-					}
-				}
-
-				workerLock.Unlock()
-
-				t.Logf("captured %v contents", len(allWritten))
-
-				if err := bm.Flush(ctx); err != nil {
-					t.Errorf("flush error: %v", err)
-				}
-
-				// open new content manager and verify all contents are visible there.
-				s.verifyAllDataPresent(ctx, t, st, allWritten)
+		for _, ww := range workerWritten {
+			for _, id := range ww {
+				allWritten[id] = true
 			}
 		}
-	}()
 
-	// run workers and flushers for some time, enough for 2 flushes to complete
-	time.Sleep(5 * time.Second)
+		workerLock.Unlock()
+
+		t.Logf("captured %v contents", len(allWritten))
+
+		if err := bm.Flush(ctx); err != nil {
+			t.Errorf("flush error: %v", err)
+		}
+
+		// open new content manager and verify all contents are visible there.
+		s.verifyAllDataPresent(ctx, t, st, allWritten)
+	}
+
+	// flush a couple of times
+	for range 2 {
+		time.Sleep(2 * time.Second)
+		flush()
+	}
 
 	// shut down workers and wait for them
 	close(closeWorkers)
 	workersWG.Wait()
 
-	close(closeFlusher)
-	flusherWG.Wait()
+	// flush and check once more
+	flush()
 }
 
 func (s *contentManagerSuite) TestFlushResumesWriters(t *testing.T) {
