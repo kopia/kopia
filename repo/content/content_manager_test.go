@@ -1055,57 +1055,43 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 		}()
 	}
 
-	closeFlusher := make(chan bool)
+	flush := func() {
+		t.Logf("about to flush")
 
-	var flusherWG sync.WaitGroup
+		// capture snapshot of all content IDs while holding a writer lock
+		allWritten := map[ID]bool{}
 
-	flusherWG.Add(1)
+		workerLock.Lock()
 
-	go func() {
-		defer flusherWG.Done()
-
-		for {
-			select {
-			case <-closeFlusher:
-				t.Logf("closing flusher goroutine")
-				return
-			case <-time.After(2 * time.Second):
-				t.Logf("about to flush")
-
-				// capture snapshot of all content IDs while holding a writer lock
-				allWritten := map[ID]bool{}
-
-				workerLock.Lock()
-
-				for _, ww := range workerWritten {
-					for _, id := range ww {
-						allWritten[id] = true
-					}
-				}
-
-				workerLock.Unlock()
-
-				t.Logf("captured %v contents", len(allWritten))
-
-				if err := bm.Flush(ctx); err != nil {
-					t.Errorf("flush error: %v", err)
-				}
-
-				// open new content manager and verify all contents are visible there.
-				s.verifyAllDataPresent(ctx, t, st, allWritten)
+		for _, ww := range workerWritten {
+			for _, id := range ww {
+				allWritten[id] = true
 			}
 		}
-	}()
 
-	// run workers and flushers for some time, enough for 2 flushes to complete
-	time.Sleep(5 * time.Second)
+		workerLock.Unlock()
+
+		t.Logf("captured %v contents", len(allWritten))
+
+		err := bm.Flush(ctx)
+
+		require.NoError(t, err, "flush error")
+		// open new content manager and verify all contents are visible there.
+		s.verifyAllDataPresent(ctx, t, st, allWritten)
+	}
+
+	// flush a couple of times
+	for range 2 {
+		time.Sleep(2 * time.Second)
+		flush()
+	}
 
 	// shut down workers and wait for them
 	close(closeWorkers)
 	workersWG.Wait()
 
-	close(closeFlusher)
-	flusherWG.Wait()
+	// flush and check once more
+	flush()
 }
 
 func (s *contentManagerSuite) TestFlushResumesWriters(t *testing.T) {
@@ -2604,9 +2590,7 @@ func flushWithRetries(ctx context.Context, t *testing.T, bm *WriteManager) int {
 		retryCount++
 	}
 
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	require.NoError(t, err)
 
 	return retryCount
 }
@@ -2678,9 +2662,8 @@ func makeRandomHexID(t *testing.T, length int) index.ID {
 	t.Helper()
 
 	b := make([]byte, length/2)
-	if _, err := randRead(b); err != nil {
-		t.Fatal("Could not read random bytes", err)
-	}
+	_, err := randRead(b)
+	require.NoError(t, err, "Could not read random bytes")
 
 	id, err := IDFromHash("", b)
 	require.NoError(t, err)
@@ -2691,18 +2674,15 @@ func makeRandomHexID(t *testing.T, length int) index.ID {
 func deleteContent(ctx context.Context, t *testing.T, bm *WriteManager, c ID) {
 	t.Helper()
 
-	if err := bm.DeleteContent(ctx, c); err != nil {
-		t.Fatalf("Unable to delete content %v: %v", c, err)
-	}
+	err := bm.DeleteContent(ctx, c)
+	require.NoErrorf(t, err, "Unable to delete content %v", c)
 }
 
 func getContentInfo(t *testing.T, bm *WriteManager, c ID) Info {
 	t.Helper()
 
 	i, err := bm.ContentInfo(testlogging.Context(t), c)
-	if err != nil {
-		t.Fatalf("Unable to get content info for %q: %v", c, err)
-	}
+	require.NoErrorf(t, err, "Unable to get content info for %q", c)
 
 	return i
 }
