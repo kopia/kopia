@@ -127,8 +127,8 @@ func (v *contentVerifier) verify(ctx context.Context, ci Info) {
 }
 
 func (v *contentVerifier) verifyContentImpl(ctx context.Context, ci Info) {
-	bi, ok := v.existingPacks[ci.PackBlobID]
-	if !ok {
+	bi, found := v.existingPacks[ci.PackBlobID]
+	if !found {
 		v.errorCount.Add(1)
 		v.log.Errorf("content %v depends on missing blob %v", ci.ContentID, ci.PackBlobID)
 
