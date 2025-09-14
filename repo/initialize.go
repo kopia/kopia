@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
-	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -74,16 +73,7 @@ func blobCfgBlobFromOptions(opt *NewRepositoryOptions) format.BlobStorageConfigu
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.RepositoryConfig, error) {
 	fv := opt.BlockFormat.Version
 	if fv == 0 {
-		switch os.Getenv("KOPIA_REPOSITORY_FORMAT_VERSION") {
-		case "1":
-			fv = format.FormatVersion1
-		case "2":
-			fv = format.FormatVersion2
-		case "3":
-			fv = format.FormatVersion3
-		default:
-			fv = format.FormatVersion3
-		}
+		fv = format.FormatVersion3
 	}
 
 	f := &format.RepositoryConfig{
