@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
@@ -19,7 +20,6 @@ import (
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 const indexBlobCompactionWarningThreshold = 1000
@@ -120,30 +120,26 @@ func (sm *SharedManager) getContentDataReadLocked(ctx context.Context, pp *pendi
 	return sm.decryptContentAndVerify(payload.Bytes(), bi, output)
 }
 
-func (sm *SharedManager) preparePackDataContent(mp format.MutableParameters, pp *pendingPackInfo) (index.Builder, error) {
+func (sm *SharedManager) preparePackDataContent(ctx context.Context, mp format.MutableParameters, pp *pendingPackInfo) (index.Builder, error) {
 	packFileIndex := index.Builder{}
 	haveContent := false
 
-	sb := logging.GetBuffer()
-	defer sb.Release()
+	e := addToPackLogEntry{
+		PendingPackBlobID: pp.packBlobID,
+	}
 
 	for _, info := range pp.currentPackItems {
 		if info.PackBlobID == pp.packBlobID {
 			haveContent = true
 		}
 
-		sb.Reset()
-		sb.AppendString("add-to-pack ")
-		sb.AppendString(string(pp.packBlobID))
-		sb.AppendString(" ")
-		info.ContentID.AppendToLogBuffer(sb)
-		sb.AppendString(" p:")
-		sb.AppendString(string(info.PackBlobID))
-		sb.AppendString(" ")
-		sb.AppendUint32(info.PackedLength)
-		sb.AppendString(" d:")
-		sb.AppendBoolean(info.Deleted)
-		sm.log.Debug(sb.String())
+		e.BlobLength = pp.currentPackData.Length()
+		e.ContentID = info.ContentID
+		e.OriginalContentLength = info.OriginalLength
+		e.PackedContentLength = info.PackedLength
+		e.OriginalPackBlobID = info.PackBlobID
+		e.IsDeleted = info.Deleted
+		contentlog.Emit(ctx, sm.log, e)
 
 		packFileIndex.Add(info)
 	}

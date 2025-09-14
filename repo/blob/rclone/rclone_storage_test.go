@@ -250,7 +250,7 @@ func TestRCloneProviders(t *testing.T) {
 			k, ok := st.(Killable)
 			require.True(t, ok, "not killable")
 
-			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, testlogging.NewTestLogger(t), "[RCLONE-STORAGE] "),
+			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, testlogging.NewTestLogger(t), nil, "[RCLONE-STORAGE] "),
 				blob.PutOptions{})
 
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)

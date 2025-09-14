@@ -1,13 +1,17 @@
 package logging_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
@@ -31,7 +35,15 @@ func TestLoggingStorage(t *testing.T) {
 	kt := map[blob.ID]time.Time{}
 	underlying := blobtesting.NewMapStorage(data, kt, nil)
 
-	st := logging.NewWrapper(underlying, testlogging.Printf(myOutput, ""), myPrefix)
+	var jsonOutputCount atomic.Int32
+
+	myJSONOutput := func(data []byte) {
+		v := map[string]any{}
+		require.NoError(t, json.Unmarshal(data, &v))
+		jsonOutputCount.Add(1)
+	}
+
+	st := logging.NewWrapper(underlying, testlogging.Printf(myOutput, ""), contentlog.NewLogger(myJSONOutput), myPrefix)
 	if st == nil {
 		t.Fatalf("unexpected result: %v", st)
 	}
@@ -45,6 +57,10 @@ func TestLoggingStorage(t *testing.T) {
 
 	if *outputCount == 0 {
 		t.Errorf("did not write any output!")
+	}
+
+	if jsonOutputCount.Load() == 0 {
+		t.Errorf("did not write any JSON output!")
 	}
 
 	if got, want := st.ConnectionInfo().Type, underlying.ConnectionInfo().Type; got != want {

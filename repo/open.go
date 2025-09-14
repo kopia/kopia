@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,6 +68,7 @@ var log = logging.Module("kopia/repo")
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
 	TraceStorage        bool                       // Logs all storage access using provided Printf-style function
+	ContentLogWriter    io.Writer                  // Writer to which the content log is also written
 	TimeNowFunc         func() time.Time           // Time provider
 	DisableInternalLog  bool                       // Disable internal log
 	UpgradeOwnerID      string                     // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
@@ -217,10 +219,6 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		return nil, errors.Wrap(err, "cannot open storage")
 	}
 
-	if options.TraceStorage {
-		st = loggingwrapper.NewWrapper(st, log(ctx), "[STORAGE] ")
-	}
-
 	if lc.ReadOnly {
 		st = readonly.NewWrapper(st)
 	}
@@ -323,7 +321,11 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	}
 
 	dw := repodiag.NewWriter(st, fmgr)
-	logManager := repodiag.NewLogManager(ctx, dw)
+	logManager := repodiag.NewLogManager(ctx, dw, options.ContentLogWriter)
+
+	if options.TraceStorage {
+		st = loggingwrapper.NewWrapper(st, log(ctx), logManager.NewLogger("storage"), "[STORAGE] ")
+	}
 
 	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts, logManager, mr)
 	if ferr != nil {

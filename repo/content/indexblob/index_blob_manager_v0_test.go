@@ -197,7 +197,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 	for actorID := range numActors {
 		loggedSt := logging.NewWrapper(st, testlogging.Printf(func(m string, args ...any) {
 			t.Logf(fmt.Sprintf("@%v actor[%v]:", fakeTimeFunc().Format("150405.000"), actorID)+m, args...)
-		}, ""), "")
+		}, ""), nil, "")
 		contentPrefix := fmt.Sprintf("a%v", actorID)
 
 		eg.Go(func() error {
@@ -285,7 +285,7 @@ func TestCompactionCreatesPreviousIndex(t *testing.T) {
 	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeTimeFunc)
 	st = logging.NewWrapper(st, testlogging.Printf(func(msg string, args ...any) {
 		t.Logf("[store] "+fakeTimeFunc().Format("150405.000")+" "+msg, args...)
-	}, ""), "")
+	}, ""), nil, "")
 	m := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
 
 	numWritten := 0
@@ -363,7 +363,7 @@ func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, dela
 	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeTimeFunc)
 	st = logging.NewWrapper(st, testlogging.Printf(func(msg string, args ...any) {
 		t.Logf(fakeTimeFunc().Format("150405.000")+" "+msg, args...)
-	}, ""), "")
+	}, ""), nil, "")
 	m := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
 
 	numWritten := 0
@@ -780,18 +780,16 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		15*time.Minute,
 	)
 
-	log := testlogging.Printf(t.Logf, "")
-
 	m := &ManagerV0{
 		st: st,
 		enc: &EncryptionManager{
 			st:             st,
 			indexBlobCache: nil,
 			crypter:        blobcrypto.StaticCrypter{Hash: hf, Encryption: enc},
-			log:            log,
+			log:            nil,
 		},
 		timeNow: localTimeNow,
-		log:     log,
+		log:     nil,
 	}
 
 	return m

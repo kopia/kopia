@@ -1,0 +1,102 @@
+package contentlog
+
+import (
+	"context"
+
+	"github.com/kopia/kopia/internal/clock"
+)
+
+// WriterTo is a type that can write itself to a JSON writer.
+type WriterTo interface {
+	WriteTo(jw *JSONWriter)
+}
+
+// Emit writes the entry to the segment writer.
+// We are using this particular syntax to avoid allocating an intermediate interface value.
+// This allows exactly zero non-amortized allocations in all cases.
+func Emit[T WriterTo](ctx context.Context, l *Logger, entry T) {
+	if l == nil {
+		return
+	}
+
+	_ = ctx
+
+	jw := NewJSONWriter()
+	defer jw.Release()
+
+	jw.BeginObject()
+	jw.TimeField("t", clock.Now())
+
+	for _, param := range l.params {
+		param.WriteValueTo(jw)
+	}
+
+	entry.WriteTo(jw)
+	jw.EndObject()
+	jw.buf = append(jw.buf, '\n')
+
+	if l.output == nil {
+		return
+	}
+
+	l.output(jw.buf)
+}
+
+// Log logs a message with no parameters.
+func Log(ctx context.Context, l *Logger, text string) {
+	Emit(ctx, l, debugMessageWithParams[voidParamValue, voidParamValue, voidParamValue, voidParamValue, voidParamValue, voidParamValue]{text: text})
+}
+
+// Log1 logs a message with one parameter.
+func Log1[T1 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1) {
+	Emit(ctx, l, debugMessageWithParams[T1, voidParamValue, voidParamValue, voidParamValue, voidParamValue, voidParamValue]{text: format, v1: value1})
+}
+
+// Log2 logs a message with two parameters.
+func Log2[T1 ParamWriter, T2 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2) {
+	Emit(ctx, l, debugMessageWithParams[T1, T2, voidParamValue, voidParamValue, voidParamValue, voidParamValue]{text: format, v1: value1, v2: value2})
+}
+
+// Log3 logs a message with three parameters.
+func Log3[T1 ParamWriter, T2 ParamWriter, T3 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3) {
+	Emit(ctx, l, debugMessageWithParams[T1, T2, T3, voidParamValue, voidParamValue, voidParamValue]{text: format, v1: value1, v2: value2, v3: value3})
+}
+
+// Log4 logs a message with four parameters.
+func Log4[T1 ParamWriter, T2 ParamWriter, T3 ParamWriter, T4 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3, value4 T4) {
+	Emit(ctx, l, debugMessageWithParams[T1, T2, T3, T4, voidParamValue, voidParamValue]{text: format, v1: value1, v2: value2, v3: value3, v4: value4})
+}
+
+// Log5 logs a message with five parameters.
+func Log5[T1 ParamWriter, T2 ParamWriter, T3 ParamWriter, T4 ParamWriter, T5 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3, value4 T4, value5 T5) {
+	Emit(ctx, l, debugMessageWithParams[T1, T2, T3, T4, T5, voidParamValue]{text: format, v1: value1, v2: value2, v3: value3, v4: value4, v5: value5})
+}
+
+// Log6 logs a message with six parameters.
+func Log6[T1 ParamWriter, T2 ParamWriter, T3 ParamWriter, T4 ParamWriter, T5 ParamWriter, T6 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3, value4 T4, value5 T5, value6 T6) {
+	Emit(ctx, l, debugMessageWithParams[T1, T2, T3, T4, T5, T6]{text: format, v1: value1, v2: value2, v3: value3, v4: value4, v5: value5, v6: value6})
+}
+
+type voidParamValue struct{}
+
+func (e voidParamValue) WriteValueTo(*JSONWriter) {}
+
+type debugMessageWithParams[T1 ParamWriter, T2 ParamWriter, T3 ParamWriter, T4 ParamWriter, T5 ParamWriter, T6 ParamWriter] struct {
+	text string
+	v1   T1
+	v2   T2
+	v3   T3
+	v4   T4
+	v5   T5
+	v6   T6
+}
+
+func (e debugMessageWithParams[T1, T2, T3, T4, T5, T6]) WriteTo(jw *JSONWriter) {
+	jw.StringField("m", e.text)
+	e.v1.WriteValueTo(jw)
+	e.v2.WriteValueTo(jw)
+	e.v3.WriteValueTo(jw)
+	e.v4.WriteValueTo(jw)
+	e.v5.WriteValueTo(jw)
+	e.v6.WriteValueTo(jw)
+}

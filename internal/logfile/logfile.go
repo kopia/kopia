@@ -4,6 +4,7 @@ package logfile
 import (
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -23,7 +24,6 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/zaplogutil"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -75,7 +75,7 @@ func (c *loggingFlags) setup(cliApp *cli.App, app *kingpin.Application) {
 	app.Flag("json-log-console", "JSON log file").Hidden().BoolVar(&c.jsonLogConsole)
 	app.Flag("json-log-file", "JSON log file").Hidden().BoolVar(&c.jsonLogFile)
 	app.Flag("file-log-level", "File log level").Default("debug").EnumVar(&c.fileLogLevel, logLevels...)
-	app.Flag("file-log-local-tz", "When logging to a file, use local timezone").Hidden().Envar(cliApp.EnvName("KOPIA_FILE_LOG_LOCAL_TZ")).BoolVar(&c.fileLogLocalTimezone)
+	app.Flag("file-log-local-tz", "When logging to a file, use local timezone").Default("false").Hidden().Envar(cliApp.EnvName("KOPIA_FILE_LOG_LOCAL_TZ")).BoolVar(&c.fileLogLocalTimezone)
 	app.Flag("force-color", "Force color output").Hidden().Envar(cliApp.EnvName("KOPIA_FORCE_COLOR")).BoolVar(&c.forceColor)
 	app.Flag("disable-color", "Disable color output").Hidden().Envar(cliApp.EnvName("KOPIA_DISABLE_COLOR")).BoolVar(&c.disableColor)
 	app.Flag("console-timestamps", "Log timestamps to stderr.").Hidden().Default("false").Envar(cliApp.EnvName("KOPIA_CONSOLE_TIMESTAMPS")).BoolVar(&c.consoleLogTimestamps)
@@ -122,22 +122,17 @@ func (c *loggingFlags) initialize(ctx *kingpin.ParseContext) error {
 
 	rootLogger := zap.New(zapcore.NewTee(rootCores...), zap.WithClock(zaplogutil.Clock()))
 
-	var contentCore zapcore.Core
+	var contentLogWriter io.Writer
+
 	if c.disableFileLogging {
-		contentCore = c.setupConsoleCore()
+		contentLogWriter = c.cliApp.Stderr()
 	} else {
-		contentCore = c.setupContentLogFileBackend(now, suffix)
+		contentLogWriter = c.setupLogFileBasedLogger(now, "content-logs", suffix, c.contentLogFile, c.contentLogDirMaxFiles, c.contentLogDirMaxTotalSizeMB, c.contentLogDirMaxAge)
 	}
 
-	contentLogger := zap.New(contentCore, zap.WithClock(zaplogutil.Clock())).Sugar()
-
 	c.cliApp.SetLoggerFactory(func(module string) logging.Logger {
-		if module == content.FormatLogModule {
-			return contentLogger
-		}
-
 		return rootLogger.Named(module).Sugar()
-	})
+	}, contentLogWriter)
 
 	if c.forceColor {
 		color.NoColor = false
@@ -152,7 +147,6 @@ func (c *loggingFlags) initialize(ctx *kingpin.ParseContext) error {
 
 func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 	ec := zapcore.EncoderConfig{
-		LevelKey:         "l",
 		MessageKey:       "m",
 		LineEnding:       zapcore.DefaultLineEnding,
 		EncodeTime:       zapcore.RFC3339NanoTimeEncoder,
@@ -185,10 +179,11 @@ func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 	if c.jsonLogConsole {
 		ec.EncodeLevel = zapcore.CapitalLevelEncoder
 
+		stec.EmitLogLevel = false
 		ec.NameKey = "n"
 		ec.EncodeName = zapcore.FullNameEncoder
 	} else {
-		stec.EmitLogLevel = true
+		stec.EmitLogLevel = false
 		stec.DoNotEmitInfoLevel = true
 		stec.ColoredLogLevel = !c.disableColor
 	}
@@ -300,17 +295,6 @@ func (c *loggingFlags) jsonOrConsoleEncoder(ec zaplogutil.StdConsoleEncoderConfi
 	}
 
 	return zaplogutil.NewStdConsoleEncoder(ec)
-}
-
-func (c *loggingFlags) setupContentLogFileBackend(now time.Time, suffix string) zapcore.Core {
-	return zapcore.NewCore(
-		zaplogutil.NewStdConsoleEncoder(zaplogutil.StdConsoleEncoderConfig{
-			TimeLayout: zaplogutil.PreciseLayout,
-			LocalTime:  false,
-		},
-		),
-		c.setupLogFileBasedLogger(now, "content-logs", suffix, c.contentLogFile, c.contentLogDirMaxFiles, c.contentLogDirMaxTotalSizeMB, c.contentLogDirMaxAge),
-		zap.DebugLevel)
 }
 
 func shouldSweepLog(maxFiles int, maxAge time.Duration) bool {

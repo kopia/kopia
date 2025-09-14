@@ -81,7 +81,6 @@ type DirectRepository interface {
 	ContentReader() content.Reader
 	IndexBlobs(ctx context.Context, includeInactive bool) ([]indexblob.Metadata, error)
 	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error)
-	AlsoLogToContentLog(ctx context.Context) context.Context
 	UniqueID() []byte
 	ConfigFilename() string
 	DeriveKey(purpose []byte, keyLength int) ([]byte, error)
@@ -273,11 +272,6 @@ func (r *directRepository) ContentInfo(ctx context.Context, contentID content.ID
 // UpdateDescription updates the description of a connected repository.
 func (r *directRepository) UpdateDescription(d string) {
 	r.cliOpts.Description = d
-}
-
-// AlsoLogToContentLog returns a context that causes all logs to also be sent to content log.
-func (r *directRepository) AlsoLogToContentLog(ctx context.Context) context.Context {
-	return r.sm.AlsoLogToContentLog(ctx)
 }
 
 // NewWriter returns new RepositoryWriter session for repository.
