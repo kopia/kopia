@@ -12,6 +12,11 @@ import (
 
 var commaSeparator = []byte(",")
 
+const (
+	decimal     = 10
+	hexadecimal = 16
+)
+
 // JSONWriter is a writer that can write JSON to a buffer
 // without any memory allocations.
 type JSONWriter struct {
@@ -118,7 +123,9 @@ func (jw *JSONWriter) stringValue(value string) {
 				// Escape as unicode \u00XX
 				jw.buf = append(jw.buf, '\\', 'u', '0', '0')
 
-				hex := strconv.FormatInt(int64(c), 16)
+				var hexBuf [8]byte
+
+				hex := strconv.AppendInt(hexBuf[:0], int64(c), hexadecimal)
 				if len(hex) < 2 { //nolint:mnd
 					jw.buf = append(jw.buf, '0')
 				}
@@ -218,8 +225,6 @@ func (jw *JSONWriter) Int64Element(value int64) {
 func (jw *JSONWriter) int64Value(value int64) {
 	var buf [64]byte
 
-	const decimal = 10
-
 	jw.buf = append(jw.buf, strconv.AppendInt(buf[:0], value, decimal)...)
 }
 
@@ -264,8 +269,6 @@ func (jw *JSONWriter) UInt64Element(value uint64) {
 func (jw *JSONWriter) uint64Value(value uint64) {
 	var buf [64]byte
 
-	const decimal = 10
-
 	jw.buf = append(jw.buf, strconv.AppendUint(buf[:0], value, decimal)...)
 }
 
@@ -291,9 +294,7 @@ func (jw *JSONWriter) TimeField(key string, value time.Time) {
 // appendPaddedInt appends an integer with zero-padding to the buffer.
 func (jw *JSONWriter) appendPaddedInt(value int64, width int) {
 	var numBuf [64]byte
-
-	// Append the number to numBuf first
-	numStr := strconv.AppendInt(numBuf[:0], value, 10) //nolint:mnd
+	numStr := strconv.AppendInt(numBuf[:0], value, decimal)
 	numLen := len(numStr)
 
 	// Add leading zeros

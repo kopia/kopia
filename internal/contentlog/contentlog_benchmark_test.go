@@ -15,7 +15,7 @@ func BenchmarkLogger(b *testing.B) {
 
 	for b.Loop() {
 		contentlog.Log(ctx, l, "baz")
-		contentlog.Log1(ctx, l, "baz", logparam.Int("arg1", 123))
+		contentlog.Log1(ctx, l, "baz", logparam.String("arg1", "123\x01foobar"))
 		contentlog.Log2(ctx, l, "baz", logparam.Int("arg1", 123), logparam.Int("arg2", 456))
 		contentlog.Log3(ctx, l, "baz", logparam.Int("arg1", 123), logparam.Int("arg2", 456), logparam.Int("arg3", 789))
 		contentlog.Log4(ctx, l, "baz", logparam.Int("arg1", 123), logparam.Int("arg2", 456), logparam.Int("arg3", 789), logparam.Int("arg4", 101112))

@@ -51,6 +51,14 @@ func TestString(t *testing.T) {
 				"special": "hello\nworld\r\t\b\f",
 			},
 		},
+		{
+			name:  "string with control chars",
+			key:   "control",
+			value: "hello\x00world\x07test",
+			expected: map[string]any{
+				"control": "hello\x00world\x07test",
+			},
+		},
 	}
 
 	for _, tt := range tests {
