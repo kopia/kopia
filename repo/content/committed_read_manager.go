@@ -40,7 +40,7 @@ const indexRefreshFrequency = 15 * time.Minute
 
 const ownWritesCacheDuration = 15 * time.Minute
 
-var log = logging.Module("kopia/content")
+var log = logging.Module("kopia/content") // +checklocksignore
 
 // constants below specify how long to prevent cache entries from expiring.
 const (

@@ -34,7 +34,7 @@ type LogManager struct {
 	writer *BlobWriter
 
 	timeFunc       func() time.Time
-	flushThreshold int
+	flushThreshold int // +checklocksignore
 	prefix         blob.ID
 
 	mu             sync.Mutex
