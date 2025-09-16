@@ -117,10 +117,12 @@ func (jw *JSONWriter) stringValue(value string) {
 			default:
 				// Escape as unicode \u00XX
 				jw.buf = append(jw.buf, '\\', 'u', '0', '0')
+
 				hex := strconv.FormatInt(int64(c), 16)
-				if len(hex) < 2 {
+				if len(hex) < 2 { //nolint:mnd
 					jw.buf = append(jw.buf, '0')
 				}
+
 				jw.buf = append(jw.buf, hex...)
 			}
 		} else if c == '"' {

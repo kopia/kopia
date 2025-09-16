@@ -474,3 +474,331 @@ func TestJSONWriter_StringEscapingProperlyHandledControlChars(t *testing.T) {
 	require.Contains(t, jsonOutput, `carriageReturn`)
 	require.Contains(t, jsonOutput, `tab`)
 }
+
+func TestJSONWriter_StringEscapingAllControlCharacters(t *testing.T) {
+	jw := NewJSONWriter()
+	defer jw.Release()
+
+	jw.BeginObject()
+
+	// Test all control characters from 0x00 to 0x1F
+	controlChars := map[string]string{
+		"null":            "\x00", // NUL
+		"startOfHeading":  "\x01", // SOH
+		"startOfText":     "\x02", // STX
+		"endOfText":       "\x03", // ETX
+		"endOfTransmit":   "\x04", // EOT
+		"enquiry":         "\x05", // ENQ
+		"acknowledge":     "\x06", // ACK
+		"bell":            "\x07", // BEL
+		"backspace":       "\x08", // BS - handled specially
+		"tab":             "\x09", // TAB - handled specially
+		"lineFeed":        "\x0a", // LF - handled specially
+		"verticalTab":     "\x0b", // VT
+		"formFeed":        "\x0c", // FF - handled specially
+		"carriageReturn":  "\x0d", // CR - handled specially
+		"shiftOut":        "\x0e", // SO
+		"shiftIn":         "\x0f", // SI
+		"dataLinkEscape":  "\x10", // DLE
+		"deviceCtrl1":     "\x11", // DC1
+		"deviceCtrl2":     "\x12", // DC2
+		"deviceCtrl3":     "\x13", // DC3
+		"deviceCtrl4":     "\x14", // DC4
+		"negativeAck":     "\x15", // NAK
+		"synchronousIdle": "\x16", // SYN
+		"endOfTransBlock": "\x17", // ETB
+		"cancel":          "\x18", // CAN
+		"endOfMedium":     "\x19", // EM
+		"substitute":      "\x1a", // SUB
+		"escape":          "\x1b", // ESC
+		"fileSeparator":   "\x1c", // FS
+		"groupSeparator":  "\x1d", // GS
+		"recordSeparator": "\x1e", // RS
+		"unitSeparator":   "\x1f", // US
+	}
+
+	// Add all control characters as fields
+	for name, char := range controlChars {
+		jw.StringField(name, char)
+	}
+
+	jw.EndObject()
+
+	var v map[string]any
+
+	require.NoError(t, json.Unmarshal(jw.buf, &v))
+
+	// Verify all control characters are properly handled
+	for name, expectedChar := range controlChars {
+		require.Equal(t, expectedChar, v[name], "Control character %s (0x%02x) not properly handled", name, expectedChar[0])
+	}
+
+	// Verify the raw JSON contains proper Unicode escape sequences for non-special control chars
+	jsonOutput := string(jw.buf)
+	t.Logf("Control chars JSON output: %q", jsonOutput)
+
+	// Check that special control characters use their standard escape sequences
+	require.Contains(t, jsonOutput, `\b`) // backspace
+	require.Contains(t, jsonOutput, `\t`) // tab
+	require.Contains(t, jsonOutput, `\n`) // line feed
+	require.Contains(t, jsonOutput, `\f`) // form feed
+	require.Contains(t, jsonOutput, `\r`) // carriage return
+
+	// Check that other control characters use Unicode escape sequences
+	require.Contains(t, jsonOutput, `\u0000`) // null
+	require.Contains(t, jsonOutput, `\u0001`) // start of heading
+	require.Contains(t, jsonOutput, `\u0007`) // bell
+	require.Contains(t, jsonOutput, `\u000b`) // vertical tab
+	require.Contains(t, jsonOutput, `\u001b`) // escape
+	require.Contains(t, jsonOutput, `\u001f`) // unit separator
+}
+
+func TestJSONWriter_StringEscapingControlCharactersInElements(t *testing.T) {
+	jw := NewJSONWriter()
+	defer jw.Release()
+
+	jw.BeginList()
+
+	// Test control characters as list elements
+	jw.StringElement("\x00") // null
+	jw.StringElement("\x07") // bell
+	jw.StringElement("\x08") // backspace
+	jw.StringElement("\x09") // tab
+	jw.StringElement("\x0a") // line feed
+	jw.StringElement("\x0c") // form feed
+	jw.StringElement("\x0d") // carriage return
+	jw.StringElement("\x1b") // escape
+	jw.StringElement("\x1f") // unit separator
+	jw.EndList()
+
+	var v []any
+
+	require.NoError(t, json.Unmarshal(jw.buf, &v))
+
+	expected := []any{
+		"\x00", // null
+		"\x07", // bell
+		"\x08", // backspace
+		"\x09", // tab
+		"\x0a", // line feed
+		"\x0c", // form feed
+		"\x0d", // carriage return
+		"\x1b", // escape
+		"\x1f", // unit separator
+	}
+
+	require.Equal(t, expected, v)
+
+	// Verify the raw JSON contains proper escape sequences
+	jsonOutput := string(jw.buf)
+	t.Logf("Control chars in elements JSON output: %q", jsonOutput)
+
+	require.Contains(t, jsonOutput, `\u0000`) // null
+	require.Contains(t, jsonOutput, `\u0007`) // bell
+	require.Contains(t, jsonOutput, `\b`)     // backspace
+	require.Contains(t, jsonOutput, `\t`)     // tab
+	require.Contains(t, jsonOutput, `\n`)     // line feed
+	require.Contains(t, jsonOutput, `\f`)     // form feed
+	require.Contains(t, jsonOutput, `\r`)     // carriage return
+	require.Contains(t, jsonOutput, `\u001b`) // escape
+	require.Contains(t, jsonOutput, `\u001f`) // unit separator
+}
+
+func TestJSONWriter_StringEscapingMixedControlCharacters(t *testing.T) {
+	jw := NewJSONWriter()
+	defer jw.Release()
+
+	jw.BeginObject()
+
+	// Test strings with mixed control characters and regular characters
+	jw.StringField("mixed1", "hello\x00world\x07test")
+	jw.StringField("mixed2", "start\x08\x09\x0a\x0c\x0dend")
+	jw.StringField("mixed3", "text\x1b\x1c\x1d\x1e\x1fmore")
+	jw.StringField("mixed4", "a\x00b\x01c\x02d\x03e")
+	jw.StringField("mixed5", "quotes\"and\\backslash\x00control")
+	jw.EndObject()
+
+	var v map[string]any
+
+	require.NoError(t, json.Unmarshal(jw.buf, &v))
+
+	// Verify the parsed values match the original strings
+	require.Equal(t, "hello\x00world\x07test", v["mixed1"])
+	require.Equal(t, "start\x08\x09\x0a\x0c\x0dend", v["mixed2"])
+	require.Equal(t, "text\x1b\x1c\x1d\x1e\x1fmore", v["mixed3"])
+	require.Equal(t, "a\x00b\x01c\x02d\x03e", v["mixed4"])
+	require.Equal(t, "quotes\"and\\backslash\x00control", v["mixed5"])
+
+	// Verify the raw JSON contains proper escape sequences
+	jsonOutput := string(jw.buf)
+	t.Logf("Mixed control chars JSON output: %q", jsonOutput)
+
+	// Check for Unicode escapes
+	require.Contains(t, jsonOutput, `\u0000`) // null character
+	require.Contains(t, jsonOutput, `\u0007`) // bell
+	require.Contains(t, jsonOutput, `\u0001`) // start of heading
+	require.Contains(t, jsonOutput, `\u0002`) // start of text
+	require.Contains(t, jsonOutput, `\u0003`) // end of text
+	require.Contains(t, jsonOutput, `\u001b`) // escape
+	require.Contains(t, jsonOutput, `\u001c`) // file separator
+	require.Contains(t, jsonOutput, `\u001d`) // group separator
+	require.Contains(t, jsonOutput, `\u001e`) // record separator
+	require.Contains(t, jsonOutput, `\u001f`) // unit separator
+
+	// Check for standard escapes
+	require.Contains(t, jsonOutput, `\b`) // backspace
+	require.Contains(t, jsonOutput, `\t`) // tab
+	require.Contains(t, jsonOutput, `\n`) // line feed
+	require.Contains(t, jsonOutput, `\f`) // form feed
+	require.Contains(t, jsonOutput, `\r`) // carriage return
+
+	// Check for quote and backslash escapes
+	require.Contains(t, jsonOutput, `\"`) // escaped quote
+	require.Contains(t, jsonOutput, `\\`) // escaped backslash
+}
+
+func TestJSONWriter_StringEscapingBoundaryValues(t *testing.T) {
+	jw := NewJSONWriter()
+	defer jw.Release()
+
+	jw.BeginObject()
+
+	// Test boundary values around control character range
+	jw.StringField("space", " ")           // 0x20 - first non-control character
+	jw.StringField("del", "\x7f")          // 0x7F - DEL character (not in 0x00-0x1F range)
+	jw.StringField("lastControl", "\x1f")  // 0x1F - last control character
+	jw.StringField("firstNonControl", " ") // 0x20 - first non-control character
+	jw.EndObject()
+
+	var v map[string]any
+
+	require.NoError(t, json.Unmarshal(jw.buf, &v))
+
+	// Verify the parsed values
+	require.Equal(t, " ", v["space"])
+	require.Equal(t, "\x7f", v["del"])         // DEL should not be escaped as Unicode
+	require.Equal(t, "\x1f", v["lastControl"]) // Last control char should be escaped
+	require.Equal(t, " ", v["firstNonControl"])
+
+	// Verify the raw JSON
+	jsonOutput := string(jw.buf)
+	t.Logf("Boundary values JSON output: %q", jsonOutput)
+
+	// Space (0x20) should not be escaped
+	require.Contains(t, jsonOutput, `"space":" "`)
+	require.Contains(t, jsonOutput, `"firstNonControl":" "`)
+
+	// DEL (0x7F) should not be escaped as Unicode (it's outside 0x00-0x1F range)
+	// The DEL character is output as-is in the JSON (not escaped)
+	require.Contains(t, jsonOutput, `"del":"`+string('\x7f')+`"`)
+
+	// Last control character (0x1F) should be escaped as Unicode
+	require.Contains(t, jsonOutput, `\u001f`)
+}
+
+func TestJSONWriter_StringEscapingUnicodeEscapeFormat(t *testing.T) {
+	jw := NewJSONWriter()
+	defer jw.Release()
+
+	jw.BeginObject()
+
+	// Test specific control characters to verify Unicode escape format
+	jw.StringField("null", "\x00")
+	jw.StringField("bell", "\x07")
+	jw.StringField("verticalTab", "\x0b")
+	jw.StringField("escape", "\x1b")
+	jw.StringField("unitSeparator", "\x1f")
+	jw.EndObject()
+
+	jsonOutput := string(jw.buf)
+	t.Logf("Unicode escape format JSON output: %q", jsonOutput)
+
+	// Verify exact Unicode escape format: \u00XX where XX is the hex value
+	require.Contains(t, jsonOutput, `\u0000`) // null (0x00)
+	require.Contains(t, jsonOutput, `\u0007`) // bell (0x07)
+	require.Contains(t, jsonOutput, `\u000b`) // vertical tab (0x0B)
+	require.Contains(t, jsonOutput, `\u001b`) // escape (0x1B)
+	require.Contains(t, jsonOutput, `\u001f`) // unit separator (0x1F)
+
+	// Verify the format is exactly 6 characters: \u + 4 hex digits
+	// This is a more specific test to ensure the format is correct
+	var v map[string]any
+
+	require.NoError(t, json.Unmarshal(jw.buf, &v))
+
+	// Verify the values are correctly parsed back
+	require.Equal(t, "\x00", v["null"])
+	require.Equal(t, "\x07", v["bell"])
+	require.Equal(t, "\x0b", v["verticalTab"])
+	require.Equal(t, "\x1b", v["escape"])
+	require.Equal(t, "\x1f", v["unitSeparator"])
+}
+
+func TestJSONWriter_StringEscapingPerformanceWithManyControlChars(t *testing.T) {
+	jw := NewJSONWriter()
+	defer jw.Release()
+
+	jw.BeginObject()
+
+	// Create a string with many control characters to test performance
+	var testString string
+	for i := range 100 {
+		testString += string(rune(i % 32)) // Mix of control chars 0x00-0x1F
+	}
+
+	jw.StringField("manyControlChars", testString)
+	jw.EndObject()
+
+	var v map[string]any
+
+	require.NoError(t, json.Unmarshal(jw.buf, &v))
+
+	// Verify the string is correctly handled
+	require.Equal(t, testString, v["manyControlChars"])
+
+	// Verify the JSON is valid and contains many Unicode escapes
+	jsonOutput := string(jw.buf)
+	t.Logf("Performance test JSON output length: %d", len(jsonOutput))
+
+	// Should contain many Unicode escape sequences
+	require.Contains(t, jsonOutput, `\u0000`)
+	require.Contains(t, jsonOutput, `\u0001`)
+	require.Contains(t, jsonOutput, `\u000f`)
+	require.Contains(t, jsonOutput, `\u001f`)
+}
+
+func TestJSONWriter_StringEscapingEmptyAndSingleChar(t *testing.T) {
+	jw := NewJSONWriter()
+	defer jw.Release()
+
+	jw.BeginObject()
+
+	// Test edge cases with empty strings and single control characters
+	jw.StringField("empty", "")
+	jw.StringField("singleNull", "\x00")
+	jw.StringField("singleBell", "\x07")
+	jw.StringField("singleTab", "\x09")
+	jw.StringField("singleNewline", "\x0a")
+	jw.EndObject()
+
+	var v map[string]any
+
+	require.NoError(t, json.Unmarshal(jw.buf, &v))
+
+	// Verify edge cases
+	require.Empty(t, v["empty"])
+	require.Equal(t, "\x00", v["singleNull"])
+	require.Equal(t, "\x07", v["singleBell"])
+	require.Equal(t, "\x09", v["singleTab"])
+	require.Equal(t, "\x0a", v["singleNewline"])
+
+	// Verify the raw JSON
+	jsonOutput := string(jw.buf)
+	t.Logf("Edge cases JSON output: %q", jsonOutput)
+
+	require.Contains(t, jsonOutput, `"empty":""`)
+	require.Contains(t, jsonOutput, `"singleNull":"\u0000"`)
+	require.Contains(t, jsonOutput, `"singleBell":"\u0007"`)
+	require.Contains(t, jsonOutput, `"singleTab":"\t"`)
+	require.Contains(t, jsonOutput, `"singleNewline":"\n"`)
+}
