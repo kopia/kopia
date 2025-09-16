@@ -115,7 +115,13 @@ func (jw *JSONWriter) stringValue(value string) {
 			case '\t':
 				jw.buf = append(jw.buf, '\\', 't')
 			default:
-				jw.buf = append(jw.buf, c)
+				// Escape as unicode \u00XX
+				jw.buf = append(jw.buf, '\\', 'u', '0', '0')
+				hex := strconv.FormatInt(int64(c), 16)
+				if len(hex) < 2 {
+					jw.buf = append(jw.buf, '0')
+				}
+				jw.buf = append(jw.buf, hex...)
 			}
 		} else if c == '"' {
 			jw.buf = append(jw.buf, '\\', '"')
