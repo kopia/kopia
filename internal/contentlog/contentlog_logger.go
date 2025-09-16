@@ -2,6 +2,7 @@ package contentlog
 
 import (
 	"context"
+	"time"
 
 	"github.com/kopia/kopia/internal/clock"
 )
@@ -25,7 +26,7 @@ func Emit[T WriterTo](ctx context.Context, l *Logger, entry T) {
 	defer jw.Release()
 
 	jw.BeginObject()
-	jw.TimeField("t", clock.Now())
+	jw.TimeField("t", l.timeFunc())
 
 	for _, param := range l.params {
 		param.WriteValueTo(jw)
@@ -99,4 +100,23 @@ func (e debugMessageWithParams[T1, T2, T3, T4, T5, T6]) WriteTo(jw *JSONWriter) 
 	e.v4.WriteValueTo(jw)
 	e.v5.WriteValueTo(jw)
 	e.v6.WriteValueTo(jw)
+}
+
+// Logger is a logger that writes log entries to the output.
+type Logger struct {
+	params   []ParamWriter // Parameters to include in each log entry.
+	output   OutputFunc
+	timeFunc func() time.Time
+}
+
+// OutputFunc is a function that writes the log entry to the output.
+type OutputFunc func(data []byte)
+
+// NewLogger creates a new logger.
+func NewLogger(out OutputFunc, params ...ParamWriter) *Logger {
+	return &Logger{
+		params:   params,
+		output:   out,
+		timeFunc: clock.Now,
+	}
 }

@@ -7,14 +7,10 @@ import (
 	"strconv"
 	"time"
 
-	"go.uber.org/zap/buffer"
-
 	"github.com/kopia/kopia/internal/freepool"
 )
 
 var commaSeparator = []byte(",")
-
-const timeLayout = "2006-01-02T15:04:05.000000Z07:00"
 
 // JSONWriter is a writer that can write JSON to a buffer
 // without any memory allocations.
@@ -23,6 +19,11 @@ type JSONWriter struct {
 	separator []byte
 
 	separatorStack [][]byte
+}
+
+// ParamWriter must be implemented by all types that write a parameter ("key":value)to the JSON writer.
+type ParamWriter interface {
+	WriteValueTo(sw *JSONWriter)
 }
 
 func (jw *JSONWriter) beforeField(key string) {
@@ -99,6 +100,8 @@ func (jw *JSONWriter) stringValue(value string) {
 
 	for i := range len(value) {
 		c := value[i]
+
+		//nolint:gocritic
 		if c < ' ' {
 			switch c {
 			case '\b':
@@ -114,6 +117,10 @@ func (jw *JSONWriter) stringValue(value string) {
 			default:
 				jw.buf = append(jw.buf, c)
 			}
+		} else if c == '"' {
+			jw.buf = append(jw.buf, '\\', '"')
+		} else if c == '\\' {
+			jw.buf = append(jw.buf, '\\', '\\')
 		} else {
 			jw.buf = append(jw.buf, c)
 		}
@@ -273,6 +280,22 @@ func (jw *JSONWriter) TimeField(key string, value time.Time) {
 	jw.timeValue(value)
 }
 
+// appendPaddedInt appends an integer with zero-padding to the buffer.
+func (jw *JSONWriter) appendPaddedInt(value int64, width int) {
+	var numBuf [64]byte
+
+	// Append the number to numBuf first
+	numStr := strconv.AppendInt(numBuf[:0], value, 10) //nolint:mnd
+	numLen := len(numStr)
+
+	// Add leading zeros
+	for i := numLen; i < width; i++ {
+		jw.buf = append(jw.buf, '0')
+	}
+
+	jw.buf = append(jw.buf, numStr...)
+}
+
 // TimeElement writes a time element.
 func (jw *JSONWriter) TimeElement(value time.Time) {
 	jw.beforeElement()
@@ -280,12 +303,23 @@ func (jw *JSONWriter) TimeElement(value time.Time) {
 }
 
 func (jw *JSONWriter) timeValue(value time.Time) {
-	var buf buffer.Buffer
+	utc := value.UTC()
 
-	buf.AppendTime(value.UTC(), timeLayout)
 	jw.buf = append(jw.buf, '"')
-	jw.buf = append(jw.buf, buf.Bytes()...)
-	jw.buf = append(jw.buf, '"')
+	jw.appendPaddedInt(int64(utc.Year()), 4) //nolint:mnd
+	jw.buf = append(jw.buf, '-')
+	jw.appendPaddedInt(int64(utc.Month()), 2) //nolint:mnd
+	jw.buf = append(jw.buf, '-')
+	jw.appendPaddedInt(int64(utc.Day()), 2) //nolint:mnd
+	jw.buf = append(jw.buf, 'T')
+	jw.appendPaddedInt(int64(utc.Hour()), 2) //nolint:mnd
+	jw.buf = append(jw.buf, ':')
+	jw.appendPaddedInt(int64(utc.Minute()), 2) //nolint:mnd
+	jw.buf = append(jw.buf, ':')
+	jw.appendPaddedInt(int64(utc.Second()), 2) //nolint:mnd
+	jw.buf = append(jw.buf, '.')
+	jw.appendPaddedInt(int64(utc.Nanosecond()/1000), 6) //nolint:mnd
+	jw.buf = append(jw.buf, 'Z', '"')
 }
 
 var freeJSONWriterPool = freepool.New(
@@ -309,4 +343,10 @@ func (jw *JSONWriter) Release() {
 // NewJSONWriter creates a new JSON writer.
 func NewJSONWriter() *JSONWriter {
 	return freeJSONWriterPool.Take()
+}
+
+// GetBufferForTesting returns the internal buffer for testing purposes.
+// This should only be used in tests.
+func (jw *JSONWriter) GetBufferForTesting() []byte {
+	return jw.buf
 }
