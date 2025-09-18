@@ -392,6 +392,10 @@ func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
 		return errors.Wrapf(err, "cannot write data to file %q", f.Name())
 	}
 
+	if err := f.Sync(); err != nil {
+		return errors.Wrapf(err, "cannot flush file %q", f.Name())
+	}
+
 	if err := f.Close(); err != nil {
 		return err //nolint:wrapcheck
 	}
