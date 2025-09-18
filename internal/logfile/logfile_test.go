@@ -2,6 +2,7 @@ package logfile_test
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -22,7 +23,6 @@ import (
 
 var (
 	cliLogFormat              = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z (DEBUG|INFO|WARN) [a-z/]+ .*$`)
-	contentLogFormat          = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z .*$`)
 	cliLogFormatLocalTimezone = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}[^Z][^ ]+ (DEBUG|INFO|WARN) [a-z/]+ .*$`)
 )
 
@@ -56,7 +56,7 @@ func TestLoggingFlags(t *testing.T) {
 	}
 
 	verifyFileLogFormat(t, filepath.Join(tmpLogDir, "cli-logs", "latest.log"), cliLogFormat)
-	verifyFileLogFormat(t, filepath.Join(tmpLogDir, "content-logs", "latest.log"), contentLogFormat)
+	verifyJSONLogFormat(t, filepath.Join(tmpLogDir, "content-logs", "latest.log"))
 
 	_, stderr, err = env.Run(t, false, "snap", "create", dir1,
 		"--file-log-local-tz", "--no-progress", "--log-level=debug", "--disable-color",
@@ -69,7 +69,7 @@ func TestLoggingFlags(t *testing.T) {
 		verifyFileLogFormat(t, filepath.Join(tmpLogDir, "cli-logs", "latest.log"), cliLogFormatLocalTimezone)
 	}
 
-	verifyFileLogFormat(t, filepath.Join(tmpLogDir, "content-logs", "latest.log"), contentLogFormat)
+	verifyJSONLogFormat(t, filepath.Join(tmpLogDir, "content-logs", "latest.log"))
 
 	for _, l := range stderr {
 		require.NotContains(t, l, "INFO") // INFO is omitted
@@ -255,4 +255,19 @@ func getTotalDirSize(t *testing.T, dir string) int {
 	}
 
 	return totalSize
+}
+
+func verifyJSONLogFormat(t *testing.T, fname string) {
+	t.Helper()
+
+	f, err := os.Open(fname)
+	require.NoError(t, err)
+
+	defer f.Close()
+
+	s := bufio.NewScanner(f)
+
+	for s.Scan() {
+		require.True(t, json.Valid(s.Bytes()), "log line is not valid JSON: %q", s.Text())
+	}
 }

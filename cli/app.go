@@ -175,15 +175,16 @@ type App struct {
 	// testability hooks
 	testonlyIgnoreMissingRequiredFeatures bool
 
-	isInProcessTest bool
-	exitWithError   func(err error) // os.Exit() with 1 or 0 based on err
-	stdinReader     io.Reader
-	stdoutWriter    io.Writer
-	stderrWriter    io.Writer
-	rootctx         context.Context //nolint:containedctx
-	loggerFactory   logging.LoggerFactory
-	simulatedCtrlC  chan bool
-	envNamePrefix   string
+	isInProcessTest  bool
+	exitWithError    func(err error) // os.Exit() with 1 or 0 based on err
+	stdinReader      io.Reader
+	stdoutWriter     io.Writer
+	stderrWriter     io.Writer
+	rootctx          context.Context //nolint:containedctx
+	loggerFactory    logging.LoggerFactory
+	contentLogWriter io.Writer
+	simulatedCtrlC   chan bool
+	envNamePrefix    string
 }
 
 func (c *App) enableTestOnlyFlags() bool {
@@ -217,8 +218,9 @@ func (c *App) Stderr() io.Writer {
 }
 
 // SetLoggerFactory sets the logger factory to be used throughout the app.
-func (c *App) SetLoggerFactory(loggerForModule logging.LoggerFactory) {
+func (c *App) SetLoggerFactory(loggerForModule logging.LoggerFactory, contentLogWriter io.Writer) {
 	c.loggerFactory = loggerForModule
+	c.contentLogWriter = contentLogWriter
 }
 
 // RegisterOnExit registers the provided function to run before app exits.

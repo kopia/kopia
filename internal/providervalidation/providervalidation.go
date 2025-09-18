@@ -92,7 +92,7 @@ func openEquivalentStorageConnections(ctx context.Context, st blob.Storage, n in
 
 		log(ctx).Debugw("opened equivalent storage connection", "connectionID", i)
 
-		result = append(result, loggingwrapper.NewWrapper(c, log(ctx), fmt.Sprintf("[STORAGE-%v] ", i)))
+		result = append(result, loggingwrapper.NewWrapper(c, log(ctx), nil, fmt.Sprintf("[STORAGE-%v] ", i)))
 	}
 
 	return result, nil

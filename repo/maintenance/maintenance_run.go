@@ -151,8 +151,6 @@ func (e NotOwnedError) Error() string {
 func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mode, force bool, cb func(ctx context.Context, runParams RunParameters) error) error {
 	rep.DisableIndexRefresh()
 
-	ctx = rep.AlsoLogToContentLog(ctx)
-
 	p, err := GetParams(ctx, rep)
 	if err != nil {
 		return errors.Wrap(err, "unable to get maintenance params")

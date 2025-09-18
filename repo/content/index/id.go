@@ -8,9 +8,12 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/logging"
 )
+
+const maxLoggedContentIDLength = 8
 
 // IDPrefix represents a content ID prefix (empty string or single character between 'g' and 'z').
 type IDPrefix string
@@ -217,4 +220,25 @@ func ParseID(s string) (ID, error) {
 	id.idLen = byte(n)
 
 	return id, nil
+}
+
+type contentIDParam struct {
+	Key   string
+	Value ID
+}
+
+func (e contentIDParam) WriteValueTo(jw *contentlog.JSONWriter) {
+	l := e.Value.String()
+	if len(l) > maxLoggedContentIDLength {
+		l = l[0:maxLoggedContentIDLength]
+	}
+
+	jw.StringField("contentID", l)
+}
+
+// ContentIDParam is a parameter that writes a content ID to the JSON writer.
+//
+//nolint:revive
+func ContentIDParam(key string, value ID) contentIDParam {
+	return contentIDParam{Key: key, Value: value}
 }

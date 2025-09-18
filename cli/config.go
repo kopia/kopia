@@ -68,6 +68,7 @@ func (c *App) optionsFromFlags(ctx context.Context) *repo.Options {
 		DisableInternalLog:  c.disableInternalLog,
 		UpgradeOwnerID:      c.upgradeOwnerID,
 		DoNotWaitForUpgrade: c.doNotWaitForUpgrade,
+		ContentLogWriter:    c.contentLogWriter,
 
 		// when a fatal error is encountered in the repository, run all registered callbacks
 		// and exit the program.
