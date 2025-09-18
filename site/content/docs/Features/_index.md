@@ -8,7 +8,7 @@ weight: 10
 * [Policies Control What and How Files/Directories are Saved in Snapshots](#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots)
 * [Save Snapshots to Cloud, Network, or Local Storage](#save-snapshots-to-cloud-network-or-local-storage)
 * [Restore Snapshots Using Multiple Methods](#restore-snapshots-using-multiple-methods)
-* [End-to-End 'Zero Knowledge' Encryption](#end-to-end-zero-knowledge-encryption)
+* [User-controlled End-to-End Encryption](#user-controlled-end-to-end-encryption)
 * [Compression](#compression)
 * [Error Correction](#error-correction)
 * [Verifying Backup Validity and Consistency](#verifying-backup-validity-and-consistency)
@@ -21,7 +21,7 @@ weight: 10
 
 ### Backup Files and Directories Using Snapshots
 
-Kopia creates snapshots of the files and directories you designate, then [encrypts](#end-to-end-zero-knowledge-encryption) these snapshots before they leave your computer, and finally uploads these encrypted snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on [policies](#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots) that you define.
+Kopia creates snapshots of the files and directories you designate, then [encrypts](#user-controlled-end-to-end-encryption) these snapshots before they leave your computer, and finally uploads these encrypted snapshots to cloud/network/local storage called a [repository](../repositories/). Snapshots are maintained as a set of historical point-in-time records based on [policies](#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots) that you define.
 
 Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-addressable%20storage) for snapshots, which has many benefits:
 
@@ -76,29 +76,48 @@ With Kopia you’re in full control of where to store your snapshots; you pick t
 
 To restore data, Kopia gives you three options: 
 
-* mount the contents of a snapshot as a local disk so that you can browse and copy files/directories from the snapshot as if the snapshot is a local directory on your machine
+- mount the contents of a snapshot as a local disk so that you can browse and copy files/directories from the snapshot as if the snapshot is a local directory on your machine
+- restore all files/directories contained in a snapshot to any local or network location that you designate
+- selectively restore individual files from a snapshot
 
-* restore all files/directories contained in a snapshot to any local or network location that you designate
+### User-Controlled End-to-End Encryption
 
-* selectively restore individual files from a snapshot
+Kopia uses end-to-end encryption, with user-controlled encryption keys,[^1] to
+encrypt all data before it leaves your machine, this includes the content and the
+names of the backed up files/directories. Kopia does not allow creating
+unencrypted backups.
 
-### End-to-End 'Zero Knowledge' Encryption
+[^1]: This encryption approach is often imprecisely named 'Zero-knowledge
+encryption' in marketing materials. The name can be easily confused with the
+term ['Zero-knowledge Proof'](https://en.wikipedia.org/wiki/Zero-knowledge_proof),
+which refers to a completely different concept.
 
-All data is encrypted before it leaves your machine. Encryption is baked into the DNA of Kopia, and you cannot create a backup without using encryption. Kopia allows you to pick from two state-of-the-art encryption algorithms, [AES-256](https://en.wikipedia.org/wiki/AES256) and [ChaCha20](https://en.wikipedia.org/wiki/ChaCha20).
+When creating or accessing a backup repository, you provide the repository
+password, which is not sent to any server or anywhere outside your machine, and
+only you know the password.
+Instead, the repository password is used to encrypt and decrypt the repository's
+primary encryption key. The primary key is securely generated at repository
+creation time in the computer that is creating the repository, such as your laptop.
+This means that the repository password is required to read any data stored in
+that repository. Without the password, you will not be able to read the contents
+of files stored in backups, nor see what files/directories are contained in
+the backups, nor list what backups are in the repository. It also means that
+you cannot restore your files if you forget your password, there is no way to
+recover a forgotten password because only you know it. You can
+ [change your password](../faqs/#how-do-i-change-my-repository-password) if
+you are still connected to the repository.
 
-Kopia encrypts both the content and the names of your backed up files/directories.
-
-The data is encrypted using per-content keys which are derived from the 256-bit master key that is stored in the repository. The master key is encrypted with a password you provide. This means that anyone that does not know the password cannot access your backed up files and will not know what files/directories are contained in the snapshots that are saved in the repository. Importantly, the password you provide is never sent to any server or anywhere outside your machine, and only you know your password. In other words, Kopia provides your backups with end-to-end 'zero knowledge' encryption. However, this also means that you cannot restore your files if you forget your password: there is no way to recover a forgotten password because only you know it. (But you can [change your password](../faqs/#how-do-i-change-my-repository-password) if you are still connected to the repository that stores your snapshots.)
+You can pick from two standard encryption algorithms,
+[AES-256](https://en.wikipedia.org/wiki/AES256) and
+[ChaCha20](https://en.wikipedia.org/wiki/ChaCha20), for encrypting your backups.
 
 ### Compression
 
 Kopia can [compress your data](../advanced/compression/) to save storage and bandwidth. Several compression methods are supported, including:
 
-* [pgzip](https://github.com/klauspost/pgzip)
-
-* [s2](https://github.com/klauspost/compress/tree/master/s2)
-
-* [zstd](https://github.com/klauspost/compress/tree/master/zstd)
+- [pgzip](https://github.com/klauspost/pgzip)
+- [s2](https://github.com/klauspost/compress/tree/master/s2)
+- [zstd](https://github.com/klauspost/compress/tree/master/zstd)
 
 ### Error Correction
 

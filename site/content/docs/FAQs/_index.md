@@ -32,7 +32,7 @@ A `snapshot` is a [point-in-time backup](../features#backup-files-and-directorie
 
 #### What is a Repository?
 
-A `repository` is the storage location where your snapshots are saved; Kopia supports [cloud/remote, network, and local storage locations](../features#save-snapshots-to-cloud-network-or-local-storage) and all repositories are [encrypted](../features/#end-to-end-zero-knowledge-encryption) with a password that you designate.
+A `repository` is the storage location where your snapshots are saved; Kopia supports [cloud/remote, network, and local storage locations](../features#save-snapshots-to-cloud-network-or-local-storage) and all repositories are [encrypted](../features/#user-controlled-end-to-end-encryption) with a password that you designate.
 
 See the [repository help docs](../repositories) for more information.
 
@@ -95,7 +95,7 @@ You must use Kopia CLI if you want to change your `repository` password; changin
 
 Before changing your password, you must be [connected to your `repository`](../getting-started/#connecting-to-repository). This means that you **can** reset your password if you forget your password AND you are still connected to your `repository`. But this also means that you **cannot** reset your password if you forget your password and you are NOT still connected to your `repository`, because you will need your current password to connect to the `repository`.
 
-Remember to select a secure _repository password_. The password is used to [decrypt](../features/#end-to-end-zero-knowledge-encryption) and access the data in your snapshots.
+Remember to select a secure _repository password_. The password is used to [decrypt](../features/#user-controlled-end-to-end-encryption) and access the data in your snapshots.
 
 #### Does Kopia Support Storage Classes, Like Amazon Glacier?
 
