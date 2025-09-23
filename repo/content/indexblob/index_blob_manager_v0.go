@@ -65,11 +65,11 @@ type ManagerV0 struct {
 	log               logging.Logger
 }
 
-// ListIndexBlobInfos list active blob info structs.  Also returns time of latest content deletion commit.
-func (m *ManagerV0) ListIndexBlobInfos(ctx context.Context) ([]Metadata, time.Time, error) {
-	activeIndexBlobs, t0, err := m.ListActiveIndexBlobs(ctx)
+// ListIndexBlobInfos list active blob info structs.
+func (m *ManagerV0) ListIndexBlobInfos(ctx context.Context) ([]Metadata, error) {
+	activeIndexBlobs, _, err := m.ListActiveIndexBlobs(ctx)
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, err
 	}
 
 	q := make([]Metadata, 0, len(activeIndexBlobs))
@@ -83,7 +83,7 @@ func (m *ManagerV0) ListIndexBlobInfos(ctx context.Context) ([]Metadata, time.Ti
 		q = append(q, activeIndexBlob)
 	}
 
-	return q, t0, nil
+	return q, nil
 }
 
 // ListActiveIndexBlobs lists the metadata for active index blobs and returns the cut-off time

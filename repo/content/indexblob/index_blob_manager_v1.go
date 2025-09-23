@@ -28,9 +28,11 @@ type ManagerV1 struct {
 	epochMgr *epoch.Manager
 }
 
-// ListIndexBlobInfos list active blob info structs.  Also returns time of latest content deletion commit.
-func (m *ManagerV1) ListIndexBlobInfos(ctx context.Context) ([]Metadata, time.Time, error) {
-	return m.ListActiveIndexBlobs(ctx)
+// ListIndexBlobInfos list active blob info structs.
+func (m *ManagerV1) ListIndexBlobInfos(ctx context.Context) ([]Metadata, error) {
+	blobs, _, err := m.ListActiveIndexBlobs(ctx)
+
+	return blobs, err
 }
 
 // ListActiveIndexBlobs lists the metadata for active index blobs and returns the cut-off time
