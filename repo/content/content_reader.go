@@ -20,4 +20,5 @@ type Reader interface {
 	IteratePacks(ctx context.Context, opts IteratePackOptions, callback IteratePacksCallback) error
 	ListActiveSessions(ctx context.Context) (map[SessionID]*SessionInfo, error)
 	EpochManager(ctx context.Context) (*epoch.Manager, bool, error)
+	VerifyContents(ctx context.Context, o VerifyOptions) error
 }
