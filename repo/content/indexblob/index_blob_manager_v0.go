@@ -65,7 +65,7 @@ type ManagerV0 struct {
 	log               logging.Logger
 }
 
-// ListIndexBlobInfos list active blob info structs.
+// ListIndexBlobInfos lists active blob info structs.
 func (m *ManagerV0) ListIndexBlobInfos(ctx context.Context) ([]Metadata, error) {
 	activeIndexBlobs, _, err := m.ListActiveIndexBlobs(ctx)
 	if err != nil {

@@ -28,7 +28,7 @@ type ManagerV1 struct {
 	epochMgr *epoch.Manager
 }
 
-// ListIndexBlobInfos list active blob info structs.
+// ListIndexBlobInfos lists active blob info structs.
 func (m *ManagerV1) ListIndexBlobInfos(ctx context.Context) ([]Metadata, error) {
 	blobs, _, err := m.ListActiveIndexBlobs(ctx)
 
