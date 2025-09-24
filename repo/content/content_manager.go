@@ -696,9 +696,8 @@ func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error
 // When onlyRewriteDelete is true, the content is only rewritten if the existing
 // content is marked as deleted. The new content is NOT marked deleted.
 //
-//	When onlyRewriteDelete is false, the content is unconditionally rewritten
-//
-// and the content's deleted status is preserved.
+// When onlyRewriteDelete is false, the content is unconditionally rewritten and
+// the content's deleted status is preserved.
 func (bm *WriteManager) rewriteContent(ctx context.Context, contentID ID, onlyRewriteDeleted bool, mp format.MutableParameters) error {
 	var data gather.WriteBuffer
 	defer data.Close()
