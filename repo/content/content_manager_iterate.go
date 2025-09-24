@@ -204,10 +204,9 @@ func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOpt
 
 			pi := packUsage[ci.PackBlobID]
 			if pi == nil {
-				pi = &PackInfo{}
+				pi = &PackInfo{PackID: ci.PackBlobID}
 				packUsage[ci.PackBlobID] = pi
 			}
-			pi.PackID = ci.PackBlobID
 			pi.ContentCount++
 			pi.TotalSize += int64(ci.PackedLength)
 			if options.IncludeContentInfos {
