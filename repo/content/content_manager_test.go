@@ -1027,11 +1027,17 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	defer bm.CloseShared(ctx)
 
 	numWorkers := 8
-	closeWorkers := make(chan bool)
 
 	// workerLock allows workers to append to their own list of IDs (when R-locked) in parallel.
 	// W-lock allows flusher to capture the state without any worker being able to modify it.
 	workerWritten := make([][]ID, numWorkers)
+
+	var stopWorker atomic.Bool
+
+	// ensure the worker routines are stopped even if the test fails early
+	t.Cleanup(func() {
+		stopWorker.Store(true)
+	})
 
 	// start numWorkers, each writing random block and recording it
 	for workerID := range numWorkers {
@@ -1040,17 +1046,12 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 		go func() {
 			defer workersWG.Done()
 
-			for {
-				select {
-				case <-closeWorkers:
-					return
-				case <-time.After(1 * time.Nanosecond):
-					id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100))
+			for !stopWorker.Load() {
+				id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100))
 
-					workerLock.RLock()
-					workerWritten[workerID] = append(workerWritten[workerID], id)
-					workerLock.RUnlock()
-				}
+				workerLock.RLock()
+				workerWritten[workerID] = append(workerWritten[workerID], id)
+				workerLock.RUnlock()
 			}
 		}()
 	}
@@ -1087,7 +1088,7 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	}
 
 	// shut down workers and wait for them
-	close(closeWorkers)
+	stopWorker.Store(true)
 	workersWG.Wait()
 
 	// flush and check once more
