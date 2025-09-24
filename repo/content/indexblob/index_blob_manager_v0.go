@@ -65,11 +65,11 @@ type ManagerV0 struct {
 	log               logging.Logger
 }
 
-// ListIndexBlobInfos list active blob info structs.  Also returns time of latest content deletion commit.
-func (m *ManagerV0) ListIndexBlobInfos(ctx context.Context) ([]Metadata, time.Time, error) {
-	activeIndexBlobs, t0, err := m.ListActiveIndexBlobs(ctx)
+// ListIndexBlobInfos lists active blob info structs.
+func (m *ManagerV0) ListIndexBlobInfos(ctx context.Context) ([]Metadata, error) {
+	activeIndexBlobs, _, err := m.ListActiveIndexBlobs(ctx)
 	if err != nil {
-		return nil, time.Time{}, err
+		return nil, err
 	}
 
 	q := make([]Metadata, 0, len(activeIndexBlobs))
@@ -83,7 +83,7 @@ func (m *ManagerV0) ListIndexBlobInfos(ctx context.Context) ([]Metadata, time.Ti
 		q = append(q, activeIndexBlob)
 	}
 
-	return q, t0, nil
+	return q, nil
 }
 
 // ListActiveIndexBlobs lists the metadata for active index blobs and returns the cut-off time
@@ -496,7 +496,7 @@ func (m *ManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs []Metadata
 	for i, indexBlob := range indexBlobs {
 		m.log.Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
 
-		if err := addIndexBlobsToBuilder(ctx, m.enc, bld, indexBlob.BlobID); err != nil {
+		if err := addIndexBlobsToBuilder(ctx, m.enc, bld.Add, indexBlob.BlobID); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 
@@ -550,7 +550,7 @@ func (m *ManagerV0) dropContentsFromBuilder(bld index.Builder, opt CompactOption
 	}
 }
 
-func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, bld index.BuilderCreator, indexBlobID blob.ID) error {
+func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, addEntry func(index.Info), indexBlobID blob.ID) error {
 	var data gather.WriteBuffer
 	defer data.Close()
 
@@ -565,7 +565,7 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, bld ind
 	}
 
 	_ = ndx.Iterate(index.AllIDs, func(i index.Info) error {
-		bld.Add(i)
+		addEntry(i)
 		return nil
 	})
 

@@ -28,9 +28,11 @@ type ManagerV1 struct {
 	epochMgr *epoch.Manager
 }
 
-// ListIndexBlobInfos list active blob info structs.  Also returns time of latest content deletion commit.
-func (m *ManagerV1) ListIndexBlobInfos(ctx context.Context) ([]Metadata, time.Time, error) {
-	return m.ListActiveIndexBlobs(ctx)
+// ListIndexBlobInfos lists active blob info structs.
+func (m *ManagerV1) ListIndexBlobInfos(ctx context.Context) ([]Metadata, error) {
+	blobs, _, err := m.ListActiveIndexBlobs(ctx)
+
+	return blobs, err
 }
 
 // ListActiveIndexBlobs lists the metadata for active index blobs and returns the cut-off time
@@ -71,7 +73,7 @@ func (m *ManagerV1) CompactEpoch(ctx context.Context, blobIDs []blob.ID, outputP
 	tmpbld := index.NewOneUseBuilder()
 
 	for _, indexBlob := range blobIDs {
-		if err := addIndexBlobsToBuilder(ctx, m.enc, tmpbld, indexBlob); err != nil {
+		if err := addIndexBlobsToBuilder(ctx, m.enc, tmpbld.Add, indexBlob); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 	}
