@@ -15,7 +15,7 @@ import (
 
 // Checks the consistency of the mapping from content index entries to packs,
 // to verify that all the referenced packs are present in storage.
-func checkContentIndexToPacks(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+func checkContentIndexToPacks(ctx context.Context, r content.Reader) error {
 	const verifyContentsDefaultParallelism = 5
 
 	opts := content.VerifyOptions{
@@ -25,7 +25,7 @@ func checkContentIndexToPacks(ctx context.Context, rep repo.DirectRepositoryWrit
 		ContentIterateParallelism: verifyContentsDefaultParallelism,
 	}
 
-	if err := rep.ContentReader().VerifyContents(ctx, opts); err != nil {
+	if err := r.VerifyContents(ctx, opts); err != nil {
 		return errors.Wrap(err, "maintenance verify contents")
 	}
 
@@ -60,7 +60,7 @@ func reportRunAndMaybeCheckContentIndex(ctx context.Context, rep repo.DirectRepo
 	}
 
 	return ReportRun(ctx, rep, taskType, s, func() error {
-		if err := checkContentIndexToPacks(ctx, rep); err != nil {
+		if err := checkContentIndexToPacks(ctx, rep.ContentReader()); err != nil {
 			return err
 		}
 
@@ -68,6 +68,6 @@ func reportRunAndMaybeCheckContentIndex(ctx context.Context, rep repo.DirectRepo
 			return err
 		}
 
-		return checkContentIndexToPacks(ctx, rep)
+		return checkContentIndexToPacks(ctx, rep.ContentReader())
 	})
 }
