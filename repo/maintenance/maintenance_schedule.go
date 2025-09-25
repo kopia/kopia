@@ -28,7 +28,7 @@ var (
 )
 
 // maxRetainedRunInfoPerRunType the maximum number of retained RunInfo entries per run type.
-const maxRetainedRunInfoPerRunType = 5
+const maxRetainedRunInfoPerRunType = 50
 
 // RunInfo represents information about a single run of a maintenance task.
 type RunInfo struct {
