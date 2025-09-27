@@ -6,6 +6,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobcrypto"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
@@ -18,7 +20,7 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 	sm.indexesLock.Lock()
 	defer sm.indexesLock.Unlock()
 
-	sm.log.Debug("Refresh started")
+	timer := timetrack.StartTimer()
 
 	ibm, err := sm.indexBlobManager(ctx)
 	if err != nil {
@@ -27,10 +29,11 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 
 	ibm.Invalidate()
 
-	timer := timetrack.StartTimer()
-
 	err = sm.loadPackIndexesLocked(ctx)
-	sm.log.Debugf("Refresh completed in %v", timer.Elapsed())
+
+	contentlog.Log2(ctx, sm.log, "refreshIndexes",
+		logparam.Duration("latency", timer.Elapsed()),
+		logparam.Error("error", err))
 
 	return err
 }
@@ -42,7 +45,11 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.Compa
 	sm.indexesLock.Lock()
 	defer sm.indexesLock.Unlock()
 
-	sm.log.Debugf("CompactIndexes(%+v)", opt)
+	contentlog.Log4(ctx, sm.log, "CompactIndexes",
+		logparam.Bool("allIndexes", opt.AllIndexes),
+		logparam.Int64("maxSmallBlobs", int64(opt.MaxSmallBlobs)),
+		logparam.Time("dropDeletedBefore", opt.DropDeletedBefore),
+		logparam.Bool("disableEventualConsistencySafety", opt.DisableEventualConsistencySafety))
 
 	ibm, err := sm.indexBlobManager(ctx)
 	if err != nil {

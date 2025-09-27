@@ -6,10 +6,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobcrypto"
+	"github.com/kopia/kopia/internal/blobparam"
 	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 // Metadata is an information about a single index blob managed by Manager.
@@ -18,12 +21,68 @@ type Metadata struct {
 	Superseded []blob.Metadata
 }
 
+// WriteValueTo writes the metadata to a JSON writer.
+func (m Metadata) WriteValueTo(jw *contentlog.JSONWriter) {
+	blobparam.BlobMetadata("metadata", m.Metadata).WriteValueTo(jw)
+	jw.BeginListField("superseded")
+
+	for _, bm := range m.Superseded {
+		jw.BeginObject()
+		jw.StringField("blobID", string(bm.BlobID))
+		jw.Int64Field("l", bm.Length)
+		jw.TimeField("ts", bm.Timestamp)
+		jw.EndObject()
+	}
+}
+
+type metadataParam struct {
+	key string
+	val Metadata
+}
+
+func (v metadataParam) WriteValueTo(jw *contentlog.JSONWriter) {
+	jw.BeginObjectField(v.key)
+	v.val.WriteValueTo(jw)
+	jw.EndObject()
+}
+
+// MetadataParam creates a parameter for a metadata.
+//
+//nolint:revive
+func MetadataParam(name string, bm Metadata) metadataParam {
+	return metadataParam{key: name, val: bm}
+}
+
+type metadataListParam struct {
+	key  string
+	list []Metadata
+}
+
+func (v metadataListParam) WriteValueTo(jw *contentlog.JSONWriter) {
+	jw.BeginListField(v.key)
+
+	for _, bm := range v.list {
+		jw.BeginObject()
+		bm.WriteValueTo(jw)
+		jw.EndObject()
+	}
+
+	jw.EndList()
+}
+
+// MetadataListParam creates a parameter for a list of metadata.
+//
+//nolint:revive
+func MetadataListParam(name string, list []Metadata) metadataListParam {
+	return metadataListParam{key: name, list: list}
+}
+
 // EncryptionManager manages encryption and caching of index blobs.
 type EncryptionManager struct {
 	st             blob.Storage
 	crypter        blobcrypto.Crypter
 	indexBlobCache *cache.PersistentCache
-	log            logging.Logger
+	log            *contentlog.Logger
 }
 
 // GetEncryptedBlob fetches and decrypts the contents of a given encrypted blob
@@ -52,15 +111,18 @@ func (m *EncryptionManager) EncryptAndWriteBlob(ctx context.Context, data gather
 		return blob.Metadata{}, errors.Wrap(err, "error encrypting")
 	}
 
+	t0 := timetrack.StartTimer()
+
 	bm, err := blob.PutBlobAndGetMetadata(ctx, m.st, blobID, data2.Bytes(), blob.PutOptions{})
-	if err != nil {
-		m.log.Debugf("write-index-blob %v failed %v", blobID, err)
-		return blob.Metadata{}, errors.Wrapf(err, "error writing blob %v", blobID)
-	}
 
-	m.log.Debugf("write-index-blob %v %v %v", blobID, bm.Length, bm.Timestamp)
+	contentlog.Log5(ctx, m.log, "write-index-blob",
+		blobparam.BlobID("indexBlobID", blobID),
+		logparam.Int("len", data2.Length()),
+		logparam.Time("timestamp", bm.Timestamp),
+		logparam.Duration("latency", t0.Elapsed()),
+		logparam.Error("error", err))
 
-	return bm, nil
+	return bm, errors.Wrapf(err, "error writing blob %v", blobID)
 }
 
 // NewEncryptionManager creates new encryption manager.
@@ -68,7 +130,7 @@ func NewEncryptionManager(
 	st blob.Storage,
 	crypter blobcrypto.Crypter,
 	indexBlobCache *cache.PersistentCache,
-	log logging.Logger,
+	log *contentlog.Logger,
 ) *EncryptionManager {
 	return &EncryptionManager{st, crypter, indexBlobCache, log}
 }

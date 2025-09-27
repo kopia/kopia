@@ -8,6 +8,9 @@ import (
 
 	"go.opentelemetry.io/otel"
 
+	"github.com/kopia/kopia/internal/blobparam"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -22,15 +25,19 @@ type loggingStorage struct {
 	base   blob.Storage
 	prefix string
 	logger logging.Logger
+	clog   *contentlog.Logger
 }
 
-func (s *loggingStorage) beginConcurrency() {
+func (s *loggingStorage) beginConcurrency(ctx context.Context) {
 	v := s.concurrency.Add(1)
 
 	if mv := s.maxConcurrency.Load(); v > mv {
 		if s.maxConcurrency.CompareAndSwap(mv, v) && v > 0 {
 			s.logger.Debugw(s.prefix+"concurrency level reached",
 				"maxConcurrency", v)
+
+			contentlog.Log1(ctx, s.clog, "concurrency level reached",
+				logparam.Int32("maxConcurrency", v))
 		}
 	}
 }
@@ -43,7 +50,7 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 	ctx, span := tracer.Start(ctx, "GetBlob")
 	defer span.End()
 
-	s.beginConcurrency()
+	s.beginConcurrency(ctx)
 	defer s.endConcurrency()
 
 	timer := timetrack.StartTimer()
@@ -58,6 +65,15 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 		"error", s.translateError(err),
 		"duration", dt,
 	)
+
+	contentlog.Log6(ctx, s.clog,
+		"GetBlob",
+		blobparam.BlobID("blobID", id),
+		logparam.Int64("offset", offset),
+		logparam.Int64("length", length),
+		logparam.Int("outputLength", output.Length()),
+		logparam.Error("error", err),
+		logparam.Duration("duration", dt))
 
 	//nolint:wrapcheck
 	return err
@@ -78,6 +94,13 @@ func (s *loggingStorage) GetCapacity(ctx context.Context) (blob.Capacity, error)
 		"duration", dt,
 	)
 
+	contentlog.Log4(ctx, s.clog,
+		"GetCapacity",
+		logparam.UInt64("sizeBytes", c.SizeB),
+		logparam.UInt64("freeBytes", c.FreeB),
+		logparam.Error("error", err),
+		logparam.Duration("duration", dt))
+
 	//nolint:wrapcheck
 	return c, err
 }
@@ -90,7 +113,7 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 	ctx, span := tracer.Start(ctx, "GetMetadata")
 	defer span.End()
 
-	s.beginConcurrency()
+	s.beginConcurrency(ctx)
 	defer s.endConcurrency()
 
 	timer := timetrack.StartTimer()
@@ -104,6 +127,13 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 		"duration", dt,
 	)
 
+	contentlog.Log4(ctx, s.clog,
+		"GetMetadata",
+		blobparam.BlobID("blobID", id),
+		blobparam.BlobMetadata("result", result),
+		logparam.Error("error", err),
+		logparam.Duration("duration", dt))
+
 	//nolint:wrapcheck
 	return result, err
 }
@@ -112,7 +142,7 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Byte
 	ctx, span := tracer.Start(ctx, "PutBlob")
 	defer span.End()
 
-	s.beginConcurrency()
+	s.beginConcurrency(ctx)
 	defer s.endConcurrency()
 
 	timer := timetrack.StartTimer()
@@ -126,6 +156,13 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Byte
 		"duration", dt,
 	)
 
+	contentlog.Log4(ctx, s.clog,
+		"PutBlob",
+		blobparam.BlobID("blobID", id),
+		logparam.Int("length", data.Length()),
+		logparam.Error("error", err),
+		logparam.Duration("duration", dt))
+
 	//nolint:wrapcheck
 	return err
 }
@@ -134,7 +171,7 @@ func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	ctx, span := tracer.Start(ctx, "DeleteBlob")
 	defer span.End()
 
-	s.beginConcurrency()
+	s.beginConcurrency(ctx)
 	defer s.endConcurrency()
 
 	timer := timetrack.StartTimer()
@@ -146,6 +183,13 @@ func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 		"error", s.translateError(err),
 		"duration", dt,
 	)
+
+	contentlog.Log3(ctx, s.clog,
+		"DeleteBlob",
+		blobparam.BlobID("blobID", id),
+		logparam.Error("error", err),
+		logparam.Duration("duration", dt))
+
 	//nolint:wrapcheck
 	return err
 }
@@ -154,7 +198,7 @@ func (s *loggingStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback
 	ctx, span := tracer.Start(ctx, "ListBlobs")
 	defer span.End()
 
-	s.beginConcurrency()
+	s.beginConcurrency(ctx)
 	defer s.endConcurrency()
 
 	timer := timetrack.StartTimer()
@@ -172,6 +216,13 @@ func (s *loggingStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback
 		"duration", dt,
 	)
 
+	contentlog.Log4(ctx, s.clog,
+		"ListBlobs",
+		blobparam.BlobID("prefix", prefix),
+		logparam.Int("resultCount", cnt),
+		logparam.Error("error", err),
+		logparam.Duration("duration", dt))
+
 	//nolint:wrapcheck
 	return err
 }
@@ -188,6 +239,11 @@ func (s *loggingStorage) Close(ctx context.Context) error {
 		"error", s.translateError(err),
 		"duration", dt,
 	)
+
+	contentlog.Log2(ctx, s.clog,
+		"Close",
+		logparam.Error("error", err),
+		logparam.Duration("duration", dt))
 
 	//nolint:wrapcheck
 	return err
@@ -211,6 +267,11 @@ func (s *loggingStorage) FlushCaches(ctx context.Context) error {
 		"duration", dt,
 	)
 
+	contentlog.Log2(ctx, s.clog,
+		"FlushCaches",
+		logparam.Error("error", err),
+		logparam.Duration("duration", dt))
+
 	//nolint:wrapcheck
 	return err
 }
@@ -219,7 +280,7 @@ func (s *loggingStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opt
 	ctx, span := tracer.Start(ctx, "ExtendBlobRetention")
 	defer span.End()
 
-	s.beginConcurrency()
+	s.beginConcurrency(ctx)
 	defer s.endConcurrency()
 
 	timer := timetrack.StartTimer()
@@ -231,6 +292,13 @@ func (s *loggingStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opt
 		"error", err,
 		"duration", dt,
 	)
+
+	contentlog.Log3(ctx, s.clog,
+		"ExtendBlobRetention",
+		blobparam.BlobID("blobID", b),
+		logparam.Error("error", err),
+		logparam.Duration("duration", dt))
+
 	//nolint:wrapcheck
 	return err
 }
@@ -248,6 +316,6 @@ func (s *loggingStorage) translateError(err error) any {
 }
 
 // NewWrapper returns a Storage wrapper that logs all storage commands.
-func NewWrapper(wrapped blob.Storage, logger logging.Logger, prefix string) blob.Storage {
-	return &loggingStorage{base: wrapped, logger: logger, prefix: prefix}
+func NewWrapper(wrapped blob.Storage, logger logging.Logger, clog *contentlog.Logger, prefix string) blob.Storage {
+	return &loggingStorage{base: wrapped, logger: logger, clog: clog, prefix: prefix}
 }

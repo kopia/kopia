@@ -90,7 +90,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 	ft := faketime.NewClockTimeWithOffset(0)
 	ms := blobtesting.NewMapStorage(data, nil, ft.NowFunc())
 	fs := blobtesting.NewFaultyStorage(ms)
-	st := logging.NewWrapper(fs, testlogging.NewTestLogger(t), "[STORAGE] ")
+	st := logging.NewWrapper(fs, testlogging.NewTestLogger(t), nil, "[STORAGE] ")
 	te := &epochManagerTestEnv{unloggedst: ms, st: st, ft: ft}
 	m := NewManager(te.st, parameterProvider{&Parameters{
 		Enabled:                 true,
@@ -102,7 +102,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 		EpochAdvanceOnCountThreshold:          15,
 		EpochAdvanceOnTotalSizeBytesThreshold: 20 << 20,
 		DeleteParallelism:                     1,
-	}}, te.compact, testlogging.NewTestLogger(t), te.ft.NowFunc())
+	}}, te.compact, nil, te.ft.NowFunc())
 	te.mgr = m
 	te.faultyStorage = fs
 	te.data = data
@@ -379,7 +379,7 @@ func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 	te2 := &epochManagerTestEnv{
 		data:          te.data,
 		unloggedst:    st,
-		st:            logging.NewWrapper(fs, testlogging.NewTestLogger(t), "[OTHER STORAGE] "),
+		st:            logging.NewWrapper(fs, testlogging.NewTestLogger(t), nil, "[OTHER STORAGE] "),
 		ft:            te.ft,
 		faultyStorage: fs,
 	}

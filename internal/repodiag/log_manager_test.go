@@ -4,12 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"io"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/internal/testlogging"
 )
@@ -19,14 +21,14 @@ func TestLogManager_Enabled(t *testing.T) {
 	st := blobtesting.NewMapStorage(d, nil, nil)
 	w := repodiag.NewWriter(st, newStaticCrypter(t))
 	ctx := testlogging.Context(t)
-	lm := repodiag.NewLogManager(ctx, w)
+	lm := repodiag.NewLogManager(ctx, w, false, io.Discard)
 
 	lm.Enable()
-	l := lm.NewLogger()
-	l.Info("hello")
+	l := lm.NewLogger("test")
+	contentlog.Log(ctx, l, "hello")
 
 	require.Empty(t, d)
-	l.Sync()
+	lm.Sync()
 	w.Wait(ctx)
 
 	// make sure log messages are written
@@ -43,10 +45,10 @@ func TestLogManager_AutoFlush(t *testing.T) {
 	st := blobtesting.NewMapStorage(d, nil, nil)
 	w := repodiag.NewWriter(st, newStaticCrypter(t))
 	ctx := testlogging.Context(t)
-	lm := repodiag.NewLogManager(ctx, w)
+	lm := repodiag.NewLogManager(ctx, w, false, io.Discard)
 
 	lm.Enable()
-	l := lm.NewLogger()
+	l := lm.NewLogger("test")
 
 	// flush happens after 4 << 20 bytes (4MB) after compression,
 	// write ~10MB of base16 data which compresses to ~5MB and writes 1 blob
@@ -54,14 +56,14 @@ func TestLogManager_AutoFlush(t *testing.T) {
 		var b [1024]byte
 
 		rand.Read(b[:])
-		l.Info(hex.EncodeToString(b[:]))
+		contentlog.Log(ctx, l, hex.EncodeToString(b[:]))
 	}
 
 	w.Wait(ctx)
 
 	require.Len(t, d, 1)
 
-	l.Sync()
+	lm.Sync()
 	w.Wait(ctx)
 
 	require.Len(t, d, 2)
@@ -72,13 +74,13 @@ func TestLogManager_NotEnabled(t *testing.T) {
 	st := blobtesting.NewMapStorage(d, nil, nil)
 	w := repodiag.NewWriter(st, newStaticCrypter(t))
 	ctx := testlogging.Context(t)
-	lm := repodiag.NewLogManager(ctx, w)
+	lm := repodiag.NewLogManager(ctx, w, false, io.Discard)
 
-	l := lm.NewLogger()
-	l.Info("hello")
+	l := lm.NewLogger("test")
+	contentlog.Log(ctx, l, "hello")
 
 	require.Empty(t, d)
-	l.Sync()
+	lm.Sync()
 	w.Wait(ctx)
 
 	// make sure log messages are not written
@@ -91,18 +93,18 @@ func TestLogManager_CancelledContext(t *testing.T) {
 	w := repodiag.NewWriter(st, newStaticCrypter(t))
 	ctx := testlogging.Context(t)
 	cctx, cancel := context.WithCancel(ctx)
-	lm := repodiag.NewLogManager(cctx, w)
+	lm := repodiag.NewLogManager(cctx, w, false, io.Discard)
 
 	// cancel context, logs should still be written
 	cancel()
 
 	lm.Enable()
-	l := lm.NewLogger()
-	l.Info("hello")
+	l := lm.NewLogger("test")
+	contentlog.Log(ctx, l, "hello")
 
 	require.Empty(t, d)
 
-	l.Sync()
+	lm.Sync()
 	w.Wait(ctx)
 
 	// make sure log messages are written
@@ -112,9 +114,11 @@ func TestLogManager_CancelledContext(t *testing.T) {
 func TestLogManager_Null(t *testing.T) {
 	var lm *repodiag.LogManager
 
+	ctx := testlogging.Context(t)
+
 	lm.Enable()
 
-	l := lm.NewLogger()
-	l.Info("hello")
-	l.Sync()
+	l := lm.NewLogger("test")
+	contentlog.Log(ctx, l, "hello")
+	lm.Sync()
 }

@@ -55,7 +55,7 @@ func TestThrottling(t *testing.T) {
 	ctx := testlogging.Context(t)
 	m := &mockThrottler{}
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
-	l := bloblogging.NewWrapper(st, testlogging.Printf(m.Printf, ""), "inner.")
+	l := bloblogging.NewWrapper(st, testlogging.Printf(m.Printf, ""), nil, "inner.")
 	wrapped := throttling.NewWrapper(l, m)
 
 	var tmp gather.WriteBuffer

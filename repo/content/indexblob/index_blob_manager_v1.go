@@ -9,11 +9,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobcrypto"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 // ManagerV1 is the append-only implementation of indexblob.Manager
@@ -23,7 +24,7 @@ type ManagerV1 struct {
 	enc               *EncryptionManager
 	timeNow           func() time.Time
 	formattingOptions IndexFormattingOptions
-	log               logging.Logger
+	log               *contentlog.Logger
 
 	epochMgr *epoch.Manager
 }
@@ -49,7 +50,7 @@ func (m *ManagerV1) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.
 		result = append(result, Metadata{Metadata: bm})
 	}
 
-	m.log.Debugf("total active indexes %v, deletion watermark %v", len(active), deletionWatermark)
+	contentlog.Log2(ctx, m.log, "total active indexes", logparam.Int("len", len(active)), logparam.Time("deletionWatermark", deletionWatermark))
 
 	return result, deletionWatermark, nil
 }
@@ -175,7 +176,7 @@ func NewManagerV1(
 	epochMgr *epoch.Manager,
 	timeNow func() time.Time,
 	formattingOptions IndexFormattingOptions,
-	log logging.Logger,
+	log *contentlog.Logger,
 ) *ManagerV1 {
 	return &ManagerV1{
 		st:                st,
