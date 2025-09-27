@@ -40,6 +40,10 @@ type grpcServerState struct {
 	grpcapi.UnimplementedKopiaRepositoryServer
 
 	sem *semaphore.Weighted
+
+	// GRPC server instance for graceful shutdown
+	grpcServer *grpc.Server
+	grpcMutex  sync.RWMutex
 }
 
 // send sends the provided session response with the provided request ID.
@@ -632,18 +636,36 @@ func makeGRPCServerState(maxConcurrency int) grpcServerState {
 // GRPCRouterHandler returns HTTP handler that supports GRPC services and
 // routes non-GRPC calls to the provided handler.
 func (s *Server) GRPCRouterHandler(handler http.Handler) http.Handler {
-	grpcServer := grpc.NewServer(
-		grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
-		grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
-	)
+	s.grpcMutex.Lock()
+	defer s.grpcMutex.Unlock()
 
-	s.RegisterGRPCHandlers(grpcServer)
+	if s.grpcServer == nil {
+		s.grpcServer = grpc.NewServer(
+			grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
+			grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
+		)
+
+		s.RegisterGRPCHandlers(s.grpcServer)
+	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
-			grpcServer.ServeHTTP(w, r)
+			s.grpcServer.ServeHTTP(w, r)
 		} else {
 			handler.ServeHTTP(w, r)
 		}
 	})
+}
+
+// ShutdownGRPCServer shuts down the GRPC server.
+// Note: Since the GRPC server runs over HTTP handler transport,
+// GracefulStop() doesn't work. We use Stop() instead.
+func (s *Server) ShutdownGRPCServer() {
+	s.grpcMutex.Lock()
+	defer s.grpcMutex.Unlock()
+
+	if s.grpcServer != nil {
+		s.grpcServer.Stop()
+		s.grpcServer = nil
+	}
 }

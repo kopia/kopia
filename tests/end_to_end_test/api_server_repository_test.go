@@ -255,9 +255,7 @@ func testAPIServerRepository(t *testing.T, allowRepositoryUsers bool) {
 	wait2()
 
 	// wait for the logs to be uploaded
-	require.EventuallyWithT(t, func(t2 *assert.CollectT) {
-		verifyServerJSONLogs(t2, e.RunAndExpectSuccess(t, "logs", "show", "--younger-than=2h"))
-	}, 10*time.Second, 100*time.Millisecond)
+	verifyServerJSONLogs(t, e.RunAndExpectSuccess(t, "logs", "show", "--younger-than=2h"))
 
 	// open repository client to a dead server, this should fail quickly instead of retrying forever.
 	timer := timetrack.StartTimer()
