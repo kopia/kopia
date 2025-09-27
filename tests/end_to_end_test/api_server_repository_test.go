@@ -291,9 +291,9 @@ func verifyServerJSONLogs(t require.TestingT, s []string) {
 	}
 
 	// there should be 2 client session (initial setup + server),
-	// 3 remote sessions (GRPC clients)
+	// at least 3 remote sessions (GRPC clients) - may be more due to transparent retries
 	assert.Len(t, clientSpans, 2)
-	assert.Len(t, remoteSessionSpans, 3)
+	assert.GreaterOrEqual(t, len(remoteSessionSpans), 3)
 }
 
 func verifyFindManifestCount(ctx context.Context, t *testing.T, rep repo.Repository, pageSize int32, labels map[string]string, wantCount int) {
