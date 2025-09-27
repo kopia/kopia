@@ -85,7 +85,7 @@ func handleSourcesCreate(ctx context.Context, rc requestContext) (any, *apiError
 	if req.CreateSnapshot {
 		resp.SnapshotStarted = true
 
-		log(ctx).Debugf("scheduling snapshot of %v immediately...", sourceInfo)
+		userLog(ctx).Debugf("scheduling snapshot of %v immediately...", sourceInfo)
 		manager.scheduleSnapshotNow()
 	}
 

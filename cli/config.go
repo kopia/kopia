@@ -64,10 +64,11 @@ func (c *App) openRepository(ctx context.Context, required bool) (repo.Repositor
 
 func (c *App) optionsFromFlags(ctx context.Context) *repo.Options {
 	return &repo.Options{
-		TraceStorage:        c.traceStorage,
-		DisableInternalLog:  c.disableInternalLog,
-		UpgradeOwnerID:      c.upgradeOwnerID,
-		DoNotWaitForUpgrade: c.doNotWaitForUpgrade,
+		TraceStorage:         c.traceStorage,
+		DisableRepositoryLog: c.disableRepositoryLog,
+		UpgradeOwnerID:       c.upgradeOwnerID,
+		DoNotWaitForUpgrade:  c.doNotWaitForUpgrade,
+		ContentLogWriter:     c.contentLogWriter,
 
 		// when a fatal error is encountered in the repository, run all registered callbacks
 		// and exit the program.

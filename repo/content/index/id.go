@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/hashing"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 // IDPrefix represents a content ID prefix (empty string or single character between 'g' and 'z').
@@ -98,16 +97,25 @@ func (i ID) less(other ID) bool {
 	return bytes.Compare(i.data[:i.idLen], other.data[:other.idLen]) < 0
 }
 
-// AppendToLogBuffer appends content ID to log buffer.
-func (i ID) AppendToLogBuffer(sb *logging.Buffer) {
-	var buf [128]byte
-
+// AppendToJSON appends content ID to JSON buffer.
+func (i ID) AppendToJSON(buf []byte, maxLength uint8) []byte {
+	buf = append(buf, '"')
 	if i.prefix != 0 {
-		sb.AppendByte(i.prefix)
+		buf = append(buf, i.prefix)
 	}
 
-	hex.Encode(buf[0:i.idLen*2], i.data[0:i.idLen])
-	sb.AppendBytes(buf[0 : i.idLen*2])
+	if maxLength > i.idLen {
+		maxLength = i.idLen
+	}
+
+	var tmp [128]byte
+
+	hex.Encode(tmp[0:maxLength*2], i.data[0:maxLength])
+
+	buf = append(buf, tmp[0:maxLength*2]...)
+	buf = append(buf, '"')
+
+	return buf
 }
 
 // Append appends content ID to the slice.

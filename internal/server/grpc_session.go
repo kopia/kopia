@@ -19,6 +19,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/notification"
@@ -86,6 +88,9 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return status.Errorf(codes.Unavailable, "not connected to a direct repository")
 	}
 
+	log := dr.LogManager().NewLogger("grpc-session")
+	ctx = contentlog.WithParams(ctx, logparam.String("span:server-session", contentlog.RandomSpanID()))
+
 	usernameAtHostname, err := s.authenticateGRPCSession(ctx, dr)
 	if err != nil {
 		return err
@@ -101,12 +106,12 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return status.Errorf(codes.PermissionDenied, "peer not found in context")
 	}
 
-	log(ctx).Infof("starting session for user %q from %v", usernameAtHostname, p.Addr)
-	defer log(ctx).Infof("session ended for user %q from %v", usernameAtHostname, p.Addr)
+	userLog(ctx).Infof("starting session for user %q from %v", usernameAtHostname, p.Addr)
+	defer userLog(ctx).Infof("session ended for user %q from %v", usernameAtHostname, p.Addr)
 
 	opt, err := s.handleInitialSessionHandshake(srv, dr)
 	if err != nil {
-		log(ctx).Errorf("session handshake error: %v", err)
+		userLog(ctx).Errorf("session handshake error: %v", err)
 		return err
 	}
 
@@ -119,7 +124,12 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 			// propagate any error from the goroutines
 			select {
 			case err := <-lastErr:
-				log(ctx).Errorf("error handling session request: %v", err)
+				userLog(ctx).Errorf("error handling session request: %v", err)
+
+				contentlog.Log1(ctx, log,
+					"error handling session request",
+					logparam.Error("error", err))
+
 				return err
 
 			default:

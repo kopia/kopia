@@ -12,6 +12,10 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/kopia/kopia/internal/blobparam"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/contentparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
@@ -19,7 +23,6 @@ import (
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 const indexBlobCompactionWarningThreshold = 1000
@@ -120,30 +123,25 @@ func (sm *SharedManager) getContentDataReadLocked(ctx context.Context, pp *pendi
 	return sm.decryptContentAndVerify(payload.Bytes(), bi, output)
 }
 
-func (sm *SharedManager) preparePackDataContent(mp format.MutableParameters, pp *pendingPackInfo) (index.Builder, error) {
+func (sm *SharedManager) preparePackDataContent(ctx context.Context, mp format.MutableParameters, pp *pendingPackInfo) (index.Builder, error) {
 	packFileIndex := index.Builder{}
 	haveContent := false
-
-	sb := logging.GetBuffer()
-	defer sb.Release()
 
 	for _, info := range pp.currentPackItems {
 		if info.PackBlobID == pp.packBlobID {
 			haveContent = true
-		}
 
-		sb.Reset()
-		sb.AppendString("add-to-pack ")
-		sb.AppendString(string(pp.packBlobID))
-		sb.AppendString(" ")
-		info.ContentID.AppendToLogBuffer(sb)
-		sb.AppendString(" p:")
-		sb.AppendString(string(info.PackBlobID))
-		sb.AppendString(" ")
-		sb.AppendUint32(info.PackedLength)
-		sb.AppendString(" d:")
-		sb.AppendBoolean(info.Deleted)
-		sm.log.Debug(sb.String())
+			contentlog.Log3(ctx, sm.log, "add-to-pack",
+				contentparam.ContentID("cid", info.ContentID),
+				logparam.UInt32("len", info.PackedLength),
+				logparam.Bool("del", info.Deleted))
+		} else {
+			contentlog.Log4(ctx, sm.log, "move-to-pack",
+				contentparam.ContentID("cid", info.ContentID),
+				blobparam.BlobID("sourcePack", info.PackBlobID),
+				logparam.UInt32("len", info.PackedLength),
+				logparam.Bool("del", info.Deleted))
+		}
 
 		packFileIndex.Add(info)
 	}

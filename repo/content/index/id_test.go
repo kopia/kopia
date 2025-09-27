@@ -6,8 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
-	"github.com/kopia/kopia/repo/logging"
 )
 
 func TestIDValid(t *testing.T) {
@@ -26,18 +24,26 @@ func TestIDValid(t *testing.T) {
 
 	var validContentIDsOrdered []ID
 
-	sb := logging.GetBuffer()
-	defer sb.Release()
-
 	for _, s := range validIDsOrdered {
 		cid, err := ParseID(s)
 		require.NoError(t, err)
 
 		require.Equal(t, s, cid.String())
 
-		sb.Reset()
-		cid.AppendToLogBuffer(sb)
-		require.Equal(t, s, sb.String())
+		jb := cid.AppendToJSON(nil, 10)
+		require.Equal(t, "\""+s+"\"", string(jb))
+
+		if s != "" {
+			// limit to 3 bytes
+			jb2 := cid.AppendToJSON(nil, 3)
+			if len(s)%2 == 0 {
+				// no prefix - 6 chars
+				require.Equal(t, "\""+s[:6]+"\"", string(jb2))
+			} else {
+				// with prefix - 7 chars
+				require.Equal(t, "\""+s[:7]+"\"", string(jb2))
+			}
+		}
 
 		validContentIDsOrdered = append(validContentIDsOrdered, cid)
 	}

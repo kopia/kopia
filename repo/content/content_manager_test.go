@@ -1985,7 +1985,7 @@ func (s *contentManagerSuite) TestReadsOwnWritesWithEventualConsistencyPersisten
 	cacheKeyTime := map[blob.ID]time.Time{}
 	cacheSt := blobtesting.NewMapStorage(cacheData, cacheKeyTime, timeNow)
 	ecst := blobtesting.NewEventuallyConsistentStorage(
-		logging.NewWrapper(st, testlogging.NewTestLogger(t), "[STORAGE] "),
+		logging.NewWrapper(st, testlogging.NewTestLogger(t), nil, "[STORAGE] "),
 		3*time.Second,
 		timeNow)
 

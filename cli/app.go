@@ -135,7 +135,7 @@ type App struct {
 	traceStorage                  bool
 	keyRingEnabled                bool
 	persistCredentials            bool
-	disableInternalLog            bool
+	disableRepositoryLog          bool
 	dumpAllocatorStats            bool
 	DangerousCommands             string
 	cliStorageProviders           []StorageProvider
@@ -175,15 +175,16 @@ type App struct {
 	// testability hooks
 	testonlyIgnoreMissingRequiredFeatures bool
 
-	isInProcessTest bool
-	exitWithError   func(err error) // os.Exit() with 1 or 0 based on err
-	stdinReader     io.Reader
-	stdoutWriter    io.Writer
-	stderrWriter    io.Writer
-	rootctx         context.Context //nolint:containedctx
-	loggerFactory   logging.LoggerFactory
-	simulatedCtrlC  chan bool
-	envNamePrefix   string
+	isInProcessTest  bool
+	exitWithError    func(err error) // os.Exit() with 1 or 0 based on err
+	stdinReader      io.Reader
+	stdoutWriter     io.Writer
+	stderrWriter     io.Writer
+	rootctx          context.Context //nolint:containedctx
+	loggerFactory    logging.LoggerFactory
+	contentLogWriter io.Writer
+	simulatedCtrlC   chan bool
+	envNamePrefix    string
 }
 
 func (c *App) enableTestOnlyFlags() bool {
@@ -217,8 +218,9 @@ func (c *App) Stderr() io.Writer {
 }
 
 // SetLoggerFactory sets the logger factory to be used throughout the app.
-func (c *App) SetLoggerFactory(loggerForModule logging.LoggerFactory) {
+func (c *App) SetLoggerFactory(loggerForModule logging.LoggerFactory, contentLogWriter io.Writer) {
 	c.loggerFactory = loggerForModule
+	c.contentLogWriter = contentLogWriter
 }
 
 // RegisterOnExit registers the provided function to run before app exits.
@@ -276,7 +278,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar(c.EnvName("KOPIA_PASSWORD")).Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar(c.EnvName("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT")).BoolVar(&c.persistCredentials)
-	app.Flag("disable-internal-log", "Disable internal log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_INTERNAL_LOG")).BoolVar(&c.disableInternalLog)
+	app.Flag("disable-repository-log", "Disable repository log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_REPOSITORY_LOG")).BoolVar(&c.disableRepositoryLog)
 	app.Flag("dangerous-commands", "Enable dangerous commands that could result in data loss and repository corruption.").Hidden().Envar(c.EnvName("KOPIA_DANGEROUS_COMMANDS")).StringVar(&c.DangerousCommands)
 	app.Flag("track-releasable", "Enable tracking of releasable resources.").Hidden().Envar(c.EnvName("KOPIA_TRACK_RELEASABLE")).StringsVar(&c.trackReleasable)
 	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(c.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
@@ -451,6 +453,8 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 
 func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
 	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
+		rep.LogManager().Enable()
+
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "cli:" + c.currentActionName(),
 			OnUpload: c.progress.UploadedBytes,

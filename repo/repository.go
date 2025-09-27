@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/internal/metrics"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/compression"
@@ -81,13 +82,13 @@ type DirectRepository interface {
 	ContentReader() content.Reader
 	IndexBlobs(ctx context.Context, includeInactive bool) ([]indexblob.Metadata, error)
 	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error)
-	AlsoLogToContentLog(ctx context.Context) context.Context
 	UniqueID() []byte
 	ConfigFilename() string
 	DeriveKey(purpose []byte, keyLength int) ([]byte, error)
 	Token(password string) (string, error)
 	Throttler() throttling.SettableThrottler
 	DisableIndexRefresh()
+	LogManager() *repodiag.LogManager
 }
 
 // DirectRepositoryWriter provides low-level write access to the repository.
@@ -108,6 +109,7 @@ type immutableDirectRepositoryParameters struct {
 	throttler       throttling.SettableThrottler
 	metricsRegistry *metrics.Registry
 	beforeFlush     []RepositoryWriterCallback
+	logManager      *repodiag.LogManager
 
 	*refCountedCloser
 }
@@ -206,6 +208,11 @@ func (r *directRepository) DisableIndexRefresh() {
 	r.cmgr.DisableIndexRefresh()
 }
 
+// LogManager returns the log manager.
+func (r *directRepository) LogManager() *repodiag.LogManager {
+	return r.logManager
+}
+
 // OpenObject opens the reader for a given object, returns object.ErrNotFound.
 func (r *directRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
 	//nolint:wrapcheck
@@ -273,11 +280,6 @@ func (r *directRepository) ContentInfo(ctx context.Context, contentID content.ID
 // UpdateDescription updates the description of a connected repository.
 func (r *directRepository) UpdateDescription(d string) {
 	r.cliOpts.Description = d
-}
-
-// AlsoLogToContentLog returns a context that causes all logs to also be sent to content log.
-func (r *directRepository) AlsoLogToContentLog(ctx context.Context) context.Context {
-	return r.sm.AlsoLogToContentLog(ctx)
 }
 
 // NewWriter returns new RepositoryWriter session for repository.

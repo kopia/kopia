@@ -20,6 +20,8 @@ func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.M
 		return ErrReadonly
 	}
 
+	dr.LogManager().Enable()
+
 	//nolint:wrapcheck
 	return maintenance.RunExclusive(ctx, dr, mode, force,
 		func(ctx context.Context, runParams maintenance.RunParameters) error {

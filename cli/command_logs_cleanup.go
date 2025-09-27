@@ -29,6 +29,8 @@ func (c *commandLogsCleanup) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandLogsCleanup) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+	rep.LogManager().Disable()
+
 	toDelete, err := maintenance.CleanupLogs(ctx, rep, maintenance.LogRetentionOptions{
 		MaxTotalSize: c.maxTotalSizeMB << 20, //nolint:mnd
 		MaxCount:     c.maxCount,

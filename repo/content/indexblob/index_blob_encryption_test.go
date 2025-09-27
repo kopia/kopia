@@ -14,7 +14,6 @@ import (
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 type failingEncryptor struct {
@@ -43,7 +42,7 @@ func TestEncryptedBlobManager(t *testing.T) {
 		st:             fs,
 		crypter:        blobcrypto.StaticCrypter{Hash: hf, Encryption: enc},
 		indexBlobCache: nil,
-		log:            logging.NullLogger,
+		log:            nil,
 	}
 
 	ctx := testlogging.Context(t)

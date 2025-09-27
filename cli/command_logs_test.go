@@ -91,12 +91,18 @@ func TestLogsMaintenance(t *testing.T) {
 	e.RunAndVerifyOutputLineCount(t, 5, "logs", "list")
 
 	e.RunAndExpectSuccess(t, "maintenance", "run", "--full")
+
+	// maintenance run will create a new log and keep previous 2 logs
 	e.RunAndVerifyOutputLineCount(t, 3, "logs", "list")
 
 	e.RunAndExpectSuccess(t, "maintenance", "set", "--max-retained-log-age=1ms")
+
+	// maintenance does not run here
 	e.RunAndVerifyOutputLineCount(t, 4, "logs", "list")
 
 	e.RunAndExpectSuccess(t, "maintenance", "run", "--full")
+
+	// maintenance run will create a new log and delete all previous logs
 	e.RunAndVerifyOutputLineCount(t, 1, "logs", "list")
 }
 

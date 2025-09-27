@@ -38,7 +38,7 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
-var log = logging.Module("kopia/server")
+var userLog = logging.Module("kopia/server")
 
 const (
 	// retry initialization of repository starting at 1s doubling delay each time up to max 5 minutes
@@ -220,7 +220,7 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 		http.Error(rc.w, "Access denied.\n", http.StatusUnauthorized)
 
 		// Log failed authentication attempt
-		log(rc.req.Context()).Warnf("failed login attempt by client %s for user %s", rc.req.RemoteAddr, username)
+		userLog(rc.req.Context()).Warnf("failed login attempt by client %s for user %s", rc.req.RemoteAddr, username)
 
 		return false
 	}
@@ -229,7 +229,7 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 
 	ac, err := rc.srv.generateShortTermAuthCookie(username, now)
 	if err != nil {
-		log(rc.req.Context()).Errorf("unable to generate short-term auth cookie: %v", err)
+		userLog(rc.req.Context()).Errorf("unable to generate short-term auth cookie: %v", err)
 	} else {
 		http.SetCookie(rc.w, &http.Cookie{
 			Name:    kopiaAuthCookie,
@@ -240,7 +240,7 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 
 		if s.options.LogRequests {
 			// Log successful authentication
-			log(rc.req.Context()).Infof("successful login by client %s for user %s", rc.req.RemoteAddr, username)
+			userLog(rc.req.Context()).Infof("successful login by client %s for user %s", rc.req.RemoteAddr, username)
 		}
 	}
 
@@ -370,7 +370,7 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 		rc.body = body
 
 		if s.options.LogRequests {
-			log(ctx).Debugf("request %v (%v bytes)", rc.req.URL, len(body))
+			userLog(ctx).Debugf("request %v (%v bytes)", rc.req.URL, len(body))
 		}
 
 		rc.w.Header().Set("Content-Type", "application/json")
@@ -397,10 +397,10 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 		if err == nil {
 			if b, ok := v.([]byte); ok {
 				if _, err := rc.w.Write(b); err != nil {
-					log(ctx).Errorf("error writing response: %v", err)
+					userLog(ctx).Errorf("error writing response: %v", err)
 				}
 			} else if err := e.Encode(v); err != nil {
-				log(ctx).Errorf("error encoding response: %v", err)
+				userLog(ctx).Errorf("error encoding response: %v", err)
 			}
 
 			return
@@ -411,7 +411,7 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 		rc.w.WriteHeader(err.httpErrorCode)
 
 		if s.options.LogRequests && err.apiErrorCode == serverapi.ErrorNotConnected {
-			log(ctx).Debugf("%v: error code %v message %v", rc.req.URL, err.apiErrorCode, err.message)
+			userLog(ctx).Debugf("%v: error code %v message %v", rc.req.URL, err.apiErrorCode, err.message)
 		}
 
 		_ = e.Encode(&serverapi.ErrorResponse{
@@ -438,7 +438,7 @@ func (s *Server) Refresh() {
 	ctx := s.rootctx
 
 	if err := s.refreshLocked(ctx); err != nil {
-		log(s.rootctx).Warnw("refresh error", "err", err)
+		userLog(s.rootctx).Warnw("refresh error", "err", err)
 	}
 }
 
@@ -458,13 +458,13 @@ func (s *Server) refreshLocked(ctx context.Context) error {
 
 	if s.authenticator != nil {
 		if err := s.authenticator.Refresh(ctx); err != nil {
-			log(ctx).Errorf("unable to refresh authenticator: %v", err)
+			userLog(ctx).Errorf("unable to refresh authenticator: %v", err)
 		}
 	}
 
 	if s.authorizer != nil {
 		if err := s.authorizer.Refresh(ctx); err != nil {
-			log(ctx).Errorf("unable to refresh authorizer: %v", err)
+			userLog(ctx).Errorf("unable to refresh authorizer: %v", err)
 		}
 	}
 
@@ -498,7 +498,7 @@ func handleFlush(ctx context.Context, rc requestContext) (any, *apiError) {
 }
 
 func handleShutdown(ctx context.Context, rc requestContext) (any, *apiError) {
-	log(ctx).Info("shutting down due to API request")
+	userLog(ctx).Info("shutting down due to API request")
 
 	rc.srv.requestShutdown(ctx)
 
@@ -509,7 +509,7 @@ func (s *Server) requestShutdown(ctx context.Context) {
 	if f := s.OnShutdown; f != nil {
 		go func() {
 			if err := f(ctx); err != nil {
-				log(ctx).Errorf("shutdown failed: %v", err)
+				userLog(ctx).Errorf("shutdown failed: %v", err)
 			}
 		}()
 	}
@@ -528,7 +528,7 @@ func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) bool 
 	defer s.parallelSnapshotsMutex.Unlock()
 
 	for s.currentParallelSnapshots >= s.maxParallelSnapshots && ctx.Err() == nil {
-		log(ctx).Debugf("waiting on for parallel snapshot upload slot to be available %v", src)
+		userLog(ctx).Debugf("waiting on for parallel snapshot upload slot to be available %v", src)
 		s.parallelSnapshotsChanged.Wait()
 	}
 
@@ -547,7 +547,7 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo, mwe *no
 	s.parallelSnapshotsMutex.Lock()
 	defer s.parallelSnapshotsMutex.Unlock()
 
-	log(ctx).Debugf("finished uploading %v", src)
+	userLog(ctx).Debugf("finished uploading %v", src)
 
 	s.currentParallelSnapshots--
 
@@ -617,9 +617,9 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 		s.unmountAllLocked(ctx)
 
 		// close previous source managers
-		log(ctx).Debug("stopping all source managers")
+		userLog(ctx).Debug("stopping all source managers")
 		s.stopAllSourceManagersLocked(ctx)
-		log(ctx).Debug("stopped all source managers")
+		userLog(ctx).Debug("stopped all source managers")
 
 		if err := s.rep.Close(ctx); err != nil {
 			return errors.Wrap(err, "unable to close previous repository")
@@ -919,7 +919,7 @@ func (s *Server) InitRepositoryAsync(ctx context.Context, mode string, initializ
 		}
 
 		if rep == nil {
-			log(ctx).Info("Repository not configured.")
+			userLog(ctx).Info("Repository not configured.")
 		}
 
 		if err = s.SetRepository(ctx, rep); err != nil {
@@ -958,7 +958,7 @@ func RetryInitRepository(initialize InitRepositoryFunc) InitRepositoryFunc {
 				return rep, nil
 			}
 
-			log(ctx).Warnf("unable to open repository: %v, will keep trying until canceled. Sleeping for %v", rerr, nextSleepTime)
+			userLog(ctx).Warnf("unable to open repository: %v, will keep trying until canceled. Sleeping for %v", rerr, nextSleepTime)
 
 			if !clock.SleepInterruptibly(ctx, nextSleepTime) {
 				return nil, ctx.Err()
@@ -1016,7 +1016,7 @@ func (s *Server) getOrCreateSourceManager(ctx context.Context, src snapshot.Sour
 	defer s.serverMutex.Unlock()
 
 	if s.sourceManagers[src] == nil {
-		log(ctx).Debugf("creating source manager for %v", src)
+		userLog(ctx).Debugf("creating source manager for %v", src)
 		sm := newSourceManager(src, s, s.rep)
 		s.sourceManagers[src] = sm
 
@@ -1097,7 +1097,7 @@ func (s *Server) getSchedulerItems(ctx context.Context, now time.Time) []schedul
 				NextTime:    nst,
 			})
 		} else {
-			log(ctx).Debugf("no snapshot scheduled for %v %v %v", sm.src, nst, now)
+			userLog(ctx).Debugf("no snapshot scheduled for %v %v %v", sm.src, nst, now)
 		}
 	}
 

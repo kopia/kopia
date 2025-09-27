@@ -42,7 +42,7 @@ func shouldRunContentIndexVerify(ctx context.Context) bool {
 
 	percentage, err := strconv.ParseFloat(v, 64)
 	if err != nil {
-		log(ctx).Warnf("The '%s' environment variable appears to have a non numeric value: '%q', %s", envName, v, err)
+		userLog(ctx).Warnf("The '%s' environment variable appears to have a non numeric value: '%q', %s", envName, v, err)
 
 		return false
 	}

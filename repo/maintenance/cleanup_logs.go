@@ -8,7 +8,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -43,6 +44,11 @@ func defaultLogRetention() LogRetentionOptions {
 
 // CleanupLogs deletes old logs blobs beyond certain age, total size or count.
 func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRetentionOptions) ([]blob.Metadata, error) {
+	ctx = contentlog.WithParams(ctx,
+		logparam.String("span:cleanup-logs", contentlog.RandomSpanID()))
+
+	log := rep.LogManager().NewLogger("maintenance-cleanup-logs")
+
 	if opt.TimeFunc == nil {
 		opt.TimeFunc = clock.Now
 	}
@@ -82,7 +88,10 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 
 	toDelete := allLogBlobs[deletePosition:]
 
-	log(ctx).Debugf("Keeping %v logs of total size %v", deletePosition, units.BytesString(totalSize))
+	contentlog.Log2(ctx, log,
+		"Keeping logs",
+		logparam.Int("count", deletePosition),
+		logparam.Int64("bytes", totalSize))
 
 	if !opt.DryRun {
 		for _, bm := range toDelete {
