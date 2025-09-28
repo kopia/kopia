@@ -111,7 +111,7 @@ func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
 	return nil
 }
 
-func (c *observabilityFlags) startMetrics(ctx context.Context) error {
+func (c *observabilityFlags) start(ctx context.Context) error {
 	c.maybeStartListener(ctx)
 
 	if err := c.maybeStartMetricsPusher(ctx); err != nil {
@@ -225,7 +225,7 @@ func (c *observabilityFlags) maybeStartTraceExporter(ctx context.Context) error 
 	return nil
 }
 
-func (c *observabilityFlags) stopMetrics(ctx context.Context) {
+func (c *observabilityFlags) stop(ctx context.Context) {
 	if c.dumpAllocatorStats {
 		gather.DumpStats(ctx)
 	}

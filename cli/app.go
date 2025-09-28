@@ -490,7 +490,7 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 		releasable.EnableTracking(releasable.ItemKind(r))
 	}
 
-	if err := c.observability.startMetrics(ctx); err != nil {
+	if err := c.observability.start(ctx); err != nil {
 		return errors.Wrap(err, "unable to start metrics")
 	}
 
@@ -509,7 +509,7 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 		return cb(tctx)
 	}()
 
-	c.observability.stopMetrics(ctx)
+	c.observability.stop(ctx)
 
 	if err != nil {
 		// print error in red
