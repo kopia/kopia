@@ -586,7 +586,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 
 		if rep != nil {
 			if cerr := rep.Close(ctx); cerr != nil {
-				return errors.Wrap(cerr, "unable to close repository")
+				return stderrors.Join(err, errors.Wrap(cerr, "unable to close repository"))
 			}
 		}
 
