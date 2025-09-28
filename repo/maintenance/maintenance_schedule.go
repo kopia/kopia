@@ -36,6 +36,7 @@ type RunInfo struct {
 	End     time.Time `json:"end"`
 	Success bool      `json:"success,omitempty"`
 	Error   string    `json:"error,omitempty"`
+	Message string    `json:"message,omitempty"`
 }
 
 // Schedule keeps track of scheduled maintenance times.
@@ -185,7 +186,7 @@ func SetSchedule(ctx context.Context, rep repo.DirectRepositoryWriter, s *Schedu
 }
 
 // ReportRun reports timing of a maintenance run and persists it in repository.
-func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() error) error {
+func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() (string, error)) error {
 	if s == nil {
 		var err error
 
@@ -199,7 +200,7 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 		Start: rep.Time(),
 	}
 
-	runErr := run()
+	message, runErr := run()
 
 	ri.End = rep.Time()
 
@@ -207,6 +208,7 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 		ri.Error = runErr.Error()
 	} else {
 		ri.Success = true
+		ri.Message = message
 	}
 
 	s.ReportRun(taskType, ri)

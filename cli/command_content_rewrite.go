@@ -49,7 +49,7 @@ func (c *commandContentRewrite) runContentRewriteCommand(ctx context.Context, re
 	}
 
 	//nolint:wrapcheck
-	return maintenance.RewriteContents(ctx, rep, &maintenance.RewriteContentsOptions{
+	_, err = maintenance.RewriteContents(ctx, rep, &maintenance.RewriteContentsOptions{
 		ContentIDRange: c.contentRange.contentIDRange(),
 		ContentIDs:     contentIDs,
 		FormatVersion:  c.contentRewriteFormatVersion,
@@ -58,6 +58,8 @@ func (c *commandContentRewrite) runContentRewriteCommand(ctx context.Context, re
 		ShortPacks:     c.contentRewriteShortPacks,
 		DryRun:         c.contentRewriteDryRun,
 	}, c.contentRewriteSafety)
+
+	return err
 }
 
 func toContentIDs(s []string) ([]content.ID, error) {
