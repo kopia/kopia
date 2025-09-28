@@ -13,7 +13,6 @@ import (
 	"github.com/mattn/go-colorable"
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/clock"
@@ -490,29 +489,18 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 		releasable.EnableTracking(releasable.ItemKind(r))
 	}
 
-	if err := c.observability.start(ctx); err != nil {
-		return errors.Wrap(err, "unable to start metrics")
+	var spanName string
+
+	if command != nil {
+		spanName = command.FullCommand()
 	}
 
-	err := func() error {
-		if command == nil {
-			defer c.runOnExit()
-
-			return cb(ctx)
-		}
-
-		tctx, span := tracer.Start(ctx, command.FullCommand(), trace.WithSpanKind(trace.SpanKindClient))
-		defer span.End()
-
+	err := c.observability.run(ctx, spanName, func(ctx context.Context) error {
 		defer c.runOnExit()
 
-		return cb(tctx)
-	}()
-
-	c.observability.stop(ctx)
-
+		return cb(ctx)
+	})
 	if err != nil {
-		// print error in red
 		log(ctx).Errorf("%v", err.Error())
 		c.exitWithError(err)
 	}

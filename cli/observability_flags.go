@@ -22,6 +22,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	oteltrace "go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -109,6 +110,25 @@ func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
 	c.outputFilePrefix = clock.Now().Format("20060102-150405-") + command
 
 	return nil
+}
+
+// spanName specifies the name of the span at the start of a trace. A tracer is
+// started only when spanName is not empty.
+func (c *observabilityFlags) run(ctx context.Context, spanName string, f func(context.Context) error) error {
+	if err := c.start(ctx); err != nil {
+		return errors.Wrap(err, "unable to start observability facilities")
+	}
+
+	defer c.stop(ctx)
+
+	if spanName != "" {
+		tctx, span := tracer.Start(ctx, spanName, oteltrace.WithSpanKind(oteltrace.SpanKindClient))
+		ctx = tctx
+
+		defer span.End()
+	}
+
+	return f(ctx)
 }
 
 func (c *observabilityFlags) start(ctx context.Context) error {
