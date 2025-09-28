@@ -3,6 +3,7 @@ package cli
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
@@ -568,7 +569,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 
 		if rep != nil && err == nil && mode.allowMaintenance {
 			if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
-				log(ctx).Errorf("error running maintenance: %v", merr)
+				err = stderrors.Join(err, errors.Wrap(merr, "running auto-maintenance")) // surface auto-maitenance error
 			}
 		}
 
