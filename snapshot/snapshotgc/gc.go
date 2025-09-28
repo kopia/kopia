@@ -3,6 +3,7 @@ package snapshotgc
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -74,22 +75,44 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *bigmap.
 
 // Run performs garbage collection on all the snapshots in the repository.
 func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) error {
-	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() error {
-		return runInternal(ctx, rep, gcDelete, safety, maintenanceStartTime)
+	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() (string, error) {
+		result, err := runInternal(ctx, rep, gcDelete, safety, maintenanceStartTime)
+		if err != nil {
+			return "", err
+		}
+
+		message := ""
+		if result != nil {
+			message = fmt.Sprintf("GC found %v(%v) unused contents, %v(%v) inused contents, marked %v(%v) unused countents for deletion, recovered %v(%v) contents",
+				result.unUsedCount, result.unUsedSize, result.inUseCount, result.intUseSize, result.deletedCount, result.deletedSize, result.recoveredCount, result.recoveredSize)
+		}
+
+		return message, nil
 	})
 
 	return errors.Wrap(err, "error running snapshot gc")
 }
 
-func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) error {
+type gcResult struct {
+	unUsedCount    uint32
+	unUsedSize     int64
+	deletedCount   uint32
+	deletedSize    int64
+	inUseCount     uint32
+	intUseSize     int64
+	recoveredCount uint32
+	recoveredSize  int64
+}
+
+func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) (*gcResult, error) {
 	used, serr := bigmap.NewSet(ctx)
 	if serr != nil {
-		return errors.Wrap(serr, "unable to create new set")
+		return nil, errors.Wrap(serr, "unable to create new set")
 	}
 	defer used.Close(ctx)
 
 	if err := findInUseContentIDs(ctx, rep, used); err != nil {
-		return errors.Wrap(err, "unable to find in-use content ID")
+		return nil, errors.Wrap(err, "unable to find in-use content ID")
 	}
 
 	return findUnreferencedAndRepairRereferenced(ctx, rep, gcDelete, safety, maintenanceStartTime, used)
@@ -102,7 +125,7 @@ func findUnreferencedAndRepairRereferenced(
 	safety maintenance.SafetyParameters,
 	maintenanceStartTime time.Time,
 	used *bigmap.Set,
-) error {
+) (*gcResult, error) {
 	var unused, inUse, system, tooRecent, undeleted stats.CountSum
 
 	log(ctx).Info("Looking for unreferenced contents...")
@@ -173,18 +196,51 @@ func findUnreferencedAndRepairRereferenced(
 	log(ctx).Infof("GC undeleted %v contents (%v)", undeletedCount, undeletedBytes)
 
 	if err != nil {
-		return errors.Wrap(err, "error iterating contents")
+		return nil, errors.Wrap(err, "error iterating contents")
 	}
 
 	if err := rep.Flush(ctx); err != nil {
-		return errors.Wrap(err, "flush error")
+		return nil, errors.Wrap(err, "flush error")
 	}
+
+	result := buildGCResult(&unused, &inUse, &system, &tooRecent, &undeleted, gcDelete)
 
 	if unusedCount > 0 && !gcDelete {
-		return errors.New("Not deleting because 'gcDelete' was not set")
+		return result, errors.New("Not deleting because 'gcDelete' was not set")
 	}
 
-	return nil
+	return result, nil
+}
+
+func buildGCResult(unused *stats.CountSum, inUse *stats.CountSum, system *stats.CountSum, tooRecent *stats.CountSum, undeleted *stats.CountSum, delete bool) *gcResult {
+	result := &gcResult{}
+
+	cnt, size := unused.Approximate()
+	result.unUsedCount = cnt
+	result.unUsedSize = size
+
+	if delete {
+		result.deletedCount = cnt
+		result.deletedSize = size
+	}
+
+	cnt, size = tooRecent.Approximate()
+	result.unUsedCount += cnt
+	result.unUsedSize += size
+
+	cnt, size = inUse.Approximate()
+	result.inUseCount = cnt
+	result.intUseSize = size
+
+	cnt, size = system.Approximate()
+	result.inUseCount += cnt
+	result.intUseSize += size
+
+	cnt, size = undeleted.Approximate()
+	result.recoveredCount = cnt
+	result.recoveredSize = size
+
+	return result
 }
 
 func toCountAndBytesString(cs *stats.CountSum) (uint32, string) {

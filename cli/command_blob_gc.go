@@ -39,7 +39,7 @@ func (c *commandBlobGC) run(ctx context.Context, rep repo.DirectRepositoryWriter
 		Prefix:   blob.ID(c.prefix),
 	}
 
-	n, err := maintenance.DeleteUnreferencedBlobs(ctx, rep, opts, c.safety)
+	n, _, err := maintenance.DeleteUnreferencedBlobs(ctx, rep, opts, c.safety)
 	if err != nil {
 		return errors.Wrap(err, "error deleting unreferenced blobs")
 	}

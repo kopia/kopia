@@ -37,9 +37,9 @@ type contentInfoOrError struct {
 
 // RewriteContents rewrites contents according to provided criteria and creates new
 // blobs and index entries to point at them.
-func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) error {
+func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) (int64, error) {
 	if opt == nil {
-		return errors.New("missing options")
+		return 0, errors.New("missing options")
 	}
 
 	if opt.ShortPacks {
@@ -119,10 +119,14 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 	if failedCount == 0 {
 		//nolint:wrapcheck
-		return rep.ContentManager().Flush(ctx)
+		if err := rep.ContentManager().Flush(ctx); err != nil {
+			return 0, err
+		}
+
+		return totalBytes, nil
 	}
 
-	return errors.Errorf("failed to rewrite %v contents", failedCount)
+	return 0, errors.Errorf("failed to rewrite %v contents", failedCount)
 }
 
 func getContentToRewrite(ctx context.Context, rep repo.DirectRepository, opt *RewriteContentsOptions) <-chan contentInfoOrError {

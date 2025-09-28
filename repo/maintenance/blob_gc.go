@@ -25,7 +25,7 @@ type DeleteUnreferencedBlobsOptions struct {
 // DeleteUnreferencedBlobs deletes o was created after maintenance startederenced by index entries.
 //
 //nolint:gocyclo,funlen
-func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions, safety SafetyParameters) (int, error) {
+func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions, safety SafetyParameters) (int, int64, error) {
 	if opt.Parallel == 0 {
 		opt.Parallel = 16
 	}
@@ -70,7 +70,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	activeSessions, err := rep.ContentManager().ListActiveSessions(ctx)
 	if err != nil {
-		return 0, errors.Wrap(err, "unable to load active sessions")
+		return 0, 0, errors.Wrap(err, "unable to load active sessions")
 	}
 
 	cutoffTime := opt.NotAfterTime
@@ -114,7 +114,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 		return nil
 	}); err != nil {
-		return 0, errors.Wrap(err, "error looking for unreferenced blobs")
+		return 0, 0, errors.Wrap(err, "error looking for unreferenced blobs")
 	}
 
 	close(unused)
@@ -124,16 +124,16 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	// wait for all delete workers to finish.
 	if err := eg.Wait(); err != nil {
-		return 0, errors.Wrap(err, "worker error")
+		return 0, 0, errors.Wrap(err, "worker error")
 	}
 
 	if opt.DryRun {
-		return int(unreferencedCount), nil
+		return int(unreferencedCount), -1, nil
 	}
 
-	del, cnt := deleted.Approximate()
+	del, size := deleted.Approximate()
 
-	log(ctx).Infof("Deleted total %v unreferenced blobs (%v)", del, units.BytesString(cnt))
+	log(ctx).Infof("Deleted total %v unreferenced blobs (%v)", del, units.BytesString(size))
 
-	return int(del), nil
+	return int(del), size, nil
 }

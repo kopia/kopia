@@ -104,7 +104,8 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NoError(t, repo.DirectWriteSession(ctx, env.RepositoryWriter, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
-				return maintenance.RewriteContents(ctx, w, tc.opt, maintenance.SafetyNone)
+				_, err := maintenance.RewriteContents(ctx, w, tc.opt, maintenance.SafetyNone)
+				return err
 			}))
 
 			pBlobsAfter, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "p")

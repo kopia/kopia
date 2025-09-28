@@ -84,7 +84,7 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 		for _, t := range timings {
 			var errInfo string
 			if t.Success {
-				errInfo = "SUCCESS"
+				errInfo = "SUCCESS: " + t.Message
 			} else {
 				errInfo = "ERROR: " + t.Error
 			}
