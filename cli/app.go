@@ -85,7 +85,6 @@ type appServices interface {
 	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	repositoryHintAction(act func(ctx context.Context, rep repo.Repository) []string) func() []string
-	maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error
 	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
 	dangerousCommand()
@@ -452,7 +451,7 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 }
 
 func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
-	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
+	return c.repositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		rep.LogManager().Enable()
 
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
@@ -463,19 +462,19 @@ func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo
 }
 
 func (c *App) directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
-	return c.maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
+	return c.repositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return act(ctx, rep)
 	}), repositoryAccessMode{})
 }
 
 func (c *App) repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
-	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
+	return c.repositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
 	}, repositoryAccessMode{})
 }
 
 func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
-	return c.maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
+	return c.repositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "cli:" + c.currentActionName(),
 			OnUpload: c.progress.UploadedBytes,
@@ -553,7 +552,7 @@ func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ct
 	}
 }
 
-func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
+func (c *App) repositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return c.baseActionWithContext(func(ctx context.Context) error {
 		const requireConnected = true
 
