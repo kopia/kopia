@@ -24,6 +24,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -41,6 +42,7 @@ var metricsPushFormats = map[string]expfmt.Format{
 }
 
 type observabilityFlags struct {
+	dumpAllocatorStats  bool
 	enablePProf         bool
 	metricsListenAddr   string
 	metricsPushAddr     string
@@ -62,6 +64,7 @@ type observabilityFlags struct {
 }
 
 func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
+	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(svc.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
 	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
 	app.Flag("enable-pprof", "Expose pprof handlers").Hidden().BoolVar(&c.enablePProf)
 
@@ -223,6 +226,10 @@ func (c *observabilityFlags) maybeStartTraceExporter(ctx context.Context) error 
 }
 
 func (c *observabilityFlags) stopMetrics(ctx context.Context) {
+	if c.dumpAllocatorStats {
+		gather.DumpStats(ctx)
+	}
+
 	if c.stopPusher != nil {
 		close(c.stopPusher)
 

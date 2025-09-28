@@ -17,7 +17,6 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/notification"
@@ -135,7 +134,6 @@ type App struct {
 	keyRingEnabled                bool
 	persistCredentials            bool
 	disableRepositoryLog          bool
-	dumpAllocatorStats            bool
 	DangerousCommands             string
 	cliStorageProviders           []StorageProvider
 	trackReleasable               []string
@@ -280,7 +278,6 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("disable-repository-log", "Disable repository log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_REPOSITORY_LOG")).BoolVar(&c.disableRepositoryLog)
 	app.Flag("dangerous-commands", "Enable dangerous commands that could result in data loss and repository corruption.").Hidden().Envar(c.EnvName("KOPIA_DANGEROUS_COMMANDS")).StringVar(&c.DangerousCommands)
 	app.Flag("track-releasable", "Enable tracking of releasable resources.").Hidden().Envar(c.EnvName("KOPIA_TRACK_RELEASABLE")).StringsVar(&c.trackReleasable)
-	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(c.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
 	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar(c.EnvName("KOPIA_REPO_UPGRADE_OWNER_ID")).StringVar(&c.upgradeOwnerID)
 	app.Flag("upgrade-no-block", "Do not block when repository format upgrade is in progress, instead exit with a message.").Hidden().Default("false").Envar(c.EnvName("KOPIA_REPO_UPGRADE_NO_BLOCK")).BoolVar(&c.doNotWaitForUpgrade)
 	app.Flag("error-notifications", "Send notification on errors").Hidden().
@@ -405,10 +402,6 @@ func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *
 	return func(kpc *kingpin.ParseContext) error {
 		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 			return c.pf.withProfiling(func() error {
-				if c.dumpAllocatorStats {
-					defer gather.DumpStats(ctx)
-				}
-
 				return act(ctx)
 			})
 		})
@@ -542,10 +535,6 @@ func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ct
 	return func(kpc *kingpin.ParseContext) error {
 		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 			return c.pf.withProfiling(func() error {
-				if c.dumpAllocatorStats {
-					defer gather.DumpStats(ctx)
-				}
-
 				return act(ctx)
 			})
 		})
