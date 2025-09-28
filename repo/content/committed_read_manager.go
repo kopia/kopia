@@ -8,11 +8,13 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
+	"github.com/kopia/kopia/internal/blobparam"
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cacheprot"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/listcache"
@@ -37,6 +39,8 @@ const indexRecoverPostambleSize = 8192
 const indexRefreshFrequency = 15 * time.Minute
 
 const ownWritesCacheDuration = 15 * time.Minute
+
+var log = logging.Module("kopia/content") // +checklocksignore
 
 // constants below specify how long to prevent cache entries from expiring.
 const (
@@ -102,12 +106,10 @@ type SharedManager struct {
 	paddingUnit             int
 
 	// logger where logs should be written
-	log logging.Logger
+	log *contentlog.Logger
 
 	// logger associated with the context that opened the repository.
-	contextLogger  logging.Logger
 	repoLogManager *repodiag.LogManager
-	internalLogger *zap.SugaredLogger // backing logger for 'sharedBaseLogger'
 
 	metricsStruct
 }
@@ -143,15 +145,20 @@ func (sm *SharedManager) readPackFileLocalIndex(ctx context.Context, packFile bl
 
 	if packFileLength >= indexRecoverPostambleSize {
 		if err = sm.attemptReadPackFileLocalIndex(ctx, packFile, packFileLength-indexRecoverPostambleSize, indexRecoverPostambleSize, output); err == nil {
-			sm.log.Debugf("recovered %v index bytes from blob %v using optimized method", output.Length(), packFile)
+			contentlog.Log2(ctx, sm.log, "recovered index bytes from blob using optimized method", logparam.Int("length", output.Length()), blobparam.BlobID("packFile", packFile))
 			return nil
 		}
 
-		sm.log.Debugf("unable to recover using optimized method: %v", err)
+		contentlog.Log1(ctx, sm.log,
+			"unable to recover using optimized method",
+			logparam.Error("err", err))
 	}
 
 	if err = sm.attemptReadPackFileLocalIndex(ctx, packFile, 0, -1, output); err == nil {
-		sm.log.Debugf("recovered %v index bytes from blob %v using full blob read", output.Length(), packFile)
+		contentlog.Log2(ctx, sm.log,
+			"recovered index bytes from blob using full blob read",
+			logparam.Int("length", output.Length()),
+			blobparam.BlobID("packFile", packFile))
 
 		return nil
 	}
@@ -202,9 +209,15 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 
 // +checklocks:sm.indexesLock
 func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
+	ctx0 := contentlog.WithParams(ctx,
+		logparam.String("span:loadindex", contentlog.RandomSpanID()))
+
 	nextSleepTime := 100 * time.Millisecond //nolint:mnd
 
 	for i := range indexLoadAttempts {
+		ctx := contentlog.WithParams(ctx0,
+			logparam.Int("loadAttempt", i))
+
 		ibm, err0 := sm.indexBlobManager(ctx)
 		if err0 != nil {
 			return err0
@@ -217,11 +230,13 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 
 		if i > 0 {
 			// invalidate any list caches.
-			if err := sm.st.FlushCaches(ctx); err != nil {
-				sm.log.Errorw("unable to flush caches", "err", err)
-			}
+			flushTimer := timetrack.StartTimer()
+			flushErr := sm.st.FlushCaches(ctx)
 
-			sm.log.Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
+			contentlog.Log2(ctx, sm.log, "flushCaches",
+				logparam.Duration("latency", flushTimer.Elapsed()),
+				logparam.Error("error", flushErr))
+
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
@@ -244,7 +259,9 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 			}
 
 			if len(indexBlobs) > indexBlobCompactionWarningThreshold {
-				sm.log.Errorf("Found too many index blobs (%v), this may result in degraded performance.\n\nPlease ensure periodic repository maintenance is enabled or run 'kopia maintenance'.", len(indexBlobs))
+				log(ctx).Errorf("Found too many index blobs (%v), this may result in degraded performance.\n\nPlease ensure periodic repository maintenance is enabled or run 'kopia maintenance'.", len(indexBlobs))
+
+				contentlog.Log1(ctx, sm.log, "Found too many index blobs", logparam.Int("len", len(indexBlobs)))
 			}
 
 			sm.refreshIndexesAfter = sm.timeNow().Add(indexRefreshFrequency)
@@ -411,14 +428,8 @@ func newCacheBackingStorage(ctx context.Context, caching *CachingOptions, subdir
 	}, false)
 }
 
-func (sm *SharedManager) namedLogger(n string) logging.Logger {
-	if sm.internalLogger != nil {
-		return logging.Broadcast(
-			sm.contextLogger,
-			sm.internalLogger.Named("["+n+"]"))
-	}
-
-	return sm.contextLogger
+func (sm *SharedManager) namedLogger(n string) *contentlog.Logger {
+	return sm.repoLogManager.NewLogger(n)
 }
 
 func contentCacheSweepSettings(caching *CachingOptions) cache.SweepSettings {
@@ -574,23 +585,10 @@ func (sm *SharedManager) CloseShared(ctx context.Context) error {
 	sm.metadataCache.Close(ctx)
 	sm.indexBlobCache.Close(ctx)
 
-	if sm.internalLogger != nil {
-		sm.internalLogger.Sync() //nolint:errcheck
-	}
-
 	sm.indexBlobManagerV1.EpochManager().Flush()
+	sm.repoLogManager.Sync()
 
 	return nil
-}
-
-// AlsoLogToContentLog wraps the provided content so that all logs are also sent to
-// internal content log.
-func (sm *SharedManager) AlsoLogToContentLog(ctx context.Context) context.Context {
-	sm.repoLogManager.Enable()
-
-	return logging.WithAdditionalLogger(ctx, func(_ string) logging.Logger {
-		return sm.log
-	})
 }
 
 func (sm *SharedManager) shouldRefreshIndexes() bool {
@@ -624,16 +622,11 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 		paddingUnit:             defaultPaddingUnit,
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 		repoLogManager:          repoLogManager,
-		contextLogger:           logging.Module(FormatLogModule)(ctx),
 
 		metricsStruct: initMetricsStruct(mr),
 	}
 
-	if !opts.DisableInternalLog {
-		sm.internalLogger = sm.repoLogManager.NewLogger()
-	}
-
-	sm.log = sm.namedLogger("shared-manager")
+	sm.log = sm.repoLogManager.NewLogger("shared-manager")
 
 	caching = caching.CloneOrDefault()
 

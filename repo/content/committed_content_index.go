@@ -11,12 +11,14 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/blobparam"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 // smallIndexEntryCountThreshold is the threshold to determine whether an
@@ -45,7 +47,7 @@ type committedContentIndex struct {
 	// fetchIndexBlob retrieves one index blob from storage
 	fetchIndexBlob func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error
 
-	log logging.Logger
+	log *contentlog.Logger
 }
 
 type committedContentIndexCache interface {
@@ -113,7 +115,7 @@ func (c *committedContentIndex) addIndexBlob(ctx context.Context, indexBlobID bl
 		return nil
 	}
 
-	c.log.Debugf("use-new-committed-index %v", indexBlobID)
+	contentlog.Log1(ctx, c.log, "use-new-committed-index", blobparam.BlobID("indexBlobID", indexBlobID))
 
 	ndx, err := c.cache.openIndex(ctx, indexBlobID)
 	if err != nil {
@@ -195,7 +197,7 @@ func (c *committedContentIndex) merge(ctx context.Context, indexFiles []blob.ID)
 		return nil, nil, errors.Wrap(err, "unable to combine small indexes")
 	}
 
-	c.log.Debugw("combined index segments", "original", len(newMerged), "merged", len(mergedAndCombined))
+	contentlog.Log2(ctx, c.log, "combined index segments", logparam.Int("original", len(newMerged)), logparam.Int("merged", len(mergedAndCombined)))
 
 	return mergedAndCombined, newUsedMap, nil
 }
@@ -212,7 +214,8 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID, i
 		return nil
 	}
 
-	c.log.Debugf("use-indexes %v", indexFiles)
+	contentlog.Log1(ctx, c.log, "use-indexes",
+		blobparam.BlobIDList("indexFiles", indexFiles))
 
 	mergedAndCombined, newInUse, err := c.merge(ctx, indexFiles)
 	if err != nil {
@@ -229,13 +232,17 @@ func (c *committedContentIndex) use(ctx context.Context, indexFiles []blob.ID, i
 	for k, old := range oldInUse {
 		if newInUse[k] == nil {
 			if err := old.Close(); err != nil {
-				c.log.Errorf("unable to close unused index file: %v", err)
+				contentlog.Log1(ctx, c.log,
+					"unable to close unused index file",
+					logparam.Error("err", err))
 			}
 		}
 	}
 
 	if err := c.cache.expireUnused(ctx, indexFiles); err != nil {
-		c.log.Errorf("unable to expire unused index files: %v", err)
+		contentlog.Log1(ctx, c.log,
+			"unable to expire unused index files",
+			logparam.Error("err", err))
 	}
 
 	return nil
@@ -309,7 +316,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 		return nil
 	}
 
-	c.log.Debugf("Downloading %v new index blobs...", len(indexBlobs))
+	contentlog.Log1(ctx, c.log, "Downloading new index blobs", logparam.Int("len", len(indexBlobs)))
 
 	eg, ctx := errgroup.WithContext(ctx)
 
@@ -323,7 +330,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 
 				if err := c.fetchIndexBlob(ctx, indexBlobID, &data); err != nil {
 					if isPermissiveCacheLoading {
-						c.log.Errorf("skipping bad read of index blob %v", indexBlobID)
+						contentlog.Log1(ctx, c.log, "skipping bad read of index blob", blobparam.BlobID("indexBlobID", indexBlobID))
 						continue
 					}
 
@@ -343,7 +350,7 @@ func (c *committedContentIndex) fetchIndexBlobs(ctx context.Context, isPermissiv
 		return errors.Wrap(err, "error downloading indexes")
 	}
 
-	c.log.Debug("Index blobs downloaded.")
+	contentlog.Log(ctx, c.log, "Index blobs downloaded")
 
 	return nil
 }
@@ -372,7 +379,7 @@ func newCommittedContentIndex(caching *CachingOptions,
 	formatProvider format.Provider,
 	permissiveCacheLoading bool,
 	fetchIndexBlob func(ctx context.Context, blobID blob.ID, output *gather.WriteBuffer) error,
-	log logging.Logger,
+	log *contentlog.Logger,
 	minSweepAge time.Duration,
 ) *committedContentIndex {
 	var cache committedContentIndexCache

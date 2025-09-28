@@ -19,6 +19,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/notification"
@@ -38,6 +40,10 @@ type grpcServerState struct {
 	grpcapi.UnimplementedKopiaRepositoryServer
 
 	sem *semaphore.Weighted
+
+	// GRPC server instance for graceful shutdown
+	grpcServer *grpc.Server
+	grpcMutex  sync.RWMutex
 }
 
 // send sends the provided session response with the provided request ID.
@@ -86,6 +92,9 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return status.Errorf(codes.Unavailable, "not connected to a direct repository")
 	}
 
+	log := dr.LogManager().NewLogger("grpc-session")
+	ctx = contentlog.WithParams(ctx, logparam.String("span:server-session", contentlog.RandomSpanID()))
+
 	usernameAtHostname, err := s.authenticateGRPCSession(ctx, dr)
 	if err != nil {
 		return err
@@ -101,12 +110,12 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return status.Errorf(codes.PermissionDenied, "peer not found in context")
 	}
 
-	log(ctx).Infof("starting session for user %q from %v", usernameAtHostname, p.Addr)
-	defer log(ctx).Infof("session ended for user %q from %v", usernameAtHostname, p.Addr)
+	userLog(ctx).Infof("starting session for user %q from %v", usernameAtHostname, p.Addr)
+	defer userLog(ctx).Infof("session ended for user %q from %v", usernameAtHostname, p.Addr)
 
 	opt, err := s.handleInitialSessionHandshake(srv, dr)
 	if err != nil {
-		log(ctx).Errorf("session handshake error: %v", err)
+		userLog(ctx).Errorf("session handshake error: %v", err)
 		return err
 	}
 
@@ -119,7 +128,12 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 			// propagate any error from the goroutines
 			select {
 			case err := <-lastErr:
-				log(ctx).Errorf("error handling session request: %v", err)
+				userLog(ctx).Errorf("error handling session request: %v", err)
+
+				contentlog.Log1(ctx, log,
+					"error handling session request",
+					logparam.Error("error", err))
+
 				return err
 
 			default:
@@ -622,18 +636,36 @@ func makeGRPCServerState(maxConcurrency int) grpcServerState {
 // GRPCRouterHandler returns HTTP handler that supports GRPC services and
 // routes non-GRPC calls to the provided handler.
 func (s *Server) GRPCRouterHandler(handler http.Handler) http.Handler {
-	grpcServer := grpc.NewServer(
-		grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
-		grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
-	)
+	s.grpcMutex.Lock()
+	defer s.grpcMutex.Unlock()
 
-	s.RegisterGRPCHandlers(grpcServer)
+	if s.grpcServer == nil {
+		s.grpcServer = grpc.NewServer(
+			grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
+			grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
+		)
+
+		s.RegisterGRPCHandlers(s.grpcServer)
+	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
-			grpcServer.ServeHTTP(w, r)
+			s.grpcServer.ServeHTTP(w, r)
 		} else {
 			handler.ServeHTTP(w, r)
 		}
 	})
+}
+
+// ShutdownGRPCServer shuts down the GRPC server.
+// Note: Since the GRPC server runs over HTTP handler transport,
+// GracefulStop() doesn't work. We use Stop() instead.
+func (s *Server) ShutdownGRPCServer() {
+	s.grpcMutex.Lock()
+	defer s.grpcMutex.Unlock()
+
+	if s.grpcServer != nil {
+		s.grpcServer.Stop()
+		s.grpcServer = nil
+	}
 }

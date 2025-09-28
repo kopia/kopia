@@ -56,7 +56,7 @@ func (s *srvMaintenance) stop(ctx context.Context) {
 	close(s.closed)
 	s.wg.Wait()
 
-	log(ctx).Debug("maintenance manager stopped")
+	userLog(ctx).Debug("maintenance manager stopped")
 }
 
 func (s *srvMaintenance) beforeRun() {
@@ -84,7 +84,7 @@ func (s *srvMaintenance) refresh(ctx context.Context, notify bool) {
 	defer s.mu.Unlock()
 
 	if err := s.refreshLocked(ctx); err != nil {
-		log(ctx).Debugw("unable to refresh maintenance manager", "err", err)
+		userLog(ctx).Debugw("unable to refresh maintenance manager", "err", err)
 	}
 }
 
@@ -130,7 +130,7 @@ func maybeStartMaintenanceManager(
 	}
 
 	if rep.ClientOptions().ReadOnly {
-		log(ctx).Warnln("the repository connection is read-only, maintenance tasks will not be performed on this repository")
+		userLog(ctx).Warnln("the repository connection is read-only, maintenance tasks will not be performed on this repository")
 
 		return nil
 	}
@@ -148,7 +148,7 @@ func maybeStartMaintenanceManager(
 
 	m.wg.Add(1)
 
-	log(ctx).Debug("starting maintenance manager")
+	userLog(ctx).Debug("starting maintenance manager")
 
 	m.refresh(ctx, false)
 
@@ -158,14 +158,14 @@ func maybeStartMaintenanceManager(
 		for {
 			select {
 			case <-m.triggerChan:
-				log(ctx).Debug("starting maintenance task")
+				userLog(ctx).Debug("starting maintenance task")
 
 				m.beforeRun()
 
 				t0 := clock.Now()
 
 				if err := srv.runMaintenanceTask(mctx, dr); err != nil {
-					log(ctx).Debugw("maintenance task failed", "err", err)
+					userLog(ctx).Debugw("maintenance task failed", "err", err)
 					m.afterFailedRun()
 
 					if srv.enableErrorNotifications() {
@@ -182,7 +182,7 @@ func maybeStartMaintenanceManager(
 				m.refresh(mctx, true)
 
 			case <-m.closed:
-				log(ctx).Debug("stopping maintenance manager")
+				userLog(ctx).Debug("stopping maintenance manager")
 				return
 			}
 		}

@@ -7,8 +7,10 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/blobparam"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/stats"
-	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -26,6 +28,11 @@ type DeleteUnreferencedBlobsOptions struct {
 //
 //nolint:gocyclo,funlen
 func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions, safety SafetyParameters) (int, error) {
+	ctx = contentlog.WithParams(ctx,
+		logparam.String("span:blob-gc", contentlog.RandomSpanID()))
+
+	log := rep.LogManager().NewLogger("maintenance-blob-gc")
+
 	if opt.Parallel == 0 {
 		opt.Parallel = 16
 	}
@@ -49,7 +56,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 					cnt, del := deleted.Add(bm.Length)
 					if cnt%100 == 0 {
-						log(ctx).Infof("  deleted %v unreferenced blobs (%v)", cnt, units.BytesString(del))
+						contentlog.Log2(ctx, log, "deleted unreferenced blobs", logparam.UInt32("count", cnt), logparam.Int64("bytes", del))
 					}
 				}
 
@@ -59,7 +66,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	}
 
 	// iterate unreferenced blobs and count them + optionally send to the channel to be deleted
-	log(ctx).Info("Looking for unreferenced blobs...")
+	contentlog.Log(ctx, log, "Looking for unreferenced blobs...")
 
 	var prefixes []blob.ID
 	if p := opt.Prefix; p != "" {
@@ -89,19 +96,29 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	// belong to alive sessions.
 	if err := rep.ContentManager().IterateUnreferencedPacks(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
 		if bm.Timestamp.After(cutoffTime) {
-			log(ctx).Debugf("  preserving %v because it was created after maintenance started", bm.BlobID)
+			contentlog.Log3(ctx, log,
+				"preserving blob - after cutoff time",
+				blobparam.BlobID("blobID", bm.BlobID),
+				logparam.Time("cutoffTime", cutoffTime),
+				logparam.Time("timestamp", bm.Timestamp))
 			return nil
 		}
 
 		if age := cutoffTime.Sub(bm.Timestamp); age < safety.BlobDeleteMinAge {
-			log(ctx).Debugf("  preserving %v because it's too new (age: %v<%v)", bm.BlobID, age, safety.BlobDeleteMinAge)
+			contentlog.Log2(ctx, log,
+				"preserving blob - below min age",
+				blobparam.BlobID("blobID", bm.BlobID),
+				logparam.Duration("age", age))
 			return nil
 		}
 
 		sid := content.SessionIDFromBlobID(bm.BlobID)
 		if s, ok := activeSessions[sid]; ok {
 			if age := cutoffTime.Sub(s.CheckpointTime); age < safety.SessionExpirationAge {
-				log(ctx).Debugf("  preserving %v because it's part of an active session (%v)", bm.BlobID, sid)
+				contentlog.Log2(ctx, log,
+					"preserving blob - part of active session",
+					blobparam.BlobID("blobID", bm.BlobID),
+					logparam.String("sessionID", string(sid)))
 				return nil
 			}
 		}
@@ -120,7 +137,10 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	close(unused)
 
 	unreferencedCount, unreferencedSize := unreferenced.Approximate()
-	log(ctx).Debugf("Found %v blobs to delete (%v)", unreferencedCount, units.BytesString(unreferencedSize))
+	contentlog.Log2(ctx, log,
+		"Found blobs to delete",
+		logparam.UInt32("count", unreferencedCount),
+		logparam.Int64("bytes", unreferencedSize))
 
 	// wait for all delete workers to finish.
 	if err := eg.Wait(); err != nil {
@@ -133,7 +153,10 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	del, cnt := deleted.Approximate()
 
-	log(ctx).Infof("Deleted total %v unreferenced blobs (%v)", del, units.BytesString(cnt))
+	contentlog.Log2(ctx, log,
+		"Deleted total blobs",
+		logparam.UInt32("count", del),
+		logparam.Int64("bytes", cnt))
 
 	return int(del), nil
 }
