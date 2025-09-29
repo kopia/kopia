@@ -569,7 +569,7 @@ func (c *App) maybeRepositoryAction(act func(ctx context.Context, rep repo.Repos
 
 		if rep != nil && err == nil && mode.allowMaintenance {
 			if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
-				err = stderrors.Join(err, errors.Wrap(merr, "running auto-maintenance")) // surface auto-maitenance error
+				err = errors.Wrap(merr, "running auto-maintenance") // surface auto-maintenance error
 			}
 		}
 
