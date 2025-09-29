@@ -57,6 +57,7 @@ type observabilityFlags struct {
 	metricsPushFormat   string
 	otlpTrace           bool
 	saveMetrics         bool
+	pf                  profileFlags
 
 	outputSubdirectoryName string
 
@@ -97,6 +98,8 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 
 	app.Flag("metrics-store-on-exit", "Writes metrics to a file in a sub-directory of the directory specified with the --diagnostics-output-directory").Hidden().BoolVar(&c.saveMetrics)
 
+	c.pf.setup(app)
+
 	app.PreAction(c.initialize)
 }
 
@@ -110,7 +113,7 @@ func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
 
 	c.outputSubdirectoryName = clock.Now().Format("20060102-150405-") + command
 
-	if c.saveMetrics && c.outputDirectory == "" {
+	if (c.saveMetrics || c.pf.saveProfiles || c.pf.profileCPU) && c.outputDirectory == "" {
 		return errors.New("writing diagnostics output requires a non-empty directory name (specified with the '--diagnostics-output-directory' flag)")
 	}
 
@@ -125,6 +128,12 @@ func (c *observabilityFlags) run(ctx context.Context, spanName string, f func(co
 	}
 
 	defer c.stop(ctx)
+
+	if err := c.pf.start(ctx, filepath.Join(c.outputDirectory, c.outputSubdirectoryName)); err != nil {
+		return errors.Wrap(err, "failed to start profiling")
+	}
+
+	defer c.pf.stop(ctx)
 
 	if spanName != "" {
 		tctx, span := tracer.Start(ctx, spanName, oteltrace.WithSpanKind(oteltrace.SpanKindClient))
