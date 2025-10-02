@@ -5,8 +5,8 @@ on:
     tags:
       - v*
   schedule:
-    # run every 2 hours
-    - cron:  '12 */2 * * *'
+    # run every 6 hours
+    - cron:  '12 */6 * * *'
   workflow_dispatch:
     inputs:
       ref:
