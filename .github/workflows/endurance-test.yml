@@ -7,6 +7,13 @@ on:
   schedule:
     # run every 2 hours
     - cron:  '12 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'branch or git ref to use for the build'
+        required: true
+        default: 'test/endurance'
+
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
