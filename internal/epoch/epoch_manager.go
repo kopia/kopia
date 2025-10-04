@@ -373,15 +373,15 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *
 }
 
 // CleanupSupersededIndexes cleans up the indexes which have been superseded by compacted ones.
-func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
+func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (int, error) {
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	p, err := e.getParameters(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// find max timestamp recently written to the repository to establish storage clock.
@@ -389,7 +389,7 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
 	// to this max time. This assumes that storage clock moves forward somewhat reasonably.
 	maxTime := e.maxCleanupTime(cs)
 	if maxTime.IsZero() {
-		return nil
+		return 0, nil
 	}
 
 	// only delete blobs if a suitable replacement exists and has been written sufficiently
@@ -404,7 +404,7 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
 	// that was written sufficiently long ago.
 	blobs, err := blob.ListAllBlobs(ctx, e.st, UncompactedIndexBlobPrefix)
 	if err != nil {
-		return errors.Wrap(err, "error listing uncompacted blobs")
+		return 0, errors.Wrap(err, "error listing uncompacted blobs")
 	}
 
 	var toDelete []blob.ID
@@ -418,10 +418,10 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
 	}
 
 	if err := blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism); err != nil {
-		return errors.Wrap(err, "unable to delete uncompacted blobs")
+		return 0, errors.Wrap(err, "unable to delete uncompacted blobs")
 	}
 
-	return nil
+	return len(toDelete), nil
 }
 
 func blobSetWrittenEarlyEnough(replacementSet []blob.Metadata, maxReplacementTime time.Time) bool {
@@ -570,29 +570,29 @@ func (e *Manager) loadSingleEpochCompactions(ctx context.Context, cs *CurrentSna
 // MaybeGenerateRangeCheckpoint may create a new range index for all the
 // individual epochs covered by the new range. If there are not enough epochs
 // to create a new range, then a range index is not created.
-func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) error {
+func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) (int, int, error) {
 	p, err := e.getParameters(ctx)
 	if err != nil {
-		return err
+		return -1, -1, err
 	}
 
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
-		return err
+		return -1, -1, err
 	}
 
 	latestSettled, firstNonRangeCompacted, compact := getRangeToCompact(cs, *p)
 	if !compact {
 		contentlog.Log(ctx, e.log, "not generating range checkpoint")
 
-		return nil
+		return -1, -1, nil
 	}
 
 	if err := e.generateRangeCheckpointFromCommittedState(ctx, cs, firstNonRangeCompacted, latestSettled); err != nil {
-		return errors.Wrap(err, "unable to generate full checkpoint, performance will be affected")
+		return -1, -1, errors.Wrap(err, "unable to generate full checkpoint, performance will be affected")
 	}
 
-	return nil
+	return firstNonRangeCompacted, latestSettled, nil
 }
 
 func getRangeToCompact(cs CurrentSnapshot, p Parameters) (low, high int, compactRange bool) {
@@ -717,21 +717,26 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 
 // MaybeAdvanceWriteEpoch writes a new write epoch marker when a new write
 // epoch should be started, otherwise it does not do anything.
-func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) error {
+func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (bool, error) {
 	p, err := e.getParameters(ctx)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	e.mu.Lock()
 	cs := e.lastKnownState
 	e.mu.Unlock()
 
+	advanced := false
 	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
-		return errors.Wrap(e.advanceEpochMarker(ctx, cs), "error advancing epoch")
+		if err := e.advanceEpochMarker(ctx, cs); err != nil {
+			return false, errors.Wrap(err, "error advancing epoch")
+		}
+
+		advanced = true
 	}
 
-	return nil
+	return advanced, nil
 }
 
 func (e *Manager) advanceEpochMarker(ctx context.Context, cs CurrentSnapshot) error {
@@ -983,21 +988,21 @@ func (e *Manager) getCompleteIndexSetForCommittedState(ctx context.Context, cs C
 
 // MaybeCompactSingleEpoch compacts the oldest epoch that is eligible for
 // compaction if there is one.
-func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
+func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (int, int, error) {
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
-		return err
+		return 0, -1, err
 	}
 
 	uncompacted, err := oldestUncompactedEpoch(cs)
 	if err != nil {
-		return err
+		return 0, -1, err
 	}
 
 	if !cs.isSettledEpochNumber(uncompacted) {
 		contentlog.Log1(ctx, e.log, "there are no uncompacted epochs eligible for compaction", logparam.Int("oldestUncompactedEpoch", uncompacted))
 
-		return nil
+		return 0, -1, nil
 	}
 
 	uncompactedBlobs, ok := cs.UncompactedEpochSets[uncompacted]
@@ -1005,7 +1010,7 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
 		// blobs for this epoch were not loaded in the current snapshot, get the list of blobs for this epoch
 		ue, err := blob.ListAllBlobs(ctx, e.st, UncompactedEpochBlobPrefix(uncompacted))
 		if err != nil {
-			return errors.Wrapf(err, "error listing uncompacted indexes for epoch %v", uncompacted)
+			return 0, -1, errors.Wrapf(err, "error listing uncompacted indexes for epoch %v", uncompacted)
 		}
 
 		uncompactedBlobs = ue
@@ -1014,10 +1019,10 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
 	contentlog.Log1(ctx, e.log, "starting single-epoch compaction for epoch", logparam.Int("uncompacted", uncompacted))
 
 	if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(uncompacted)); err != nil {
-		return errors.Wrapf(err, "unable to compact blobs for epoch %v: performance will be affected", uncompacted)
+		return 0, -1, errors.Wrapf(err, "unable to compact blobs for epoch %v: performance will be affected", uncompacted)
 	}
 
-	return nil
+	return len(uncompactedBlobs), uncompacted, nil
 }
 
 func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSnapshot, epoch int) ([]blob.Metadata, error) {
