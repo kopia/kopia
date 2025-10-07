@@ -74,7 +74,7 @@ func (c *loggingFlags) setup(cliApp *cli.App, app *kingpin.Application) {
 	app.Flag("content-log-dir-max-age", "Maximum age of content log files to retain").Envar(cliApp.EnvName("KOPIA_CONTENT_LOG_DIR_MAX_AGE")).Default("720h").Hidden().DurationVar(&c.contentLogDirMaxAge)
 	app.Flag("content-log-dir-max-total-size-mb", "Maximum total size of log files to retain").Envar(cliApp.EnvName("KOPIA_CONTENT_LOG_DIR_MAX_SIZE_MB")).Hidden().Default("1000").Float64Var(&c.contentLogDirMaxTotalSizeMB)
 	app.Flag("log-level", "Console log level").Default("info").EnumVar(&c.logLevel, logLevels...)
-	app.Flag("json-log-console", "JSON log file").Hidden().BoolVar(&c.jsonLogConsole)
+	app.Flag("json-log-console", "Use JSON format for console log").Hidden().BoolVar(&c.jsonLogConsole)
 	app.Flag("json-log-file", "JSON log file").Hidden().BoolVar(&c.jsonLogFile)
 	app.Flag("file-log-level", "File log level").Default("debug").EnumVar(&c.fileLogLevel, logLevels...)
 	app.Flag("file-log-local-tz", "When logging to a file, use local timezone").Default("false").Hidden().Envar(cliApp.EnvName("KOPIA_FILE_LOG_LOCAL_TZ")).BoolVar(&c.fileLogLocalTimezone)
