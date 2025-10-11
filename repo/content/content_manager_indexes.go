@@ -39,7 +39,7 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 }
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
-func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.CompactOptions) error {
+func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.CompactOptions) (*indexblob.CompactStats, error) {
 	// we must hold the lock here to avoid the race with Refresh() which can reload the
 	// current set of indexes while we process them.
 	sm.indexesLock.Lock()
@@ -53,19 +53,20 @@ func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.Compa
 
 	ibm, err := sm.indexBlobManager(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := ibm.Compact(ctx, opt); err != nil {
-		return errors.Wrap(err, "error performing compaction")
+	stats, err := ibm.Compact(ctx, opt)
+	if err != nil {
+		return nil, errors.Wrap(err, "error performing compaction")
 	}
 
 	// reload indexes after compaction.
 	if err := sm.loadPackIndexesLocked(ctx); err != nil {
-		return errors.Wrap(err, "error re-loading indexes")
+		return nil, errors.Wrap(err, "error re-loading indexes")
 	}
 
-	return nil
+	return stats, nil
 }
 
 // ParseIndexBlob loads entries in a given index blob and returns them.

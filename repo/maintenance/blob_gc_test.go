@@ -70,7 +70,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
 
 	// new blobs not will be deleted because of minimum age requirement
-	_, _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyFull)
+	_, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyFull)
 	require.NoError(t, err)
 
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID1)
@@ -83,7 +83,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	}
 
 	// new blobs will be deleted
-	_, _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyNone)
+	_, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyNone)
 	require.NoError(t, err)
 
 	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobID1)
@@ -107,7 +107,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 		CheckpointTime: ta.NowFunc()(),
 	})
 
-	_, _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration)
+	_, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration)
 	require.NoError(t, err)
 
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession1)
@@ -119,7 +119,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	// now finish session 2
 	env.RepositoryWriter.BlobStorage().DeleteBlob(ctx, session2Marker)
 
-	_, _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration)
+	_, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration)
 	require.NoError(t, err)
 
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession1)
@@ -131,7 +131,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedBlobs(t *testing.T) {
 	// now move time into the future making session 1 timed out
 	ta.Advance(7 * 24 * time.Hour)
 
-	_, _, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyFull)
+	_, err = maintenance.DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, maintenance.DeleteUnreferencedBlobsOptions{}, maintenance.SafetyFull)
 	require.NoError(t, err)
 
 	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession1)

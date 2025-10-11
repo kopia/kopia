@@ -61,12 +61,16 @@ func (m *ManagerV1) Invalidate() {
 }
 
 // Compact advances the deletion watermark.
-func (m *ManagerV1) Compact(ctx context.Context, opt CompactOptions) error {
-	if opt.DropDeletedBefore.IsZero() {
-		return nil
+func (m *ManagerV1) Compact(ctx context.Context, opt CompactOptions) (*CompactStats, error) {
+	stat := &CompactStats{
+		DroppedBefore: opt.DropDeletedBefore,
 	}
 
-	return errors.Wrap(m.epochMgr.AdvanceDeletionWatermark(ctx, opt.DropDeletedBefore), "error advancing deletion watermark")
+	if opt.DropDeletedBefore.IsZero() {
+		return stat, nil
+	}
+
+	return stat, errors.Wrap(m.epochMgr.AdvanceDeletionWatermark(ctx, opt.DropDeletedBefore), "error advancing deletion watermark")
 }
 
 // CompactEpoch compacts the provided index blobs and writes a new set of blobs.

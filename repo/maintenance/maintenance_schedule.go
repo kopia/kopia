@@ -30,13 +30,17 @@ var (
 // maxRetainedRunInfoPerRunType the maximum number of retained RunInfo entries per run type.
 const maxRetainedRunInfoPerRunType = 50
 
+type RunStats interface {
+	MaintenanceSummary() string
+}
+
 // RunInfo represents information about a single run of a maintenance task.
 type RunInfo struct {
 	Start   time.Time `json:"start"`
 	End     time.Time `json:"end"`
 	Success bool      `json:"success,omitempty"`
 	Error   string    `json:"error,omitempty"`
-	Message string    `json:"message,omitempty"`
+	Stats   any       `json:"Stats,omitempty"`
 }
 
 // Schedule keeps track of scheduled maintenance times.
@@ -186,7 +190,7 @@ func SetSchedule(ctx context.Context, rep repo.DirectRepositoryWriter, s *Schedu
 }
 
 // ReportRun reports timing of a maintenance run and persists it in repository.
-func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() (string, error)) error {
+func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() (any, error)) error {
 	if s == nil {
 		var err error
 
@@ -200,7 +204,7 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 		Start: rep.Time(),
 	}
 
-	message, runErr := run()
+	stats, runErr := run()
 
 	ri.End = rep.Time()
 
@@ -208,7 +212,7 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 		ri.Error = runErr.Error()
 	} else {
 		ri.Success = true
-		ri.Message = message
+		ri.Stats = stats
 	}
 
 	s.ReportRun(taskType, ri)

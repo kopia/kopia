@@ -11,7 +11,7 @@ import (
 )
 
 // dropDeletedContents rewrites indexes while dropping deleted contents above certain age.
-func dropDeletedContents(ctx context.Context, rep repo.DirectRepositoryWriter, dropDeletedBefore time.Time, safety SafetyParameters) error {
+func dropDeletedContents(ctx context.Context, rep repo.DirectRepositoryWriter, dropDeletedBefore time.Time, safety SafetyParameters) (*indexblob.CompactStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:drop-deleted-contents", contentlog.RandomSpanID()))
 

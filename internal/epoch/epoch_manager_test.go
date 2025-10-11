@@ -887,7 +887,7 @@ func TestMaybeCompactSingleEpoch_Empty(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	// this should be a no-op
-	_, _, err := te.mgr.MaybeCompactSingleEpoch(ctx)
+	_, err := te.mgr.MaybeCompactSingleEpoch(ctx)
 
 	require.NoError(t, err)
 }
@@ -901,7 +901,7 @@ func TestMaybeCompactSingleEpoch_GetParametersError(t *testing.T) {
 	paramsError := errors.New("no parameters error")
 	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
 
-	_, _, err := te.mgr.MaybeCompactSingleEpoch(ctx)
+	_, err := te.mgr.MaybeCompactSingleEpoch(ctx)
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, paramsError)
@@ -938,7 +938,7 @@ func TestMaybeCompactSingleEpoch_CompactionError(t *testing.T) {
 		return compactionError
 	}
 
-	_, _, err = te.mgr.MaybeCompactSingleEpoch(ctx)
+	_, err = te.mgr.MaybeCompactSingleEpoch(ctx)
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, compactionError)
@@ -997,7 +997,7 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 	// perform single-epoch compaction for settled epochs
 	newestEpochToCompact := cs.WriteEpoch - numUnsettledEpochs + 1
 	for j := range newestEpochToCompact {
-		_, _, err = te.mgr.MaybeCompactSingleEpoch(ctx)
+		_, err = te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
@@ -1012,7 +1012,7 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 	require.Len(t, cs.SingleEpochCompactionSets, newestEpochToCompact)
 
 	// no more epochs should be compacted at this point
-	_, _, err = te.mgr.MaybeCompactSingleEpoch(ctx)
+	_, err = te.mgr.MaybeCompactSingleEpoch(ctx)
 	require.NoError(t, err)
 
 	err = te.mgr.Refresh(ctx)
@@ -1031,7 +1031,7 @@ func TestMaybeGenerateRangeCheckpoint_Empty(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	// this should be a no-op
-	_, _, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	_, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 
 	require.NoError(t, err)
 }
@@ -1045,7 +1045,7 @@ func TestMaybeGenerateRangeCheckpoint_GetParametersError(t *testing.T) {
 	paramsError := errors.New("no parameters error")
 	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
 
-	_, _, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	_, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, paramsError)
@@ -1061,7 +1061,7 @@ func TestMaybeGenerateRangeCheckpoint_FailToReadState(t *testing.T) {
 
 	cancel()
 
-	_, _, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	_, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 
 	require.Error(t, err)
 }
@@ -1111,7 +1111,7 @@ func TestMaybeGenerateRangeCheckpoint_CompactionError(t *testing.T) {
 		return compactionError
 	}
 
-	_, _, err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	_, err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, compactionError)
@@ -1155,7 +1155,7 @@ func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
 	require.Equal(t, epochsToWrite, cs.WriteEpoch)
 	require.Empty(t, cs.LongestRangeCheckpointSets)
 
-	_, _, err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	_, err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
 
 	err = te.mgr.Refresh(ctx)
@@ -1208,7 +1208,7 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 	// perform single-epoch compaction for settled epochs
 	newestEpochToCompact := cs.WriteEpoch - numUnsettledEpochs + 1
 	for j := range newestEpochToCompact {
-		_, _, err = te.mgr.MaybeCompactSingleEpoch(ctx)
+		_, err = te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
@@ -1226,7 +1226,7 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 	require.Equal(t, epochsToWrite, cs.WriteEpoch)
 	require.Empty(t, cs.LongestRangeCheckpointSets)
 
-	_, _, err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	_, err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
 
 	err = te.mgr.Refresh(ctx)

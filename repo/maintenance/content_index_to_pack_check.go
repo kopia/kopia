@@ -54,21 +54,21 @@ func shouldRunContentIndexVerify(ctx context.Context) bool {
 	return false
 }
 
-func reportRunAndMaybeCheckContentIndex(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() (string, error)) error {
+func reportRunAndMaybeCheckContentIndex(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() (any, error)) error {
 	if !shouldRunContentIndexVerify(ctx) {
 		return ReportRun(ctx, rep, taskType, s, run)
 	}
 
-	return ReportRun(ctx, rep, taskType, s, func() (string, error) {
+	return ReportRun(ctx, rep, taskType, s, func() (any, error) {
 		if err := checkContentIndexToPacks(ctx, rep.ContentReader()); err != nil {
-			return "", err
+			return nil, err
 		}
 
-		message, err := run()
+		stats, err := run()
 		if err != nil {
 			return "", err
 		}
 
-		return message, checkContentIndexToPacks(ctx, rep.ContentReader())
+		return stats, checkContentIndexToPacks(ctx, rep.ContentReader())
 	})
 }

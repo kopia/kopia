@@ -3,7 +3,6 @@ package maintenance
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"time"
 
@@ -331,49 +330,24 @@ func notDeletingOrphanedBlobs(ctx context.Context, log *contentlog.Logger, s *Sc
 }
 
 func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	return ReportRun(ctx, runParams.rep, TaskCleanupLogs, s, func() (string, error) {
-		deleted, err := CleanupLogs(ctx, runParams.rep, runParams.Params.LogRetention.OrDefault())
-
-		messgae := fmt.Sprintf("Cleaned up %v logs.", len(deleted))
-		userLog(ctx).Info(messgae)
-
-		return messgae, err
+	return ReportRun(ctx, runParams.rep, TaskCleanupLogs, s, func() (any, error) {
+		return CleanupLogs(ctx, runParams.rep, runParams.Params.LogRetention.OrDefault())
 	})
 }
 
 func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochAdvance, s, func() (string, error) {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochAdvance, s, func() (any, error) {
 		userLog(ctx).Info("Cleaning up no-longer-needed epoch markers...")
 
-		advanced, err := em.MaybeAdvanceWriteEpoch(ctx)
-		if err != nil {
-			return "", errors.Wrap(err, "error advancing epoch marker")
-		}
-
-		message := ""
-		if advanced {
-			message = "Advanced epoch"
-		}
-
-		return message, nil
+		return em.MaybeAdvanceWriteEpoch(ctx)
 	})
 }
 
 func runTaskEpochMaintenanceQuick(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
-	err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (string, error) {
+	err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (any, error) {
 		userLog(ctx).Info("Compacting an eligible uncompacted epoch...")
 
-		count, epoch, err := em.MaybeCompactSingleEpoch(ctx)
-		if err != nil {
-			return "", errors.Wrap(err, "error compacting single epoch")
-		}
-
-		message := ""
-		if count > 0 {
-			message = fmt.Sprintf("Compacted %v blobs for epoch %v", count, epoch)
-		}
-
-		return message, nil
+		return em.MaybeCompactSingleEpoch(ctx)
 	})
 	if err != nil {
 		return err
@@ -395,20 +369,10 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	}
 
 	// compact a single epoch
-	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (string, error) {
+	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (any, error) {
 		userLog(ctx).Info("Compacting an eligible uncompacted epoch...")
 
-		count, epoch, err := em.MaybeCompactSingleEpoch(ctx)
-		if err != nil {
-			return "", errors.Wrap(err, "error compacting single epoch")
-		}
-
-		message := ""
-		if count > 0 {
-			message = fmt.Sprintf("Compacted %v blobs for epoch %v", count, epoch)
-		}
-
-		return message, nil
+		return em.MaybeCompactSingleEpoch(ctx)
 	}); err != nil {
 		return err
 	}
@@ -418,47 +382,28 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	}
 
 	// compact range
-	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochGenerateRange, s, func() (string, error) {
+	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochGenerateRange, s, func() (any, error) {
 		userLog(ctx).Info("Attempting to compact a range of epoch indexes ...")
 
-		min, max, err := em.MaybeGenerateRangeCheckpoint(ctx)
-		if err != nil {
-			return "", errors.Wrap(err, "error creating epoch range indexes")
-		}
-
-		message := ""
-		if min >= 0 {
-			message = fmt.Sprintf("Generated a range checkpoint from epoch %v to %v", min, max)
-		}
-
-		return message, nil
+		return em.MaybeGenerateRangeCheckpoint(ctx)
 	}); err != nil {
 		return err
 	}
 
 	// clean up epoch markers
-	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() (string, error) {
+	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() (any, error) {
 		userLog(ctx).Info("Cleaning up unneeded epoch markers...")
 
-		return "", errors.Wrap(em.CleanupMarkers(ctx), "error removing epoch markers")
+		return nil, errors.Wrap(em.CleanupMarkers(ctx), "error removing epoch markers")
 	})
 	if err != nil {
 		return err
 	}
 
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() (string, error) {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() (any, error) {
 		userLog(ctx).Info("Cleaning up old index blobs which have already been compacted...")
 
-		count, err := em.CleanupSupersededIndexes(ctx)
-		if err != nil {
-			return "", errors.Wrap(err, "error removing superseded epoch index blobs")
-		}
-
-		message := ""
-		if count > 0 {
-			message = fmt.Sprintf("Deleted %v superseded index blobs", count)
-		}
-		return message, nil
+		return em.CleanupSupersededIndexes(ctx)
 	})
 }
 
@@ -481,81 +426,52 @@ func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters
 
 	contentlog.Log1(ctx, log, "Found safe time to drop indexes", logparam.Time("safeDropTime", safeDropTime))
 
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDropDeletedContentsFull, s, func() (string, error) {
-		if err := dropDeletedContents(ctx, runParams.rep, safeDropTime, safety); err != nil {
-			return "", err
-		}
-
-		return fmt.Sprintf("Dropped indexes before %v", safeDropTime), nil
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDropDeletedContentsFull, s, func() (any, error) {
+		return dropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
 	})
 }
 
 func runTaskRewriteContentsQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsQuick, s, func() (string, error) {
-		size, err := RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsQuick, s, func() (any, error) {
+		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: index.AllPrefixedIDs,
 			PackPrefix:     content.PackBlobIDPrefixSpecial,
 			ShortPacks:     true,
 		}, safety)
-		if err != nil {
-			return "", err
-		}
-
-		return fmt.Sprintf("Rewritten %v contents", size), nil
 	})
 }
 
 func runTaskRewriteContentsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsFull, s, func() (string, error) {
-		size, err := RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsFull, s, func() (any, error) {
+		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: index.AllIDs,
 			ShortPacks:     true,
 		}, safety)
-		if err != nil {
-			return "", err
-		}
-
-		return fmt.Sprintf("Rewritten %v contents", size), nil
 	})
 }
 
 func runTaskDeleteOrphanedBlobsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() (string, error) {
-		count, size, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() (any, error) {
+		return DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
 			Parallel:     runParams.Params.ListParallelism,
 		}, safety)
-		if err != nil {
-			return "", err
-		}
-
-		return fmt.Sprintf("Deleted %v(%v) unreferenced blobs", count, size), nil
 	})
 }
 
 func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, s, func() (string, error) {
-		count, size, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, s, func() (any, error) {
+		return DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
 			Prefix:       content.PackBlobIDPrefixSpecial,
 			Parallel:     runParams.Params.ListParallelism,
 		}, safety)
-		if err != nil {
-			return "", err
-		}
-
-		return fmt.Sprintf("Deleted %v(%v) unreferenced blobs", count, size), nil
 	})
 }
 
 func runTaskExtendBlobRetentionTimeFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	return ReportRun(ctx, runParams.rep, TaskExtendBlobRetentionTimeFull, s, func() (string, error) {
-		count, err := ExtendBlobRetentionTime(ctx, runParams.rep, ExtendBlobRetentionTimeOptions{})
-		if err != nil {
-			return "", err
-		}
-
-		return fmt.Sprintf("Extended tentention time for %v blobs", count), nil
+	return ReportRun(ctx, runParams.rep, TaskExtendBlobRetentionTimeFull, s, func() (any, error) {
+		return ExtendBlobRetentionTime(ctx, runParams.rep, ExtendBlobRetentionTimeOptions{})
 	})
 }
 
