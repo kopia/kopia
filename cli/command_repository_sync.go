@@ -34,7 +34,8 @@ type commandRepositorySyncTo struct {
 	lastSyncProgress  string
 	syncProgressMutex sync.Mutex
 
-	out textOutput
+	out      textOutput
+	progress *cliProgress
 }
 
 func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandParent) {
@@ -47,6 +48,7 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("times", "Synchronize blob times if supported.").BoolVar(&c.repositorySyncTimes)
 
 	c.out.setup(svc)
+	c.progress = svc.getProgress()
 
 	for _, prov := range svc.storageProviders() {
 		// Set up 'sync-to' subcommand
@@ -200,6 +202,10 @@ func (c *commandRepositorySyncTo) beginSyncProgress() {
 }
 
 func (c *commandRepositorySyncTo) outputSyncProgress(s string) {
+	if !c.progress.Enabled() {
+		return
+	}
+
 	c.syncProgressMutex.Lock()
 	defer c.syncProgressMutex.Unlock()
 
@@ -215,6 +221,9 @@ func (c *commandRepositorySyncTo) outputSyncProgress(s string) {
 }
 
 func (c *commandRepositorySyncTo) finishSyncProcess() {
+	if !c.progress.Enabled() {
+		return
+	}
 	c.out.printStderr("\r%v\n", c.lastSyncProgress)
 }
 

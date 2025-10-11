@@ -54,3 +54,7 @@ You can control how much data is written to console and log files by using flags
 
 By default, console output will be colored to indicate different log levels, this can be disabled (useful when redirecting output to a file) with `--disable-color`. To force color colorized output when redirecting to a file use `--force-color`.
 
+### Progress Output
+
+Kopia displays progress information during operations such as snapshots and synchronization. This output can be controlled separately from log levels using `--progress` (default) or `--no-progress` flags. This is particularly useful when running Kopia in scripts or scheduled tasks where clean output is preferred.
+
