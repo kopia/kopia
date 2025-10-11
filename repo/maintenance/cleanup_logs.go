@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"time"
 
@@ -42,8 +43,26 @@ func defaultLogRetention() LogRetentionOptions {
 	}
 }
 
+type CleanupLogsStats struct {
+	UnusedCount    uint32 `json:"unusedCount"`
+	UnusedSize     int64  `json:"unusedSize"`
+	PreservedCount uint32 `json:"preservedCount"`
+	PreservedSize  int64  `json:"preservedSize"`
+}
+
+func (cs *CleanupLogsStats) WriteValueTo(jw *contentlog.JSONWriter) {
+	jw.UInt32Field("unusedCount", uint32(cs.UnusedCount))
+	jw.Int64Field("unusedSize", cs.UnusedSize)
+	jw.UInt32Field("preservedCount", uint32(cs.PreservedCount))
+	jw.Int64Field("preservedSize", cs.PreservedSize)
+}
+
+func (cs *CleanupLogsStats) MaintenanceSummary() string {
+	return fmt.Sprintf("Cleaned up %v(%v) logs blobs, preserved %v(%v) logs blobs.", cs.UnusedCount, cs.UnusedSize, cs.PreservedCount, cs.PreservedSize)
+}
+
 // CleanupLogs deletes old logs blobs beyond certain age, total size or count.
-func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRetentionOptions) ([]blob.Metadata, error) {
+func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRetentionOptions) (*CleanupLogsStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:cleanup-logs", contentlog.RandomSpanID()))
 
@@ -63,14 +82,14 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 		return allLogBlobs[i].Timestamp.After(allLogBlobs[j].Timestamp)
 	})
 
-	var totalSize int64
+	var preservedSize int64
 
 	deletePosition := len(allLogBlobs)
 
 	for i, bm := range allLogBlobs {
-		totalSize += bm.Length
+		preservedSize += bm.Length
 
-		if totalSize > opt.MaxTotalSize && opt.MaxTotalSize > 0 {
+		if preservedSize > opt.MaxTotalSize && opt.MaxTotalSize > 0 {
 			deletePosition = i
 			break
 		}
@@ -88,10 +107,19 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 
 	toDelete := allLogBlobs[deletePosition:]
 
-	contentlog.Log2(ctx, log,
-		"Keeping logs",
-		logparam.Int("count", deletePosition),
-		logparam.Int64("bytes", totalSize))
+	var unusedSize int64
+	for _, bm := range toDelete {
+		unusedSize += bm.Length
+	}
+
+	result := &CleanupLogsStats{
+		PreservedCount: uint32(deletePosition),
+		PreservedSize:  preservedSize,
+		UnusedCount:    uint32(len(allLogBlobs) - deletePosition - 1),
+		UnusedSize:     unusedSize,
+	}
+
+	contentlog.Log1(ctx, log, "Clean up log statistics", result)
 
 	if !opt.DryRun {
 		for _, bm := range toDelete {
@@ -101,5 +129,5 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 		}
 	}
 
-	return toDelete, nil
+	return result, nil
 }

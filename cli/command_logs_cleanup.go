@@ -31,7 +31,7 @@ func (c *commandLogsCleanup) setup(svc appServices, parent commandParent) {
 func (c *commandLogsCleanup) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	rep.LogManager().Disable()
 
-	toDelete, err := maintenance.CleanupLogs(ctx, rep, maintenance.LogRetentionOptions{
+	stats, err := maintenance.CleanupLogs(ctx, rep, maintenance.LogRetentionOptions{
 		MaxTotalSize: c.maxTotalSizeMB << 20, //nolint:mnd
 		MaxCount:     c.maxCount,
 		MaxAge:       c.maxAge,
@@ -41,11 +41,11 @@ func (c *commandLogsCleanup) run(ctx context.Context, rep repo.DirectRepositoryW
 		return errors.Wrap(err, "error expiring logs")
 	}
 
-	if len(toDelete) > 0 {
+	if stats.UnusedCount > 0 {
 		if c.dryRun {
-			log(ctx).Infof("Would delete %v logs.", len(toDelete))
+			log(ctx).Infof("Would delete %v logs.", stats.UnusedCount)
 		} else {
-			log(ctx).Infof("Deleted %v logs.", len(toDelete))
+			log(ctx).Infof("Deleted %v logs.", stats.UnusedCount)
 		}
 	} else {
 		log(ctx).Info("No logs found to delete.")

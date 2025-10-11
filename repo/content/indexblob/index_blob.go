@@ -3,18 +3,32 @@ package indexblob
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
 )
 
+type CompactStats struct {
+	DroppedBefore time.Time `json:"droppedBefore"`
+}
+
+func (cs *CompactStats) WriteValueTo(jw *contentlog.JSONWriter) {
+	jw.TimeField("droppedBefore", cs.DroppedBefore)
+}
+
+func (cs *CompactStats) MaintenanceSummary() string {
+	return fmt.Sprintf("Dropped indexes before %v", cs.DroppedBefore)
+}
+
 // Manager is the API of index blob manager as used by content manager.
 type Manager interface {
 	WriteIndexBlobs(ctx context.Context, data []gather.Bytes, suffix blob.ID) ([]blob.Metadata, error)
 	ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.Time, error)
-	Compact(ctx context.Context, opts CompactOptions) error
+	Compact(ctx context.Context, opts CompactOptions) (*CompactStats, error)
 	Invalidate()
 }
 

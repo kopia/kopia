@@ -148,28 +148,30 @@ func (m *ManagerV0) Invalidate() {
 
 // Compact performs compaction of index blobs by merging smaller ones into larger
 // and registering compaction and cleanup blobs in the repository.
-func (m *ManagerV0) Compact(ctx context.Context, opt CompactOptions) error {
+func (m *ManagerV0) Compact(ctx context.Context, opt CompactOptions) (*CompactStats, error) {
 	indexBlobs, _, err := m.ListActiveIndexBlobs(ctx)
 	if err != nil {
-		return errors.Wrap(err, "error listing active index blobs")
+		return nil, errors.Wrap(err, "error listing active index blobs")
 	}
 
 	mp, mperr := m.formattingOptions.GetMutableParameters(ctx)
 	if mperr != nil {
-		return errors.Wrap(mperr, "mutable parameters")
+		return nil, errors.Wrap(mperr, "mutable parameters")
 	}
 
 	blobsToCompact := m.getBlobsToCompact(ctx, indexBlobs, opt, mp)
 
 	if err := m.compactIndexBlobs(ctx, blobsToCompact, opt); err != nil {
-		return errors.Wrap(err, "error performing compaction")
+		return nil, errors.Wrap(err, "error performing compaction")
 	}
 
 	if err := m.cleanup(ctx, opt.maxEventualConsistencySettleTime()); err != nil {
-		return errors.Wrap(err, "error cleaning up index blobs")
+		return nil, errors.Wrap(err, "error cleaning up index blobs")
 	}
 
-	return nil
+	return &CompactStats{
+		DroppedBefore: opt.DropDeletedBefore,
+	}, nil
 }
 
 func (m *ManagerV0) registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata, maxEventualConsistencySettleTime time.Duration) error {

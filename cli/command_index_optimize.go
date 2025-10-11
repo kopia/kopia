@@ -47,5 +47,6 @@ func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.
 	}
 
 	//nolint:wrapcheck
-	return rep.ContentManager().CompactIndexes(ctx, opt)
+	_, err = rep.ContentManager().CompactIndexes(ctx, opt)
+	return err
 }
