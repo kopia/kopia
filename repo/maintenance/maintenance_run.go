@@ -331,7 +331,11 @@ func notDeletingOrphanedBlobs(ctx context.Context, log *contentlog.Logger, s *Sc
 
 func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedule) error {
 	return ReportRun(ctx, runParams.rep, TaskCleanupLogs, s, func() (any, error) {
-		return CleanupLogs(ctx, runParams.rep, runParams.Params.LogRetention.OrDefault())
+		stats, err := CleanupLogs(ctx, runParams.rep, runParams.Params.LogRetention.OrDefault())
+
+		userLog(ctx).Infof("Cleaned up %v logs.", stats.UnusedCount)
+
+		return stats, err
 	})
 }
 
@@ -339,7 +343,9 @@ func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunPa
 	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochAdvance, s, func() (any, error) {
 		userLog(ctx).Info("Cleaning up no-longer-needed epoch markers...")
 
-		return em.MaybeAdvanceWriteEpoch(ctx)
+		stats, err := em.MaybeAdvanceWriteEpoch(ctx)
+
+		return stats, errors.Wrap(err, "error advancing epoch marker")
 	})
 }
 
@@ -347,7 +353,9 @@ func runTaskEpochMaintenanceQuick(ctx context.Context, em *epoch.Manager, runPar
 	err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (any, error) {
 		userLog(ctx).Info("Compacting an eligible uncompacted epoch...")
 
-		return em.MaybeCompactSingleEpoch(ctx)
+		stats, err := em.MaybeCompactSingleEpoch(ctx)
+
+		return stats, errors.Wrap(err, "error compacting single epoch")
 	})
 	if err != nil {
 		return err
@@ -372,7 +380,9 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (any, error) {
 		userLog(ctx).Info("Compacting an eligible uncompacted epoch...")
 
-		return em.MaybeCompactSingleEpoch(ctx)
+		stats, err := em.MaybeCompactSingleEpoch(ctx)
+
+		return stats, errors.Wrap(err, "error compacting single epoch")
 	}); err != nil {
 		return err
 	}
@@ -385,7 +395,9 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochGenerateRange, s, func() (any, error) {
 		userLog(ctx).Info("Attempting to compact a range of epoch indexes ...")
 
-		return em.MaybeGenerateRangeCheckpoint(ctx)
+		stats, err := em.MaybeGenerateRangeCheckpoint(ctx)
+
+		return stats, errors.Wrap(err, "error creating epoch range indexes")
 	}); err != nil {
 		return err
 	}
@@ -394,7 +406,9 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() (any, error) {
 		userLog(ctx).Info("Cleaning up unneeded epoch markers...")
 
-		return nil, errors.Wrap(em.CleanupMarkers(ctx), "error removing epoch markers")
+		stats, err := em.CleanupMarkers(ctx)
+
+		return stats, errors.Wrap(err, "error removing epoch markers")
 	})
 	if err != nil {
 		return err
@@ -403,7 +417,9 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() (any, error) {
 		userLog(ctx).Info("Cleaning up old index blobs which have already been compacted...")
 
-		return em.CleanupSupersededIndexes(ctx)
+		stats, err := em.CleanupSupersededIndexes(ctx)
+
+		return stats, errors.Wrap(err, "error removing superseded epoch index blobs")
 	})
 }
 

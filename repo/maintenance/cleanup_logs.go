@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -51,10 +52,9 @@ type CleanupLogsStats struct {
 }
 
 func (cs *CleanupLogsStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.UInt32Field("unusedCount", uint32(cs.UnusedCount))
-	jw.Int64Field("unusedSize", cs.UnusedSize)
-	jw.UInt32Field("preservedCount", uint32(cs.PreservedCount))
-	jw.Int64Field("preservedSize", cs.PreservedSize)
+	if bytes, err := json.Marshal(cs); err == nil {
+		jw.RawJSONField("cleanupLogsStats", bytes)
+	}
 }
 
 func (cs *CleanupLogsStats) MaintenanceSummary() string {
@@ -119,7 +119,7 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 		UnusedSize:     unusedSize,
 	}
 
-	contentlog.Log1(ctx, log, "Clean up log statistics", result)
+	contentlog.Log1(ctx, log, "Clean up logs", result)
 
 	if !opt.DryRun {
 		for _, bm := range toDelete {

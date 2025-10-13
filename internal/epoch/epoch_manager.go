@@ -5,6 +5,7 @@ package epoch
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -289,22 +290,37 @@ func (e *Manager) maxCleanupTime(cs CurrentSnapshot) time.Time {
 	return maxTime
 }
 
+type CleanupMarkersStats struct {
+	EpochMarkers       int32 `json:"epochMarkers"`
+	DeletionWaterMarks int32 `json:"deletionWaterMarks"`
+}
+
+func (cs *CleanupMarkersStats) WriteValueTo(jw *contentlog.JSONWriter) {
+	if bytes, err := json.Marshal(cs); err == nil {
+		jw.RawJSONField("cleanupMarkersStats", bytes)
+	}
+}
+
+func (cs *CleanupMarkersStats) MaintenanceSummary() string {
+	return fmt.Sprintf("Cleaned up %v epoch markers and %v deletion water marks", cs.EpochMarkers, cs.DeletionWaterMarks)
+}
+
 // CleanupMarkers removes superseded watermarks and epoch markers.
-func (e *Manager) CleanupMarkers(ctx context.Context) error {
+func (e *Manager) CleanupMarkers(ctx context.Context) (*CleanupMarkersStats, error) {
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	p, err := e.getParameters(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	return e.cleanupInternal(ctx, cs, p)
 }
 
-func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Parameters) error {
+func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Parameters) (*CleanupMarkersStats, error) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	// find max timestamp recently written to the repository to establish storage clock.
@@ -312,7 +328,7 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 	// to this max time. This assumes that storage clock moves forward somewhat reasonably.
 	maxTime := e.maxCleanupTime(cs)
 	if maxTime.IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	// only delete blobs if a suitable replacement exists and has been written sufficiently
@@ -320,18 +336,30 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 	// may have not observed them yet.
 	maxReplacementTime := maxTime.Add(-p.CleanupSafetyMargin)
 
+	result := &CleanupMarkersStats{}
+
 	eg.Go(func() error {
-		return e.cleanupEpochMarkers(ctx, cs)
+		deleted, err := e.cleanupEpochMarkers(ctx, cs)
+		result.EpochMarkers = int32(deleted)
+
+		return err
 	})
 
 	eg.Go(func() error {
-		return e.cleanupWatermarks(ctx, cs, p, maxReplacementTime)
+		deleted, err := e.cleanupWatermarks(ctx, cs, p, maxReplacementTime)
+		result.DeletionWaterMarks = int32(deleted)
+
+		return err
 	})
 
-	return errors.Wrap(eg.Wait(), "error cleaning up index blobs")
+	if err := eg.Wait(); err != nil {
+		return nil, errors.Wrap(err, "error cleaning up index blobs")
+	}
+
+	return result, nil
 }
 
-func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) error {
+func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) (int, error) {
 	// delete epoch markers for epoch < current-1
 	var toDelete []blob.ID
 
@@ -345,13 +373,13 @@ func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) e
 
 	p, err := e.getParameters(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting index blob marker")
+	return len(toDelete), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting index blob marker")
 }
 
-func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *Parameters, maxReplacementTime time.Time) error {
+func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *Parameters, maxReplacementTime time.Time) (int, error) {
 	var toDelete []blob.ID
 
 	for _, bm := range cs.DeletionWatermarkBlobs {
@@ -369,7 +397,7 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *
 		}
 	}
 
-	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting watermark blobs")
+	return len(toDelete), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting watermark blobs")
 }
 
 type CleanupSupersededIndexesStats struct {
@@ -379,9 +407,9 @@ type CleanupSupersededIndexesStats struct {
 }
 
 func (cs *CleanupSupersededIndexesStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.TimeField("maxReplacementTime", cs.MaxReplacementTime)
-	jw.UInt32Field("deletedBlobs", cs.DeletedBlobs)
-	jw.UInt64Field("deletedSize", uint64(cs.DeletedSize))
+	if bytes, err := json.Marshal(cs); err == nil {
+		jw.RawJSONField("cleanupSupersededIndexesStats", bytes)
+	}
 }
 
 func (cs *CleanupSupersededIndexesStats) MaintenanceSummary() string {
@@ -595,8 +623,9 @@ type GenerateRangeCheckpointStats struct {
 }
 
 func (gs *GenerateRangeCheckpointStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.UInt32Field("firstEpoch", gs.FirstEpoch)
-	jw.UInt32Field("lastEpoch", gs.LastEpoch)
+	if bytes, err := json.Marshal(gs); err == nil {
+		jw.RawJSONField("generateRangeCheckpointStats", bytes)
+	}
 }
 
 func (gs *GenerateRangeCheckpointStats) MaintenanceSummary() string {
@@ -760,8 +789,9 @@ type AdvanceEpochStats struct {
 }
 
 func (as *AdvanceEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.UInt32Field("curEpoch", as.CurEpoch)
-	jw.BoolField("advanced", as.Advanced)
+	if bytes, err := json.Marshal(as); err == nil {
+		jw.RawJSONField("advanceEpochStats", bytes)
+	}
 }
 
 func (as *AdvanceEpochStats) MaintenanceSummary() string {
@@ -1057,9 +1087,9 @@ type CompactSingleEpochStats struct {
 }
 
 func (cs *CompactSingleEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.UInt32Field("blobCount", cs.BlobCount)
-	jw.Int64Field("blobSize", cs.BlobSize)
-	jw.UInt32Field("epoch", cs.Epoch)
+	if bytes, err := json.Marshal(cs); err == nil {
+		jw.RawJSONField("compactSingleEpochStats", bytes)
+	}
 }
 
 func (cs *CompactSingleEpochStats) MaintenanceSummary() string {

@@ -84,8 +84,7 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 		for _, t := range timings {
 			var message string
 			if t.Success {
-				s := t.Stats.(maintenance.RunStats)
-				if s != nil {
+				if s := t.Stats.(maintenance.RunStats); s != nil {
 					message = "SUCCESS: " + s.MaintenanceSummary()
 				}
 			} else {

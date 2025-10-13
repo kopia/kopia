@@ -66,9 +66,13 @@ func reportRunAndMaybeCheckContentIndex(ctx context.Context, rep repo.DirectRepo
 
 		stats, err := run()
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
-		return stats, checkContentIndexToPacks(ctx, rep.ContentReader())
+		if err := checkContentIndexToPacks(ctx, rep.ContentReader()); err != nil {
+			return nil, err
+		}
+
+		return stats, nil
 	})
 }

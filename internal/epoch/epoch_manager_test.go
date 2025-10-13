@@ -1320,7 +1320,7 @@ func TestCleanupMarkers_Empty(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	// this should be a no-op
-	err := te.mgr.CleanupMarkers(ctx)
+	_, err := te.mgr.CleanupMarkers(ctx)
 
 	require.NoError(t, err)
 }
@@ -1334,7 +1334,7 @@ func TestCleanupMarkers_GetParametersError(t *testing.T) {
 	paramsError := errors.New("no parameters error")
 	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
 
-	err := te.mgr.CleanupMarkers(ctx)
+	_, err := te.mgr.CleanupMarkers(ctx)
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, paramsError)
@@ -1350,7 +1350,7 @@ func TestCleanupMarkers_FailToReadState(t *testing.T) {
 
 	cancel()
 
-	err := te.mgr.CleanupMarkers(ctx)
+	_, err := te.mgr.CleanupMarkers(ctx)
 
 	require.Error(t, err)
 }
@@ -1370,7 +1370,7 @@ func TestCleanupMarkers_AvoidCleaningUpSingleEpochMarker(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, cs.WriteEpoch)
 
-	err = te.mgr.CleanupMarkers(ctx)
+	_, err = te.mgr.CleanupMarkers(ctx)
 	require.NoError(t, err)
 
 	require.NoError(t, te.mgr.Refresh(ctx))
@@ -1409,7 +1409,7 @@ func TestCleanupMarkers_CleanUpManyMarkers(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, cs.EpochMarkerBlobs, epochsToAdvance)
 
-	err = te.mgr.CleanupMarkers(ctx)
+	_, err = te.mgr.CleanupMarkers(ctx)
 	require.NoError(t, err)
 
 	// is the epoch marker preserved?

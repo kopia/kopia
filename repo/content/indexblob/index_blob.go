@@ -3,6 +3,7 @@ package indexblob
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -17,7 +18,9 @@ type CompactStats struct {
 }
 
 func (cs *CompactStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.TimeField("droppedBefore", cs.DroppedBefore)
+	if bytes, err := json.Marshal(cs); err == nil {
+		jw.RawJSONField("compactStats", bytes)
+	}
 }
 
 func (cs *CompactStats) MaintenanceSummary() string {

@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
@@ -47,10 +48,9 @@ type RewriteContentsStats struct {
 }
 
 func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.UInt32Field("rewrittenCount", rs.RewrittenCount)
-	jw.Int64Field("rewrittenSize", rs.RewrittenSize)
-	jw.UInt32Field("preservedCount", rs.PreservedCount)
-	jw.Int64Field("preservedSize", rs.PreservedSize)
+	if bytes, err := json.Marshal(rs); err == nil {
+		jw.RawJSONField("rewriteContentsStats", bytes)
+	}
 }
 
 func (rs *RewriteContentsStats) MaintenanceSummary() string {
@@ -176,7 +176,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 		PreservedSize:  preservedBytes,
 	}
 
-	contentlog.Log1(ctx, log, "Content rewrite statistics", result)
+	contentlog.Log1(ctx, log, "Rewritten contents", result)
 
 	if failedCount == 0 {
 		//nolint:wrapcheck

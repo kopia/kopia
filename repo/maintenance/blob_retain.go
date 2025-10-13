@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"runtime"
 	"sync"
@@ -34,8 +35,9 @@ type ExtendBlobRetentionStats struct {
 }
 
 func (es *ExtendBlobRetentionStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.UInt32Field("toExtend", es.ToExtend)
-	jw.UInt32Field("extended", es.Extended)
+	if bytes, err := json.Marshal(es); err == nil {
+		jw.RawJSONField("extendBlobRetentionStats", bytes)
+	}
 }
 
 func (es *ExtendBlobRetentionStats) MaintenanceSummary() string {

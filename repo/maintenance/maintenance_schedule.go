@@ -40,7 +40,7 @@ type RunInfo struct {
 	End     time.Time `json:"end"`
 	Success bool      `json:"success,omitempty"`
 	Error   string    `json:"error,omitempty"`
-	Stats   any       `json:"Stats,omitempty"`
+	Stats   any       `json:"stats,omitempty"`
 }
 
 // Schedule keeps track of scheduled maintenance times.
