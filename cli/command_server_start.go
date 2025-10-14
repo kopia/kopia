@@ -226,6 +226,11 @@ func (c *commandServerStart) run(ctx context.Context) (reterr error) {
 		// wait for all connections to finish within a shutdown grace period
 		log(ctx2).Debugf("attempting graceful shutdown for %v", c.shutdownGracePeriod)
 
+		// Gracefully shutdown GRPC server first to close GRPC connections
+		log(ctx2).Debug("shutting down GRPC server")
+		srv.ShutdownGRPCServer()
+		log(ctx2).Debug("GRPC server shutdown completed")
+
 		if serr := httpServer.Shutdown(ctx2); serr != nil {
 			// graceful shutdown unsuccessful, force close
 			log(ctx2).Debugf("unable to shut down gracefully - closing: %v", serr)

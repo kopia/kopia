@@ -24,7 +24,7 @@ func handleMountCreate(ctx context.Context, rc requestContext) (any, *apiError) 
 		return nil, internalServerError(err)
 	}
 
-	log(ctx).Debugf("mount for %v => %v", oid, c.MountPath())
+	userLog(ctx).Debugf("mount for %v => %v", oid, c.MountPath())
 
 	return &serverapi.MountedSnapshot{
 		Path: c.MountPath(),

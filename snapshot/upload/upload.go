@@ -22,6 +22,8 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/workshare"
@@ -509,6 +511,8 @@ func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath
 // checkpointRoot invokes checkpoints on the provided registry and if a checkpoint entry was generated,
 // saves it in an incomplete snapshot manifest.
 func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) error {
+	ctx = contentlog.WithParams(ctx, logparam.String("span:checkpoint", contentlog.RandomSpanID()))
+
 	var dmbCheckpoint snapshotfs.DirManifestBuilder
 	if err := cp.runCheckpoints(&dmbCheckpoint); err != nil {
 		return errors.Wrap(err, "running checkpointers")
@@ -1259,6 +1263,15 @@ func (u *Uploader) Upload(
 ) (*snapshot.Manifest, error) {
 	ctx, span := uploadTracer.Start(ctx, "Upload")
 	defer span.End()
+
+	ctx = contentlog.WithParams(ctx, logparam.String("span:upload", contentlog.HashSpanID(sourceInfo.String())))
+
+	if dr, ok := u.repo.(repo.DirectRepository); ok {
+		log := dr.LogManager().NewLogger("uploader")
+
+		contentlog.Log(ctx, log, "uploading started")
+		defer contentlog.Log(ctx, log, "uploading finished")
+	}
 
 	u.traceEnabled = span.IsRecording()
 

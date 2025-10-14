@@ -9,11 +9,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobcrypto"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 // ManagerV1 is the append-only implementation of indexblob.Manager
@@ -23,14 +24,16 @@ type ManagerV1 struct {
 	enc               *EncryptionManager
 	timeNow           func() time.Time
 	formattingOptions IndexFormattingOptions
-	log               logging.Logger
+	log               *contentlog.Logger
 
 	epochMgr *epoch.Manager
 }
 
-// ListIndexBlobInfos list active blob info structs.  Also returns time of latest content deletion commit.
-func (m *ManagerV1) ListIndexBlobInfos(ctx context.Context) ([]Metadata, time.Time, error) {
-	return m.ListActiveIndexBlobs(ctx)
+// ListIndexBlobInfos lists active blob info structs.
+func (m *ManagerV1) ListIndexBlobInfos(ctx context.Context) ([]Metadata, error) {
+	blobs, _, err := m.ListActiveIndexBlobs(ctx)
+
+	return blobs, err
 }
 
 // ListActiveIndexBlobs lists the metadata for active index blobs and returns the cut-off time
@@ -47,7 +50,7 @@ func (m *ManagerV1) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.
 		result = append(result, Metadata{Metadata: bm})
 	}
 
-	m.log.Debugf("total active indexes %v, deletion watermark %v", len(active), deletionWatermark)
+	contentlog.Log2(ctx, m.log, "total active indexes", logparam.Int("len", len(active)), logparam.Time("deletionWatermark", deletionWatermark))
 
 	return result, deletionWatermark, nil
 }
@@ -71,7 +74,7 @@ func (m *ManagerV1) CompactEpoch(ctx context.Context, blobIDs []blob.ID, outputP
 	tmpbld := index.NewOneUseBuilder()
 
 	for _, indexBlob := range blobIDs {
-		if err := addIndexBlobsToBuilder(ctx, m.enc, tmpbld, indexBlob); err != nil {
+		if err := addIndexBlobsToBuilder(ctx, m.enc, tmpbld.Add, indexBlob); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 	}
@@ -173,7 +176,7 @@ func NewManagerV1(
 	epochMgr *epoch.Manager,
 	timeNow func() time.Time,
 	formattingOptions IndexFormattingOptions,
-	log logging.Logger,
+	log *contentlog.Logger,
 ) *ManagerV1 {
 	return &ManagerV1{
 		st:                st,

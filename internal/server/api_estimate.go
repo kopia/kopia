@@ -30,9 +30,9 @@ func (p estimateTaskProgress) Processing(_ context.Context, dirname string) {
 
 func (p estimateTaskProgress) Error(ctx context.Context, dirname string, err error, isIgnored bool) {
 	if isIgnored {
-		log(ctx).Errorf("ignored error in %v: %v", dirname, err)
+		userLog(ctx).Errorf("ignored error in %v: %v", dirname, err)
 	} else {
-		log(ctx).Errorf("error in %v: %v", dirname, err)
+		userLog(ctx).Errorf("error in %v: %v", dirname, err)
 	}
 }
 
@@ -76,7 +76,7 @@ func logBucketSamples(ctx context.Context, buckets upload.SampleBuckets, prefix 
 				units.BytesString(buckets[i-1].MinSize))
 		}
 
-		log(ctx).Infof("%v files %v: %7v files, total size %v\n",
+		userLog(ctx).Infof("%v files %v: %7v files, total size %v\n",
 			prefix,
 			sizeRange,
 			bucket.Count, units.BytesString(bucket.TotalSize))
@@ -84,16 +84,16 @@ func logBucketSamples(ctx context.Context, buckets upload.SampleBuckets, prefix 
 		hasAny = true
 
 		if showExamples && len(bucket.Examples) > 0 {
-			log(ctx).Info("Examples:")
+			userLog(ctx).Info("Examples:")
 
 			for _, sample := range bucket.Examples {
-				log(ctx).Infof(" - %v\n", sample)
+				userLog(ctx).Infof(" - %v\n", sample)
 			}
 		}
 	}
 
 	if !hasAny {
-		log(ctx).Infof("%v files: None", prefix)
+		userLog(ctx).Infof("%v files: None", prefix)
 	}
 }
 

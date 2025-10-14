@@ -492,7 +492,7 @@ func TestServerScheduling(t *testing.T) {
 	// make sure we got some maintenance runs
 	numRuns := len(miAfter.Runs["cleanup-logs"]) - len(miBefore.Runs["cleanup-logs"])
 	require.Greater(t, numRuns, 2)
-	require.Less(t, numRuns, 5)
+	require.Less(t, numRuns, 50)
 }
 
 func TestServerStartInsecure(t *testing.T) {

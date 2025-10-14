@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cacheprot"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/metrics"
@@ -66,12 +69,13 @@ var log = logging.Module("kopia/repo")
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
-	TraceStorage        bool                       // Logs all storage access using provided Printf-style function
-	TimeNowFunc         func() time.Time           // Time provider
-	DisableInternalLog  bool                       // Disable internal log
-	UpgradeOwnerID      string                     // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
-	DoNotWaitForUpgrade bool                       // Disable the exponential forever backoff on an upgrade lock.
-	BeforeFlush         []RepositoryWriterCallback // list of callbacks to invoke before every flush
+	TraceStorage         bool                       // Logs all storage access using provided Printf-style function
+	ContentLogWriter     io.Writer                  // Writer to which the content log is also written
+	TimeNowFunc          func() time.Time           // Time provider
+	DisableRepositoryLog bool                       // Disable repository log manager
+	UpgradeOwnerID       string                     // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
+	DoNotWaitForUpgrade  bool                       // Disable the exponential forever backoff on an upgrade lock.
+	BeforeFlush          []RepositoryWriterCallback // list of callbacks to invoke before every flush
 
 	OnFatalError func(err error) // function to invoke when repository encounters a fatal error, usually invokes os.Exit
 
@@ -217,10 +221,6 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		return nil, errors.Wrap(err, "cannot open storage")
 	}
 
-	if options.TraceStorage {
-		st = loggingwrapper.NewWrapper(st, log(ctx), "[STORAGE] ")
-	}
-
 	if lc.ReadOnly {
 		st = readonly.NewWrapper(st)
 	}
@@ -243,7 +243,6 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	cacheOpts = cacheOpts.CloneOrDefault()
 	cmOpts := &content.ManagerOptions{
 		TimeNow:                defaultTime(options.TimeNowFunc),
-		DisableInternalLog:     options.DisableInternalLog,
 		PermissiveCacheLoading: cliOpts.PermissiveCacheLoading,
 	}
 
@@ -323,7 +322,14 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	}
 
 	dw := repodiag.NewWriter(st, fmgr)
-	logManager := repodiag.NewLogManager(ctx, dw)
+
+	logManager := repodiag.NewLogManager(ctx, dw, options.DisableRepositoryLog, options.ContentLogWriter,
+		logparam.String("span:client", contentlog.HashSpanID(cliOpts.UsernameAtHost())),
+		logparam.String("span:repo", contentlog.RandomSpanID()))
+
+	if options.TraceStorage {
+		st = loggingwrapper.NewWrapper(st, log(ctx), logManager.NewLogger("storage"), "[STORAGE] ")
+	}
 
 	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts, logManager, mr)
 	if ferr != nil {
@@ -369,6 +375,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 			metricsRegistry:  mr,
 			refCountedCloser: closer,
 			beforeFlush:      options.BeforeFlush,
+			logManager:       logManager,
 		},
 	}
 

@@ -24,7 +24,7 @@ func (s *Server) getMountController(ctx context.Context, rep repo.Repository, oi
 		return nil, nil
 	}
 
-	log(ctx).Debugf("mount controller for %v not found, starting", oid)
+	userLog(ctx).Debugf("mount controller for %v not found, starting", oid)
 
 	c, err := mount.Directory(ctx, snapshotfs.DirectoryEntry(rep, oid, nil), "*", mount.Options{})
 	if err != nil {
@@ -60,7 +60,7 @@ func (s *Server) deleteMount(oid object.ID) {
 func (s *Server) unmountAllLocked(ctx context.Context) {
 	for oid, c := range s.mounts {
 		if err := c.Unmount(ctx); err != nil {
-			log(ctx).Errorf("unable to unmount %v", oid)
+			userLog(ctx).Errorf("unable to unmount %v", oid)
 		}
 
 		delete(s.mounts, oid)

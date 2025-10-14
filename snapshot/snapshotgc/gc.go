@@ -9,6 +9,9 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/bigmap"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/contentparam"
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
@@ -21,9 +24,10 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-var log = logging.Module("snapshotgc")
+// User-visible log output.
+var userLog = logging.Module("snapshotgc")
 
-func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *bigmap.Set) error {
+func findInUseContentIDs(ctx context.Context, log *contentlog.Logger, rep repo.Repository, used *bigmap.Set) error {
 	ids, err := snapshot.ListSnapshotManifests(ctx, rep, nil, nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to list snapshot manifest IDs")
@@ -56,7 +60,7 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *bigmap.
 
 	defer w.Close(ctx)
 
-	log(ctx).Info("Looking for active contents...")
+	contentlog.Log(ctx, log, "Looking for active contents...")
 
 	for _, m := range manifests {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
@@ -82,21 +86,28 @@ func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, sa
 }
 
 func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) error {
+	ctx = contentlog.WithParams(ctx,
+		logparam.String("span:snapshot-gc", contentlog.RandomSpanID()))
+
+	log := rep.LogManager().NewLogger("maintenance-snapshot-gc")
+
 	used, serr := bigmap.NewSet(ctx)
 	if serr != nil {
 		return errors.Wrap(serr, "unable to create new set")
 	}
 	defer used.Close(ctx)
 
-	if err := findInUseContentIDs(ctx, rep, used); err != nil {
+	if err := findInUseContentIDs(ctx, log, rep, used); err != nil {
 		return errors.Wrap(err, "unable to find in-use content ID")
 	}
 
-	return findUnreferencedAndRepairRereferenced(ctx, rep, gcDelete, safety, maintenanceStartTime, used)
+	return findUnreferencedAndRepairRereferenced(ctx, log, rep, gcDelete, safety, maintenanceStartTime, used)
 }
 
+//nolint:funlen
 func findUnreferencedAndRepairRereferenced(
 	ctx context.Context,
+	log *contentlog.Logger,
 	rep repo.DirectRepositoryWriter,
 	gcDelete bool,
 	safety maintenance.SafetyParameters,
@@ -105,7 +116,7 @@ func findUnreferencedAndRepairRereferenced(
 ) error {
 	var unused, inUse, system, tooRecent, undeleted stats.CountSum
 
-	log(ctx).Info("Looking for unreferenced contents...")
+	contentlog.Log(ctx, log, "Looking for unreferenced contents...")
 
 	// Ensure that the iteration includes deleted contents, so those can be
 	// undeleted (recovered).
@@ -132,13 +143,22 @@ func findUnreferencedAndRepairRereferenced(
 		}
 
 		if maintenanceStartTime.Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
-			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ContentID, ci.PackedLength, ci.Timestamp())
+			contentlog.Log3(ctx, log,
+				"recent unreferenced content",
+				contentparam.ContentID("contentID", ci.ContentID),
+				logparam.Int64("bytes", int64(ci.PackedLength)),
+				logparam.Time("modified", ci.Timestamp()))
 			tooRecent.Add(int64(ci.PackedLength))
 
 			return nil
 		}
 
-		log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.ContentID, ci.PackedLength, ci.Timestamp())
+		contentlog.Log3(ctx, log,
+			"unreferenced content",
+			contentparam.ContentID("contentID", ci.ContentID),
+			logparam.Int64("bytes", int64(ci.PackedLength)),
+			logparam.Time("modified", ci.Timestamp()))
+
 		cnt, totalSize := unused.Add(int64(ci.PackedLength))
 
 		if gcDelete {
@@ -148,7 +168,10 @@ func findUnreferencedAndRepairRereferenced(
 		}
 
 		if cnt%100000 == 0 {
-			log(ctx).Infof("... found %v unused contents so far (%v bytes)", cnt, units.BytesString(totalSize))
+			contentlog.Log2(ctx, log,
+				"found unused contents so far",
+				logparam.UInt32("count", cnt),
+				logparam.Int64("bytes", totalSize))
 
 			if gcDelete {
 				if err := rep.Flush(ctx); err != nil {
@@ -160,17 +183,38 @@ func findUnreferencedAndRepairRereferenced(
 		return nil
 	})
 
-	unusedCount, unusedBytes := toCountAndBytesString(&unused)
-	inUseCount, inUseBytes := toCountAndBytesString(&inUse)
-	systemCount, systemBytes := toCountAndBytesString(&system)
-	tooRecentCount, tooRecentBytes := toCountAndBytesString(&tooRecent)
-	undeletedCount, undeletedBytes := toCountAndBytesString(&undeleted)
+	unusedCount, unusedBytes := unused.Approximate()
+	inUseCount, inUseBytes := inUse.Approximate()
+	systemCount, systemBytes := system.Approximate()
+	tooRecentCount, tooRecentBytes := tooRecent.Approximate()
+	undeletedCount, undeletedBytes := undeleted.Approximate()
 
-	log(ctx).Infof("GC found %v unused contents (%v)", unusedCount, unusedBytes)
-	log(ctx).Infof("GC found %v unused contents that are too recent to delete (%v)", tooRecentCount, tooRecentBytes)
-	log(ctx).Infof("GC found %v in-use contents (%v)", inUseCount, inUseBytes)
-	log(ctx).Infof("GC found %v in-use system-contents (%v)", systemCount, systemBytes)
-	log(ctx).Infof("GC undeleted %v contents (%v)", undeletedCount, undeletedBytes)
+	userLog(ctx).Infof("GC found %v unused contents (%v)", unusedCount, units.BytesString(unusedBytes))
+	userLog(ctx).Infof("GC found %v unused contents that are too recent to delete (%v)", tooRecentCount, units.BytesString(tooRecentBytes))
+	userLog(ctx).Infof("GC found %v in-use contents (%v)", inUseCount, units.BytesString(inUseBytes))
+	userLog(ctx).Infof("GC found %v in-use system-contents (%v)", systemCount, units.BytesString(systemBytes))
+	userLog(ctx).Infof("GC undeleted %v contents (%v)", undeletedCount, units.BytesString(undeletedBytes))
+
+	contentlog.Log2(ctx, log,
+		"GC found unused contents",
+		logparam.UInt32("count", unusedCount),
+		logparam.Int64("bytes", unusedBytes))
+	contentlog.Log2(ctx, log,
+		"GC found unused contents that are too recent to delete",
+		logparam.UInt32("count", tooRecentCount),
+		logparam.Int64("bytes", tooRecentBytes))
+	contentlog.Log2(ctx, log,
+		"GC found in-use contents",
+		logparam.UInt32("count", inUseCount),
+		logparam.Int64("bytes", inUseBytes))
+	contentlog.Log2(ctx, log,
+		"GC found in-use system-contents",
+		logparam.UInt32("count", systemCount),
+		logparam.Int64("bytes", systemBytes))
+	contentlog.Log2(ctx, log,
+		"GC undeleted contents",
+		logparam.UInt32("count", undeletedCount),
+		logparam.Int64("bytes", undeletedBytes))
 
 	if err != nil {
 		return errors.Wrap(err, "error iterating contents")
@@ -185,10 +229,4 @@ func findUnreferencedAndRepairRereferenced(
 	}
 
 	return nil
-}
-
-func toCountAndBytesString(cs *stats.CountSum) (uint32, string) {
-	count, sumBytes := cs.Approximate()
-
-	return count, units.BytesString(sumBytes)
 }

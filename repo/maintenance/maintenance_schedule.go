@@ -28,7 +28,7 @@ var (
 )
 
 // maxRetainedRunInfoPerRunType the maximum number of retained RunInfo entries per run type.
-const maxRetainedRunInfoPerRunType = 5
+const maxRetainedRunInfoPerRunType = 50
 
 // RunInfo represents information about a single run of a maintenance task.
 type RunInfo struct {
@@ -212,7 +212,7 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 	s.ReportRun(taskType, ri)
 
 	if err := SetSchedule(ctx, rep, s); err != nil {
-		log(ctx).Errorf("unable to report run: %v", err)
+		userLog(ctx).Errorf("unable to report run: %v", err)
 	}
 
 	return runErr
