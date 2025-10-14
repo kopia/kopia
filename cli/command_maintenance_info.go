@@ -87,6 +87,8 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 			if t.Success {
 				if s, ok := t.Stats.(maintenance.RunStats); ok {
 					message = "SUCCESS: " + s.MaintenanceSummary()
+				} else {
+					message = "SUCCESS"
 				}
 			} else {
 				message = "ERROR: " + t.Error
