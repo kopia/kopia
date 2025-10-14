@@ -70,8 +70,10 @@ type commandServerStart struct {
 	debugScheduler                      bool
 	minMaintenanceInterval              time.Duration
 
-	shutdownGracePeriod  time.Duration
+	shutdownGracePeriod time.Duration
+
 	kopiauiNotifications bool
+	kopiauiInfo          bool
 
 	logServerRequests bool
 
@@ -127,6 +129,8 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("shutdown-grace-period", "Grace period for shutting down the server").Default("5s").DurationVar(&c.shutdownGracePeriod)
 
 	cmd.Flag("kopiaui-notifications", "Enable notifications to be printed to stdout for KopiaUI").BoolVar(&c.kopiauiNotifications)
+
+	cmd.Flag("kopiaui-info", "Outputs connection info for KopiaUI integration").Default("true").Hidden().BoolVar(&c.kopiauiInfo)
 
 	c.sf.setup(svc, cmd)
 	c.co.setup(svc, cmd)
