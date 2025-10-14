@@ -29,7 +29,11 @@ func (c *storageAzureFlags) Setup(svc StorageProviderServices, cmd *kingpin.CmdC
 	cmd.Flag("azure-federated-token-file", "Path to a file containing an Azure Federated Token (overrides AZURE_FEDERATED_TOKEN_FILE environment variable)").Envar(svc.EnvName("AZURE_FEDERATED_TOKEN_FILE")).StringVar(&c.azOptions.AzureFederatedTokenFile)
 	// Use Azure CLI cached credential (reads token cache created by `az login`, including `az login --identity`).
 	// prefer Azure CLI cached token when the option is set.
-	cmd.Flag("azure-use-cli-credential", "Use Azure CLI token cache for Azure AD authentication (reads credentials from `az login` / `az login --identity`). Ensure the identity has appropriate RBAC (e.g. Storage Blob Data Contributor).").Envar(svc.EnvName("AZURE_USE_CLI_CREDENTIAL")).BoolVar(&c.azOptions.UseAzureCLICredential)
+	cmd.Flag("azure-use-cli-credential", 
+			 "Use Azure CLI token cache for Azure AD authentication " +
+			 	"(reads credentials from `az login` / `az login --identity`). " +
+			 	"Ensure the identity has appropriate RBAC (e.g. Storage Blob Data Contributor).",
+			).Envar(svc.EnvName("AZURE_USE_CLI_CREDENTIAL")).BoolVar(&c.azOptions.UseAzureCLICredential)
 
 	commonThrottlingFlags(cmd, &c.azOptions.Limits)
 
