@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
@@ -52,9 +51,12 @@ type CleanupLogsStats struct {
 }
 
 func (cs *CleanupLogsStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	if bytes, err := json.Marshal(cs); err == nil {
-		jw.RawJSONField("cleanupLogsStats", bytes)
-	}
+	jw.BeginObjectField("cleanupLogsStats")
+	jw.UInt32Field("unusedCount", cs.UnusedCount)
+	jw.Int64Field("unusedSize", cs.UnusedSize)
+	jw.UInt32Field("preservedCount", cs.PreservedCount)
+	jw.Int64Field("preservedSize", cs.PreservedSize)
+	jw.EndObject()
 }
 
 func (cs *CleanupLogsStats) MaintenanceSummary() string {

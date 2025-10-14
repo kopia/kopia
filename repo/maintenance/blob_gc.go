@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -36,9 +35,14 @@ type DeleteUnreferencedBlobsStats struct {
 }
 
 func (ds *DeleteUnreferencedBlobsStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	if bytes, err := json.Marshal(ds); err == nil {
-		jw.RawJSONField("deleteUnreferencedBlobsStats", bytes)
-	}
+	jw.BeginObjectField("deleteUnreferencedBlobsStats")
+	jw.UInt32Field("unusedCount", uint32(ds.UnusedCount))
+	jw.Int64Field("unusedSize", ds.UnusedSize)
+	jw.UInt32Field("deletedCount", uint32(ds.DeletedCount))
+	jw.Int64Field("deletedSize", ds.DeletedSize)
+	jw.UInt32Field("PreservedCount", uint32(ds.PreservedCount))
+	jw.Int64Field("PreservedSize", ds.PreservedSize)
+	jw.EndObject()
 }
 
 func (ds *DeleteUnreferencedBlobsStats) MaintenanceSummary() string {

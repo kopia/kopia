@@ -5,7 +5,6 @@ package epoch
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -291,14 +290,15 @@ func (e *Manager) maxCleanupTime(cs CurrentSnapshot) time.Time {
 }
 
 type CleanupMarkersStats struct {
-	EpochMarkers       int32 `json:"epochMarkers"`
-	DeletionWaterMarks int32 `json:"deletionWaterMarks"`
+	EpochMarkers       uint32 `json:"epochMarkers"`
+	DeletionWaterMarks uint32 `json:"deletionWaterMarks"`
 }
 
 func (cs *CleanupMarkersStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	if bytes, err := json.Marshal(cs); err == nil {
-		jw.RawJSONField("cleanupMarkersStats", bytes)
-	}
+	jw.BeginObjectField("cleanupMarkersStats")
+	jw.UInt32Field("epochMarkers", cs.EpochMarkers)
+	jw.UInt32Field("deletionWaterMarks", cs.DeletionWaterMarks)
+	jw.EndObject()
 }
 
 func (cs *CleanupMarkersStats) MaintenanceSummary() string {
@@ -340,14 +340,14 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 
 	eg.Go(func() error {
 		deleted, err := e.cleanupEpochMarkers(ctx, cs)
-		result.EpochMarkers = int32(deleted)
+		result.EpochMarkers = uint32(deleted)
 
 		return err
 	})
 
 	eg.Go(func() error {
 		deleted, err := e.cleanupWatermarks(ctx, cs, p, maxReplacementTime)
-		result.DeletionWaterMarks = int32(deleted)
+		result.DeletionWaterMarks = uint32(deleted)
 
 		return err
 	})
@@ -407,9 +407,11 @@ type CleanupSupersededIndexesStats struct {
 }
 
 func (cs *CleanupSupersededIndexesStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	if bytes, err := json.Marshal(cs); err == nil {
-		jw.RawJSONField("cleanupSupersededIndexesStats", bytes)
-	}
+	jw.BeginObjectField("cleanupSupersededIndexesStats")
+	jw.TimeField("maxReplacementTime", cs.MaxReplacementTime)
+	jw.UInt32Field("deletedBlobs", cs.DeletedBlobs)
+	jw.Int64Field("deletedSize", cs.DeletedSize)
+	jw.EndObject()
 }
 
 func (cs *CleanupSupersededIndexesStats) MaintenanceSummary() string {
@@ -623,9 +625,10 @@ type GenerateRangeCheckpointStats struct {
 }
 
 func (gs *GenerateRangeCheckpointStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	if bytes, err := json.Marshal(gs); err == nil {
-		jw.RawJSONField("generateRangeCheckpointStats", bytes)
-	}
+	jw.BeginObjectField("generateRangeCheckpointStats")
+	jw.UInt32Field("firstEpoch", gs.FirstEpoch)
+	jw.UInt32Field("lastEpoch", gs.LastEpoch)
+	jw.EndObject()
 }
 
 func (gs *GenerateRangeCheckpointStats) MaintenanceSummary() string {
@@ -789,9 +792,10 @@ type AdvanceEpochStats struct {
 }
 
 func (as *AdvanceEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	if bytes, err := json.Marshal(as); err == nil {
-		jw.RawJSONField("advanceEpochStats", bytes)
-	}
+	jw.BeginObjectField("advanceEpochStats")
+	jw.UInt32Field("curEpoch", as.CurEpoch)
+	jw.BoolField("advanced", as.Advanced)
+	jw.EndObject()
 }
 
 func (as *AdvanceEpochStats) MaintenanceSummary() string {
@@ -1087,9 +1091,11 @@ type CompactSingleEpochStats struct {
 }
 
 func (cs *CompactSingleEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	if bytes, err := json.Marshal(cs); err == nil {
-		jw.RawJSONField("compactSingleEpochStats", bytes)
-	}
+	jw.BeginObjectField("compactSingleEpochStats")
+	jw.UInt32Field("blobCount", cs.BlobCount)
+	jw.Int64Field("blobSize", cs.BlobSize)
+	jw.UInt32Field("epoch", cs.Epoch)
+	jw.EndObject()
 }
 
 func (cs *CompactSingleEpochStats) MaintenanceSummary() string {

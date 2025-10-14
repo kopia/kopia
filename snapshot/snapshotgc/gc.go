@@ -3,7 +3,6 @@ package snapshotgc
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -100,9 +99,18 @@ type SnapshotGCStats struct {
 }
 
 func (ss *SnapshotGCStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	if bytes, err := json.Marshal(ss); err == nil {
-		jw.RawJSONField("snapshotGCStats", bytes)
-	}
+	jw.BeginObjectField("snapshotGCStats")
+	jw.UInt32Field("unusedCount", ss.UnusedCount)
+	jw.Int64Field("unusedSize", ss.UnusedSize)
+	jw.UInt32Field("tooRecentUnusedCount", ss.TooRecentUnusedCount)
+	jw.Int64Field("tooRecentUnusedSize", ss.TooRecentUnusedSize)
+	jw.UInt32Field("inUseCount", ss.InUseCount)
+	jw.Int64Field("intUseSize", ss.IntUseSize)
+	jw.UInt32Field("inUseSystemCount", ss.InUseSystemCount)
+	jw.Int64Field("intUseSystemSize", ss.IntUseSystemSize)
+	jw.UInt32Field("recoveredCount", ss.RecoveredCount)
+	jw.Int64Field("recoveredSize", ss.RecoveredSize)
+	jw.EndObject()
 }
 
 func (ss *SnapshotGCStats) MaintenanceSummary() string {

@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"runtime"
@@ -48,9 +47,12 @@ type RewriteContentsStats struct {
 }
 
 func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	if bytes, err := json.Marshal(rs); err == nil {
-		jw.RawJSONField("rewriteContentsStats", bytes)
-	}
+	jw.BeginObjectField("rewriteContentsStats")
+	jw.UInt32Field("rewrittenCount", rs.RewrittenCount)
+	jw.Int64Field("rewrittenSize", rs.RewrittenSize)
+	jw.UInt32Field("preservedCount", rs.PreservedCount)
+	jw.Int64Field("preservedSize", rs.PreservedSize)
+	jw.EndObject()
 }
 
 func (rs *RewriteContentsStats) MaintenanceSummary() string {
