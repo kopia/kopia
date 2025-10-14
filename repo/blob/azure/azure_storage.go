@@ -482,8 +482,6 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 		// which covers `az login --identity`). Otherwise, use DefaultAzureCredential which chains
 		// environment vars -> managed identity -> shared token cache -> CLI -> ...
 		var cred azcore.TokenCredential
-		// var err error
-
 		if opt.UseAzureCLICredential {
 			// Use Azure CLI credential (reads token cache created by 'az login' or 'az login --identity').
 			cliCred, cliErr := azidentity.NewAzureCLICredential(nil)
