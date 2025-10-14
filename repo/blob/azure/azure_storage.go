@@ -491,6 +491,7 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 				return nil, errors.Wrap(cliErr, "unable to initialize Azure CLI credential")
 			}
 			cred = cliCred
+			
 		} else {
 			// Use DefaultAzureCredential as a safe default (env -> managed identity -> CLI -> ...).
 			defCred, defErr := azidentity.NewDefaultAzureCredential(nil)
@@ -498,6 +499,7 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 				return nil, errors.Wrap(defErr, "unable to initialize default azure credential")
 			}
 			cred = defCred
+
 		}
 
 		service, serviceErr = azblob.NewClient(fmt.Sprintf("%s://%s/", protocol, storageHostname), cred, clientOptions)
