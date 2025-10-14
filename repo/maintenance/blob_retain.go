@@ -28,11 +28,13 @@ type ExtendBlobRetentionTimeOptions struct {
 	DryRun   bool
 }
 
+// ExtendBlobRetentionStats delivers the statistics for ExtendBlobRetentionTime
 type ExtendBlobRetentionStats struct {
 	ToExtend uint32 `json:"toExtend"`
 	Extended uint32 `json:"extended"`
 }
 
+// WriteValueTo writes ExtendBlobRetentionStats to JSONWriter
 func (es *ExtendBlobRetentionStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField("extendBlobRetentionStats")
 	jw.UInt32Field("toExtend", es.ToExtend)
@@ -40,8 +42,9 @@ func (es *ExtendBlobRetentionStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
+// MaintenanceSummary generates readable summary for ExtendBlobRetentionStats which is used by maintenance
 func (es *ExtendBlobRetentionStats) MaintenanceSummary() string {
-	return fmt.Sprintf("Found %v(%v) blobs for retention time extent and extended %v(%v) of them", es.ToExtend, es.Extended)
+	return fmt.Sprintf("Found %v blobs for retention time extent and extended %v of them", es.ToExtend, es.Extended)
 }
 
 // ExtendBlobRetentionTime extends the retention time of all relevant blobs managed by storage engine with Object Locking enabled.
@@ -133,7 +136,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	close(extend)
 
 	result := &ExtendBlobRetentionStats{
-		ToExtend: uint32(*toExtend),
+		ToExtend: uint32(*toExtend), //nolint:gosec
 	}
 
 	contentlog.Log1(ctx, log, "Found blobs to extend retention time", result)
@@ -153,7 +156,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		return result, nil
 	}
 
-	result.Extended = uint32(*cnt)
+	result.Extended = uint32(*cnt) //nolint:gosec
 
 	contentlog.Log1(ctx, log, "Extended retention time for blobs", result)
 

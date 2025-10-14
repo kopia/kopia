@@ -39,6 +39,7 @@ type contentInfoOrError struct {
 	err error
 }
 
+// RewriteContentsStats delivers the statistics for RewriteContents
 type RewriteContentsStats struct {
 	RewrittenCount uint32 `json:"rewrittenCount"`
 	RewrittenSize  int64  `json:"rewrittenSize"`
@@ -46,6 +47,7 @@ type RewriteContentsStats struct {
 	PreservedSize  int64  `json:"preservedSize"`
 }
 
+// WriteValueTo writes RewriteContentsStats to JSONWriter
 func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField("rewriteContentsStats")
 	jw.UInt32Field("rewrittenCount", rs.RewrittenCount)
@@ -55,6 +57,7 @@ func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
+// MaintenanceSummary generates readable summary for RewriteContentsStats which is used by maintenance
 func (rs *RewriteContentsStats) MaintenanceSummary() string {
 	return fmt.Sprintf("Rewritten %v(%v) contents, preserved %v(%v) contents", rs.RewrittenCount, rs.RewrittenSize, rs.PreservedCount, rs.PreservedSize)
 }

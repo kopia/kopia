@@ -25,6 +25,7 @@ type DeleteUnreferencedBlobsOptions struct {
 	NotAfterTime time.Time
 }
 
+// DeleteUnreferencedBlobsStats delivers the statistics for DeleteUnreferencedBlobs
 type DeleteUnreferencedBlobsStats struct {
 	UnusedCount    uint32 `json:"unusedCount"`
 	UnusedSize     int64  `json:"unusedSize"`
@@ -34,6 +35,7 @@ type DeleteUnreferencedBlobsStats struct {
 	PreservedSize  int64  `json:"PreservedSize"`
 }
 
+// WriteValueTo writes DeleteUnreferencedBlobsStats to JSONWriter
 func (ds *DeleteUnreferencedBlobsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField("deleteUnreferencedBlobsStats")
 	jw.UInt32Field("unusedCount", uint32(ds.UnusedCount))
@@ -45,6 +47,7 @@ func (ds *DeleteUnreferencedBlobsStats) WriteValueTo(jw *contentlog.JSONWriter) 
 	jw.EndObject()
 }
 
+// MaintenanceSummary generates readable summary for DeleteUnreferencedBlobsStats which is used by maintenance
 func (ds *DeleteUnreferencedBlobsStats) MaintenanceSummary() string {
 	return fmt.Sprintf("Found %v(%v) unreferenced blobs, deleted %v(%v) and preserved %v(%v).", ds.UnusedCount, ds.UnusedSize, ds.DeletedCount, ds.DeletedSize, ds.PreservedCount, ds.PreservedSize)
 }

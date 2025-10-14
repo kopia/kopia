@@ -12,16 +12,19 @@ import (
 	"github.com/kopia/kopia/repo/content/index"
 )
 
+// CompactStats delivers the statistics for Compact
 type CompactStats struct {
 	DroppedBefore time.Time `json:"droppedBefore"`
 }
 
+// WriteValueTo writes CompactStats to JSONWriter
 func (cs *CompactStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField("compactStats")
 	jw.TimeField("droppedBefore", cs.DroppedBefore)
 	jw.EndObject()
 }
 
+// MaintenanceSummary generates readable summary for CompactStats which is used by maintenance
 func (cs *CompactStats) MaintenanceSummary() string {
 	return fmt.Sprintf("Dropped indexes before %v", cs.DroppedBefore)
 }

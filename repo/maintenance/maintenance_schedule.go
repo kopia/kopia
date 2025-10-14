@@ -30,6 +30,7 @@ var (
 // maxRetainedRunInfoPerRunType the maximum number of retained RunInfo entries per run type.
 const maxRetainedRunInfoPerRunType = 50
 
+// RunStats defines the methods for maintenance statistics
 type RunStats interface {
 	MaintenanceSummary() string
 }

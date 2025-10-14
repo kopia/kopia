@@ -43,6 +43,7 @@ func defaultLogRetention() LogRetentionOptions {
 	}
 }
 
+// CleanupLogsStats delivers the statistics for CleanupLogs
 type CleanupLogsStats struct {
 	UnusedCount    uint32 `json:"unusedCount"`
 	UnusedSize     int64  `json:"unusedSize"`
@@ -50,6 +51,7 @@ type CleanupLogsStats struct {
 	PreservedSize  int64  `json:"preservedSize"`
 }
 
+// WriteValueTo writes CleanupLogsStats to JSONWriter
 func (cs *CleanupLogsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField("cleanupLogsStats")
 	jw.UInt32Field("unusedCount", cs.UnusedCount)
@@ -59,6 +61,7 @@ func (cs *CleanupLogsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
+// MaintenanceSummary generates readable summary for CleanupLogsStats which is used by maintenance
 func (cs *CleanupLogsStats) MaintenanceSummary() string {
 	return fmt.Sprintf("Cleaned up %v(%v) logs blobs, preserved %v(%v) logs blobs.", cs.UnusedCount, cs.UnusedSize, cs.PreservedCount, cs.PreservedSize)
 }

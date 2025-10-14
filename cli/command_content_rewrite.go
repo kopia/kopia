@@ -59,7 +59,7 @@ func (c *commandContentRewrite) runContentRewriteCommand(ctx context.Context, re
 		DryRun:         c.contentRewriteDryRun,
 	}, c.contentRewriteSafety)
 
-	return err
+	return errors.Wrap(err, "error rewriting contents")
 }
 
 func toContentIDs(s []string) ([]content.ID, error) {

@@ -85,6 +85,7 @@ func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, sa
 	return errors.Wrap(err, "error running snapshot gc")
 }
 
+// SnapshotGCStats delivers the statistics for SnapshotGC
 type SnapshotGCStats struct {
 	UnusedCount          uint32 `json:"unusedCount"`
 	UnusedSize           int64  `json:"unusedSize"`
@@ -98,6 +99,7 @@ type SnapshotGCStats struct {
 	RecoveredSize        int64  `json:"recoveredSize"`
 }
 
+// WriteValueTo writes SnapshotGCStats to JSONWriter
 func (ss *SnapshotGCStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField("snapshotGCStats")
 	jw.UInt32Field("unusedCount", ss.UnusedCount)
@@ -113,6 +115,7 @@ func (ss *SnapshotGCStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
+// MaintenanceSummary generates readable summary for SnapshotGCStats which is used by maintenance
 func (ss *SnapshotGCStats) MaintenanceSummary() string {
 	return fmt.Sprintf("Found %v(%v) unused contents, %v(%v) inused contents, %v(%v) inused system contents, marked %v(%v) unused countents for deletion, recovered %v(%v) contents",
 		ss.UnusedCount+ss.TooRecentUnusedCount, ss.UnusedSize+ss.TooRecentUnusedSize, ss.InUseCount, ss.IntUseSize, ss.InUseSystemCount, ss.IntUseSystemSize, ss.UnusedCount, ss.UnusedSize, ss.RecoveredCount, ss.RecoveredSize)
@@ -137,7 +140,6 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 	return findUnreferencedAndRepairRereferenced(ctx, log, rep, gcDelete, safety, maintenanceStartTime, used)
 }
 
-//nolint:funlen
 func findUnreferencedAndRepairRereferenced(
 	ctx context.Context,
 	log *contentlog.Logger,
