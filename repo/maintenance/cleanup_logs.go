@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // LogRetentionOptions provides options for logs retention.
@@ -43,31 +43,8 @@ func defaultLogRetention() LogRetentionOptions {
 	}
 }
 
-// CleanupLogsStats delivers the statistics for CleanupLogs
-type CleanupLogsStats struct {
-	UnusedCount    uint32 `json:"unusedCount"`
-	UnusedSize     int64  `json:"unusedSize"`
-	PreservedCount uint32 `json:"preservedCount"`
-	PreservedSize  int64  `json:"preservedSize"`
-}
-
-// WriteValueTo writes CleanupLogsStats to JSONWriter
-func (cs *CleanupLogsStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.BeginObjectField("cleanupLogsStats")
-	jw.UInt32Field("unusedCount", cs.UnusedCount)
-	jw.Int64Field("unusedSize", cs.UnusedSize)
-	jw.UInt32Field("preservedCount", cs.PreservedCount)
-	jw.Int64Field("preservedSize", cs.PreservedSize)
-	jw.EndObject()
-}
-
-// MaintenanceSummary generates readable summary for CleanupLogsStats which is used by maintenance
-func (cs *CleanupLogsStats) MaintenanceSummary() string {
-	return fmt.Sprintf("Cleaned up %v(%v) logs blobs, preserved %v(%v) logs blobs.", cs.UnusedCount, cs.UnusedSize, cs.PreservedCount, cs.PreservedSize)
-}
-
 // CleanupLogs deletes old logs blobs beyond certain age, total size or count.
-func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRetentionOptions) (*CleanupLogsStats, error) {
+func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRetentionOptions) (*maintenancestats.CleanupLogsStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:cleanup-logs", contentlog.RandomSpanID()))
 
@@ -117,10 +94,10 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 		unusedSize += bm.Length
 	}
 
-	result := &CleanupLogsStats{
+	result := &maintenancestats.CleanupLogsStats{
 		PreservedCount: uint32(deletePosition),
 		PreservedSize:  preservedSize,
-		UnusedCount:    uint32(len(allLogBlobs) - deletePosition - 1),
+		UnusedCount:    uint32(max(len(allLogBlobs)-deletePosition-1, 0)),
 		UnusedSize:     unusedSize,
 	}
 

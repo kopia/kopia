@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/repo/maintenancestats"
 	"github.com/kopia/kopia/repo/object"
 )
 
@@ -22,6 +23,7 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 		opt          *maintenance.RewriteContentsOptions
 		wantPDelta   int
 		wantQDelta   int
+		wantStats    maintenancestats.RewriteContentsStats
 	}{
 		{
 			numPContents: 2,
@@ -31,6 +33,12 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			},
 			wantPDelta: 1,
 			wantQDelta: 1,
+			wantStats: maintenancestats.RewriteContentsStats{
+				RewrittenCount: 5,
+				RewrittenSize:  320,
+				PreservedCount: 0,
+				PreservedSize:  0,
+			},
 		},
 		{
 			numPContents: 2,
@@ -41,6 +49,12 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			},
 			wantPDelta: 0,
 			wantQDelta: 0,
+			wantStats: maintenancestats.RewriteContentsStats{
+				RewrittenCount: 5,
+				RewrittenSize:  320,
+				PreservedCount: 0,
+				PreservedSize:  0,
+			},
 		},
 		{
 			numPContents: 2,
@@ -51,6 +65,12 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			},
 			wantPDelta: 1,
 			wantQDelta: 0,
+			wantStats: maintenancestats.RewriteContentsStats{
+				RewrittenCount: 2,
+				RewrittenSize:  128,
+				PreservedCount: 0,
+				PreservedSize:  0,
+			},
 		},
 		{
 			numPContents: 1,
@@ -60,6 +80,12 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			},
 			wantPDelta: 0, // single pack won't get rewritten
 			wantQDelta: 0,
+			wantStats: maintenancestats.RewriteContentsStats{
+				RewrittenCount: 0,
+				RewrittenSize:  0,
+				PreservedCount: 0,
+				PreservedSize:  0,
+			},
 		},
 		{
 			numPContents: 1,
@@ -69,6 +95,12 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			},
 			wantPDelta: 0,
 			wantQDelta: 0,
+			wantStats: maintenancestats.RewriteContentsStats{
+				RewrittenCount: 0,
+				RewrittenSize:  0,
+				PreservedCount: 0,
+				PreservedSize:  0,
+			},
 		},
 	}
 
@@ -103,8 +135,10 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			qBlobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "q")
 			require.NoError(t, err)
 
+			var stats *maintenancestats.RewriteContentsStats
 			require.NoError(t, repo.DirectWriteSession(ctx, env.RepositoryWriter, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
-				_, err := maintenance.RewriteContents(ctx, w, tc.opt, maintenance.SafetyNone)
+				s, err := maintenance.RewriteContents(ctx, w, tc.opt, maintenance.SafetyNone)
+				stats = s
 				return err
 			}))
 
@@ -116,6 +150,8 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 
 			require.Equal(t, tc.wantPDelta, len(pBlobsAfter)-len(pBlobsBefore), "invalid p blob count delta")
 			require.Equal(t, tc.wantQDelta, len(qBlobsAfter)-len(qBlobsBefore), "invalid q blob count delta")
+
+			require.Equal(t, tc.wantStats, *stats)
 		})
 	}
 }

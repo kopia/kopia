@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 type commandMaintenanceInfo struct {
@@ -85,8 +86,8 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 			var message string
 
 			if t.Success {
-				if s, ok := t.Stats.(maintenance.RunStats); ok {
-					message = "SUCCESS: " + s.MaintenanceSummary()
+				if stats, err := maintenancestats.BuildFromRaw(t.Stats); err == nil {
+					message = "SUCCESS: " + stats.Summary()
 				} else {
 					message = "SUCCESS"
 				}

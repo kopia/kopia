@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // User-visible log output.
@@ -330,7 +331,7 @@ func notDeletingOrphanedBlobs(ctx context.Context, log *contentlog.Logger, s *Sc
 }
 
 func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	return ReportRun(ctx, runParams.rep, TaskCleanupLogs, s, func() (any, error) {
+	return ReportRun(ctx, runParams.rep, TaskCleanupLogs, s, func() (maintenancestats.Stats, error) {
 		stats, err := CleanupLogs(ctx, runParams.rep, runParams.Params.LogRetention.OrDefault())
 
 		userLog(ctx).Infof("Cleaned up %v logs.", stats.UnusedCount)
@@ -340,7 +341,7 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 }
 
 func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochAdvance, s, func() (any, error) {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochAdvance, s, func() (maintenancestats.Stats, error) {
 		userLog(ctx).Info("Cleaning up no-longer-needed epoch markers...")
 
 		stats, err := em.MaybeAdvanceWriteEpoch(ctx)
@@ -350,7 +351,7 @@ func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunPa
 }
 
 func runTaskEpochMaintenanceQuick(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
-	err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (any, error) {
+	err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (maintenancestats.Stats, error) {
 		userLog(ctx).Info("Compacting an eligible uncompacted epoch...")
 
 		stats, err := em.MaybeCompactSingleEpoch(ctx)
@@ -377,7 +378,7 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	}
 
 	// compact a single epoch
-	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (any, error) {
+	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (maintenancestats.Stats, error) {
 		userLog(ctx).Info("Compacting an eligible uncompacted epoch...")
 
 		stats, err := em.MaybeCompactSingleEpoch(ctx)
@@ -392,7 +393,7 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	}
 
 	// compact range
-	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochGenerateRange, s, func() (any, error) {
+	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochGenerateRange, s, func() (maintenancestats.Stats, error) {
 		userLog(ctx).Info("Attempting to compact a range of epoch indexes ...")
 
 		stats, err := em.MaybeGenerateRangeCheckpoint(ctx)
@@ -403,7 +404,7 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	}
 
 	// clean up epoch markers
-	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() (any, error) {
+	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() (maintenancestats.Stats, error) {
 		userLog(ctx).Info("Cleaning up unneeded epoch markers...")
 
 		stats, err := em.CleanupMarkers(ctx)
@@ -414,7 +415,7 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 		return err
 	}
 
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() (any, error) {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() (maintenancestats.Stats, error) {
 		userLog(ctx).Info("Cleaning up old index blobs which have already been compacted...")
 
 		stats, err := em.CleanupSupersededIndexes(ctx)
@@ -442,13 +443,13 @@ func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters
 
 	contentlog.Log1(ctx, log, "Found safe time to drop indexes", logparam.Time("safeDropTime", safeDropTime))
 
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDropDeletedContentsFull, s, func() (any, error) {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDropDeletedContentsFull, s, func() (maintenancestats.Stats, error) {
 		return dropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
 	})
 }
 
 func runTaskRewriteContentsQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsQuick, s, func() (any, error) {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsQuick, s, func() (maintenancestats.Stats, error) {
 		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: index.AllPrefixedIDs,
 			PackPrefix:     content.PackBlobIDPrefixSpecial,
@@ -458,7 +459,7 @@ func runTaskRewriteContentsQuick(ctx context.Context, runParams RunParameters, s
 }
 
 func runTaskRewriteContentsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsFull, s, func() (any, error) {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsFull, s, func() (maintenancestats.Stats, error) {
 		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: index.AllIDs,
 			ShortPacks:     true,
@@ -467,7 +468,7 @@ func runTaskRewriteContentsFull(ctx context.Context, runParams RunParameters, s 
 }
 
 func runTaskDeleteOrphanedBlobsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() (any, error) {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() (maintenancestats.Stats, error) {
 		return DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
 			Parallel:     runParams.Params.ListParallelism,
@@ -476,7 +477,7 @@ func runTaskDeleteOrphanedBlobsFull(ctx context.Context, runParams RunParameters
 }
 
 func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, s, func() (any, error) {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, s, func() (maintenancestats.Stats, error) {
 		return DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
 			Prefix:       content.PackBlobIDPrefixSpecial,
@@ -486,7 +487,7 @@ func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameter
 }
 
 func runTaskExtendBlobRetentionTimeFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	return ReportRun(ctx, runParams.rep, TaskExtendBlobRetentionTimeFull, s, func() (any, error) {
+	return ReportRun(ctx, runParams.rep, TaskExtendBlobRetentionTimeFull, s, func() (maintenancestats.Stats, error) {
 		return ExtendBlobRetentionTime(ctx, runParams.rep, ExtendBlobRetentionTimeOptions{})
 	})
 }

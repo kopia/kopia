@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"runtime"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 const parallelContentRewritesCPUMultiplier = 2
@@ -39,34 +39,11 @@ type contentInfoOrError struct {
 	err error
 }
 
-// RewriteContentsStats delivers the statistics for RewriteContents
-type RewriteContentsStats struct {
-	RewrittenCount uint32 `json:"rewrittenCount"`
-	RewrittenSize  int64  `json:"rewrittenSize"`
-	PreservedCount uint32 `json:"preservedCount"`
-	PreservedSize  int64  `json:"preservedSize"`
-}
-
-// WriteValueTo writes RewriteContentsStats to JSONWriter
-func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.BeginObjectField("rewriteContentsStats")
-	jw.UInt32Field("rewrittenCount", rs.RewrittenCount)
-	jw.Int64Field("rewrittenSize", rs.RewrittenSize)
-	jw.UInt32Field("preservedCount", rs.PreservedCount)
-	jw.Int64Field("preservedSize", rs.PreservedSize)
-	jw.EndObject()
-}
-
-// MaintenanceSummary generates readable summary for RewriteContentsStats which is used by maintenance
-func (rs *RewriteContentsStats) MaintenanceSummary() string {
-	return fmt.Sprintf("Rewritten %v(%v) contents, preserved %v(%v) contents", rs.RewrittenCount, rs.RewrittenSize, rs.PreservedCount, rs.PreservedSize)
-}
-
 // RewriteContents rewrites contents according to provided criteria and creates new
 // blobs and index entries to point at them.
 //
 //nolint:funlen
-func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) (*RewriteContentsStats, error) {
+func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) (*maintenancestats.RewriteContentsStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:content-rewrite", contentlog.RandomSpanID()))
 
@@ -174,7 +151,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 	wg.Wait()
 
-	result := &RewriteContentsStats{
+	result := &maintenancestats.RewriteContentsStats{
 		RewrittenCount: totalCount,
 		RewrittenSize:  totalBytes,
 		PreservedCount: preservedCount,

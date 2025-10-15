@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/content/indexblob"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // Refresh reloads the committed content indexes.
@@ -39,7 +40,7 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 }
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
-func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.CompactOptions) (*indexblob.CompactStats, error) {
+func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.CompactOptions) (*maintenancestats.CompactStats, error) {
 	// we must hold the lock here to avoid the race with Refresh() which can reload the
 	// current set of indexes while we process them.
 	sm.indexesLock.Lock()

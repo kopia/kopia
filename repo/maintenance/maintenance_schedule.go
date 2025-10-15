@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 const (
@@ -30,18 +31,13 @@ var (
 // maxRetainedRunInfoPerRunType the maximum number of retained RunInfo entries per run type.
 const maxRetainedRunInfoPerRunType = 50
 
-// RunStats defines the methods for maintenance statistics
-type RunStats interface {
-	MaintenanceSummary() string
-}
-
 // RunInfo represents information about a single run of a maintenance task.
 type RunInfo struct {
-	Start   time.Time `json:"start"`
-	End     time.Time `json:"end"`
-	Success bool      `json:"success,omitempty"`
-	Error   string    `json:"error,omitempty"`
-	Stats   any       `json:"stats,omitempty"`
+	Start   time.Time                 `json:"start"`
+	End     time.Time                 `json:"end"`
+	Success bool                      `json:"success,omitempty"`
+	Error   string                    `json:"error,omitempty"`
+	Stats   maintenancestats.RawStats `json:"stats,omitempty"`
 }
 
 // Schedule keeps track of scheduled maintenance times.
@@ -191,7 +187,7 @@ func SetSchedule(ctx context.Context, rep repo.DirectRepositoryWriter, s *Schedu
 }
 
 // ReportRun reports timing of a maintenance run and persists it in repository.
-func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() (any, error)) error {
+func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() (maintenancestats.Stats, error)) error {
 	if s == nil {
 		var err error
 
@@ -213,7 +209,14 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 		ri.Error = runErr.Error()
 	} else {
 		ri.Success = true
-		ri.Stats = stats
+
+		if stats != nil {
+			if raw, err := maintenancestats.BuildRaw(stats); err != nil {
+				userLog(ctx).Errorf("error building raw data from stats %v, err %v", stats, err)
+			} else {
+				ri.Stats = raw
+			}
+		}
 	}
 
 	s.ReportRun(taskType, ri)

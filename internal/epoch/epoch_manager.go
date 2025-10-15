@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // LatestEpoch represents the current epoch number in GetCompleteIndexSet.
@@ -289,27 +290,8 @@ func (e *Manager) maxCleanupTime(cs CurrentSnapshot) time.Time {
 	return maxTime
 }
 
-// CleanupMarkersStats delivers the statistics for CleanupMarkers
-type CleanupMarkersStats struct {
-	EpochMarkers       uint32 `json:"epochMarkers"`
-	DeletionWaterMarks uint32 `json:"deletionWaterMarks"`
-}
-
-// WriteValueTo writes CleanupMarkersStats to JSONWriter
-func (cs *CleanupMarkersStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.BeginObjectField("cleanupMarkersStats")
-	jw.UInt32Field("epochMarkers", cs.EpochMarkers)
-	jw.UInt32Field("deletionWaterMarks", cs.DeletionWaterMarks)
-	jw.EndObject()
-}
-
-// MaintenanceSummary generates readable summary for CleanupMarkersStats which is used by maintenance
-func (cs *CleanupMarkersStats) MaintenanceSummary() string {
-	return fmt.Sprintf("Cleaned up %v epoch markers and %v deletion water marks", cs.EpochMarkers, cs.DeletionWaterMarks)
-}
-
 // CleanupMarkers removes superseded watermarks and epoch markers.
-func (e *Manager) CleanupMarkers(ctx context.Context) (*CleanupMarkersStats, error) {
+func (e *Manager) CleanupMarkers(ctx context.Context) (*maintenancestats.CleanupMarkersStats, error) {
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
 		return nil, err
@@ -323,7 +305,7 @@ func (e *Manager) CleanupMarkers(ctx context.Context) (*CleanupMarkersStats, err
 	return e.cleanupInternal(ctx, cs, p)
 }
 
-func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Parameters) (*CleanupMarkersStats, error) {
+func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Parameters) (*maintenancestats.CleanupMarkersStats, error) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	// find max timestamp recently written to the repository to establish storage clock.
@@ -339,7 +321,7 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 	// may have not observed them yet.
 	maxReplacementTime := maxTime.Add(-p.CleanupSafetyMargin)
 
-	result := &CleanupMarkersStats{}
+	result := &maintenancestats.CleanupMarkersStats{}
 
 	eg.Go(func() error {
 		deleted, err := e.cleanupEpochMarkers(ctx, cs)
@@ -403,29 +385,8 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *
 	return len(toDelete), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting watermark blobs")
 }
 
-// CleanupSupersededIndexesStats delivers the statistics for CleanupSupersededIndexes
-type CleanupSupersededIndexesStats struct {
-	MaxReplacementTime time.Time `json:"maxReplacementTime"`
-	DeletedBlobs       uint32    `json:"deletedBlobs"`
-	DeletedSize        int64     `json:"deletedSize"`
-}
-
-// WriteValueTo writes CleanupSupersededIndexesStats to JSONWriter
-func (cs *CleanupSupersededIndexesStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.BeginObjectField("cleanupSupersededIndexesStats")
-	jw.TimeField("maxReplacementTime", cs.MaxReplacementTime)
-	jw.UInt32Field("deletedBlobs", cs.DeletedBlobs)
-	jw.Int64Field("deletedSize", cs.DeletedSize)
-	jw.EndObject()
-}
-
-// MaintenanceSummary generates readable summary for CleanupSupersededIndexesStats which is used by maintenance
-func (cs *CleanupSupersededIndexesStats) MaintenanceSummary() string {
-	return fmt.Sprintf("Cleaned up %v(%v) superseded index blobs", cs.DeletedBlobs, cs.DeletedSize)
-}
-
 // CleanupSupersededIndexes cleans up the indexes which have been superseded by compacted ones.
-func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*CleanupSupersededIndexesStats, error) {
+func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*maintenancestats.CleanupSupersededIndexesStats, error) {
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
 		return nil, err
@@ -476,7 +437,7 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*CleanupSuperse
 		return nil, errors.Wrap(err, "unable to delete uncompacted blobs")
 	}
 
-	return &CleanupSupersededIndexesStats{
+	return &maintenancestats.CleanupSupersededIndexesStats{
 		MaxReplacementTime: maxReplacementTime,
 		DeletedBlobs:       uint32(len(toDelete)), //nolint:gosec
 		DeletedSize:        totalSize,
@@ -626,29 +587,10 @@ func (e *Manager) loadSingleEpochCompactions(ctx context.Context, cs *CurrentSna
 	return nil
 }
 
-// GenerateRangeCheckpointStats delivers the statistics for MaybeGenerateRangeCheckpoint
-type GenerateRangeCheckpointStats struct {
-	FirstEpoch uint32 `json:"firstEpoch"`
-	LastEpoch  uint32 `json:"lastEpoch"`
-}
-
-// WriteValueTo writes GenerateRangeCheckpointStats to JSONWriter
-func (gs *GenerateRangeCheckpointStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.BeginObjectField("generateRangeCheckpointStats")
-	jw.UInt32Field("firstEpoch", gs.FirstEpoch)
-	jw.UInt32Field("lastEpoch", gs.LastEpoch)
-	jw.EndObject()
-}
-
-// MaintenanceSummary generates readable summary for GenerateRangeCheckpointStats which is used by maintenance
-func (gs *GenerateRangeCheckpointStats) MaintenanceSummary() string {
-	return fmt.Sprintf("Generated a range checkpoint from epoch %v to %v", gs.FirstEpoch, gs.LastEpoch)
-}
-
 // MaybeGenerateRangeCheckpoint may create a new range index for all the
 // individual epochs covered by the new range. If there are not enough epochs
 // to create a new range, then a range index is not created.
-func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) (*GenerateRangeCheckpointStats, error) {
+func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) (*maintenancestats.GenerateRangeCheckpointStats, error) {
 	p, err := e.getParameters(ctx)
 	if err != nil {
 		return nil, err
@@ -670,7 +612,7 @@ func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) (*GenerateRa
 		return nil, errors.Wrap(err, "unable to generate full checkpoint, performance will be affected")
 	}
 
-	return &GenerateRangeCheckpointStats{
+	return &maintenancestats.GenerateRangeCheckpointStats{
 		FirstEpoch: uint32(firstNonRangeCompacted), //nolint:gosec
 		LastEpoch:  uint32(latestSettled),          //nolint:gosec
 	}, nil
@@ -796,35 +738,9 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 	return nil
 }
 
-// AdvanceEpochStats delivers the statistics for MaybeAdvanceWriteEpoch
-type AdvanceEpochStats struct {
-	CurEpoch uint32 `json:"curEpoch"`
-	Advanced bool   `json:"advanced"`
-}
-
-// WriteValueTo writes AdvanceEpochStats to JSONWriter
-func (as *AdvanceEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.BeginObjectField("advanceEpochStats")
-	jw.UInt32Field("curEpoch", as.CurEpoch)
-	jw.BoolField("advanced", as.Advanced)
-	jw.EndObject()
-}
-
-// MaintenanceSummary generates readable summary for AdvanceEpochStats which is used by maintenance
-func (as *AdvanceEpochStats) MaintenanceSummary() string {
-	var message string
-	if as.Advanced {
-		message = fmt.Sprintf("Advanced epoch to %v", as.CurEpoch+1)
-	} else {
-		message = fmt.Sprintf("Stay at epoch %v", as.CurEpoch)
-	}
-
-	return message
-}
-
 // MaybeAdvanceWriteEpoch writes a new write epoch marker when a new write
 // epoch should be started, otherwise it does not do anything.
-func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (*AdvanceEpochStats, error) {
+func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (*maintenancestats.AdvanceEpochStats, error) {
 	p, err := e.getParameters(ctx)
 	if err != nil {
 		return nil, err
@@ -834,7 +750,7 @@ func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (*AdvanceEpochStat
 	cs := e.lastKnownState
 	e.mu.Unlock()
 
-	result := &AdvanceEpochStats{
+	result := &maintenancestats.AdvanceEpochStats{
 		CurEpoch: uint32(cs.WriteEpoch),
 		Advanced: true,
 	}
@@ -1097,30 +1013,9 @@ func (e *Manager) getCompleteIndexSetForCommittedState(ctx context.Context, cs C
 	return result, nil
 }
 
-// CompactSingleEpochStats delivers the statistics for MaybeCompactSingleEpoch
-type CompactSingleEpochStats struct {
-	BlobCount uint32 `json:"blobCount"`
-	BlobSize  int64  `json:"blobSize"`
-	Epoch     uint32 `json:"epoch"`
-}
-
-// WriteValueTo writes CompactSingleEpochStats to JSONWriter
-func (cs *CompactSingleEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.BeginObjectField("compactSingleEpochStats")
-	jw.UInt32Field("blobCount", cs.BlobCount)
-	jw.Int64Field("blobSize", cs.BlobSize)
-	jw.UInt32Field("epoch", cs.Epoch)
-	jw.EndObject()
-}
-
-// MaintenanceSummary generates readable summary for CompactSingleEpochStats which is used by maintenance
-func (cs *CompactSingleEpochStats) MaintenanceSummary() string {
-	return fmt.Sprintf("Compacted %v(%v) index blobs for epoch %v", cs.BlobCount, cs.BlobSize, cs.Epoch)
-}
-
 // MaybeCompactSingleEpoch compacts the oldest epoch that is eligible for
 // compaction if there is one.
-func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (*CompactSingleEpochStats, error) {
+func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (*maintenancestats.CompactSingleEpochStats, error) {
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
 		return nil, err
@@ -1153,7 +1048,7 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (*CompactSingleEp
 		uncompactedSize += b.Length
 	}
 
-	result := &CompactSingleEpochStats{
+	result := &maintenancestats.CompactSingleEpochStats{
 		BlobCount: uint32(len(uncompactedBlobs)),
 		BlobSize:  uncompactedSize,
 		Epoch:     uint32(uncompacted),

@@ -3,7 +3,6 @@ package snapshotgc
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -18,6 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/repo/maintenancestats"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -78,50 +78,14 @@ func findInUseContentIDs(ctx context.Context, log *contentlog.Logger, rep repo.R
 
 // Run performs garbage collection on all the snapshots in the repository.
 func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) error {
-	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() (any, error) {
+	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() (maintenancestats.Stats, error) {
 		return runInternal(ctx, rep, gcDelete, safety, maintenanceStartTime)
 	})
 
 	return errors.Wrap(err, "error running snapshot gc")
 }
 
-// SnapshotGCStats delivers the statistics for SnapshotGC
-type SnapshotGCStats struct {
-	UnusedCount          uint32 `json:"unusedCount"`
-	UnusedSize           int64  `json:"unusedSize"`
-	TooRecentUnusedCount uint32 `json:"tooRecentUnusedCount"`
-	TooRecentUnusedSize  int64  `json:"tooRecentUnusedSize"`
-	InUseCount           uint32 `json:"inUseCount"`
-	IntUseSize           int64  `json:"intUseSize"`
-	InUseSystemCount     uint32 `json:"inUseSystemCount"`
-	IntUseSystemSize     int64  `json:"intUseSystemSize"`
-	RecoveredCount       uint32 `json:"recoveredCount"`
-	RecoveredSize        int64  `json:"recoveredSize"`
-}
-
-// WriteValueTo writes SnapshotGCStats to JSONWriter
-func (ss *SnapshotGCStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.BeginObjectField("snapshotGCStats")
-	jw.UInt32Field("unusedCount", ss.UnusedCount)
-	jw.Int64Field("unusedSize", ss.UnusedSize)
-	jw.UInt32Field("tooRecentUnusedCount", ss.TooRecentUnusedCount)
-	jw.Int64Field("tooRecentUnusedSize", ss.TooRecentUnusedSize)
-	jw.UInt32Field("inUseCount", ss.InUseCount)
-	jw.Int64Field("intUseSize", ss.IntUseSize)
-	jw.UInt32Field("inUseSystemCount", ss.InUseSystemCount)
-	jw.Int64Field("intUseSystemSize", ss.IntUseSystemSize)
-	jw.UInt32Field("recoveredCount", ss.RecoveredCount)
-	jw.Int64Field("recoveredSize", ss.RecoveredSize)
-	jw.EndObject()
-}
-
-// MaintenanceSummary generates readable summary for SnapshotGCStats which is used by maintenance
-func (ss *SnapshotGCStats) MaintenanceSummary() string {
-	return fmt.Sprintf("Found %v(%v) unused contents, %v(%v) inused contents, %v(%v) inused system contents, marked %v(%v) unused countents for deletion, recovered %v(%v) contents",
-		ss.UnusedCount+ss.TooRecentUnusedCount, ss.UnusedSize+ss.TooRecentUnusedSize, ss.InUseCount, ss.IntUseSize, ss.InUseSystemCount, ss.IntUseSystemSize, ss.UnusedCount, ss.UnusedSize, ss.RecoveredCount, ss.RecoveredSize)
-}
-
-func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) (*SnapshotGCStats, error) {
+func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) (*maintenancestats.SnapshotGCStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:snapshot-gc", contentlog.RandomSpanID()))
 
@@ -148,7 +112,7 @@ func findUnreferencedAndRepairRereferenced(
 	safety maintenance.SafetyParameters,
 	maintenanceStartTime time.Time,
 	used *bigmap.Set,
-) (*SnapshotGCStats, error) {
+) (*maintenancestats.SnapshotGCStats, error) {
 	var unused, inUse, system, tooRecent, undeleted stats.CountSum
 
 	contentlog.Log(ctx, log, "Looking for unreferenced contents...")
@@ -239,8 +203,8 @@ func findUnreferencedAndRepairRereferenced(
 	return result, nil
 }
 
-func buildGCResult(unused *stats.CountSum, inUse *stats.CountSum, system *stats.CountSum, tooRecent *stats.CountSum, undeleted *stats.CountSum) *SnapshotGCStats {
-	result := &SnapshotGCStats{}
+func buildGCResult(unused *stats.CountSum, inUse *stats.CountSum, system *stats.CountSum, tooRecent *stats.CountSum, undeleted *stats.CountSum) *maintenancestats.SnapshotGCStats {
+	result := &maintenancestats.SnapshotGCStats{}
 
 	cnt, size := unused.Approximate()
 	result.UnusedCount = cnt

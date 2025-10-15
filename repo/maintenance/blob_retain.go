@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"context"
-	"fmt"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -16,6 +15,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/format"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 const parallelBlobRetainCPUMultiplier = 2
@@ -28,27 +28,8 @@ type ExtendBlobRetentionTimeOptions struct {
 	DryRun   bool
 }
 
-// ExtendBlobRetentionStats delivers the statistics for ExtendBlobRetentionTime
-type ExtendBlobRetentionStats struct {
-	ToExtend uint32 `json:"toExtend"`
-	Extended uint32 `json:"extended"`
-}
-
-// WriteValueTo writes ExtendBlobRetentionStats to JSONWriter
-func (es *ExtendBlobRetentionStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.BeginObjectField("extendBlobRetentionStats")
-	jw.UInt32Field("toExtend", es.ToExtend)
-	jw.UInt32Field("extended", es.Extended)
-	jw.EndObject()
-}
-
-// MaintenanceSummary generates readable summary for ExtendBlobRetentionStats which is used by maintenance
-func (es *ExtendBlobRetentionStats) MaintenanceSummary() string {
-	return fmt.Sprintf("Found %v blobs for retention time extent and extended %v of them", es.ToExtend, es.Extended)
-}
-
 // ExtendBlobRetentionTime extends the retention time of all relevant blobs managed by storage engine with Object Locking enabled.
-func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (*ExtendBlobRetentionStats, error) {
+func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (*maintenancestats.ExtendBlobRetentionStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:blob-retain", contentlog.RandomSpanID()))
 
@@ -135,7 +116,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	close(extend)
 
-	result := &ExtendBlobRetentionStats{
+	result := &maintenancestats.ExtendBlobRetentionStats{
 		ToExtend: uint32(*toExtend), //nolint:gosec
 	}
 

@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // V0IndexBlobPrefix is the prefix for all legacy (v0) index blobs.
@@ -148,7 +149,7 @@ func (m *ManagerV0) Invalidate() {
 
 // Compact performs compaction of index blobs by merging smaller ones into larger
 // and registering compaction and cleanup blobs in the repository.
-func (m *ManagerV0) Compact(ctx context.Context, opt CompactOptions) (*CompactStats, error) {
+func (m *ManagerV0) Compact(ctx context.Context, opt CompactOptions) (*maintenancestats.CompactStats, error) {
 	indexBlobs, _, err := m.ListActiveIndexBlobs(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing active index blobs")
@@ -169,7 +170,7 @@ func (m *ManagerV0) Compact(ctx context.Context, opt CompactOptions) (*CompactSt
 		return nil, errors.Wrap(err, "error cleaning up index blobs")
 	}
 
-	return &CompactStats{
+	return &maintenancestats.CompactStats{
 		DroppedBefore: opt.DropDeletedBefore,
 	}, nil
 }
