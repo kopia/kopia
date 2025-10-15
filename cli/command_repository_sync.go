@@ -224,6 +224,7 @@ func (c *commandRepositorySyncTo) finishSyncProcess() {
 	if !c.progress.Enabled() {
 		return
 	}
+
 	c.out.printStderr("\r%v\n", c.lastSyncProgress)
 }
 
