@@ -2,7 +2,7 @@ module github.com/kopia/kopia
 
 go 1.24.0
 
-toolchain go1.24.8
+toolchain go1.24.9
 
 require (
 	cloud.google.com/go/storage v1.57.0
@@ -19,7 +19,7 @@ require (
 	github.com/edsrzf/mmap-go v1.2.0
 	github.com/fatih/color v1.18.0
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
-	github.com/gofrs/flock v0.12.1
+	github.com/gofrs/flock v0.13.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
 	github.com/google/fswalker v0.3.3
 	github.com/google/go-cmp v0.7.0
@@ -58,15 +58,15 @@ require (
 	go.opentelemetry.io/otel/sdk v1.38.0
 	go.opentelemetry.io/otel/trace v1.38.0
 	go.uber.org/zap v1.27.0
-	golang.org/x/crypto v0.42.0
+	golang.org/x/crypto v0.43.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
-	golang.org/x/mod v0.28.0
-	golang.org/x/net v0.45.0
-	golang.org/x/oauth2 v0.31.0
+	golang.org/x/mod v0.29.0
+	golang.org/x/net v0.46.0
+	golang.org/x/oauth2 v0.32.0
 	golang.org/x/sync v0.17.0
-	golang.org/x/sys v0.36.0
-	golang.org/x/term v0.35.0
-	golang.org/x/text v0.29.0
+	golang.org/x/sys v0.37.0
+	golang.org/x/term v0.36.0
+	golang.org/x/text v0.30.0
 	google.golang.org/api v0.252.0
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
