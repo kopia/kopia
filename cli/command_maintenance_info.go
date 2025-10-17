@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 type commandMaintenanceInfo struct {
@@ -82,18 +83,23 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 		c.out.printStdout("  %v:\n", run)
 
 		for _, t := range timings {
-			var errInfo string
+			var message string
+
 			if t.Success {
-				errInfo = "SUCCESS"
+				if stats, err := maintenancestats.BuildFromRaw(t.Stats); err == nil {
+					message = "SUCCESS: " + stats.Summary()
+				} else {
+					message = "SUCCESS"
+				}
 			} else {
-				errInfo = "ERROR: " + t.Error
+				message = "ERROR: " + t.Error
 			}
 
 			c.out.printStdout(
 				"    %v (%v) %v\n",
 				formatTimestamp(t.Start),
 				t.End.Sub(t.Start).Truncate(time.Second),
-				errInfo)
+				message)
 		}
 	}
 

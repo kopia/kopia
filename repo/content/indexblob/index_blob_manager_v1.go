@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // ManagerV1 is the append-only implementation of indexblob.Manager
@@ -61,12 +62,14 @@ func (m *ManagerV1) Invalidate() {
 }
 
 // Compact advances the deletion watermark.
-func (m *ManagerV1) Compact(ctx context.Context, opt CompactOptions) error {
+func (m *ManagerV1) Compact(ctx context.Context, opt CompactOptions) (*maintenancestats.CompactStats, error) {
 	if opt.DropDeletedBefore.IsZero() {
-		return nil
+		return nil, nil
 	}
 
-	return errors.Wrap(m.epochMgr.AdvanceDeletionWatermark(ctx, opt.DropDeletedBefore), "error advancing deletion watermark")
+	return &maintenancestats.CompactStats{
+		DroppedBefore: opt.DropDeletedBefore,
+	}, errors.Wrap(m.epochMgr.AdvanceDeletionWatermark(ctx, opt.DropDeletedBefore), "error advancing deletion watermark")
 }
 
 // CompactEpoch compacts the provided index blobs and writes a new set of blobs.
