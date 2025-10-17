@@ -439,8 +439,8 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*maintenancesta
 
 	return &maintenancestats.CleanupSupersededIndexesStats{
 		MaxReplacementTime: maxReplacementTime,
-		DeletedBlobs:       uint32(len(toDelete)), //nolint:gosec
-		DeletedSize:        totalSize,
+		DeletedBlobCount:   uint32(len(toDelete)), //nolint:gosec
+		DeletedTotalSize:   totalSize,
 	}, nil
 }
 
@@ -751,8 +751,7 @@ func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (*maintenancestats
 	e.mu.Unlock()
 
 	result := &maintenancestats.AdvanceEpochStats{
-		CurEpoch: uint32(cs.WriteEpoch),
-		Advanced: true,
+		CurrentEpoch: uint32(cs.WriteEpoch),
 	}
 
 	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
@@ -1049,9 +1048,9 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (*maintenancestat
 	}
 
 	result := &maintenancestats.CompactSingleEpochStats{
-		BlobCount: uint32(len(uncompactedBlobs)),
-		BlobSize:  uncompactedSize,
-		Epoch:     uint32(uncompacted),
+		CompactedBlobCount: uint32(len(uncompactedBlobs)),
+		CompactedBlobSize:  uncompactedSize,
+		Epoch:              uint32(uncompacted),
 	}
 
 	contentlog.Log1(ctx, e.log, "starting single-epoch compaction for epoch", result)

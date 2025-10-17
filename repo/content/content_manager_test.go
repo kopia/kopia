@@ -523,9 +523,8 @@ func (s *contentManagerSuite) TestContentManagerConcurrency(t *testing.T) {
 
 	validateIndexCount(t, data, 4, 0)
 
-	if _, err := bm4.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
-		t.Errorf("compaction error: %v", err)
-	}
+	_, err := bm4.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1})
+	require.NoError(t, err, "compaction error")
 
 	if !s.mutableParameters.EpochParameters.Enabled {
 		validateIndexCount(t, data, 5, 1)

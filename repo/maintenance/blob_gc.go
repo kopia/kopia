@@ -28,7 +28,7 @@ type DeleteUnreferencedBlobsOptions struct {
 // DeleteUnreferencedBlobs deletes o was created after maintenance startederenced by index entries.
 //
 //nolint:gocyclo,funlen
-func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions, safety SafetyParameters) (*maintenancestats.DeleteUnreferencedBlobsStats, error) {
+func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions, safety SafetyParameters) (*maintenancestats.DeleteUnreferencedPacksStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:blob-gc", contentlog.RandomSpanID()))
 
@@ -40,7 +40,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	const deleteQueueSize = 100
 
-	var unreferenced, deleted, preserved stats.CountSum
+	var unreferenced, deleted, retained stats.CountSum
 
 	var eg errgroup.Group
 
@@ -97,7 +97,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	// belong to alive sessions.
 	if err := rep.ContentManager().IterateUnreferencedPacks(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
 		if bm.Timestamp.After(cutoffTime) {
-			preserved.Add(bm.Length)
+			retained.Add(bm.Length)
 
 			contentlog.Log3(ctx, log,
 				"preserving blob - after cutoff time",
@@ -108,7 +108,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 		}
 
 		if age := cutoffTime.Sub(bm.Timestamp); age < safety.BlobDeleteMinAge {
-			preserved.Add(bm.Length)
+			retained.Add(bm.Length)
 
 			contentlog.Log2(ctx, log,
 				"preserving blob - below min age",
@@ -142,13 +142,13 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	close(unused)
 
 	unreferencedCount, unreferencedSize := unreferenced.Approximate()
-	preservedCount, preservedSize := preserved.Approximate()
+	retainedCount, retainedSize := retained.Approximate()
 
-	result := &maintenancestats.DeleteUnreferencedBlobsStats{
-		UnusedCount:    unreferencedCount,
-		UnusedSize:     unreferencedSize,
-		PreservedCount: preservedCount,
-		PreservedSize:  preservedSize,
+	result := &maintenancestats.DeleteUnreferencedPacksStats{
+		UnusedCount:   unreferencedCount,
+		UnusedSize:    unreferencedSize,
+		RetainedCount: retainedCount,
+		RetainedSize:  retainedSize,
 	}
 
 	contentlog.Log1(ctx, log, "Detected unreferenced blobs", result)
@@ -166,7 +166,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	result.DeletedCount = del
 	result.DeletedSize = size
 
-	contentlog.Log1(ctx, log, "Compelted deleting unreferenced blobs", result)
+	contentlog.Log1(ctx, log, "Completed deleting unreferenced blobs", result)
 
 	return result, nil
 }

@@ -36,8 +36,8 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			wantStats: maintenancestats.RewriteContentsStats{
 				RewrittenCount: 5,
 				RewrittenSize:  320,
-				PreservedCount: 0,
-				PreservedSize:  0,
+				RetainedCount:  0,
+				RetainedSize:   0,
 			},
 		},
 		{
@@ -52,8 +52,8 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			wantStats: maintenancestats.RewriteContentsStats{
 				RewrittenCount: 5,
 				RewrittenSize:  320,
-				PreservedCount: 0,
-				PreservedSize:  0,
+				RetainedCount:  0,
+				RetainedSize:   0,
 			},
 		},
 		{
@@ -68,8 +68,8 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			wantStats: maintenancestats.RewriteContentsStats{
 				RewrittenCount: 2,
 				RewrittenSize:  128,
-				PreservedCount: 0,
-				PreservedSize:  0,
+				RetainedCount:  0,
+				RetainedSize:   0,
 			},
 		},
 		{
@@ -83,8 +83,8 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			wantStats: maintenancestats.RewriteContentsStats{
 				RewrittenCount: 0,
 				RewrittenSize:  0,
-				PreservedCount: 0,
-				PreservedSize:  0,
+				RetainedCount:  0,
+				RetainedSize:   0,
 			},
 		},
 		{
@@ -98,8 +98,8 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			wantStats: maintenancestats.RewriteContentsStats{
 				RewrittenCount: 0,
 				RewrittenSize:  0,
-				PreservedCount: 0,
-				PreservedSize:  0,
+				RetainedCount:  0,
+				RetainedSize:   0,
 			},
 		},
 	}

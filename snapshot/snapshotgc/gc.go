@@ -220,7 +220,7 @@ func buildGCResult(unused *stats.CountSum, inUse *stats.CountSum, system *stats.
 
 	cnt, size = system.Approximate()
 	result.InUseSystemCount = cnt
-	result.IntUseSystemSize = size
+	result.InUseSystemSize = size
 
 	cnt, size = undeleted.Approximate()
 	result.RecoveredCount = cnt

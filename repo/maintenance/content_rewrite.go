@@ -62,12 +62,12 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	cnt := getContentToRewrite(ctx, rep, opt)
 
 	var (
-		mu             sync.Mutex
-		totalBytes     int64
-		totalCount     uint32
-		preservedBytes int64
-		preservedCount uint32
-		failedCount    int
+		mu            sync.Mutex
+		totalBytes    int64
+		totalCount    uint32
+		retainedBytes int64
+		retainedCount uint32
+		failedCount   int
 	)
 
 	if opt.Parallel == 0 {
@@ -102,8 +102,8 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 						logparam.Duration("age", age))
 
 					mu.Lock()
-					preservedBytes += int64(c.PackedLength)
-					preservedCount++
+					retainedBytes += int64(c.PackedLength)
+					retainedCount++
 					mu.Unlock()
 
 					continue
@@ -154,8 +154,8 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	result := &maintenancestats.RewriteContentsStats{
 		RewrittenCount: totalCount,
 		RewrittenSize:  totalBytes,
-		PreservedCount: preservedCount,
-		PreservedSize:  preservedBytes,
+		RetainedCount:  retainedCount,
+		RetainedSize:   retainedBytes,
 	}
 
 	contentlog.Log1(ctx, log, "Rewritten contents", result)
