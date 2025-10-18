@@ -14,9 +14,6 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 )
 
-// mmapOpenWithRetry attempts mmap.Open() with exponential back-off to work around rare issue
-// specific to Windows where we can't open the file right after it has been written.
-//
 // Unix semantics: Close the file descriptor immediately after a successful mmap so the
 // process does not retain FDs for all mapped index files. The mapping remains valid until
 // Unmap is called.
