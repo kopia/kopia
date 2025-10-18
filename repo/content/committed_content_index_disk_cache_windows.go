@@ -14,6 +14,9 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 )
 
+// mmapOpenWithRetry attempts mmap.Open() with exponential back-off to work around a rare issue
+// where Windows can't open the file right after it has been written.
+//
 // Windows semantics: keep the file descriptor open until Unmap due to OS requirements.
 func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(ctx context.Context, path string) (mmap.MMap, func() error, error) {
 	const (
