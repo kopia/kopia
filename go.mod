@@ -27,7 +27,7 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/hanwen/go-fuse/v2 v2.8.0
 	github.com/hashicorp/cronexpr v1.1.3
-	github.com/klauspost/compress v1.18.0
+	github.com/klauspost/compress v1.18.1
 	github.com/klauspost/pgzip v1.2.6
 	github.com/klauspost/reedsolomon v1.12.5
 	github.com/kopia/htmluibuild v0.0.1-0.20250916054243-fc9411799322
