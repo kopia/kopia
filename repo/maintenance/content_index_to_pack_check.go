@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // Checks the consistency of the mapping from content index entries to packs,
@@ -54,20 +55,25 @@ func shouldRunContentIndexVerify(ctx context.Context) bool {
 	return false
 }
 
-func reportRunAndMaybeCheckContentIndex(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() error) error {
+func reportRunAndMaybeCheckContentIndex(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() (maintenancestats.Kind, error)) error {
 	if !shouldRunContentIndexVerify(ctx) {
 		return ReportRun(ctx, rep, taskType, s, run)
 	}
 
-	return ReportRun(ctx, rep, taskType, s, func() error {
+	return ReportRun(ctx, rep, taskType, s, func() (maintenancestats.Kind, error) {
 		if err := checkContentIndexToPacks(ctx, rep.ContentReader()); err != nil {
-			return err
+			return nil, err
 		}
 
-		if err := run(); err != nil {
-			return err
+		stats, err := run()
+		if err != nil {
+			return nil, err
 		}
 
-		return checkContentIndexToPacks(ctx, rep.ContentReader())
+		if err := checkContentIndexToPacks(ctx, rep.ContentReader()); err != nil {
+			return nil, err
+		}
+
+		return stats, nil
 	})
 }

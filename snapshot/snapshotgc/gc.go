@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/repo/maintenancestats"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -78,8 +79,8 @@ func findInUseContentIDs(ctx context.Context, log *contentlog.Logger, rep repo.R
 
 // Run performs garbage collection on all the snapshots in the repository.
 func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) error {
-	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() error {
-		return runInternal(ctx, rep, gcDelete, safety, maintenanceStartTime)
+	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() (maintenancestats.Kind, error) {
+		return nil, runInternal(ctx, rep, gcDelete, safety, maintenanceStartTime)
 	})
 
 	return errors.Wrap(err, "error running snapshot gc")

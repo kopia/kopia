@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // User-visible log output.
@@ -330,26 +331,26 @@ func notDeletingOrphanedBlobs(ctx context.Context, log *contentlog.Logger, s *Sc
 }
 
 func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	return ReportRun(ctx, runParams.rep, TaskCleanupLogs, s, func() error {
+	return ReportRun(ctx, runParams.rep, TaskCleanupLogs, s, func() (maintenancestats.Kind, error) {
 		deleted, err := CleanupLogs(ctx, runParams.rep, runParams.Params.LogRetention.OrDefault())
 
 		userLog(ctx).Infof("Cleaned up %v logs.", len(deleted))
 
-		return err
+		return nil, err
 	})
 }
 
 func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochAdvance, s, func() error {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochAdvance, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Cleaning up no-longer-needed epoch markers...")
-		return errors.Wrap(em.MaybeAdvanceWriteEpoch(ctx), "error advancing epoch marker")
+		return nil, errors.Wrap(em.MaybeAdvanceWriteEpoch(ctx), "error advancing epoch marker")
 	})
 }
 
 func runTaskEpochMaintenanceQuick(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
-	err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
+	err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Compacting an eligible uncompacted epoch...")
-		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
+		return nil, errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
 	})
 	if err != nil {
 		return err
@@ -371,9 +372,9 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	}
 
 	// compact a single epoch
-	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() error {
+	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Compacting an eligible uncompacted epoch...")
-		return errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
+		return nil, errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
 	}); err != nil {
 		return err
 	}
@@ -383,27 +384,27 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	}
 
 	// compact range
-	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochGenerateRange, s, func() error {
+	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochGenerateRange, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Attempting to compact a range of epoch indexes ...")
 
-		return errors.Wrap(em.MaybeGenerateRangeCheckpoint(ctx), "error creating epoch range indexes")
+		return nil, errors.Wrap(em.MaybeGenerateRangeCheckpoint(ctx), "error creating epoch range indexes")
 	}); err != nil {
 		return err
 	}
 
 	// clean up epoch markers
-	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() error {
+	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Cleaning up unneeded epoch markers...")
 
-		return errors.Wrap(em.CleanupMarkers(ctx), "error removing epoch markers")
+		return nil, errors.Wrap(em.CleanupMarkers(ctx), "error removing epoch markers")
 	})
 	if err != nil {
 		return err
 	}
 
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() error {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Cleaning up old index blobs which have already been compacted...")
-		return errors.Wrap(em.CleanupSupersededIndexes(ctx), "error removing superseded epoch index blobs")
+		return nil, errors.Wrap(em.CleanupSupersededIndexes(ctx), "error removing superseded epoch index blobs")
 	})
 }
 
@@ -426,14 +427,14 @@ func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters
 
 	contentlog.Log1(ctx, log, "Found safe time to drop indexes", logparam.Time("safeDropTime", safeDropTime))
 
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDropDeletedContentsFull, s, func() error {
-		return dropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDropDeletedContentsFull, s, func() (maintenancestats.Kind, error) {
+		return nil, dropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
 	})
 }
 
 func runTaskRewriteContentsQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsQuick, s, func() error {
-		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsQuick, s, func() (maintenancestats.Kind, error) {
+		return nil, RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: index.AllPrefixedIDs,
 			PackPrefix:     content.PackBlobIDPrefixSpecial,
 			ShortPacks:     true,
@@ -442,8 +443,8 @@ func runTaskRewriteContentsQuick(ctx context.Context, runParams RunParameters, s
 }
 
 func runTaskRewriteContentsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsFull, s, func() error {
-		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsFull, s, func() (maintenancestats.Kind, error) {
+		return nil, RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: index.AllIDs,
 			ShortPacks:     true,
 		}, safety)
@@ -451,32 +452,32 @@ func runTaskRewriteContentsFull(ctx context.Context, runParams RunParameters, s 
 }
 
 func runTaskDeleteOrphanedBlobsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() error {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsFull, s, func() (maintenancestats.Kind, error) {
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
 			Parallel:     runParams.Params.ListParallelism,
 		}, safety)
 
-		return err
+		return nil, err
 	})
 }
 
 func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
-	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, s, func() error {
+	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDeleteOrphanedBlobsQuick, s, func() (maintenancestats.Kind, error) {
 		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
 			NotAfterTime: runParams.MaintenanceStartTime,
 			Prefix:       content.PackBlobIDPrefixSpecial,
 			Parallel:     runParams.Params.ListParallelism,
 		}, safety)
 
-		return err
+		return nil, err
 	})
 }
 
 func runTaskExtendBlobRetentionTimeFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
-	return ReportRun(ctx, runParams.rep, TaskExtendBlobRetentionTimeFull, s, func() error {
+	return ReportRun(ctx, runParams.rep, TaskExtendBlobRetentionTimeFull, s, func() (maintenancestats.Kind, error) {
 		_, err := ExtendBlobRetentionTime(ctx, runParams.rep, ExtendBlobRetentionTimeOptions{})
-		return err
+		return nil, err
 	})
 }
 
