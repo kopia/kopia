@@ -751,7 +751,7 @@ func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (*maintenancestats
 	e.mu.Unlock()
 
 	result := &maintenancestats.AdvanceEpochStats{
-		CurrentEpoch: uint32(cs.WriteEpoch),
+		CurrentEpoch: uint32(cs.WriteEpoch), //nolint:gosec
 	}
 
 	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
@@ -1048,9 +1048,9 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (*maintenancestat
 	}
 
 	result := &maintenancestats.CompactSingleEpochStats{
-		CompactedBlobCount: uint32(len(uncompactedBlobs)),
+		CompactedBlobCount: uint32(len(uncompactedBlobs)), //nolint:gosec
 		CompactedBlobSize:  uncompactedSize,
-		Epoch:              uint32(uncompacted),
+		Epoch:              uint32(uncompacted), //nolint:gosec
 	}
 
 	contentlog.Log1(ctx, e.log, "starting single-epoch compaction for epoch", result)

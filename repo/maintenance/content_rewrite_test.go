@@ -136,9 +136,11 @@ func (s *formatSpecificTestSuite) TestContentRewrite(t *testing.T) {
 			require.NoError(t, err)
 
 			var stats *maintenancestats.RewriteContentsStats
+
 			require.NoError(t, repo.DirectWriteSession(ctx, env.RepositoryWriter, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
 				s, err := maintenance.RewriteContents(ctx, w, tc.opt, maintenance.SafetyNone)
 				stats = s
+
 				return err
 			}))
 

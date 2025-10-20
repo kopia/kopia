@@ -203,7 +203,7 @@ func findUnreferencedAndRepairRereferenced(
 	return result, nil
 }
 
-func buildGCResult(unused *stats.CountSum, inUse *stats.CountSum, system *stats.CountSum, tooRecent *stats.CountSum, undeleted *stats.CountSum) *maintenancestats.SnapshotGCStats {
+func buildGCResult(unused, inUse, system, tooRecent, undeleted *stats.CountSum) *maintenancestats.SnapshotGCStats {
 	result := &maintenancestats.SnapshotGCStats{}
 
 	cnt, size := unused.Approximate()

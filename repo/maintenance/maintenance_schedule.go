@@ -33,11 +33,11 @@ const maxRetainedRunInfoPerRunType = 50
 
 // RunInfo represents information about a single run of a maintenance task.
 type RunInfo struct {
-	Start   time.Time                 `json:"start"`
-	End     time.Time                 `json:"end"`
-	Success bool                      `json:"success,omitempty"`
-	Error   string                    `json:"error,omitempty"`
-	Stats   maintenancestats.RawStats `json:"stats,omitempty"`
+	Start   time.Time                  `json:"start"`
+	End     time.Time                  `json:"end"`
+	Success bool                       `json:"success,omitempty"`
+	Error   string                     `json:"error,omitempty"`
+	Stats   *maintenancestats.RawStats `json:"stats,omitempty"`
 }
 
 // Schedule keeps track of scheduled maintenance times.
@@ -209,14 +209,7 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 		ri.Error = runErr.Error()
 	} else {
 		ri.Success = true
-
-		if stats != nil {
-			if raw, err := maintenancestats.BuildRaw(stats); err != nil {
-				userLog(ctx).Errorf("error building raw data from stats %v, err %v", stats, err)
-			} else {
-				ri.Stats = raw
-			}
-		}
+		ri.Stats = buildRunStats(ctx, stats)
 	}
 
 	s.ReportRun(taskType, ri)
@@ -226,4 +219,18 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 	}
 
 	return runErr
+}
+
+func buildRunStats(ctx context.Context, stats maintenancestats.Stats) *maintenancestats.RawStats {
+	if stats == nil {
+		return nil
+	}
+
+	raw, err := maintenancestats.BuildRaw(stats)
+	if err != nil {
+		userLog(ctx).Errorf("error building raw data from stats %v, err %v", stats, err)
+		return nil
+	}
+
+	return &raw
 }

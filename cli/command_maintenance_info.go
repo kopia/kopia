@@ -86,11 +86,7 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 			var message string
 
 			if t.Success {
-				if stats, err := maintenancestats.BuildFromRaw(t.Stats); err == nil {
-					message = "SUCCESS: " + stats.Summary()
-				} else {
-					message = "SUCCESS"
-				}
+				message = buildMessageFromRunStats(t.Stats)
 			} else {
 				message = "ERROR: " + t.Error
 			}
@@ -118,4 +114,19 @@ func (c *commandMaintenanceInfo) displayCycleInfo(cp *maintenance.CycleParams, t
 			c.out.printStdout("  next run: now\n")
 		}
 	}
+}
+
+func buildMessageFromRunStats(rawStats *maintenancestats.RawStats) string {
+	succeed := "SUCCESS"
+
+	if rawStats == nil {
+		return succeed
+	}
+
+	stats, err := maintenancestats.BuildFromRaw(*rawStats)
+	if err != nil {
+		return succeed
+	}
+
+	return succeed + ": " + stats.Summary()
 }

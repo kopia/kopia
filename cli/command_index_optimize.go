@@ -48,5 +48,6 @@ func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.
 	}
 
 	_, err = rep.ContentManager().CompactIndexes(ctx, opt)
+
 	return errors.Wrap(err, "error compacting indexes")
 }

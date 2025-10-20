@@ -1,31 +1,37 @@
+// Package maintenancestats manages statistics for maintenance tasks.
 package maintenancestats
 
 import (
 	"encoding/json"
-	"errors"
+
 	"fmt"
 	"time"
 
 	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/pkg/errors"
 )
 
-// RawStats holds the raw data for maintenance statistics
+// RawStats holds the raw data for maintenance statistics.
 type RawStats struct {
 	Kind string          `json:"kind,omitempty"`
 	Raw  json.RawMessage `json:"raw,omitempty"`
 }
 
-// Stats defines the methods for maintenance statistics
+// Stats defines the methods for maintenance statistics.
 type Stats interface {
 	Kind() string
 	Summary() string
 }
 
-// BuildRaw builds a kind of Stats into RawStats
+var (
+	UnSupportedStatKindError = errors.New("unsupported stats kind")
+)
+
+// BuildRaw builds a kind of Stats into RawStats.
 func BuildRaw(stats Stats) (RawStats, error) {
 	bytes, err := json.Marshal(stats)
 	if err != nil {
-		return RawStats{}, err
+		return RawStats{}, errors.Wrapf(err, "error marshalling stats %v", stats)
 	}
 
 	return RawStats{
@@ -34,101 +40,52 @@ func BuildRaw(stats Stats) (RawStats, error) {
 	}, nil
 }
 
-// BuildFromRaw a RawStats into Stats
+// BuildFromRaw a RawStats into Stats.
 func BuildFromRaw(raw RawStats) (Stats, error) {
+	var result Stats
 	switch raw.Kind {
 	case cleanupMarkersStatsKind:
-		var cs CleanupMarkersStats
-		if err := json.Unmarshal(raw.Raw, &cs); err != nil {
-			return nil, err
-		}
-
-		return &cs, nil
+		result = &CleanupMarkersStats{}
 	case cleanupSupersededIndexesStatsKind:
-		var cs CleanupSupersededIndexesStats
-		if err := json.Unmarshal(raw.Raw, &cs); err != nil {
-			return nil, err
-		}
-
-		return &cs, nil
+		result = &CleanupSupersededIndexesStats{}
 	case generateRangeCheckpointStatsKind:
-		var gs GenerateRangeCheckpointStats
-		if err := json.Unmarshal(raw.Raw, &gs); err != nil {
-			return nil, err
-		}
-
-		return &gs, nil
-
+		result = &GenerateRangeCheckpointStats{}
 	case advanceEpochStatsKind:
-		var as AdvanceEpochStats
-		if err := json.Unmarshal(raw.Raw, &as); err != nil {
-			return nil, err
-		}
-
-		return &as, nil
+		result = &AdvanceEpochStats{}
 	case compactSingleEpochStatsKind:
-		var cs CompactSingleEpochStats
-		if err := json.Unmarshal(raw.Raw, &cs); err != nil {
-			return nil, err
-		}
-
-		return &cs, nil
+		result = &CompactSingleEpochStats{}
 	case compactStatsKind:
-		var cs CompactStats
-		if err := json.Unmarshal(raw.Raw, &cs); err != nil {
-			return nil, err
-		}
-
-		return &cs, nil
+		result = &CompactStats{}
 	case deleteUnreferencedPacksStatsKind:
-		var ds DeleteUnreferencedPacksStats
-		if err := json.Unmarshal(raw.Raw, &ds); err != nil {
-			return nil, err
-		}
-
-		return &ds, nil
+		result = &DeleteUnreferencedPacksStats{}
 	case extendBlobRetentionStatsKind:
-		var es ExtendBlobRetentionStats
-		if err := json.Unmarshal(raw.Raw, &es); err != nil {
-			return nil, err
-		}
-
-		return &es, nil
+		result = &ExtendBlobRetentionStats{}
 	case cleanupLogsStatsKind:
-		var cs CleanupLogsStats
-		if err := json.Unmarshal(raw.Raw, &cs); err != nil {
-			return nil, err
-		}
-
-		return &cs, nil
+		result = &CleanupLogsStats{}
 	case rewriteContentsStatsKind:
-		var rs RewriteContentsStats
-		if err := json.Unmarshal(raw.Raw, &rs); err != nil {
-			return nil, err
-		}
-
-		return &rs, nil
+		result = &RewriteContentsStats{}
 	case snapshotGCStatsKind:
-		var ss SnapshotGCStats
-		if err := json.Unmarshal(raw.Raw, &ss); err != nil {
-			return nil, err
-		}
-
-		return &ss, nil
+		result = &SnapshotGCStats{}
 	default:
-		return nil, errors.New("unsupported stats kind")
+		return nil, UnSupportedStatKindError
 	}
+
+	if err := json.Unmarshal(raw.Raw, result); err != nil {
+		return nil, errors.Wrapf(err, "error unmarshalling raw stats %v", raw.Raw)
+	}
+
+	return result, nil
 }
 
 const cleanupMarkersStatsKind = "cleanupMarkersStats"
 
-// CleanupMarkersStats are the stats for cleaning up markers
+// CleanupMarkersStats are the stats for cleaning up markers.
 type CleanupMarkersStats struct {
 	EpochMarkers       uint32 `json:"epochMarkers"`
 	DeletionWaterMarks uint32 `json:"deletionWaterMarks"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (cs *CleanupMarkersStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(cs.Kind())
 	jw.UInt32Field("epochMarkers", cs.EpochMarkers)
@@ -136,26 +93,26 @@ func (cs *CleanupMarkersStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (cs *CleanupMarkersStats) Summary() string {
 	return fmt.Sprintf("Cleaned up %v epoch markers and %v deletion water marks", cs.EpochMarkers, cs.DeletionWaterMarks)
 }
 
-// Kind returns the kind name for CleanupMarkersStats
+// Kind returns the kind name for the stats.
 func (cs *CleanupMarkersStats) Kind() string {
 	return cleanupMarkersStatsKind
 }
 
 const cleanupSupersededIndexesStatsKind = "cleanupSupersededIndexesStats"
 
-// CleanupSupersededIndexesStats are the stats for Cleaning up superseded indexes
+// CleanupSupersededIndexesStats are the stats for Cleaning up superseded indexes.
 type CleanupSupersededIndexesStats struct {
 	MaxReplacementTime time.Time `json:"maxReplacementTime"`
 	DeletedBlobCount   uint32    `json:"deletedBlobCount"`
 	DeletedTotalSize   int64     `json:"deletedTotalSize"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (cs *CleanupSupersededIndexesStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(cs.Kind())
 	jw.TimeField("maxReplacementTime", cs.MaxReplacementTime)
@@ -164,25 +121,25 @@ func (cs *CleanupSupersededIndexesStats) WriteValueTo(jw *contentlog.JSONWriter)
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (cs *CleanupSupersededIndexesStats) Summary() string {
 	return fmt.Sprintf("Cleaned up %v(%v) superseded index blobs", cs.DeletedBlobCount, cs.DeletedTotalSize)
 }
 
-// Kind returns the kind name for CleanupSupersededIndexesStats
+// Kind returns the kind name for the stats.
 func (cs *CleanupSupersededIndexesStats) Kind() string {
 	return cleanupSupersededIndexesStatsKind
 }
 
 const generateRangeCheckpointStatsKind = "generateRangeCheckpointStats"
 
-// GenerateRangeCheckpointStats are the stats for generating range checkpoints
+// GenerateRangeCheckpointStats are the stats for generating range checkpoints.
 type GenerateRangeCheckpointStats struct {
 	FirstEpoch uint32 `json:"firstEpoch"`
 	LastEpoch  uint32 `json:"lastEpoch"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (gs *GenerateRangeCheckpointStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(gs.Kind())
 	jw.UInt32Field("firstEpoch", gs.FirstEpoch)
@@ -190,25 +147,25 @@ func (gs *GenerateRangeCheckpointStats) WriteValueTo(jw *contentlog.JSONWriter) 
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (gs *GenerateRangeCheckpointStats) Summary() string {
 	return fmt.Sprintf("Generated a range checkpoint from epoch %v to %v", gs.FirstEpoch, gs.LastEpoch)
 }
 
-// Kind returns the kind name for GenerateRangeCheckpointStats
+// Kind returns the kind name for the stats.
 func (gs *GenerateRangeCheckpointStats) Kind() string {
 	return generateRangeCheckpointStatsKind
 }
 
 const advanceEpochStatsKind = "advanceEpochStats"
 
-// AdvanceEpochStats are the stats for advancing write epoch
+// AdvanceEpochStats are the stats for advancing write epoch.
 type AdvanceEpochStats struct {
 	CurrentEpoch uint32 `json:"currentEpoch"`
 	Advanced     bool   `json:"advanced"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (as *AdvanceEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(as.Kind())
 	jw.UInt32Field("currentEpoch", as.CurrentEpoch)
@@ -216,7 +173,7 @@ func (as *AdvanceEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (as *AdvanceEpochStats) Summary() string {
 	var message string
 	if as.Advanced {
@@ -228,21 +185,21 @@ func (as *AdvanceEpochStats) Summary() string {
 	return message
 }
 
-// Kind returns the kind name for AdvanceEpochStats
+// Kind returns the kind name for the stats.
 func (as *AdvanceEpochStats) Kind() string {
 	return advanceEpochStatsKind
 }
 
 const compactSingleEpochStatsKind = "compactSingleEpochStats"
 
-// CompactSingleEpochStats are the stats for compacting an index epoch
+// CompactSingleEpochStats are the stats for compacting an index epoch.
 type CompactSingleEpochStats struct {
 	CompactedBlobCount uint32 `json:"compactedBlobCount"`
 	CompactedBlobSize  int64  `json:"compactedBlobSize"`
 	Epoch              uint32 `json:"epoch"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (cs *CompactSingleEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(cs.Kind())
 	jw.UInt32Field("compactedBlobCount", cs.CompactedBlobCount)
@@ -251,43 +208,43 @@ func (cs *CompactSingleEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (cs *CompactSingleEpochStats) Summary() string {
 	return fmt.Sprintf("Compacted %v(%v) index blobs for epoch %v", cs.CompactedBlobCount, cs.CompactedBlobSize, cs.Epoch)
 }
 
-// Kind returns the kind name for CompactSingleEpochStats
+// Kind returns the kind name for the stats.
 func (cs *CompactSingleEpochStats) Kind() string {
 	return compactSingleEpochStatsKind
 }
 
 const compactStatsKind = "compactStats"
 
-// CompactStats are the stats for compacting indexes
+// CompactStats are the stats for compacting indexes.
 type CompactStats struct {
 	DroppedBefore time.Time `json:"droppedBefore"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (cs *CompactStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(cs.Kind())
 	jw.TimeField("droppedBefore", cs.DroppedBefore)
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (cs *CompactStats) Summary() string {
 	return fmt.Sprintf("Dropped indexes before %v", cs.DroppedBefore)
 }
 
-// Kind returns the kind name for CompactStats
+// Kind returns the kind name for the stats.
 func (cs *CompactStats) Kind() string {
 	return compactStatsKind
 }
 
 const deleteUnreferencedPacksStatsKind = "deleteUnreferencedPacksStats"
 
-// DeleteUnreferencedPacksStats are the stats for deleting unreferenced packs
+// DeleteUnreferencedPacksStats are the stats for deleting unreferenced packs.
 type DeleteUnreferencedPacksStats struct {
 	UnusedCount   uint32 `json:"unusedCount"`
 	UnusedSize    int64  `json:"unusedSize"`
@@ -297,37 +254,37 @@ type DeleteUnreferencedPacksStats struct {
 	RetainedSize  int64  `json:"retainedSize"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (ds *DeleteUnreferencedPacksStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(ds.Kind())
-	jw.UInt32Field("unusedCount", uint32(ds.UnusedCount))
+	jw.UInt32Field("unusedCount", ds.UnusedCount)
 	jw.Int64Field("unusedSize", ds.UnusedSize)
-	jw.UInt32Field("deletedCount", uint32(ds.DeletedCount))
+	jw.UInt32Field("deletedCount", ds.DeletedCount)
 	jw.Int64Field("deletedSize", ds.DeletedSize)
-	jw.UInt32Field("retainedCount", uint32(ds.RetainedCount))
+	jw.UInt32Field("retainedCount", ds.RetainedCount)
 	jw.Int64Field("retainedSize", ds.RetainedSize)
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (ds *DeleteUnreferencedPacksStats) Summary() string {
 	return fmt.Sprintf("Found %v(%v) unreferenced blobs, deleted %v(%v) and retained %v(%v).", ds.UnusedCount, ds.UnusedSize, ds.DeletedCount, ds.DeletedSize, ds.RetainedCount, ds.RetainedSize)
 }
 
-// Kind returns the kind name for DeleteUnreferencedPacksStats
+// Kind returns the kind name for the stats.
 func (ds *DeleteUnreferencedPacksStats) Kind() string {
 	return deleteUnreferencedPacksStatsKind
 }
 
 const extendBlobRetentionStatsKind = "extendBlobRetentionStats"
 
-// ExtendBlobRetentionStats are the stats for extending blob retention time
+// ExtendBlobRetentionStats are the stats for extending blob retention time.
 type ExtendBlobRetentionStats struct {
 	ToExtend uint32 `json:"toExtend"`
 	Extended uint32 `json:"extended"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (es *ExtendBlobRetentionStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(es.Kind())
 	jw.UInt32Field("toExtend", es.ToExtend)
@@ -335,19 +292,19 @@ func (es *ExtendBlobRetentionStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (es *ExtendBlobRetentionStats) Summary() string {
 	return fmt.Sprintf("Found %v blobs for retention time extent and extended %v of them", es.ToExtend, es.Extended)
 }
 
-// Kind returns the kind name for DeleteUnreferencedBlobsStats
+// Kind returns the kind name for the stats.
 func (es *ExtendBlobRetentionStats) Kind() string {
 	return extendBlobRetentionStatsKind
 }
 
 const cleanupLogsStatsKind = "cleanupLogsStats"
 
-// CleanupLogsStats are the stats for cleanning up logs
+// CleanupLogsStats are the stats for cleanning up logs.
 type CleanupLogsStats struct {
 	UnusedCount   uint32 `json:"unusedCount"`
 	UnusedSize    int64  `json:"unusedSize"`
@@ -355,7 +312,7 @@ type CleanupLogsStats struct {
 	RetainedSize  int64  `json:"retainedSize"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (cs *CleanupLogsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(cs.Kind())
 	jw.UInt32Field("unusedCount", cs.UnusedCount)
@@ -365,19 +322,19 @@ func (cs *CleanupLogsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (cs *CleanupLogsStats) Summary() string {
 	return fmt.Sprintf("Cleaned up %v(%v) logs blobs, retained %v(%v) logs blobs.", cs.UnusedCount, cs.UnusedSize, cs.RetainedCount, cs.RetainedSize)
 }
 
-// Kind returns the kind name for CleanupLogsStats
+// Kind returns the kind name for the stats.
 func (cs *CleanupLogsStats) Kind() string {
 	return cleanupLogsStatsKind
 }
 
 const rewriteContentsStatsKind = "rewriteContentsStats"
 
-// RewriteContentsStats are the stats for rewritting contents
+// RewriteContentsStats are the stats for rewritting contents.
 type RewriteContentsStats struct {
 	RewrittenCount uint32 `json:"rewrittenCount"`
 	RewrittenSize  int64  `json:"rewrittenSize"`
@@ -385,7 +342,7 @@ type RewriteContentsStats struct {
 	RetainedSize   int64  `json:"retainedSize"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(rs.Kind())
 	jw.UInt32Field("rewrittenCount", rs.RewrittenCount)
@@ -395,19 +352,19 @@ func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (rs *RewriteContentsStats) Summary() string {
 	return fmt.Sprintf("Rewritten %v(%v) contents, retained %v(%v) contents", rs.RewrittenCount, rs.RewrittenSize, rs.RetainedCount, rs.RetainedSize)
 }
 
-// Kind returns the kind name for RewriteContentsStats
+// Kind returns the kind name for the stats.
 func (rs *RewriteContentsStats) Kind() string {
 	return rewriteContentsStatsKind
 }
 
 const snapshotGCStatsKind = "snapshotGCStats"
 
-// SnapshotGCStats delivers are the stats for snapshot GC
+// SnapshotGCStats delivers are the stats for snapshot GC.
 type SnapshotGCStats struct {
 	UnusedCount          uint32 `json:"unusedCount"`
 	UnusedSize           int64  `json:"unusedSize"`
@@ -421,7 +378,7 @@ type SnapshotGCStats struct {
 	RecoveredSize        int64  `json:"recoveredSize"`
 }
 
-// WriteValueTo writes the stats to JSONWriter
+// WriteValueTo writes the stats to JSONWriter.
 func (ss *SnapshotGCStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(ss.Kind())
 	jw.UInt32Field("unusedCount", ss.UnusedCount)
@@ -437,13 +394,13 @@ func (ss *SnapshotGCStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.EndObject()
 }
 
-// Summary generates a human readable summary for the stats
+// Summary generates a human readable summary for the stats.
 func (ss *SnapshotGCStats) Summary() string {
 	return fmt.Sprintf("Found %v(%v) unused contents, %v(%v) inused contents, %v(%v) inused system contents, marked %v(%v) unused countents for deletion, recovered %v(%v) contents",
 		ss.UnusedCount+ss.TooRecentUnusedCount, ss.UnusedSize+ss.TooRecentUnusedSize, ss.InUseCount, ss.IntUseSize, ss.InUseSystemCount, ss.InUseSystemSize, ss.UnusedCount, ss.UnusedSize, ss.RecoveredCount, ss.RecoveredSize)
 }
 
-// Kind returns the kind name for SnapshotGCStats
+// Kind returns the kind name for the stats.
 func (ss *SnapshotGCStats) Kind() string {
 	return snapshotGCStatsKind
 }
