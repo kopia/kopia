@@ -6,6 +6,7 @@ import (
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content/indexblob"
+	"github.com/pkg/errors"
 )
 
 type commandIndexOptimize struct {
@@ -46,6 +47,7 @@ func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.
 		opt.DropDeletedBefore = rep.Time().Add(-age)
 	}
 
-	//nolint:wrapcheck
-	return rep.ContentManager().CompactIndexes(ctx, opt)
+	_, err = rep.ContentManager().CompactIndexes(ctx, opt)
+
+	return errors.Wrap(err, "error compacting indexes")
 }
