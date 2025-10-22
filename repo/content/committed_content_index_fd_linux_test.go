@@ -21,9 +21,7 @@ func countFDsLinux(t *testing.T) int {
 	t.Helper()
 
 	entries, err := os.ReadDir("/proc/self/fd")
-	if err != nil {
-		t.Fatalf("unable to read /proc/self/fd: %v", err)
-	}
+	require.NoError(t, err, "unable to read /proc/self/fd")
 
 	return len(entries)
 }
