@@ -25,19 +25,6 @@ func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(ctx context.Context, 
 
 	// retry milliseconds: 10, 20, 40, 80, 160, 320, 640, 1280, total ~2.5s
 	f, err := os.Open(path) //nolint:gosec
-	nextDelay := startingDelay
-
-	retryCount := 0
-	for err != nil && retryCount < maxRetries {
-		retryCount++
-		contentlog.Log2(ctx, c.log, "retry unable to mmap.Open()",
-			logparam.Int("retryCount", retryCount),
-			logparam.Error("err", err))
-		time.Sleep(nextDelay)
-		nextDelay *= 2
-
-		f, err = os.Open(path) //nolint:gosec
-	}
 
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to open file despite retries")
