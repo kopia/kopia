@@ -30,3 +30,7 @@ When synchronizing to a filesystem location, it is important to check that the f
 ```
 $ kopia repository sync-to filesystem --path /dest/repository --must-exist
 ```
+
+### Automation
+
+For automated synchronization tasks, progress output can be suppressed using the `--no-progress` flag to provide clean output suitable for cron jobs and scripts.
