@@ -14,7 +14,6 @@ import (
 // process does not retain FDs for all mapped index files. The mapping remains valid until
 // Unmap is called.
 func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(_ context.Context, path string) (mmap.MMap, func() error, error) {
-	// retry milliseconds: 10, 20, 40, 80, 160, 320, 640, 1280, total ~2.5s
 	f, err := os.Open(path) //nolint:gosec
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to open file despite retries")
