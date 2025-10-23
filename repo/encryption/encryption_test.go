@@ -186,9 +186,7 @@ func BenchmarkEncryption(b *testing.B) {
 	require.NoError(b, enc.Encrypt(plainText, iv, &warmupOut))
 	warmupOut.Close()
 
-	b.ResetTimer()
-
-	for range b.N {
+	for b.Loop() {
 		var out gather.WriteBuffer
 
 		enc.Encrypt(plainText, iv, &out)

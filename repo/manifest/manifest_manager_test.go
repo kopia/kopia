@@ -496,7 +496,7 @@ func BenchmarkLargeCompaction(b *testing.B) {
 
 	for _, numItems := range table {
 		b.Run(fmt.Sprintf("%dItems", numItems), func(b *testing.B) {
-			for range b.N {
+			for b.Loop() {
 				b.StopTimer()
 				// Use default context to avoid lots of log output during benchmark.
 				ctx := context.Background()
