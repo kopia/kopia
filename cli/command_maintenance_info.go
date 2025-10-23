@@ -124,6 +124,7 @@ func getMessageFromRun(extra []maintenancestats.Extra) string {
 	}
 
 	extraStr := ""
+
 	for _, e := range extra {
 		if msg, err := maintenancestats.BuildFromExtra(e); err == nil {
 			extraStr += msg.Summary()
