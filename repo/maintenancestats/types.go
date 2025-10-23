@@ -27,7 +27,7 @@ type Kind interface {
 func BuildExtra(stats Kind) (Extra, error) {
 	bytes, err := json.Marshal(stats)
 	if err != nil {
-		return Extra{}, errors.Wrapf(err, "error marshalling stats %v", stats)
+		return Extra{}, errors.Wrapf(err, "error marshaling stats %v", stats)
 	}
 
 	return Extra{
@@ -37,6 +37,6 @@ func BuildExtra(stats Kind) (Extra, error) {
 }
 
 // BuildFromExtra builds maintenance statistics from an Extra and returns a Summarizer.
-func BuildFromExtra(extra Extra) (Summarizer, error) {
+func BuildFromExtra(_ Extra) (Summarizer, error) {
 	return nil, nil
 }
