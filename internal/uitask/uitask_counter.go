@@ -1,5 +1,7 @@
 package uitask
 
+import "maps"
+
 // CounterValue describes the counter value reported by task with optional units for presentation.
 type CounterValue struct {
 	Value int64  `json:"value"`
@@ -49,9 +51,7 @@ func ErrorCounter(v int64) CounterValue {
 
 func cloneCounters(c map[string]CounterValue) map[string]CounterValue {
 	newCounters := map[string]CounterValue{}
-	for k, v := range c {
-		newCounters[k] = v
-	}
+	maps.Copy(newCounters, c)
 
 	return newCounters
 }

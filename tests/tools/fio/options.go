@@ -2,6 +2,7 @@ package fio
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"strconv"
 )
@@ -35,13 +36,9 @@ const (
 func (o Options) Merge(other Options) Options {
 	out := make(map[string]string, len(o)+len(other))
 
-	for k, v := range o {
-		out[k] = v
-	}
+	maps.Copy(out, o)
 
-	for k, v := range other {
-		out[k] = v
-	}
+	maps.Copy(out, other)
 
 	return out
 }
