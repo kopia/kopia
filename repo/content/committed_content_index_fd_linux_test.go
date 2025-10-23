@@ -69,9 +69,8 @@ func TestCommittedContentIndexCache_Disk_FDsNotGrowingOnOpen_Linux(t *testing.T)
 	// Despite keeping many mappings alive, the FD count should not grow proportionally.
 	// Allow some slack for incidental FDs opened by runtime or test harness.
 	const maxDelta = 32
-	if delta := after - before; delta > maxDelta {
-		t.Fatalf("fd count grew too much after opening %d indexes: before=%d after=%d delta=%d (max allowed %d)", indexCount, before, after, delta, maxDelta)
-	}
+
+	require.LessOrEqualf(t, after-before, maxDelta, "fd count grew too much after opening %d indexes", indexCount)
 
 	// Cleanup
 	for _, ndx := range opened {
