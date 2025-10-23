@@ -64,9 +64,9 @@ func parseShardSpec(shards string) ([]int, error) {
 		return result, nil
 	}
 
-	parts := strings.Split(shards, ",")
+	parts := strings.SplitSeq(shards, ",")
 
-	for _, p := range parts {
+	for p := range parts {
 		if p == "" {
 			continue
 		}
