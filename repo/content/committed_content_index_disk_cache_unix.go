@@ -9,9 +9,6 @@ import (
 
 	"github.com/edsrzf/mmap-go"
 	"github.com/pkg/errors"
-
-	"github.com/kopia/kopia/internal/contentlog"
-	"github.com/kopia/kopia/internal/contentlog/logparam"
 )
 
 // Unix semantics: Close the file descriptor immediately after a successful mmap so the
