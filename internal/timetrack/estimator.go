@@ -39,10 +39,7 @@ func (v Estimator) Estimate(completed, total float64) (Timings, bool) {
 		predictedSeconds := elapsed.Seconds() / completedRatio
 		predictedEndTime := v.startTime.Add(time.Duration(predictedSeconds) * time.Second)
 
-		dt := predictedEndTime.Sub(clock.Now()).Truncate(time.Second)
-		if dt < 0 {
-			dt = 0
-		}
+		dt := max(predictedEndTime.Sub(clock.Now()).Truncate(time.Second), 0)
 
 		return Timings{
 			PercentComplete:  100 * completed / total,

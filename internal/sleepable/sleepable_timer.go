@@ -54,10 +54,7 @@ func NewTimer(nowFunc func() time.Time, until time.Time) *Timer {
 				return
 			}
 
-			nextSleepTime := until.Sub(now)
-			if nextSleepTime > maxSleepTime {
-				nextSleepTime = maxSleepTime
-			}
+			nextSleepTime := min(until.Sub(now), maxSleepTime)
 
 			if currentTimer != nil {
 				currentTimer.Stop()

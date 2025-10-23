@@ -468,11 +468,7 @@ func (e *Manager) refreshLocked(ctx context.Context) error {
 		contentlog.Log2(ctx, e.log, "refresh attempt failed", logparam.Error("error", err), logparam.Duration("nextDelayTime", nextDelayTime))
 		time.Sleep(nextDelayTime)
 
-		nextDelayTime = time.Duration(float64(nextDelayTime) * maxRefreshAttemptSleepExponent)
-
-		if nextDelayTime > maxRefreshAttemptSleep {
-			nextDelayTime = maxRefreshAttemptSleep
-		}
+		nextDelayTime = min(time.Duration(float64(nextDelayTime)*maxRefreshAttemptSleepExponent), maxRefreshAttemptSleep)
 	}
 
 	return nil
