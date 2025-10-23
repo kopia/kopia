@@ -26,7 +26,7 @@ type VolumeShadowCopyPolicy struct {
 // VolumeShadowCopyPolicyDefinition specifies which policy definition provided
 // the value of a particular field.
 type VolumeShadowCopyPolicyDefinition struct {
-	Enable snapshot.SourceInfo `json:"enable,omitempty"`
+	Enable snapshot.SourceInfo `json:"enable,omitzero"`
 }
 
 // Merge applies default values from the provided policy.

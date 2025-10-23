@@ -73,11 +73,11 @@ type SchedulingPolicy struct {
 
 // SchedulingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type SchedulingPolicyDefinition struct {
-	IntervalSeconds snapshot.SourceInfo `json:"intervalSeconds,omitempty"`
-	TimesOfDay      snapshot.SourceInfo `json:"timeOfDay,omitempty"`
-	Cron            snapshot.SourceInfo `json:"cron,omitempty"`
-	Manual          snapshot.SourceInfo `json:"manual,omitempty"`
-	RunMissed       snapshot.SourceInfo `json:"runMissed,omitempty"`
+	IntervalSeconds snapshot.SourceInfo `json:"intervalSeconds,omitzero"`
+	TimesOfDay      snapshot.SourceInfo `json:"timeOfDay,omitzero"`
+	Cron            snapshot.SourceInfo `json:"cron,omitzero"`
+	Manual          snapshot.SourceInfo `json:"manual,omitzero"`
+	RunMissed       snapshot.SourceInfo `json:"runMissed,omitzero"`
 }
 
 // defaultRunMissed is the value for RunMissed.

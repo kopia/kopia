@@ -10,8 +10,8 @@ type DirLoggingPolicy struct {
 
 // DirLoggingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type DirLoggingPolicyDefinition struct {
-	Snapshotted snapshot.SourceInfo `json:"snapshotted,omitempty"`
-	Ignored     snapshot.SourceInfo `json:"ignored,omitempty"`
+	Snapshotted snapshot.SourceInfo `json:"snapshotted,omitzero"`
+	Ignored     snapshot.SourceInfo `json:"ignored,omitzero"`
 }
 
 // Merge merges the provided directory logging policy.
@@ -30,10 +30,10 @@ type EntryLoggingPolicy struct {
 
 // EntryLoggingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type EntryLoggingPolicyDefinition struct {
-	Snapshotted snapshot.SourceInfo `json:"snapshotted,omitempty"`
-	Ignored     snapshot.SourceInfo `json:"ignored,omitempty"`
-	CacheHit    snapshot.SourceInfo `json:"cacheHit,omitempty"`
-	CacheMiss   snapshot.SourceInfo `json:"cacheMiss,omitempty"`
+	Snapshotted snapshot.SourceInfo `json:"snapshotted,omitzero"`
+	Ignored     snapshot.SourceInfo `json:"ignored,omitzero"`
+	CacheHit    snapshot.SourceInfo `json:"cacheHit,omitzero"`
+	CacheMiss   snapshot.SourceInfo `json:"cacheMiss,omitzero"`
 }
 
 // Merge merges the provided entry logging policy.

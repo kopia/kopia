@@ -15,13 +15,13 @@ type FilesPolicy struct {
 
 // FilesPolicyDefinition specifies which policy definition provided the value of a particular field.
 type FilesPolicyDefinition struct {
-	IgnoreRules            snapshot.SourceInfo `json:"ignore,omitempty"`
-	NoParentIgnoreRules    snapshot.SourceInfo `json:"noParentIgnore,omitempty"`
-	DotIgnoreFiles         snapshot.SourceInfo `json:"ignoreDotFiles,omitempty"`
-	NoParentDotIgnoreFiles snapshot.SourceInfo `json:"noParentDotFiles,omitempty"`
-	IgnoreCacheDirectories snapshot.SourceInfo `json:"ignoreCacheDirs,omitempty"`
-	MaxFileSize            snapshot.SourceInfo `json:"maxFileSize,omitempty"`
-	OneFileSystem          snapshot.SourceInfo `json:"oneFileSystem,omitempty"`
+	IgnoreRules            snapshot.SourceInfo `json:"ignore,omitzero"`
+	NoParentIgnoreRules    snapshot.SourceInfo `json:"noParentIgnore,omitzero"`
+	DotIgnoreFiles         snapshot.SourceInfo `json:"ignoreDotFiles,omitzero"`
+	NoParentDotIgnoreFiles snapshot.SourceInfo `json:"noParentDotFiles,omitzero"`
+	IgnoreCacheDirectories snapshot.SourceInfo `json:"ignoreCacheDirs,omitzero"`
+	MaxFileSize            snapshot.SourceInfo `json:"maxFileSize,omitzero"`
+	OneFileSystem          snapshot.SourceInfo `json:"oneFileSystem,omitzero"`
 }
 
 // Merge applies default values from the provided policy.
