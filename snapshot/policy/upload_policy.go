@@ -8,9 +8,9 @@ import (
 
 // UploadPolicy describes policy to apply when uploading snapshots.
 type UploadPolicy struct {
-	MaxParallelSnapshots    *OptionalInt   `json:"maxParallelSnapshots,omitempty"`
-	MaxParallelFileReads    *OptionalInt   `json:"maxParallelFileReads,omitempty"`
-	ParallelUploadAboveSize *OptionalInt64 `json:"parallelUploadAboveSize,omitempty"`
+	MaxParallelSnapshots    *OptionalInt   `json:"maxParallelSnapshots,omitzero"`
+	MaxParallelFileReads    *OptionalInt   `json:"maxParallelFileReads,omitzero"`
+	ParallelUploadAboveSize *OptionalInt64 `json:"parallelUploadAboveSize,omitzero"`
 }
 
 // UploadPolicyDefinition specifies which policy definition provided the value of a particular field.

@@ -21,13 +21,13 @@ const (
 
 // RetentionPolicy describes snapshot retention policy.
 type RetentionPolicy struct {
-	KeepLatest               *OptionalInt  `json:"keepLatest,omitempty"`
-	KeepHourly               *OptionalInt  `json:"keepHourly,omitempty"`
-	KeepDaily                *OptionalInt  `json:"keepDaily,omitempty"`
-	KeepWeekly               *OptionalInt  `json:"keepWeekly,omitempty"`
-	KeepMonthly              *OptionalInt  `json:"keepMonthly,omitempty"`
-	KeepAnnual               *OptionalInt  `json:"keepAnnual,omitempty"`
-	IgnoreIdenticalSnapshots *OptionalBool `json:"ignoreIdenticalSnapshots,omitempty"`
+	KeepLatest               *OptionalInt  `json:"keepLatest,omitzero"`
+	KeepHourly               *OptionalInt  `json:"keepHourly,omitzero"`
+	KeepDaily                *OptionalInt  `json:"keepDaily,omitzero"`
+	KeepWeekly               *OptionalInt  `json:"keepWeekly,omitzero"`
+	KeepMonthly              *OptionalInt  `json:"keepMonthly,omitzero"`
+	KeepAnnual               *OptionalInt  `json:"keepAnnual,omitzero"`
+	IgnoreIdenticalSnapshots *OptionalBool `json:"ignoreIdenticalSnapshots,omitzero"`
 }
 
 // RetentionPolicyDefinition specifies which policy definition provided the value of a particular field.

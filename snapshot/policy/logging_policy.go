@@ -4,8 +4,8 @@ import "github.com/kopia/kopia/snapshot"
 
 // DirLoggingPolicy represents the policy for logging directory information when snapshotting.
 type DirLoggingPolicy struct {
-	Snapshotted *LogDetail `json:"snapshotted,omitempty"`
-	Ignored     *LogDetail `json:"ignored,omitempty"`
+	Snapshotted *LogDetail `json:"snapshotted,omitzero"`
+	Ignored     *LogDetail `json:"ignored,omitzero"`
 }
 
 // DirLoggingPolicyDefinition specifies which policy definition provided the value of a particular field.
@@ -22,10 +22,10 @@ func (p *DirLoggingPolicy) Merge(src DirLoggingPolicy, def *DirLoggingPolicyDefi
 
 // EntryLoggingPolicy represents the policy for logging entry information when snapshotting.
 type EntryLoggingPolicy struct {
-	Snapshotted *LogDetail `json:"snapshotted,omitempty"`
-	Ignored     *LogDetail `json:"ignored,omitempty"`
-	CacheHit    *LogDetail `json:"cacheHit,omitempty"`
-	CacheMiss   *LogDetail `json:"cacheMiss,omitempty"`
+	Snapshotted *LogDetail `json:"snapshotted,omitzero"`
+	Ignored     *LogDetail `json:"ignored,omitzero"`
+	CacheHit    *LogDetail `json:"cacheHit,omitzero"`
+	CacheMiss   *LogDetail `json:"cacheMiss,omitzero"`
 }
 
 // EntryLoggingPolicyDefinition specifies which policy definition provided the value of a particular field.
@@ -46,14 +46,14 @@ func (p *EntryLoggingPolicy) Merge(src EntryLoggingPolicy, def *EntryLoggingPoli
 
 // LoggingPolicy describes policy for emitting logs during snapshots.
 type LoggingPolicy struct {
-	Directories DirLoggingPolicy   `json:"directories,omitempty"`
-	Entries     EntryLoggingPolicy `json:"entries,omitempty"`
+	Directories DirLoggingPolicy   `json:"directories,omitzero"`
+	Entries     EntryLoggingPolicy `json:"entries,omitzero"`
 }
 
 // LoggingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type LoggingPolicyDefinition struct {
-	Directories DirLoggingPolicyDefinition   `json:"directories,omitempty"`
-	Entries     EntryLoggingPolicyDefinition `json:"entries,omitempty"`
+	Directories DirLoggingPolicyDefinition   `json:"directories,omitzero"`
+	Entries     EntryLoggingPolicyDefinition `json:"entries,omitzero"`
 }
 
 // Merge applies default values from the provided policy.

@@ -11,18 +11,18 @@ import (
 
 // CompressionPolicy specifies compression policy.
 type CompressionPolicy struct {
-	CompressorName        compression.Name `json:"compressorName,omitempty"`
-	OnlyCompress          []string         `json:"onlyCompress,omitempty"`
-	NoParentOnlyCompress  bool             `json:"noParentOnlyCompress,omitempty"`
-	NeverCompress         []string         `json:"neverCompress,omitempty"`
-	NoParentNeverCompress bool             `json:"noParentNeverCompress,omitempty"`
-	MinSize               int64            `json:"minSize,omitempty"`
-	MaxSize               int64            `json:"maxSize,omitempty"`
+	CompressorName        compression.Name `json:"compressorName,omitzero"`
+	OnlyCompress          []string         `json:"onlyCompress,omitzero"`
+	NoParentOnlyCompress  bool             `json:"noParentOnlyCompress,omitzero"`
+	NeverCompress         []string         `json:"neverCompress,omitzero"`
+	NoParentNeverCompress bool             `json:"noParentNeverCompress,omitzero"`
+	MinSize               int64            `json:"minSize,omitzero"`
+	MaxSize               int64            `json:"maxSize,omitzero"`
 }
 
 // MetadataCompressionPolicy specifies compression policy for metadata.
 type MetadataCompressionPolicy struct {
-	CompressorName compression.Name `json:"compressorName,omitempty"`
+	CompressorName compression.Name `json:"compressorName,omitzero"`
 }
 
 // CompressionPolicyDefinition specifies which policy definition provided the value of a particular field.

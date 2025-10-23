@@ -63,12 +63,12 @@ func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
 
 // SchedulingPolicy describes policy for scheduling snapshots.
 type SchedulingPolicy struct {
-	IntervalSeconds    int64         `json:"intervalSeconds,omitempty"`
-	TimesOfDay         []TimeOfDay   `json:"timeOfDay,omitempty"`
-	NoParentTimesOfDay bool          `json:"noParentTimeOfDay,omitempty"`
-	Manual             bool          `json:"manual,omitempty"`
-	Cron               []string      `json:"cron,omitempty"`
-	RunMissed          *OptionalBool `json:"runMissed,omitempty"`
+	IntervalSeconds    int64         `json:"intervalSeconds,omitzero"`
+	TimesOfDay         []TimeOfDay   `json:"timeOfDay,omitzero"`
+	NoParentTimesOfDay bool          `json:"noParentTimeOfDay,omitzero"`
+	Manual             bool          `json:"manual,omitzero"`
+	Cron               []string      `json:"cron,omitzero"`
+	RunMissed          *OptionalBool `json:"runMissed,omitzero"`
 }
 
 // SchedulingPolicyDefinition specifies which policy definition provided the value of a particular field.

@@ -4,13 +4,13 @@ import "github.com/kopia/kopia/snapshot"
 
 // FilesPolicy describes files to be ignored when taking snapshots.
 type FilesPolicy struct {
-	IgnoreRules            []string      `json:"ignore,omitempty"`
-	NoParentIgnoreRules    bool          `json:"noParentIgnore,omitempty"`
-	DotIgnoreFiles         []string      `json:"ignoreDotFiles,omitempty"`
-	NoParentDotIgnoreFiles bool          `json:"noParentDotFiles,omitempty"`
-	IgnoreCacheDirectories *OptionalBool `json:"ignoreCacheDirs,omitempty"`
-	MaxFileSize            int64         `json:"maxFileSize,omitempty"`
-	OneFileSystem          *OptionalBool `json:"oneFileSystem,omitempty"`
+	IgnoreRules            []string      `json:"ignore,omitzero"`
+	NoParentIgnoreRules    bool          `json:"noParentIgnore,omitzero"`
+	DotIgnoreFiles         []string      `json:"ignoreDotFiles,omitzero"`
+	NoParentDotIgnoreFiles bool          `json:"noParentDotFiles,omitzero"`
+	IgnoreCacheDirectories *OptionalBool `json:"ignoreCacheDirs,omitzero"`
+	MaxFileSize            int64         `json:"maxFileSize,omitzero"`
+	OneFileSystem          *OptionalBool `json:"oneFileSystem,omitzero"`
 }
 
 // FilesPolicyDefinition specifies which policy definition provided the value of a particular field.
