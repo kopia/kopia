@@ -758,13 +758,7 @@ func compareMetadata(tb testing.TB, a, b versionMetadata) {
 func compareVersionSlices(tb testing.TB, a, b []versionMetadata) {
 	tb.Helper()
 
-	l := len(a)
-
-	if len(b) < l {
-		l = len(b)
-	}
-
-	for i := range a[:l] {
+	for i := range min(len(a), len(b)) {
 		compareMetadata(tb, a[i], b[i])
 	}
 

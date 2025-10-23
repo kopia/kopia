@@ -106,10 +106,7 @@ func RecoverFormatBlob(ctx context.Context, st blob.Storage, blobID blob.ID, opt
 }
 
 func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID blob.ID, length int64) ([]byte, error) {
-	chunkLength := int64(maxRecoverChunkLength)
-	if chunkLength > length {
-		chunkLength = length
-	}
+	chunkLength := min(int64(maxRecoverChunkLength), length)
 
 	if chunkLength <= minRecoverableChunkLength {
 		return nil, errFormatBlobNotFound
