@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/kopia/kopia/internal/testutil"
@@ -98,9 +98,7 @@ func BenchmarkCompressor(b *testing.B) {
 		sortedNames = append(sortedNames, id)
 	}
 
-	sort.Slice(sortedNames, func(i, j int) bool {
-		return sortedNames[i] < sortedNames[j]
-	})
+	slices.Sort(sortedNames)
 
 	for _, id := range sortedNames {
 		comp := ByName[id]
