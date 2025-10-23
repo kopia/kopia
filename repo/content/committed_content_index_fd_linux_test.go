@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/faketime"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
@@ -29,9 +30,17 @@ func countFDsLinux(t *testing.T) int {
 // Test that opening many indexes on Linux does not retain a file descriptor per index.
 func TestCommittedContentIndexCache_Disk_FDsNotGrowingOnOpen_Linux(t *testing.T) {
 	// Do not run in parallel to avoid fd count noise from other tests.
+	var lm *repodiag.LogManager
+
 	ctx := testlogging.Context(t)
 	ft := faketime.NewClockTimeWithOffset(0)
-	cache := &diskCommittedContentIndexCache{testutil.TempDirectory(t), ft.NowFunc(), func() int { return 3 }, testlogging.Printf(t.Logf, ""), DefaultIndexCacheSweepAge}
+	cache := &diskCommittedContentIndexCache{
+		testutil.TempDirectory(t),
+		ft.NowFunc(),
+		func() int { return 3 },
+		lm.NewLogger("test"),
+		DefaultIndexCacheSweepAge,
+	}
 
 	const N = 200
 
