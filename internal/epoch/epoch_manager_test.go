@@ -25,6 +25,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/blob/readonly"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 type fakeIndex struct {
@@ -1319,9 +1320,12 @@ func TestCleanupMarkers_Empty(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	// this should be a no-op
-	err := te.mgr.CleanupMarkers(ctx)
+	stats, err := te.mgr.CleanupMarkers(ctx)
+
+	var expected *maintenancestats.CleanupMarkersStats
 
 	require.NoError(t, err)
+	require.Equal(t, expected, stats)
 }
 
 func TestCleanupMarkers_GetParametersError(t *testing.T) {
@@ -1333,10 +1337,13 @@ func TestCleanupMarkers_GetParametersError(t *testing.T) {
 	paramsError := errors.New("no parameters error")
 	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
 
-	err := te.mgr.CleanupMarkers(ctx)
+	stats, err := te.mgr.CleanupMarkers(ctx)
+
+	var expected *maintenancestats.CleanupMarkersStats
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, paramsError)
+	require.Equal(t, expected, stats)
 }
 
 func TestCleanupMarkers_FailToReadState(t *testing.T) {
@@ -1349,9 +1356,12 @@ func TestCleanupMarkers_FailToReadState(t *testing.T) {
 
 	cancel()
 
-	err := te.mgr.CleanupMarkers(ctx)
+	stats, err := te.mgr.CleanupMarkers(ctx)
+
+	var expected *maintenancestats.CleanupMarkersStats
 
 	require.Error(t, err)
+	require.Equal(t, expected, stats)
 }
 
 func TestCleanupMarkers_AvoidCleaningUpSingleEpochMarker(t *testing.T) {
@@ -1369,8 +1379,12 @@ func TestCleanupMarkers_AvoidCleaningUpSingleEpochMarker(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, cs.WriteEpoch)
 
-	err = te.mgr.CleanupMarkers(ctx)
+	stats, err := te.mgr.CleanupMarkers(ctx)
+
+	var expected *maintenancestats.CleanupMarkersStats
+
 	require.NoError(t, err)
+	require.Equal(t, expected, stats)
 
 	require.NoError(t, te.mgr.Refresh(ctx))
 
@@ -1408,8 +1422,12 @@ func TestCleanupMarkers_CleanUpManyMarkers(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, cs.EpochMarkerBlobs, epochsToAdvance)
 
-	err = te.mgr.CleanupMarkers(ctx)
+	stats, err := te.mgr.CleanupMarkers(ctx)
 	require.NoError(t, err)
+	require.Equal(t, &maintenancestats.CleanupMarkersStats{
+		DeletedEpochMarkerBlobs:       3,
+		DeletedDeletionWaterMarkBlobs: 0,
+	}, stats)
 
 	// is the epoch marker preserved?
 	require.NoError(t, te.mgr.Refresh(ctx))
