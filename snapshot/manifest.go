@@ -187,8 +187,8 @@ func (m *Manifest) Clone() *Manifest {
 type StorageStats struct {
 	// amount of new unique data in this snapshot that wasn't there before.
 	// note that this depends on ordering of snapshots.
-	NewData      StorageUsageDetails `json:"newData,omitempty"`
-	RunningTotal StorageUsageDetails `json:"runningTotal,omitempty"`
+	NewData      StorageUsageDetails `json:"newData"`
+	RunningTotal StorageUsageDetails `json:"runningTotal"`
 }
 
 // StorageUsageDetails provides details about snapshot storage usage.
