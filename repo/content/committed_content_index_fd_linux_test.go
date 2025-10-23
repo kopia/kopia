@@ -42,10 +42,10 @@ func TestCommittedContentIndexCache_Disk_FDsNotGrowingOnOpen_Linux(t *testing.T)
 		DefaultIndexCacheSweepAge,
 	}
 
-	const N = 200
+	const indexCount = 200
 
 	// Prepare N small indexes in the cache directory.
-	for i := range N {
+	for i := range indexCount {
 		b := index.Builder{
 			mustParseID(t, fmt.Sprintf("c%03d", i)): Info{PackBlobID: blob.ID(fmt.Sprintf("p%03d", i)), ContentID: mustParseID(t, fmt.Sprintf("c%03d", i))},
 		}
@@ -57,7 +57,7 @@ func TestCommittedContentIndexCache_Disk_FDsNotGrowingOnOpen_Linux(t *testing.T)
 	var opened []index.Index
 
 	// Open all indexes and keep them open to maximize pressure.
-	for i := range N {
+	for i := range indexCount {
 		ndx, err := cache.openIndex(ctx, blob.ID(fmt.Sprintf("ndx%03d", i)))
 		require.NoError(t, err)
 
@@ -70,7 +70,7 @@ func TestCommittedContentIndexCache_Disk_FDsNotGrowingOnOpen_Linux(t *testing.T)
 	// Allow some slack for incidental FDs opened by runtime or test harness.
 	const maxDelta = 32
 	if delta := after - before; delta > maxDelta {
-		t.Fatalf("fd count grew too much after opening %d indexes: before=%d after=%d delta=%d (max allowed %d)", N, before, after, delta, maxDelta)
+		t.Fatalf("fd count grew too much after opening %d indexes: before=%d after=%d delta=%d (max allowed %d)", indexCount, before, after, delta, maxDelta)
 	}
 
 	// Cleanup
