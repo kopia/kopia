@@ -132,7 +132,7 @@ func compressionBenchmark(b *testing.B, comp Compressor, input []byte, output *b
 
 	rdr := bytes.NewReader(input)
 
-	for range b.N {
+	for b.Loop() {
 		output.Reset()
 		rdr.Reset(input)
 
@@ -149,7 +149,7 @@ func decompressionBenchmark(b *testing.B, comp Compressor, input []byte, output 
 
 	rdr := bytes.NewReader(input)
 
-	for range b.N {
+	for b.Loop() {
 		output.Reset()
 
 		rdr.Reset(input)
