@@ -41,11 +41,7 @@ func (s *Server) listMounts() map[object.ID]mount.Controller {
 	s.serverMutex.RLock()
 	defer s.serverMutex.RUnlock()
 
-	result := map[object.ID]mount.Controller{}
-
-	maps.Copy(result, s.mounts)
-
-	return result
+	return maps.Clone(s.mounts)
 }
 
 func (s *Server) deleteMount(oid object.ID) {

@@ -37,7 +37,6 @@ func (o Options) Merge(other Options) Options {
 	out := make(map[string]string, len(o)+len(other))
 
 	maps.Copy(out, o)
-
 	maps.Copy(out, other)
 
 	return out

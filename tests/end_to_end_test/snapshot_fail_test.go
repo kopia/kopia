@@ -352,8 +352,8 @@ func testPermissions(
 			oldEnv := e.Environment
 
 			e.Environment = map[string]string{}
-			maps.Copy(e.Environment, oldEnv)
 
+			maps.Copy(e.Environment, oldEnv)
 			maps.Copy(e.Environment, snapshotCreateEnv)
 
 			defer func() { e.Environment = oldEnv }()
