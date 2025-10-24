@@ -23,8 +23,15 @@ type Kind interface {
 	Kind() string
 }
 
+// ErrUnSupportedStatKindError is reported for unsupported stats kind.
+var ErrUnSupportedStatKindError = errors.New("unsupported stats kind")
+
 // BuildExtra builds an Extra from maintenance statistics.
 func BuildExtra(stats Kind) (Extra, error) {
+	if stats == nil {
+		return Extra{}, errors.New("invalid stats")
+	}
+
 	bytes, err := json.Marshal(stats)
 	if err != nil {
 		return Extra{}, errors.Wrapf(err, "error marshaling stats %v", stats)
@@ -37,6 +44,19 @@ func BuildExtra(stats Kind) (Extra, error) {
 }
 
 // BuildFromExtra builds maintenance statistics from an Extra and returns a Summarizer.
-func BuildFromExtra(_ Extra) (Summarizer, error) {
-	return nil, nil
+func BuildFromExtra(stats Extra) (Summarizer, error) {
+	var result Summarizer
+
+	switch stats.Kind {
+	case cleanupMarkersStatsKind:
+		result = &CleanupMarkersStats{}
+	default:
+		return nil, errors.Wrapf(ErrUnSupportedStatKindError, "invalid kind for stats %v", stats)
+	}
+
+	if err := json.Unmarshal(stats.Data, result); err != nil {
+		return nil, errors.Wrapf(err, "error unmarshaling raw stats %v of kind %s to %T", stats.Data, stats.Kind, result)
+	}
+
+	return result, nil
 }

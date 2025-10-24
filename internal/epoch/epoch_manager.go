@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // LatestEpoch represents the current epoch number in GetCompleteIndexSet.
@@ -290,21 +291,21 @@ func (e *Manager) maxCleanupTime(cs CurrentSnapshot) time.Time {
 }
 
 // CleanupMarkers removes superseded watermarks and epoch markers.
-func (e *Manager) CleanupMarkers(ctx context.Context) error {
+func (e *Manager) CleanupMarkers(ctx context.Context) (*maintenancestats.CleanupMarkersStats, error) {
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	p, err := e.getParameters(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	return e.cleanupInternal(ctx, cs, p)
 }
 
-func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Parameters) error {
+func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Parameters) (*maintenancestats.CleanupMarkersStats, error) {
 	eg, ctx := errgroup.WithContext(ctx)
 
 	// find max timestamp recently written to the repository to establish storage clock.
@@ -312,7 +313,7 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 	// to this max time. This assumes that storage clock moves forward somewhat reasonably.
 	maxTime := e.maxCleanupTime(cs)
 	if maxTime.IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	// only delete blobs if a suitable replacement exists and has been written sufficiently
@@ -320,18 +321,35 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 	// may have not observed them yet.
 	maxReplacementTime := maxTime.Add(-p.CleanupSafetyMargin)
 
+	var deletedEpochMarkers, deletedDeletionWaterMarks atomic.Int64
+
 	eg.Go(func() error {
-		return e.cleanupEpochMarkers(ctx, cs)
+		deleted, err := e.cleanupEpochMarkers(ctx, cs)
+		deletedEpochMarkers.Store(int64(deleted))
+
+		return err
 	})
 
 	eg.Go(func() error {
-		return e.cleanupWatermarks(ctx, cs, p, maxReplacementTime)
+		deleted, err := e.cleanupWatermarks(ctx, cs, p, maxReplacementTime)
+		deletedDeletionWaterMarks.Store(int64(deleted))
+
+		return err
 	})
 
-	return errors.Wrap(eg.Wait(), "error cleaning up index blobs")
+	if err := eg.Wait(); err != nil {
+		return nil, errors.Wrap(err, "error cleaning up index blobs")
+	}
+
+	result := &maintenancestats.CleanupMarkersStats{
+		DeletedEpochMarkerBlobCount:       int(deletedEpochMarkers.Load()),
+		DeletedDeletionWaterMarkBlobCount: int(deletedDeletionWaterMarks.Load()),
+	}
+
+	return result, nil
 }
 
-func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) error {
+func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) (int, error) {
 	// delete epoch markers for epoch < current-1
 	var toDelete []blob.ID
 
@@ -345,13 +363,13 @@ func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) e
 
 	p, err := e.getParameters(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting index blob marker")
+	return len(toDelete), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting index blob marker")
 }
 
-func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *Parameters, maxReplacementTime time.Time) error {
+func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *Parameters, maxReplacementTime time.Time) (int, error) {
 	var toDelete []blob.ID
 
 	for _, bm := range cs.DeletionWatermarkBlobs {
@@ -369,7 +387,7 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *
 		}
 	}
 
-	return errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting watermark blobs")
+	return len(toDelete), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting watermark blobs")
 }
 
 // CleanupSupersededIndexes cleans up the indexes which have been superseded by compacted ones.

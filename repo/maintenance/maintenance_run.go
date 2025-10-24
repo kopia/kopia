@@ -396,7 +396,9 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	err := ReportRun(ctx, runParams.rep, TaskEpochCleanupMarkers, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Cleaning up unneeded epoch markers...")
 
-		return nil, errors.Wrap(em.CleanupMarkers(ctx), "error removing epoch markers")
+		stats, err := em.CleanupMarkers(ctx)
+
+		return stats, errors.Wrap(err, "error removing epoch markers")
 	})
 	if err != nil {
 		return err
