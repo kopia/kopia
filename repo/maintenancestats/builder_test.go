@@ -24,12 +24,12 @@ func TestBuildExtraSuccess(t *testing.T) {
 		{
 			name: "succeed",
 			stats: &CleanupMarkersStats{
-				DeletedEpochMarkerBlobCount:       10,
-				DeletedDeletionWaterMarkBlobCount: 20,
+				DeletedEpochMarkerBlobCount: 10,
+				DeletedWatermarkBlobCount:   20,
 			},
 			expected: Extra{
 				Kind: "cleanupMarkersStats",
-				Data: []byte(`{"deletedEpochMarkerBlobCount":10,"deletedDeletionWaterMarkBlobCount":20}`),
+				Data: []byte(`{"deletedEpochMarkerBlobCount":10,"deletedWatermarkBlobCount":20}`),
 			},
 		},
 	}
@@ -81,11 +81,11 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 			name: "cleanupMarkersStats",
 			stats: Extra{
 				Kind: cleanupMarkersStatsKind,
-				Data: []byte(`{"deletedEpochMarkerBlobCount":10,"deletedDeletionWaterMarkBlobCount":20}`),
+				Data: []byte(`{"deletedEpochMarkerBlobCount":10,"deletedWatermarkBlobCount":20}`),
 			},
 			expected: &CleanupMarkersStats{
-				DeletedEpochMarkerBlobCount:       10,
-				DeletedDeletionWaterMarkBlobCount: 20,
+				DeletedEpochMarkerBlobCount: 10,
+				DeletedWatermarkBlobCount:   20,
 			},
 		},
 	}
