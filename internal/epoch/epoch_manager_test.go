@@ -1417,8 +1417,8 @@ func TestCleanupMarkers_CleanUpManyMarkers(t *testing.T) {
 	stats, err := te.mgr.CleanupMarkers(ctx)
 	require.NoError(t, err)
 	require.Equal(t, &maintenancestats.CleanupMarkersStats{
-		DeletedEpochMarkerBlobCount:       3,
-		DeletedDeletionWaterMarkBlobCount: 0,
+		DeletedEpochMarkerBlobCount: 3,
+		DeletedWatermarkBlobCount:   0,
 	}, stats)
 
 	// is the epoch marker preserved?
