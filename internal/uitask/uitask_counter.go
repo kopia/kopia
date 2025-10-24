@@ -46,12 +46,3 @@ func ErrorBytesCounter(v int64) CounterValue {
 func ErrorCounter(v int64) CounterValue {
 	return CounterValue{v, "", "error"}
 }
-
-func cloneCounters(c map[string]CounterValue) map[string]CounterValue {
-	newCounters := map[string]CounterValue{}
-	for k, v := range c {
-		newCounters[k] = v
-	}
-
-	return newCounters
-}

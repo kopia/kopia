@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -707,10 +708,7 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 
 	// copy existing sources to a map, from which we will remove sources that are found
 	// in the repository
-	oldSourceManagers := map[snapshot.SourceInfo]*sourceManager{}
-	for k, v := range s.sourceManagers {
-		oldSourceManagers[k] = v
-	}
+	oldSourceManagers := maps.Clone(s.sourceManagers)
 
 	for src := range sources {
 		if sm, ok := oldSourceManagers[src]; ok {
@@ -1046,13 +1044,7 @@ func (s *Server) snapshotAllSourceManagers() map[snapshot.SourceInfo]*sourceMana
 	s.serverMutex.RLock()
 	defer s.serverMutex.RUnlock()
 
-	result := map[snapshot.SourceInfo]*sourceManager{}
-
-	for k, v := range s.sourceManagers {
-		result[k] = v
-	}
-
-	return result
+	return maps.Clone(s.sourceManagers)
 }
 
 func (s *Server) getSchedulerItems(ctx context.Context, now time.Time) []scheduler.Item {

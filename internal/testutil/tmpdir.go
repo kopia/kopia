@@ -176,7 +176,7 @@ func splitLines(s string) []string {
 	}
 
 	var result []string
-	for _, l := range strings.Split(s, "\n") {
+	for l := range strings.SplitSeq(s, "\n") {
 		result = append(result, strings.TrimRight(l, "\r"))
 	}
 

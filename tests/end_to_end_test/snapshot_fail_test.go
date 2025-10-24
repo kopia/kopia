@@ -2,6 +2,7 @@ package endtoend_test
 
 import (
 	"fmt"
+	"maps"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -351,13 +352,9 @@ func testPermissions(
 			oldEnv := e.Environment
 
 			e.Environment = map[string]string{}
-			for k, v := range oldEnv {
-				e.Environment[k] = v
-			}
 
-			for k, v := range snapshotCreateEnv {
-				e.Environment[k] = v
-			}
+			maps.Copy(e.Environment, oldEnv)
+			maps.Copy(e.Environment, snapshotCreateEnv)
 
 			defer func() { e.Environment = oldEnv }()
 
