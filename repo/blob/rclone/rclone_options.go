@@ -12,7 +12,7 @@ type Options struct {
 	RCloneExe          string                `json:"rcloneExe,omitempty"`          // path to rclone executable
 	RCloneArgs         []string              `json:"rcloneArgs,omitempty"`         // additional rclone arguments
 	RCloneEnv          []string              `json:"rcloneEnv,omitempty"`          // additional rclone environment variables
-	StartupTimeout     jsonencoding.Duration `json:"startupTimeout,omitempty"`     // time to wait for rclone to start
+	StartupTimeout     jsonencoding.Duration `json:"startupTimeout,omitzero"`      // time to wait for rclone to start
 	Debug              bool                  `json:"debug,omitempty"`              // log rclone output
 	NoWaitForTransfers bool                  `json:"noWaitForTransfers,omitempty"` // when set to true, don't wait for transfers to finish when closing
 	EmbeddedConfig     string                `json:"embeddedConfig,omitempty"`
