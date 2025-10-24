@@ -50,7 +50,7 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 		var timesOfDay []policy.TimeOfDay
 
 		for _, tods := range c.policySetTimesOfDay {
-			for _, tod := range strings.Split(tods, ",") {
+			for tod := range strings.SplitSeq(tods, ",") {
 				if tod == inheritPolicyString {
 					timesOfDay = nil
 					break
@@ -127,8 +127,8 @@ func splitCronExpressions(expr string) []string {
 
 	var result []string
 
-	parts := strings.Split(expr, ";")
-	for _, part := range parts {
+	parts := strings.SplitSeq(expr, ";")
+	for part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue

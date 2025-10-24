@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -302,9 +302,7 @@ func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[s
 }
 
 func sortIDs(s []ID) {
-	sort.Slice(s, func(i, j int) bool {
-		return s[i] < s[j]
-	})
+	slices.Sort(s)
 }
 
 type contentManagerOpts struct {

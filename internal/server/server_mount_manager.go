@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"maps"
 
 	"github.com/pkg/errors"
 
@@ -42,9 +43,7 @@ func (s *Server) listMounts() map[object.ID]mount.Controller {
 
 	result := map[object.ID]mount.Controller{}
 
-	for oid, c := range s.mounts {
-		result[oid] = c
-	}
+	maps.Copy(result, s.mounts)
 
 	return result
 }

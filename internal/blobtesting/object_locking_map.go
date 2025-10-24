@@ -3,7 +3,7 @@ package blobtesting
 import (
 	"bytes"
 	"context"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -237,9 +237,7 @@ func (s *objectLockingMap) ListBlobs(ctx context.Context, prefix blob.ID, callba
 
 	s.mutex.RUnlock()
 
-	sort.Slice(keys, func(i, j int) bool {
-		return keys[i] < keys[j]
-	})
+	slices.Sort(keys)
 
 	for _, k := range keys {
 		m, err := s.GetMetadata(ctx, k)

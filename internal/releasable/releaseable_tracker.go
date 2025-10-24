@@ -4,6 +4,7 @@ package releasable
 import (
 	"bytes"
 	"fmt"
+	"maps"
 	"runtime/debug"
 	"sync"
 
@@ -92,9 +93,7 @@ func (s *perKindTracker) active() map[any]string {
 	defer s.mu.Unlock()
 
 	res := map[any]string{}
-	for k, v := range s.items {
-		res[k] = v
-	}
+	maps.Copy(res, s.items)
 
 	return res
 }

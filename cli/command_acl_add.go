@@ -29,7 +29,7 @@ func (c *commandACLAdd) setup(svc appServices, parent commandParent) {
 func (c *commandACLAdd) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	r := acl.TargetRule{}
 
-	for _, v := range strings.Split(c.target, ",") {
+	for v := range strings.SplitSeq(c.target, ",") {
 		parts := strings.SplitN(v, "=", 2) //nolint:mnd
 		if len(parts) != 2 {               //nolint:mnd
 			return errors.Errorf("invalid target labels %q, must be key=value", v)

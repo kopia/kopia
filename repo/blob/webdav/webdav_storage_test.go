@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -136,9 +137,7 @@ func transformMissingPUTs(next http.Handler) http.HandlerFunc {
 			w.WriteHeader(http.StatusForbidden)
 		} else {
 			// Passthrough recorded response headers, status code, and body
-			for header, values := range rec.Header() {
-				w.Header()[header] = values
-			}
+			maps.Copy(w.Header(), rec.Header())
 
 			w.WriteHeader(result.StatusCode)
 			io.Copy(w, result.Body)
