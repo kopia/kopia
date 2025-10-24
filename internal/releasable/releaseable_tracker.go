@@ -92,10 +92,7 @@ func (s *perKindTracker) active() map[any]string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	res := map[any]string{}
-	maps.Copy(res, s.items)
-
-	return res
+	return maps.Clone(s.items)
 }
 
 var (

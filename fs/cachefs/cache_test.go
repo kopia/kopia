@@ -135,8 +135,7 @@ func errorPrefix() string {
 }
 
 func (cv *cacheVerifier) reset() {
-	cv.lastCallCounter = make(map[string]int)
-	maps.Copy(cv.lastCallCounter, cv.cacheSource.callCounter)
+	cv.lastCallCounter = maps.Clone(cv.cacheSource.callCounter)
 }
 
 type lockState struct {

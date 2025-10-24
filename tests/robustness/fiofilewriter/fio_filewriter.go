@@ -148,8 +148,8 @@ func (fw *FileWriter) WriteRandomFiles(ctx context.Context, opts map[string]stri
 	log.Printf("Writing files at depth %v (fileSize: %v-%v, numFiles: %v, blockSize: %v, dedupPcnt: %v, ioLimit: %v)\n", dirDepth, minFileSizeB, maxFileSizeB, numFiles, blockSize, dedupPcnt, ioLimit)
 
 	retOpts := make(map[string]string, len(opts))
-	maps.Copy(retOpts, opts)
 
+	maps.Copy(retOpts, opts)
 	maps.Copy(retOpts, fioOpts)
 
 	retOpts["dirDepth"] = strconv.Itoa(dirDepth)
@@ -176,9 +176,7 @@ func (fw *FileWriter) DeleteRandomSubdirectory(ctx context.Context, opts map[str
 
 	log.Printf("Deleting directory at depth %v\n", dirDepth)
 
-	retOpts := make(map[string]string, len(opts))
-	maps.Copy(retOpts, opts)
-
+	retOpts := maps.Clone(opts)
 	retOpts["dirDepth"] = strconv.Itoa(dirDepth)
 
 	err := fw.Runner.DeleteDirAtDepth("", dirDepth)
@@ -207,9 +205,7 @@ func (fw *FileWriter) DeleteDirectoryContents(ctx context.Context, opts map[stri
 
 	log.Printf("Deleting %d%% of directory contents at depth %v\n", pcnt, dirDepth)
 
-	retOpts := make(map[string]string, len(opts))
-	maps.Copy(retOpts, opts)
-
+	retOpts := maps.Clone(opts)
 	retOpts["dirDepth"] = strconv.Itoa(dirDepth)
 	retOpts["percent"] = strconv.Itoa(pcnt)
 
