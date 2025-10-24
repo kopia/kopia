@@ -321,24 +321,29 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 	// may have not observed them yet.
 	maxReplacementTime := maxTime.Add(-p.CleanupSafetyMargin)
 
-	result := &maintenancestats.CleanupMarkersStats{}
+	var deletedEpochMarkers, deletedDeletionWaterMarks atomic.Int64
 
 	eg.Go(func() error {
 		deleted, err := e.cleanupEpochMarkers(ctx, cs)
-		result.DeletedEpochMarkerBlobs = deleted
+		deletedEpochMarkers.Store(int64(deleted))
 
 		return err
 	})
 
 	eg.Go(func() error {
 		deleted, err := e.cleanupWatermarks(ctx, cs, p, maxReplacementTime)
-		result.DeletedDeletionWaterMarkBlobs = deleted
+		deletedDeletionWaterMarks.Store(int64(deleted))
 
 		return err
 	})
 
 	if err := eg.Wait(); err != nil {
 		return nil, errors.Wrap(err, "error cleaning up index blobs")
+	}
+
+	result := &maintenancestats.CleanupMarkersStats{
+		DeletedEpochMarkerBlobCount:       int(deletedEpochMarkers.Load()),
+		DeletedDeletionWaterMarkBlobCount: int(deletedDeletionWaterMarks.Load()),
 	}
 
 	return result, nil

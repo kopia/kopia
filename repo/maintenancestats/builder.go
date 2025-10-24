@@ -3,11 +3,8 @@ package maintenancestats
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/pkg/errors"
-
-	"github.com/kopia/kopia/internal/contentlog"
 )
 
 // Extra holds the data for a maintenance statistics.
@@ -58,34 +55,8 @@ func BuildFromExtra(stats Extra) (Summarizer, error) {
 	}
 
 	if err := json.Unmarshal(stats.Data, result); err != nil {
-		return nil, errors.Wrapf(err, "error unmarshaling raw stats %v", stats.Data)
+		return nil, errors.Wrapf(err, "error unmarshaling raw stats %v of kind %s to %T", stats.Data, stats.Kind, result)
 	}
 
 	return result, nil
-}
-
-const cleanupMarkersStatsKind = "cleanupMarkersStats"
-
-// CleanupMarkersStats are the stats for cleaning up markers.
-type CleanupMarkersStats struct {
-	DeletedEpochMarkerBlobs       int `json:"deletedEpochMarkerBlobs"`
-	DeletedDeletionWaterMarkBlobs int `json:"deletedDeletionWaterMarkBlobs"`
-}
-
-// WriteValueTo writes the stats to JSONWriter.
-func (cs *CleanupMarkersStats) WriteValueTo(jw *contentlog.JSONWriter) {
-	jw.BeginObjectField(cs.Kind())
-	jw.IntField("deletedEpochMarkerBlobs", cs.DeletedEpochMarkerBlobs)
-	jw.IntField("deletedDeletionWaterMarkBlobs", cs.DeletedDeletionWaterMarkBlobs)
-	jw.EndObject()
-}
-
-// Summary generates a human readable summary for the stats.
-func (cs *CleanupMarkersStats) Summary() string {
-	return fmt.Sprintf("Cleaned up %v epoch markers and %v deletion watermarks", cs.DeletedEpochMarkerBlobs, cs.DeletedDeletionWaterMarkBlobs)
-}
-
-// Kind returns the kind name for the stats.
-func (cs *CleanupMarkersStats) Kind() string {
-	return cleanupMarkersStatsKind
 }

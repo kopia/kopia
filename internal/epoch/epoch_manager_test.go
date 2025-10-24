@@ -1322,10 +1322,8 @@ func TestCleanupMarkers_Empty(t *testing.T) {
 	// this should be a no-op
 	stats, err := te.mgr.CleanupMarkers(ctx)
 
-	var expected *maintenancestats.CleanupMarkersStats
-
 	require.NoError(t, err)
-	require.Equal(t, expected, stats)
+	require.Nil(t, stats)
 }
 
 func TestCleanupMarkers_GetParametersError(t *testing.T) {
@@ -1339,11 +1337,9 @@ func TestCleanupMarkers_GetParametersError(t *testing.T) {
 
 	stats, err := te.mgr.CleanupMarkers(ctx)
 
-	var expected *maintenancestats.CleanupMarkersStats
-
 	require.Error(t, err)
 	require.ErrorIs(t, err, paramsError)
-	require.Equal(t, expected, stats)
+	require.Nil(t, stats)
 }
 
 func TestCleanupMarkers_FailToReadState(t *testing.T) {
@@ -1358,10 +1354,8 @@ func TestCleanupMarkers_FailToReadState(t *testing.T) {
 
 	stats, err := te.mgr.CleanupMarkers(ctx)
 
-	var expected *maintenancestats.CleanupMarkersStats
-
 	require.Error(t, err)
-	require.Equal(t, expected, stats)
+	require.Nil(t, stats)
 }
 
 func TestCleanupMarkers_AvoidCleaningUpSingleEpochMarker(t *testing.T) {
@@ -1381,10 +1375,8 @@ func TestCleanupMarkers_AvoidCleaningUpSingleEpochMarker(t *testing.T) {
 
 	stats, err := te.mgr.CleanupMarkers(ctx)
 
-	var expected *maintenancestats.CleanupMarkersStats
-
 	require.NoError(t, err)
-	require.Equal(t, expected, stats)
+	require.Nil(t, stats)
 
 	require.NoError(t, te.mgr.Refresh(ctx))
 
@@ -1425,8 +1417,8 @@ func TestCleanupMarkers_CleanUpManyMarkers(t *testing.T) {
 	stats, err := te.mgr.CleanupMarkers(ctx)
 	require.NoError(t, err)
 	require.Equal(t, &maintenancestats.CleanupMarkersStats{
-		DeletedEpochMarkerBlobs:       3,
-		DeletedDeletionWaterMarkBlobs: 0,
+		DeletedEpochMarkerBlobCount:       3,
+		DeletedDeletionWaterMarkBlobCount: 0,
 	}, stats)
 
 	// is the epoch marker preserved?
