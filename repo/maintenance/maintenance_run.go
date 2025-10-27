@@ -406,7 +406,10 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 
 	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochDeleteSupersededIndexes, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Cleaning up old index blobs which have already been compacted...")
-		return nil, errors.Wrap(em.CleanupSupersededIndexes(ctx), "error removing superseded epoch index blobs")
+
+		stats, err := em.CleanupSupersededIndexes(ctx)
+
+		return stats, errors.Wrap(err, "error removing superseded epoch index blobs")
 	})
 }
 

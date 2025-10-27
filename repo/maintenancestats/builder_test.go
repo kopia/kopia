@@ -2,6 +2,7 @@ package maintenancestats
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -86,6 +87,18 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 			expected: &CleanupMarkersStats{
 				DeletedEpochMarkerBlobCount: 10,
 				DeletedWatermarkBlobCount:   20,
+			},
+		},
+		{
+			name: "cleanupSupersededIndexesStats",
+			stats: Extra{
+				Kind: cleanupSupersededIndexesStatsKind,
+				Data: []byte(`{"maxReplacementTime":"2025-01-01T00:00:00Z","deletedBlobCount":10,"deletedTotalSize":1024}`),
+			},
+			expected: &CleanupSupersededIndexesStats{
+				MaxReplacementTime: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+				DeletedBlobCount:   10,
+				DeletedTotalSize:   1024,
 			},
 		},
 	}

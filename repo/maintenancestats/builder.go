@@ -50,6 +50,8 @@ func BuildFromExtra(stats Extra) (Summarizer, error) {
 	switch stats.Kind {
 	case cleanupMarkersStatsKind:
 		result = &CleanupMarkersStats{}
+	case cleanupSupersededIndexesStatsKind:
+		result = &CleanupSupersededIndexesStats{}
 	default:
 		return nil, errors.Wrapf(ErrUnSupportedStatKindError, "invalid kind for stats %v", stats)
 	}

@@ -391,15 +391,15 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *
 }
 
 // CleanupSupersededIndexes cleans up the indexes which have been superseded by compacted ones.
-func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
+func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*maintenancestats.CleanupSupersededIndexesStats, error) {
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	p, err := e.getParameters(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// find max timestamp recently written to the repository to establish storage clock.
@@ -407,7 +407,7 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
 	// to this max time. This assumes that storage clock moves forward somewhat reasonably.
 	maxTime := e.maxCleanupTime(cs)
 	if maxTime.IsZero() {
-		return nil
+		return nil, nil
 	}
 
 	// only delete blobs if a suitable replacement exists and has been written sufficiently
@@ -422,24 +422,31 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) error {
 	// that was written sufficiently long ago.
 	blobs, err := blob.ListAllBlobs(ctx, e.st, UncompactedIndexBlobPrefix)
 	if err != nil {
-		return errors.Wrap(err, "error listing uncompacted blobs")
+		return nil, errors.Wrap(err, "error listing uncompacted blobs")
 	}
 
 	var toDelete []blob.ID
+
+	var deleltedTotalSize int64
 
 	for _, bm := range blobs {
 		if epoch, ok := epochNumberFromBlobID(bm.BlobID); ok {
 			if blobSetWrittenEarlyEnough(cs.SingleEpochCompactionSets[epoch], maxReplacementTime) {
 				toDelete = append(toDelete, bm.BlobID)
+				deleltedTotalSize += bm.Length
 			}
 		}
 	}
 
 	if err := blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism); err != nil {
-		return errors.Wrap(err, "unable to delete uncompacted blobs")
+		return nil, errors.Wrap(err, "unable to delete uncompacted blobs")
 	}
 
-	return nil
+	return &maintenancestats.CleanupSupersededIndexesStats{
+		MaxReplacementTime: maxReplacementTime,
+		DeletedBlobCount:   len(toDelete),
+		DeletedTotalSize:   deleltedTotalSize,
+	}, nil
 }
 
 func blobSetWrittenEarlyEnough(replacementSet []blob.Metadata, maxReplacementTime time.Time) bool {
