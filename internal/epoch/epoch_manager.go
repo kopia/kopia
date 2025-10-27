@@ -427,13 +427,13 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*maintenancesta
 
 	var toDelete []blob.ID
 
-	var deleltedTotalSize int64
+	var deletedTotalSize int64
 
 	for _, bm := range blobs {
 		if epoch, ok := epochNumberFromBlobID(bm.BlobID); ok {
 			if blobSetWrittenEarlyEnough(cs.SingleEpochCompactionSets[epoch], maxReplacementTime) {
 				toDelete = append(toDelete, bm.BlobID)
-				deleltedTotalSize += bm.Length
+				deletedTotalSize += bm.Length
 			}
 		}
 	}
@@ -445,7 +445,7 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*maintenancesta
 	return &maintenancestats.CleanupSupersededIndexesStats{
 		MaxReplacementTime: maxReplacementTime,
 		DeletedBlobCount:   len(toDelete),
-		DeletedTotalSize:   deleltedTotalSize,
+		DeletedTotalSize:   deletedTotalSize,
 	}, nil
 }
 
