@@ -807,8 +807,9 @@ func TestInvalid_Cleanup(t *testing.T) {
 	ctx, cancel := context.WithCancel(testlogging.Context(t))
 	cancel()
 
-	err := te.mgr.CleanupSupersededIndexes(ctx)
+	stats, err := te.mgr.CleanupSupersededIndexes(ctx)
 	require.ErrorIs(t, err, ctx.Err())
+	require.Nil(t, stats)
 }
 
 //nolint:thelper
