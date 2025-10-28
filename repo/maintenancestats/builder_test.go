@@ -105,11 +105,11 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 			name: "generateRangeCheckpointStats",
 			stats: Extra{
 				Kind: generateRangeCheckpointStatsKind,
-				Data: []byte(`{"firstEpoch":3,"lastEpoch":5}`),
+				Data: []byte(`{"rangeMinEpoch":3,"rangeMaxEpoch":5}`),
 			},
 			expected: &GenerateRangeCheckpointStats{
-				FirstEpoch: 3,
-				LastEpoch:  5,
+				RangeMinEpoch: 3,
+				RangeMaxEpoch: 5,
 			},
 		},
 	}

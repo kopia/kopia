@@ -614,8 +614,8 @@ func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) (*maintenanc
 	}
 
 	return &maintenancestats.GenerateRangeCheckpointStats{
-		FirstEpoch: firstNonRangeCompacted,
-		LastEpoch:  latestSettled,
+		RangeMinEpoch: firstNonRangeCompacted,
+		RangeMaxEpoch: latestSettled,
 	}, nil
 }
 
