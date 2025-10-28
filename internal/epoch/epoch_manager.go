@@ -591,29 +591,32 @@ func (e *Manager) loadSingleEpochCompactions(ctx context.Context, cs *CurrentSna
 // MaybeGenerateRangeCheckpoint may create a new range index for all the
 // individual epochs covered by the new range. If there are not enough epochs
 // to create a new range, then a range index is not created.
-func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) error {
+func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) (*maintenancestats.GenerateRangeCheckpointStats, error) {
 	p, err := e.getParameters(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	latestSettled, firstNonRangeCompacted, compact := getRangeToCompact(cs, *p)
 	if !compact {
 		contentlog.Log(ctx, e.log, "not generating range checkpoint")
 
-		return nil
+		return nil, nil
 	}
 
 	if err := e.generateRangeCheckpointFromCommittedState(ctx, cs, firstNonRangeCompacted, latestSettled); err != nil {
-		return errors.Wrap(err, "unable to generate full checkpoint, performance will be affected")
+		return nil, errors.Wrap(err, "unable to generate full checkpoint, performance will be affected")
 	}
 
-	return nil
+	return &maintenancestats.GenerateRangeCheckpointStats{
+		FirstEpoch: firstNonRangeCompacted,
+		LastEpoch:  latestSettled,
+	}, nil
 }
 
 func getRangeToCompact(cs CurrentSnapshot, p Parameters) (low, high int, compactRange bool) {
