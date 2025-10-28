@@ -101,6 +101,17 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 				DeletedTotalSize:   1024,
 			},
 		},
+		{
+			name: "generateRangeCheckpointStats",
+			stats: Extra{
+				Kind: generateRangeCheckpointStatsKind,
+				Data: []byte(`{"firstEpoch":3,"lastEpoch":5}`),
+			},
+			expected: &GenerateRangeCheckpointStats{
+				FirstEpoch: 3,
+				LastEpoch:  5,
+			},
+		},
 	}
 
 	for _, tc := range cases {

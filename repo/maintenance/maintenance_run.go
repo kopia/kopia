@@ -387,7 +387,9 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochGenerateRange, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Attempting to compact a range of epoch indexes ...")
 
-		return nil, errors.Wrap(em.MaybeGenerateRangeCheckpoint(ctx), "error creating epoch range indexes")
+		stats, err := em.MaybeGenerateRangeCheckpoint(ctx)
+
+		return stats, errors.Wrap(err, "error creating epoch range indexes")
 	}); err != nil {
 		return err
 	}

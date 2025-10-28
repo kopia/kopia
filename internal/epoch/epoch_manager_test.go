@@ -1032,9 +1032,10 @@ func TestMaybeGenerateRangeCheckpoint_Empty(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	// this should be a no-op
-	err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 
 	require.NoError(t, err)
+	require.Nil(t, stats)
 }
 
 func TestMaybeGenerateRangeCheckpoint_GetParametersError(t *testing.T) {
@@ -1046,10 +1047,11 @@ func TestMaybeGenerateRangeCheckpoint_GetParametersError(t *testing.T) {
 	paramsError := errors.New("no parameters error")
 	te.mgr.paramProvider = faultyParamsProvider{err: paramsError}
 
-	err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, paramsError)
+	require.Nil(t, stats)
 }
 
 func TestMaybeGenerateRangeCheckpoint_FailToReadState(t *testing.T) {
@@ -1062,9 +1064,10 @@ func TestMaybeGenerateRangeCheckpoint_FailToReadState(t *testing.T) {
 
 	cancel()
 
-	err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 
 	require.Error(t, err)
+	require.Nil(t, stats)
 }
 
 func TestMaybeGenerateRangeCheckpoint_CompactionError(t *testing.T) {
@@ -1112,10 +1115,11 @@ func TestMaybeGenerateRangeCheckpoint_CompactionError(t *testing.T) {
 		return compactionError
 	}
 
-	err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 
 	require.Error(t, err)
 	require.ErrorIs(t, err, compactionError)
+	require.Nil(t, stats)
 }
 
 func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
@@ -1156,8 +1160,10 @@ func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
 	require.Equal(t, epochsToWrite, cs.WriteEpoch)
 	require.Empty(t, cs.LongestRangeCheckpointSets)
 
-	err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
+	require.Equal(t, 0, stats.FirstEpoch)
+	require.Equal(t, 8, stats.LastEpoch)
 
 	err = te.mgr.Refresh(ctx)
 	require.NoError(t, err)
@@ -1227,8 +1233,10 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 	require.Equal(t, epochsToWrite, cs.WriteEpoch)
 	require.Empty(t, cs.LongestRangeCheckpointSets)
 
-	err = te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
+	require.Equal(t, 0, stats.FirstEpoch)
+	require.Equal(t, 8, stats.LastEpoch)
 
 	err = te.mgr.Refresh(ctx)
 	require.NoError(t, err)
