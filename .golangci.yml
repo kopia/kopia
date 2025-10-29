@@ -107,6 +107,7 @@ linters:
     - varnamelen # this one may be interesting, but too much churn
     - whitespace
     - wsl
+    - wsl_v5
     - zerologlint # zerolog not currently used in the codebase
 
   exclusions:
