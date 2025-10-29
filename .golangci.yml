@@ -83,6 +83,7 @@ linters:
 
   default: all
   disable:
+    - embeddedstructfieldcheck
     - exhaustruct
     - funcorder
     - gochecknoglobals
