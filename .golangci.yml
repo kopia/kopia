@@ -98,6 +98,7 @@ linters:
     - importas
     - ireturn # this one may be interesting to control allocations
     - musttag
+    - nakedret # already enforced by gofumpt in a stricter manner
     - nilnil
     - nlreturn # already enforced by wsl_v5
     - noctx
