@@ -1,4 +1,3 @@
-// Package timetrack tracks the progress and estimates completion of a task.
 package timetrack
 
 import (
