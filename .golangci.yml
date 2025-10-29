@@ -191,6 +191,8 @@ formatters:
         - standard
         - default
         - localmodule
+    gofumpt:
+      extra-rules: true
 
 output:
   show-stats: false
