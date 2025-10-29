@@ -374,7 +374,7 @@ func (m *ManagerV0) findBlobsToDelete(entries map[blob.ID]*cleanupEntry, maxEven
 		}
 	}
 
-	return
+	return compactionLogs, cleanupBlobs
 }
 
 func (m *ManagerV0) delayCleanupBlobs(ctx context.Context, blobIDs []blob.ID, cleanupScheduleTime time.Time) error {
