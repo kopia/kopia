@@ -175,8 +175,12 @@ type CurrentSnapshot struct {
 	DeletionWatermarkBlobs     []blob.Metadata         `json:"deletionWatermarkBlobs"` // list of deletion watermark blobs
 }
 
+func (cs *CurrentSnapshot) lastSettledEpochNumber() int {
+	return cs.WriteEpoch - numUnsettledEpochs
+}
+
 func (cs *CurrentSnapshot) isSettledEpochNumber(epoch int) bool {
-	return epoch <= cs.WriteEpoch-numUnsettledEpochs
+	return epoch <= cs.lastSettledEpochNumber()
 }
 
 // Manager manages repository epochs.
@@ -620,7 +624,7 @@ func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) (*maintenanc
 }
 
 func getRangeToCompact(cs CurrentSnapshot, p Parameters) (low, high int, compactRange bool) {
-	latestSettled := cs.WriteEpoch - numUnsettledEpochs
+	latestSettled := cs.lastSettledEpochNumber()
 	if latestSettled < 0 {
 		return -1, -1, false
 	}
