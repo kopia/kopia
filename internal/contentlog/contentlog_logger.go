@@ -69,27 +69,27 @@ func Log1[T1 ParamWriter](ctx context.Context, l *Logger, format string, value1 
 }
 
 // Log2 logs a message with two parameters.
-func Log2[T1 ParamWriter, T2 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2) {
+func Log2[T1, T2 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2) {
 	Emit(ctx, l, debugMessageWithParams[T1, T2, voidParamValue, voidParamValue, voidParamValue, voidParamValue]{text: format, v1: value1, v2: value2})
 }
 
 // Log3 logs a message with three parameters.
-func Log3[T1 ParamWriter, T2 ParamWriter, T3 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3) {
+func Log3[T1, T2, T3 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3) {
 	Emit(ctx, l, debugMessageWithParams[T1, T2, T3, voidParamValue, voidParamValue, voidParamValue]{text: format, v1: value1, v2: value2, v3: value3})
 }
 
 // Log4 logs a message with four parameters.
-func Log4[T1 ParamWriter, T2 ParamWriter, T3 ParamWriter, T4 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3, value4 T4) {
+func Log4[T1, T2, T3, T4 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3, value4 T4) {
 	Emit(ctx, l, debugMessageWithParams[T1, T2, T3, T4, voidParamValue, voidParamValue]{text: format, v1: value1, v2: value2, v3: value3, v4: value4})
 }
 
 // Log5 logs a message with five parameters.
-func Log5[T1 ParamWriter, T2 ParamWriter, T3 ParamWriter, T4 ParamWriter, T5 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3, value4 T4, value5 T5) {
+func Log5[T1, T2, T3, T4, T5 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3, value4 T4, value5 T5) {
 	Emit(ctx, l, debugMessageWithParams[T1, T2, T3, T4, T5, voidParamValue]{text: format, v1: value1, v2: value2, v3: value3, v4: value4, v5: value5})
 }
 
 // Log6 logs a message with six parameters.
-func Log6[T1 ParamWriter, T2 ParamWriter, T3 ParamWriter, T4 ParamWriter, T5 ParamWriter, T6 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3, value4 T4, value5 T5, value6 T6) {
+func Log6[T1, T2, T3, T4, T5, T6 ParamWriter](ctx context.Context, l *Logger, format string, value1 T1, value2 T2, value3 T3, value4 T4, value5 T5, value6 T6) {
 	Emit(ctx, l, debugMessageWithParams[T1, T2, T3, T4, T5, T6]{text: format, v1: value1, v2: value2, v3: value3, v4: value4, v5: value5, v6: value6})
 }
 
