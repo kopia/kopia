@@ -87,12 +87,14 @@ linters:
     - funcorder
     - gochecknoglobals
     - gochecknoinits
+    - godoclint
     - gosmopolitan
     - importas
     - ireturn # this one may be interesting to control allocations
     - musttag
     - nilnil
     - nlreturn
+    - noinlineerr # inline error handling is a common Go idiom used in this code base
     - nonamedreturns
     - paralleltest
     - prealloc
