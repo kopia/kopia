@@ -602,7 +602,7 @@ func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) (*maintenanc
 		return nil, err
 	}
 
-	latestSettled, firstNonRangeCompacted, compact := getRangeToCompact(cs, *p)
+	firstNonRangeCompacted, latestSettled, compact := getRangeToCompact(cs, *p)
 	if !compact {
 		contentlog.Log(ctx, e.log, "not generating range checkpoint")
 
@@ -634,7 +634,7 @@ func getRangeToCompact(cs CurrentSnapshot, p Parameters) (low, high int, compact
 		return -1, -1, false
 	}
 
-	return latestSettled, firstNonRangeCompacted, true
+	return firstNonRangeCompacted, latestSettled, true
 }
 
 func (e *Manager) loadUncompactedEpochs(ctx context.Context, first, last int) (map[int][]blob.Metadata, error) {
