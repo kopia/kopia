@@ -996,7 +996,7 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 	require.Empty(t, cs.SingleEpochCompactionSets)
 
 	// perform single-epoch compaction for settled epochs
-	newestEpochToCompact := cs.WriteEpoch - numUnsettledEpochs + 1
+	newestEpochToCompact := cs.lastSettledEpochNumber() + 1
 	for j := range newestEpochToCompact {
 		err = te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
@@ -1213,7 +1213,7 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 	require.Equal(t, epochsToWrite, cs.WriteEpoch)
 
 	// perform single-epoch compaction for settled epochs
-	newestEpochToCompact := cs.WriteEpoch - numUnsettledEpochs + 1
+	newestEpochToCompact := cs.lastSettledEpochNumber() + 1
 	for j := range newestEpochToCompact {
 		err = te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
