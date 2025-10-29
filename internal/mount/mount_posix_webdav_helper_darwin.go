@@ -8,7 +8,7 @@ import (
 )
 
 func mountWebDavHelper(_ context.Context, url, path string) error {
-	mount := exec.Command("/sbin/mount", "-t", "webdav", "-r", url, path)
+	mount := exec.CommandContext(ctx, "/sbin/mount", "-t", "webdav", "-r", url, path)
 	if err := mount.Run(); err != nil {
 		return errors.Errorf("webdav mount %q on %q failed: %v", url, path, err)
 	}
@@ -17,7 +17,7 @@ func mountWebDavHelper(_ context.Context, url, path string) error {
 }
 
 func unmountWebDevHelper(_ context.Context, path string) error {
-	unmount := exec.Command("/usr/sbin/diskutil", "unmount", path)
+	unmount := exec.CommandContext(ctx, "/usr/sbin/diskutil", "unmount", path)
 	if err := unmount.Run(); err != nil {
 		return errors.Errorf("unmount %q failed: %v", path, err)
 	}
