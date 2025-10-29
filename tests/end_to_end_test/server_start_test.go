@@ -258,7 +258,6 @@ func TestServerStartAsyncRepoConnect(t *testing.T) {
 func TestServerCreateAndConnectViaAPI(t *testing.T) {
 	t.Parallel()
 
-	//nolint:tenv
 	os.Setenv("KOPIA_UPGRADE_LOCK_ENABLED", "true")
 
 	ctx := testlogging.Context(t)
