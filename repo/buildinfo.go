@@ -1,7 +1,7 @@
 package repo
 
 import (
-	stdlib "log"
+	stdlog "log"
 	"runtime/debug"
 	"strings"
 )
@@ -32,7 +32,7 @@ func getBuildInfoAndVersion(linkedInfo, linkedVersion string) (info, version str
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
 		// logging not yet set up, use stdlib's logging
-		stdlib.Println("executable build information is not available")
+		stdlog.Println("executable build information is not available")
 
 		// executable's build info is not available, use values set at link time, if any
 		return info, version
