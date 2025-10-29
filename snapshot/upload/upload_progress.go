@@ -79,7 +79,7 @@ type Progress interface {
 	EstimationParameters() EstimationParameters
 
 	// EstimatedDataSize is emitted whenever the size of upload is estimated.
-	EstimatedDataSize(fileCount int64, totalBytes int64)
+	EstimatedDataSize(fileCount, totalBytes int64)
 }
 
 // NullUploadProgress is an implementation of UploadProgress that does not produce any output.
