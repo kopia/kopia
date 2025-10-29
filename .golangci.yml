@@ -96,6 +96,7 @@ linters:
     - importas
     - ireturn # this one may be interesting to control allocations
     - musttag
+    - nakedret # already enforced by gofumpt in a striter manner
     - nilnil
     - nlreturn
     - noinlineerr # inline error handling is a common Go idiom used in this code base
