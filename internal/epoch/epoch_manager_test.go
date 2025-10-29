@@ -1162,8 +1162,8 @@ func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
 
 	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.FirstEpoch)
-	require.Equal(t, 8, stats.LastEpoch)
+	require.Equal(t, 0, stats.RangeMinEpoch)
+	require.Equal(t, 8, stats.RangeMaxEpoch)
 
 	err = te.mgr.Refresh(ctx)
 	require.NoError(t, err)
@@ -1235,8 +1235,8 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 
 	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.FirstEpoch)
-	require.Equal(t, 8, stats.LastEpoch)
+	require.Equal(t, 0, stats.RangeMinEpoch)
+	require.Equal(t, 8, stats.RangeMaxEpoch)
 
 	err = te.mgr.Refresh(ctx)
 	require.NoError(t, err)

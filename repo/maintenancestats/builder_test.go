@@ -23,7 +23,7 @@ func TestBuildExtraSuccess(t *testing.T) {
 		expected Extra
 	}{
 		{
-			name: "succeed",
+			name: "CleanupMarkersStats",
 			stats: &CleanupMarkersStats{
 				DeletedEpochMarkerBlobCount: 10,
 				DeletedWatermarkBlobCount:   20,
@@ -31,6 +31,17 @@ func TestBuildExtraSuccess(t *testing.T) {
 			expected: Extra{
 				Kind: "cleanupMarkersStats",
 				Data: []byte(`{"deletedEpochMarkerBlobCount":10,"deletedWatermarkBlobCount":20}`),
+			},
+		},
+		{
+			name: "GenerateRangeCheckpointStats",
+			stats: &GenerateRangeCheckpointStats{
+				RangeMinEpoch: 3,
+				RangeMaxEpoch: 5,
+			},
+			expected: Extra{
+				Kind: generateRangeCheckpointStatsKind,
+				Data: []byte(`{"rangeMinEpoch":3,"rangeMaxEpoch":5}`),
 			},
 		},
 	}
@@ -105,11 +116,11 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 			name: "generateRangeCheckpointStats",
 			stats: Extra{
 				Kind: generateRangeCheckpointStatsKind,
-				Data: []byte(`{"firstEpoch":3,"lastEpoch":5}`),
+				Data: []byte(`{"rangeMinEpoch":3,"rangeMaxEpoch":5}`),
 			},
 			expected: &GenerateRangeCheckpointStats{
-				FirstEpoch: 3,
-				LastEpoch:  5,
+				RangeMinEpoch: 3,
+				RangeMaxEpoch: 5,
 			},
 		},
 	}
