@@ -79,7 +79,7 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 
 	var walkDir func(string, string) error
 
-	walkDir = func(directory string, currentPrefix string) error {
+	walkDir = func(directory, currentPrefix string) error {
 		select {
 		case <-finished: // already finished
 			return nil

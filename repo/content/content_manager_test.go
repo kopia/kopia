@@ -2119,7 +2119,7 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	nonCompressibleData := make([]byte, 65000)
 	headerID := compression.ByName["pgzip"].HeaderID()
 
-	randRead(nonCompressibleData)
+	randRead(t, nonCompressibleData)
 
 	cid, err := bm.WriteContent(ctx, gather.FromSlice(nonCompressibleData), "", headerID)
 	require.NoError(t, err)
@@ -2663,8 +2663,7 @@ func makeRandomHexID(t *testing.T, length int) index.ID {
 	t.Helper()
 
 	b := make([]byte, length/2)
-	_, err := randRead(b)
-	require.NoError(t, err, "Could not read random bytes")
+	randRead(t, b)
 
 	id, err := IDFromHash("", b)
 	require.NoError(t, err)
@@ -2714,12 +2713,16 @@ var (
 	rMu sync.Mutex
 )
 
-func randRead(b []byte) (n int, err error) {
-	rMu.Lock()
-	n, err = r.Read(b)
-	rMu.Unlock()
+func randRead(t *testing.T, b []byte) {
+	t.Helper()
 
-	return
+	rMu.Lock()
+	defer rMu.Unlock()
+
+	n, err := r.Read(b)
+
+	require.NoError(t, err, "unable to read random bytes")
+	require.Equal(t, len(b), n)
 }
 
 func dirMetadataContent() gather.Bytes {
