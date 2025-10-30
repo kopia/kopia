@@ -123,6 +123,17 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 				RangeMaxEpoch: 5,
 			},
 		},
+		{
+			name: "advanceEpochStats",
+			stats: Extra{
+				Kind: advanceEpochStatsKind,
+				Data: []byte(`{"currentEpoch":3,"wasAdvanced":true}`),
+			},
+			expected: &AdvanceEpochStats{
+				CurrentEpoch: 3,
+				WasAdvanced:  true,
+			},
+		},
 	}
 
 	for _, tc := range cases {

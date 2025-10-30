@@ -745,21 +745,30 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 
 // MaybeAdvanceWriteEpoch writes a new write epoch marker when a new write
 // epoch should be started, otherwise it does not do anything.
-func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) error {
+func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (*maintenancestats.AdvanceEpochStats, error) {
 	p, err := e.getParameters(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	e.mu.Lock()
 	cs := e.lastKnownState
 	e.mu.Unlock()
 
-	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
-		return errors.Wrap(e.advanceEpochMarker(ctx, cs), "error advancing epoch")
+	result := &maintenancestats.AdvanceEpochStats{
+		CurrentEpoch: cs.WriteEpoch,
 	}
 
-	return nil
+	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
+		if err := e.advanceEpochMarker(ctx, cs); err != nil {
+			return nil, errors.Wrap(err, "error advancing epoch")
+		}
+
+		result.CurrentEpoch++
+		result.WasAdvanced = true
+	}
+
+	return result, nil
 }
 
 func (e *Manager) advanceEpochMarker(ctx context.Context, cs CurrentSnapshot) error {

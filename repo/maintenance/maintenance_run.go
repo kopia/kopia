@@ -342,8 +342,11 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 
 func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
 	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochAdvance, s, func() (maintenancestats.Kind, error) {
-		userLog(ctx).Info("Cleaning up no-longer-needed epoch markers...")
-		return nil, errors.Wrap(em.MaybeAdvanceWriteEpoch(ctx), "error advancing epoch marker")
+		userLog(ctx).Info("Advancing epoch markers...")
+
+		stats, err := em.MaybeAdvanceWriteEpoch(ctx)
+
+		return stats, errors.Wrap(err, "error advancing epoch marker")
 	})
 }
 
