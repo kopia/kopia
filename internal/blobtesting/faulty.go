@@ -1,4 +1,3 @@
-// Package blobtesting implements storage with fault injection.
 package blobtesting
 
 import (

@@ -1,4 +1,3 @@
-// Package workshare implements work sharing worker pool.
 package workshare
 
 import (

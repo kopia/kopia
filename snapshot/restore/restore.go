@@ -1,3 +1,4 @@
+// Package restore manages restoring filesystem snapshots.
 package restore
 
 import (

@@ -6,6 +6,7 @@ package fio
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"math/rand"
@@ -260,7 +261,8 @@ func (fr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 		log.Printf("running '%s %v'", fr.Exe, argsStr)
 	}
 
-	c := exec.Command(fr.Exe, args...)
+	ctx := context.Background()
+	c := exec.CommandContext(ctx, fr.Exe, args...)
 
 	errOut := &bytes.Buffer{}
 	c.Stderr = errOut
