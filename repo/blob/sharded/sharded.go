@@ -259,12 +259,12 @@ func (s *Storage) getShardDirectory(ctx context.Context, blobID blob.ID) (string
 func (s *Storage) GetShardedPathAndFilePath(ctx context.Context, blobID blob.ID) (shardPath, filePath string, err error) {
 	shardPath, blobID, err = s.getShardDirectory(ctx, blobID)
 	if err != nil {
-		return
+		return "", "", err
 	}
 
 	filePath = path.Join(shardPath, s.makeFileName(blobID))
 
-	return
+	return shardPath, filePath, nil
 }
 
 // New returns new sharded.Storage helper.
