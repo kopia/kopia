@@ -115,6 +115,28 @@ func (c *commandServerStart) startServerWithOptionalTLSAndListener(ctx context.C
 		udsPfx = "unix+"
 	}
 
+	// Allow the client to provide a certificate and, if a certificate is provided,
+	// verify it
+	if c.serverStartCAFile != "" {
+		if httpServer.TLSConfig == nil {
+			httpServer.TLSConfig = &tls.Config{
+				MinVersion: tls.VersionTLS13,
+			}
+		}
+
+		httpServer.TLSConfig.ClientAuth = tls.VerifyClientCertIfGiven
+		httpServer.TLSConfig.ClientCAs = x509.NewCertPool()
+
+		caFileContent, err := os.ReadFile(c.serverStartCAFile)
+		if err != nil {
+			return errors.Wrap(err, "reading TLS CA PEM file")
+		}
+
+		if !httpServer.TLSConfig.ClientCAs.AppendCertsFromPEM(caFileContent) {
+			return errors.New("parsing TLS CA PEM file")
+		}
+	}
+
 	switch {
 	case c.serverStartTLSCertFile != "" && c.serverStartTLSKeyFile != "":
 		// PEM files provided
