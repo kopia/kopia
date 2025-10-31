@@ -764,7 +764,7 @@ func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (*maintenancestats
 			return nil, errors.Wrap(err, "error advancing epoch")
 		}
 
-		result.CurrentEpoch++
+		result.CurrentEpoch = cs.WriteEpoch + 1
 		result.WasAdvanced = true
 	}
 
@@ -1020,21 +1020,21 @@ func (e *Manager) getCompleteIndexSetForCommittedState(ctx context.Context, cs C
 
 // MaybeCompactSingleEpoch compacts the oldest epoch that is eligible for
 // compaction if there is one.
-func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
+func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (*maintenancestats.CompactSingleEpochStats, error) {
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	uncompacted, err := oldestUncompactedEpoch(cs)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if !cs.isSettledEpochNumber(uncompacted) {
 		contentlog.Log1(ctx, e.log, "there are no uncompacted epochs eligible for compaction", logparam.Int("oldestUncompactedEpoch", uncompacted))
 
-		return nil
+		return nil, nil
 	}
 
 	uncompactedBlobs, ok := cs.UncompactedEpochSets[uncompacted]
@@ -1042,19 +1042,30 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) error {
 		// blobs for this epoch were not loaded in the current snapshot, get the list of blobs for this epoch
 		ue, err := blob.ListAllBlobs(ctx, e.st, UncompactedEpochBlobPrefix(uncompacted))
 		if err != nil {
-			return errors.Wrapf(err, "error listing uncompacted indexes for epoch %v", uncompacted)
+			return nil, errors.Wrapf(err, "error listing uncompacted indexes for epoch %v", uncompacted)
 		}
 
 		uncompactedBlobs = ue
 	}
 
-	contentlog.Log1(ctx, e.log, "starting single-epoch compaction for epoch", logparam.Int("uncompacted", uncompacted))
-
-	if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(uncompacted)); err != nil {
-		return errors.Wrapf(err, "unable to compact blobs for epoch %v: performance will be affected", uncompacted)
+	var uncompactedSize int64
+	for _, b := range uncompactedBlobs {
+		uncompactedSize += b.Length
 	}
 
-	return nil
+	result := &maintenancestats.CompactSingleEpochStats{
+		CompactedBlobCount: len(uncompactedBlobs),
+		CompactedBlobSize:  uncompactedSize,
+		Epoch:              uncompacted,
+	}
+
+	contentlog.Log1(ctx, e.log, "starting single-epoch compaction for epoch", result)
+
+	if err := e.compact(ctx, blob.IDsFromMetadata(uncompactedBlobs), compactedEpochBlobPrefix(uncompacted)); err != nil {
+		return nil, errors.Wrapf(err, "unable to compact blobs for epoch %v: performance will be affected", uncompacted)
+	}
+
+	return result, nil
 }
 
 func (e *Manager) getIndexesFromEpochInternal(ctx context.Context, cs CurrentSnapshot, epoch int) ([]blob.Metadata, error) {

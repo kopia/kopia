@@ -55,6 +55,18 @@ func TestBuildExtraSuccess(t *testing.T) {
 				Data: []byte(`{"currentEpoch":3,"wasAdvanced":true}`),
 			},
 		},
+		{
+			name: "CompactSingleEpochStats",
+			stats: &CompactSingleEpochStats{
+				CompactedBlobCount: 3,
+				CompactedBlobSize:  4096,
+				Epoch:              1,
+			},
+			expected: Extra{
+				Kind: compactSingleEpochStatsKind,
+				Data: []byte(`{"compactedBlobCount":3,"compactedBlobSize":4096,"epoch":1}`),
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -143,6 +155,18 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 			expected: &AdvanceEpochStats{
 				CurrentEpoch: 3,
 				WasAdvanced:  true,
+			},
+		},
+		{
+			name: "CompactSingleEpochStats",
+			stats: Extra{
+				Kind: compactSingleEpochStatsKind,
+				Data: []byte(`{"compactedBlobCount":3,"compactedBlobSize":4096,"epoch":1}`),
+			},
+			expected: &CompactSingleEpochStats{
+				CompactedBlobCount: 3,
+				CompactedBlobSize:  4096,
+				Epoch:              1,
 			},
 		},
 	}
