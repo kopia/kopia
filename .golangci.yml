@@ -80,6 +80,10 @@ linters:
         - (*go.uber.org/zap.SugaredLogger).With
     misspell:
       locale: US
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
 
   default: all
   disable:
@@ -87,12 +91,15 @@ linters:
     - funcorder
     - gochecknoglobals
     - gochecknoinits
+    - godoclint
     - gosmopolitan
     - importas
     - ireturn # this one may be interesting to control allocations
     - musttag
+    - nakedret # already enforced by gofumpt in a striter manner
     - nilnil
     - nlreturn
+    - noinlineerr # inline error handling is a common Go idiom used in this code base
     - nonamedreturns
     - paralleltest
     - prealloc
@@ -106,6 +113,7 @@ linters:
     - usetesting
     - varnamelen # this one may be interesting, but too much churn
     - whitespace
+    - wsl
     - zerologlint # zerolog not currently used in the codebase
 
   exclusions:
