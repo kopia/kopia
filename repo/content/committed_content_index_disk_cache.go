@@ -37,7 +37,7 @@ func (c *diskCommittedContentIndexCache) indexBlobPath(indexBlobID blob.ID) stri
 func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (index.Index, error) {
 	fullpath := c.indexBlobPath(indexBlobID)
 
-	f, closeMmap, err := c.mmapOpenWithRetry(ctx, fullpath)
+	f, closeMmap, err := c.mmapFile(ctx, fullpath)
 	if err != nil {
 		return nil, err
 	}
