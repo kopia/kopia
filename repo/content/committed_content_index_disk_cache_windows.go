@@ -14,18 +14,18 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 )
 
-// mmapOpenWithRetry attempts mmap.Open() with exponential back-off to work around a rare issue
+// mmapFile attempts mmap.Open() with exponential back-off to work around a rare issue
 // where Windows can't open the file right after it has been written.
 //
 // Windows semantics: keep the file descriptor open until Unmap due to OS requirements.
-func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(ctx context.Context, path string) (mmap.MMap, func() error, error) {
+func (c *diskCommittedContentIndexCache) mmapFile(ctx context.Context, filename string) (mmap.MMap, func() error, error) {
 	const (
 		maxRetries    = 8
 		startingDelay = 10 * time.Millisecond
 	)
 
 	// retry milliseconds: 10, 20, 40, 80, 160, 320, 640, 1280, total ~2.5s
-	f, err := os.Open(path) //nolint:gosec
+	f, err := os.Open(filename) //nolint:gosec
 	nextDelay := startingDelay
 
 	retryCount := 0
@@ -37,7 +37,7 @@ func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(ctx context.Context, 
 		time.Sleep(nextDelay)
 		nextDelay *= 2
 
-		f, err = os.Open(path) //nolint:gosec
+		f, err = os.Open(filename) //nolint:gosec
 	}
 
 	if err != nil {
@@ -52,10 +52,10 @@ func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(ctx context.Context, 
 
 	return mm, func() error {
 		if err2 := mm.Unmap(); err2 != nil {
-			return errors.Wrapf(err2, "error unmapping index %v", path)
+			return errors.Wrapf(err2, "error unmapping index %v", filename)
 		}
 		if err2 := f.Close(); err2 != nil {
-			return errors.Wrapf(err2, "error closing index %v", path)
+			return errors.Wrapf(err2, "error closing index %v", filename)
 		}
 		return nil
 	}, nil
