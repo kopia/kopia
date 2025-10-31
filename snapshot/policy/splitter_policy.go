@@ -7,12 +7,12 @@ import (
 
 // SplitterPolicy specifies compression policy.
 type SplitterPolicy struct {
-	Algorithm string `json:"algorithm,omitempty"`
+	Algorithm string `json:"algorithm,omitzero"`
 }
 
 // SplitterPolicyDefinition specifies which policy definition provided the value of a particular field.
 type SplitterPolicyDefinition struct {
-	Algorithm snapshot.SourceInfo `json:"algorithm,omitempty"`
+	Algorithm snapshot.SourceInfo `json:"algorithm,omitzero"`
 }
 
 // SplitterForFile returns splitter algorithm.
