@@ -56,6 +56,8 @@ func BuildFromExtra(stats Extra) (Summarizer, error) {
 		result = &GenerateRangeCheckpointStats{}
 	case advanceEpochStatsKind:
 		result = &AdvanceEpochStats{}
+	case compactSingleEpochStatsKind:
+		result = &CompactSingleEpochStats{}
 	default:
 		return nil, errors.Wrapf(ErrUnSupportedStatKindError, "invalid kind for stats %v", stats)
 	}
