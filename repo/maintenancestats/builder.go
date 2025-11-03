@@ -58,6 +58,8 @@ func BuildFromExtra(stats Extra) (Summarizer, error) {
 		result = &AdvanceEpochStats{}
 	case compactSingleEpochStatsKind:
 		result = &CompactSingleEpochStats{}
+	case dropDeletedContentsStatsKind:
+		result = &DropDeletedContentsStats{}
 	default:
 		return nil, errors.Wrapf(ErrUnSupportedStatKindError, "invalid kind for stats %v", stats)
 	}
