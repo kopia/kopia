@@ -1018,7 +1018,7 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 	for j := range newestEpochToCompact {
 		stats, err := te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, idxCount, stats.CompactedBlobCount)
+		require.Equal(t, idxCount, stats.SupersededIndexBlobCount)
 		require.Equal(t, j, stats.Epoch)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
@@ -1244,7 +1244,7 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 	for j := range newestEpochToCompact {
 		stats, err := te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, idxCount, stats.CompactedBlobCount)
+		require.Equal(t, idxCount, stats.SupersededIndexBlobCount)
 		require.Equal(t, j, stats.Epoch)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
