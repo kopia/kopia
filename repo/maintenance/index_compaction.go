@@ -17,7 +17,7 @@ func runTaskIndexCompactionQuick(ctx context.Context, runParams RunParameters, s
 
 		const maxSmallBlobsForIndexCompaction = 8
 
-		return nil, runParams.rep.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{
+		return runParams.rep.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{
 			MaxSmallBlobs:                    maxSmallBlobsForIndexCompaction,
 			DisableEventualConsistencySafety: safety.DisableEventualConsistencySafety,
 		})

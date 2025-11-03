@@ -851,8 +851,14 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 
 		if indexNum%13 == 0 {
 			ts := te.ft.NowFunc()().Truncate(time.Second)
-			require.NoError(t, te.mgr.AdvanceDeletionWatermark(ctx, ts))
-			require.NoError(t, te.mgr.AdvanceDeletionWatermark(ctx, ts.Add(-time.Second)))
+			advanced, err := te.mgr.AdvanceDeletionWatermark(ctx, ts)
+			require.NoError(t, err)
+			require.True(t, advanced)
+
+			advanced, err = te.mgr.AdvanceDeletionWatermark(ctx, ts.Add(-time.Second))
+			require.NoError(t, err)
+			require.False(t, advanced)
+
 			lastDeletionWatermark = ts
 		}
 	}

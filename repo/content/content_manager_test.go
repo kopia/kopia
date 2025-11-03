@@ -442,10 +442,12 @@ func (s *contentManagerSuite) TestIndexCompactionDropsContent(t *testing.T) {
 
 	bm = s.newTestContentManagerWithCustomTime(t, st, timeFunc)
 	// this drops deleted entries, including from index #1
-	require.NoError(t, bm.CompactIndexes(ctx, indexblob.CompactOptions{
+	_, err := bm.CompactIndexes(ctx, indexblob.CompactOptions{
 		DropDeletedBefore: deleteThreshold,
 		AllIndexes:        true,
-	}))
+	})
+	require.NoError(t, err)
+
 	require.NoError(t, bm.Flush(ctx))
 	require.NoError(t, bm.CloseShared(ctx))
 
@@ -522,7 +524,7 @@ func (s *contentManagerSuite) TestContentManagerConcurrency(t *testing.T) {
 
 	validateIndexCount(t, data, 4, 0)
 
-	if err := bm4.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := bm4.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 
@@ -540,7 +542,7 @@ func (s *contentManagerSuite) TestContentManagerConcurrency(t *testing.T) {
 	verifyContent(ctx, t, bm5, bm2content, seededRandomData(32, 100))
 	verifyContent(ctx, t, bm5, bm3content, seededRandomData(33, 100))
 
-	if err := bm5.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := bm5.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 }
@@ -1961,7 +1963,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 	// make sure we can read everything
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 
-	if err := mgr.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := mgr.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Fatalf("unable to compact indexes: %v", err)
 	}
 
