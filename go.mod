@@ -5,7 +5,7 @@ go 1.24.0
 toolchain go1.24.9
 
 require (
-	cloud.google.com/go/storage v1.57.0
+	cloud.google.com/go/storage v1.57.1
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.19.1
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.0
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.6.3
@@ -67,7 +67,7 @@ require (
 	golang.org/x/sys v0.37.0
 	golang.org/x/term v0.36.0
 	golang.org/x/text v0.30.0
-	google.golang.org/api v0.253.0
+	google.golang.org/api v0.254.0
 	google.golang.org/grpc v1.76.0
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
@@ -149,6 +149,6 @@ require (
 	golang.org/x/time v0.14.0 // indirect
 	google.golang.org/genproto v0.0.0-20250603155806-513f23925822 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250825161204-c5933d9347a5 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20251014184007-4626949a642f // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20251022142026-3a174f9686a8 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
