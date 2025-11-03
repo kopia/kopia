@@ -1054,9 +1054,9 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (*maintenancestat
 	}
 
 	result := &maintenancestats.CompactSingleEpochStats{
-		CompactedBlobCount: len(uncompactedBlobs),
-		CompactedBlobSize:  uncompactedSize,
-		Epoch:              uncompacted,
+		SupersededIndexBlobCount: len(uncompactedBlobs),
+		SupersededIndexTotalSize: uncompactedSize,
+		Epoch:                    uncompacted,
 	}
 
 	contentlog.Log1(ctx, e.log, "starting single-epoch compaction for epoch", result)
