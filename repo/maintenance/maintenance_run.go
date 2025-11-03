@@ -353,7 +353,10 @@ func runTaskEpochAdvance(ctx context.Context, em *epoch.Manager, runParams RunPa
 func runTaskEpochMaintenanceQuick(ctx context.Context, em *epoch.Manager, runParams RunParameters, s *Schedule) error {
 	err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Compacting an eligible uncompacted epoch...")
-		return nil, errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
+
+		stats, err := em.MaybeCompactSingleEpoch(ctx)
+
+		return stats, errors.Wrap(err, "error compacting single epoch")
 	})
 	if err != nil {
 		return err
@@ -377,7 +380,10 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 	// compact a single epoch
 	if err := reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskEpochCompactSingle, s, func() (maintenancestats.Kind, error) {
 		userLog(ctx).Info("Compacting an eligible uncompacted epoch...")
-		return nil, errors.Wrap(em.MaybeCompactSingleEpoch(ctx), "error compacting single epoch")
+
+		stats, err := em.MaybeCompactSingleEpoch(ctx)
+
+		return stats, errors.Wrap(err, "error compacting single epoch")
 	}); err != nil {
 		return err
 	}
