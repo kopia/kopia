@@ -293,15 +293,15 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		// running full orphaned blob deletion, otherwise next quick maintenance will start a quick rewrite
 		// and we'd never delete blobs orphaned by full rewrite.
 		if hadRecentFullRewrite(s) {
-			userLog(ctx).Debug("Had recent full rewrite - performing full blob deletion.")
+			userLog(ctx).Debug("Had recent full rewrite - performing full pack deletion.")
 			err = runTaskDeleteOrphanedPacksFull(ctx, runParams, s, safety)
 		} else {
-			userLog(ctx).Debug("Performing quick blob deletion.")
+			userLog(ctx).Debug("Performing quick pack deletion.")
 			err = runTaskDeleteOrphanedPacksQuick(ctx, runParams, s, safety)
 		}
 
 		if err != nil {
-			return errors.Wrap(err, "error deleting unreferenced metadata blobs")
+			return errors.Wrap(err, "error deleting unreferenced metadata packs")
 		}
 	} else {
 		notDeletingOrphanedPacks(ctx, log, s, safety)
@@ -327,7 +327,7 @@ func notRewritingContents(ctx context.Context, log *contentlog.Logger) {
 func notDeletingOrphanedPacks(ctx context.Context, log *contentlog.Logger, s *Schedule, safety SafetyParameters) {
 	left := nextPackDeleteTime(s, safety).Sub(clock.Now()).Truncate(time.Second)
 
-	contentlog.Log1(ctx, log, "Skipping blob deletion because not enough time has passed yet", logparam.Duration("left", left))
+	contentlog.Log1(ctx, log, "Skipping pack deletion because not enough time has passed yet", logparam.Duration("left", left))
 }
 
 func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedule) error {
