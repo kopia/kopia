@@ -239,10 +239,10 @@ func (e *Manager) Current(ctx context.Context) (CurrentSnapshot, error) {
 
 // AdvanceDeletionWatermark moves the deletion watermark time to a given timestamp
 // this causes all deleted content entries before given time to be treated as non-existent.
-func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) error {
+func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) (bool, error) {
 	cs, err := e.committedState(ctx, 0)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if ts.Before(cs.DeletionWatermark) {
@@ -252,18 +252,18 @@ func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) er
 			logparam.Time("deletionWatermark", cs.DeletionWatermark),
 		)
 
-		return nil
+		return false, nil
 	}
 
 	blobID := blob.ID(fmt.Sprintf("%v%v", string(DeletionWatermarkBlobPrefix), ts.Unix()))
 
 	if err := e.st.PutBlob(ctx, blobID, gather.FromSlice([]byte("deletion-watermark")), blob.PutOptions{}); err != nil {
-		return errors.Wrap(err, "error writing deletion watermark")
+		return false, errors.Wrap(err, "error writing deletion watermark")
 	}
 
 	e.Invalidate()
 
-	return nil
+	return true, nil
 }
 
 // Refresh refreshes information about current epoch.

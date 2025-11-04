@@ -67,6 +67,16 @@ func TestBuildExtraSuccess(t *testing.T) {
 				Data: []byte(`{"supersededIndexBlobCount":3,"supersededIndexTotalSize":4096,"epoch":1}`),
 			},
 		},
+		{
+			name: "CompactIndexesStats",
+			stats: &CompactIndexesStats{
+				DroppedContentsDeletedBefore: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+			},
+			expected: Extra{
+				Kind: compactIndexesStatsKind,
+				Data: []byte(`{"droppedContentsDeletedBefore":"2025-01-01T00:00:00Z"}`),
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -167,6 +177,16 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 				SupersededIndexBlobCount: 3,
 				SupersededIndexTotalSize: 4096,
 				Epoch:                    1,
+			},
+		},
+		{
+			name: "CompactIndexesStats",
+			stats: Extra{
+				Kind: compactIndexesStatsKind,
+				Data: []byte(`{"droppedContentsDeletedBefore":"2025-01-01T00:00:00Z"}`),
+			},
+			expected: &CompactIndexesStats{
+				DroppedContentsDeletedBefore: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
 			},
 		},
 	}

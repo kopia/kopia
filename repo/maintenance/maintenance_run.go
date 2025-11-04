@@ -444,7 +444,7 @@ func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters
 	contentlog.Log1(ctx, log, "Found safe time to drop indexes", logparam.Time("safeDropTime", safeDropTime))
 
 	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskDropDeletedContentsFull, s, func() (maintenancestats.Kind, error) {
-		return nil, dropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
+		return dropDeletedContents(ctx, runParams.rep, safeDropTime, safety)
 	})
 }
 
