@@ -33,13 +33,13 @@ func (c *commandBlobGC) setup(svc appServices, parent commandParent) {
 func (c *commandBlobGC) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	c.svc.dangerousCommand()
 
-	opts := maintenance.DeleteUnreferencedBlobsOptions{
+	opts := maintenance.DeleteUnreferencedPacksOptions{
 		DryRun:   c.delete != "yes",
 		Parallel: c.parallel,
 		Prefix:   blob.ID(c.prefix),
 	}
 
-	stats, err := maintenance.DeleteUnreferencedBlobs(ctx, rep, opts, c.safety)
+	stats, err := maintenance.DeleteUnreferencedPacks(ctx, rep, opts, c.safety)
 	if err != nil {
 		return errors.Wrap(err, "error deleting unreferenced blobs")
 	}

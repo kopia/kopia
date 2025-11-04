@@ -17,22 +17,22 @@ import (
 	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
-// DeleteUnreferencedBlobsOptions provides option for blob garbage collection algorithm.
-type DeleteUnreferencedBlobsOptions struct {
+// DeleteUnreferencedPacksOptions provides option for pack garbage collection algorithm.
+type DeleteUnreferencedPacksOptions struct {
 	Parallel     int
 	Prefix       blob.ID
 	DryRun       bool
 	NotAfterTime time.Time
 }
 
-// DeleteUnreferencedBlobs deletes blobs that are unreferenced by index entries.
+// DeleteUnreferencedPacks deletes pack blobs that are unreferenced by index entries.
 //
 //nolint:gocyclo,funlen
-func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions, safety SafetyParameters) (*maintenancestats.DeleteUnreferencedPacksStats, error) {
+func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedPacksOptions, safety SafetyParameters) (*maintenancestats.DeleteUnreferencedPacksStats, error) {
 	ctx = contentlog.WithParams(ctx,
-		logparam.String("span:blob-gc", contentlog.RandomSpanID()))
+		logparam.String("span:pack-gc", contentlog.RandomSpanID()))
 
-	log := rep.LogManager().NewLogger("maintenance-blob-gc")
+	log := rep.LogManager().NewLogger("maintenance-pack-gc")
 
 	if opt.Parallel == 0 {
 		opt.Parallel = 16
@@ -47,17 +47,17 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	unused := make(chan blob.Metadata, deleteQueueSize)
 
 	if !opt.DryRun {
-		// start goroutines to delete blobs as they come.
+		// start goroutines to delete packs as they come.
 		for range opt.Parallel {
 			eg.Go(func() error {
 				for bm := range unused {
 					if err := rep.BlobStorage().DeleteBlob(ctx, bm.BlobID); err != nil {
-						return errors.Wrapf(err, "unable to delete blob %q", bm.BlobID)
+						return errors.Wrapf(err, "unable to delete pack blob %q", bm.BlobID)
 					}
 
 					cnt, del := deleted.Add(bm.Length)
 					if cnt%100 == 0 {
-						contentlog.Log2(ctx, log, "deleted unreferenced blobs", logparam.UInt32("count", cnt), logparam.Int64("bytes", del))
+						contentlog.Log2(ctx, log, "deleted unreferenced pack blobs", logparam.UInt32("count", cnt), logparam.Int64("bytes", del))
 					}
 				}
 
@@ -66,8 +66,8 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 		}
 	}
 
-	// iterate unreferenced blobs and count them + optionally send to the channel to be deleted
-	contentlog.Log(ctx, log, "Looking for unreferenced blobs...")
+	// iterate unreferenced packs and count them + optionally send to the channel to be deleted
+	contentlog.Log(ctx, log, "Looking for unreferenced pack blobs...")
 
 	var prefixes []blob.ID
 	if p := opt.Prefix; p != "" {
@@ -100,18 +100,18 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 			retained.Add(bm.Length)
 
 			contentlog.Log3(ctx, log,
-				"preserving blob - after cutoff time",
+				"preserving pack - after cutoff time",
 				blobparam.BlobID("blobID", bm.BlobID),
 				logparam.Time("cutoffTime", cutoffTime),
 				logparam.Time("timestamp", bm.Timestamp))
 			return nil
 		}
 
-		if age := cutoffTime.Sub(bm.Timestamp); age < safety.BlobDeleteMinAge {
+		if age := cutoffTime.Sub(bm.Timestamp); age < safety.PackDeleteMinAge {
 			retained.Add(bm.Length)
 
 			contentlog.Log2(ctx, log,
-				"preserving blob - below min age",
+				"preserving pack - below min age",
 				blobparam.BlobID("blobID", bm.BlobID),
 				logparam.Duration("age", age))
 			return nil
@@ -123,7 +123,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 				retained.Add(bm.Length)
 
 				contentlog.Log2(ctx, log,
-					"preserving blob - part of active session",
+					"preserving pack - part of active session",
 					blobparam.BlobID("blobID", bm.BlobID),
 					logparam.String("sessionID", string(sid)))
 				return nil
@@ -138,7 +138,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 		return nil
 	}); err != nil {
-		return nil, errors.Wrap(err, "error looking for unreferenced blobs")
+		return nil, errors.Wrap(err, "error looking for unreferenced pack blobs")
 	}
 
 	close(unused)
@@ -155,7 +155,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 		DeletedTotalSize:      0,
 	}
 
-	contentlog.Log1(ctx, log, "Found unreferenced blobs to delete", result)
+	contentlog.Log1(ctx, log, "Found unreferenced pack blobs to delete", result)
 
 	// wait for all delete workers to finish.
 	if err := eg.Wait(); err != nil {
@@ -170,7 +170,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	result.DeletedPackCount = deletedCount
 	result.DeletedTotalSize = deletedSize
 
-	contentlog.Log1(ctx, log, "Completed deleting unreferenced blobs", result)
+	contentlog.Log1(ctx, log, "Completed deleting unreferenced pack blobs", result)
 
 	return result, nil
 }
