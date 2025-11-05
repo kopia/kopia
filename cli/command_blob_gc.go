@@ -39,12 +39,12 @@ func (c *commandBlobGC) run(ctx context.Context, rep repo.DirectRepositoryWriter
 		Prefix:   blob.ID(c.prefix),
 	}
 
-	n, err := maintenance.DeleteUnreferencedBlobs(ctx, rep, opts, c.safety)
+	stats, err := maintenance.DeleteUnreferencedBlobs(ctx, rep, opts, c.safety)
 	if err != nil {
 		return errors.Wrap(err, "error deleting unreferenced blobs")
 	}
 
-	if opts.DryRun && n > 0 {
+	if opts.DryRun && stats.UnreferencedPackCount > 0 {
 		log(ctx).Info("Pass --delete=yes to delete.")
 	}
 

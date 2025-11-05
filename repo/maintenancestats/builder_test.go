@@ -77,6 +77,21 @@ func TestBuildExtraSuccess(t *testing.T) {
 				Data: []byte(`{"droppedContentsDeletedBefore":"2025-01-01T00:00:00Z"}`),
 			},
 		},
+		{
+			name: "DeleteUnreferencedPacksStats",
+			stats: &DeleteUnreferencedPacksStats{
+				UnreferencedPackCount: 50,
+				UnreferencedTotalSize: 4096,
+				DeletedPackCount:      20,
+				DeletedTotalSize:      2048,
+				RetainedPackCount:     30,
+				RetainedTotalSize:     2048,
+			},
+			expected: Extra{
+				Kind: deleteUnreferencedPacksStatsKind,
+				Data: []byte(`{"unreferencedPackCount":50,"unreferencedTotalSize":4096,"deletedPackCount":20,"deletedTotalSize":2048,"retainedPackCount":30,"retainedTotalSize":2048}`),
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -187,6 +202,21 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 			},
 			expected: &CompactIndexesStats{
 				DroppedContentsDeletedBefore: time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+			},
+		},
+		{
+			name: "DeleteUnreferencedPacksStats",
+			stats: Extra{
+				Kind: deleteUnreferencedPacksStatsKind,
+				Data: []byte(`{"unreferencedPackCount":50,"unreferencedTotalSize":4096,"deletedPackCount":20,"deletedTotalSize":2048,"retainedPackCount":30,"retainedTotalSize":2048}`),
+			},
+			expected: &DeleteUnreferencedPacksStats{
+				UnreferencedPackCount: 50,
+				UnreferencedTotalSize: 4096,
+				DeletedPackCount:      20,
+				DeletedTotalSize:      2048,
+				RetainedPackCount:     30,
+				RetainedTotalSize:     2048,
 			},
 		},
 	}
