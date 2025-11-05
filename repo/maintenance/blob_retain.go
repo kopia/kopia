@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/format"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 const parallelBlobRetainCPUMultiplier = 2
@@ -28,7 +29,9 @@ type ExtendBlobRetentionTimeOptions struct {
 }
 
 // ExtendBlobRetentionTime extends the retention time of all relevant blobs managed by storage engine with Object Locking enabled.
-func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (int, error) {
+//
+//nolint:funlen
+func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (*maintenancestats.ExtendBlobRetentionStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:blob-retain", contentlog.RandomSpanID()))
 
@@ -50,14 +53,14 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	blobCfg, err := rep.FormatManager().BlobCfgBlob(ctx)
 	if err != nil {
-		return 0, errors.Wrap(err, "blob configuration")
+		return nil, errors.Wrap(err, "blob configuration")
 	}
 
 	if !blobCfg.IsRetentionEnabled() {
 		// Blob retention is disabled
 		contentlog.Log(ctx, log, "Object lock retention is disabled.")
 
-		return 0, nil
+		return nil, nil
 	}
 
 	extend := make(chan blob.Metadata, extendQueueSize)
@@ -114,26 +117,34 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	})
 
 	close(extend)
-	contentlog.Log1(ctx, log, "Found blobs to extend", logparam.UInt32("count", *toExtend))
+
+	result := &maintenancestats.ExtendBlobRetentionStats{
+		BlobsToExtend:   atomic.LoadUint32(toExtend),
+		RetentionPeriod: extendOpts.RetentionPeriod.String(),
+	}
+
+	contentlog.Log1(ctx, log, "Found blobs to extend retention time", result)
 
 	// wait for all extend workers to finish.
 	wg.Wait()
 
 	if *failedCnt > 0 {
-		return 0, errors.Errorf("Failed to extend %v blobs", *failedCnt)
+		return nil, errors.Errorf("Failed to extend %v blobs", *failedCnt)
 	}
 
 	if err != nil {
-		return 0, errors.Wrap(err, "error iterating packs")
+		return nil, errors.Wrap(err, "error iterating packs")
 	}
 
 	if opt.DryRun {
-		return int(*toExtend), nil
+		return result, nil
 	}
 
-	contentlog.Log1(ctx, log, "Extended total blobs", logparam.UInt32("count", *cnt))
+	result.BlobsExtended = atomic.LoadUint32(cnt)
 
-	return int(*cnt), nil
+	contentlog.Log1(ctx, log, "Extended retention time for blobs", result)
+
+	return result, nil
 }
 
 // CheckExtendRetention verifies if extension can be enabled due to maintenance and blob parameters.

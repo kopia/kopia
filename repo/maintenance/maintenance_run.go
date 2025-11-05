@@ -488,8 +488,7 @@ func runTaskDeleteOrphanedBlobsQuick(ctx context.Context, runParams RunParameter
 
 func runTaskExtendBlobRetentionTimeFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
 	return ReportRun(ctx, runParams.rep, TaskExtendBlobRetentionTimeFull, s, func() (maintenancestats.Kind, error) {
-		_, err := ExtendBlobRetentionTime(ctx, runParams.rep, ExtendBlobRetentionTimeOptions{})
-		return nil, err
+		return ExtendBlobRetentionTime(ctx, runParams.rep, ExtendBlobRetentionTimeOptions{})
 	})
 }
 

@@ -62,6 +62,8 @@ func BuildFromExtra(stats Extra) (Summarizer, error) {
 		result = &CompactIndexesStats{}
 	case deleteUnreferencedPacksStatsKind:
 		result = &DeleteUnreferencedPacksStats{}
+	case extendBlobRetentionStatsKind:
+		result = &ExtendBlobRetentionStats{}
 	default:
 		return nil, errors.Wrapf(ErrUnSupportedStatKindError, "invalid kind for stats %v", stats)
 	}

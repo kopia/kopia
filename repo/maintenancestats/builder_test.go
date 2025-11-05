@@ -92,6 +92,18 @@ func TestBuildExtraSuccess(t *testing.T) {
 				Data: []byte(`{"unreferencedPackCount":50,"unreferencedTotalSize":4096,"deletedPackCount":20,"deletedTotalSize":2048,"retainedPackCount":30,"retainedTotalSize":2048}`),
 			},
 		},
+		{
+			name: "ExtendBlobRetentionStats",
+			stats: &ExtendBlobRetentionStats{
+				BlobsToExtend:   10,
+				BlobsExtended:   10,
+				RetentionPeriod: (time.Hour * 24 * 15).String(),
+			},
+			expected: Extra{
+				Kind: extendBlobRetentionStatsKind,
+				Data: []byte(`{"blobsToExtend":10,"blobsExtended":10,"retentionPeriod":"360h0m0s"}`),
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -217,6 +229,18 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 				DeletedTotalSize:      2048,
 				RetainedPackCount:     30,
 				RetainedTotalSize:     2048,
+			},
+		},
+		{
+			name: "ExtendBlobRetentionStats",
+			stats: Extra{
+				Kind: extendBlobRetentionStatsKind,
+				Data: []byte(`{"blobsToExtend":10,"blobsExtended":10,"retentionPeriod":"360h0m0s"}`),
+			},
+			expected: &ExtendBlobRetentionStats{
+				BlobsToExtend:   10,
+				BlobsExtended:   10,
+				RetentionPeriod: (time.Hour * 24 * 15).String(),
 			},
 		},
 	}
