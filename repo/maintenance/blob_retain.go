@@ -119,8 +119,8 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	close(extend)
 
 	result := &maintenancestats.ExtendBlobRetentionStats{
-		BlobsToExtend:   atomic.LoadUint32(toExtend),
-		RetentionPeriod: extendOpts.RetentionPeriod.String(),
+		ToExtendBlobCount: atomic.LoadUint32(toExtend),
+		RetentionPeriod:   extendOpts.RetentionPeriod.String(),
 	}
 
 	contentlog.Log1(ctx, log, "Found blobs to extend retention time", result)
@@ -140,7 +140,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		return result, nil
 	}
 
-	result.BlobsExtended = atomic.LoadUint32(cnt)
+	result.ExtendedBlobCount = atomic.LoadUint32(cnt)
 
 	contentlog.Log1(ctx, log, "Extended retention time for blobs", result)
 
