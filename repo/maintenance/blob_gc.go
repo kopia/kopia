@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // DeleteUnreferencedBlobsOptions provides option for blob garbage collection algorithm.
@@ -24,10 +25,10 @@ type DeleteUnreferencedBlobsOptions struct {
 	NotAfterTime time.Time
 }
 
-// DeleteUnreferencedBlobs deletes o was created after maintenance startederenced by index entries.
+// DeleteUnreferencedBlobs deletes blobs that are unreferenced by index entries.
 //
 //nolint:gocyclo,funlen
-func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions, safety SafetyParameters) (int, error) {
+func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions, safety SafetyParameters) (*maintenancestats.DeleteUnreferencedPacksStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:blob-gc", contentlog.RandomSpanID()))
 
@@ -39,7 +40,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	const deleteQueueSize = 100
 
-	var unreferenced, deleted stats.CountSum
+	var unreferenced, deleted, retained stats.CountSum
 
 	var eg errgroup.Group
 
@@ -77,7 +78,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	activeSessions, err := rep.ContentManager().ListActiveSessions(ctx)
 	if err != nil {
-		return 0, errors.Wrap(err, "unable to load active sessions")
+		return nil, errors.Wrap(err, "unable to load active sessions")
 	}
 
 	cutoffTime := opt.NotAfterTime
@@ -96,6 +97,8 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 	// belong to alive sessions.
 	if err := rep.ContentManager().IterateUnreferencedPacks(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
 		if bm.Timestamp.After(cutoffTime) {
+			retained.Add(bm.Length)
+
 			contentlog.Log3(ctx, log,
 				"preserving blob - after cutoff time",
 				blobparam.BlobID("blobID", bm.BlobID),
@@ -105,6 +108,8 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 		}
 
 		if age := cutoffTime.Sub(bm.Timestamp); age < safety.BlobDeleteMinAge {
+			retained.Add(bm.Length)
+
 			contentlog.Log2(ctx, log,
 				"preserving blob - below min age",
 				blobparam.BlobID("blobID", bm.BlobID),
@@ -115,6 +120,8 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 		sid := content.SessionIDFromBlobID(bm.BlobID)
 		if s, ok := activeSessions[sid]; ok {
 			if age := cutoffTime.Sub(s.CheckpointTime); age < safety.SessionExpirationAge {
+				retained.Add(bm.Length)
+
 				contentlog.Log2(ctx, log,
 					"preserving blob - part of active session",
 					blobparam.BlobID("blobID", bm.BlobID),
@@ -131,32 +138,39 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWrite
 
 		return nil
 	}); err != nil {
-		return 0, errors.Wrap(err, "error looking for unreferenced blobs")
+		return nil, errors.Wrap(err, "error looking for unreferenced blobs")
 	}
 
 	close(unused)
 
 	unreferencedCount, unreferencedSize := unreferenced.Approximate()
-	contentlog.Log2(ctx, log,
-		"Found blobs to delete",
-		logparam.UInt32("count", unreferencedCount),
-		logparam.Int64("bytes", unreferencedSize))
+	retainedCount, retainedSize := retained.Approximate()
+
+	result := &maintenancestats.DeleteUnreferencedPacksStats{
+		UnreferencedPackCount: unreferencedCount,
+		UnreferencedTotalSize: unreferencedSize,
+		RetainedPackCount:     retainedCount,
+		RetainedTotalSize:     retainedSize,
+		DeletedPackCount:      0,
+		DeletedTotalSize:      0,
+	}
+
+	contentlog.Log1(ctx, log, "Found unreferenced blobs to delete", result)
 
 	// wait for all delete workers to finish.
 	if err := eg.Wait(); err != nil {
-		return 0, errors.Wrap(err, "worker error")
+		return nil, errors.Wrap(err, "worker error")
 	}
 
 	if opt.DryRun {
-		return int(unreferencedCount), nil
+		return result, nil
 	}
 
-	del, cnt := deleted.Approximate()
+	deletedCount, deletedSize := deleted.Approximate()
+	result.DeletedPackCount = deletedCount
+	result.DeletedTotalSize = deletedSize
 
-	contentlog.Log2(ctx, log,
-		"Deleted total blobs",
-		logparam.UInt32("count", del),
-		logparam.Int64("bytes", cnt))
+	contentlog.Log1(ctx, log, "Completed deleting unreferenced blobs", result)
 
-	return int(del), nil
+	return result, nil
 }

@@ -60,6 +60,8 @@ func BuildFromExtra(stats Extra) (Summarizer, error) {
 		result = &CompactSingleEpochStats{}
 	case compactIndexesStatsKind:
 		result = &CompactIndexesStats{}
+	case deleteUnreferencedPacksStatsKind:
+		result = &DeleteUnreferencedPacksStats{}
 	default:
 		return nil, errors.Wrapf(ErrUnSupportedStatKindError, "invalid kind for stats %v", stats)
 	}
