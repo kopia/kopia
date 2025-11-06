@@ -214,28 +214,28 @@ func buildGCResult(unused, inUse, system, tooRecent, undeleted, deleted *stats.C
 	result := &maintenancestats.SnapshotGCStats{}
 
 	cnt, size := unused.Approximate()
-	result.UnreferencedContentCount = cnt
-	result.UnreferencedContentSize = size
+	result.UnreferencedContentCount = uint64(cnt)
+	result.UnreferencedContentSize = maintenancestats.ToUint64(size)
 
 	cnt, size = tooRecent.Approximate()
-	result.UnreferencedRecentContentCount = cnt
-	result.UnreferencedRecentContentSize = size
+	result.UnreferencedRecentContentCount = uint64(cnt)
+	result.UnreferencedRecentContentSize = maintenancestats.ToUint64(size)
 
 	cnt, size = inUse.Approximate()
-	result.InUseContentCount = cnt
-	result.InUseContentSize = size
+	result.InUseContentCount = uint64(cnt)
+	result.InUseContentSize = maintenancestats.ToUint64(size)
 
 	cnt, size = system.Approximate()
-	result.InUseSystemContentCount = cnt
-	result.InUseSystemContentSize = size
+	result.InUseSystemContentCount = uint64(cnt)
+	result.InUseSystemContentSize = maintenancestats.ToUint64(size)
 
 	cnt, size = undeleted.Approximate()
-	result.RecoveredContentCount = cnt
-	result.RecoveredContentSize = size
+	result.RecoveredContentCount = uint64(cnt)
+	result.RecoveredContentSize = maintenancestats.ToUint64(size)
 
 	cnt, size = deleted.Approximate()
-	result.DeletedContentCount = cnt
-	result.DeletedContentSize = size
+	result.DeletedContentCount = uint64(cnt)
+	result.DeletedContentSize = maintenancestats.ToUint64(size)
 
 	return result
 }
