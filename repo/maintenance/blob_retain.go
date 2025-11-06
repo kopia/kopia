@@ -29,8 +29,6 @@ type ExtendBlobRetentionTimeOptions struct {
 }
 
 // extendBlobRetentionTime extends the retention time of all relevant blobs managed by storage engine with Object Locking enabled.
-//
-//nolint:funlen
 func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (*maintenancestats.ExtendBlobRetentionStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:blob-retain", contentlog.RandomSpanID()))
