@@ -73,8 +73,8 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 	// extend retention time of all blobs
 	stats, err := maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
 	require.NoError(t, err)
-	require.Equal(t, uint32(4), stats.BlobsExtended)
-	require.Equal(t, uint32(4), stats.BlobsExtended)
+	require.Equal(t, uint32(4), stats.ToExtendBlobCount)
+	require.Equal(t, uint32(4), stats.ExtendedBlobCount)
 	require.Equal(t, "24h0m0s", stats.RetentionPeriod)
 
 	gotMode, expiry, err = st.GetRetention(ctx, blobsBefore[lastBlobIdx].BlobID)
