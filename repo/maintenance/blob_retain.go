@@ -97,15 +97,10 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		}
 	}
 
-	// Convert prefixes from string to BlobID.
-	for _, pfx := range repo.GetLockingStoragePrefixes() {
-		prefixes = append(prefixes, blob.ID(pfx))
-	}
-
 	// iterate all relevant (active, extendable) blobs and count them + optionally send to the channel to be extended
 	contentlog.Log(ctx, log, "Extending retention time for blobs...")
 
-	err = blob.IterateAllPrefixesInParallel(ctx, opt.Parallel, rep.BlobStorage(), prefixes, func(bm blob.Metadata) error {
+	err = blob.IterateAllPrefixesInParallel(ctx, opt.Parallel, rep.BlobStorage(), repo.GetLockingStoragePrefixes(), func(bm blob.Metadata) error {
 		if !opt.DryRun {
 			extend <- bm
 		}
