@@ -126,10 +126,6 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	contentlog.Log1(ctx, log, "Extended retention time for blobs", result)
 
-	if opt.DryRun {
-		return result, nil
-	}
-
 	return result, nil
 }
 
