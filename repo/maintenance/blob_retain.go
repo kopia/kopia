@@ -34,22 +34,7 @@ type ExtendBlobRetentionTimeOptions struct {
 func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (*maintenancestats.ExtendBlobRetentionStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:blob-retain", contentlog.RandomSpanID()))
-
 	log := rep.LogManager().NewLogger("maintenance-blob-retain")
-
-	const extendQueueSize = 100
-
-	var (
-		wg            sync.WaitGroup
-		prefixes      []blob.ID
-		extendedCount atomic.Uint32
-		toExtend      atomic.Uint32
-		failedCount   atomic.Uint32
-	)
-
-	if opt.Parallel == 0 {
-		opt.Parallel = runtime.NumCPU() * parallelBlobRetainCPUMultiplier
-	}
 
 	blobCfg, err := rep.FormatManager().BlobCfgBlob(ctx)
 	if err != nil {
@@ -63,10 +48,21 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		return nil, nil
 	}
 
+	const extendQueueSize = 100
+
 	extend := make(chan blob.Metadata, extendQueueSize)
 	extendOpts := blob.ExtendOptions{
 		RetentionMode:   blobCfg.RetentionMode,
 		RetentionPeriod: blobCfg.RetentionPeriod,
+	}
+
+	var (
+		wg                                   sync.WaitGroup
+		extendedCount, toExtend, failedCount atomic.Uint32
+	)
+
+	if opt.Parallel == 0 {
+		opt.Parallel = runtime.NumCPU() * parallelBlobRetainCPUMultiplier
 	}
 
 	if !opt.DryRun {
