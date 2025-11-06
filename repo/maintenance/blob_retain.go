@@ -40,11 +40,11 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	const extendQueueSize = 100
 
 	var (
-		wg        sync.WaitGroup
-		prefixes  []blob.ID
-		cnt       = new(uint32)
-		toExtend  = new(uint32)
-		failedCnt = new(uint32)
+		wg            sync.WaitGroup
+		prefixes      []blob.ID
+		extendedCount atomic.Uint32
+		toExtend      atomic.Uint32
+		failedCount   atomic.Uint32
 	)
 
 	if opt.Parallel == 0 {
@@ -84,14 +84,13 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 							blobparam.BlobID("blobID", bm.BlobID),
 							logparam.Error("error", err1))
 
-						atomic.AddUint32(failedCnt, 1)
+						failedCount.Add(1)
 
 						continue
 					}
 
-					curCnt := atomic.AddUint32(cnt, 1)
-					if curCnt%100 == 0 {
-						contentlog.Log1(ctx, log, "extended blobs", logparam.UInt32("count", curCnt))
+					if currentCount := extendedCount.Add(1); currentCount%100 == 0 {
+						contentlog.Log1(ctx, log, "extended blobs", logparam.UInt32("count", currentCount))
 					}
 				}
 			}()
@@ -111,7 +110,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 			extend <- bm
 		}
 
-		atomic.AddUint32(toExtend, 1)
+		toExtend.Add(1)
 
 		return nil
 	})
@@ -119,7 +118,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	close(extend)
 
 	result := &maintenancestats.ExtendBlobRetentionStats{
-		ToExtendBlobCount: atomic.LoadUint32(toExtend),
+		ToExtendBlobCount: toExtend.Load(),
 		RetentionPeriod:   extendOpts.RetentionPeriod.String(),
 	}
 
@@ -128,8 +127,8 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	// wait for all extend workers to finish.
 	wg.Wait()
 
-	if *failedCnt > 0 {
-		return nil, errors.Errorf("Failed to extend %v blobs", *failedCnt)
+	if count := failedCount.Load(); count > 0 {
+		return nil, errors.Errorf("Failed to extend %v blobs", count)
 	}
 
 	if err != nil {
@@ -140,7 +139,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		return result, nil
 	}
 
-	result.ExtendedBlobCount = atomic.LoadUint32(cnt)
+	result.ExtendedBlobCount = extendedCount.Load()
 
 	contentlog.Log1(ctx, log, "Extended retention time for blobs", result)
 
