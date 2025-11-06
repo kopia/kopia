@@ -26,7 +26,6 @@ const minRetentionMaintenanceDiff = time.Duration(24) * time.Hour
 // ExtendBlobRetentionTimeOptions provides options for extending blob retention algorithm.
 type ExtendBlobRetentionTimeOptions struct {
 	Parallel int
-	DryRun   bool
 }
 
 // extendBlobRetentionTime extends the retention time of all relevant blobs managed by storage engine with Object Locking enabled.
@@ -64,39 +63,35 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		opt.Parallel = runtime.NumCPU() * parallelBlobRetainCPUMultiplier
 	}
 
-	if !opt.DryRun {
-		// start goroutines to extend blob retention as they come.
-		for range opt.Parallel {
-			wg.Go(func() error {
-				for bm := range extend {
-					if err1 := rep.BlobStorage().ExtendBlobRetention(ctx, bm.BlobID, extendOpts); err1 != nil {
-						contentlog.Log2(ctx, log,
-							"Failed to extend blob",
-							blobparam.BlobID("blobID", bm.BlobID),
-							logparam.Error("error", err1))
+	// start goroutines to extend blob retention as they come.
+	for range opt.Parallel {
+		wg.Go(func() error {
+			for bm := range extend {
+				if err1 := rep.BlobStorage().ExtendBlobRetention(ctx, bm.BlobID, extendOpts); err1 != nil {
+					contentlog.Log2(ctx, log,
+						"Failed to extend blob",
+						blobparam.BlobID("blobID", bm.BlobID),
+						logparam.Error("error", err1))
 
-						failedCount.Add(1)
+					failedCount.Add(1)
 
-						continue
-					}
-
-					if currentCount := extendedCount.Add(1); currentCount%100 == 0 {
-						contentlog.Log1(ctx, log, "extended blobs", logparam.UInt32("count", currentCount))
-					}
+					continue
 				}
 
-				return nil
-			})
-		}
+				if currentCount := extendedCount.Add(1); currentCount%100 == 0 {
+					contentlog.Log1(ctx, log, "extended blobs", logparam.UInt32("count", currentCount))
+				}
+			}
+
+			return nil
+		})
 	}
 
 	// iterate all relevant (active, extendable) blobs and count them + optionally send to the channel to be extended
 	contentlog.Log(ctx, log, "Extending retention time for blobs...")
 
 	err = blob.IterateAllPrefixesInParallel(ctx, opt.Parallel, rep.BlobStorage(), repo.GetLockingStoragePrefixes(), func(bm blob.Metadata) error {
-		if !opt.DryRun {
-			extend <- bm
-		}
+		extend <- bm
 
 		toExtend.Add(1)
 
