@@ -117,12 +117,7 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	close(extend)
 
-	result := &maintenancestats.ExtendBlobRetentionStats{
-		ToExtendBlobCount: toExtend.Load(),
-		RetentionPeriod:   extendOpts.RetentionPeriod.String(),
-	}
-
-	contentlog.Log1(ctx, log, "Found blobs to extend retention time", result)
+	contentlog.Log1(ctx, log, "Found blobs to extend", logparam.UInt32("count", toExtend.Load()))
 
 	// wait for all extend workers to finish.
 	wg.Wait()
@@ -135,13 +130,17 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		return nil, errors.Wrap(err, "error iterating packs")
 	}
 
+	result := &maintenancestats.ExtendBlobRetentionStats{
+		ToExtendBlobCount: toExtend.Load(),
+		ExtendedBlobCount: extendedCount.Load(),
+		RetentionPeriod:   extendOpts.RetentionPeriod.String(),
+	}
+
+	contentlog.Log1(ctx, log, "Extended retention time for blobs", result)
+
 	if opt.DryRun {
 		return result, nil
 	}
-
-	result.ExtendedBlobCount = extendedCount.Load()
-
-	contentlog.Log1(ctx, log, "Extended retention time for blobs", result)
 
 	return result, nil
 }
