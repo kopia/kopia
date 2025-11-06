@@ -3,15 +3,16 @@ package maintenance
 import (
 	"context"
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/blobparam"
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/format"
@@ -28,28 +29,11 @@ type ExtendBlobRetentionTimeOptions struct {
 	DryRun   bool
 }
 
-// ExtendBlobRetentionTime extends the retention time of all relevant blobs managed by storage engine with Object Locking enabled.
-//
-//nolint:funlen
-func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (*maintenancestats.ExtendBlobRetentionStats, error) {
+// extendBlobRetentionTime extends the retention time of all relevant blobs managed by storage engine with Object Locking enabled.
+func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (*maintenancestats.ExtendBlobRetentionStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:blob-retain", contentlog.RandomSpanID()))
-
 	log := rep.LogManager().NewLogger("maintenance-blob-retain")
-
-	const extendQueueSize = 100
-
-	var (
-		wg        sync.WaitGroup
-		prefixes  []blob.ID
-		cnt       = new(uint32)
-		toExtend  = new(uint32)
-		failedCnt = new(uint32)
-	)
-
-	if opt.Parallel == 0 {
-		opt.Parallel = runtime.NumCPU() * parallelBlobRetainCPUMultiplier
-	}
 
 	blobCfg, err := rep.FormatManager().BlobCfgBlob(ctx)
 	if err != nil {
@@ -63,20 +47,27 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		return nil, nil
 	}
 
+	const extendQueueSize = 100
+
 	extend := make(chan blob.Metadata, extendQueueSize)
 	extendOpts := blob.ExtendOptions{
 		RetentionMode:   blobCfg.RetentionMode,
 		RetentionPeriod: blobCfg.RetentionPeriod,
 	}
 
+	var (
+		wg                                   errgroup.Group
+		extendedCount, toExtend, failedCount atomic.Uint32
+	)
+
+	if opt.Parallel == 0 {
+		opt.Parallel = runtime.NumCPU() * parallelBlobRetainCPUMultiplier
+	}
+
 	if !opt.DryRun {
 		// start goroutines to extend blob retention as they come.
 		for range opt.Parallel {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() error {
 				for bm := range extend {
 					if err1 := rep.BlobStorage().ExtendBlobRetention(ctx, bm.BlobID, extendOpts); err1 != nil {
 						contentlog.Log2(ctx, log,
@@ -84,63 +75,54 @@ func ExtendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 							blobparam.BlobID("blobID", bm.BlobID),
 							logparam.Error("error", err1))
 
-						atomic.AddUint32(failedCnt, 1)
+						failedCount.Add(1)
 
 						continue
 					}
 
-					curCnt := atomic.AddUint32(cnt, 1)
-					if curCnt%100 == 0 {
-						contentlog.Log1(ctx, log, "extended blobs", logparam.UInt32("count", curCnt))
+					if currentCount := extendedCount.Add(1); currentCount%100 == 0 {
+						contentlog.Log1(ctx, log, "extended blobs", logparam.UInt32("count", currentCount))
 					}
 				}
-			}()
-		}
-	}
 
-	// Convert prefixes from string to BlobID.
-	for _, pfx := range repo.GetLockingStoragePrefixes() {
-		prefixes = append(prefixes, blob.ID(pfx))
+				return nil
+			})
+		}
 	}
 
 	// iterate all relevant (active, extendable) blobs and count them + optionally send to the channel to be extended
 	contentlog.Log(ctx, log, "Extending retention time for blobs...")
 
-	err = blob.IterateAllPrefixesInParallel(ctx, opt.Parallel, rep.BlobStorage(), prefixes, func(bm blob.Metadata) error {
+	err = blob.IterateAllPrefixesInParallel(ctx, opt.Parallel, rep.BlobStorage(), repo.GetLockingStoragePrefixes(), func(bm blob.Metadata) error {
 		if !opt.DryRun {
 			extend <- bm
 		}
 
-		atomic.AddUint32(toExtend, 1)
+		toExtend.Add(1)
 
 		return nil
 	})
 
 	close(extend)
 
-	result := &maintenancestats.ExtendBlobRetentionStats{
-		ToExtendBlobCount: atomic.LoadUint32(toExtend),
-		RetentionPeriod:   extendOpts.RetentionPeriod.String(),
-	}
+	contentlog.Log1(ctx, log, "Found blobs to extend", logparam.UInt32("count", toExtend.Load()))
 
-	contentlog.Log1(ctx, log, "Found blobs to extend retention time", result)
+	errWait := wg.Wait() // wait for all extend workers to finish.
+	impossible.PanicOnError(errWait)
 
-	// wait for all extend workers to finish.
-	wg.Wait()
-
-	if *failedCnt > 0 {
-		return nil, errors.Errorf("Failed to extend %v blobs", *failedCnt)
+	if count := failedCount.Load(); count > 0 {
+		return nil, errors.Errorf("Failed to extend %v blobs", count)
 	}
 
 	if err != nil {
 		return nil, errors.Wrap(err, "error iterating packs")
 	}
 
-	if opt.DryRun {
-		return result, nil
+	result := &maintenancestats.ExtendBlobRetentionStats{
+		ToExtendBlobCount: toExtend.Load(),
+		ExtendedBlobCount: extendedCount.Load(),
+		RetentionPeriod:   extendOpts.RetentionPeriod.String(),
 	}
-
-	result.ExtendedBlobCount = atomic.LoadUint32(cnt)
 
 	contentlog.Log1(ctx, log, "Extended retention time for blobs", result)
 

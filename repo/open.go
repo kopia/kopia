@@ -426,7 +426,7 @@ func wrapLockingStorage(st blob.Storage, r format.BlobStorageConfiguration) blob
 
 	return beforeop.NewWrapper(st, nil, nil, nil, func(_ context.Context, id blob.ID, opts *blob.PutOptions) error {
 		for _, prefix := range prefixes {
-			if strings.HasPrefix(string(id), prefix) {
+			if strings.HasPrefix(string(id), string(prefix)) {
 				opts.RetentionMode = r.RetentionMode
 				opts.RetentionPeriod = r.RetentionPeriod
 
