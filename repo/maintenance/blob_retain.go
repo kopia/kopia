@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/blobparam"
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/format"
@@ -106,7 +107,8 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	contentlog.Log1(ctx, log, "Found blobs to extend", logparam.UInt32("count", toExtend.Load()))
 
-	wg.Wait() // wait for all extend workers to finish.
+	errWait := wg.Wait() // wait for all extend workers to finish.
+	impossible.PanicOnError(errWait)
 
 	if count := failedCount.Load(); count > 0 {
 		return nil, errors.Errorf("Failed to extend %v blobs", count)
