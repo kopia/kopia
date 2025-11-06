@@ -119,6 +119,21 @@ func TestBuildExtraSuccess(t *testing.T) {
 				Data: []byte(`{"toDeleteBlobCount":10,"toDeleteBlobSize":1024,"deletedBlobCount":5,"deletedBlobSize":512,"retainedBlobCount":20,"retainedBlobSize":2048}`),
 			},
 		},
+		{
+			name: "RewriteContentsStats",
+			stats: &RewriteContentsStats{
+				ToRewriteContentCount: 30,
+				ToRewriteContentSize:  3092,
+				RewrittenContentCount: 10,
+				RewrittenContentSize:  1024,
+				RetainedContentCount:  20,
+				RetainedContentSize:   2048,
+			},
+			expected: Extra{
+				Kind: rewriteContentsStatsKind,
+				Data: []byte(`{"toRewriteContentCount":30,"toRewriteContentSize":3092,"rewrittenContentCount":10,"rewrittenContentSize":1024,"retainedContentCount":20,"retainedContentSize":2048}`),
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -271,6 +286,21 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 				RetainedBlobSize:  2048,
 				DeletedBlobCount:  5,
 				DeletedBlobSize:   512,
+			},
+		},
+		{
+			name: "RewriteContentsStats",
+			stats: Extra{
+				Kind: rewriteContentsStatsKind,
+				Data: []byte(`{"toRewriteContentCount":30,"toRewriteContentSize":3092,"rewrittenContentCount":10,"rewrittenContentSize":1024,"retainedContentCount":20,"retainedContentSize":2048}`),
+			},
+			expected: &RewriteContentsStats{
+				ToRewriteContentCount: 30,
+				ToRewriteContentSize:  3092,
+				RewrittenContentCount: 10,
+				RewrittenContentSize:  1024,
+				RetainedContentCount:  20,
+				RetainedContentSize:   2048,
 			},
 		},
 	}

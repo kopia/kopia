@@ -66,6 +66,8 @@ func BuildFromExtra(stats Extra) (Summarizer, error) {
 		result = &ExtendBlobRetentionStats{}
 	case cleanupLogsStatsKind:
 		result = &CleanupLogsStats{}
+	case rewriteContentsStatsKind:
+		result = &RewriteContentsStats{}
 	default:
 		return nil, errors.Wrapf(ErrUnSupportedStatKindError, "invalid kind for stats %v", stats)
 	}

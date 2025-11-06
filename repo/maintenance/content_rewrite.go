@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 const parallelContentRewritesCPUMultiplier = 2
@@ -42,14 +43,14 @@ type contentInfoOrError struct {
 // blobs and index entries to point at them.
 //
 //nolint:funlen
-func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) error {
+func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) (*maintenancestats.RewriteContentsStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:content-rewrite", contentlog.RandomSpanID()))
 
 	log := rep.LogManager().NewLogger("maintenance-content-rewrite")
 
 	if opt == nil {
-		return errors.New("missing options")
+		return nil, errors.New("missing options")
 	}
 
 	if opt.ShortPacks {
@@ -61,9 +62,14 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	cnt := getContentToRewrite(ctx, rep, opt)
 
 	var (
-		mu          sync.Mutex
-		totalBytes  int64
-		failedCount int
+		mu             sync.Mutex
+		toRewriteBytes int64
+		toRewriteCount int
+		retainedBytes  int64
+		retainedCount  int
+		rewrittenBytes int64
+		rewrittenCount int
+		failedCount    int
 	)
 
 	if opt.Parallel == 0 {
@@ -97,6 +103,11 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 						logparam.Bool("deleted", c.Deleted),
 						logparam.Duration("age", age))
 
+					mu.Lock()
+					retainedBytes += int64(c.PackedLength)
+					retainedCount++
+					mu.Unlock()
+
 					continue
 				}
 
@@ -109,7 +120,8 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 					logparam.Duration("age", age))
 
 				mu.Lock()
-				totalBytes += int64(c.PackedLength)
+				toRewriteBytes += int64(c.PackedLength)
+				toRewriteCount++
 				mu.Unlock()
 
 				if opt.DryRun {
@@ -134,6 +146,11 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 						failedCount++
 						mu.Unlock()
 					}
+				} else {
+					mu.Lock()
+					rewrittenBytes += int64(c.PackedLength)
+					rewrittenCount++
+					mu.Unlock()
 				}
 			}
 		}()
@@ -141,16 +158,26 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 	wg.Wait()
 
-	contentlog.Log1(ctx, log,
-		"Total bytes rewritten",
-		logparam.Int64("bytes", totalBytes))
-
-	if failedCount == 0 {
-		//nolint:wrapcheck
-		return rep.ContentManager().Flush(ctx)
+	result := &maintenancestats.RewriteContentsStats{
+		ToRewriteContentCount: toRewriteCount,
+		ToRewriteContentSize:  toRewriteBytes,
+		RewrittenContentCount: rewrittenCount,
+		RewrittenContentSize:  rewrittenBytes,
+		RetainedContentCount:  retainedCount,
+		RetainedContentSize:   retainedBytes,
 	}
 
-	return errors.Errorf("failed to rewrite %v contents", failedCount)
+	contentlog.Log1(ctx, log, "Rewritten contents", result)
+
+	if failedCount == 0 {
+		if err := rep.ContentManager().Flush(ctx); err != nil {
+			return nil, errors.Wrap(err, "error flushing repo")
+		}
+
+		return result, nil
+	}
+
+	return nil, errors.Errorf("failed to rewrite %v contents", failedCount)
 }
 
 func getContentToRewrite(ctx context.Context, rep repo.DirectRepository, opt *RewriteContentsOptions) <-chan contentInfoOrError {
