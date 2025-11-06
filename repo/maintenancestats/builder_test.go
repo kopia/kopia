@@ -104,6 +104,21 @@ func TestBuildExtraSuccess(t *testing.T) {
 				Data: []byte(`{"toExtendBlobCount":10,"extendedBlobCount":10,"retentionPeriod":"360h0m0s"}`),
 			},
 		},
+		{
+			name: "CleanupLogsStats",
+			stats: &CleanupLogsStats{
+				ToDeleteBlobCount: 10,
+				ToDeleteBlobSize:  1024,
+				DeletedBlobCount:  5,
+				DeletedBlobSize:   512,
+				RetainedBlobCount: 20,
+				RetainedBlobSize:  2048,
+			},
+			expected: Extra{
+				Kind: cleanupLogsStatsKind,
+				Data: []byte(`{"toDeleteBlobCount":10,"toDeleteBlobSize":1024,"deletedBlobCount":5,"deletedBlobSize":512,"retainedBlobCount":20,"retainedBlobSize":2048}`),
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -241,6 +256,21 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 				ToExtendBlobCount: 10,
 				ExtendedBlobCount: 10,
 				RetentionPeriod:   (time.Hour * 24 * 15).String(),
+			},
+		},
+		{
+			name: "CleanupLogsStats",
+			stats: Extra{
+				Kind: cleanupLogsStatsKind,
+				Data: []byte(`{"toDeleteBlobCount":10,"toDeleteBlobSize":1024,"retainedBlobCount":20,"retainedBlobSize":2048,"deletedBlobCount":5,"deletedBlobSize":512}`),
+			},
+			expected: &CleanupLogsStats{
+				ToDeleteBlobCount: 10,
+				ToDeleteBlobSize:  1024,
+				RetainedBlobCount: 20,
+				RetainedBlobSize:  2048,
+				DeletedBlobCount:  5,
+				DeletedBlobSize:   512,
 			},
 		},
 	}
