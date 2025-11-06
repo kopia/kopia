@@ -13,16 +13,16 @@ const cleanupSupersededIndexesStatsKind = "cleanupSupersededIndexesStats"
 // CleanupSupersededIndexesStats are the stats for cleaning up superseded indexes.
 type CleanupSupersededIndexesStats struct {
 	MaxReplacementTime time.Time `json:"maxReplacementTime"`
-	DeletedBlobCount   int       `json:"deletedBlobCount"`
-	DeletedTotalSize   int64     `json:"deletedTotalSize"`
+	DeletedBlobCount   uint64    `json:"deletedBlobCount"`
+	DeletedTotalSize   uint64    `json:"deletedTotalSize"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
 func (cs *CleanupSupersededIndexesStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(cs.Kind())
 	jw.TimeField("maxReplacementTime", cs.MaxReplacementTime)
-	jw.IntField("deletedBlobCount", cs.DeletedBlobCount)
-	jw.Int64Field("deletedTotalSize", cs.DeletedTotalSize)
+	jw.UInt64Field("deletedBlobCount", cs.DeletedBlobCount)
+	jw.UInt64Field("deletedTotalSize", cs.DeletedTotalSize)
 	jw.EndObject()
 }
 

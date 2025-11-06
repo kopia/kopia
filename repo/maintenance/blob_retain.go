@@ -56,7 +56,7 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	var (
 		wg                                   errgroup.Group
-		extendedCount, toExtend, failedCount atomic.Uint32
+		extendedCount, toExtend, failedCount atomic.Uint64
 	)
 
 	if opt.Parallel == 0 {
@@ -79,7 +79,7 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 				}
 
 				if currentCount := extendedCount.Add(1); currentCount%100 == 0 {
-					contentlog.Log1(ctx, log, "extended blobs", logparam.UInt32("count", currentCount))
+					contentlog.Log1(ctx, log, "extended blobs", logparam.UInt64("count", currentCount))
 				}
 			}
 
@@ -100,7 +100,7 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	close(extend)
 
-	contentlog.Log1(ctx, log, "Found blobs to extend", logparam.UInt32("count", toExtend.Load()))
+	contentlog.Log1(ctx, log, "Found blobs to extend", logparam.UInt64("count", toExtend.Load()))
 
 	errWait := wg.Wait() // wait for all extend workers to finish.
 	impossible.PanicOnError(errWait)
