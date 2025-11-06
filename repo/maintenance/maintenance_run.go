@@ -450,7 +450,7 @@ func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters
 
 func runTaskRewriteContentsQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsQuick, s, func() (maintenancestats.Kind, error) {
-		return nil, RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
+		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: index.AllPrefixedIDs,
 			PackPrefix:     content.PackBlobIDPrefixSpecial,
 			ShortPacks:     true,
@@ -460,7 +460,7 @@ func runTaskRewriteContentsQuick(ctx context.Context, runParams RunParameters, s
 
 func runTaskRewriteContentsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskRewriteContentsFull, s, func() (maintenancestats.Kind, error) {
-		return nil, RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
+		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
 			ContentIDRange: index.AllIDs,
 			ShortPacks:     true,
 		}, safety)
