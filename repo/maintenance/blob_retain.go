@@ -3,11 +3,11 @@ package maintenance
 import (
 	"context"
 	"runtime"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/blobparam"
 	"github.com/kopia/kopia/internal/contentlog"
@@ -57,7 +57,7 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	}
 
 	var (
-		wg                                   sync.WaitGroup
+		wg                                   errgroup.Group
 		extendedCount, toExtend, failedCount atomic.Uint32
 	)
 
@@ -68,11 +68,7 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	if !opt.DryRun {
 		// start goroutines to extend blob retention as they come.
 		for range opt.Parallel {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() error {
 				for bm := range extend {
 					if err1 := rep.BlobStorage().ExtendBlobRetention(ctx, bm.BlobID, extendOpts); err1 != nil {
 						contentlog.Log2(ctx, log,
@@ -89,7 +85,9 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 						contentlog.Log1(ctx, log, "extended blobs", logparam.UInt32("count", currentCount))
 					}
 				}
-			}()
+
+				return nil
+			})
 		}
 	}
 
@@ -110,8 +108,7 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	contentlog.Log1(ctx, log, "Found blobs to extend", logparam.UInt32("count", toExtend.Load()))
 
-	// wait for all extend workers to finish.
-	wg.Wait()
+	wg.Wait() // wait for all extend workers to finish.
 
 	if count := failedCount.Load(); count > 0 {
 		return nil, errors.Errorf("Failed to extend %v blobs", count)
