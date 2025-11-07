@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/contentparam"
 	"github.com/kopia/kopia/internal/stats"
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
@@ -186,7 +187,12 @@ func findUnreferencedAndRepairRereferenced(
 
 	result := buildGCResult(&unused, &inUse, &system, &tooRecent, &undeleted, &deleted)
 
-	userLog(ctx).Infof("Snapshot GC statistics: %v", result)
+	userLog(ctx).Infof("GC found %v unused contents (%v)", result.UnreferencedContentCount, units.BytesString(result.UnreferencedContentSize))
+	userLog(ctx).Infof("GC found %v unused contents that are too recent to delete (%v)", result.UnreferencedRecentContentCount, units.BytesString(result.UnreferencedRecentContentSize))
+	userLog(ctx).Infof("GC found %v in-use contents (%v)", result.InUseContentCount, units.BytesString(result.InUseContentSize))
+	userLog(ctx).Infof("GC found %v in-use system-contents (%v)", result.InUseSystemContentCount, units.BytesString(result.InUseSystemContentSize))
+	userLog(ctx).Infof("GC undeleted %v contents (%v)", result.RecoveredContentCount, units.BytesString(result.RecoveredContentSize))
+
 	contentlog.Log1(ctx, log, "Snapshot GC", result)
 
 	if err != nil {
@@ -212,8 +218,8 @@ func buildGCResult(unused, inUse, system, tooRecent, undeleted, deleted *stats.C
 	result.UnreferencedContentSize = size
 
 	cnt, size = tooRecent.Approximate()
-	result.RetainedContentCount = cnt
-	result.RetainedContentSize = size
+	result.UnreferencedRecentContentCount = cnt
+	result.UnreferencedRecentContentSize = size
 
 	cnt, size = inUse.Approximate()
 	result.InUseContentCount = cnt

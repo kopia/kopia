@@ -137,22 +137,27 @@ func TestBuildExtraSuccess(t *testing.T) {
 		{
 			name: "SnapshotGCStats",
 			stats: &SnapshotGCStats{
-				UnreferencedContentCount: 10,
-				UnreferencedContentSize:  1024,
-				DeletedContentCount:      5,
-				DeletedContentSize:       512,
-				InUseContentCount:        20,
-				InUseContentSize:         2048,
-				InUseSystemContentCount:  1,
-				InUseSystemContentSize:   128,
-				RetainedContentCount:     30,
-				RetainedContentSize:      3072,
-				RecoveredContentCount:    40,
-				RecoveredContentSize:     4096,
+				UnreferencedContentCount:       10,
+				UnreferencedContentSize:        1024,
+				DeletedContentCount:            5,
+				DeletedContentSize:             512,
+				InUseContentCount:              20,
+				InUseContentSize:               2048,
+				InUseSystemContentCount:        1,
+				InUseSystemContentSize:         128,
+				UnreferencedRecentContentCount: 30,
+				UnreferencedRecentContentSize:  3072,
+				RecoveredContentCount:          40,
+				RecoveredContentSize:           4096,
 			},
 			expected: Extra{
 				Kind: snapshotGCStatsKind,
-				Data: []byte(`{"unreferencedContentCount":10,"unreferencedContentSize":1024,"deletedContentCount":5,"deletedContentSize":512,"retainedContentCount":30,"retainedContentSize":3072,"inUseContentCount":20,"inUseContentSize":2048,"inUseSystemContentCount":1,"inUseSystemContentSize":128,"recoveredContentCount":40,"recoveredContentSize":4096}`),
+				Data: []byte(`{"unreferencedContentCount":10,"unreferencedContentSize":1024,` +
+					`"deletedContentCount":5,"deletedContentSize":512,` +
+					`"unreferencedRecentContentCount":30,"unreferencedRecentContentSize":3072,` +
+					`"inUseContentCount":20,"inUseContentSize":2048,` +
+					`"inUseSystemContentCount":1,"inUseSystemContentSize":128,` +
+					`"recoveredContentCount":40,"recoveredContentSize":4096}`),
 			},
 		},
 	}
@@ -328,21 +333,26 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 			name: "SnapshotGCStats",
 			stats: Extra{
 				Kind: snapshotGCStatsKind,
-				Data: []byte(`{"unreferencedContentCount":10,"unreferencedContentSize":1024,"deletedContentCount":5,"deletedContentSize":512,"retainedContentCount":30,"retainedContentSize":3072,"inUseContentCount":20,"inUseContentSize":2048,"inUseSystemContentCount":1,"inUseSystemContentSize":128,"recoveredContentCount":40,"recoveredContentSize":4096}`),
+				Data: []byte(`{"unreferencedContentCount":10,"unreferencedContentSize":1024,` +
+					`"deletedContentCount":5,"deletedContentSize":512,` +
+					`"unreferencedRecentContentCount":30,"unreferencedRecentContentSize":3072,` +
+					`"inUseContentCount":20,"inUseContentSize":2048,` +
+					`"inUseSystemContentCount":1,"inUseSystemContentSize":128,` +
+					`"recoveredContentCount":40,"recoveredContentSize":4096}`),
 			},
 			expected: &SnapshotGCStats{
-				UnreferencedContentCount: 10,
-				UnreferencedContentSize:  1024,
-				DeletedContentCount:      5,
-				DeletedContentSize:       512,
-				InUseContentCount:        20,
-				InUseContentSize:         2048,
-				InUseSystemContentCount:  1,
-				InUseSystemContentSize:   128,
-				RetainedContentCount:     30,
-				RetainedContentSize:      3072,
-				RecoveredContentCount:    40,
-				RecoveredContentSize:     4096,
+				UnreferencedContentCount:       10,
+				UnreferencedContentSize:        1024,
+				DeletedContentCount:            5,
+				DeletedContentSize:             512,
+				InUseContentCount:              20,
+				InUseContentSize:               2048,
+				InUseSystemContentCount:        1,
+				InUseSystemContentSize:         128,
+				UnreferencedRecentContentCount: 30,
+				UnreferencedRecentContentSize:  3072,
+				RecoveredContentCount:          40,
+				RecoveredContentSize:           4096,
 			},
 		},
 	}
