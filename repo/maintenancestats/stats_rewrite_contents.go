@@ -8,7 +8,7 @@ import (
 
 const rewriteContentsStatsKind = "rewriteContentsStats"
 
-// RewriteContentsStats are the stats for rewritting contents.
+// RewriteContentsStats are the stats for rewriting contents.
 type RewriteContentsStats struct {
 	ToRewriteContentCount int   `json:"toRewriteContentCount"`
 	ToRewriteContentSize  int64 `json:"toRewriteContentSize"`
@@ -32,7 +32,7 @@ func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 
 // Summary generates a human readable summary for the stats.
 func (rs *RewriteContentsStats) Summary() string {
-	return fmt.Sprintf("Found %v(%v) contents to rewrite, and rewritten %v(%v). Retained %v(%v) contents from rewrite",
+	return fmt.Sprintf("Found %v(%v) contents to rewrite and rewrote %v(%v). Retained %v(%v) contents from rewrite",
 		rs.ToRewriteContentCount, rs.ToRewriteContentSize, rs.RewrittenContentCount, rs.RewrittenContentSize, rs.RetainedContentCount, rs.RetainedContentSize)
 }
 
