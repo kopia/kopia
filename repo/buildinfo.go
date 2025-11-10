@@ -1,7 +1,7 @@
 package repo
 
 import (
-	stdlib "log"
+	stdlog "log"
 	"runtime/debug"
 	"strings"
 )
@@ -24,7 +24,7 @@ func getBuildInfoAndVersion(linkedInfo, linkedVersion string) (info, version str
 	info, version = linkedInfo, linkedVersion
 
 	if info != "" && version != "" {
-		return // use the values specified at link time
+		return info, version // use the values specified at link time
 	}
 
 	// a value was not set at link time, set it from the executable's build
@@ -32,8 +32,10 @@ func getBuildInfoAndVersion(linkedInfo, linkedVersion string) (info, version str
 	bi, ok := debug.ReadBuildInfo()
 	if !ok {
 		// logging not yet set up, use stdlib's logging
-		stdlib.Println("executable build information is not available")
-		return // executable's build info is not available, use values set at link time, if any
+		stdlog.Println("executable build information is not available")
+
+		// executable's build info is not available, use values set at link time, if any
+		return info, version
 	}
 
 	if version == "" {
@@ -48,7 +50,7 @@ func getBuildInfoAndVersion(linkedInfo, linkedVersion string) (info, version str
 		info = getRevisionString(bi.Settings)
 	}
 
-	return
+	return info, version
 }
 
 func getRevisionString(s []debug.BuildSetting) string {

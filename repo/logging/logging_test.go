@@ -103,9 +103,7 @@ func BenchmarkLogger(b *testing.B) {
 	mod1 := logging.Module("mod1")
 	ctx := logging.WithLogger(context.Background(), testlogging.PrintfFactory(b.Logf))
 
-	b.ResetTimer()
-
-	for range b.N {
+	for b.Loop() {
 		mod1(ctx)
 	}
 }

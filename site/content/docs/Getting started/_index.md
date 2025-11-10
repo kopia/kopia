@@ -7,7 +7,7 @@ weight: 15
 This guide will walk you through installing Kopia and setting up Kopia to backup/restore your data. Make sure to familiarize yourself with Kopia [features](../features/) before following this guide, so that you understand the appropriate terminology. As a reminder:
 
 * A `snapshot` is a [point-in-time backup](../features#backup-files-and-directories-using-snapshots) of your files/directories; each snapshot contains the files/directories that you can [restore when you need to](../features#restore-snapshots-using-multiple-methods).
-* A `repository` is the storage location where your snapshots are saved; Kopia supports [cloud/remote, network, and local storage locations](../features#save-snapshots-to-cloud-network-or-local-storage) and all repositories are [encrypted](../features/#end-to-end-zero-knowledge-encryption) with a password that you designate.
+* A `repository` is the storage location where your snapshots are saved; Kopia supports [cloud/remote, network, and local storage locations](../features#save-snapshots-to-cloud-network-or-local-storage) and all repositories are [encrypted](../features/#user-controlled-end-to-end-encryption) with a password that you designate.
 * A `policy` is a set of rules that tells Kopia how to create/manage snapshots; this includes features such as [compression, snapshot retention, and scheduling when to take automatically snapshots](../features#policies-control-what-and-how-filesdirectories-are-saved-in-snapshots).
 
 ## Download and Installation
@@ -20,19 +20,21 @@ Once you have installed Kopia, setting up Kopia is quite easy but varies dependi
 
 ### Kopia GUI (`KopiaUI`)
 
-Setting up Kopia via the GUI is very easy. 
+Setting up Kopia via the GUI is very easy.
 
 #### Creating and Connecting to a Repository
 
-When you run `KopiaUI` for the first time, you will need to create a `repository`. You will see all supported [repository types](../repositories/) on-screen within the program interface. Pick the one you want and follow the on-screen directions to get it setup; you will need to enter various different details about the storage location that you selected, and you will pick a password that will be used to encrypt all the snapshots that you store in the repository. (As a reminder, Kopia uses [end-to-end zero knowledge encryption](../features#end-to-end-zero-knowledge-encryption), so your password is never sent anywhere and it never leaves your machine!) You can also name the repository whatever you want. 
+When you run `KopiaUI` for the first time, you will need to create a `repository`. You will see all supported [repository types](../repositories/) on-screen within the program interface. Pick the one you want and follow the on-screen directions to get it setup. You will need to enter details about the storage location that you selected, and you will pick a password that will be used to encrypt all the snapshots that you store in the repository. Kopia uses [end-to-end encryption](../features#user-controlled-end-to-end-encryption), that way your password never leaves your machine nor
+is sent elsewhere. You can name your repository in a way that is useful for you.
 
-**There is absolutely no way to restore snapshots (i.e., your backed up files/directories) from a repository if you forget your password, so do not forget it and keep it secure!** 
+**Remember your repository password and keep it secure. There is absolutely no way to restore any of your backed up files from a repository if you forget your password!**
 
-> NOTE: Remember, before you use Kopia, you need to provision, setup, and pay (the storage provider) for whatever storage location you want to use; Kopia will not do that for you. After you have done that, you can create a `repository` for that storage location in Kopia. For example, if you want to use `Backblaze B2`, you need to create a Backblaze account, create a B2 bucket, and get the access keys for the bucket; then you can use the `Backblaze B2` repository option in `KopiaUI` to create a repository.
+> NOTE: Remember, before you use Kopia, you need to provision, setup, and pay (the storage provider) for whatever storage location you want to use; Kopia will not do that for you. After you have done that, you can create a `repository` for that storage location in Kopia. For example, if you want to use a cloud storage provider, then you need to: (1) create an account with your storage provider; (2) create an object storage bucket; and (3)  get the credentials to access the bucket.
+After you have set up your storage provider, then you can select the appropriate storage provider type in `KopiaUI` to create a repository.
 
 #### Defining Snapshot Policy and Creating New Snapshot
 
-Once you have created a repository, you can start backing up your files/directories by creating a new `policy` in `KopiaUI`. You can do this from the `Policies` tab and the process, again, is quite straightforward: enter the `directory` which contains the files you want to backup (you can either manually type in the `directory path` or browse for the `directory`), hit the `Set Policy` button, choose your policy settings from the on-screen options (all policy options are fairly self-explanatory), and hit the `Save Policy` button. Kopia will then automatically begin taking the snapshot following the settings you set for the policy. 
+Once you have created a repository, you can start backing up your files/directories by creating a new `policy` in `KopiaUI`. You can do this from the `Policies` tab and the process, again, is quite straightforward: enter the `directory` which contains the files you want to backup (you can either manually type in the `directory path` or browse for the `directory`), hit the `Set Policy` button, choose your policy settings from the on-screen options (all policy options are fairly self-explanatory), and hit the `Save Policy` button. Kopia will then automatically begin taking the snapshot following the settings you set for the policy.
 
 After the initial snapshot, for every snapshot afterwards Kopia will rescan the file/directories and [only upload file content that has changed](../features/#backup-files-and-directories-using-snapshots). All snapshots in Kopia are [always incremental](../features/#backup-files-and-directories-using-snapshots); a snapshot will only upload files/file contents that are not in the repository yet, which saves storage space and upload time. This even applies to files that were moved or renamed. In fact, if two computers have exactly the same file and both computers are backing up to the same `repository`, the file will still be stored only once.
 
@@ -52,7 +54,7 @@ For example, say you have a path policy for `foo@bar:/path` which doesn't define
 
 #### Restoring Files/Directories from Snapshots
 
-When you want to restore your files/directories from a snapshot, you can do so from the `Snapshots` tab in `KopiaUI`. Just click the `Path` for the files/directories you want to restore and then find the specific `snapshot` you want to restore from. You will then be given the option to either 
+When you want to restore your files/directories from a snapshot, you can do so from the `Snapshots` tab in `KopiaUI`. Just click the `Path` for the files/directories you want to restore and then find the specific `snapshot` you want to restore from. You will then be given the option to either
 
 * `Mount` the snapshot as a local drive so that you can browse, open, and copy any files/directories from the snapshot to your local machine;
 * `Restore` all the contents of the snapshot to a local or network location;
@@ -76,9 +78,9 @@ Setting up Kopia via the CLI follows similar steps as the GUI, but obviously req
 
 The first thing you need to do is create a `repository`. For a full list of supported types of repositories that you can create, see the [repositories page](../repositories).
 
-To create a repository, use one of the [subcommands](../reference/command-line/common/#commands-to-manipulate-repository) of `kopia repository create` and follow the on-screen instructions. When creating the repository, you must provide a password that will be used to encrypt all the snapshots and their contents in the repository. (As a reminder, Kopia uses [end-to-end zero knowledge encryption](../features#end-to-end-zero-knowledge-encryption), so your password is never sent anywhere and it never leaves your machine!)
+To create a repository, use one of the [subcommands](../reference/command-line/common/#commands-to-manipulate-repository) of `kopia repository create` and follow the on-screen instructions. When creating the repository, you must provide a password that will be used to encrypt all the snapshots and their contents in the repository. Kopia uses [end-to-end encryption](../features#user-controlled-end-to-end-encryption), so your password remains in your computer and is not sent anywhere else.
 
-**There is absolutely no way to restore snapshots (i.e., your backed up files/directories) from a repository if you forget your password, so do not forget it and keep it secure!** 
+**Remember your repository password and keep it secure. There is absolutely no way to restore any of your backed up files from a repository if you forget your password!**
 
 As an example, if you want to create a repository in a locally-mounted or network-attached filesystem, you would run the following command:
 
@@ -87,7 +89,9 @@ $ kopia repository create filesystem --path /tmp/my-repository
 ```
 You can read more about all the supported `kopia repository create` commands for different repositories from the [repositories page](../repositories).
 
-> NOTE: Remember, before you use Kopia, you need to provision, setup, and pay (the storage provider) for whatever storage location you want to use; Kopia will not do that for you. After you have done that, you can create a `repository` for that storage location in Kopia. For example, if you want to use `Backblaze B2`, you need to create a Backblaze account, create a B2 bucket, and get the access keys for the bucket; then you can use the [`kopia repository create b2` command](../reference/command-line/common/repository-create-b2/) to create a repository. 
+> NOTE: Remember, before you use Kopia, you need to provision, setup, and pay (the storage provider) for whatever storage location you want to use; Kopia will not do that for you. After you have done that, you can create a `repository` for that storage location in Kopia. For example, if you want to use a cloud storage provider, then you need to: (1) create an account with your storage provider; (2) create an object storage bucket; and (3)  get the credentials to access the bucket.
+After you have set up your storage provider, then you can create a repository using the [`kopia repository create <storage-provider-type>` command](../reference/command-line/common/#commands-to-manipulate-repository) with the appropriate storage provider options.
+
 
 #### Connecting to Repository
 
@@ -402,7 +406,7 @@ Kopia CLI provides low-level commands to examine the contents of repository, per
 
 ##### BLOBs
 
-We can list the files in a repository using `kopia blob ls`, which shows how Kopia manages snapshots. We can see that repository contents are grouped into pack files (starting with `p`) and indexed using index files (starting with `n`). Both index and pack files are [encrypted](../features/#end-to-end-zero-knowledge-encryption):
+We can list the files in a repository using `kopia blob ls`, which shows how Kopia manages snapshots. We can see that repository contents are grouped into pack files (starting with `p`) and indexed using index files (starting with `n`). Both index and pack files are [encrypted](../features/#user-controlled-end-to-end-encryption):
 
 ```
 $ kopia blob ls

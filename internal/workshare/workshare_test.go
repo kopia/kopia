@@ -154,9 +154,7 @@ func BenchmarkComputeTreeSum(b *testing.B) {
 	w := workshare.NewPool[*computeTreeSumRequest](10)
 	defer w.Close()
 
-	b.ResetTimer()
-
-	for range b.N {
+	for b.Loop() {
 		computeTreeSum(w, treeToWalk)
 	}
 }

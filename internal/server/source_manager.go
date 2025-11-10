@@ -23,7 +23,6 @@ import (
 const (
 	failedSnapshotRetryInterval = 5 * time.Minute
 	refreshTimeout              = 30 * time.Second // max amount of time to refresh a single source
-	oneDay                      = 24 * time.Hour
 )
 
 type sourceManagerServerInterface interface {
@@ -196,10 +195,10 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 
 			s.setStatus("PENDING")
 
-			log(ctx).Debugw("snapshotting", "source", s.src)
+			userLog(ctx).Debugw("snapshotting", "source", s.src)
 
 			if err := s.server.runSnapshotTask(ctx, s.src, s.snapshotInternal); err != nil {
-				log(ctx).Errorf("snapshot error: %v", err)
+				userLog(ctx).Errorf("snapshot error: %v", err)
 
 				s.backoffBeforeNextSnapshot()
 			} else {
@@ -252,17 +251,17 @@ func (s *sourceManager) scheduleSnapshotNow() {
 }
 
 func (s *sourceManager) upload(ctx context.Context) serverapi.SourceActionResponse {
-	log(ctx).Infof("upload triggered via API: %v", s.src)
+	userLog(ctx).Infof("upload triggered via API: %v", s.src)
 	s.scheduleSnapshotNow()
 
 	return serverapi.SourceActionResponse{Success: true}
 }
 
 func (s *sourceManager) cancel(ctx context.Context) serverapi.SourceActionResponse {
-	log(ctx).Debugw("cancel triggered via API", "source", s.src)
+	userLog(ctx).Debugw("cancel triggered via API", "source", s.src)
 
 	if u := s.currentUploader(); u != nil {
-		log(ctx).Info("canceling current upload")
+		userLog(ctx).Info("canceling current upload")
 		u.Cancel()
 	}
 
@@ -270,14 +269,14 @@ func (s *sourceManager) cancel(ctx context.Context) serverapi.SourceActionRespon
 }
 
 func (s *sourceManager) pause(ctx context.Context) serverapi.SourceActionResponse {
-	log(ctx).Debugw("pause triggered via API", "source", s.src)
+	userLog(ctx).Debugw("pause triggered via API", "source", s.src)
 
 	s.sourceMutex.Lock()
 	s.paused = true
 	s.sourceMutex.Unlock()
 
 	if u := s.currentUploader(); u != nil {
-		log(ctx).Info("canceling current upload")
+		userLog(ctx).Info("canceling current upload")
 		u.Cancel()
 	}
 
@@ -287,7 +286,7 @@ func (s *sourceManager) pause(ctx context.Context) serverapi.SourceActionRespons
 }
 
 func (s *sourceManager) resume(ctx context.Context) serverapi.SourceActionResponse {
-	log(ctx).Debugw("resume triggered via API", "source", s.src)
+	userLog(ctx).Debugw("resume triggered via API", "source", s.src)
 
 	s.sourceMutex.Lock()
 	s.paused = false
@@ -300,7 +299,7 @@ func (s *sourceManager) resume(ctx context.Context) serverapi.SourceActionRespon
 
 func (s *sourceManager) stop(ctx context.Context) {
 	if u := s.currentUploader(); u != nil {
-		log(ctx).Infow("canceling current upload", "src", s.src)
+		userLog(ctx).Infow("canceling current upload", "src", s.src)
 		u.Cancel()
 	}
 
@@ -320,7 +319,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 	// check if we got closed while waiting on semaphore
 	select {
 	case <-s.closed:
-		log(ctx).Infof("not snapshotting %v because source manager is shutting down", s.src)
+		userLog(ctx).Infof("not snapshotting %v because source manager is shutting down", s.src)
 		return nil
 
 	default:
@@ -351,7 +350,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 			onUpload(numBytes)
 		},
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
-		log(ctx).Debugf("uploading %v", s.src)
+		userLog(ctx).Debugf("uploading %v", s.src)
 
 		u := upload.NewUploader(w)
 
@@ -372,7 +371,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 			u.Progress.UploadedBytes(numBytes)
 		}
 
-		log(ctx).Debugf("starting upload of %v", s.src)
+		userLog(ctx).Debugf("starting upload of %v", s.src)
 		s.setUploader(u)
 
 		manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, manifestsSinceLastCompleteSnapshot...)
@@ -389,7 +388,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		ignoreIdenticalSnapshot := policyTree.EffectivePolicy().RetentionPolicy.IgnoreIdenticalSnapshots.OrDefault(false)
 		if ignoreIdenticalSnapshot && len(manifestsSinceLastCompleteSnapshot) > 0 {
 			if manifestsSinceLastCompleteSnapshot[0].RootObjectID() == manifest.RootObjectID() {
-				log(ctx).Debug("Not saving snapshot because no files have been changed since previous snapshot")
+				userLog(ctx).Debug("Not saving snapshot because no files have been changed since previous snapshot")
 				return nil
 			}
 		}
@@ -403,7 +402,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 			return errors.Wrap(err, "unable to apply retention policy")
 		}
 
-		log(ctx).Debugf("created snapshot %v", snapshotID)
+		userLog(ctx).Debugf("created snapshot %v", snapshotID)
 
 		return nil
 	})

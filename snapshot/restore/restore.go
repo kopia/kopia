@@ -312,7 +312,7 @@ func (c *copier) deleteExtraFilesInDir(ctx context.Context, o *FilesystemOutput,
 	}
 
 	if err != nil {
-		return errors.Wrap(err, "read existing dir entries ('"+path.Join(o.TargetPath, targetPath)+"')")
+		return errors.Wrapf(err, "read existing dir entries (%q)", path.Join(o.TargetPath, targetPath))
 	}
 
 	snapshotEntries, err := fs.GetAllEntries(ctx, d)
@@ -346,7 +346,7 @@ func (c *copier) deleteExtraFilesInDir(ctx context.Context, o *FilesystemOutput,
 				log(ctx).Debugf("deleting directory %v since it does not exist in snapshot", entryPath)
 
 				if err := os.RemoveAll(entryPath); err != nil {
-					return errors.Wrap(err, "delete directory "+path.Join(o.TargetPath, targetPath, existingEntry.Name()))
+					return errors.Wrapf(err, "delete directory %q", entryPath)
 				}
 
 				c.stats.DeletedDirCount.Add(1)
@@ -361,7 +361,7 @@ func (c *copier) deleteExtraFilesInDir(ctx context.Context, o *FilesystemOutput,
 			log(ctx).Debugf("deleting file %v since it does not exist in snapshot", entryPath)
 
 			if err := os.Remove(entryPath); err != nil {
-				return errors.Wrap(err, "delete file "+path.Join(o.TargetPath, targetPath, existingEntry.Name()))
+				return errors.Wrapf(err, "delete file %q", entryPath)
 			}
 
 			if existingEntry.Type() == os.ModeSymlink {

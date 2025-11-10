@@ -71,8 +71,11 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 	earliestExpiry = ta.NowFunc()().Add(period)
 
 	// extend retention time of all blobs
-	_, err = maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
+	stats, err := maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
 	require.NoError(t, err)
+	require.Equal(t, uint32(4), stats.ToExtendBlobCount)
+	require.Equal(t, uint32(4), stats.ExtendedBlobCount)
+	require.Equal(t, "24h0m0s", stats.RetentionPeriod)
 
 	gotMode, expiry, err = st.GetRetention(ctx, blobsBefore[lastBlobIdx].BlobID)
 	require.NoError(t, err, "getting blob retention info")
@@ -120,8 +123,9 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 	require.NoError(t, err, "Altering expired object failed")
 
 	// extend retention time of all blobs
-	_, err = maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
+	stats, err := maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
 	require.NoError(t, err)
+	require.Nil(t, stats)
 
 	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	require.NoError(t, err, "Altering expired object failed")

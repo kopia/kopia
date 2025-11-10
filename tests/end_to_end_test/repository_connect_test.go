@@ -93,8 +93,8 @@ func TestReconnectUsingToken(t *testing.T) {
 
 	// look for output line containing the prefix - this will be our reconnect command
 	for _, l := range lines {
-		if strings.HasPrefix(l, prefix) {
-			reconnectArgs = strings.Split(strings.TrimPrefix(l, prefix), " ")
+		if after, ok := strings.CutPrefix(l, prefix); ok {
+			reconnectArgs = strings.Split(after, " ")
 		}
 	}
 

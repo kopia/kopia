@@ -33,15 +33,15 @@ jobs:
       uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
       with:
         go-version-file: 'go.mod'
-        check-latest: true
-      id: go
     - id: govulncheck
       uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
       with:
         cache: false
-        go-version-input: '1.24.7'
-        go-version-file: 'go.mod'
-        # output-format: sarif
+        go-version-input: '1.24.10'
+        # An explicit Go version is needed for govulncheck-action since internally
+        # it uses an outdated setup-go@v5.0 action that does not respect the 'toolchain'
+        # directive in the 'go.mod' file.
+        #go-version-file: 'go.mod'
         repo-checkout: false
     - name: Lint
       run: make lint

@@ -21,21 +21,21 @@ type ServerParameters struct {
 
 // ProcessOutput processes output lines from a server that's starting up.
 func (s *ServerParameters) ProcessOutput(l string) bool {
-	if strings.HasPrefix(l, serverOutputAddress) {
-		s.BaseURL = strings.TrimPrefix(l, serverOutputAddress)
+	if after, ok := strings.CutPrefix(l, serverOutputAddress); ok {
+		s.BaseURL = after
 		return false
 	}
 
-	if strings.HasPrefix(l, serverOutputCertSHA256) {
-		s.SHA256Fingerprint = strings.TrimPrefix(l, serverOutputCertSHA256)
+	if after, ok := strings.CutPrefix(l, serverOutputCertSHA256); ok {
+		s.SHA256Fingerprint = after
 	}
 
-	if strings.HasPrefix(l, serverOutputPassword) {
-		s.Password = strings.TrimPrefix(l, serverOutputPassword)
+	if after, ok := strings.CutPrefix(l, serverOutputPassword); ok {
+		s.Password = after
 	}
 
-	if strings.HasPrefix(l, serverOutputControlPassword) {
-		s.ServerControlPassword = strings.TrimPrefix(l, serverOutputControlPassword)
+	if after, ok := strings.CutPrefix(l, serverOutputControlPassword); ok {
+		s.ServerControlPassword = after
 	}
 
 	return true

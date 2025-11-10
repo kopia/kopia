@@ -19,8 +19,6 @@ jobs:
       uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
       with:
         go-version-file: 'go.mod'
-        check-latest: true
-      id: go
     - name: Download dependencies
       run: go mod vendor
     - name: Run License Check
