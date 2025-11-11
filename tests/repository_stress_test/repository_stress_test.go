@@ -439,9 +439,9 @@ func compact(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.R
 
 	log.Debug("compact()")
 
-	return errors.Wrapf(
-		r.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}),
-		"compact()")
+	_, err := r.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1})
+
+	return errors.Wrapf(err, "compact()")
 }
 
 func flush(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {
