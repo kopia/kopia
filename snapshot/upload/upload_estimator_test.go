@@ -86,7 +86,6 @@ func expectSuccessfulEstimation(
 	var filesCount, totalFileSize int64
 
 	done := make(chan struct{})
-
 	go func() {
 		defer close(done)
 		estimator.StartEstimation(ctx, func(fc, ts int64) {

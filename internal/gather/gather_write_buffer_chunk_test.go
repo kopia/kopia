@@ -84,7 +84,6 @@ func TestTrackAllocation(t *testing.T) {
 	old := trackChunkAllocations
 
 	trackChunkAllocations = true
-
 	defer func() {
 		trackChunkAllocations = old
 	}()

@@ -73,7 +73,6 @@ func TestNotificationTemplates(t *testing.T) {
 
 	// override editor for the next part
 	oldEditor := editor.EditFile
-
 	defer func() { editor.EditFile = oldEditor }()
 
 	invokedSecond := false
