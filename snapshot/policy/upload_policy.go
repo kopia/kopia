@@ -15,9 +15,9 @@ type UploadPolicy struct {
 
 // UploadPolicyDefinition specifies which policy definition provided the value of a particular field.
 type UploadPolicyDefinition struct {
-	MaxParallelSnapshots    snapshot.SourceInfo `json:"maxParallelSnapshots,omitempty"`
-	MaxParallelFileReads    snapshot.SourceInfo `json:"maxParallelFileReads,omitempty"`
-	ParallelUploadAboveSize snapshot.SourceInfo `json:"parallelUploadAboveSize,omitempty"`
+	MaxParallelSnapshots    snapshot.SourceInfo `json:"maxParallelSnapshots"`
+	MaxParallelFileReads    snapshot.SourceInfo `json:"maxParallelFileReads"`
+	ParallelUploadAboveSize snapshot.SourceInfo `json:"parallelUploadAboveSize"`
 }
 
 // Merge applies default values from the provided policy.

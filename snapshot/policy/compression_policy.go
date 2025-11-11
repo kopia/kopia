@@ -27,16 +27,16 @@ type MetadataCompressionPolicy struct {
 
 // CompressionPolicyDefinition specifies which policy definition provided the value of a particular field.
 type CompressionPolicyDefinition struct {
-	CompressorName snapshot.SourceInfo `json:"compressorName,omitempty"`
-	OnlyCompress   snapshot.SourceInfo `json:"onlyCompress,omitempty"`
-	NeverCompress  snapshot.SourceInfo `json:"neverCompress,omitempty"`
-	MinSize        snapshot.SourceInfo `json:"minSize,omitempty"`
-	MaxSize        snapshot.SourceInfo `json:"maxSize,omitempty"`
+	CompressorName snapshot.SourceInfo `json:"compressorName"`
+	OnlyCompress   snapshot.SourceInfo `json:"onlyCompress"`
+	NeverCompress  snapshot.SourceInfo `json:"neverCompress"`
+	MinSize        snapshot.SourceInfo `json:"minSize"`
+	MaxSize        snapshot.SourceInfo `json:"maxSize"`
 }
 
 // MetadataCompressionPolicyDefinition specifies which policy definition provided the value of a particular field.
 type MetadataCompressionPolicyDefinition struct {
-	CompressorName snapshot.SourceInfo `json:"compressorName,omitempty"`
+	CompressorName snapshot.SourceInfo `json:"compressorName"`
 }
 
 // CompressorForFile returns compression name to be used for compressing a given file according to policy, using attributes such as name or size.

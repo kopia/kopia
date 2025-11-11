@@ -22,34 +22,34 @@ type TargetWithPolicy struct {
 // Policy describes snapshot policy for a single source.
 type Policy struct {
 	Labels                    map[string]string         `json:"-"`
-	RetentionPolicy           RetentionPolicy           `json:"retention,omitempty"`
-	FilesPolicy               FilesPolicy               `json:"files,omitempty"`
-	ErrorHandlingPolicy       ErrorHandlingPolicy       `json:"errorHandling,omitempty"`
-	SchedulingPolicy          SchedulingPolicy          `json:"scheduling,omitempty"`
-	CompressionPolicy         CompressionPolicy         `json:"compression,omitempty"`
-	MetadataCompressionPolicy MetadataCompressionPolicy `json:"metadataCompression,omitempty"`
-	SplitterPolicy            SplitterPolicy            `json:"splitter,omitempty"`
-	Actions                   ActionsPolicy             `json:"actions,omitempty"`
-	OSSnapshotPolicy          OSSnapshotPolicy          `json:"osSnapshots,omitempty"`
-	LoggingPolicy             LoggingPolicy             `json:"logging,omitempty"`
-	UploadPolicy              UploadPolicy              `json:"upload,omitempty"`
+	RetentionPolicy           RetentionPolicy           `json:"retention"`
+	FilesPolicy               FilesPolicy               `json:"files"`
+	ErrorHandlingPolicy       ErrorHandlingPolicy       `json:"errorHandling"`
+	SchedulingPolicy          SchedulingPolicy          `json:"scheduling"`
+	CompressionPolicy         CompressionPolicy         `json:"compression"`
+	MetadataCompressionPolicy MetadataCompressionPolicy `json:"metadataCompression"`
+	SplitterPolicy            SplitterPolicy            `json:"splitter"`
+	Actions                   ActionsPolicy             `json:"actions"`
+	OSSnapshotPolicy          OSSnapshotPolicy          `json:"osSnapshots"`
+	LoggingPolicy             LoggingPolicy             `json:"logging"`
+	UploadPolicy              UploadPolicy              `json:"upload"`
 	NoParent                  bool                      `json:"noParent,omitempty"`
 }
 
 // Definition corresponds 1:1 to Policy and each field specifies the snapshot.SourceInfo
 // where a particular policy field was specified.
 type Definition struct {
-	RetentionPolicy           RetentionPolicyDefinition           `json:"retention,omitempty"`
-	FilesPolicy               FilesPolicyDefinition               `json:"files,omitempty"`
-	ErrorHandlingPolicy       ErrorHandlingPolicyDefinition       `json:"errorHandling,omitempty"`
-	SchedulingPolicy          SchedulingPolicyDefinition          `json:"scheduling,omitempty"`
-	CompressionPolicy         CompressionPolicyDefinition         `json:"compression,omitempty"`
-	MetadataCompressionPolicy MetadataCompressionPolicyDefinition `json:"metadataCompression,omitempty"`
-	SplitterPolicy            SplitterPolicyDefinition            `json:"splitter,omitempty"`
-	Actions                   ActionsPolicyDefinition             `json:"actions,omitempty"`
-	OSSnapshotPolicy          OSSnapshotPolicyDefinition          `json:"osSnapshots,omitempty"`
-	LoggingPolicy             LoggingPolicyDefinition             `json:"logging,omitempty"`
-	UploadPolicy              UploadPolicyDefinition              `json:"upload,omitempty"`
+	RetentionPolicy           RetentionPolicyDefinition           `json:"retention"`
+	FilesPolicy               FilesPolicyDefinition               `json:"files"`
+	ErrorHandlingPolicy       ErrorHandlingPolicyDefinition       `json:"errorHandling"`
+	SchedulingPolicy          SchedulingPolicyDefinition          `json:"scheduling"`
+	CompressionPolicy         CompressionPolicyDefinition         `json:"compression"`
+	MetadataCompressionPolicy MetadataCompressionPolicyDefinition `json:"metadataCompression"`
+	SplitterPolicy            SplitterPolicyDefinition            `json:"splitter"`
+	Actions                   ActionsPolicyDefinition             `json:"actions"`
+	OSSnapshotPolicy          OSSnapshotPolicyDefinition          `json:"osSnapshots"`
+	LoggingPolicy             LoggingPolicyDefinition             `json:"logging"`
+	UploadPolicy              UploadPolicyDefinition              `json:"upload"`
 }
 
 func (p *Policy) String() string {

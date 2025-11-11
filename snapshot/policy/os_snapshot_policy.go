@@ -4,12 +4,12 @@ import "github.com/kopia/kopia/snapshot"
 
 // OSSnapshotPolicy describes settings for OS-level snapshots.
 type OSSnapshotPolicy struct {
-	VolumeShadowCopy VolumeShadowCopyPolicy `json:"volumeShadowCopy,omitempty"`
+	VolumeShadowCopy VolumeShadowCopyPolicy `json:"volumeShadowCopy"`
 }
 
 // OSSnapshotPolicyDefinition specifies which policy definition provided the value of a particular field.
 type OSSnapshotPolicyDefinition struct {
-	VolumeShadowCopy VolumeShadowCopyPolicyDefinition `json:"volumeShadowCopy,omitempty"`
+	VolumeShadowCopy VolumeShadowCopyPolicyDefinition `json:"volumeShadowCopy"`
 }
 
 // Merge applies default values from the provided policy.
@@ -26,7 +26,7 @@ type VolumeShadowCopyPolicy struct {
 // VolumeShadowCopyPolicyDefinition specifies which policy definition provided
 // the value of a particular field.
 type VolumeShadowCopyPolicyDefinition struct {
-	Enable snapshot.SourceInfo `json:"enable,omitempty"`
+	Enable snapshot.SourceInfo `json:"enable"`
 }
 
 // Merge applies default values from the provided policy.

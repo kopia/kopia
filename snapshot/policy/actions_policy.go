@@ -15,8 +15,8 @@ type ActionsPolicy struct {
 
 // ActionsPolicyDefinition specifies which policy definition provided the value of a particular field.
 type ActionsPolicyDefinition struct {
-	BeforeSnapshotRoot snapshot.SourceInfo `json:"beforeSnapshotRoot,omitempty"`
-	AfterSnapshotRoot  snapshot.SourceInfo `json:"afterSnapshotRoot,omitempty"`
+	BeforeSnapshotRoot snapshot.SourceInfo `json:"beforeSnapshotRoot"`
+	AfterSnapshotRoot  snapshot.SourceInfo `json:"afterSnapshotRoot"`
 }
 
 // ActionCommand configures a action command.

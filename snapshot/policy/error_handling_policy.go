@@ -16,9 +16,9 @@ type ErrorHandlingPolicy struct {
 
 // ErrorHandlingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type ErrorHandlingPolicyDefinition struct {
-	IgnoreFileErrors      snapshot.SourceInfo `json:"ignoreFileErrors,omitempty"`
-	IgnoreDirectoryErrors snapshot.SourceInfo `json:"ignoreDirectoryErrors,omitempty"`
-	IgnoreUnknownTypes    snapshot.SourceInfo `json:"ignoreUnknownTypes,omitempty"`
+	IgnoreFileErrors      snapshot.SourceInfo `json:"ignoreFileErrors"`
+	IgnoreDirectoryErrors snapshot.SourceInfo `json:"ignoreDirectoryErrors"`
+	IgnoreUnknownTypes    snapshot.SourceInfo `json:"ignoreUnknownTypes"`
 }
 
 // Merge applies default values from the provided policy.
