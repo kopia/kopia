@@ -152,6 +152,7 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 
 		l1File.Close()
 		l2File.Close()
+
 		serverStarted <- stderr
 		close(serverStarted)
 	}()

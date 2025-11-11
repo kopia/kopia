@@ -112,6 +112,7 @@ func (kpl *KopiaPersisterLight) Cleanup() {
 
 func (kpl *KopiaPersisterLight) waitFor(key string) {
 	kpl.c.L.Lock()
+
 	for kpl.keysInProcess[key] {
 		kpl.c.Wait()
 	}

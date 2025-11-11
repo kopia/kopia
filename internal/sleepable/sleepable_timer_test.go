@@ -100,6 +100,7 @@ func TestTimerStop(t *testing.T) {
 		timer := NewTimer(clock.Now, target)
 		timer.Stop()
 		time.Sleep(20 * time.Millisecond)
+
 		select {
 		case <-timer.C:
 			t.Error("timer triggered after being stopped")
@@ -139,6 +140,7 @@ func TestTimerConcurrentStop(t *testing.T) {
 
 		wg.Wait()
 		time.Sleep(20 * time.Millisecond)
+
 		select {
 		case <-timer.C:
 			t.Error("timer triggered after being stopped")
@@ -154,6 +156,7 @@ func TestTimerEdgeCases(t *testing.T) {
 	t.Run("past time", func(t *testing.T) {
 		start := clock.Now()
 		target := start.Add(-1 * time.Second)
+
 		timer := NewTimer(clock.Now, target)
 		select {
 		case <-timer.C:
@@ -165,6 +168,7 @@ func TestTimerEdgeCases(t *testing.T) {
 	t.Run("exactly now", func(t *testing.T) {
 		start := clock.Now()
 		target := start
+
 		timer := NewTimer(clock.Now, target)
 		select {
 		case <-timer.C:
@@ -176,6 +180,7 @@ func TestTimerEdgeCases(t *testing.T) {
 	t.Run("very long duration", func(t *testing.T) {
 		start := clock.Now()
 		target := start.Add(100 * time.Millisecond) // Use a shorter duration for testing
+
 		timer := NewTimer(clock.Now, target)
 		select {
 		case <-timer.C:
@@ -201,6 +206,7 @@ func TestTimerChannelBehavior(t *testing.T) {
 		<-timer.C
 		<-timer.C
 		<-timer.C
+
 		select {
 		case <-timer.C:
 		default:
@@ -214,6 +220,7 @@ func TestTimerChannelBehavior(t *testing.T) {
 		timer := NewTimer(clock.Now, target)
 		timer.Stop()
 		time.Sleep(20 * time.Millisecond)
+
 		select {
 		case <-timer.C:
 			t.Error("stopped timer channel should not be closed")
