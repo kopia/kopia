@@ -5,6 +5,7 @@ package listcache
 import (
 	"context"
 	"encoding/json"
+	"slices"
 	"strings"
 	"time"
 
@@ -140,13 +141,7 @@ func (s *listCacheStorage) DeleteBlob(ctx context.Context, blobID blob.ID) error
 }
 
 func (s *listCacheStorage) isCachedPrefix(prefix blob.ID) bool {
-	for _, p := range s.prefixes {
-		if prefix == p {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(s.prefixes, prefix)
 }
 
 func (s *listCacheStorage) invalidateAfterUpdate(ctx context.Context, blobID blob.ID) {

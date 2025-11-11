@@ -143,8 +143,7 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 			return errors.Wrap(err, "failed to read file info")
 		}
 
-		if strings.HasSuffix(ent.Name(), simpleIndexSuffix) {
-			n := strings.TrimSuffix(ent.Name(), simpleIndexSuffix)
+		if n, ok := strings.CutSuffix(ent.Name(), simpleIndexSuffix); ok {
 			remaining[blob.ID(n)] = fi
 		}
 	}

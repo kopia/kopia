@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
@@ -643,10 +644,8 @@ func TestSnapshotCreateWithStdinStream(t *testing.T) {
 }
 
 func appendIfMissing(slice []string, i string) []string {
-	for _, ele := range slice {
-		if ele == i {
-			return slice
-		}
+	if slices.Contains(slice, i) {
+		return slice
 	}
 
 	return append(slice, i)

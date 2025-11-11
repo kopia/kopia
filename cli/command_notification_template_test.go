@@ -3,6 +3,7 @@ package cli_test
 import (
 	"context"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -124,10 +125,8 @@ func verifyTemplateContents(t *testing.T, e *testenv.CLITest, templateName strin
 func verifyHasLine(t *testing.T, lines []string, ok func(s string) bool) {
 	t.Helper()
 
-	for _, l := range lines {
-		if ok(l) {
-			return
-		}
+	if slices.ContainsFunc(lines, ok) {
+		return
 	}
 
 	t.Errorf("output line meeting given condition was not found: %v", lines)

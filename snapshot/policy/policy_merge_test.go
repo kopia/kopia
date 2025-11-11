@@ -25,13 +25,13 @@ var omittedDefinitionFields = map[string]bool{
 func TestPolicyDefinition(t *testing.T) {
 	// verify that each field in the policy struct recursively matches a corresponding field
 	// from the policy.Definition() struct.
-	ensureTypesMatch(t, reflect.TypeOf(policy.Policy{}), reflect.TypeOf(policy.Definition{}))
+	ensureTypesMatch(t, reflect.TypeFor[policy.Policy](), reflect.TypeFor[policy.Definition]())
 }
 
 func ensureTypesMatch(t *testing.T, policyType, definitionType reflect.Type) {
 	t.Helper()
 
-	sourceInfoType := reflect.TypeOf(snapshot.SourceInfo{})
+	sourceInfoType := reflect.TypeFor[snapshot.SourceInfo]()
 
 	for i := range policyType.NumField() {
 		f := policyType.Field(i)
@@ -57,7 +57,7 @@ func ensureTypesMatch(t *testing.T, policyType, definitionType reflect.Type) {
 }
 
 func TestPolicyMerge(t *testing.T) {
-	testPolicyMerge(t, reflect.TypeOf(policy.Policy{}), reflect.TypeOf(policy.Definition{}), "")
+	testPolicyMerge(t, reflect.TypeFor[policy.Policy](), reflect.TypeFor[policy.Definition](), "")
 }
 
 //nolint:thelper
