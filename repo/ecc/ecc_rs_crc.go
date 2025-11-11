@@ -351,7 +351,7 @@ func readLength(shards [][]byte, sizes *sizesInfo) (originalSize, startShard, st
 		startShard = 4
 		startByte = 0
 
-		for i := range 4 {
+		for i := range lengthBuffer {
 			lengthBuffer[i] = shards[i][0]
 		}
 
