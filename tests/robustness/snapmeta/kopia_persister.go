@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package snapmeta provides Kopia implementations of Persister and Snapshotter.
 package snapmeta
