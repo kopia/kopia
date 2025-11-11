@@ -790,6 +790,7 @@ func (bm *WriteManager) SupportsContentCompression() bool {
 // that's based on the contents of data written.
 func (bm *WriteManager) WriteContent(ctx context.Context, data gather.Bytes, prefix index.IDPrefix, comp compression.HeaderID) (ID, error) {
 	t0 := timetrack.StartTimer()
+
 	defer func() {
 		bm.writeContentBytes.Observe(int64(data.Length()), t0.Elapsed())
 	}()

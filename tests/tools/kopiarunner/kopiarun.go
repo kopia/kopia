@@ -65,6 +65,7 @@ func (kr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 	argsStr := strings.Join(args, " ")
 	log.Printf("running '%s %v'", kr.Exe, argsStr)
 	ctx := context.Background()
+
 	cmdArgs := append(append([]string(nil), kr.fixedArgs...), args...)
 	c := exec.CommandContext(ctx, kr.Exe, cmdArgs...)
 	c.Env = append(os.Environ(), kr.environment...)
@@ -82,6 +83,7 @@ func (kr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 func (kr *Runner) RunAsync(args ...string) (*exec.Cmd, error) {
 	log.Printf("running async '%s %v'", kr.Exe, strings.Join(args, " "))
 	ctx := context.Background()
+
 	cmdArgs := append(append([]string(nil), kr.fixedArgs...), args...)
 	//nolint:gosec //G204
 	c := exec.CommandContext(ctx, kr.Exe, cmdArgs...)

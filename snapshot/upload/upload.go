@@ -1343,6 +1343,7 @@ func (u *Uploader) uploadDir(
 	}
 
 	estimationCtl := u.startDataSizeEstimation(ctx, entry, policyTree)
+
 	defer func() {
 		estimationCtl.Cancel()
 		estimationCtl.Wait()

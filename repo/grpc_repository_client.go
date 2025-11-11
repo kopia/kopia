@@ -122,6 +122,7 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 		r.activeRequestsMutex.Unlock()
 
 		ch <- msg
+
 		if !msg.GetHasMore() {
 			close(ch)
 		}

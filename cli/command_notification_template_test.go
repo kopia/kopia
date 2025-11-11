@@ -17,6 +17,7 @@ func TestNotificationTemplates(t *testing.T) {
 	t.Parallel()
 
 	runner := testenv.NewInProcRunner(t)
+
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -72,6 +73,7 @@ func TestNotificationTemplates(t *testing.T) {
 
 	// override editor for the next part
 	oldEditor := editor.EditFile
+
 	defer func() { editor.EditFile = oldEditor }()
 
 	invokedSecond := false

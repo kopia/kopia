@@ -100,6 +100,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	for _, s := range sources {
 		// start a new uploader unless already canceled
 		mu.Lock()
+
 		if canceled {
 			mu.Unlock()
 			break
@@ -111,6 +112,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		mu.Unlock()
 
 		wg.Add(1)
+
 		semaphore <- struct{}{}
 
 		go func(s snapshot.SourceInfo) {

@@ -36,6 +36,7 @@ func TestThrottlingSemaphore(t *testing.T) {
 					s.Acquire()
 
 					mu.Lock()
+
 					concurrency++
 
 					if concurrency > maxConcurrency {
@@ -47,6 +48,7 @@ func TestThrottlingSemaphore(t *testing.T) {
 					time.Sleep(10 * time.Millisecond)
 
 					mu.Lock()
+
 					concurrency--
 					mu.Unlock()
 
