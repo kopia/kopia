@@ -81,6 +81,7 @@ linters:
     misspell:
       locale: US
     wsl_v5:
+      allow-whole-block: true
       disable:
         - assign
         - err
