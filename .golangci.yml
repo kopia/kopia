@@ -101,6 +101,7 @@ linters:
     - musttag
     - nilnil
     - nlreturn
+    - noctx
     - noinlineerr # inline error handling is a common Go idiom used in this codebase
     - nonamedreturns
     - paralleltest

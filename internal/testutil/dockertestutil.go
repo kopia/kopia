@@ -7,8 +7,6 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
-
-	"github.com/kopia/kopia/internal/testlogging"
 )
 
 // RunDockerAndGetOutputOrSkip runs Docker and returns the output as a string.
@@ -16,8 +14,7 @@ func RunDockerAndGetOutputOrSkip(tb testing.TB, args ...string) string {
 	tb.Helper()
 	tb.Logf("running docker %v", args)
 
-	ctx := testlogging.Context(tb)
-	c := exec.CommandContext(ctx, "docker", args...)
+	c := exec.Command("docker", args...)
 
 	var stderr bytes.Buffer
 

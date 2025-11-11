@@ -58,8 +58,7 @@ func runAndGetOutput(t *testing.T, cmd string, args ...string) ([]byte, error) {
 
 	var stderr bytes.Buffer
 
-	ctx := testlogging.Context(t)
-	c := exec.CommandContext(ctx, cmd, args...)
+	c := exec.Command(cmd, args...)
 	c.Stderr = &stderr
 
 	o, err := c.Output()
@@ -103,14 +102,12 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 		sftpUsernameWithPasswordAuth+":"+sftpUserPassword+":::upload2")
 	sftpEndpoint := testutil.GetContainerMappedPortAddress(t, shortContainerID, "22")
 
-	ctx := testlogging.Context(t)
-
 	// wait for SFTP server to come up.
 	deadline := clock.Now().Add(dialTimeout)
 	for clock.Now().Before(deadline) {
 		t.Logf("waiting for SFTP server to come up on '%v'...", sftpEndpoint)
 
-		conn, err := (&net.Dialer{Timeout: time.Second}).DialContext(ctx, "tcp", sftpEndpoint)
+		conn, err := net.DialTimeout("tcp", sftpEndpoint, time.Second)
 		if err != nil {
 			t.Logf("err: %v", err)
 			time.Sleep(time.Second)

@@ -465,7 +465,7 @@ func getSFTPClientExternal(ctx context.Context, opt *Options) (*sftpConnection, 
 
 	log(ctx).Debugf("launching external SSH process %v %v", sshCommand, strings.Join(cmdArgs, " "))
 
-	cmd := exec.CommandContext(ctx, sshCommand, cmdArgs...) //nolint:gosec
+	cmd := exec.Command(sshCommand, cmdArgs...) //nolint:gosec
 
 	// send errors from ssh to stderr
 	cmd.Stderr = os.Stderr

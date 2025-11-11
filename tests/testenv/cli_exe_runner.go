@@ -24,7 +24,7 @@ type CLIExeRunner struct {
 func (e *CLIExeRunner) Start(t *testing.T, ctx context.Context, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
 	t.Helper()
 
-	c := exec.CommandContext(ctx, e.Exe, append([]string{
+	c := exec.Command(e.Exe, append([]string{
 		"--log-dir", e.LogsDir,
 	}, args...)...)
 

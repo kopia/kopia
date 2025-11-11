@@ -13,7 +13,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -37,8 +36,7 @@ func TestServerControlSocketActivated(t *testing.T) {
 	// The KOPIA_EXE wrapper will set the LISTEN_PID variable for us
 	env.Environment["LISTEN_FDS"] = "1"
 
-	ctx := testlogging.Context(t)
-	l1, err := (&net.ListenConfig{}).Listen(ctx, "tcp", ":0")
+	l1, err := net.Listen("tcp", ":0")
 	require.NoError(t, err, "Failed to open Listener")
 
 	defer func() {
@@ -116,8 +114,7 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 	// The KOPIA_EXE wrapper will set the LISTEN_PID variable for us
 	env.Environment["LISTEN_FDS"] = "2"
 
-	ctx := testlogging.Context(t)
-	l1, err := (&net.ListenConfig{}).Listen(ctx, "tcp", ":0")
+	l1, err := net.Listen("tcp", ":0")
 	require.NoError(t, err, "Failed to open Listener")
 
 	defer func() {

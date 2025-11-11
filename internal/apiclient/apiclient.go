@@ -224,8 +224,8 @@ func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
 		tp, _ := transport.(*http.Transport)
 		transport = tp.Clone()
 		tp, _ = transport.(*http.Transport)
-		tp.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
-			dial, err := (&net.Dialer{}).DialContext(ctx, "unix", u.Path)
+		tp.DialContext = func(_ context.Context, _, _ string) (net.Conn, error) {
+			dial, err := net.Dial("unix", u.Path)
 			return dial, errors.Wrap(err, "Failed to connect to socket: "+options.BaseURL)
 		}
 	}
