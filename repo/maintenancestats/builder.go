@@ -68,6 +68,8 @@ func BuildFromExtra(stats Extra) (Summarizer, error) {
 		result = &CleanupLogsStats{}
 	case rewriteContentsStatsKind:
 		result = &RewriteContentsStats{}
+	case snapshotGCStatsKind:
+		result = &SnapshotGCStats{}
 	default:
 		return nil, errors.Wrapf(ErrUnSupportedStatKindError, "invalid kind for stats %v", stats)
 	}

@@ -134,6 +134,32 @@ func TestBuildExtraSuccess(t *testing.T) {
 				Data: []byte(`{"toRewriteContentCount":30,"toRewriteContentSize":3092,"rewrittenContentCount":10,"rewrittenContentSize":1024,"retainedContentCount":20,"retainedContentSize":2048}`),
 			},
 		},
+		{
+			name: "SnapshotGCStats",
+			stats: &SnapshotGCStats{
+				UnreferencedContentCount:       10,
+				UnreferencedContentSize:        1024,
+				DeletedContentCount:            5,
+				DeletedContentSize:             512,
+				InUseContentCount:              20,
+				InUseContentSize:               2048,
+				InUseSystemContentCount:        1,
+				InUseSystemContentSize:         128,
+				UnreferencedRecentContentCount: 30,
+				UnreferencedRecentContentSize:  3072,
+				RecoveredContentCount:          40,
+				RecoveredContentSize:           4096,
+			},
+			expected: Extra{
+				Kind: snapshotGCStatsKind,
+				Data: []byte(`{"unreferencedContentCount":10,"unreferencedContentSize":1024,` +
+					`"deletedContentCount":5,"deletedContentSize":512,` +
+					`"unreferencedRecentContentCount":30,"unreferencedRecentContentSize":3072,` +
+					`"inUseContentCount":20,"inUseContentSize":2048,` +
+					`"inUseSystemContentCount":1,"inUseSystemContentSize":128,` +
+					`"recoveredContentCount":40,"recoveredContentSize":4096}`),
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -301,6 +327,32 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 				RewrittenContentSize:  1024,
 				RetainedContentCount:  20,
 				RetainedContentSize:   2048,
+			},
+		},
+		{
+			name: "SnapshotGCStats",
+			stats: Extra{
+				Kind: snapshotGCStatsKind,
+				Data: []byte(`{"unreferencedContentCount":10,"unreferencedContentSize":1024,` +
+					`"deletedContentCount":5,"deletedContentSize":512,` +
+					`"unreferencedRecentContentCount":30,"unreferencedRecentContentSize":3072,` +
+					`"inUseContentCount":20,"inUseContentSize":2048,` +
+					`"inUseSystemContentCount":1,"inUseSystemContentSize":128,` +
+					`"recoveredContentCount":40,"recoveredContentSize":4096}`),
+			},
+			expected: &SnapshotGCStats{
+				UnreferencedContentCount:       10,
+				UnreferencedContentSize:        1024,
+				DeletedContentCount:            5,
+				DeletedContentSize:             512,
+				InUseContentCount:              20,
+				InUseContentSize:               2048,
+				InUseSystemContentCount:        1,
+				InUseSystemContentSize:         128,
+				UnreferencedRecentContentCount: 30,
+				UnreferencedRecentContentSize:  3072,
+				RecoveredContentCount:          40,
+				RecoveredContentSize:           4096,
 			},
 		},
 	}
