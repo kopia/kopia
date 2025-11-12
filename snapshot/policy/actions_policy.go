@@ -5,18 +5,18 @@ import "github.com/kopia/kopia/snapshot"
 // ActionsPolicy describes actions to be invoked when taking snapshots.
 type ActionsPolicy struct {
 	// command runs once before and after the folder it's attached to (not inherited).
-	BeforeFolder *ActionCommand `json:"beforeFolder,omitempty"`
-	AfterFolder  *ActionCommand `json:"afterFolder,omitempty"`
+	BeforeFolder *ActionCommand `json:"beforeFolder,omitzero"`
+	AfterFolder  *ActionCommand `json:"afterFolder,omitzero"`
 
 	// commands run once before and after each snapshot root (can be inherited).
-	BeforeSnapshotRoot *ActionCommand `json:"beforeSnapshotRoot,omitempty"`
-	AfterSnapshotRoot  *ActionCommand `json:"afterSnapshotRoot,omitempty"`
+	BeforeSnapshotRoot *ActionCommand `json:"beforeSnapshotRoot,omitzero"`
+	AfterSnapshotRoot  *ActionCommand `json:"afterSnapshotRoot,omitzero"`
 }
 
 // ActionsPolicyDefinition specifies which policy definition provided the value of a particular field.
 type ActionsPolicyDefinition struct {
-	BeforeSnapshotRoot snapshot.SourceInfo `json:"beforeSnapshotRoot,omitempty"`
-	AfterSnapshotRoot  snapshot.SourceInfo `json:"afterSnapshotRoot,omitempty"`
+	BeforeSnapshotRoot snapshot.SourceInfo `json:"beforeSnapshotRoot,omitzero"`
+	AfterSnapshotRoot  snapshot.SourceInfo `json:"afterSnapshotRoot,omitzero"`
 }
 
 // ActionCommand configures a action command.
