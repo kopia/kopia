@@ -23,6 +23,7 @@ func newpgzipCompressor(id HeaderID, level int) Compressor {
 		New: func() any {
 			w, err := pgzip.NewWriterLevel(bytes.NewBuffer(nil), level)
 			mustSucceed(err)
+
 			return w
 		},
 	}}

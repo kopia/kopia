@@ -93,6 +93,7 @@ func functions(opt Options) template.FuncMap {
 			sort.Slice(res, func(i, j int) bool {
 				return res[i].Manifest.Source.String() < res[j].Manifest.Source.String()
 			})
+
 			return res
 		},
 		"formatTime": func(t time.Time) string {
