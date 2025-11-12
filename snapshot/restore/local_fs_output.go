@@ -109,6 +109,12 @@ type FilesystemOutput struct {
 	// copier is the StreamCopier to use for copying the actual bit stream to output.
 	// It is assigned at runtime based on the target filesystem and restore options.
 	copier streamCopier `json:"-"`
+
+	// Indicate whether or not flush files after restore.
+	// Varying from OS, the copier may write the file data to the system cache,
+	// so the data may not be written to disk when the restore to the file completes.
+	// This flag guarantees the file data is flushed to disk.
+	FlushFiles bool `json:"flushFiles"`
 }
 
 // Init initializes the internal members of the filesystem writer output.
@@ -373,7 +379,7 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
+func write(targetPath string, r fs.Reader, size int64, flush bool, c streamCopier) error {
 	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,mnd
 	if err != nil {
 		return err //nolint:wrapcheck
@@ -391,8 +397,10 @@ func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
 		return errors.Wrapf(err, "cannot write data to file %q", f.Name())
 	}
 
-	if err := f.Sync(); err != nil {
-		return errors.Wrapf(err, "cannot flush file %q", f.Name())
+	if flush {
+		if err := f.Sync(); err != nil {
+			return errors.Wrapf(err, "cannot flush file %q", f.Name())
+		}
 	}
 
 	if err := f.Close(); err != nil {
@@ -434,7 +442,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		return atomicfile.Write(targetPath, rr)
 	}
 
-	return write(targetPath, rr, f.Size(), o.copier)
+	return write(targetPath, rr, f.Size(), o.FlushFiles, o.copier)
 }
 
 func isEmptyDirectory(name string) (bool, error) {
