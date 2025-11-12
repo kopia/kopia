@@ -12,7 +12,7 @@ type SplitterPolicy struct {
 
 // SplitterPolicyDefinition specifies which policy definition provided the value of a particular field.
 type SplitterPolicyDefinition struct {
-	Algorithm snapshot.SourceInfo `json:"algorithm"`
+	Algorithm snapshot.SourceInfo `json:"algorithm,omitempty"`
 }
 
 // SplitterForFile returns splitter algorithm.

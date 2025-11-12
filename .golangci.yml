@@ -80,6 +80,9 @@ linters:
         - (*go.uber.org/zap.SugaredLogger).With
     misspell:
       locale: US
+    modernize:
+      disable:
+        - omitzero
     wsl_v5:
       allow-whole-block: true
       disable:

@@ -10,8 +10,8 @@ type DirLoggingPolicy struct {
 
 // DirLoggingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type DirLoggingPolicyDefinition struct {
-	Snapshotted snapshot.SourceInfo `json:"snapshotted"`
-	Ignored     snapshot.SourceInfo `json:"ignored"`
+	Snapshotted snapshot.SourceInfo `json:"snapshotted,omitempty"`
+	Ignored     snapshot.SourceInfo `json:"ignored,omitempty"`
 }
 
 // Merge merges the provided directory logging policy.
@@ -30,10 +30,10 @@ type EntryLoggingPolicy struct {
 
 // EntryLoggingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type EntryLoggingPolicyDefinition struct {
-	Snapshotted snapshot.SourceInfo `json:"snapshotted"`
-	Ignored     snapshot.SourceInfo `json:"ignored"`
-	CacheHit    snapshot.SourceInfo `json:"cacheHit"`
-	CacheMiss   snapshot.SourceInfo `json:"cacheMiss"`
+	Snapshotted snapshot.SourceInfo `json:"snapshotted,omitempty"`
+	Ignored     snapshot.SourceInfo `json:"ignored,omitempty"`
+	CacheHit    snapshot.SourceInfo `json:"cacheHit,omitempty"`
+	CacheMiss   snapshot.SourceInfo `json:"cacheMiss,omitempty"`
 }
 
 // Merge merges the provided entry logging policy.
@@ -46,14 +46,14 @@ func (p *EntryLoggingPolicy) Merge(src EntryLoggingPolicy, def *EntryLoggingPoli
 
 // LoggingPolicy describes policy for emitting logs during snapshots.
 type LoggingPolicy struct {
-	Directories DirLoggingPolicy   `json:"directories"`
-	Entries     EntryLoggingPolicy `json:"entries"`
+	Directories DirLoggingPolicy   `json:"directories,omitempty"`
+	Entries     EntryLoggingPolicy `json:"entries,omitempty"`
 }
 
 // LoggingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type LoggingPolicyDefinition struct {
-	Directories DirLoggingPolicyDefinition   `json:"directories"`
-	Entries     EntryLoggingPolicyDefinition `json:"entries"`
+	Directories DirLoggingPolicyDefinition   `json:"directories,omitempty"`
+	Entries     EntryLoggingPolicyDefinition `json:"entries,omitempty"`
 }
 
 // Merge applies default values from the provided policy.

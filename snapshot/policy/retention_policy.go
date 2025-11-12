@@ -32,13 +32,13 @@ type RetentionPolicy struct {
 
 // RetentionPolicyDefinition specifies which policy definition provided the value of a particular field.
 type RetentionPolicyDefinition struct {
-	KeepLatest               snapshot.SourceInfo `json:"keepLatest"`
-	KeepHourly               snapshot.SourceInfo `json:"keepHourly"`
-	KeepDaily                snapshot.SourceInfo `json:"keepDaily"`
-	KeepWeekly               snapshot.SourceInfo `json:"keepWeekly"`
-	KeepMonthly              snapshot.SourceInfo `json:"keepMonthly"`
-	KeepAnnual               snapshot.SourceInfo `json:"keepAnnual"`
-	IgnoreIdenticalSnapshots snapshot.SourceInfo `json:"ignoreIdenticalSnapshots"`
+	KeepLatest               snapshot.SourceInfo `json:"keepLatest,omitempty"`
+	KeepHourly               snapshot.SourceInfo `json:"keepHourly,omitempty"`
+	KeepDaily                snapshot.SourceInfo `json:"keepDaily,omitempty"`
+	KeepWeekly               snapshot.SourceInfo `json:"keepWeekly,omitempty"`
+	KeepMonthly              snapshot.SourceInfo `json:"keepMonthly,omitempty"`
+	KeepAnnual               snapshot.SourceInfo `json:"keepAnnual,omitempty"`
+	IgnoreIdenticalSnapshots snapshot.SourceInfo `json:"ignoreIdenticalSnapshots,omitempty"`
 }
 
 // ComputeRetentionReasons computes the reasons why each snapshot is retained, based on
