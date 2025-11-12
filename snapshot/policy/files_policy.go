@@ -4,9 +4,9 @@ import "github.com/kopia/kopia/snapshot"
 
 // FilesPolicy describes files to be ignored when taking snapshots.
 type FilesPolicy struct {
-	IgnoreRules            []string      `json:"ignore,omitzero"`
+	IgnoreRules            []string      `json:"ignore,omitempty"`
 	NoParentIgnoreRules    bool          `json:"noParentIgnore,omitzero"`
-	DotIgnoreFiles         []string      `json:"ignoreDotFiles,omitzero"`
+	DotIgnoreFiles         []string      `json:"ignoreDotFiles,omitempty"`
 	NoParentDotIgnoreFiles bool          `json:"noParentDotFiles,omitzero"`
 	IgnoreCacheDirectories *OptionalBool `json:"ignoreCacheDirs,omitzero"`
 	MaxFileSize            int64         `json:"maxFileSize,omitzero"`
@@ -15,9 +15,9 @@ type FilesPolicy struct {
 
 // FilesPolicyDefinition specifies which policy definition provided the value of a particular field.
 type FilesPolicyDefinition struct {
-	IgnoreRules            snapshot.SourceInfo `json:"ignore,omitzero"`
+	IgnoreRules            snapshot.SourceInfo `json:"ignore,omitempty"`
 	NoParentIgnoreRules    snapshot.SourceInfo `json:"noParentIgnore,omitzero"`
-	DotIgnoreFiles         snapshot.SourceInfo `json:"ignoreDotFiles,omitzero"`
+	DotIgnoreFiles         snapshot.SourceInfo `json:"ignoreDotFiles,omitempty"`
 	NoParentDotIgnoreFiles snapshot.SourceInfo `json:"noParentDotFiles,omitzero"`
 	IgnoreCacheDirectories snapshot.SourceInfo `json:"ignoreCacheDirs,omitzero"`
 	MaxFileSize            snapshot.SourceInfo `json:"maxFileSize,omitzero"`
