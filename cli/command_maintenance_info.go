@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -123,16 +124,16 @@ func getMessageFromRun(extra []maintenancestats.Extra) string {
 		return succeed
 	}
 
-	extraStr := ""
+	var extraStr strings.Builder
 
 	for _, e := range extra {
 		if msg, err := maintenancestats.BuildFromExtra(e); err == nil {
-			extraStr += msg.Summary()
+			extraStr.WriteString(msg.Summary())
 		}
 	}
 
-	if extraStr != "" {
-		succeed = ": " + extraStr
+	if extraStr.Len() > 0 {
+		succeed = ": " + extraStr.String()
 	}
 
 	return succeed

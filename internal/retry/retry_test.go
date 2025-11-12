@@ -37,6 +37,7 @@ func TestRetry(t *testing.T) {
 			if cnt < 2 {
 				return 0, errRetriable
 			}
+
 			return 4, nil
 		}, 4, nil},
 		{"retriable-never-succeeds", func() (int, error) { return 0, errRetriable }, 0, errors.New("unable to complete retriable-never-succeeds despite 3 retries")},

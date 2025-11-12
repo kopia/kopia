@@ -1052,6 +1052,7 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 				id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100))
 
 				workerLock.RLock()
+
 				workerWritten[workerID] = append(workerWritten[workerID], id)
 				workerLock.RUnlock()
 			}

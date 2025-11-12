@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"path"
+	"slices"
 
 	"github.com/pkg/errors"
 
@@ -28,12 +29,10 @@ func (c *commandSnapshotFixRemoveFiles) setup(svc appServices, parent commandPar
 }
 
 func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, pathFromRoot string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
-	for _, id := range c.removeObjectIDs {
-		if ent.ObjectID.String() == id {
-			log(ctx).Infof("will remove file %v", pathFromRoot)
+	if slices.Contains(c.removeObjectIDs, ent.ObjectID.String()) {
+		log(ctx).Infof("will remove file %v", pathFromRoot)
 
-			return nil, nil
-		}
+		return nil, nil
 	}
 
 	for _, n := range c.removeFilesByName {

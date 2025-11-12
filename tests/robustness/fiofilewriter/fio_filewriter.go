@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package fiofilewriter provides a FileWriter based on FIO.
 package fiofilewriter

@@ -110,6 +110,7 @@ func TestWaitForActiveWorkers(t *testing.T) {
 			results <- 2
 			return nil
 		})
+
 		results <- 1
 
 		return nil
