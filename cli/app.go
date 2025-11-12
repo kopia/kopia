@@ -261,6 +261,7 @@ func (c *App) setup(app *kingpin.Application) {
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(func(pc *kingpin.ParseContext) error {
 		_ = app.UsageForContextWithTemplate(pc, 0, kingpin.DefaultUsageTemplate)
 		c.exitWithError(nil)
+
 		return nil
 	}).Bool()
 

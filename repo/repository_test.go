@@ -611,6 +611,7 @@ func TestWriteSessionFlushOnSuccess(t *testing.T) {
 					afterFlushCount.Add(1)
 					return nil
 				})
+
 				return nil
 			})
 		},
@@ -672,6 +673,7 @@ func TestWriteSessionFlushOnSuccessClient(t *testing.T) {
 					afterFlushCount.Add(1)
 					return nil
 				})
+
 				return nil
 			},
 		},

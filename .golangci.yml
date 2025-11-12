@@ -86,7 +86,6 @@ linters:
         - assign
         - err
         - expr
-        - return
 
   default: all
   disable:
@@ -99,8 +98,9 @@ linters:
     - importas
     - ireturn # this one may be interesting to control allocations
     - musttag
+    - nakedret # already enforced by gofumpt in a stricter manner
     - nilnil
-    - nlreturn
+    - nlreturn # already enforced by wsl_v5
     - noctx
     - noinlineerr # inline error handling is a common Go idiom used in this codebase
     - nonamedreturns
