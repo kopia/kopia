@@ -22,6 +22,7 @@ func newGZipCompressor(id HeaderID, level int) Compressor {
 		New: func() any {
 			w, err := gzip.NewWriterLevel(io.Discard, level)
 			mustSucceed(err)
+
 			return w
 		},
 	}}

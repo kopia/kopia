@@ -133,7 +133,7 @@ func (s *formatSpecificTestSuite) TestPackingSimple(t *testing.T) {
 	verify(ctx, t, env.RepositoryWriter, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, env.RepositoryWriter, oid3a, []byte(content3), "packed-object-3")
 
-	if err := env.RepositoryWriter.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := env.RepositoryWriter.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 
@@ -143,7 +143,7 @@ func (s *formatSpecificTestSuite) TestPackingSimple(t *testing.T) {
 	verify(ctx, t, env.RepositoryWriter, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, env.RepositoryWriter, oid3a, []byte(content3), "packed-object-3")
 
-	if err := env.RepositoryWriter.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := env.RepositoryWriter.ContentManager().CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 
@@ -611,6 +611,7 @@ func TestWriteSessionFlushOnSuccess(t *testing.T) {
 					afterFlushCount.Add(1)
 					return nil
 				})
+
 				return nil
 			})
 		},
@@ -672,6 +673,7 @@ func TestWriteSessionFlushOnSuccessClient(t *testing.T) {
 					afterFlushCount.Add(1)
 					return nil
 				})
+
 				return nil
 			},
 		},

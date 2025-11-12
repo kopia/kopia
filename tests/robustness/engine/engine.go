@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package engine provides the framework for a snapshot repository testing engine
 package engine

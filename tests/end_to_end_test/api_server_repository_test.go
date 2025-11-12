@@ -2,6 +2,7 @@ package endtoend_test
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/apiclient"
@@ -252,6 +254,9 @@ func testAPIServerRepository(t *testing.T, allowRepositoryUsers bool) {
 
 	wait2()
 
+	// wait for the logs to be uploaded
+	verifyServerJSONLogs(t, e.RunAndExpectSuccess(t, "logs", "show", "--younger-than=2h"))
+
 	// open repository client to a dead server, this should fail quickly instead of retrying forever.
 	timer := timetrack.StartTimer()
 
@@ -265,6 +270,30 @@ func testAPIServerRepository(t *testing.T, allowRepositoryUsers bool) {
 
 	//nolint:forbidigo
 	require.Less(t, timer.Elapsed(), 15*time.Second)
+}
+
+func verifyServerJSONLogs(t require.TestingT, s []string) {
+	clientSpans := make(map[string]int)
+	remoteSessionSpans := make(map[string]int)
+
+	for _, l := range s {
+		var logLine map[string]any
+
+		json.Unmarshal([]byte(l), &logLine)
+
+		if s, ok := logLine["span:client"].(string); ok {
+			clientSpans[s]++
+		}
+
+		if s, ok := logLine["span:server-session"].(string); ok {
+			remoteSessionSpans[s]++
+		}
+	}
+
+	// there should be 2 client session (initial setup + server),
+	// at least 3 remote sessions (GRPC clients) - may be more due to transparent retries
+	assert.Len(t, clientSpans, 2)
+	assert.GreaterOrEqual(t, len(remoteSessionSpans), 3)
 }
 
 func verifyFindManifestCount(ctx context.Context, t *testing.T, rep repo.Repository, pageSize int32, labels map[string]string, wantCount int) {

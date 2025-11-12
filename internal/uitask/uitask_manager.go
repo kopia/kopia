@@ -106,14 +106,7 @@ func (m *Manager) WaitForTask(ctx context.Context, taskID string, maxWaitTime ti
 
 	deadline := clock.Now().Add(maxWaitTime)
 
-	sleepInterval := maxWaitTime / 10 //nolint:mnd
-	if sleepInterval > maxWaitInterval {
-		sleepInterval = maxWaitInterval
-	}
-
-	if sleepInterval < minWaitInterval {
-		sleepInterval = minWaitInterval
-	}
+	sleepInterval := max(min(maxWaitTime/10, maxWaitInterval), minWaitInterval) //nolint:mnd
 
 	for maxWaitTime < 0 || clock.Now().Before(deadline) {
 		if !clock.SleepInterruptibly(ctx, sleepInterval) {

@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 package snapmeta
 
@@ -93,14 +92,14 @@ func (ks *KopiaSnapshotter) ServerFingerprint() string {
 func (ks *KopiaSnapshotter) CreateSnapshot(ctx context.Context, sourceDir string, opts map[string]string) (snapID string, fingerprint []byte, snapStats *robustness.CreateSnapshotStats, err error) {
 	fingerprint, err = ks.comparer.Gather(ctx, sourceDir, opts)
 	if err != nil {
-		return
+		return snapID, fingerprint, snapStats, err
 	}
 
 	ssStart := clock.Now()
 
 	snapID, err = ks.snap.CreateSnapshot(sourceDir)
 	if err != nil {
-		return
+		return snapID, fingerprint, snapStats, err
 	}
 
 	ssEnd := clock.Now()
@@ -110,7 +109,7 @@ func (ks *KopiaSnapshotter) CreateSnapshot(ctx context.Context, sourceDir string
 		SnapEndTime:   ssEnd,
 	}
 
-	return
+	return snapID, fingerprint, snapStats, err
 }
 
 // RestoreSnapshot restores the snapshot with the given ID to the provided restore directory. It returns
@@ -118,7 +117,7 @@ func (ks *KopiaSnapshotter) CreateSnapshot(ctx context.Context, sourceDir string
 func (ks *KopiaSnapshotter) RestoreSnapshot(ctx context.Context, snapID, restoreDir string, opts map[string]string) (fingerprint []byte, err error) {
 	err = ks.snap.RestoreSnapshot(snapID, restoreDir)
 	if err != nil {
-		return
+		return fingerprint, err
 	}
 
 	return ks.comparer.Gather(ctx, restoreDir, opts)

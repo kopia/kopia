@@ -351,7 +351,7 @@ func readLength(shards [][]byte, sizes *sizesInfo) (originalSize, startShard, st
 		startShard = 4
 		startByte = 0
 
-		for i := range 4 {
+		for i := range lengthBuffer {
 			lengthBuffer[i] = shards[i][0]
 		}
 
@@ -384,8 +384,7 @@ func readLength(shards [][]byte, sizes *sizesInfo) (originalSize, startShard, st
 
 	originalSize = int(binary.BigEndian.Uint32(lengthBuffer[:]))
 
-	//nolint:nakedret
-	return
+	return originalSize, startShard, startByte
 }
 
 // Overhead should not be called. It's just implemented because it is in the interface.

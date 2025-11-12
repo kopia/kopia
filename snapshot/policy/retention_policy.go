@@ -261,7 +261,7 @@ func prefixSuffix(s string) (prefix, suffix string) {
 		suffix = s[p+1:]
 	}
 
-	return
+	return prefix, suffix
 }
 
 func appendRLE(out []string, prefix string, numbers []int) []string {

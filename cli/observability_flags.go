@@ -22,8 +22,10 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	oteltrace "go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -41,7 +43,8 @@ var metricsPushFormats = map[string]expfmt.Format{
 }
 
 type observabilityFlags struct {
-	enablePProf         bool
+	dumpAllocatorStats  bool
+	enablePProfEndpoint bool
 	metricsListenAddr   string
 	metricsPushAddr     string
 	metricsJob          string
@@ -62,8 +65,9 @@ type observabilityFlags struct {
 }
 
 func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
+	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(svc.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
 	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
-	app.Flag("enable-pprof", "Expose pprof handlers").Hidden().BoolVar(&c.enablePProf)
+	app.Flag("enable-pprof", "Expose pprof handlers").Hidden().BoolVar(&c.enablePProfEndpoint)
 
 	// push gateway parameters
 	app.Flag("metrics-push-addr", "Address of push gateway").Envar(svc.EnvName("KOPIA_METRICS_PUSH_ADDR")).Hidden().StringVar(&c.metricsPushAddr)
@@ -108,7 +112,26 @@ func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
 	return nil
 }
 
-func (c *observabilityFlags) startMetrics(ctx context.Context) error {
+// spanName specifies the name of the span at the start of a trace. A tracer is
+// started only when spanName is not empty.
+func (c *observabilityFlags) run(ctx context.Context, spanName string, f func(context.Context) error) error {
+	if err := c.start(ctx); err != nil {
+		return errors.Wrap(err, "unable to start observability facilities")
+	}
+
+	defer c.stop(ctx)
+
+	if spanName != "" {
+		tctx, span := tracer.Start(ctx, spanName, oteltrace.WithSpanKind(oteltrace.SpanKindClient))
+		ctx = tctx
+
+		defer span.End()
+	}
+
+	return f(ctx)
+}
+
+func (c *observabilityFlags) start(ctx context.Context) error {
 	c.maybeStartListener(ctx)
 
 	if err := c.maybeStartMetricsPusher(ctx); err != nil {
@@ -136,7 +159,7 @@ func (c *observabilityFlags) maybeStartListener(ctx context.Context) {
 	m := mux.NewRouter()
 	initPrometheus(m)
 
-	if c.enablePProf {
+	if c.enablePProfEndpoint {
 		m.HandleFunc("/debug/pprof/", pprof.Index)
 		m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		m.HandleFunc("/debug/pprof/profile", pprof.Profile)
@@ -222,7 +245,11 @@ func (c *observabilityFlags) maybeStartTraceExporter(ctx context.Context) error 
 	return nil
 }
 
-func (c *observabilityFlags) stopMetrics(ctx context.Context) {
+func (c *observabilityFlags) stop(ctx context.Context) {
+	if c.dumpAllocatorStats {
+		gather.DumpStats(ctx)
+	}
+
 	if c.stopPusher != nil {
 		close(c.stopPusher)
 

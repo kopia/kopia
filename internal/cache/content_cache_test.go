@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"slices"
-	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -345,9 +344,7 @@ func verifyStorageContentList(t *testing.T, st cache.Storage, expectedContents .
 		return nil
 	}))
 
-	sort.Slice(foundContents, func(i, j int) bool {
-		return foundContents[i] < foundContents[j]
-	})
+	slices.Sort(foundContents)
 
 	assert.Equal(t, expectedContents, foundContents, "unexpected content list")
 }

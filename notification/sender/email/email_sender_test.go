@@ -20,6 +20,7 @@ func TestEmailProvider(t *testing.T) {
 		LogServerActivity: true,
 		LogToStdout:       true,
 	})
+
 	require.NoError(t, srv.Start())
 	defer srv.Stop()
 
@@ -83,6 +84,7 @@ func TestEmailProvider_Text(t *testing.T) {
 		LogServerActivity: true,
 		LogToStdout:       true,
 	})
+
 	require.NoError(t, srv.Start())
 	defer srv.Stop()
 
@@ -144,6 +146,7 @@ func TestEmailProvider_AUTH(t *testing.T) {
 		LogServerActivity: true,
 		LogToStdout:       true,
 	})
+
 	require.NoError(t, srv.Start())
 	defer srv.Stop()
 

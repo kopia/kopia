@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package storagestats contains logging mechanism
 // log disk space consumed by directories created by

@@ -288,20 +288,26 @@ hide_summary: true
 
 `, title, title)
 
-	flagSummary := ""
-	argSummary := ""
+	var (
+		argSummary  strings.Builder
+		flagSummary strings.Builder
+	)
 
 	for _, a := range cmd.Args {
 		if a.Required {
-			argSummary += " <" + a.Name + ">"
+			argSummary.WriteString(" <")
+			argSummary.WriteString(a.Name)
+			argSummary.WriteRune('>')
 		} else {
-			argSummary += " [" + a.Name + "]"
+			argSummary.WriteString(" [")
+			argSummary.WriteString(a.Name)
+			argSummary.WriteRune(']')
 		}
 	}
 
 	for _, fl := range cmd.Flags {
 		if fl.Required {
-			flagSummary += " \\\n        --" + fl.Name + "=..."
+			flagSummary.WriteString(" \\\n        --" + fl.Name + "=...")
 		}
 	}
 

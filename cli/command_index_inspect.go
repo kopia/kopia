@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -134,13 +135,7 @@ func (c *commandIndexInspect) shouldInclude(ci content.Info) bool {
 
 	contentID := ci.ContentID.String()
 
-	for _, cid := range c.contentIDs {
-		if cid == contentID {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(c.contentIDs, contentID)
 }
 
 type indexBlobPlusContentInfo struct {

@@ -4,6 +4,7 @@ package feature
 
 import (
 	"fmt"
+	"slices"
 )
 
 // IfNotUnderstood describes the behavior of Kopia when a required feature is not understood.
@@ -58,11 +59,5 @@ func GetUnsupportedFeatures(required []Required, supported []Feature) []Required
 }
 
 func isSupported(req Required, supported []Feature) bool {
-	for _, s := range supported {
-		if req.Feature == s {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(supported, req.Feature)
 }

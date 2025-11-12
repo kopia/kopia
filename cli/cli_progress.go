@@ -29,7 +29,7 @@ type progressFlags struct {
 }
 
 func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
-	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
+	app.Flag("progress", "Enable progress output").Default("true").BoolVar(&p.enableProgress)
 	app.Flag("progress-estimation-type", "Set type of estimation of the data to be snapshotted").Hidden().Default(upload.EstimationTypeClassic).
 		EnumVar(&p.progressEstimationType, upload.EstimationTypeClassic, upload.EstimationTypeRough, upload.EstimationTypeAdaptive)
 	app.Flag("progress-update-interval", "How often to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
@@ -206,7 +206,6 @@ func (p *cliProgress) spinnerCharacter() string {
 	return s
 }
 
-// +checklocksignore.
 func (p *cliProgress) StartShared() {
 	*p = cliProgress{
 		uploadStartTime: timetrack.Start(),
@@ -222,7 +221,6 @@ func (p *cliProgress) FinishShared() {
 	p.output(defaultColor, "")
 }
 
-// +checklocksignore.
 func (p *cliProgress) UploadStarted() {
 	if p.shared {
 		// do nothing

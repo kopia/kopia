@@ -184,7 +184,7 @@ func main() {
 
 	var errorCount int
 
-	for _, toolNameVersion := range strings.Split(*tool, ",") {
+	for toolNameVersion := range strings.SplitSeq(*tool, ",") {
 		parts := strings.Split(toolNameVersion, ":")
 
 		//nolint:mnd

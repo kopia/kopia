@@ -100,6 +100,7 @@ func (c *PersistentCache) getPartialCacheHit(ctx context.Context, key string, le
 	c.reportHitBytes(int64(output.Length()))
 
 	mtime, err := c.cacheStorage.TouchBlob(ctx, blob.ID(key), c.sweep.TouchThreshold)
+
 	c.listCacheMutex.Lock()
 	defer c.listCacheMutex.Unlock()
 

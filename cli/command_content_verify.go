@@ -81,6 +81,7 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 			}
 
 			verifiedCount := vps.SuccessCount + vps.ErrorCount
+
 			timings, ok := est.Estimate(float64(verifiedCount), float64(totalCount.Load()))
 			if ok {
 				log(ctx).Infof("  Verified %v of %v contents (%.1f%%), %v errors, remaining %v, ETA %v",

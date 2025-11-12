@@ -125,12 +125,12 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 	sm := rep.ContentManager().SharedManager
 
-	indexBlobInfos0, _, err := sm.IndexReaderV0().ListIndexBlobInfos(ctx)
+	indexBlobInfos0, err := sm.IndexReaderV0().ListIndexBlobInfos(ctx)
 	if err != nil {
 		return errors.Wrapf(err, "failed to list index blobs for old index")
 	}
 
-	indexBlobInfos1, _, err := sm.IndexReaderV1().ListIndexBlobInfos(ctx)
+	indexBlobInfos1, err := sm.IndexReaderV1().ListIndexBlobInfos(ctx)
 	if err != nil {
 		log(ctx).Errorf("failed to list index blobs for new index. upgrade may have failed.: %v", err)
 		return nil

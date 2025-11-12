@@ -64,9 +64,9 @@ func parseShardSpec(shards string) ([]int, error) {
 		return result, nil
 	}
 
-	parts := strings.Split(shards, ",")
+	parts := strings.SplitSeq(shards, ",")
 
-	for _, p := range parts {
+	for p := range parts {
 		if p == "" {
 			continue
 		}
@@ -236,8 +236,8 @@ func (c *commandBlobShardsModify) renameBlobs(ctx context.Context, dir, prefix s
 			if err := c.renameBlobs(ctx, path.Join(dir, ent.Name()), prefix+ent.Name(), params, numMoved, numUnchanged); err != nil {
 				return err
 			}
-		} else if strings.HasSuffix(ent.Name(), sharded.CompleteBlobSuffix) {
-			blobID := prefix + strings.TrimSuffix(ent.Name(), sharded.CompleteBlobSuffix)
+		} else if name, ok := strings.CutSuffix(ent.Name(), sharded.CompleteBlobSuffix); ok {
+			blobID := prefix + name
 
 			destDir, destBlobID := params.GetShardDirectoryAndBlob(c.rootPath, blob.ID(blobID))
 			srcFile := path.Join(dir, ent.Name())

@@ -317,11 +317,11 @@ func parseSnapID(lines []string) (string, error) {
 func parseSnapshotListForSnapshotIDs(output string) []string {
 	var ret []string
 
-	lines := strings.Split(output, "\n")
-	for _, l := range lines {
-		fields := strings.Fields(l)
+	lines := strings.SplitSeq(output, "\n")
+	for l := range lines {
+		fields := strings.FieldsSeq(l)
 
-		for _, f := range fields {
+		for f := range fields {
 			spl := strings.Split(f, "manifest:")
 			if len(spl) == 2 { //nolint:mnd
 				ret = append(ret, spl[1])
@@ -335,8 +335,8 @@ func parseSnapshotListForSnapshotIDs(output string) []string {
 func parseManifestListForSnapshotIDs(output string) []string {
 	var ret []string
 
-	lines := strings.Split(output, "\n")
-	for _, l := range lines {
+	lines := strings.SplitSeq(output, "\n")
+	for l := range lines {
 		fields := strings.Fields(l)
 
 		typeFieldIdx := 5

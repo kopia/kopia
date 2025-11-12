@@ -6,11 +6,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobcrypto"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/content/indexblob"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // Refresh reloads the committed content indexes.
@@ -18,7 +21,7 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 	sm.indexesLock.Lock()
 	defer sm.indexesLock.Unlock()
 
-	sm.log.Debug("Refresh started")
+	timer := timetrack.StartTimer()
 
 	ibm, err := sm.indexBlobManager(ctx)
 	if err != nil {
@@ -27,38 +30,44 @@ func (sm *SharedManager) Refresh(ctx context.Context) error {
 
 	ibm.Invalidate()
 
-	timer := timetrack.StartTimer()
-
 	err = sm.loadPackIndexesLocked(ctx)
-	sm.log.Debugf("Refresh completed in %v", timer.Elapsed())
+
+	contentlog.Log2(ctx, sm.log, "refreshIndexes",
+		logparam.Duration("latency", timer.Elapsed()),
+		logparam.Error("error", err))
 
 	return err
 }
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
-func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.CompactOptions) error {
+func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.CompactOptions) (*maintenancestats.CompactIndexesStats, error) {
 	// we must hold the lock here to avoid the race with Refresh() which can reload the
 	// current set of indexes while we process them.
 	sm.indexesLock.Lock()
 	defer sm.indexesLock.Unlock()
 
-	sm.log.Debugf("CompactIndexes(%+v)", opt)
+	contentlog.Log4(ctx, sm.log, "CompactIndexes",
+		logparam.Bool("allIndexes", opt.AllIndexes),
+		logparam.Int64("maxSmallBlobs", int64(opt.MaxSmallBlobs)),
+		logparam.Time("dropDeletedBefore", opt.DropDeletedBefore),
+		logparam.Bool("disableEventualConsistencySafety", opt.DisableEventualConsistencySafety))
 
 	ibm, err := sm.indexBlobManager(ctx)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	if err := ibm.Compact(ctx, opt); err != nil {
-		return errors.Wrap(err, "error performing compaction")
+	stats, err := ibm.Compact(ctx, opt)
+	if err != nil {
+		return nil, errors.Wrap(err, "error performing compaction")
 	}
 
 	// reload indexes after compaction.
 	if err := sm.loadPackIndexesLocked(ctx); err != nil {
-		return errors.Wrap(err, "error re-loading indexes")
+		return nil, errors.Wrap(err, "error re-loading indexes")
 	}
 
-	return nil
+	return stats, nil
 }
 
 // ParseIndexBlob loads entries in a given index blob and returns them.

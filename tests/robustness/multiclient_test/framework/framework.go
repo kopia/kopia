@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package framework contains tools to enable multiple clients to connect to a
 // central repository server and run robustness tests concurrently.

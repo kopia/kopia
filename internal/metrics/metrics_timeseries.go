@@ -47,7 +47,7 @@ type AggregateMetricsOptions struct {
 // SnapshotValueAggregator extracts and aggregates counter or distribution values from snapshots.
 type SnapshotValueAggregator[T any] interface {
 	FromSnapshot(s *Snapshot) (T, bool)
-	Aggregate(previousAggregate T, incoming T, ratio float64) T
+	Aggregate(previousAggregate, incoming T, ratio float64) T
 }
 
 // CreateTimeSeries computes time series which represent aggregations of a given

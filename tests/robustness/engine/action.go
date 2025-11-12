@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 package engine
 
@@ -238,21 +237,21 @@ func writeRandomFilesAction(ctx context.Context, e *Engine, opts map[string]stri
 	out, err = e.FileWriter.WriteRandomFiles(ctx, opts)
 	setLogEntryCmdOpts(l, out)
 
-	return
+	return out, err
 }
 
 func deleteRandomSubdirectoryAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
 	out, err = e.FileWriter.DeleteRandomSubdirectory(ctx, opts)
 	setLogEntryCmdOpts(l, out)
 
-	return
+	return out, err
 }
 
 func deleteDirectoryContentsAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
 	out, err = e.FileWriter.DeleteDirectoryContents(ctx, opts)
 	setLogEntryCmdOpts(l, out)
 
-	return
+	return out, err
 }
 
 func restoreIntoDataDirectoryAction(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {

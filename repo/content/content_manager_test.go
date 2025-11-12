@@ -442,10 +442,12 @@ func (s *contentManagerSuite) TestIndexCompactionDropsContent(t *testing.T) {
 
 	bm = s.newTestContentManagerWithCustomTime(t, st, timeFunc)
 	// this drops deleted entries, including from index #1
-	require.NoError(t, bm.CompactIndexes(ctx, indexblob.CompactOptions{
+	_, err := bm.CompactIndexes(ctx, indexblob.CompactOptions{
 		DropDeletedBefore: deleteThreshold,
 		AllIndexes:        true,
-	}))
+	})
+	require.NoError(t, err)
+
 	require.NoError(t, bm.Flush(ctx))
 	require.NoError(t, bm.CloseShared(ctx))
 
@@ -522,7 +524,7 @@ func (s *contentManagerSuite) TestContentManagerConcurrency(t *testing.T) {
 
 	validateIndexCount(t, data, 4, 0)
 
-	if err := bm4.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := bm4.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 
@@ -540,7 +542,7 @@ func (s *contentManagerSuite) TestContentManagerConcurrency(t *testing.T) {
 	verifyContent(ctx, t, bm5, bm2content, seededRandomData(32, 100))
 	verifyContent(ctx, t, bm5, bm3content, seededRandomData(33, 100))
 
-	if err := bm5.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := bm5.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 }
@@ -1027,11 +1029,17 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	defer bm.CloseShared(ctx)
 
 	numWorkers := 8
-	closeWorkers := make(chan bool)
 
 	// workerLock allows workers to append to their own list of IDs (when R-locked) in parallel.
 	// W-lock allows flusher to capture the state without any worker being able to modify it.
 	workerWritten := make([][]ID, numWorkers)
+
+	var stopWorker atomic.Bool
+
+	// ensure the worker routines are stopped even if the test fails early
+	t.Cleanup(func() {
+		stopWorker.Store(true)
+	})
 
 	// start numWorkers, each writing random block and recording it
 	for workerID := range numWorkers {
@@ -1040,17 +1048,13 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 		go func() {
 			defer workersWG.Done()
 
-			for {
-				select {
-				case <-closeWorkers:
-					return
-				case <-time.After(1 * time.Nanosecond):
-					id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100))
+			for !stopWorker.Load() {
+				id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100))
 
-					workerLock.RLock()
-					workerWritten[workerID] = append(workerWritten[workerID], id)
-					workerLock.RUnlock()
-				}
+				workerLock.RLock()
+
+				workerWritten[workerID] = append(workerWritten[workerID], id)
+				workerLock.RUnlock()
 			}
 		}()
 	}
@@ -1087,7 +1091,7 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	}
 
 	// shut down workers and wait for them
-	close(closeWorkers)
+	stopWorker.Store(true)
 	workersWG.Wait()
 
 	// flush and check once more
@@ -1960,7 +1964,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 	// make sure we can read everything
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 
-	if err := mgr.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := mgr.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Fatalf("unable to compact indexes: %v", err)
 	}
 
@@ -1984,7 +1988,7 @@ func (s *contentManagerSuite) TestReadsOwnWritesWithEventualConsistencyPersisten
 	cacheKeyTime := map[blob.ID]time.Time{}
 	cacheSt := blobtesting.NewMapStorage(cacheData, cacheKeyTime, timeNow)
 	ecst := blobtesting.NewEventuallyConsistentStorage(
-		logging.NewWrapper(st, testlogging.NewTestLogger(t), "[STORAGE] "),
+		logging.NewWrapper(st, testlogging.NewTestLogger(t), nil, "[STORAGE] "),
 		3*time.Second,
 		timeNow)
 
@@ -2118,7 +2122,7 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	nonCompressibleData := make([]byte, 65000)
 	headerID := compression.ByName["pgzip"].HeaderID()
 
-	randRead(nonCompressibleData)
+	randRead(t, nonCompressibleData)
 
 	cid, err := bm.WriteContent(ctx, gather.FromSlice(nonCompressibleData), "", headerID)
 	require.NoError(t, err)
@@ -2662,8 +2666,7 @@ func makeRandomHexID(t *testing.T, length int) index.ID {
 	t.Helper()
 
 	b := make([]byte, length/2)
-	_, err := randRead(b)
-	require.NoError(t, err, "Could not read random bytes")
+	randRead(t, b)
 
 	id, err := IDFromHash("", b)
 	require.NoError(t, err)
@@ -2713,12 +2716,16 @@ var (
 	rMu sync.Mutex
 )
 
-func randRead(b []byte) (n int, err error) {
-	rMu.Lock()
-	n, err = r.Read(b)
-	rMu.Unlock()
+func randRead(t *testing.T, b []byte) {
+	t.Helper()
 
-	return
+	rMu.Lock()
+	defer rMu.Unlock()
+
+	n, err := r.Read(b)
+
+	require.NoError(t, err, "unable to read random bytes")
+	require.Equal(t, len(b), n)
 }
 
 func dirMetadataContent() gather.Bytes {

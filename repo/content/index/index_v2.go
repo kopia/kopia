@@ -412,20 +412,12 @@ func buildPackIDToIndexMap(sortedInfos []*Info) map[blob.ID]int {
 // maxContentLengths computes max content lengths in the builder.
 func maxContentLengths(sortedInfos []*Info) (maxPackedLength, maxOriginalLength, maxPackOffset uint32) {
 	for _, v := range sortedInfos {
-		if l := v.PackedLength; l > maxPackedLength {
-			maxPackedLength = l
-		}
-
-		if l := v.OriginalLength; l > maxOriginalLength {
-			maxOriginalLength = l
-		}
-
-		if l := v.PackOffset; l > maxPackOffset {
-			maxPackOffset = l
-		}
+		maxPackedLength = max(maxPackedLength, v.PackedLength)
+		maxOriginalLength = max(maxOriginalLength, v.OriginalLength)
+		maxPackOffset = max(maxPackOffset, v.PackOffset)
 	}
 
-	return
+	return maxPackedLength, maxOriginalLength, maxPackOffset
 }
 
 func newIndexBuilderV2(sortedInfos []*Info) (*indexBuilderV2, error) {

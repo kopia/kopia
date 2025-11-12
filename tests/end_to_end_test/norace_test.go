@@ -1,5 +1,4 @@
 //go:build !race
-// +build !race
 
 package endtoend_test
 

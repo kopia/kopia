@@ -1,5 +1,4 @@
 //go:build openbsd
-// +build openbsd
 
 // Package stat provides a cross-platform abstraction for
 // common stat commands.

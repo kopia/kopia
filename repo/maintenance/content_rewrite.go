@@ -6,13 +6,19 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/internal/blobparam"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/contentparam"
+	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 const parallelContentRewritesCPUMultiplier = 2
@@ -37,23 +43,29 @@ type contentInfoOrError struct {
 
 // RewriteContents rewrites contents according to provided criteria and creates new
 // blobs and index entries to point at them.
-func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) error {
+//
+//nolint:funlen
+func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) (*maintenancestats.RewriteContentsStats, error) {
+	ctx = contentlog.WithParams(ctx,
+		logparam.String("span:content-rewrite", contentlog.RandomSpanID()))
+
+	log := rep.LogManager().NewLogger("maintenance-content-rewrite")
+
 	if opt == nil {
-		return errors.New("missing options")
+		return nil, errors.New("missing options")
 	}
 
 	if opt.ShortPacks {
-		log(ctx).Info("Rewriting contents from short packs...")
+		contentlog.Log(ctx, log, "Rewriting contents from short packs...")
 	} else {
-		log(ctx).Info("Rewriting contents...")
+		contentlog.Log(ctx, log, "Rewriting contents...")
 	}
 
 	cnt := getContentToRewrite(ctx, rep, opt)
 
 	var (
-		mu          sync.Mutex
-		totalBytes  int64
-		failedCount int
+		toRewrite, retained, rewritten stats.CountSum
+		failedCount                    atomic.Uint64
 	)
 
 	if opt.Parallel == 0 {
@@ -70,28 +82,35 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 			for c := range cnt {
 				if c.err != nil {
-					mu.Lock()
-					failedCount++
-					mu.Unlock()
+					failedCount.Add(1)
 
 					return
 				}
 
-				var optDeleted string
-				if c.Deleted {
-					optDeleted = " (deleted)"
-				}
-
 				age := rep.Time().Sub(c.Timestamp())
 				if age < safety.RewriteMinAge {
-					log(ctx).Debugf("Not rewriting content %v (%v bytes) from pack %v%v %v, because it's too new.", c.ContentID, c.PackedLength, c.PackBlobID, optDeleted, age)
+					contentlog.Log5(ctx, log,
+						"Not rewriting content",
+						contentparam.ContentID("contentID", c.ContentID),
+						logparam.UInt32("bytes", c.PackedLength),
+						blobparam.BlobID("packBlobID", c.PackBlobID),
+						logparam.Bool("deleted", c.Deleted),
+						logparam.Duration("age", age))
+
+					retained.Add(int64(c.PackedLength))
+
 					continue
 				}
 
-				log(ctx).Debugf("Rewriting content %v (%v bytes) from pack %v%v %v", c.ContentID, c.PackedLength, c.PackBlobID, optDeleted, age)
-				mu.Lock()
-				totalBytes += int64(c.PackedLength)
-				mu.Unlock()
+				contentlog.Log5(ctx, log,
+					"Rewriting content",
+					contentparam.ContentID("contentID", c.ContentID),
+					logparam.UInt32("bytes", c.PackedLength),
+					blobparam.BlobID("packBlobID", c.PackBlobID),
+					logparam.Bool("deleted", c.Deleted),
+					logparam.Duration("age", age))
+
+				toRewrite.Add(int64(c.PackedLength))
 
 				if opt.DryRun {
 					continue
@@ -101,13 +120,20 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 					// provide option to ignore failures when rewriting deleted contents during maintenance
 					// this is for advanced use only
 					if os.Getenv("KOPIA_IGNORE_MAINTENANCE_REWRITE_ERROR") != "" && c.Deleted {
-						log(ctx).Infof("IGNORED: unable to rewrite deleted content %q: %v", c.ContentID, err)
+						contentlog.Log2(ctx, log,
+							"IGNORED: unable to rewrite deleted content",
+							contentparam.ContentID("contentID", c.ContentID),
+							logparam.Error("error", err))
 					} else {
-						log(ctx).Infof("unable to rewrite content %q: %v", c.ContentID, err)
-						mu.Lock()
-						failedCount++
-						mu.Unlock()
+						contentlog.Log2(ctx, log,
+							"unable to rewrite content",
+							contentparam.ContentID("contentID", c.ContentID),
+							logparam.Error("error", err))
+
+						failedCount.Add(1)
 					}
+				} else {
+					rewritten.Add(int64(c.PackedLength))
 				}
 			}
 		}()
@@ -115,14 +141,30 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 
 	wg.Wait()
 
-	log(ctx).Infof("Total bytes rewritten %v", units.BytesString(totalBytes))
+	toRewriteCount, toRewriteBytes := toRewrite.Approximate()
+	retainedCount, retainedBytes := retained.Approximate()
+	rewrittenCount, rewrittenBytes := rewritten.Approximate()
 
-	if failedCount == 0 {
-		//nolint:wrapcheck
-		return rep.ContentManager().Flush(ctx)
+	result := &maintenancestats.RewriteContentsStats{
+		ToRewriteContentCount: int(toRewriteCount),
+		ToRewriteContentSize:  toRewriteBytes,
+		RewrittenContentCount: int(rewrittenCount),
+		RewrittenContentSize:  rewrittenBytes,
+		RetainedContentCount:  int(retainedCount),
+		RetainedContentSize:   retainedBytes,
 	}
 
-	return errors.Errorf("failed to rewrite %v contents", failedCount)
+	contentlog.Log1(ctx, log, "Rewritten contents", result)
+
+	if failedCount.Load() == 0 {
+		if err := rep.ContentManager().Flush(ctx); err != nil {
+			return nil, errors.Wrap(err, "error flushing repo")
+		}
+
+		return result, nil
+	}
+
+	return nil, errors.Errorf("failed to rewrite %v contents", failedCount.Load())
 }
 
 func getContentToRewrite(ctx context.Context, rep repo.DirectRepository, opt *RewriteContentsOptions) <-chan contentInfoOrError {
