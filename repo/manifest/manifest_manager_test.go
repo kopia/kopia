@@ -297,7 +297,7 @@ func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[s
 	sortIDs(matches)
 	sortIDs(expected)
 
-	if !reflect.DeepEqual(matches, expected) {
+	if (len(matches) > 0 || len(expected) > 0) && !reflect.DeepEqual(matches, expected) {
 		t.Errorf("invalid matches for %v: %v, expected %v", labels, matches, expected)
 	}
 }

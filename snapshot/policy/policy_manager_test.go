@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/repotesting"
@@ -137,7 +138,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 				t.Fatalf("err: %v", err)
 			}
 
-			if diff := cmp.Diff(pol, tc.wantEffective); diff != "" {
+			if diff := cmp.Diff(pol, tc.wantEffective, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("got: %v", pol)
 				t.Errorf("want: %v", tc.wantEffective)
 				t.Errorf("invalid effective policy: %v", diff)

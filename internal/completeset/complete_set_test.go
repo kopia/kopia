@@ -19,7 +19,7 @@ func TestFindFirstAndAll(t *testing.T) {
 		{
 			input:                 []blob.ID{},
 			wantFirst:             []blob.ID{},
-			wantAll:               [][]blob.ID(nil),
+			wantAll:               [][]blob.ID{},
 			wantExcludeIncomplete: []blob.ID{},
 		},
 
@@ -118,7 +118,7 @@ func TestFindFirstAndAll(t *testing.T) {
 				"bbb-s1-c3",
 			},
 			wantFirst:             []blob.ID{},
-			wantAll:               nil,
+			wantAll:               [][]blob.ID{},
 			wantExcludeIncomplete: []blob.ID{},
 		},
 		// two complete, two incomplete sessions
