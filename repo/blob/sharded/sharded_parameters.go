@@ -57,7 +57,7 @@ func cloneShards(v []int) []int {
 
 // Clone returns a clone of sharding parameters.
 func (p *Parameters) Clone() *Parameters {
-	var clonedOverrides []PrefixAndShards
+	clonedOverrides := make([]PrefixAndShards, 0, len(p.Overrides))
 
 	for _, o := range p.Overrides {
 		clonedOverrides = append(clonedOverrides, PrefixAndShards{o.Prefix, cloneShards(o.Shards)})

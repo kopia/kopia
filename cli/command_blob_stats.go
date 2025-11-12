@@ -27,14 +27,16 @@ func (c *commandBlobStats) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandBlobStats) run(ctx context.Context, rep repo.DirectRepository) error {
+	const buckets = 8
+
 	var sizeThreshold int64 = 10
 
 	countMap := map[int64]int{}
 	totalSizeOfContentsUnder := map[int64]int64{}
 
-	var sizeThresholds []int64
+	sizeThresholds := make([]int64, 0, buckets)
 
-	for range 8 {
+	for range buckets {
 		sizeThresholds = append(sizeThresholds, sizeThreshold)
 		countMap[sizeThreshold] = 0
 		sizeThreshold *= 10

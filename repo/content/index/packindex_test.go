@@ -109,7 +109,7 @@ func TestPackIndex_V2(t *testing.T) {
 
 //nolint:thelper,gocyclo,cyclop
 func testPackIndex(t *testing.T, version int) {
-	var infos []Info
+	infos := make([]Info, 0, 200)
 	// deleted contents with all information
 	for i := range 100 {
 		infos = append(infos, Info{
@@ -514,7 +514,7 @@ func verifyAllShardedIDs(t *testing.T, sharded []Builder, numTotal, numShards in
 
 	cnt := 0
 
-	var lens []int
+	lens := make([]int, 0, numShards)
 
 	for _, s := range sharded {
 		cnt += len(s)
@@ -579,7 +579,7 @@ func verifyAllShardedIDsList(t *testing.T, sharded [][]*Info, numTotal, numShard
 
 	cnt := 0
 
-	var lens []int
+	lens := make([]int, 0, numShards)
 
 	for _, s := range sharded {
 		cnt += len(s)

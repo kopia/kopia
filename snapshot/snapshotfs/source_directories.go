@@ -95,7 +95,7 @@ func (s *sourceDirectories) Iterate(ctx context.Context) (fs.DirectoryIterator, 
 
 	name2safe = disambiguateSafeNames(name2safe)
 
-	var entries []fs.Entry
+	entries := make([]fs.Entry, 0, len(sources))
 
 	for _, src := range sources {
 		entries = append(entries, &sourceSnapshots{s.rep, src, name2safe[src.Path]})

@@ -37,7 +37,7 @@ func Register(name string, newHashFunc HashFuncFactory) {
 
 // SupportedAlgorithms returns the names of the supported hashing schemes.
 func SupportedAlgorithms() []string {
-	var result []string
+	result := make([]string, 0, len(hashFunctions))
 	for k := range hashFunctions {
 		result = append(result, k)
 	}

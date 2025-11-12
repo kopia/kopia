@@ -107,7 +107,7 @@ func TestSnapshotListWithSameFileInMultipleSnapshots(t *testing.T) {
 
 	require.Len(t, snapshots, 6)
 
-	var sps []string
+	sps := make([]string, 0, len(snapshots))
 
 	for _, s := range snapshots {
 		sps = append(sps, s.Source.Path)

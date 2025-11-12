@@ -1159,7 +1159,7 @@ func TestParallelUploadDedup(t *testing.T) {
 	td := testutil.TempDirectory(t)
 
 	// 10 identical non-compressible files, 50MB each
-	var files []*os.File
+	files := make([]*os.File, 0, 10)
 
 	for i := range 10 {
 		f, cerr := os.Create(filepath.Join(td, fmt.Sprintf("file-%v", i)))
@@ -1222,7 +1222,7 @@ func TestParallelUploadOfLargeFiles(t *testing.T) {
 	td := testutil.TempDirectory(t)
 
 	// Write 2 x 50MB files
-	var files []*os.File
+	files := make([]*os.File, 0, 2)
 
 	for i := range 2 {
 		f, cerr := os.Create(filepath.Join(td, fmt.Sprintf("file-%v", i)))
@@ -1663,7 +1663,7 @@ func TestUploadLogging(t *testing.T) {
 			man1, err := u.Upload(ctx, sourceDir, polTree, sourceInfo)
 			require.NoError(t, err)
 
-			var gotEntries []string
+			gotEntries := make([]string, 0, len(ml.logged))
 
 			for _, l := range ml.logged {
 				gotEntries = append(gotEntries, fmt.Sprintf("%v %v", l.msg, l.keysAndValues["path"]))
@@ -1680,7 +1680,7 @@ func TestUploadLogging(t *testing.T) {
 			_, err = u.Upload(ctx, sourceDir, polTree, sourceInfo, man1)
 			require.NoError(t, err)
 
-			var gotEntriesSecond []string
+			gotEntriesSecond := make([]string, 0, len(ml.logged))
 
 			for _, l := range ml.logged {
 				gotEntriesSecond = append(gotEntriesSecond, fmt.Sprintf("%v %v", l.msg, l.keysAndValues["path"]))
@@ -1697,7 +1697,7 @@ func TestUploadLogging(t *testing.T) {
 func verifyLogDetails(t *testing.T, desc string, wantDetailKeys []string, keysAndValues map[string]any) {
 	t.Helper()
 
-	var gotDetailKeys []string
+	gotDetailKeys := make([]string, 0, len(keysAndValues))
 
 	for k := range keysAndValues {
 		gotDetailKeys = append(gotDetailKeys, k)

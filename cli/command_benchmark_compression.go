@@ -166,7 +166,7 @@ func (c *commandBenchmarkCompression) run(ctx context.Context) error {
 }
 
 func (c *commandBenchmarkCompression) runCompression(ctx context.Context, data []byte, repeatCount int, algorithms map[compression.Name]compression.Compressor) error {
-	var results []compressionBenchmarkResult
+	results := make([]compressionBenchmarkResult, 0, len(algorithms))
 
 	log(ctx).Infof("Compressing input file %q (%v) using %v compression methods.", c.dataFile, units.BytesString(len(data)), len(algorithms))
 

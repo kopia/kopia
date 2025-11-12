@@ -107,7 +107,7 @@ func GetPolicyHierarchy(ctx context.Context, rep repo.Repository, si snapshot.So
 
 	md = append(md, globalManifests...)
 
-	var policies []*Policy
+	policies := make([]*Policy, 0, len(md)+2) //nolint:mnd
 
 	if optionalPolicyOverride != nil {
 		optionalPolicyOverride.Labels = LabelsForSource(si)

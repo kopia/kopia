@@ -567,7 +567,7 @@ func errorResponse(err error) *grpcapi.SessionResponse {
 }
 
 func makeEntryMetadataList(em []*manifest.EntryMetadata) []*grpcapi.ManifestEntryMetadata {
-	var result []*grpcapi.ManifestEntryMetadata
+	result := make([]*grpcapi.ManifestEntryMetadata, 0, len(em))
 
 	for _, v := range em {
 		result = append(result, makeEntryMetadata(v))

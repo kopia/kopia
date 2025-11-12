@@ -225,7 +225,7 @@ func GroupBySource(manifests []*Manifest) [][]*Manifest {
 		resultMap[m.Source] = append(resultMap[m.Source], m)
 	}
 
-	var result [][]*Manifest
+	result := make([][]*Manifest, 0, len(resultMap))
 	for _, v := range resultMap {
 		result = append(result, v)
 	}

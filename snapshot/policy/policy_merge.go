@@ -106,7 +106,7 @@ func mergeStrings(target *[]string, targetNoParent *bool, src []string, noParent
 		*def = si
 	}
 
-	var result []string
+	result := make([]string, 0, len(merged))
 	for v := range merged {
 		result = append(result, v)
 	}

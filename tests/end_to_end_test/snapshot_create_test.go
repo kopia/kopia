@@ -521,7 +521,7 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 			oid := sources[0].Snapshots[0].ObjectID
 			entries := clitestutil.ListDirectoryRecursive(t, e, oid)
 
-			var output []string
+			output := make([]string, 0, len(entries))
 			for _, s := range entries {
 				output = append(output, s.Name)
 			}

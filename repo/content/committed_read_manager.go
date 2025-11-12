@@ -246,7 +246,7 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 			return errors.Wrap(err, "error listing index blobs")
 		}
 
-		var indexBlobIDs []blob.ID
+		indexBlobIDs := make([]blob.ID, 0, len(indexBlobs))
 		for _, b := range indexBlobs {
 			indexBlobIDs = append(indexBlobIDs, b.BlobID)
 		}

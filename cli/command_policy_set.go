@@ -179,7 +179,7 @@ func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add,
 		delete(entries, b)
 	}
 
-	var s []string
+	s := make([]string, 0, len(entries))
 	for k := range entries {
 		s = append(s, k)
 	}
@@ -314,7 +314,7 @@ func applyPolicyBoolPtr(ctx context.Context, desc string, val **policy.OptionalB
 }
 
 func supportedCompressionAlgorithms() []string {
-	var res []string
+	res := make([]string, 0, len(compression.ByName))
 	for name := range compression.ByName {
 		res = append(res, string(name))
 	}

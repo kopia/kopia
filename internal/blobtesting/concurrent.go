@@ -38,7 +38,7 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 	t.Helper()
 
 	// generate random blob IDs for the pool
-	var blobs []blob.ID
+	blobs := make([]blob.ID, 0, options.NumBlobs)
 
 	for range options.NumBlobs {
 		blobIDBytes := make([]byte, 32)

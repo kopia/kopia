@@ -54,7 +54,7 @@ func TestCommittedContentIndexCache_Disk_FDsNotGrowingOnOpen_Linux(t *testing.T)
 
 	before := countFDsLinux(t)
 
-	var opened []index.Index
+	opened := make([]index.Index, 0, indexCount)
 
 	// Open all indexes and keep them open to maximize pressure.
 	for i := range indexCount {

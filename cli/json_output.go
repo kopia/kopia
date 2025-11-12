@@ -43,7 +43,7 @@ func (c *jsonOutput) cleanupSnapshotManifestForJSON(v *snapshot.Manifest) any {
 }
 
 func (c *jsonOutput) cleanupSnapshotManifestListForJSON(manifests []*snapshot.Manifest) any {
-	var res []any
+	res := make([]any, 0, len(manifests))
 
 	for _, m := range manifests {
 		res = append(res, c.cleanupSnapshotManifestForJSON(m))

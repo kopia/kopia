@@ -54,7 +54,7 @@ func IDsFromStrings(str []string) ([]ID, error) {
 
 // IDsToStrings converts the IDs to strings.
 func IDsToStrings(input []ID) []string {
-	var result []string
+	result := make([]string, 0, len(input))
 
 	for _, v := range input {
 		result = append(result, v.String())

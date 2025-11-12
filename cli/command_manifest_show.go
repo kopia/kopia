@@ -25,7 +25,7 @@ func (c *commandManifestShow) setup(svc appServices, parent commandParent) {
 }
 
 func toManifestIDs(s []string) []manifest.ID {
-	var result []manifest.ID
+	result := make([]manifest.ID, 0, len(s))
 
 	for _, it := range s {
 		result = append(result, manifest.ID(it))

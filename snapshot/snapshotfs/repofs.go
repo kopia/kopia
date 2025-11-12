@@ -141,7 +141,7 @@ func (rd *repositoryDirectory) Iterate(ctx context.Context) (fs.DirectoryIterato
 		return nil, err
 	}
 
-	var entries []fs.Entry
+	entries := make([]fs.Entry, 0, len(rd.dirEntries))
 
 	for _, de := range rd.dirEntries {
 		entries = append(entries, EntryFromDirEntry(rd.repo, de))

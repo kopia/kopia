@@ -344,9 +344,10 @@ func TestSnapshotFix(t *testing.T) {
 
 			switch {
 			case tc.wantRecoveredFiles != nil:
-				var remainingFiles []string
+				fileMap := mustGetFileMap(t, env, manifests[0].RootObjectID())
+				remainingFiles := make([]string, 0, len(fileMap))
 
-				for f := range mustGetFileMap(t, env, manifests[0].RootObjectID()) {
+				for f := range fileMap {
 					remainingFiles = append(remainingFiles, f)
 				}
 
@@ -373,7 +374,7 @@ func forgetContents(t *testing.T, env *testenv.CLITest, contentIDs ...string) {
 
 	after := mustGetContentMap(t, env)
 
-	var blobIDs []string
+	blobIDs := make([]string, 0, len(contentIDs))
 
 	for _, cidStr := range contentIDs {
 		cid, err := content.ParseID(cidStr)

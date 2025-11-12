@@ -7,7 +7,7 @@ import (
 
 // Broadcast is a logger that broadcasts each log message to multiple loggers.
 func Broadcast(logger ...Logger) Logger {
-	var cores []zapcore.Core
+	cores := make([]zapcore.Core, 0, len(logger))
 
 	var singleName string
 

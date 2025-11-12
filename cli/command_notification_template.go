@@ -27,7 +27,7 @@ func (c *notificationTemplateNameArg) setup(svc appServices, cmd *kingpin.CmdCla
 func (c *notificationTemplateNameArg) listNotificationTemplates(ctx context.Context, rep repo.Repository) []string {
 	infos, _ := notifytemplate.ListTemplates(ctx, rep, c.templateName)
 
-	var hints []string
+	hints := make([]string, 0, len(infos))
 
 	for _, ti := range infos {
 		hints = append(hints, ti.Name)

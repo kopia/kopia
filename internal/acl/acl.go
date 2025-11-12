@@ -159,7 +159,7 @@ func (e *Entry) Validate() error {
 }
 
 func allowedTypeNames() []string {
-	var result []string
+	result := make([]string, 0, len(allowedLabelsForType))
 
 	for k := range allowedLabelsForType {
 		result = append(result, k)
@@ -171,7 +171,7 @@ func allowedTypeNames() []string {
 }
 
 func allowedLabelNames(m map[string]valueValidatorFunc) []string {
-	var result []string
+	result := make([]string, 0, len(m))
 
 	for k := range m {
 		result = append(result, k)

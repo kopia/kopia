@@ -1286,9 +1286,9 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 			bm := s.newTestContentManagerWithTweaks(t, fs, nil)
 			defer bm.CloseShared(ctx)
 
-			var writeRetries []int
+			writeRetries := make([]int, 0, len(tc.contentSizes))
 
-			var cids []ID
+			cids := make([]ID, 0, len(tc.contentSizes))
 
 			for i, size := range tc.contentSizes {
 				t.Logf(">>>> writing %v", i)

@@ -33,12 +33,14 @@ type contentStatsTotals struct {
 }
 
 func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository) error {
+	const buckets = 8
+
 	var (
 		sizeThreshold uint32 = 10
-		sizeBuckets   []uint32
+		sizeBuckets          = make([]uint32, 0, buckets)
 	)
 
-	for range 8 {
+	for range buckets {
 		sizeBuckets = append(sizeBuckets, sizeThreshold)
 		sizeThreshold *= 10
 	}

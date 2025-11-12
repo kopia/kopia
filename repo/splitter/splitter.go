@@ -30,7 +30,7 @@ type Splitter interface {
 
 // SupportedAlgorithms returns the list of supported splitters.
 func SupportedAlgorithms() []string {
-	var supportedSplitters []string
+	supportedSplitters := make([]string, 0, len(splitterFactories))
 
 	for k := range splitterFactories {
 		supportedSplitters = append(supportedSplitters, k)

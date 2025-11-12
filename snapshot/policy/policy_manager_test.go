@@ -143,7 +143,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 				t.Errorf("invalid effective policy: %v", diff)
 			}
 
-			var sources []snapshot.SourceInfo
+			sources := make([]snapshot.SourceInfo, 0, len(src))
 			for _, s := range src {
 				sources = append(sources, s.Target())
 			}
@@ -435,7 +435,7 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 				t.Fatalf("error in applicablePoliciesForSource(%v): %v", tc.si, err)
 			}
 
-			var relPaths []string
+			relPaths := make([]string, 0, len(res))
 			for k := range res {
 				relPaths = append(relPaths, k)
 			}

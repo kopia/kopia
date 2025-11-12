@@ -79,7 +79,7 @@ func alignedPolicyTableRows(v []policyTableRow) string {
 		}
 	}
 
-	var lines []string
+	lines := make([]string, 0, len(v))
 
 	for _, it := range v {
 		l := it.name

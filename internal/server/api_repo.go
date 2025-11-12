@@ -276,7 +276,7 @@ func neverDeprecated(string) bool {
 }
 
 func toAlgorithmInfo(names []string, isDeprecated func(id string) bool) []serverapi.AlgorithmInfo {
-	var result []serverapi.AlgorithmInfo
+	result := make([]serverapi.AlgorithmInfo, 0, len(names))
 
 	for _, n := range names {
 		result = append(result, serverapi.AlgorithmInfo{

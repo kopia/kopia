@@ -253,7 +253,7 @@ func (c *commandRepositoryStatus) run(ctx context.Context, rep repo.Repository) 
 
 func (c *commandRepositoryStatus) outputRequiredFeatures(ctx context.Context, dr repo.DirectRepository) {
 	if req, _ := dr.FormatManager().RequiredFeatures(ctx); len(req) > 0 {
-		var featureIDs []string
+		featureIDs := make([]string, 0, len(req))
 
 		for _, r := range req {
 			featureIDs = append(featureIDs, string(r.Feature))

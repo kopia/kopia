@@ -69,7 +69,7 @@ func TestSetLoggingPolicy(t *testing.T) {
 }
 
 func compressSpaces(lines []string) []string {
-	var result []string
+	result := make([]string, 0, len(lines))
 
 	for _, l := range lines {
 		for l2 := strings.ReplaceAll(l, "  ", " "); l != l2; l2 = strings.ReplaceAll(l, "  ", " ") {

@@ -116,7 +116,7 @@ type DirEntry struct {
 }
 
 func mustParseDirectoryEntries(lines []string) []DirEntry {
-	var result []DirEntry
+	result := make([]DirEntry, 0, len(lines))
 
 	for _, l := range lines {
 		parts := strings.Fields(l)

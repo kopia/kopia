@@ -76,7 +76,7 @@ func runInParallel[A, T any](args []A, run func(arg A) T) T {
 }
 
 func makeOutputBuffers(n, capacity int) []*bytes.Buffer {
-	var res []*bytes.Buffer
+	res := make([]*bytes.Buffer, 0, n)
 
 	for range n {
 		res = append(res, bytes.NewBuffer(make([]byte, 0, capacity)))

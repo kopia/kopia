@@ -211,7 +211,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 
 func concatenateParts(ctx context.Context, rep repo.RepositoryWriter, name string, parts []*snapshot.DirEntry, metadataComp compression.Name) (*snapshot.DirEntry, error) {
 	var (
-		objectIDs []object.ID
+		objectIDs = make([]object.ID, 0, len(parts))
 		totalSize int64
 	)
 
@@ -1077,7 +1077,7 @@ func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
 		return dirs
 	}
 
-	var result []fs.Directory
+	result := make([]fs.Directory, 0, len(unique))
 	for _, d := range unique {
 		result = append(result, d)
 	}

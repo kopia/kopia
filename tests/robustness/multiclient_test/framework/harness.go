@@ -326,12 +326,13 @@ func getAllCacheDirs(dir string) []string {
 		return nil
 	}
 
-	var dirs []string
 	// Collect all cache dirs
 	// There are six types of caches, and corresponding dirs.
 	// metadata, contents, indexes,
 	// own-writes, blob-list, server-contents
 	cacheDirSubpaths := []string{"metadata", "contents", "indexes", "own-writes", "blob-list", "server-contents"}
+
+	dirs := make([]string, 0, len(cacheDirSubpaths))
 	for _, s := range cacheDirSubpaths {
 		dirs = append(dirs, path.Join(dir, s))
 	}
