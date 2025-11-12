@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package kopiaclient provides a client to interact with a Kopia repo.
 package kopiaclient

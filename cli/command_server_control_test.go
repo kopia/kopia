@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"runtime"
+	"slices"
 	"testing"
 	"time"
 
@@ -221,11 +222,5 @@ func TestServerControlUDS(t *testing.T) {
 }
 
 func hasLine(lines []string, lookFor string) bool {
-	for _, l := range lines {
-		if l == lookFor {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(lines, lookFor)
 }

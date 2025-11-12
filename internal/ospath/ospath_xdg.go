@@ -1,5 +1,4 @@
 //go:build !windows && !darwin && !openbsd
-// +build !windows,!darwin,!openbsd
 
 package ospath
 

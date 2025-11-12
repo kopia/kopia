@@ -1,5 +1,4 @@
 //go:build !windows && !freebsd && !openbsd
-// +build !windows,!freebsd,!openbsd
 
 package mount
 

@@ -1,5 +1,4 @@
 //go:build linux
-// +build linux
 
 package socketactivation_test
 
