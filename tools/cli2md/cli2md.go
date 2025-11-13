@@ -311,8 +311,8 @@ hide_summary: true
 		}
 	}
 
-	fmt.Fprintf(f, "```shell\n$ kopia %v%v%v\n```\n\n", cmd.FullCommand, flagSummary, argSummary) //nolint:errcheck
-	fmt.Fprintf(f, "%v\n\n", escapeFlags(cmd.Help))                                               //nolint:errcheck
+	fmt.Fprintf(f, "```shell\n$ kopia %v%v%v\n```\n\n", cmd.FullCommand, flagSummary.String(), argSummary.String()) //nolint:errcheck
+	fmt.Fprintf(f, "%v\n\n", escapeFlags(cmd.Help))                                                                 //nolint:errcheck
 
 	emitFlags(f, cmd.Flags)
 	emitArgs(f, cmd.Args)
