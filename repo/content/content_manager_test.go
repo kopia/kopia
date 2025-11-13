@@ -1056,6 +1056,7 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 				workerLock.RLock()
 
 				workerWritten[workerID] = append(workerWritten[workerID], id)
+
 				workerLock.RUnlock()
 			}
 		}()
@@ -1644,7 +1645,9 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 				}
 
 				mu.Lock()
+
 				got[ci.ContentID] = true
+
 				mu.Unlock()
 
 				return nil

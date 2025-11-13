@@ -50,6 +50,7 @@ func TestThrottlingSemaphore(t *testing.T) {
 					mu.Lock()
 
 					concurrency--
+
 					mu.Unlock()
 
 					s.Release()
