@@ -92,8 +92,6 @@ func TestServerControlSocketActivated(t *testing.T) {
 }
 
 func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
-	var port int
-
 	serverExe := os.Getenv("KOPIA_SERVER_EXE")
 	if serverExe == "" {
 		t.Skip("skipping socket-activation test")
@@ -111,7 +109,7 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 
 	t.Cleanup(func() { l1.Close() })
 
-	port = testutil.EnsureType[*net.TCPAddr](t, l1.Addr()).Port
+	port := testutil.EnsureType[*net.TCPAddr](t, l1.Addr()).Port
 
 	t.Logf("Activating socket on port %v", port)
 
