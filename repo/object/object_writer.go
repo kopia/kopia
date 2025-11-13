@@ -159,6 +159,7 @@ func (w *objectWriter) flushBufferLocked() error {
 
 	// acquire write semaphore
 	w.asyncWritesSemaphore <- struct{}{}
+
 	w.asyncWritesWG.Add(1)
 
 	asyncBuf := gather.NewWriteBuffer()

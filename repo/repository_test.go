@@ -550,6 +550,7 @@ func TestInitializeWithNoRetention(t *testing.T) {
 	// are not supplied.
 	var b gather.WriteBuffer
 	defer b.Close()
+
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &b))
 }
 

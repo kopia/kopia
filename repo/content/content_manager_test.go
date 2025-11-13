@@ -85,6 +85,7 @@ func (s *contentManagerSuite) TestContentManagerEmptyFlush(t *testing.T) {
 	bm := s.newTestContentManager(t, st)
 
 	defer bm.CloseShared(ctx)
+
 	bm.Flush(ctx)
 
 	if got, want := len(data), 0; got != want {
@@ -1979,6 +1980,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 	// now open one more manager
 	mgr = s.newTestContentManager(t, st)
 	defer mgr.CloseShared(ctx)
+
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 }
 
@@ -2213,6 +2215,7 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	})
 
 	defer bm.CloseShared(ctx)
+
 	bm.Flush(ctx)
 
 	// write 6 x 6 MB content in 2 blobs.

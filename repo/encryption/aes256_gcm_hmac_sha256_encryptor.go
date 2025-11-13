@@ -26,6 +26,7 @@ func (e aes256GCMHmacSha256) aeadForContent(contentID []byte) (cipher.AEAD, erro
 	//nolint:forcetypeassert
 	h := e.hmacPool.Get().(hash.Hash)
 	defer e.hmacPool.Put(h)
+
 	h.Reset()
 
 	if _, err := h.Write(contentID); err != nil {
