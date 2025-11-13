@@ -172,6 +172,7 @@ func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, _ []byte, output *gather
 	// Allocate space for the input + padding
 	var inputBuffer gather.WriteBuffer
 	defer inputBuffer.Close()
+
 	inputBytes := inputBuffer.MakeContiguous(dataSizeInBlock * sizes.Blocks)
 
 	binary.BigEndian.PutUint32(inputBytes[:lengthSize], uint32(input.Length())) //nolint:gosec
@@ -185,13 +186,16 @@ func (r *ReedSolomonCrcECC) Encrypt(input gather.Bytes, _ []byte, output *gather
 	// Compute and store ECC + checksum
 
 	var crcBuffer [crcSize]byte
+
 	crcBytes := crcBuffer[:]
 
 	var eccBuffer gather.WriteBuffer
 	defer eccBuffer.Close()
+
 	eccBytes := eccBuffer.MakeContiguous(paritySizeInBlock)
 
 	var maxShards [256][]byte
+
 	shards := maxShards[:sizes.DataShards+sizes.ParityShards]
 
 	inputPos := 0
@@ -255,6 +259,7 @@ func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, _ []byte, output *gather
 	// Allocate space for the input + padding
 	var inputBuffer gather.WriteBuffer
 	defer inputBuffer.Close()
+
 	inputBytes := inputBuffer.MakeContiguous((dataPlusCrcSizeInBlock + parityPlusCrcSizeInBlock) * sizes.Blocks)
 
 	copied := input.AppendToSlice(inputBytes[:0])
@@ -268,6 +273,7 @@ func (r *ReedSolomonCrcECC) Decrypt(input gather.Bytes, _ []byte, output *gather
 	dataBytes := inputBytes[parityPlusCrcSizeInBlock*sizes.Blocks:]
 
 	var maxShards [256][]byte
+
 	shards := maxShards[:sizes.DataShards+sizes.ParityShards]
 
 	dataPos := 0

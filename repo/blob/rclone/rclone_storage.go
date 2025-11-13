@@ -361,6 +361,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	fingerprintHexString := hex.EncodeToString(fingerprintBytes[:])
 
 	var cli http.Client
+
 	cli.Transport = &http.Transport{
 		TLSClientConfig: tlsutil.TLSConfigTrustingSingleCertificate(fingerprintHexString),
 	}

@@ -134,6 +134,7 @@ func TestTimerConcurrentStop(t *testing.T) {
 
 			go func() {
 				defer wg.Done()
+
 				timer.Stop()
 			}()
 		}

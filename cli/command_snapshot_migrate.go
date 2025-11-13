@@ -109,6 +109,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		uploader := upload.NewUploader(destRepo)
 		uploader.Progress = c.svc.getProgress()
 		activeUploaders[s] = uploader
+
 		mu.Unlock()
 
 		wg.Add(1)

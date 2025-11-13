@@ -39,6 +39,7 @@ func VerifyAndStrip(input gather.Bytes, secret []byte, output *gather.WriteBuffe
 	}
 
 	var sigBuf, actualSignature [sha256.Size]byte
+
 	validSignature := h.Sum(sigBuf[:0])
 
 	n, err := r.Read(actualSignature[:])

@@ -119,6 +119,7 @@ func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) 
 
 func prettyJSON(v *policy.Policy) string {
 	var b bytes.Buffer
+
 	e := json.NewEncoder(&b)
 	e.SetIndent("", "  ")
 	e.Encode(v) //nolint:errcheck,errchkjson

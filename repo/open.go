@@ -467,6 +467,7 @@ func upgradeLockMonitor(
 			m.RUnlock()
 			return nil
 		}
+
 		m.RUnlock()
 
 		// upgrade the lock and verify again in-case someone else won the race to refresh

@@ -303,6 +303,7 @@ func TestPathLockRace(t *testing.T) {
 			}
 
 			counter++
+
 			lock.Unlock()
 		}()
 	}

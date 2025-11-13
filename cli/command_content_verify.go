@@ -55,6 +55,7 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 
 	go func() {
 		defer wg.Done()
+
 		c.getTotalContentCount(subctx, rep, &totalCount)
 	}()
 

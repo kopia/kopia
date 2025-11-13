@@ -550,11 +550,13 @@ func TestGetTwoLatestSnapshots(t *testing.T) {
 	intermediateSnapshotManifestID := mustSaveSnapshot(t, env.RepositoryWriter, manifests["intermediate_snapshot"])
 
 	var expectedManifestIDs []manifest.ID
+
 	expectedManifestIDs = append(expectedManifestIDs, initialSnapshotManifestID, intermediateSnapshotManifestID)
 
 	secondLastSnapshot, lastSnapshot, err := diff.GetTwoLatestSnapshotsForASource(ctx, env.RepositoryWriter, snapshotSrc)
 
 	var gotManifestIDs []manifest.ID
+
 	gotManifestIDs = append(gotManifestIDs, secondLastSnapshot.ID, lastSnapshot.ID)
 
 	require.NoError(t, err)

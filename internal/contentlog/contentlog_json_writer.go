@@ -302,6 +302,7 @@ func (jw *JSONWriter) TimeField(key string, value time.Time) {
 // appendPaddedInt appends an integer with zero-padding to the buffer.
 func (jw *JSONWriter) appendPaddedInt(value int64, width int) {
 	var numBuf [64]byte
+
 	numStr := strconv.AppendInt(numBuf[:0], value, decimal)
 	numLen := len(numStr)
 

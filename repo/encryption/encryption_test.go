@@ -144,6 +144,7 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 			func() {
 				var v gather.WriteBuffer
 				defer v.Close()
+
 				require.NoError(t, enc.Encrypt(gather.FromSlice(payload), contentID, &v))
 
 				t.Errorf("missing ciphertext sample for %q: %q,", encryptionAlgo, hex.EncodeToString(payload))

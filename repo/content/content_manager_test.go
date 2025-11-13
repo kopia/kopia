@@ -85,6 +85,7 @@ func (s *contentManagerSuite) TestContentManagerEmptyFlush(t *testing.T) {
 	bm := s.newTestContentManager(t, st)
 
 	defer bm.CloseShared(ctx)
+
 	bm.Flush(ctx)
 
 	if got, want := len(data), 0; got != want {
@@ -99,6 +100,7 @@ func (s *contentManagerSuite) TestContentZeroBytes1(t *testing.T) {
 	bm := s.newTestContentManager(t, st)
 
 	defer bm.CloseShared(ctx)
+
 	contentID := writeContentAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
 
@@ -1054,6 +1056,7 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 				workerLock.RLock()
 
 				workerWritten[workerID] = append(workerWritten[workerID], id)
+
 				workerLock.RUnlock()
 			}
 		}()
@@ -1118,6 +1121,7 @@ func (s *contentManagerSuite) TestFlushResumesWriters(t *testing.T) {
 
 	bm := s.newTestContentManagerWithTweaks(t, fs, nil)
 	defer bm.CloseShared(ctx)
+
 	first := writeContentAndVerify(ctx, t, bm, []byte{1, 2, 3})
 
 	var second ID
@@ -1641,7 +1645,9 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 				}
 
 				mu.Lock()
+
 				got[ci.ContentID] = true
+
 				mu.Unlock()
 
 				return nil
@@ -1977,6 +1983,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 	// now open one more manager
 	mgr = s.newTestContentManager(t, st)
 	defer mgr.CloseShared(ctx)
+
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 }
 
@@ -2211,6 +2218,7 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	})
 
 	defer bm.CloseShared(ctx)
+
 	bm.Flush(ctx)
 
 	// write 6 x 6 MB content in 2 blobs.
