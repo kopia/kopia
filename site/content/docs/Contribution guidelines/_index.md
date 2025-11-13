@@ -6,9 +6,10 @@ toc_hide: true
 
 > NOTE: Those guidelines are preliminary and will change as the project grows and expands in scope.
 
-## Contacting Developers
+## Code Documentation
 
-* Using [Slack](https://slack.kopia.io) is the quickest way to get in touch with developers.
+Kopia is primarily written using [The Go Programming Language](https://go.dev/doc/).
+The source code documentation can be found on [godoc.org](https://godoc.org/github.com/kopia/kopia/repo).
 
 ## Submitting issues
 
@@ -35,3 +36,7 @@ toc_hide: true
   - `<description>` is a clear description of a PR.
   - Follow the pattern precisely, as the title-checker cares about capitalization parentheses, and spaces.
   - For example: `feat(cli): Add new policy rule --new-feature-x to enable using feature x`.
+
+## Contacting Community
+
+* Use [Slack](https://slack.kopia.io) to reach out to other developers.
