@@ -172,11 +172,11 @@ func (e *CLITest) getLogOutputPrefix() (string, bool) {
 	return e.logOutputPrefix, os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" || e.logOutputEnabled
 }
 
-// RunAndProcessStderr runs the given command, and streams its output line-by-line to a given function until it returns false.
-func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) (wait func() error, kill func()) {
+// RunAndProcessStderr runs the given command, and streams its stderr line-by-line to stderrCAllback until it returns false.
+func (e *CLITest) RunAndProcessStderr(t *testing.T, stderrCallback func(line string) bool, args ...string) (wait func() error, kill func()) {
 	t.Helper()
 
-	wait, interrupt := e.RunAndProcessStderrInt(t, callback, nil, args...)
+	wait, interrupt := e.RunAndProcessStderrInt(t, stderrCallback, nil, args...)
 	kill = func() {
 		interrupt(os.Kill)
 	}
@@ -184,11 +184,11 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 	return wait, kill
 }
 
-// RunAndProcessStderrAsync runs the given command, and streams its output line-by-line to a given function until it returns false.
-func (e *CLITest) RunAndProcessStderrAsync(t *testing.T, callback func(line string) bool, asyncCallback func(line string), args ...string) (wait func() error, kill func()) {
+// RunAndProcessStderrAsync runs the given command, and streams its stderr line-by-line stderrCAllback until it returns false.
+func (e *CLITest) RunAndProcessStderrAsync(t *testing.T, stderrCallback func(line string) bool, stderrAsyncCallback func(line string), args ...string) (wait func() error, kill func()) {
 	t.Helper()
 
-	wait, interrupt := e.RunAndProcessStderrInt(t, callback, asyncCallback, args...)
+	wait, interrupt := e.RunAndProcessStderrInt(t, stderrCallback, stderrAsyncCallback, args...)
 	kill = func() {
 		interrupt(os.Kill)
 	}
@@ -196,9 +196,11 @@ func (e *CLITest) RunAndProcessStderrAsync(t *testing.T, callback func(line stri
 	return wait, kill
 }
 
-// RunAndProcessStderrInt runs the given command, and streams its output
-// line-by-line to outputCallback until it returns false.
-func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line string) bool, asyncCallback func(line string), args ...string) (wait func() error, interrupt func(os.Signal)) {
+// RunAndProcessStderrInt runs the given command, and streams its stderr
+// line-by-line to stderrCallback until it returns false. The remaining lines
+// from stderr, if any, are asynchronously sent line-by-line to
+// stderrAsyncCallback.
+func (e *CLITest) RunAndProcessStderrInt(t *testing.T, stderrCallback func(line string) bool, stderrAsyncCallback func(line string), args ...string) (wait func() error, interrupt func(os.Signal)) {
 	t.Helper()
 
 	stdout, stderr, wait, interrupt := e.Runner.Start(t, e.RunContext, e.cmdArgs(args), e.Environment)
@@ -220,7 +222,7 @@ func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line 
 
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
-		if !outputCallback(scanner.Text()) {
+		if !stderrCallback(scanner.Text()) {
 			break
 		}
 	}
@@ -228,8 +230,8 @@ func (e *CLITest) RunAndProcessStderrInt(t *testing.T, outputCallback func(line 
 	// complete stderr scanning in the background without processing lines.
 	go func() {
 		for scanner.Scan() {
-			if asyncCallback != nil {
-				asyncCallback(scanner.Text())
+			if stderrAsyncCallback != nil {
+				stderrAsyncCallback(scanner.Text())
 			}
 
 			if logOutput {
