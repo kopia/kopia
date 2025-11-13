@@ -15,9 +15,9 @@ type FilesPolicy struct {
 
 // FilesPolicyDefinition specifies which policy definition provided the value of a particular field.
 type FilesPolicyDefinition struct {
-	IgnoreRules            snapshot.SourceInfo `json:"ignore,omitempty"`
+	IgnoreRules            snapshot.SourceInfo `json:"ignore,omitempty"` //nolint:modernize
 	NoParentIgnoreRules    snapshot.SourceInfo `json:"noParentIgnore,omitzero"`
-	DotIgnoreFiles         snapshot.SourceInfo `json:"ignoreDotFiles,omitempty"`
+	DotIgnoreFiles         snapshot.SourceInfo `json:"ignoreDotFiles,omitempty"` //nolint:modernize
 	NoParentDotIgnoreFiles snapshot.SourceInfo `json:"noParentDotFiles,omitzero"`
 	IgnoreCacheDirectories snapshot.SourceInfo `json:"ignoreCacheDirs,omitzero"`
 	MaxFileSize            snapshot.SourceInfo `json:"maxFileSize,omitzero"`
