@@ -1,6 +1,6 @@
 ---
-title: "Command Line"
-linkTitle: "Command Line"
+title: "Command-Line Reference"
+linkTitle: "Command-Line Reference"
 weight: 10
 ---
 
