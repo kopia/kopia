@@ -383,6 +383,7 @@ func mustReadEnvFile(t *testing.T, fname string) map[string]string {
 	verifyNoError(t, err)
 
 	defer f.Close()
+
 	s := bufio.NewScanner(f)
 
 	m := map[string]string{}

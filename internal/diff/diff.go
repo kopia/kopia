@@ -357,6 +357,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 	}
 
 	var args []string
+
 	args = append(args, c.DiffArguments...)
 	args = append(args, oldName, newName)
 

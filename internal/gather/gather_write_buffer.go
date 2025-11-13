@@ -161,6 +161,7 @@ func (b *WriteBuffer) Dup() *WriteBuffer {
 
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
 	dup.alloc = b.alloc
 	dup.inner = FromSlice(b.inner.ToByteSlice())
 

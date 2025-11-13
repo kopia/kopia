@@ -1109,6 +1109,7 @@ func (w *mockLogger) Write(p []byte) (int, error) {
 	parts := strings.SplitN(strings.TrimSpace(string(p)), "\t", 2)
 
 	var la loggedAction
+
 	la.msg = parts[0]
 
 	if len(parts) == 2 {

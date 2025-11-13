@@ -33,6 +33,7 @@ func (e aes256GCMHmacSha256) aeadForContent(contentID []byte) (cipher.AEAD, erro
 	}
 
 	var hashBuf [32]byte
+
 	key := h.Sum(hashBuf[:0])
 
 	c, err := aes.NewCipher(key)

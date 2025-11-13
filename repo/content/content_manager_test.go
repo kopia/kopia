@@ -99,6 +99,7 @@ func (s *contentManagerSuite) TestContentZeroBytes1(t *testing.T) {
 	bm := s.newTestContentManager(t, st)
 
 	defer bm.CloseShared(ctx)
+
 	contentID := writeContentAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
 
@@ -1118,6 +1119,7 @@ func (s *contentManagerSuite) TestFlushResumesWriters(t *testing.T) {
 
 	bm := s.newTestContentManagerWithTweaks(t, fs, nil)
 	defer bm.CloseShared(ctx)
+
 	first := writeContentAndVerify(ctx, t, bm, []byte{1, 2, 3})
 
 	var second ID

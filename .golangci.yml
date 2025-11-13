@@ -83,7 +83,6 @@ linters:
     wsl_v5:
       allow-whole-block: true
       disable:
-        - assign
         - expr
 
   default: all

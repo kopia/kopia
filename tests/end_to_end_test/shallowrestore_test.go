@@ -786,6 +786,7 @@ func getShallowInfo(t *testing.T, srp string) (string, os.FileInfo) {
 	t.Helper()
 
 	const ENTRYTYPES = 3
+
 	shallowinfos := make([]os.FileInfo, ENTRYTYPES)
 	errors := make([]error, ENTRYTYPES)
 	paths := make([]string, ENTRYTYPES)
