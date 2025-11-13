@@ -28,8 +28,8 @@ type MetadataCompressionPolicy struct {
 // CompressionPolicyDefinition specifies which policy definition provided the value of a particular field.
 type CompressionPolicyDefinition struct {
 	CompressorName snapshot.SourceInfo `json:"compressorName,omitzero"`
-	OnlyCompress   snapshot.SourceInfo `json:"onlyCompress,omitempty"`
-	NeverCompress  snapshot.SourceInfo `json:"neverCompress,omitempty"`
+	OnlyCompress   snapshot.SourceInfo `json:"onlyCompress,omitempty"`  //nolint:modernize
+	NeverCompress  snapshot.SourceInfo `json:"neverCompress,omitempty"` //nolint:modernize
 	MinSize        snapshot.SourceInfo `json:"minSize,omitzero"`
 	MaxSize        snapshot.SourceInfo `json:"maxSize,omitzero"`
 }
