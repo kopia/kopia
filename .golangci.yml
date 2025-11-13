@@ -84,7 +84,6 @@ linters:
       allow-whole-block: true
       disable:
         - assign
-        - err
         - expr
 
   default: all

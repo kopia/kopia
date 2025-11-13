@@ -34,7 +34,6 @@ func (m Multiple) GetPassword(ctx context.Context, configFile string) (string, e
 func (m Multiple) PersistPassword(ctx context.Context, configFile, password string) error {
 	for _, s := range m {
 		err := s.PersistPassword(ctx, configFile, password)
-
 		if err == nil {
 			return nil
 		}
