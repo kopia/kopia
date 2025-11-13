@@ -133,7 +133,7 @@ func getMessageFromRun(extra []maintenancestats.Extra) string {
 	}
 
 	if extraStr.Len() > 0 {
-		succeed = ": " + extraStr.String()
+		succeed += ": " + extraStr.String()
 	}
 
 	return succeed
