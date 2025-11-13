@@ -28,7 +28,7 @@ func (as *AdvanceEpochStats) Summary() string {
 	if as.WasAdvanced {
 		message = fmt.Sprintf("Advanced epoch to %v", as.CurrentEpoch)
 	} else {
-		message = fmt.Sprintf("Stayed @copilot at epoch %v", as.CurrentEpoch)
+		message = fmt.Sprintf("Stayed at epoch %v", as.CurrentEpoch)
 	}
 
 	return message
