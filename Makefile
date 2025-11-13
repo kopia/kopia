@@ -16,6 +16,9 @@ all:
 
 include tools/tools.mk
 
+KOPIA_BUILD_TAGS=
+KOPIA_BUILD_FLAGS=-trimpath -ldflags "-s -w -X github.com/kopia/kopia/repo.BuildVersion=$(KOPIA_VERSION_NO_PREFIX) -X github.com/kopia/kopia/repo.BuildInfo=$(shell git rev-parse HEAD) -X github.com/kopia/kopia/repo.BuildGitHubRepo=$(GITHUB_REPOSITORY)"
+
 kopia_ui_embedded_exe=dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix)
 
 ifeq ($(GOOS),darwin)
