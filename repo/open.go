@@ -216,6 +216,10 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		return nil, errors.New("storage not set in the configuration file")
 	}
 
+	if err := blob.DecryptSensitiveFields(lc.Storage.Config, password, lc.Storage.Type); err != nil {
+		return nil, errors.Wrap(err, "error decrypting sensitive fields")
+	}
+
 	st, err := blob.NewStorage(ctx, *lc.Storage, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot open storage")

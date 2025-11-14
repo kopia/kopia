@@ -8,6 +8,18 @@ Kopia allows you to save your [encrypted](../features/#user-controlled-end-to-en
 
 > PRO TIP: You pick the storage locations you want to use. Kopia plays no role in selecting your storage locations. This means you must provision, setup, and pay (the storage provider) for whatever storage locations you want to use **before** you create a `repository` for that storage location in Kopia.
 
+## Protection of Sensitive Connection Parameters
+
+Kopia takes security seriously. While your backup data is always encrypted using your repository password, sensitive connection parameters for your chosen storage (such as API keys, secret keys, usernames, and passwords for services like Amazon S3, Azure Blob, WebDAV, or SFTP) are also protected.
+
+When you create or connect to a repository, these sensitive parameters are encrypted at rest within your local `repository.config` file. This encryption uses a key derived from your repository password, ensuring that even if your `repository.config` file is compromised, these critical credentials remain secure. This mechanism is transparent to the user and ensures that your connection details are not stored in plain text on your local machine.
+
+> **Note:** This protection mechanism does not currently apply to `rclone` configurations.
+
+### Advanced Password Protection
+
+To further enhance security against ransomware and other attackers, consider advanced methods for managing your repository password. A recommended best practice is to store your repository password in an operating system's secure password repository (e.g., a keyring or credential manager). You can then use a custom script to retrieve this password, perform a dynamic calculation or transformation on it (e.g., deriving a key or adding a salt), and then pass the resulting value to Kopia via an environment variable. This prevents the raw password from ever being stored directly in configuration files or appearing in process lists.
+
 * [Amazon S3 and S3-compatible Cloud Storage](#amazon-s3-and-s3-compatible-cloud-storage)
   * Kopia supports all cloud storage platforms that support the S3 API
   * Kopia supports object locking and [hot, cold, and archive storage classes](../advanced/amazon-s3/) for any cloud storage that supports the features using the S3 API
