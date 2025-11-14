@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -101,9 +102,8 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--override-username=another-user", "--override-hostname=another-host")
-	// The KOPIA_EXE wrapper will set the LISTEN_PID variable for us
-	env.Environment["LISTEN_FDS"] = "2"
 
+	// create 2 file descriptor for a single socket and pass the descriptors to the server
 	l1, err := net.Listen("tcp", ":0")
 	require.NoError(t, err, "Failed to open Listener")
 
@@ -111,9 +111,7 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 
 	port := testutil.EnsureType[*net.TCPAddr](t, l1.Addr()).Port
 
-	t.Logf("Activating socket on port %v", port)
-
-	serverStarted := make(chan []string)
+	t.Logf("activation socket port %v", port)
 
 	listener := testutil.EnsureType[*net.TCPListener](t, l1)
 
@@ -127,22 +125,39 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 
 	t.Cleanup(func() { l2File.Close() })
 
+	runner.ExtraFiles = append(runner.ExtraFiles, l1File, l2File)
+	// The KOPIA_EXE wrapper will set the LISTEN_PID variable for us
+	env.Environment["LISTEN_FDS"] = "2"
+
+	var gotExpectedErrorMessage atomic.Bool
+
+	stderrAsyncCallback := func(line string) {
+		if strings.Contains(line, "Too many activated sockets found.  Expected 1, got 2") {
+			gotExpectedErrorMessage.Store(true)
+		}
+	}
+
+	// although the server is expected to stop quickly with an error, the server's
+	// stderr is processed async to avoid test deadlocks if the server continues
+	// to run and does not exit.
+	wait, kill := env.RunAndProcessStderrAsync(t, func(string) bool { return false }, stderrAsyncCallback, "server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
+
+	t.Cleanup(kill)
+
+	serverStopped := make(chan error)
 	go func() {
-		defer close(serverStarted)
+		defer close(serverStopped)
 
-		runner.ExtraFiles = append(runner.ExtraFiles, l1File, l2File)
-
-		_, stderr := env.RunAndExpectFailure(t, "server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
-
-		serverStarted <- stderr
+		serverStopped <- wait()
 	}()
 
 	select {
-	case stderr := <-serverStarted:
-		require.Contains(t, strings.Join(stderr, ""), "Too many activated sockets found.  Expected 1, got 2")
+	case err := <-serverStopped:
+		require.Error(t, err, "server did not exit with an error")
 		t.Log("Done")
-
-	case <-time.After(5 * time.Second):
+	case <-time.After(30 * time.Second):
 		t.Fatal("server did not exit in time")
 	}
+
+	require.True(t, gotExpectedErrorMessage.Load(), "expected server's stderr to contain a line along the lines of 'Too many activated sockes ...'")
 }
