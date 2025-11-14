@@ -25,8 +25,8 @@ type SnapshotInfo struct {
 }
 
 // MustParseSnapshots parsers the output of 'snapshot list'.
-func MustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
-	t.Helper()
+func MustParseSnapshots(tb testing.TB, lines []string) []SourceInfo {
+	tb.Helper()
 
 	var (
 		result        []SourceInfo
@@ -40,16 +40,16 @@ func MustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
 
 		if strings.HasPrefix(l, "  ") {
 			if currentSource == nil {
-				t.Errorf("snapshot without a source: %q", l)
+				tb.Errorf("snapshot without a source: %q", l)
 				return nil
 			}
 
-			currentSource.Snapshots = append(currentSource.Snapshots, mustParseSnapshotInfo(t, l[2:]))
+			currentSource.Snapshots = append(currentSource.Snapshots, mustParseSnapshotInfo(tb, l[2:]))
 
 			continue
 		}
 
-		s := mustParseSourceInfo(t, l)
+		s := mustParseSourceInfo(tb, l)
 		result = append(result, s)
 		currentSource = &result[len(result)-1]
 	}
@@ -57,8 +57,8 @@ func MustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
 	return result
 }
 
-func mustParseSnapshotInfo(t *testing.T, l string) SnapshotInfo {
-	t.Helper()
+func mustParseSnapshotInfo(tb testing.TB, l string) SnapshotInfo {
+	tb.Helper()
 
 	incomplete := strings.Contains(l, "incomplete")
 
@@ -66,7 +66,7 @@ func mustParseSnapshotInfo(t *testing.T, l string) SnapshotInfo {
 
 	ts, err := time.Parse("2006-01-02 15:04:05 MST", strings.Join(parts[0:3], " "))
 	if err != nil {
-		t.Fatalf("err: %v", err)
+		tb.Fatalf("err: %v", err)
 	}
 
 	var manifestField string
@@ -93,18 +93,17 @@ func mustParseSnapshotInfo(t *testing.T, l string) SnapshotInfo {
 	}
 }
 
-func mustParseSourceInfo(t *testing.T, l string) SourceInfo {
-	t.Helper()
+func mustParseSourceInfo(tb testing.TB, l string) SourceInfo {
+	tb.Helper()
 
 	p1 := strings.Index(l, "@")
-
 	p2 := strings.Index(l, ":")
 
 	if p1 >= 0 && p2 > p1 {
 		return SourceInfo{User: l[0:p1], Host: l[p1+1 : p2], Path: l[p2+1:]}
 	}
 
-	t.Fatalf("can't parse source info: %q", l)
+	tb.Fatalf("can't parse source info: %q", l)
 
 	return SourceInfo{}
 }
@@ -131,32 +130,32 @@ func mustParseDirectoryEntries(lines []string) []DirEntry {
 }
 
 type testEnv interface {
-	RunAndExpectSuccess(t *testing.T, args ...string) []string
+	RunAndExpectSuccess(t testing.TB, args ...string) []string
 }
 
 // ListSnapshotsAndExpectSuccess lists given snapshots and parses the output.
-func ListSnapshotsAndExpectSuccess(t *testing.T, e testEnv, targets ...string) []SourceInfo {
-	t.Helper()
+func ListSnapshotsAndExpectSuccess(tb testing.TB, e testEnv, targets ...string) []SourceInfo {
+	tb.Helper()
 
-	lines := e.RunAndExpectSuccess(t, append([]string{"snapshot", "list", "-l", "--manifest-id"}, targets...)...)
+	lines := e.RunAndExpectSuccess(tb, append([]string{"snapshot", "list", "-l", "--manifest-id"}, targets...)...)
 
-	return MustParseSnapshots(t, lines)
+	return MustParseSnapshots(tb, lines)
 }
 
 // ListDirectory lists a given directory and returns directory entries.
-func ListDirectory(t *testing.T, e testEnv, targets ...string) []DirEntry {
-	t.Helper()
+func ListDirectory(tb testing.TB, e testEnv, targets ...string) []DirEntry {
+	tb.Helper()
 
-	lines := e.RunAndExpectSuccess(t, append([]string{"ls", "-l"}, targets...)...)
+	lines := e.RunAndExpectSuccess(tb, append([]string{"ls", "-l"}, targets...)...)
 
 	return mustParseDirectoryEntries(lines)
 }
 
 // ListDirectoryRecursive lists a given directory recursively and returns directory entries.
-func ListDirectoryRecursive(t *testing.T, e testEnv, targets ...string) []DirEntry {
-	t.Helper()
+func ListDirectoryRecursive(tb testing.TB, e testEnv, targets ...string) []DirEntry {
+	tb.Helper()
 
-	lines := e.RunAndExpectSuccess(t, append([]string{"ls", "-lr"}, targets...)...)
+	lines := e.RunAndExpectSuccess(tb, append([]string{"ls", "-lr"}, targets...)...)
 
 	return mustParseDirectoryEntries(lines)
 }
