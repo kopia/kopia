@@ -130,7 +130,7 @@ make test-with-coverage
 ```
 **Output:** `coverage.txt`
 **Time:** ~3-5 minutes
-**Note:** Used by Code Coverage workflow. Sets KOPIA_COVERAGE_TEST=1 and GOEXPERIMENT=nocoverageredesign.
+**Note:** Used by Code Coverage workflow. Sets KOPIA_COVERAGE_TEST=1
 
 ### Index Blob Tests (Separate)
 ```bash
