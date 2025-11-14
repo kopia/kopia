@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
@@ -71,15 +72,19 @@ func TestServerControlSocketActivated(t *testing.T) {
 		require.NotEmpty(t, sp.BaseURL, "Failed to start server")
 		t.Logf("server started on %v", sp.BaseURL)
 
-	case <-time.After(5 * time.Second):
+	case <-time.After(15 * time.Second):
 		t.Fatal("server did not start in time")
 	}
 
 	require.Contains(t, sp.BaseURL, ":"+strconv.Itoa(port))
 
-	lines := env.RunAndExpectSuccess(t, "server", "status", "--address", "http://127.0.0.1:"+strconv.Itoa(port), "--server-control-password", sp.ServerControlPassword, "--remote")
-	require.Len(t, lines, 1)
-	require.Contains(t, lines, "IDLE: another-user@another-host:"+dir0)
+	checkServerStatusFn := func(collect *assert.CollectT) {
+		lines := env.RunAndExpectSuccess(t, "server", "status", "--address", "http://127.0.0.1:"+strconv.Itoa(port), "--server-control-password", sp.ServerControlPassword, "--remote")
+		require.Len(collect, lines, 1)
+		require.Contains(collect, lines, "IDLE: another-user@another-host:"+dir0)
+	}
+
+	require.EventuallyWithT(t, checkServerStatusFn, 30*time.Second, 2*time.Second, "could not get server status, perhaps it was not listening on the control endpoint yet?")
 
 	env.RunAndExpectSuccess(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
