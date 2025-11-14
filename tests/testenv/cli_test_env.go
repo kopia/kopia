@@ -172,7 +172,7 @@ func (e *CLITest) getLogOutputPrefix() (string, bool) {
 	return e.logOutputPrefix, os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" || e.logOutputEnabled
 }
 
-// RunAndProcessStderr runs the given command, and streams its stderr line-by-line to stderrCAllback until it returns false.
+// RunAndProcessStderr runs the given command, and streams its stderr line-by-line to stderrCallback until it returns false.
 func (e *CLITest) RunAndProcessStderr(tb testing.TB, stderrCallback func(line string) bool, args ...string) (wait func() error, kill func()) {
 	tb.Helper()
 
@@ -184,7 +184,7 @@ func (e *CLITest) RunAndProcessStderr(tb testing.TB, stderrCallback func(line st
 	return wait, kill
 }
 
-// RunAndProcessStderrAsync runs the given command, and streams its stderr line-by-line stderrCAllback until it returns false.
+// RunAndProcessStderrAsync runs the given command, and streams its stderr line-by-line stderrCallback until it returns false.
 func (e *CLITest) RunAndProcessStderrAsync(tb testing.TB, stderrCallback func(line string) bool, stderrAsyncCallback func(line string), args ...string) (wait func() error, kill func()) {
 	tb.Helper()
 

@@ -164,5 +164,5 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 		t.Fatal("server did not exit in time")
 	}
 
-	require.True(t, gotExpectedErrorMessage.Load(), "expected server's stderr to contain a line along the lines of 'Too many activated sockes ...'")
+	require.True(t, gotExpectedErrorMessage.Load(), "expected server's stderr to contain a line along the lines of 'Too many activated sockets ...'")
 }
