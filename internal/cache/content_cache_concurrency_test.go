@@ -178,16 +178,12 @@ func testGetContentForDifferentContentIDsExecutesInParallel(t *testing.T, newCac
 	var wg sync.WaitGroup
 
 	for i := range 20 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			var tmp gather.WriteBuffer
 			defer tmp.Close()
 
 			dataCache.GetContent(ctx, fmt.Sprintf("c%v", i), "blob1", int64(i), 1, &tmp)
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -226,16 +222,12 @@ func testGetContentForDifferentBlobsExecutesInParallel(t *testing.T, newCache ne
 	var wg sync.WaitGroup
 
 	for i := range 20 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			var tmp gather.WriteBuffer
 			defer tmp.Close()
 
 			dataCache.GetContent(ctx, fmt.Sprintf("c%v", i), blob.ID(fmt.Sprintf("blob%v", i)), int64(i), 1, &tmp)
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -273,16 +265,12 @@ func testGetContentRaceFetchesOnce(t *testing.T, newCache newContentCacheFunc) {
 	var wg sync.WaitGroup
 
 	for range 20 {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			var tmp gather.WriteBuffer
 			defer tmp.Close()
 
 			dataCache.GetContent(ctx, "c1", "blob1", 0, 1, &tmp)
-		}()
+		})
 	}
 
 	wg.Wait()

@@ -263,15 +263,11 @@ func TestRCloneProviders(t *testing.T) {
 			prefix := uuid.NewString()
 
 			for i := range 10 {
-				wg.Add(1)
-
-				go func() {
-					defer wg.Done()
-
+				wg.Go(func() {
 					for j := range 3 {
 						assert.NoError(t, st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j)), gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 					}
-				}()
+				})
 			}
 
 			wg.Wait()

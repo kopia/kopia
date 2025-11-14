@@ -239,15 +239,7 @@ func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, lo
 		logFileBaseName: logFileBaseName,
 		symlinkName:     symlinkName,
 		maxSegmentSize:  c.logFileMaxSegmentSize,
-		startSweep: func() {
-			sweepLogWG.Add(1)
-
-			go func() {
-				defer sweepLogWG.Done()
-
-				doSweep()
-			}()
-		},
+		startSweep:      func() { sweepLogWG.Go(doSweep) },
 	}
 
 	if c.waitForLogSweep {
