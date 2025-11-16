@@ -24,6 +24,14 @@ const (
 	maxTimeDeltaToConsiderFileTheSame = 2 * time.Second
 )
 
+// getBirthTime extracts birth time from an entry if available, otherwise returns zero time.
+func getBirthTime(e fs.Entry) time.Time {
+	if ewb, ok := e.(fs.EntryWithBirthTime); ok {
+		return ewb.BirthTime()
+	}
+	return time.Time{}
+}
+
 // streamCopier is a generic function type to perform the actual copying of data bits
 // from a source stream to a destination stream.
 type streamCopier func(io.WriteSeeker, io.Reader) (int64, error)
@@ -277,7 +285,7 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry, modclear
 	var (
 		osChmod   = os.Chmod
 		osChown   = os.Chown
-		osChtimes = os.Chtimes
+		osChtimes = chtimes
 	)
 
 	// symbolic links require special handling that is OS-specific and sometimes unsupported
@@ -304,8 +312,8 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry, modclear
 	}
 
 	if o.shouldUpdateTimes(le, e) {
-		if err = o.maybeIgnorePermissionError(osChtimes(targetPath, e.ModTime(), e.ModTime())); err != nil {
-			return errors.Wrap(err, "could not change mod time on "+targetPath)
+		if err = o.maybeIgnorePermissionError(osChtimes(targetPath, getBirthTime(e), e.ModTime(), e.ModTime())); err != nil {
+			return errors.Wrap(err, "could not change times on "+targetPath)
 		}
 	}
 
@@ -350,7 +358,7 @@ func (o *FilesystemOutput) shouldUpdateTimes(local, remote fs.Entry) bool {
 		return false
 	}
 
-	return !local.ModTime().Equal(remote.ModTime())
+	return !local.ModTime().Equal(remote.ModTime()) || !getBirthTime(local).Equal(getBirthTime(remote))
 }
 
 func isWindows() bool {

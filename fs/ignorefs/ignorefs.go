@@ -6,6 +6,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -150,6 +151,15 @@ func (d *ignoreDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry
 	}
 	// Ignored directories do not have DirEntry objects.
 	return nil, nil
+}
+
+// BirthTime returns the birth time of the wrapped directory if available.
+// This ensures that ignoreDirectory preserves the EntryWithBirthTime interface.
+func (d *ignoreDirectory) BirthTime() time.Time {
+	if ewb, ok := d.Directory.(fs.EntryWithBirthTime); ok {
+		return ewb.BirthTime()
+	}
+	return time.Time{}
 }
 
 type ignoreDirIterator struct {

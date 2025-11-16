@@ -446,6 +446,16 @@ func newDirEntryWithSummary(d fs.Entry, oid object.ID, summ *fs.DirectorySummary
 	return de, nil
 }
 
+// setBirthTime sets the birth time on a DirEntry from a filesystem entry if available.
+func setBirthTime(de *snapshot.DirEntry, md fs.Entry) {
+	if ewb, ok := md.(fs.EntryWithBirthTime); ok {
+		if btime := ewb.BirthTime(); !btime.IsZero() {
+			btimeVal := fs.UTCTimestampFromTime(btime)
+			de.BirthTime = &btimeVal
+		}
+	}
+}
+
 // newDirEntry makes DirEntry objects for any type of Entry.
 func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, error) {
 	var entryType snapshot.EntryType
@@ -461,7 +471,7 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 		return nil, errors.Errorf("invalid entry type %T", md)
 	}
 
-	return &snapshot.DirEntry{
+	de := &snapshot.DirEntry{
 		Name:        fname,
 		Type:        entryType,
 		Permissions: snapshot.Permissions(md.Mode() & fs.ModBits),
@@ -470,7 +480,12 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 		UserID:      md.Owner().UserID,
 		GroupID:     md.Owner().GroupID,
 		ObjectID:    oid,
-	}, nil
+	}
+
+	// Capture birth time if available
+	setBirthTime(de, md)
+
+	return de, nil
 }
 
 // newCachedDirEntry makes DirEntry objects for entries that are also in
@@ -482,11 +497,26 @@ func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, e
 		return nil, errors.New("cached entry does not implement HasObjectID")
 	}
 
+	var de *snapshot.DirEntry
+	var err error
+
 	if _, ok := md.(fs.StreamingFile); ok {
-		return newDirEntry(cached, fname, hoid.ObjectID())
+		de, err = newDirEntry(cached, fname, hoid.ObjectID())
+	} else {
+		de, err = newDirEntry(md, fname, hoid.ObjectID())
 	}
 
-	return newDirEntry(md, fname, hoid.ObjectID())
+	if err != nil {
+		return nil, err
+	}
+
+	// For StreamingFile, update birthtime to reflect current filesystem state
+	// (for other types, birthtime is already set correctly from md in newDirEntry)
+	if _, ok := md.(fs.StreamingFile); ok {
+		setBirthTime(de, md)
+	}
+
+	return de, nil
 }
 
 // uploadFileWithCheckpointing uploads the specified File to the repository.
@@ -689,6 +719,14 @@ func (u *Uploader) processChildren(
 	}
 
 	return nil
+}
+
+// getBirthTime extracts birth time from an entry if available, otherwise returns zero time.
+func getBirthTime(e fs.Entry) time.Time {
+	if ewb, ok := e.(fs.EntryWithBirthTime); ok {
+		return ewb.BirthTime()
+	}
+	return time.Time{}
 }
 
 func commonMetadataEquals(e1, e2 fs.Entry) bool {

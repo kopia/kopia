@@ -170,6 +170,7 @@ func newEntry(basename string, fi os.FileInfo, prefix string) filesystemEntry {
 		TrimShallowSuffix(basename),
 		fi.Size(),
 		fi.ModTime().UnixNano(),
+		platformSpecificBirthTime(fi, prefix+basename),
 		fi.Mode(),
 		platformSpecificOwnerInfo(fi),
 		platformSpecificDeviceInfo(fi),
