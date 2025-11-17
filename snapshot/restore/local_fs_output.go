@@ -2,6 +2,7 @@ package restore
 
 import (
 	"context"
+	stderrors "errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -379,19 +380,20 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func write(targetPath string, r fs.Reader, size int64, flush bool, c streamCopier) error {
+func write(targetPath string, r fs.Reader, size int64, flush bool, c streamCopier) (err error) {
 	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,mnd
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
 
+	defer func() {
+		// always close f and report close error
+		err = stderrors.Join(err, f.Close())
+	}()
+
 	if err := f.Truncate(size); err != nil {
 		return err //nolint:wrapcheck
 	}
-
-	// ensure we always close f. Note that this does not conflict with the
-	// close below, as close is idempotent.
-	defer f.Close() //nolint:errcheck
 
 	if _, err := c(f, r); err != nil {
 		return errors.Wrapf(err, "cannot write data to file %q", f.Name())
@@ -401,10 +403,6 @@ func write(targetPath string, r fs.Reader, size int64, flush bool, c streamCopie
 		if err := f.Sync(); err != nil {
 			return errors.Wrapf(err, "cannot flush file %q", f.Name())
 		}
-	}
-
-	if err := f.Close(); err != nil {
-		return err //nolint:wrapcheck
 	}
 
 	return nil
