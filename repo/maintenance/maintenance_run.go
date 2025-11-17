@@ -334,7 +334,12 @@ func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedul
 	return ReportRun(ctx, runParams.rep, TaskCleanupLogs, s, func() (maintenancestats.Kind, error) {
 		stats, err := CleanupLogs(ctx, runParams.rep, runParams.Params.LogRetention.OrDefault())
 
-		userLog(ctx).Infof("Cleaned up %v logs.", stats.DeletedBlobCount)
+		var deletedLogCount int
+		if stats != nil {
+			deletedLogCount = stats.DeletedBlobCount
+		}
+
+		userLog(ctx).Infof("Cleaned up %v logs.", deletedLogCount)
 
 		return stats, err
 	})
