@@ -40,7 +40,7 @@ func initCrypto(masterKey, salt []byte) (cipher.AEAD, []byte, error) {
 	return aead, authData, nil
 }
 
-var errPlaintextTooLarge = errors.New("plaintex data is too large to be encrypted")
+var errPlaintextTooLarge = errors.New("plaintext data is too large to be encrypted")
 
 // EncryptAes256Gcm encrypts data with AES 256 GCM.
 func EncryptAes256Gcm(data, masterKey, salt []byte) ([]byte, error) {
