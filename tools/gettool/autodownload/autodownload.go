@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"log"
@@ -23,7 +24,7 @@ import (
 
 const dirMode = 0o750
 
-func createFile(target string, mode os.FileMode, modTime time.Time, src io.Reader) error {
+func createFile(target string, mode os.FileMode, modTime time.Time, src io.Reader) (err error) {
 	f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "error creating file")
@@ -31,7 +32,9 @@ func createFile(target string, mode os.FileMode, modTime time.Time, src io.Reade
 
 	defer os.Chtimes(target, modTime, modTime) //nolint:errcheck
 
-	defer f.Close() //nolint:errcheck
+	defer func() {
+		err = stderrors.Join(err, f.Close())
+	}()
 
 	if _, err := io.Copy(f, src); err != nil {
 		return errors.Wrap(err, "error copying contents")
