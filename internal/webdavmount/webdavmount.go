@@ -2,13 +2,13 @@
 package webdavmount
 
 import (
+	"context"
 	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 	"golang.org/x/net/webdav"
 
 	"github.com/kopia/kopia/fs"
@@ -26,7 +26,7 @@ var (
 type webdavFile struct {
 	// webdavFile implements webdav.File but needs context
 	// +checklocks:mu
-	ctx context.Context
+	ctx context.Context //nolint:containedctx
 
 	entry fs.File
 
@@ -100,7 +100,7 @@ func (f *webdavFile) Close() error {
 
 type webdavDir struct {
 	// webdavDir implements webdav.File but needs context
-	ctx context.Context
+	ctx context.Context //nolint:containedctx
 
 	w    *webdavFS
 	info os.FileInfo
