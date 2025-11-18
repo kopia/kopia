@@ -105,11 +105,8 @@ func (e *estimator) StartEstimation(ctx context.Context, cb EstimationDoneFn) {
 	scanCtx, cancelScan := context.WithCancel(ctx)
 
 	e.cancelCtx = cancelScan
-	e.scanWG.Add(1)
 
-	go func() {
-		defer e.scanWG.Done()
-
+	e.scanWG.Go(func() {
 		logger := estimateLog(ctx)
 
 		var filesCount, totalFileSize int64
@@ -147,7 +144,7 @@ func (e *estimator) StartEstimation(ctx context.Context, cb EstimationDoneFn) {
 		}
 
 		cb(filesCount, totalFileSize)
-	}()
+	})
 }
 
 func (e *estimator) Wait() {

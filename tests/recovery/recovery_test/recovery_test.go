@@ -254,11 +254,8 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 	var wg sync.WaitGroup
 
 	// Add a WaitGroup counter for the first goroutine
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		// Create a scanner to read from stderrPipe
 		scanner := bufio.NewScanner(stderrPipe)
 		scanner.Split(bufio.ScanLines)
@@ -275,7 +272,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 				break
 			}
 		}
-	}()
+	})
 
 	// Start the command
 	err = cmd.Start()

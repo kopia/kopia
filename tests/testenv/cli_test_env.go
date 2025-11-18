@@ -305,11 +305,7 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 
 	var wg sync.WaitGroup
 
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		scanner := bufio.NewScanner(stdoutReader)
 		for scanner.Scan() {
 			if logOutput {
@@ -318,13 +314,9 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 
 			stdout = append(stdout, scanner.Text())
 		}
-	}()
+	})
 
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		scanner := bufio.NewScanner(stderrReader)
 		for scanner.Scan() {
 			if logOutput {
@@ -333,7 +325,7 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 
 			stderr = append(stderr, scanner.Text())
 		}
-	}()
+	})
 
 	wg.Wait()
 
