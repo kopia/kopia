@@ -25,7 +25,7 @@ import (
 const dirMode = 0o750
 
 func createFile(outDir *os.Root, target string, mode os.FileMode, modTime time.Time, src io.Reader) error {
-	f, err := outDir.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode) //nolint:gosec
+	f, err := outDir.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
 		return errors.Wrap(err, "error creating file")
 	}
