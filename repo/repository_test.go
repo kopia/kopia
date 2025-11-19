@@ -857,7 +857,8 @@ func TestAllRegistryMetricsAreMapped(t *testing.T) {
 }
 
 func TestDeriveKey(t *testing.T) {
-	testPurpose := []byte{0, 0, 0, 0}
+	const testPurpose = "test purpose"
+
 	testKeyLength := 8
 	masterKey := []byte("01234567890123456789012345678901")
 	uniqueID := []byte("a5ba5d2da4b14b518b9501b64b5d87ca")
