@@ -31,6 +31,7 @@ func TestGetBuffer(t *testing.T) {
 func TestReleaseBuffer(t *testing.T) {
 	buf := iocopy.GetBuffer()
 	iocopy.ReleaseBuffer(buf)
+
 	buf2 := iocopy.GetBuffer()
 	require.Equal(t, &buf[0], &buf2[0], "Buffer was not recycled after ReleaseBuffer")
 }

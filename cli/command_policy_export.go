@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"os"
@@ -46,9 +47,10 @@ func (c *commandPolicyExport) run(ctx context.Context, rep repo.Repository) erro
 		return err
 	}
 
-	file, ok := output.(*os.File)
-	if ok {
-		defer file.Close() //nolint:errcheck
+	if file, ok := output.(*os.File); ok {
+		defer func() {
+			err = stderrors.Join(err, file.Close())
+		}()
 	}
 
 	policies := make(map[string]*policy.Policy)

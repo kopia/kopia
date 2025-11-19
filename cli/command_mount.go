@@ -82,7 +82,6 @@ func (c *commandMount) run(ctx context.Context, rep repo.Repository) error {
 			FuseAllowNonEmptyMount: c.mountFuseAllowNonEmptyMount,
 			PreferWebDAV:           c.mountPreferWebDAV,
 		})
-
 	if mountErr != nil {
 		return errors.Wrap(mountErr, "mount error")
 	}

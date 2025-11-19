@@ -51,12 +51,10 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 	}()
 
 	// start a goroutine that will populate totalCount
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		c.getTotalContentCount(subctx, rep, &totalCount)
-	}()
+	})
 
 	rep.DisableIndexRefresh()
 

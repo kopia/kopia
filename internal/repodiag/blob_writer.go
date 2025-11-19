@@ -37,10 +37,7 @@ func (w *BlobWriter) EncryptAndWriteBlobAsync(ctx context.Context, prefix blob.I
 
 	b := encrypted.Bytes()
 
-	w.wg.Add(1)
-
-	go func() {
-		defer w.wg.Done()
+	w.wg.Go(func() {
 		defer encrypted.Close()
 		defer closeFunc()
 
@@ -49,7 +46,7 @@ func (w *BlobWriter) EncryptAndWriteBlobAsync(ctx context.Context, prefix blob.I
 			log(ctx).Warnf("unable to write diagnostics blob: %v", err)
 			return
 		}
-	}()
+	})
 }
 
 // Wait waits for all the writes to complete.

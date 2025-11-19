@@ -59,14 +59,11 @@ type Comparer struct {
 
 // Compare compares two filesystem entries and emits their diff information.
 func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) (Stats, error) {
-	c.stats = Stats{}
+	c.stats = Stats{} // reset stats
 
 	err := c.compareEntry(ctx, e1, e2, ".")
-	if err != nil {
-		return c.stats, err
-	}
 
-	return c.stats, errors.Wrap(err, "error comparing fs entries")
+	return c.stats, err
 }
 
 // Close removes all temporary files used by the comparer.
@@ -357,6 +354,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 	}
 
 	var args []string
+
 	args = append(args, c.DiffArguments...)
 	args = append(args, oldName, newName)
 

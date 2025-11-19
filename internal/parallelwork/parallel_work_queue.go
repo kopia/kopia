@@ -154,6 +154,7 @@ func OnNthCompletion(n int, callback CallbackFunc) CallbackFunc {
 
 		n--
 		call := n == 0
+
 		mu.Unlock()
 
 		if call {

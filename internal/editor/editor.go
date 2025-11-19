@@ -105,7 +105,7 @@ var EditFile = func(ctx context.Context, file string) error {
 	args = append(args, editorArgs...)
 	args = append(args, file)
 
-	cmd := exec.Command(editor, args...) //nolint:gosec
+	cmd := exec.CommandContext(ctx, editor, args...) //nolint:gosec
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

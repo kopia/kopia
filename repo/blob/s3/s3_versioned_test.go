@@ -663,7 +663,9 @@ func randLongHex(tb testing.TB, length int) string {
 	b := make([]byte, byteLength)
 
 	rMu.Lock()
+
 	n, err := r.Read(b)
+
 	rMu.Unlock()
 
 	require.NoError(tb, err)

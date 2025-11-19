@@ -27,6 +27,8 @@ func (as *AdvanceEpochStats) Summary() string {
 	var message string
 	if as.WasAdvanced {
 		message = fmt.Sprintf("Advanced epoch to %v", as.CurrentEpoch)
+	} else {
+		message = fmt.Sprintf("Stayed at epoch %v", as.CurrentEpoch)
 	}
 
 	return message

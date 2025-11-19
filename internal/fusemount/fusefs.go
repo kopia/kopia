@@ -6,6 +6,7 @@
 package fusemount
 
 import (
+	"context"
 	"io"
 	"os"
 	"sync"
@@ -14,7 +15,6 @@ import (
 	gofusefs "github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo/logging"

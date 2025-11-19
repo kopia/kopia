@@ -167,6 +167,7 @@ var tracer = otel.Tracer("kopia/grpc")
 func (s *Server) handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, usernameAtHostname string, req *grpcapi.SessionRequest, respond func(*grpcapi.SessionResponse)) {
 	if req.GetTraceContext() != nil {
 		var tc propagation.TraceContext
+
 		ctx = tc.Extract(ctx, propagation.MapCarrier(req.GetTraceContext()))
 	}
 

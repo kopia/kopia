@@ -147,6 +147,7 @@ func TestServerStart(t *testing.T) {
 
 	// make sure root payload is valid JSON for the directory.
 	var dummy map[string]any
+
 	err = json.Unmarshal(rootPayload, &dummy)
 	require.NoError(t, err)
 
@@ -442,6 +443,7 @@ func TestServerScheduling(t *testing.T) {
 	emptyDir2 := testutil.TempDirectory(t)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", emptyDir1)

@@ -68,11 +68,7 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 	// start N workers, each fetching from the shared channel and invoking the provided callback.
 	// cleanup() must be called to for worker completion
 	for range parallel {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			for i := range workch {
 				if err := originalCallback(i); err != nil {
 					select {
@@ -81,7 +77,7 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 					}
 				}
 			}
-		}()
+		})
 	}
 
 	return callback, cleanup

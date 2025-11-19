@@ -9,6 +9,7 @@ import (
 	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"log"
@@ -23,15 +24,17 @@ import (
 
 const dirMode = 0o750
 
-func createFile(target string, mode os.FileMode, modTime time.Time, src io.Reader) error {
-	f, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode) //nolint:gosec
+func createFile(outDir *os.Root, target string, mode os.FileMode, modTime time.Time, src io.Reader) error {
+	f, err := outDir.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
 	if err != nil {
 		return errors.Wrap(err, "error creating file")
 	}
 
-	defer os.Chtimes(target, modTime, modTime) //nolint:errcheck
+	defer outDir.Chtimes(target, modTime, modTime) //nolint:errcheck
 
-	defer f.Close() //nolint:errcheck
+	defer func() {
+		err = stderrors.Join(err, f.Close())
+	}()
 
 	if _, err := io.Copy(f, src); err != nil {
 		return errors.Wrap(err, "error copying contents")
@@ -40,21 +43,23 @@ func createFile(target string, mode os.FileMode, modTime time.Time, src io.Reade
 	return nil
 }
 
-func createSymlink(linkPath, linkTarget string) error {
-	os.Remove(linkPath) //nolint:errcheck
+func createSymlink(outDir *os.Root, linkPath, linkTarget string) error {
+	outDir.Remove(linkPath) //nolint:errcheck
 
-	return errors.Wrap(os.Symlink(linkTarget, linkPath), "error creating symlink")
+	return errors.Wrap(outDir.Symlink(linkTarget, linkPath), "error creating symlink")
 }
 
-func joinAndStripPath(dir, fname string, stripPathComponents int) (string, bool) {
-	parts := strings.Split(filepath.ToSlash(fname), "/")
+func stripLeadingPath(fname string, stripPathComponents int) (string, bool) {
+	if stripPathComponents == 0 {
+		return fname, true
+	}
+
+	parts := strings.Split(filepath.ToSlash(filepath.Clean(fname)), "/")
 	if len(parts) <= stripPathComponents {
 		return "", false
 	}
 
-	parts = parts[stripPathComponents:]
-
-	return filepath.Join(append([]string{dir}, parts...)...), true
+	return filepath.Join(parts[stripPathComponents:]...), true
 }
 
 func untar(dir string, r io.Reader, stripPathComponents int) error {
@@ -63,6 +68,17 @@ func untar(dir string, r io.Reader, stripPathComponents int) error {
 		header *tar.Header
 	)
 
+	if err := os.MkdirAll(dir, dirMode); err != nil {
+		return errors.Wrapf(err, "error creating output directory %q", dir)
+	}
+
+	outDir, err := os.OpenRoot(dir)
+	if err != nil {
+		return errors.Wrapf(err, "could not open output directory root %q", dir)
+	}
+
+	defer outDir.Close() //nolint:errcheck
+
 	tr := tar.NewReader(r)
 
 	for header, err = tr.Next(); err == nil; header, err = tr.Next() {
@@ -70,29 +86,29 @@ func untar(dir string, r io.Reader, stripPathComponents int) error {
 			continue
 		}
 
-		target, ok := joinAndStripPath(dir, header.Name, stripPathComponents)
+		target, ok := stripLeadingPath(header.Name, stripPathComponents)
 		if !ok {
 			continue
 		}
 
-		if derr := os.MkdirAll(filepath.Dir(target), dirMode); derr != nil {
+		if derr := outDir.MkdirAll(filepath.Dir(target), dirMode); derr != nil {
 			return errors.Wrap(derr, "error creating parent directory")
 		}
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if derr := os.MkdirAll(target, dirMode); derr != nil {
+			if derr := outDir.MkdirAll(target, dirMode); derr != nil {
 				return errors.Wrap(derr, "error creating directory")
 			}
 
 		case tar.TypeReg:
 			//nolint:gosec
-			if ferr := createFile(target, os.FileMode(header.Mode), header.ModTime, tr); ferr != nil {
+			if ferr := createFile(outDir, target, os.FileMode(header.Mode), header.ModTime, tr); ferr != nil {
 				return errors.Wrapf(ferr, "error creating file %v", target)
 			}
 
 		case tar.TypeSymlink:
-			if ferr := createSymlink(target, header.Linkname); ferr != nil {
+			if ferr := createSymlink(outDir, target, header.Linkname); ferr != nil {
 				return errors.Wrapf(ferr, "error creating file %v", target)
 			}
 
@@ -109,6 +125,17 @@ func untar(dir string, r io.Reader, stripPathComponents int) error {
 }
 
 func unzip(dir string, r io.Reader, stripPathComponents int) error {
+	if err := os.MkdirAll(dir, dirMode); err != nil {
+		return errors.Wrapf(err, "error creating output directory %q", dir)
+	}
+
+	outDir, err := os.OpenRoot(dir)
+	if err != nil {
+		return errors.Wrapf(err, "could not open output directory root %q", dir)
+	}
+
+	defer outDir.Close() //nolint:errcheck
+
 	// zips require ReaderAt, most installers are quite small so we'll just buffer them in memory
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, r); err != nil {
@@ -123,18 +150,18 @@ func unzip(dir string, r io.Reader, stripPathComponents int) error {
 	}
 
 	for _, f := range zf.File {
-		fpath, ok := joinAndStripPath(dir, f.Name, stripPathComponents)
+		fpath, ok := stripLeadingPath(f.Name, stripPathComponents)
 		if !ok {
 			continue
 		}
 
-		if err := os.MkdirAll(filepath.Dir(fpath), dirMode); err != nil {
+		if err := outDir.MkdirAll(filepath.Dir(fpath), dirMode); err != nil {
 			return errors.Wrap(err, "error creating parent directory")
 		}
 
 		switch f.FileInfo().Mode() & os.ModeType {
 		case os.ModeDir:
-			if err := os.MkdirAll(fpath, dirMode); err != nil {
+			if err := outDir.MkdirAll(fpath, dirMode); err != nil {
 				return errors.Wrap(err, "error creating directory")
 			}
 
@@ -146,7 +173,7 @@ func unzip(dir string, r io.Reader, stripPathComponents int) error {
 				return errors.Wrap(err, "error opening zip entry")
 			}
 
-			if ferr := createFile(fpath, f.FileInfo().Mode(), f.FileInfo().ModTime(), fc); ferr != nil {
+			if ferr := createFile(outDir, fpath, f.FileInfo().Mode(), f.FileInfo().ModTime(), fc); ferr != nil {
 				return errors.Wrapf(ferr, "error creating file %v", f.Name)
 			}
 

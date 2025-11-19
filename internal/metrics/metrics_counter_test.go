@@ -11,6 +11,7 @@ import (
 
 func TestCounter_Nil(t *testing.T) {
 	var e *metrics.Registry
+
 	cnt := e.CounterInt64("aaa", "bbb", nil)
 	require.Nil(t, cnt)
 	cnt.Add(33)

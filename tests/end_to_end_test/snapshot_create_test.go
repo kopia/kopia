@@ -515,6 +515,7 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 			}
 
 			defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
 			e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 			e.RunAndExpectSuccess(t, "snapshot", "create", baseDir)
 			sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
@@ -557,8 +558,8 @@ func TestSnapshotCreateAllWithManualSnapshot(t *testing.T) {
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 
@@ -585,6 +586,7 @@ func TestSnapshotCreateWithStdinStream(t *testing.T) {
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	// Create a temporary pipe file with test data

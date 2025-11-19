@@ -27,11 +27,7 @@ func TestThrottlingSemaphore(t *testing.T) {
 		)
 
 		for range 10 {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() {
 				for range 10 {
 					s.Acquire()
 
@@ -50,11 +46,12 @@ func TestThrottlingSemaphore(t *testing.T) {
 					mu.Lock()
 
 					concurrency--
+
 					mu.Unlock()
 
 					s.Release()
 				}
-			}()
+			})
 		}
 
 		wg.Wait()
