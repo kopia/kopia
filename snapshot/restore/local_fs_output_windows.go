@@ -21,7 +21,7 @@ func symlinkChmod(path string, mode os.FileMode) error {
 }
 
 func symlinkChtimes(linkPath string, btime, atime, mtime time.Time) error {
-	return setFileTimes(linkPath, btime, atime, mtime, true, false)
+	return setFileTimes(linkPath, btime, atime, mtime, true)
 }
 
 func chtimes(path string, btime, atime, mtime time.Time) error {
@@ -32,16 +32,16 @@ func chtimes(path string, btime, atime, mtime time.Time) error {
 		return os.Chtimes(path, atime, mtime)
 	}
 
-	return setFileTimes(path, btime, atime, mtime, false, false)
+	return setFileTimes(path, btime, atime, mtime, false)
 }
 
 // ChtimesExact is exported for testing purposes - sets times exactly as provided without fallback.
 func ChtimesExact(path string, btime, atime, mtime time.Time) error {
-	return setFileTimes(path, btime, atime, mtime, false, true)
+	return setFileTimes(path, btime, atime, mtime, false)
 }
 
 // setFileTimes sets the creation, access, and modification times for a file or symlink on Windows.
-func setFileTimes(path string, btime, atime, mtime time.Time, isSymlink bool, setBirthTimeIfZero bool) error {
+func setFileTimes(path string, btime, atime, mtime time.Time, isSymlink bool) error {
 	// Convert times to Windows FILETIME format
 	ftc := windows.NsecToFiletime(btime.UnixNano())
 	fta := windows.NsecToFiletime(atime.UnixNano())
@@ -54,7 +54,6 @@ func setFileTimes(path string, btime, atime, mtime time.Time, isSymlink bool, se
 		return errors.Wrap(err, "UTF16PtrFromString")
 	}
 
-	// Configure flags based on whether we're handling a symlink
 	var access uint32
 	var flags uint32
 	if isSymlink {
@@ -76,7 +75,6 @@ func setFileTimes(path string, btime, atime, mtime time.Time, isSymlink bool, se
 
 	defer windows.CloseHandle(h) //nolint:errcheck
 
-	// SetFileTime(handle, creationTime, accessTime, writeTime)
 	//nolint:wrapcheck
 	return windows.SetFileTime(h, &ftc, &fta, &ftw)
 }

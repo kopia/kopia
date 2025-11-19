@@ -37,29 +37,24 @@ func chtimes(path string, btime, atime, mtime time.Time) error {
 		return os.Chtimes(path, atime, mtime)
 	}
 
-	return setFileTimes(path, btime, atime, mtime, false)
+	return setFileTimes(path, btime, atime, mtime)
 }
 
 // ChtimesExact is exported for testing purposes - sets times exactly as provided.
 func ChtimesExact(path string, btime, atime, mtime time.Time) error {
-	return setFileTimes(path, btime, atime, mtime, true)
+	return setFileTimes(path, btime, atime, mtime)
 }
 
 // setFileTimes sets the birth, access, and modification times for a file on macOS.
-func setFileTimes(path string, btime, atime, mtime time.Time, setBirthTimeIfZero bool) error {
+func setFileTimes(path string, btime, atime, mtime time.Time) error {
 	// First set atime and mtime using standard os.Chtimes
 	if err := os.Chtimes(path, atime, mtime); err != nil {
 		return errors.Wrap(err, "unable to set atime/mtime")
 	}
 
-	// Set birth time if appropriate
-	if setBirthTimeIfZero || !btime.IsZero() {
-		if err := setBirthTime(path, btime); err != nil {
-			// Birth time setting is best-effort on macOS
-			// Silently ignore errors to avoid failing restore over timestamp issues
-			return nil
-		}
-	}
+	// Birth time setting is best-effort on macOS
+	// Silently ignore errors to avoid failing restore over timestamp issues
+	_ = setBirthTime(path, btime)
 
 	return nil
 }
