@@ -16,7 +16,7 @@ func mountWebDavHelper(ctx context.Context, url, path string) error {
 	return nil
 }
 
-func unmountWebDevHelper(ctx context.Context, path string) error {
+func unmountWebDavHelper(ctx context.Context, path string) error {
 	unmount := exec.CommandContext(ctx, "/usr/sbin/diskutil", "unmount", path)
 	if err := unmount.Run(); err != nil {
 		return errors.Errorf("unmount %q failed: %v", path, err)

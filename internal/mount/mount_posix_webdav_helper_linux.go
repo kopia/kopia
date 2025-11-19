@@ -14,7 +14,7 @@ func mountWebDavHelper(ctx context.Context, url, path string) error {
 	return nil
 }
 
-func unmountWebDevHelper(ctx context.Context, path string) error {
+func unmountWebDavHelper(ctx context.Context, path string) error {
 	unmount := exec.CommandContext(ctx, "/usr/bin/umount", path)
 	if err := unmount.Run(); err != nil {
 		log(ctx).Errorf("umount command failed: %v. Cowardly refusing to run with root permissions. Try \"sudo /usr/bin/umount %s\"\n", err, path)
