@@ -71,7 +71,7 @@ func (kc *KopiaClient) CreateOrConnectRepo(ctx context.Context, repoDir, bucketN
 		return errors.Wrap(iErr, "error connecting to repository")
 	}
 
-	return errors.Wrap(err, "unable to open repository")
+	return nil
 }
 
 // SetCacheLimits sets cache size limits to the already connected repository.

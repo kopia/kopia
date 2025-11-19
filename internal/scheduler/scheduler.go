@@ -61,13 +61,9 @@ func Start(ctx context.Context, getItems GetItemsFunc, opts Options) *Scheduler 
 		Debug:            opts.Debug,
 	}
 
-	s.wg.Add(1)
-
-	go func() {
-		defer s.wg.Done()
-
+	s.wg.Go(func() {
 		s.run(context.WithoutCancel(ctx))
-	}()
+	})
 
 	return s
 }

@@ -43,13 +43,9 @@ func (c *commandIndexInspect) run(ctx context.Context, rep repo.DirectRepository
 
 	var wg sync.WaitGroup
 
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		c.dumpIndexBlobEntries(output)
-	}()
+	})
 
 	err := c.runWithOutput(ctx, rep, output)
 	close(output)

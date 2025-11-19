@@ -48,11 +48,7 @@ func NewPool[T any](numWorkers int) *Pool[T] {
 	}
 
 	for range numWorkers {
-		w.wg.Add(1)
-
-		go func() {
-			defer w.wg.Done()
-
+		w.wg.Go(func() {
 			for {
 				select {
 				case it := <-w.work:
@@ -66,7 +62,7 @@ func NewPool[T any](numWorkers int) *Pool[T] {
 					return
 				}
 			}
-		}()
+		})
 	}
 
 	return w

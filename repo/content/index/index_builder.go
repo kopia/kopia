@@ -75,11 +75,7 @@ func (b Builder) sortedContents() []*Info {
 
 	numWorkers := runtime.NumCPU()
 	for worker := range numWorkers {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			for i := range buckets {
 				if i%numWorkers == worker {
 					buck := buckets[i]
@@ -89,7 +85,7 @@ func (b Builder) sortedContents() []*Info {
 					})
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

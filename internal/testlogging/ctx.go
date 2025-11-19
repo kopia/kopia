@@ -11,6 +11,7 @@ import (
 )
 
 type testingT interface {
+	Context() context.Context
 	Helper()
 	Errorf(msg string, args ...any)
 	Fatalf(msg string, args ...any)
@@ -42,21 +43,21 @@ func Context(t testingT) context.Context {
 
 // ContextWithLevel returns a context with attached logger that emits all log entries with given log level or above.
 func ContextWithLevel(t testingT, level Level) context.Context {
-	return logging.WithLogger(context.Background(), func(module string) logging.Logger {
+	return logging.WithLogger(t.Context(), func(module string) logging.Logger {
 		return PrintfLevel(t.Logf, "["+module+"] ", level)
 	})
 }
 
 // ContextWithLevelAndPrefix returns a context with attached logger that emits all log entries with given log level or above.
 func ContextWithLevelAndPrefix(t testingT, level Level, prefix string) context.Context {
-	return logging.WithLogger(context.Background(), func(module string) logging.Logger {
+	return logging.WithLogger(t.Context(), func(module string) logging.Logger {
 		return PrintfLevel(t.Logf, "["+module+"] "+prefix, level)
 	})
 }
 
 // ContextWithLevelAndPrefixFunc returns a context with attached logger that emits all log entries with given log level or above.
 func ContextWithLevelAndPrefixFunc(t testingT, level Level, prefixFunc func() string) context.Context {
-	return logging.WithLogger(context.Background(), func(module string) logging.Logger {
+	return logging.WithLogger(t.Context(), func(module string) logging.Logger {
 		return PrintfLevel(t.Logf, "["+module+"] "+prefixFunc(), level)
 	})
 }

@@ -27,11 +27,7 @@ func TestThrottlingSemaphore(t *testing.T) {
 		)
 
 		for range 10 {
-			wg.Add(1)
-
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() {
 				for range 10 {
 					s.Acquire()
 
@@ -55,7 +51,7 @@ func TestThrottlingSemaphore(t *testing.T) {
 
 					s.Release()
 				}
-			}()
+			})
 		}
 
 		wg.Wait()

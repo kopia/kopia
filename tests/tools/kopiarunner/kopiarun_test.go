@@ -3,6 +3,8 @@ package kopiarunner
 import (
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestKopiaRunner(t *testing.T) {
@@ -10,13 +12,6 @@ func TestKopiaRunner(t *testing.T) {
 	if origEnv == "" {
 		t.Skip("Skipping kopia runner test: 'KOPIA_EXE' is unset")
 	}
-
-	defer func() {
-		envErr := os.Setenv("KOPIA_EXE", origEnv)
-		if envErr != nil {
-			t.Fatal("Unable to reset env KOPIA_EXE to original value")
-		}
-	}()
 
 	for _, tt := range []struct {
 		name            string
@@ -58,20 +53,24 @@ func TestKopiaRunner(t *testing.T) {
 			t.Setenv("KOPIA_EXE", tt.exe)
 
 			runner, err := NewRunner("")
-			if (err != nil) != tt.expNewRunnerErr {
-				t.Fatalf("Expected NewRunner error: %v, got %v", tt.expNewRunnerErr, err)
-			}
+			if tt.expNewRunnerErr {
+				require.Error(t, err, "expected NewRunner error")
 
-			if err != nil {
 				return
 			}
 
-			defer runner.Cleanup()
+			require.NoError(t, err)
+
+			t.Cleanup(runner.Cleanup)
 
 			_, _, err = runner.Run(tt.args...)
-			if (err != nil) != tt.expRunErr {
-				t.Fatalf("Expected Run error: %v, got %v", tt.expRunErr, err)
+			if tt.expRunErr {
+				require.Error(t, err, "expected Run error")
+
+				return
 			}
+
+			require.NoError(t, err)
 		})
 	}
 }

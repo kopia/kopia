@@ -47,7 +47,8 @@ func mustGetRcloneExeOrSkip(t *testing.T) string {
 		rcloneExe = "rclone"
 	}
 
-	if err := exec.Command(rcloneExe, "version").Run(); err != nil {
+	ctx := testlogging.Context(t)
+	if err := exec.CommandContext(ctx, rcloneExe, "version").Run(); err != nil {
 		if os.Getenv("CI") == "" {
 			t.Skipf("rclone not installed: %v", err)
 		} else {
@@ -263,15 +264,11 @@ func TestRCloneProviders(t *testing.T) {
 			prefix := uuid.NewString()
 
 			for i := range 10 {
-				wg.Add(1)
-
-				go func() {
-					defer wg.Done()
-
+				wg.Go(func() {
 					for j := range 3 {
 						assert.NoError(t, st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j)), gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 					}
-				}()
+				})
 			}
 
 			wg.Wait()
@@ -330,7 +327,8 @@ func cleanupOldData(t *testing.T, rcloneExe, remotePath string) {
 		}
 	}
 
-	c := exec.Command(rcloneExe, "--config", configFile, "lsjson", remotePath)
+	ctx := testlogging.Context(t)
+	c := exec.CommandContext(ctx, rcloneExe, "--config", configFile, "lsjson", remotePath)
 	b, err := c.Output()
 	require.NoError(t, err)
 
@@ -351,7 +349,7 @@ func cleanupOldData(t *testing.T, rcloneExe, remotePath string) {
 		if age > cleanupAge {
 			t.Logf("purging: %v %v", e.Name, age)
 
-			if err := exec.Command(rcloneExe, "--config", configFile, "purge", remotePath+"/"+e.Name).Run(); err != nil {
+			if err := exec.CommandContext(ctx, rcloneExe, "--config", configFile, "purge", remotePath+"/"+e.Name).Run(); err != nil {
 				t.Logf("error purging %v: %v", e.Name, err)
 			}
 		}
