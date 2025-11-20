@@ -192,7 +192,8 @@ if ($args.Length -eq 0) {
     $kopiaSourcePath = $env:KOPIA_SOURCE_PATH
 } else {
     $kopiaSnapshotId = $args[0]
-    $kopiaSourcePath = $args[1]
+    # Path has been encoded to avoid whitespace issues
+    $kopiaSourcePath = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($args[1]))
 }
 
 $sourceDrive = Split-Path -Qualifier $kopiaSourcePath
@@ -210,7 +211,9 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
 
     cmd /c mklink /d $mountPoint "${shadowDevice}\"
 } else {
-    $proc = Start-Process 'powershell' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId, $kopiaSourcePath -PassThru -Verb RunAs -WindowStyle Hidden -Wait
+    # Avoid path with whitespaces issues
+    $encodedPath = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($kopiaSourcePath))
+    $proc = Start-Process 'powershell' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId, $encodedPath -PassThru -Verb RunAs -WindowStyle Hidden -Wait
     if ($proc.ExitCode) {
         exit $proc.ExitCode
     }
