@@ -11,9 +11,9 @@ import (
 )
 
 //nolint:gochecknoglobals
-var (
-	purposeAESKey   = []byte("AES")
-	purposeAuthData = []byte("CHECKSUM")
+const (
+	purposeAESKey   = "AES"
+	purposeAuthData = "CHECKSUM"
 )
 
 func initCrypto(masterKey, salt []byte) (cipher.AEAD, []byte, error) {

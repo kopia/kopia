@@ -84,7 +84,7 @@ type DirectRepository interface {
 	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, DirectRepositoryWriter, error)
 	UniqueID() []byte
 	ConfigFilename() string
-	DeriveKey(purpose []byte, keyLength int) ([]byte, error)
+	DeriveKey(purpose string, keyLength int) ([]byte, error)
 	Token(password string) (string, error)
 	Throttler() throttling.SettableThrottler
 	DisableIndexRefresh()
@@ -141,7 +141,7 @@ type directRepository struct {
 }
 
 // DeriveKey derives encryption key of the provided length from the master key.
-func (r *directRepository) DeriveKey(purpose []byte, keyLength int) (derivedKey []byte, err error) {
+func (r *directRepository) DeriveKey(purpose string, keyLength int) (derivedKey []byte, err error) {
 	if r.cmgr.ContentFormat().SupportsPasswordChange() {
 		derivedKey, err = crypto.DeriveKeyFromMasterKey(r.cmgr.ContentFormat().GetMasterKey(), r.UniqueID(), purpose, keyLength)
 		if err != nil {
