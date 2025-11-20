@@ -55,7 +55,8 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 		bytesPerSecond int64
 	}
 
-	var results []benchResult
+	algorithms := splitter.SupportedAlgorithms()
+	results := make([]benchResult, 0, len(algorithms))
 
 	var best benchResult
 
@@ -77,7 +78,7 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 
 	log(ctx).Infof("splitting %v blocks of %v each, parallelism %v", c.blockCount, c.blockSize, c.parallel)
 
-	for _, sp := range splitter.SupportedAlgorithms() {
+	for _, sp := range algorithms {
 		tt := timetrack.Start()
 
 		segmentLengths := runInParallelNoInput(c.parallel, func() []int {

@@ -73,7 +73,7 @@ func (s *sourceSnapshots) Iterate(ctx context.Context) (fs.DirectoryIterator, er
 		return nil, errors.Wrap(err, "unable to list snapshots")
 	}
 
-	var entries []fs.Entry
+	entries := make([]fs.Entry, 0, len(manifests))
 
 	for _, m := range manifests {
 		name := m.StartTime.Format("20060102-150405")

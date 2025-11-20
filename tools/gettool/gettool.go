@@ -206,7 +206,7 @@ func main() {
 	}
 
 	// on failure print current checksums, so they can be copy/pasted as the new baseline
-	var lines []string
+	lines := make([]string, 0, len(downloadedChecksums))
 
 	for k, v := range downloadedChecksums {
 		lines = append(lines, fmt.Sprintf("%v: %v", k, v))

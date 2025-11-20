@@ -23,7 +23,7 @@ func RegisterAlgorithm(name string, createFunc CreateECCFunc) {
 // SupportedAlgorithms returns the names of the supported ecc
 // methods.
 func SupportedAlgorithms() []string {
-	var result []string
+	result := make([]string, 0, len(factories))
 
 	for k := range factories {
 		result = append(result, k)

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"github.com/kopia/kopia/repo/manifest"
 )
@@ -88,7 +89,7 @@ func TestDedupeEntryMetadataByLabel(t *testing.T) {
 
 	for _, tc := range cases {
 		got := manifest.DedupeEntryMetadataByLabel(tc.input, theLabel)
-		if diff := cmp.Diff(got, tc.want); diff != "" {
+		if diff := cmp.Diff(got, tc.want, cmpopts.EquateEmpty()); diff != "" {
 			t.Errorf("invalid result of DedupeEntryMetadataByLabel (-got, +want): %v", diff)
 		}
 	}

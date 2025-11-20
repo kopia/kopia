@@ -80,7 +80,7 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 	// tracing (OTLP) parameters
 	app.Flag("otlp-trace", "Send OpenTelemetry traces to OTLP collector using gRPC").Hidden().Envar(svc.EnvName("KOPIA_ENABLE_OTLP_TRACE")).BoolVar(&c.otlpTrace)
 
-	var formats []string
+	formats := make([]string, 0, len(metricsPushFormats))
 
 	for k := range metricsPushFormats {
 		formats = append(formats, k)

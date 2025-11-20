@@ -17,8 +17,6 @@ type EntryMetadata struct {
 // DedupeEntryMetadataByLabel deduplicates EntryMetadata in a provided slice by picking
 // the latest one for a given set of label.
 func DedupeEntryMetadataByLabel(entries []*EntryMetadata, label string) []*EntryMetadata {
-	var result []*EntryMetadata
-
 	m := map[string]*EntryMetadata{}
 
 	for _, e := range entries {
@@ -28,6 +26,7 @@ func DedupeEntryMetadataByLabel(entries []*EntryMetadata, label string) []*Entry
 		}
 	}
 
+	result := make([]*EntryMetadata, 0, len(m))
 	for _, v := range m {
 		result = append(result, v)
 	}

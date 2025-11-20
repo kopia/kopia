@@ -131,7 +131,7 @@ func (m *ManagerV0) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.
 	// remove entries from indexMap that have been compacted and replaced by other indexes.
 	m.removeCompactedIndexes(ctx, indexMap, compactionLogs)
 
-	var results []Metadata
+	results := make([]Metadata, 0, len(indexMap))
 	for _, v := range indexMap {
 		results = append(results, *v)
 	}
@@ -352,7 +352,7 @@ func (m *ManagerV0) findIndexBlobsToDelete(ctx context.Context, latestServerBlob
 		}
 	}
 
-	var result []blob.ID
+	result := make([]blob.ID, 0, len(tmp))
 
 	for k := range tmp {
 		result = append(result, k)
@@ -362,7 +362,7 @@ func (m *ManagerV0) findIndexBlobsToDelete(ctx context.Context, latestServerBlob
 }
 
 func (m *ManagerV0) findCompactionLogBlobsToDelayCleanup(ctx context.Context, compactionBlobs []blob.Metadata) []blob.ID {
-	var result []blob.ID
+	result := make([]blob.ID, 0, len(compactionBlobs))
 
 	for _, cb := range compactionBlobs {
 		contentlog.Log1(ctx, m.log, "will delete compaction log blob",

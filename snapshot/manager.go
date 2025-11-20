@@ -49,7 +49,7 @@ func ListSources(ctx context.Context, rep repo.Repository) ([]SourceInfo, error)
 		uniq[sourceInfoFromLabels(it.Labels)] = true
 	}
 
-	var infos []SourceInfo
+	infos := make([]SourceInfo, 0, len(uniq))
 	for k := range uniq {
 		infos = append(infos, k)
 	}
@@ -292,7 +292,7 @@ func FindPreviousManifests(ctx context.Context, rep repo.Repository, sourceInfo 
 }
 
 func entryIDs(entries []*manifest.EntryMetadata) []manifest.ID {
-	var ids []manifest.ID
+	ids := make([]manifest.ID, 0, len(entries))
 	for _, e := range entries {
 		ids = append(ids, e.ID)
 	}

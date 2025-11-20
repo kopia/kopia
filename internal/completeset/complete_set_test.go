@@ -19,7 +19,7 @@ func TestFindFirstAndAll(t *testing.T) {
 		{
 			input:                 []blob.ID{},
 			wantFirst:             []blob.ID{},
-			wantAll:               [][]blob.ID(nil),
+			wantAll:               [][]blob.ID{},
 			wantExcludeIncomplete: []blob.ID{},
 		},
 
@@ -118,7 +118,7 @@ func TestFindFirstAndAll(t *testing.T) {
 				"bbb-s1-c3",
 			},
 			wantFirst:             []blob.ID{},
-			wantAll:               nil,
+			wantAll:               [][]blob.ID{},
 			wantExcludeIncomplete: []blob.ID{},
 		},
 		// two complete, two incomplete sessions
@@ -155,7 +155,7 @@ func TestFindFirstAndAll(t *testing.T) {
 }
 
 func idsFromMetadataSets(sets [][]blob.Metadata) [][]blob.ID {
-	var result [][]blob.ID
+	result := make([][]blob.ID, 0, len(sets))
 
 	for _, s := range sets {
 		result = append(result, blob.IDsFromMetadata(s))
@@ -165,7 +165,7 @@ func idsFromMetadataSets(sets [][]blob.Metadata) [][]blob.ID {
 }
 
 func dummyMetadataForIDs(ids []blob.ID) []blob.Metadata {
-	var result []blob.Metadata
+	result := make([]blob.Metadata, 0, len(ids))
 
 	for _, id := range ids {
 		result = append(result, blob.Metadata{BlobID: id})

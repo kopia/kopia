@@ -85,7 +85,7 @@ func (s *repositoryAllSources) Iterate(ctx context.Context) (fs.DirectoryIterato
 
 	name2safe = disambiguateSafeNames(name2safe)
 
-	var entries []fs.Entry
+	entries := make([]fs.Entry, 0, len(users))
 
 	for u := range users {
 		entries = append(entries, &sourceDirectories{

@@ -283,13 +283,13 @@ func verifyItemNotFound(ctx context.Context, t *testing.T, mgr *Manager, id ID) 
 func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[string]string, expected []ID) {
 	t.Helper()
 
-	var matches []ID
-
 	items, err := mgr.Find(ctx, labels)
 	if err != nil {
 		t.Errorf("error in Find(): %v", err)
 		return
 	}
+
+	matches := make([]ID, 0, len(items))
 
 	for _, m := range items {
 		matches = append(matches, m.ID)
@@ -298,7 +298,7 @@ func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[s
 	sortIDs(matches)
 	sortIDs(expected)
 
-	if !reflect.DeepEqual(matches, expected) {
+	if (len(matches) > 0 || len(expected) > 0) && !reflect.DeepEqual(matches, expected) {
 		t.Errorf("invalid matches for %v: %v, expected %v", labels, matches, expected)
 	}
 }

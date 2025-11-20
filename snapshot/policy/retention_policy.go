@@ -302,7 +302,7 @@ func CompactPins(pins []string) []string {
 		cnt[p]++
 	}
 
-	result := []string{}
+	result := make([]string, 0, len(cnt))
 
 	for k := range cnt {
 		result = append(result, k)
