@@ -2,6 +2,7 @@ package restore
 
 import (
 	"os"
+	"runtime"
 	"syscall"
 	"time"
 	"unsafe"
@@ -100,6 +101,7 @@ func setBirthTime(path string, btime time.Time) error {
 		0, // options
 		0,
 	)
+	runtime.KeepAlive(&crtime)
 
 	if errno != 0 {
 		return errors.Wrapf(errno, "setattrlist failed for %s", path)
