@@ -8,19 +8,14 @@ import (
 
 func platformSpecificBirthTimeFromStat(_ *syscall.Stat_t, path string) int64 {
 	// Linux doesn't have birth time in syscall.Stat_t
-	// Use statx to get birth time
 	var statx unix.Statx_t
 
-	// Use statx to get birth time
-	// AT_SYMLINK_NOFOLLOW: don't follow symlinks (like lstat)
-	// STATX_BTIME: request birth time
 	err := unix.Statx(unix.AT_FDCWD, path, unix.AT_SYMLINK_NOFOLLOW, unix.STATX_BTIME, &statx)
 	if err != nil {
 		// statx might fail on older kernels (< 4.11) or filesystems that don't support it
 		return 0
 	}
 
-	// Check if birth time is available (STATX_BTIME bit set in stx_mask)
 	if statx.Mask&unix.STATX_BTIME == 0 {
 		// Filesystem doesn't support birth time (e.g., ext3, older ext4)
 		return 0
