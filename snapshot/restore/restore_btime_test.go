@@ -75,12 +75,12 @@ func captureOriginalTimes(t *testing.T, file, dir string) (fileBtime, dirBtime t
 
 	fileEntry, err := localfs.NewEntry(file)
 	require.NoError(t, err)
-	fileBtime = getBirthTime(fileEntry)
+	fileBtime = fs.GetBirthTime(fileEntry)
 	mtime = fileEntry.ModTime()
 
 	dirEntry, err := localfs.NewEntry(dir)
 	require.NoError(t, err)
-	dirBtime = getBirthTime(dirEntry)
+	dirBtime = fs.GetBirthTime(dirEntry)
 
 	t.Logf("Original times - file btime: %v, mtime: %v", fileBtime, mtime)
 	t.Logf("Original times - dir btime: %v", dirBtime)
@@ -113,7 +113,7 @@ func verifyOldSnapshotRestore(t *testing.T, ctx context.Context, rep repo.Reposi
 
 	restoredDirEntry, err := localfs.NewEntry(restoreDir)
 	require.NoError(t, err)
-	restoredDirBtime := getBirthTime(restoredDirEntry)
+	restoredDirBtime := fs.GetBirthTime(restoredDirEntry)
 
 	t.Logf("Restored dir btime from old snapshot: %v", restoredDirBtime)
 
@@ -136,13 +136,13 @@ func verifyBirthtimePreservation(t *testing.T, ctx context.Context, rep repo.Rep
 	restoredFile := filepath.Join(restoreDir, "dummy.txt"+localfs.ShallowEntrySuffix)
 	fileEntry, err := localfs.NewEntry(restoredFile)
 	require.NoError(t, err)
-	restoredFileBtime := getBirthTime(fileEntry)
+	restoredFileBtime := fs.GetBirthTime(fileEntry)
 	restoredMtime := fileEntry.ModTime()
 
 	// Verify directory times
 	dirEntry, err := localfs.NewEntry(restoreDir)
 	require.NoError(t, err)
-	restoredDirBtime := getBirthTime(dirEntry)
+	restoredDirBtime := fs.GetBirthTime(dirEntry)
 
 	t.Logf("Restored times - file btime: %v, mtime: %v", restoredFileBtime, restoredMtime)
 	t.Logf("Restored times - dir btime: %v", restoredDirBtime)
@@ -208,11 +208,11 @@ func verifyBirthtimesUpdated(t *testing.T, file, dir string, expectedFileBtime, 
 
 	fileEntry, err := localfs.NewEntry(file)
 	require.NoError(t, err)
-	actualFileBtime := getBirthTime(fileEntry)
+	actualFileBtime := fs.GetBirthTime(fileEntry)
 
 	dirEntry, err := localfs.NewEntry(dir)
 	require.NoError(t, err)
-	actualDirBtime := getBirthTime(dirEntry)
+	actualDirBtime := fs.GetBirthTime(dirEntry)
 
 	require.Equal(t, expectedFileBtime.Unix(), actualFileBtime.Unix(), "file birthtime should be updated")
 	require.Equal(t, expectedDirBtime.Unix(), actualDirBtime.Unix(), "dir birthtime should be updated")
@@ -234,8 +234,8 @@ func verifySnapshotMetadataUpdate(t *testing.T, ctx context.Context, rep repo.Re
 	require.NoError(t, err)
 
 	// Verify birthtimes updated in snapshot
-	newFileBtime := getBirthTime(newFile)
-	newDirBtime := getBirthTime(newRoot)
+	newFileBtime := fs.GetBirthTime(newFile)
+	newDirBtime := fs.GetBirthTime(newRoot)
 
 	require.Equal(t, expectedFileBtime.Unix(), newFileBtime.Unix(), "file snapshot should reflect updated birthtime")
 	require.Equal(t, expectedDirBtime.Unix(), newDirBtime.Unix(), "dir snapshot should reflect updated birthtime")
@@ -292,14 +292,6 @@ func assertTimeIsRecent(t *testing.T, timeToCheck time.Time, message string) {
 	timeSince := time.Since(timeToCheck)
 	require.Less(t, timeSince, 10*time.Second, message+" (should be within last 10 seconds)")
 	require.GreaterOrEqual(t, timeSince, time.Duration(0), message+" (should not be in the future)")
-}
-
-// getBirthTime extracts birth time from an entry if available, otherwise returns zero time.
-func getBirthTime(entry fs.Entry) time.Time {
-	if ewb, ok := entry.(fs.EntryWithBirthTime); ok {
-		return ewb.BirthTime()
-	}
-	return time.Time{}
 }
 
 // createSnapshot creates a snapshot of the source directory.

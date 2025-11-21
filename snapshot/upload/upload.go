@@ -723,14 +723,6 @@ func (u *Uploader) processChildren(
 	return nil
 }
 
-// getBirthTime extracts birth time from an entry if available, otherwise returns zero time.
-func getBirthTime(e fs.Entry) time.Time {
-	if ewb, ok := e.(fs.EntryWithBirthTime); ok {
-		return ewb.BirthTime()
-	}
-	return time.Time{}
-}
-
 func commonMetadataEquals(e1, e2 fs.Entry) bool {
 	if l, r := e1.ModTime(), e2.ModTime(); !l.Equal(r) {
 		return false

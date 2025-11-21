@@ -43,6 +43,14 @@ type EntryWithBirthTime interface {
 	BirthTime() time.Time
 }
 
+// GetBirthTime extracts birth time from an entry if available, otherwise returns zero time.
+func GetBirthTime(e Entry) time.Time {
+	if ewb, ok := e.(EntryWithBirthTime); ok {
+		return ewb.BirthTime()
+	}
+	return time.Time{}
+}
+
 // Reader allows reading from a file and retrieving its up-to-date file info.
 type Reader interface {
 	io.ReadCloser
