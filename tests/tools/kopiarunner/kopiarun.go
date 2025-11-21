@@ -3,6 +3,7 @@ package kopiarunner
 
 import (
 	"bytes"
+	"context"
 	"log"
 	"os"
 	"os/exec"
@@ -63,8 +64,10 @@ func (kr *Runner) Cleanup() {
 func (kr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 	argsStr := strings.Join(args, " ")
 	log.Printf("running '%s %v'", kr.Exe, argsStr)
+
 	cmdArgs := append(append([]string(nil), kr.fixedArgs...), args...)
-	c := exec.Command(kr.Exe, cmdArgs...)
+	ctx := context.Background()
+	c := exec.CommandContext(ctx, kr.Exe, cmdArgs...)
 	c.Env = append(os.Environ(), kr.environment...)
 
 	errOut := &bytes.Buffer{}
@@ -79,9 +82,11 @@ func (kr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 // RunAsync will execute the kopia command with the given args in background.
 func (kr *Runner) RunAsync(args ...string) (*exec.Cmd, error) {
 	log.Printf("running async '%s %v'", kr.Exe, strings.Join(args, " "))
+
 	cmdArgs := append(append([]string(nil), kr.fixedArgs...), args...)
+	ctx := context.Background()
 	//nolint:gosec //G204
-	c := exec.Command(kr.Exe, cmdArgs...)
+	c := exec.CommandContext(ctx, kr.Exe, cmdArgs...)
 	c.Env = append(os.Environ(), kr.environment...)
 	c.Stderr = &bytes.Buffer{}
 

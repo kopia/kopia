@@ -36,7 +36,7 @@ func newPosixWedavController(ctx context.Context, entry fs.Directory, mountPoint
 }
 
 func (c posixWedavController) Unmount(ctx context.Context) error {
-	if err := unmountWebDevHelper(ctx, c.mountPoint); err != nil {
+	if err := unmountWebDavHelper(ctx, c.mountPoint); err != nil {
 		return err
 	}
 
