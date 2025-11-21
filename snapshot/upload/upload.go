@@ -490,7 +490,9 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 
 // newCachedDirEntry makes DirEntry objects for entries that are also in
 // previous snapshots. It ensures file sizes are populated correctly for
-// StreamingFiles.
+// StreamingFiles and refreshes birthtime from current filesystem metadata.
+// Note: birthtime is always updated from current metadata (md) even though
+// birthtime changes alone do not trigger content re-upload.
 func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, error) {
 	hoid, ok := cached.(object.HasObjectID)
 	if !ok {
@@ -501,19 +503,19 @@ func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, e
 	var err error
 
 	if _, ok := md.(fs.StreamingFile); ok {
+		// For StreamingFiles, use cached entry (for size info) but refresh birthtime from current filesystem
 		de, err = newDirEntry(cached, fname, hoid.ObjectID())
-	} else {
-		de, err = newDirEntry(md, fname, hoid.ObjectID())
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	// For StreamingFile, update birthtime to reflect current filesystem state
-	// (for other types, birthtime is already set correctly from md in newDirEntry)
-	if _, ok := md.(fs.StreamingFile); ok {
+		if err != nil {
+			return nil, err
+		}
+		// Refresh birthtime from current filesystem metadata to ensure cached entry reflects current state
 		setBirthTime(de, md)
+	} else {
+		// For other types, use current metadata directly (birthtime already set from filesystem in newDirEntry)
+		de, err = newDirEntry(md, fname, hoid.ObjectID())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return de, nil
