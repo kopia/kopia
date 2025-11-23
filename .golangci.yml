@@ -97,7 +97,6 @@ linters:
     - nakedret # already enforced by gofumpt in a stricter manner
     - nilnil
     - nlreturn # already enforced by wsl_v5
-    - noctx
     - noinlineerr # inline error handling is a common Go idiom used in this codebase
     - nonamedreturns
     - paralleltest
