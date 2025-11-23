@@ -84,7 +84,7 @@ func setBirthTime(path string, btime time.Time) error {
 
 	crtime := syscall.Timespec{
 		Sec:  btime.Unix(),
-		Nsec: int64(btime.Nanosecond()),
+		Nsec: btime.UnixNano() % 1e9,
 	}
 
 	pathPtr, err := unix.BytePtrFromString(path)
