@@ -256,3 +256,58 @@ func TestEditSnapshots(t *testing.T) {
 	require.Equal(t, []string{"pin2"}, updated[0].Pins)
 	require.Equal(t, newDesc2, updated[0].Description)
 }
+
+// TestSnapshotWithNilDirSummary tests that snapshots with nil DirSummary are handled correctly
+// This can happen when connecting to existing repositories with old snapshots.
+// See: https://github.com/kopia/kopia/issues/5006
+func TestSnapshotWithNilDirSummary(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	si := env.LocalPathSourceInfo("/test/path")
+
+	var snapshotID manifest.ID
+
+	// Create a snapshot manifest with nil DirSummary
+	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{Purpose: "Test"}, func(ctx context.Context, w repo.RepositoryWriter) error {
+		// Create a minimal snapshot without proper DirSummary
+		// This simulates snapshots from external or older repositories
+		man := &snapshot.Manifest{
+			Source:      si,
+			Description: "test-snapshot-no-dir-summary",
+			RootEntry: &snapshot.DirEntry{
+				// DirSummary is nil - this is the case that was causing the bug
+				DirSummary: nil,
+			},
+		}
+
+		var err error
+		snapshotID, err = snapshot.SaveSnapshot(ctx, w, man)
+		return err
+	}))
+
+	srvInfo := servertesting.StartServer(t, env, false)
+
+	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             srvInfo.BaseURL,
+		TrustedServerCertificateFingerprint: srvInfo.TrustedServerCertificateFingerprint,
+		Username:                            servertesting.TestUIUsername,
+		Password:                            servertesting.TestUIPassword,
+	})
+
+	require.NoError(t, err)
+	require.NoError(t, cli.FetchCSRFTokenForTesting(ctx))
+
+	// List snapshots - this should not panic or have nil Summary
+	resp, err := serverapi.ListSnapshots(ctx, cli, si, true)
+	require.NoError(t, err)
+
+	require.Len(t, resp.Snapshots, 1)
+
+	// Verify Summary is not nil (the key fix for the reported bug)
+	require.NotNil(t, resp.Snapshots[0].Summary, "Summary should not be nil")
+
+	// Verify Summary has default values
+	require.Equal(t, int64(0), resp.Snapshots[0].Summary.TotalFileSize)
+	require.Equal(t, int64(0), resp.Snapshots[0].Summary.TotalFileCount)
+}
+

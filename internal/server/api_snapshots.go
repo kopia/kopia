@@ -260,8 +260,12 @@ func convertSnapshotManifest(m *snapshot.Manifest) *serverapi.Snapshot {
 		Pins:             append([]string{}, m.Pins...),
 	}
 
-	if re := m.RootEntry; re != nil {
+	if re := m.RootEntry; re != nil && re.DirSummary != nil {
 		e.Summary = re.DirSummary
+	} else {
+		// Provide a default empty summary when RootEntry or DirSummary is nil
+		// This prevents undefined errors in the frontend when accessing totalSize
+		e.Summary = &fs.DirectorySummary{}
 	}
 
 	return e
