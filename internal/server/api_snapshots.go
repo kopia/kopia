@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"

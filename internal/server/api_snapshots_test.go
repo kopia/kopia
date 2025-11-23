@@ -265,8 +265,6 @@ func TestSnapshotWithNilDirSummary(t *testing.T) {
 
 	si := env.LocalPathSourceInfo("/test/path")
 
-	var snapshotID manifest.ID
-
 	// Create a snapshot manifest with nil DirSummary
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{Purpose: "Test"}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		// Create a minimal snapshot without proper DirSummary
@@ -281,7 +279,7 @@ func TestSnapshotWithNilDirSummary(t *testing.T) {
 		}
 
 		var err error
-		snapshotID, err = snapshot.SaveSnapshot(ctx, w, man)
+		_, err = snapshot.SaveSnapshot(ctx, w, man)
 		return err
 	}))
 
