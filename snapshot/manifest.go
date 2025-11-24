@@ -23,7 +23,7 @@ type Manifest struct {
 	StartTime   fs.UTCTimestamp `json:"startTime"`
 	EndTime     fs.UTCTimestamp `json:"endTime"`
 
-	Stats            Stats  `json:"stats,omitzero"`
+	Stats            Stats  `json:"stats"`
 	IncompleteReason string `json:"incomplete,omitempty"`
 
 	RootEntry *DirEntry `json:"rootEntry"`
