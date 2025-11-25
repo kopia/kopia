@@ -11,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const profDirName = "profiles"
+
 type profileFlags struct {
 	profileGCBeforeSaving bool
 	profileCPU            bool
@@ -71,20 +73,20 @@ func (c *profileFlags) start(ctx context.Context, outputDirectory string) error 
 		return nil
 	}
 
+	c.outputDirectory = outputDirectory
+
 	// ensure upfront that the pprof output dir can be created.
-	pprofDir, err := mkSubdirectories(outputDirectory, "profiles")
+	profDir, err := mkSubdirectories(c.outputDirectory, profDirName)
 	if err != nil {
 		return err
 	}
-
-	c.outputDirectory = pprofDir
 
 	if !c.profileCPU {
 		return nil
 	}
 
 	// start CPU profile dumper
-	f, err := os.Create(filepath.Join(pprofDir, "cpu.pprof")) //nolint:gosec
+	f, err := os.Create(filepath.Join(profDir, "cpu.pprof")) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "could not create CPU profile output file")
 	}
@@ -124,14 +126,14 @@ func (c *profileFlags) stop(ctx context.Context) {
 		runtime.GC()
 	}
 
-	pprofDir, err := mkSubdirectories(c.outputDirectory)
+	profDir, err := mkSubdirectories(c.outputDirectory, profDirName)
 	if err != nil {
 		log(ctx).Warn("cannot create directory to save profiles:", err)
 	}
 
 	for _, p := range pprof.Profiles() {
 		func() {
-			fname := filepath.Join(pprofDir, p.Name()+".pprof")
+			fname := filepath.Join(profDir, p.Name()+".pprof")
 
 			f, err := os.Create(fname) //nolint:gosec
 			if err != nil {
