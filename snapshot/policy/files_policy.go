@@ -5,23 +5,23 @@ import "github.com/kopia/kopia/snapshot"
 // FilesPolicy describes files to be ignored when taking snapshots.
 type FilesPolicy struct {
 	IgnoreRules            []string      `json:"ignore,omitempty"`
-	NoParentIgnoreRules    bool          `json:"noParentIgnore,omitzero"`
+	NoParentIgnoreRules    bool          `json:"noParentIgnore,omitempty"`
 	DotIgnoreFiles         []string      `json:"ignoreDotFiles,omitempty"`
-	NoParentDotIgnoreFiles bool          `json:"noParentDotFiles,omitzero"`
-	IgnoreCacheDirectories *OptionalBool `json:"ignoreCacheDirs,omitzero"`
-	MaxFileSize            int64         `json:"maxFileSize,omitzero"`
-	OneFileSystem          *OptionalBool `json:"oneFileSystem,omitzero"`
+	NoParentDotIgnoreFiles bool          `json:"noParentDotFiles,omitempty"`
+	IgnoreCacheDirectories *OptionalBool `json:"ignoreCacheDirs,omitempty"`
+	MaxFileSize            int64         `json:"maxFileSize,omitempty"`
+	OneFileSystem          *OptionalBool `json:"oneFileSystem,omitempty"`
 }
 
 // FilesPolicyDefinition specifies which policy definition provided the value of a particular field.
 type FilesPolicyDefinition struct {
-	IgnoreRules            snapshot.SourceInfo `json:"ignore,omitempty"` //nolint:modernize
-	NoParentIgnoreRules    snapshot.SourceInfo `json:"noParentIgnore,omitzero"`
-	DotIgnoreFiles         snapshot.SourceInfo `json:"ignoreDotFiles,omitempty"` //nolint:modernize
-	NoParentDotIgnoreFiles snapshot.SourceInfo `json:"noParentDotFiles,omitzero"`
-	IgnoreCacheDirectories snapshot.SourceInfo `json:"ignoreCacheDirs,omitzero"`
-	MaxFileSize            snapshot.SourceInfo `json:"maxFileSize,omitzero"`
-	OneFileSystem          snapshot.SourceInfo `json:"oneFileSystem,omitzero"`
+	IgnoreRules            snapshot.SourceInfo `json:"ignore,omitempty"`
+	NoParentIgnoreRules    snapshot.SourceInfo `json:"noParentIgnore,omitempty"`
+	DotIgnoreFiles         snapshot.SourceInfo `json:"ignoreDotFiles,omitempty"`
+	NoParentDotIgnoreFiles snapshot.SourceInfo `json:"noParentDotFiles,omitempty"`
+	IgnoreCacheDirectories snapshot.SourceInfo `json:"ignoreCacheDirs,omitempty"`
+	MaxFileSize            snapshot.SourceInfo `json:"maxFileSize,omitempty"`
+	OneFileSystem          snapshot.SourceInfo `json:"oneFileSystem,omitempty"`
 }
 
 // Merge applies default values from the provided policy.
