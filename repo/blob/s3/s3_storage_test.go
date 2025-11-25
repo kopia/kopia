@@ -555,7 +555,7 @@ func TestNeedMD5AWS(t *testing.T) {
 	require.NoError(t, err, "could not create storage")
 
 	t.Cleanup(func() {
-		blobtesting.CleanupOldData(ctx, t, s, 0)
+		blobtesting.CleanupOldData(testlogging.ContextForCleanup(t), t, s, 0)
 	})
 
 	err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")), blob.PutOptions{})
@@ -586,8 +586,12 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 	cancel()
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
-	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+	t.Cleanup(func() {
+		ctx := testlogging.ContextForCleanup(t)
+
+		blobtesting.CleanupOldData(ctx, t, st, 0)
+		st.Close(ctx)
+	})
 
 	blobtesting.VerifyStorage(ctx, t, st, opts)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -608,8 +612,12 @@ func testPutBlobWithInvalidRetention(t *testing.T, options Options, opts blob.Pu
 	st, err := newStorage(ctx, &options)
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
-	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+	t.Cleanup(func() {
+		ctx := testlogging.ContextForCleanup(t)
+
+		blobtesting.CleanupOldData(ctx, t, st, 0)
+		st.Close(ctx)
+	})
 
 	// Now attempt to add a block and expect to fail
 	require.Error(t,
