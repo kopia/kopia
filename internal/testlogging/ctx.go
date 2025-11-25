@@ -41,6 +41,18 @@ func Context(t testingT) context.Context {
 	return ContextWithLevel(t, LevelDebug)
 }
 
+// Context returns a context with attached logger that emits all log entries to go testing.T log output.
+// This context is not cancelled when the test finishes, so it is suitable to be used in cleanup functions.
+func ContextForCleanup(t testingT) context.Context {
+	return contextWithLevelForCleanup(t, LevelDebug)
+}
+
+func contextWithLevelForCleanup(t testingT, level Level) context.Context {
+	return logging.WithLogger(context.WithoutCancel(t.Context()), func(module string) logging.Logger {
+		return PrintfLevel(t.Logf, "["+module+"] ", level)
+	})
+}
+
 // ContextWithLevel returns a context with attached logger that emits all log entries with given log level or above.
 func ContextWithLevel(t testingT, level Level) context.Context {
 	return logging.WithLogger(t.Context(), func(module string) logging.Logger {
