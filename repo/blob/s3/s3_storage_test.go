@@ -537,10 +537,9 @@ func TestNeedMD5AWS(t *testing.T) {
 	getOrMakeBucket(t, cli, options, true)
 
 	// ensure it is a bucket with object locking enabled
-	want := "Enabled"
-	if got, _, _, _, _ := cli.GetObjectLockConfig(ctx, options.BucketName); got != want {
-		t.Fatalf("object locking is not enabled: got '%s', want '%s'", got, want)
-	}
+	got, _, _, _, _ := cli.GetObjectLockConfig(ctx, options.BucketName)
+
+	require.Equal(t, "Enabled", got, "object locking is not enabled")
 
 	// ensure a locking configuration is in place
 	lockingMode := minio.Governance
