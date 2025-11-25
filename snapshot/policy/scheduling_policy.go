@@ -74,8 +74,8 @@ type SchedulingPolicy struct {
 // SchedulingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type SchedulingPolicyDefinition struct {
 	IntervalSeconds snapshot.SourceInfo `json:"intervalSeconds,omitzero"`
-	TimesOfDay      snapshot.SourceInfo `json:"timeOfDay,omitempty"` //nolint:modernize
-	Cron            snapshot.SourceInfo `json:"cron,omitempty"`      //nolint:modernize
+	TimesOfDay      snapshot.SourceInfo `json:"timeOfDay,omitempty"`
+	Cron            snapshot.SourceInfo `json:"cron,omitempty"`
 	Manual          snapshot.SourceInfo `json:"manual,omitzero"`
 	RunMissed       snapshot.SourceInfo `json:"runMissed,omitzero"`
 }
