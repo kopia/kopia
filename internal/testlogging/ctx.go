@@ -42,7 +42,7 @@ func Context(t testingT) context.Context {
 }
 
 // Context returns a context with attached logger that emits all log entries to go testing.T log output.
-// This context is not cancelled when the test finishes, so it is suitable to be used in cleanup functions.
+// This context is not canceled when the test finishes, so it is suitable to be used in cleanup functions.
 func ContextForCleanup(t testingT) context.Context {
 	return contextWithLevelForCleanup(t, LevelDebug)
 }
