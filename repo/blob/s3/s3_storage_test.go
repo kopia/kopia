@@ -537,7 +537,7 @@ func TestNeedMD5AWS(t *testing.T) {
 	getOrMakeBucket(t, cli, options, true)
 
 	// ensure it is a bucket with object locking enabled
-	got, _, _, _, _ := cli.GetObjectLockConfig(ctx, options.BucketName)
+	got, _, _, _, _ := cli.GetObjectLockConfig(ctx, options.BucketName) //nolint:dogsled
 
 	require.Equal(t, "Enabled", got, "object locking is not enabled")
 
