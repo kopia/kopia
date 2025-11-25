@@ -477,7 +477,7 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 
 		service, serviceErr = azblob.NewClient(fmt.Sprintf("%s://%s/", protocol, storageHostname), cred, clientOptions)
 	default:
-		return nil, errors.New("one of the storage key, SAS token, client secret, client certificate, or Azure Federated Token must be provided")
+		return nil, errors.New("one of the storage key, SAS token, client secret, client certificate, or Azure Federated Token file must be provided")
 	}
 
 	return service, errors.Wrap(serviceErr, "unable to create azure client")
