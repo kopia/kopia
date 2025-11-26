@@ -126,7 +126,7 @@ type DirEntry struct {
 	ModTime     fs.UTCTimestamp      `json:"mtime,omitempty"`
 	UserID      uint32               `json:"uid,omitempty"`
 	GroupID     uint32               `json:"gid,omitempty"`
-	ObjectID    object.ID            `json:"obj,omitempty"`
+	ObjectID    object.ID            `json:"obj"`
 	DirSummary  *fs.DirectorySummary `json:"summ,omitempty"`
 }
 
@@ -187,8 +187,8 @@ func (m *Manifest) Clone() *Manifest {
 type StorageStats struct {
 	// amount of new unique data in this snapshot that wasn't there before.
 	// note that this depends on ordering of snapshots.
-	NewData      StorageUsageDetails `json:"newData,omitempty"`
-	RunningTotal StorageUsageDetails `json:"runningTotal,omitempty"`
+	NewData      StorageUsageDetails `json:"newData"`
+	RunningTotal StorageUsageDetails `json:"runningTotal"`
 }
 
 // StorageUsageDetails provides details about snapshot storage usage.
