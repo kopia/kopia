@@ -43,6 +43,8 @@ var metricsPushFormats = map[string]expfmt.Format{
 }
 
 type observabilityFlags struct {
+	outputDirectory string
+
 	dumpAllocatorStats  bool
 	enablePProfEndpoint bool
 	metricsListenAddr   string
@@ -53,10 +55,11 @@ type observabilityFlags struct {
 	metricsPushUsername string
 	metricsPushPassword string
 	metricsPushFormat   string
-	metricsOutputDir    string
-	outputFilePrefix    string
+	otlpTrace           bool
+	saveMetrics         bool
+	pf                  profileFlags
 
-	otlpTrace bool
+	outputSubdirectoryName string
 
 	stopPusher chan struct{}
 	pusherWG   sync.WaitGroup
@@ -90,16 +93,17 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 
 	app.Flag("metrics-push-format", "Format to use for push gateway").Envar(svc.EnvName("KOPIA_METRICS_FORMAT")).Hidden().EnumVar(&c.metricsPushFormat, formats...)
 
-	app.Flag("metrics-directory", "Directory where the metrics should be saved when kopia exits. A file per process execution will be created in this directory").Hidden().StringVar(&c.metricsOutputDir)
+	//nolint:lll
+	app.Flag("diagnostics-output-directory", "Directory where the diagnostics output should be stored saved when kopia exits. Diagnostics data includes among others: metrics, traces, profiles. The output files are stored in a sub-directory for each kopia (process) execution").Hidden().Default(filepath.Join(os.TempDir(), "kopia-diagnostics")).StringVar(&c.outputDirectory)
+
+	app.Flag("metrics-store-on-exit", "Writes metrics to a file in a sub-directory of the directory specified with the --diagnostics-output-directory").Hidden().BoolVar(&c.saveMetrics)
+
+	c.pf.setup(app)
 
 	app.PreAction(c.initialize)
 }
 
 func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
-	if c.metricsOutputDir == "" {
-		return nil
-	}
-
 	// write to a separate file per command and process execution to avoid
 	// conflicts with previously created files
 	command := "unknown"
@@ -107,7 +111,11 @@ func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
 		command = strings.ReplaceAll(cmd.FullCommand(), " ", "-")
 	}
 
-	c.outputFilePrefix = clock.Now().Format("20060102-150405-") + command
+	c.outputSubdirectoryName = clock.Now().Format("20060102-150405-") + command
+
+	if (c.saveMetrics || c.pf.saveProfiles || c.pf.profileCPU) && c.outputDirectory == "" {
+		return errors.New("writing diagnostics output requires a non-empty directory name (specified with the '--diagnostics-output-directory' flag)")
+	}
 
 	return nil
 }
@@ -120,6 +128,12 @@ func (c *observabilityFlags) run(ctx context.Context, spanName string, f func(co
 	}
 
 	defer c.stop(ctx)
+
+	if err := c.pf.start(ctx, filepath.Join(c.outputDirectory, c.outputSubdirectoryName)); err != nil {
+		return errors.Wrap(err, "failed to start profiling")
+	}
+
+	defer c.pf.stop(ctx)
 
 	if spanName != "" {
 		tctx, span := tracer.Start(ctx, spanName, oteltrace.WithSpanKind(oteltrace.SpanKindClient))
@@ -138,16 +152,24 @@ func (c *observabilityFlags) start(ctx context.Context) error {
 		return err
 	}
 
-	if c.metricsOutputDir != "" {
-		c.metricsOutputDir = filepath.Clean(c.metricsOutputDir)
-
+	if c.saveMetrics {
 		// ensure the metrics output dir can be created
-		if err := os.MkdirAll(c.metricsOutputDir, DirMode); err != nil {
-			return errors.Wrapf(err, "could not create metrics output directory: %s", c.metricsOutputDir)
+		if _, err := mkSubdirectories(c.outputDirectory, c.outputSubdirectoryName); err != nil {
+			return err
 		}
 	}
 
 	return c.maybeStartTraceExporter(ctx)
+}
+
+func mkSubdirectories(directoryNames ...string) (dirName string, err error) {
+	dirName = filepath.Join(directoryNames...)
+
+	if err := os.MkdirAll(dirName, DirMode); err != nil {
+		return "", errors.Wrapf(err, "could not create '%q' subdirectory to save diagnostics output", dirName)
+	}
+
+	return dirName, nil
 }
 
 // Starts observability listener when a listener address is specified.
@@ -262,11 +284,13 @@ func (c *observabilityFlags) stop(ctx context.Context) {
 		}
 	}
 
-	if c.metricsOutputDir != "" {
-		filename := filepath.Join(c.metricsOutputDir, c.outputFilePrefix+".prom")
-
-		if err := prometheus.WriteToTextfile(filename, prometheus.DefaultGatherer); err != nil {
-			log(ctx).Warnf("unable to write metrics file '%s': %v", filename, err)
+	if c.saveMetrics {
+		if metricsDir, err := mkSubdirectories(c.outputDirectory, c.outputSubdirectoryName); err != nil {
+			log(ctx).Warnf("unable to create metrics output directory '%s': %v", metricsDir, err)
+		} else {
+			if err := prometheus.WriteToTextfile(filepath.Join(metricsDir, "kopia-metrics.prom"), prometheus.DefaultGatherer); err != nil {
+				log(ctx).Warnf("unable to write metrics to file: %v", err)
+			}
 		}
 	}
 }
