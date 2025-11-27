@@ -101,6 +101,31 @@ func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 			return nil, nil
 		}
 
+		// For permission denied errors, return an ErrorEntry instead of
+		// failing the entire directory iteration. This allows the upload
+		// process to handle the error according to the configured error
+		// handling policy and continue processing other entries in the
+		// directory.
+		//
+		// This is particularly important for inaccessible mount points
+		// (e.g., FUSE/sshfs mounts owned by another user); without this,
+		// a single inaccessible entry causes the entire containing
+		// directory to fail and be omitted from the snapshot, resulting
+		// in data loss.
+		if os.IsPermission(err) {
+			e := filesystemEntry{
+				name:       TrimShallowSuffix(n),
+				size:       0,
+				mtimeNanos: 0,
+				mode:       dirEntry.Type(),
+				owner:      fs.OwnerInfo{},
+				device:     fs.DeviceInfo{},
+				prefix:     prefix,
+			}
+
+			return newFilesystemErrorEntry(e, err), nil
+		}
+
 		return nil, errors.Wrap(err, "error reading directory")
 	}
 
