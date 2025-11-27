@@ -79,6 +79,10 @@ func (e *repositoryEntry) Device() fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
 
+func (e *repositoryEntry) HardLinkInfo() fs.HardLinkInfo {
+	return fs.HardLinkInfo{}
+}
+
 func (e *repositoryEntry) DirEntry() *snapshot.DirEntry {
 	return e.metadata
 }
