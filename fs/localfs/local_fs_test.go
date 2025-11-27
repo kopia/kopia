@@ -580,3 +580,46 @@ func TestDifferentOptionsInstances(t *testing.T) {
 	require.True(t, entry1Options.IgnoreUnreadableDirEntries, "entry1 options should have IgnoreUnreadableDirEntries=true")
 	require.False(t, entry2Options.IgnoreUnreadableDirEntries, "entry2 options should have IgnoreUnreadableDirEntries=false")
 }
+
+func TestIteratePermissionDenied(t *testing.T) {
+	if isWindows {
+		t.Skip("test not applicable on Windows")
+	}
+
+	if os.Getuid() == 0 {
+		t.Skip("test cannot run as root")
+	}
+
+	tmp := testutil.TempDirectory(t)
+
+	// Create a directory with files, then remove execute permission.
+	// Without execute permission, the directory can be listed (read)
+	// but lstat on children will fail with permission denied.
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "a"), []byte{1}, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "b"), []byte{2}, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "c"), []byte{3}, 0o644))
+
+	require.NoError(t, os.Chmod(tmp, 0o644))
+	t.Cleanup(func() { os.Chmod(tmp, 0o755) })
+
+	dir, err := Directory(tmp)
+	require.NoError(t, err)
+
+	ctx := testlogging.Context(t)
+
+	var entries []fs.Entry
+
+	err = fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
+		entries = append(entries, e)
+		return nil
+	})
+
+	require.NoError(t, err, "iteration should complete without error")
+	require.Len(t, entries, 3, "should have 3 entries")
+
+	for _, e := range entries {
+		ee, ok := e.(fs.ErrorEntry)
+		require.True(t, ok, "entry should be ErrorEntry")
+		require.True(t, os.IsPermission(ee.ErrorInfo()), "error should be permission denied")
+	}
+}

@@ -102,6 +102,21 @@ func toDirEntryOrNil(dirEntry os.DirEntry, prefix string, options *Options) (fs.
 			return nil, nil
 		}
 
+		// For permission denied errors, return an ErrorEntry instead of
+		// failing the entire directory iteration. This allows the upload
+		// process to handle the error according to the configured error
+		// handling policy and continue processing other entries in the
+		// directory.
+		//
+		// This is particularly important for inaccessible mount points
+		// (e.g., FUSE/sshfs mounts owned by another user); without this,
+		// a single inaccessible entry causes the entire containing
+		// directory to fail and be omitted from the snapshot, resulting
+		// in data loss.
+		if os.IsPermission(err) {
+			return newFilesystemErrorEntry(newEntryFromDirEntry(n, dirEntry.Type(), prefix, options), err), nil
+		}
+
 		if options != nil && options.IgnoreUnreadableDirEntries {
 			return nil, nil
 		}
@@ -110,6 +125,23 @@ func toDirEntryOrNil(dirEntry os.DirEntry, prefix string, options *Options) (fs.
 	}
 
 	return entryFromDirEntry(n, fi, prefix, options), nil
+}
+
+// newEntryFromDirEntry creates a minimal filesystemEntry from an os.DirEntry
+// when we cannot stat the file (e.g., permission denied). This uses the type
+// information from the directory entry itself, with zero/default values for
+// size, mtime, owner, and device since we cannot obtain them without stat.
+func newEntryFromDirEntry(name string, mode os.FileMode, prefix string, options *Options) filesystemEntry {
+	return filesystemEntry{
+		name:       TrimShallowSuffix(name),
+		size:       0,
+		mtimeNanos: 0,
+		mode:       mode,
+		owner:      fs.OwnerInfo{},
+		device:     fs.DeviceInfo{},
+		prefix:     prefix,
+		options:    options,
+	}
 }
 
 // NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
