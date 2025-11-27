@@ -13,6 +13,16 @@ import (
 
 const numEntriesToRead = 100 // number of directory entries to read in one shot
 
+// Options contains configuration options for localfs operations.
+type Options struct {
+	// IgnoreUnreadableDirEntries, when true, causes unreadable directory entries
+	// to be silently skipped during directory iteration instead of causing errors.
+	IgnoreUnreadableDirEntries bool
+}
+
+// DefaultOptions stores the default options used by localfs functions.
+var DefaultOptions = &Options{}
+
 type filesystemEntry struct {
 	name       string
 	size       int64
@@ -21,7 +31,8 @@ type filesystemEntry struct {
 	owner      fs.OwnerInfo
 	device     fs.DeviceInfo
 
-	prefix string
+	prefix  string
+	options *Options
 }
 
 func (e *filesystemEntry) Name() string {
@@ -92,6 +103,7 @@ func (fsd *filesystemDirectory) Size() int64 {
 
 type fileWithMetadata struct {
 	*os.File
+	options *Options
 }
 
 func (f *fileWithMetadata) Entry() (fs.Entry, error) {
@@ -102,7 +114,7 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 
 	basename, prefix := splitDirPrefix(f.Name())
 
-	return newFilesystemFile(newEntry(basename, fi, prefix)), nil
+	return newFilesystemFile(newEntry(basename, fi, prefix, f.options)), nil
 }
 
 func (fsf *filesystemFile) Open(_ context.Context) (fs.Reader, error) {
@@ -111,7 +123,7 @@ func (fsf *filesystemFile) Open(_ context.Context) (fs.Reader, error) {
 		return nil, errors.Wrap(err, "unable to open local file")
 	}
 
-	return &fileWithMetadata{f}, nil
+	return &fileWithMetadata{File: f, options: fsf.options}, nil
 }
 
 func (fsl *filesystemSymlink) Readlink(_ context.Context) (string, error) {
@@ -125,7 +137,7 @@ func (fsl *filesystemSymlink) Resolve(_ context.Context) (fs.Entry, error) {
 		return nil, errors.Wrapf(err, "cannot resolve symlink for '%q'", fsl.fullPath())
 	}
 
-	return NewEntry(target)
+	return NewEntryWithOptions(target, fsl.options)
 }
 
 func (e *filesystemErrorEntry) ErrorInfo() error {
@@ -145,8 +157,15 @@ func splitDirPrefix(s string) (basename, prefix string) {
 }
 
 // Directory returns fs.Directory for the specified path.
+// It uses DefaultOptions for configuration.
 func Directory(path string) (fs.Directory, error) {
-	e, err := NewEntry(path)
+	return DirectoryWithOptions(path, DefaultOptions)
+}
+
+// DirectoryWithOptions returns fs.Directory for the specified path.
+// It uses the provided Options for configuration.
+func DirectoryWithOptions(path string, options *Options) (fs.Directory, error) {
+	e, err := NewEntryWithOptions(path, options)
 	if err != nil {
 		return nil, err
 	}
