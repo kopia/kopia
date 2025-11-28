@@ -306,3 +306,277 @@ func TestSplitDirPrefix(t *testing.T) {
 		require.Equal(t, want.prefix, prefix, input)
 	}
 }
+
+// getOptionsFromEntry extracts the options pointer from an fs.Entry by type assertion.
+// Returns nil if the entry doesn't have options or if type assertion fails.
+func getOptionsFromEntry(entry fs.Entry) *Options {
+	switch e := entry.(type) {
+	case *filesystemDirectory:
+		return e.options
+	case *filesystemFile:
+		return e.options
+	case *filesystemSymlink:
+		return e.options
+	case *filesystemErrorEntry:
+		return e.options
+	default:
+		return nil
+	}
+}
+
+func TestOptionsPassedToChildEntries(t *testing.T) {
+	ctx := testlogging.Context(t)
+	tmp := testutil.TempDirectory(t)
+
+	// Create a test directory structure
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "file1.txt"), []byte{1, 2, 3}, 0o777))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "file2.txt"), []byte{4, 5, 6}, 0o777))
+	subdir := filepath.Join(tmp, "subdir")
+	require.NoError(t, os.Mkdir(subdir, 0o777))
+	require.NoError(t, os.WriteFile(filepath.Join(subdir, "subfile.txt"), []byte{7, 8, 9}, 0o777))
+
+	// Create custom options
+	customOptions := &Options{
+		IgnoreUnreadableDirEntries: true,
+	}
+
+	// Create directory with custom options
+	dir, err := DirectoryWithOptions(tmp, customOptions)
+	require.NoError(t, err)
+
+	// Verify the directory itself has the correct options
+	dirOptions := getOptionsFromEntry(dir)
+	require.NotNil(t, dirOptions, "directory should have options")
+	require.Equal(t, customOptions, dirOptions, "directory should have the same options pointer")
+	require.True(t, dirOptions.IgnoreUnreadableDirEntries, "directory options should match")
+
+	// Test that options are passed to children via Child()
+	childFile, err := dir.Child(ctx, "file1.txt")
+	require.NoError(t, err)
+
+	childOptions := getOptionsFromEntry(childFile)
+	require.NotNil(t, childOptions, "child file should have options")
+	require.Equal(t, customOptions, childOptions, "child file should have the same options pointer")
+
+	// Test that options are passed to subdirectories
+	childDir, err := dir.Child(ctx, "subdir")
+	require.NoError(t, err)
+
+	subdirOptions := getOptionsFromEntry(childDir)
+	require.NotNil(t, subdirOptions, "subdirectory should have options")
+	require.Equal(t, customOptions, subdirOptions, "subdirectory should have the same options pointer")
+
+	// Test that options are passed to nested children
+	subdirEntry, ok := childDir.(fs.Directory)
+	require.True(t, ok, "child directory should be a directory")
+
+	nestedFile, err := subdirEntry.Child(ctx, "subfile.txt")
+	require.NoError(t, err)
+
+	nestedOptions := getOptionsFromEntry(nestedFile)
+	require.NotNil(t, nestedOptions, "nested file should have options")
+	require.Equal(t, customOptions, nestedOptions, "nested file should have the same options pointer")
+}
+
+func TestOptionsPassedThroughIteration(t *testing.T) {
+	ctx := testlogging.Context(t)
+	tmp := testutil.TempDirectory(t)
+
+	// Create a test directory structure
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "file1.txt"), []byte{1, 2, 3}, 0o777))
+	require.NoError(t, os.WriteFile(filepath.Join(tmp, "file2.txt"), []byte{4, 5, 6}, 0o777))
+	require.NoError(t, os.Mkdir(filepath.Join(tmp, "subdir"), 0o777))
+
+	// Create custom options
+	customOptions := &Options{
+		IgnoreUnreadableDirEntries: true,
+	}
+
+	// Create directory with custom options
+	dir, err := DirectoryWithOptions(tmp, customOptions)
+	require.NoError(t, err)
+
+	// Iterate through entries and verify all have the same options pointer
+	iter, err := dir.Iterate(ctx)
+	require.NoError(t, err)
+
+	defer iter.Close()
+
+	entryCount := 0
+	for {
+		entry, err := iter.Next(ctx)
+		if err != nil {
+			t.Fatalf("iteration error: %v", err)
+		}
+
+		if entry == nil {
+			break
+		}
+
+		entryCount++
+		entryOptions := getOptionsFromEntry(entry)
+		require.NotNil(t, entryOptions, "entry %s should have options", entry.Name())
+		require.Equal(t, customOptions, entryOptions, "entry %s should have the same options pointer", entry.Name())
+	}
+
+	require.Equal(t, 3, entryCount, "should have found 3 entries")
+}
+
+func TestOptionsPassedThroughSymlinkResolution(t *testing.T) {
+	ctx := testlogging.Context(t)
+	tmp := testutil.TempDirectory(t)
+
+	// Create a target file
+	targetFile := filepath.Join(tmp, "target.txt")
+	require.NoError(t, os.WriteFile(targetFile, []byte{1, 2, 3}, 0o777))
+
+	// Create a symlink
+	symlinkPath := filepath.Join(tmp, "link")
+	require.NoError(t, os.Symlink(targetFile, symlinkPath))
+
+	// Create custom options
+	customOptions := &Options{
+		IgnoreUnreadableDirEntries: true,
+	}
+
+	// Create symlink entry with custom options
+	symlinkEntry, err := NewEntryWithOptions(symlinkPath, customOptions)
+	require.NoError(t, err)
+
+	// Verify the symlink has the correct options
+	symlinkOptions := getOptionsFromEntry(symlinkEntry)
+	require.NotNil(t, symlinkOptions, "symlink should have options")
+	require.Equal(t, customOptions, symlinkOptions, "symlink should have the same options pointer")
+
+	// Resolve the symlink and verify the resolved entry has the same options
+	symlink, ok := symlinkEntry.(fs.Symlink)
+	require.True(t, ok, "entry should be a symlink")
+
+	resolved, err := symlink.Resolve(ctx)
+	require.NoError(t, err)
+
+	resolvedOptions := getOptionsFromEntry(resolved)
+	require.NotNil(t, resolvedOptions, "resolved entry should have options")
+	require.Equal(t, customOptions, resolvedOptions, "resolved entry should have the same options pointer")
+}
+
+func TestOptionsPassedToNewEntry(t *testing.T) {
+	tmp := testutil.TempDirectory(t)
+
+	// Create a file
+	filePath := filepath.Join(tmp, "testfile.txt")
+	require.NoError(t, os.WriteFile(filePath, []byte{1, 2, 3}, 0o777))
+
+	// Create custom options
+	customOptions := &Options{
+		IgnoreUnreadableDirEntries: true,
+	}
+
+	// Create entry with custom options
+	entry, err := NewEntryWithOptions(filePath, customOptions)
+	require.NoError(t, err)
+
+	// Verify the entry has the correct options
+	entryOptions := getOptionsFromEntry(entry)
+	require.NotNil(t, entryOptions, "entry should have options")
+	require.Equal(t, customOptions, entryOptions, "entry should have the same options pointer")
+}
+
+func TestOptionsPassedToNestedDirectories(t *testing.T) {
+	ctx := testlogging.Context(t)
+	tmp := testutil.TempDirectory(t)
+
+	// Create nested directory structure
+	level1 := filepath.Join(tmp, "level1")
+	level2 := filepath.Join(level1, "level2")
+	level3 := filepath.Join(level2, "level3")
+
+	require.NoError(t, os.MkdirAll(level3, 0o777))
+	require.NoError(t, os.WriteFile(filepath.Join(level3, "file.txt"), []byte{1, 2, 3}, 0o777))
+
+	// Create custom options
+	customOptions := &Options{
+		IgnoreUnreadableDirEntries: true,
+	}
+
+	// Create root directory with custom options
+	rootDir, err := DirectoryWithOptions(tmp, customOptions)
+	require.NoError(t, err)
+
+	// Navigate through nested directories and verify options are passed
+	currentDir := rootDir
+	levels := []string{"level1", "level2", "level3"}
+
+	for _, level := range levels {
+		child, err := currentDir.Child(ctx, level)
+		require.NoError(t, err)
+
+		childOptions := getOptionsFromEntry(child)
+		require.NotNil(t, childOptions, "directory %s should have options", level)
+		require.Equal(t, customOptions, childOptions, "directory %s should have the same options pointer", level)
+
+		var ok bool
+
+		currentDir, ok = child.(fs.Directory)
+		require.True(t, ok, "child should be a directory")
+	}
+
+	// Verify the file in the deepest directory has the same options
+	file, err := currentDir.Child(ctx, "file.txt")
+	require.NoError(t, err)
+
+	fileOptions := getOptionsFromEntry(file)
+	require.NotNil(t, fileOptions, "file should have options")
+	require.Equal(t, customOptions, fileOptions, "file should have the same options pointer")
+}
+
+func TestDefaultOptionsUsedByDefault(t *testing.T) {
+	tmp := testutil.TempDirectory(t)
+
+	// Create a file
+	filePath := filepath.Join(tmp, "testfile.txt")
+	require.NoError(t, os.WriteFile(filePath, []byte{1, 2, 3}, 0o777))
+
+	// Use default NewEntry (should use DefaultOptions)
+	entry, err := NewEntry(filePath)
+	require.NoError(t, err)
+
+	// Verify the entry has DefaultOptions
+	entryOptions := getOptionsFromEntry(entry)
+	require.NotNil(t, entryOptions, "entry should have options")
+	require.Equal(t, DefaultOptions, entryOptions, "entry should have DefaultOptions pointer")
+}
+
+func TestDifferentOptionsInstances(t *testing.T) {
+	tmp := testutil.TempDirectory(t)
+
+	// Create two different files
+	filePath1 := filepath.Join(tmp, "testfile1.txt")
+	filePath2 := filepath.Join(tmp, "testfile2.txt")
+
+	require.NoError(t, os.WriteFile(filePath1, []byte{1, 2, 3}, 0o777))
+	require.NoError(t, os.WriteFile(filePath2, []byte{4, 5, 6}, 0o777))
+
+	// Create two different options instances with same values
+	options1 := &Options{IgnoreUnreadableDirEntries: true}
+	options2 := &Options{IgnoreUnreadableDirEntries: false}
+
+	// Create entries with different options instances
+	entry1, err := NewEntryWithOptions(filePath1, options1)
+	require.NoError(t, err)
+
+	entry2, err := NewEntryWithOptions(filePath2, options2)
+	require.NoError(t, err)
+
+	// Verify they have the correct options pointers
+	entry1Options := getOptionsFromEntry(entry1)
+	entry2Options := getOptionsFromEntry(entry2)
+
+	require.NotNil(t, entry1Options)
+	require.NotNil(t, entry2Options)
+	require.Equal(t, options1, entry1Options, "entry1 should have options1 pointer")
+	require.Equal(t, options2, entry2Options, "entry2 should have options2 pointer")
+	require.NotEqual(t, entry1Options, entry2Options, "entries should have different options pointers")
+	require.True(t, entry1Options.IgnoreUnreadableDirEntries, "entry1 options should have IgnoreUnreadableDirEntries=true")
+	require.False(t, entry2Options.IgnoreUnreadableDirEntries, "entry2 options should have IgnoreUnreadableDirEntries=false")
+}
