@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/repotesting"
@@ -137,13 +138,13 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 				t.Fatalf("err: %v", err)
 			}
 
-			if diff := cmp.Diff(pol, tc.wantEffective); diff != "" {
+			if diff := cmp.Diff(pol, tc.wantEffective, cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("got: %v", pol)
 				t.Errorf("want: %v", tc.wantEffective)
 				t.Errorf("invalid effective policy: %v", diff)
 			}
 
-			var sources []snapshot.SourceInfo
+			sources := make([]snapshot.SourceInfo, 0, len(src))
 			for _, s := range src {
 				sources = append(sources, s.Target())
 			}
@@ -435,7 +436,7 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 				t.Fatalf("error in applicablePoliciesForSource(%v): %v", tc.si, err)
 			}
 
-			var relPaths []string
+			relPaths := make([]string, 0, len(res))
 			for k := range res {
 				relPaths = append(relPaths, k)
 			}

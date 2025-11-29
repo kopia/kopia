@@ -254,7 +254,7 @@ func TestCompression_CustomSplitters(t *testing.T) {
 		entries, err := LoadIndexObject(ctx, fcm, ndx)
 		require.NoError(t, err)
 
-		var gotLengths []int64
+		gotLengths := make([]int64, 0, len(entries))
 		for _, e := range entries {
 			gotLengths = append(gotLengths, e.Length)
 		}

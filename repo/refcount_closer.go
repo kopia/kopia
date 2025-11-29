@@ -30,8 +30,7 @@ func (c *refCountedCloser) Close(ctx context.Context) error {
 
 	c.closed.Store(true)
 
-	var errors []error
-
+	errors := make([]error, 0, len(c.closers))
 	for _, closer := range c.closers {
 		errors = append(errors, closer(ctx))
 	}

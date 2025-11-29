@@ -168,7 +168,7 @@ func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryM
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var matches []*EntryMetadata
+	matches := make([]*EntryMetadata, 0, len(m.pendingEntries)+len(committedMatches))
 
 	for _, e := range findEntriesMatchingLabels(m.pendingEntries, labels) {
 		matches = append(matches, cloneEntryMetadata(e))
@@ -253,7 +253,7 @@ func (m *Manager) Compact(ctx context.Context) error {
 
 // IDsToStrings converts the IDs to strings.
 func IDsToStrings(input []ID) []string {
-	var result []string
+	result := make([]string, 0, len(input))
 
 	for _, v := range input {
 		result = append(result, string(v))
@@ -264,7 +264,7 @@ func IDsToStrings(input []ID) []string {
 
 // IDsFromStrings converts the IDs to strings.
 func IDsFromStrings(input []string) []ID {
-	var result []ID
+	result := make([]ID, 0, len(input))
 
 	for _, v := range input {
 		result = append(result, ID(v))

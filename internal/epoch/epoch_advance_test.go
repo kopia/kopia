@@ -13,7 +13,7 @@ func TestShouldAdvanceEpoch(t *testing.T) {
 	def := DefaultParameters()
 	t0 := time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)
 
-	var lotsOfMetadata []blob.Metadata
+	lotsOfMetadata := make([]blob.Metadata, 0, 1+def.EpochAdvanceOnCountThreshold)
 
 	lotsOfMetadata = append(lotsOfMetadata, blob.Metadata{
 		Timestamp: t0, Length: 1,

@@ -487,7 +487,7 @@ func fakeCompaction(ctx context.Context, t *testing.T, m *ManagerV0, dropDeleted
 	}
 
 	var (
-		inputs  []blob.Metadata
+		inputs  = make([]blob.Metadata, 0, len(allBlobs))
 		outputs = outputBM
 	)
 
@@ -735,7 +735,7 @@ func mustWriteIndexBlob(t *testing.T, m *ManagerV0, data string) blob.Metadata {
 func assertIndexBlobList(t *testing.T, m *ManagerV0, wantMD ...blob.Metadata) {
 	t.Helper()
 
-	var want []blob.ID
+	want := make([]blob.ID, 0, len(wantMD))
 	for _, it := range wantMD {
 		want = append(want, it.BlobID)
 	}
@@ -747,7 +747,7 @@ func assertIndexBlobList(t *testing.T, m *ManagerV0, wantMD ...blob.Metadata) {
 
 	t.Logf("asserting blob list %v vs %v", want, l)
 
-	var got []blob.ID
+	got := make([]blob.ID, 0, len(l))
 	for _, it := range l {
 		got = append(got, it.BlobID)
 	}

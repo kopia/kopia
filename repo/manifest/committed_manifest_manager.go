@@ -59,7 +59,7 @@ func (m *committedManifestManager) dump(ctx context.Context, prefix string) {
 		return
 	}
 
-	var keys []string
+	keys := make([]string, 0, len(m.committedEntries))
 
 	for k := range m.committedEntries {
 		keys = append(keys, string(k))

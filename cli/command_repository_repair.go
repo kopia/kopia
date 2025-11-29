@@ -45,7 +45,7 @@ func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandP
 }
 
 func packBlockPrefixes() []string {
-	var str []string
+	str := make([]string, 0, len(content.PackBlobIDPrefixes))
 
 	for _, p := range content.PackBlobIDPrefixes {
 		str = append(str, string(p))

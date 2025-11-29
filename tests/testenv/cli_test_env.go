@@ -88,7 +88,7 @@ func NewCLITest(tb testing.TB, repoCreateFlags []string, runner CLIRunner) *CLIT
 		fixedArgs = append(fixedArgs, "--no-use-keyring")
 	}
 
-	var formatFlags []string
+	formatFlags := make([]string, 0, len(repoCreateFlags)+4)
 
 	formatFlags = append(formatFlags, repoCreateFlags...)
 

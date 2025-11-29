@@ -473,7 +473,7 @@ func verifyBlobTimestampOrder(t *testing.T, st blob.Storage, want ...blob.ID) {
 		return blobs[i].Timestamp.Before(blobs[j].Timestamp)
 	})
 
-	var got []blob.ID
+	got := make([]blob.ID, 0, len(blobs))
 	for _, b := range blobs {
 		got = append(got, b.BlobID)
 	}

@@ -361,7 +361,7 @@ func verifyTaskLog(t *testing.T, m *uitask.Manager, taskID string, want []string
 }
 
 func logText(items []json.RawMessage) string {
-	var result []string
+	result := make([]string, 0, len(items))
 
 	for _, it := range items {
 		var ent struct {

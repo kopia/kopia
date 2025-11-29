@@ -571,7 +571,7 @@ func TestObjectWritesWithRetention(t *testing.T) {
 
 	env.RepositoryWriter.ContentManager().Flush(ctx)
 
-	var prefixesWithRetention []string
+	prefixesWithRetention := make([]string, 0, len(content.PackBlobIDPrefixes)+4)
 
 	versionedMap := testutil.EnsureType[cache.Storage](t, env.RootStorage())
 

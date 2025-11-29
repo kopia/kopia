@@ -903,7 +903,7 @@ func (e *Manager) WriteIndex(ctx0 context.Context, dataShards map[blob.ID]blob.B
 		return nil, ErrVerySlowIndexWrite
 	}
 
-	var results []blob.Metadata
+	results := make([]blob.Metadata, 0, len(written))
 
 	for _, v := range written {
 		results = append(results, v)

@@ -119,9 +119,9 @@ func GetEmbeddedTemplate(templateName string) (string, error) {
 
 // SupportedTemplates returns a list of supported template names.
 func SupportedTemplates() []string {
-	var s []string
-
 	entries, _ := embedded.ReadDir(".")
+
+	s := make([]string, 0, len(entries))
 
 	for _, e := range entries {
 		s = append(s, e.Name())

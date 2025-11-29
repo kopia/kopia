@@ -79,7 +79,7 @@ func (m *Manager) ListTasks() []Info {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var res []Info
+	res := make([]Info, 0, len(m.running)+len(m.finished))
 
 	for _, v := range m.running {
 		res = append(res, v.info())

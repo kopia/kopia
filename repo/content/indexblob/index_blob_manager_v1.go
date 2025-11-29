@@ -45,7 +45,7 @@ func (m *ManagerV1) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.
 		return nil, time.Time{}, errors.Wrap(err, "error getting index set")
 	}
 
-	var result []Metadata
+	result := make([]Metadata, 0, len(active))
 
 	for _, bm := range active {
 		result = append(result, Metadata{Metadata: bm})
@@ -168,7 +168,7 @@ func (m *ManagerV1) PrepareUpgradeToIndexBlobManagerV1(ctx context.Context, v0 *
 		return errors.Wrap(err, "error listing active index blobs")
 	}
 
-	var blobIDs []blob.ID
+	blobIDs := make([]blob.ID, 0, len(ibl))
 
 	for _, ib := range ibl {
 		blobIDs = append(blobIDs, ib.BlobID)

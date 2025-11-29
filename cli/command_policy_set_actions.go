@@ -118,7 +118,7 @@ func (c *policyActionFlags) setActionCommandFromFlags(ctx context.Context, actio
 }
 
 func quoteArguments(s ...string) string {
-	var result []string
+	result := make([]string, 0, len(s))
 
 	for _, v := range s {
 		result = append(result, fmt.Sprintf("\"%v\"", v))

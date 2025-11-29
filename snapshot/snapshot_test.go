@@ -101,7 +101,7 @@ func verifySnapshotManifestIDs(t *testing.T, rep repo.Repository, src *snapshot.
 	sortManifestIDs(res)
 	sortManifestIDs(expected)
 
-	if !reflect.DeepEqual(res, expected) {
+	if (len(res) > 0 || len(expected) > 0) && !reflect.DeepEqual(res, expected) {
 		t.Errorf("unexpected manifests: %v, wanted %v", res, expected)
 	}
 }

@@ -158,7 +158,7 @@ func (r *Registry) DurationDistribution(name, help string, thresholds *Threshold
 	h := r.allDurationDistributions[fullName]
 
 	if h == nil {
-		var promBuckets []float64
+		promBuckets := make([]float64, 0, len(thresholds.values))
 
 		// convert from nanoseconds to seconds
 		promScale := thresholds.promScale
@@ -200,7 +200,7 @@ func (r *Registry) SizeDistribution(name, help string, thresholds *Thresholds[in
 	h := r.allSizeDistributions[fullName]
 
 	if h == nil {
-		var promBuckets []float64
+		promBuckets := make([]float64, 0, len(thresholds.values))
 
 		// convert from nanoseconds to seconds
 		promScale := thresholds.promScale

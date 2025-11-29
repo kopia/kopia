@@ -93,7 +93,7 @@ func BenchmarkCompressor(b *testing.B) {
 
 	var cData, dData bytes.Buffer
 
-	var sortedNames []Name
+	sortedNames := make([]Name, 0, len(ByName))
 	for id := range ByName {
 		sortedNames = append(sortedNames, id)
 	}

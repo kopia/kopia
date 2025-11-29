@@ -157,7 +157,7 @@ func labelsSuffix(l map[string]string) string {
 		return ""
 	}
 
-	var params []string
+	params := make([]string, 0, len(l))
 	for k, v := range l {
 		params = append(params, k+":"+v)
 	}
