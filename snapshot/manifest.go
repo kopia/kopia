@@ -23,7 +23,7 @@ type Manifest struct {
 	StartTime   fs.UTCTimestamp `json:"startTime"`
 	EndTime     fs.UTCTimestamp `json:"endTime"`
 
-	Stats            Stats  `json:"stats,omitzero"`
+	Stats            Stats  `json:"stats"`
 	IncompleteReason string `json:"incomplete,omitempty"`
 
 	RootEntry *DirEntry `json:"rootEntry"`
@@ -127,7 +127,7 @@ type DirEntry struct {
 	BirthTime   *fs.UTCTimestamp     `json:"btime,omitempty"`
 	UserID      uint32               `json:"uid,omitempty"`
 	GroupID     uint32               `json:"gid,omitempty"`
-	ObjectID    object.ID            `json:"obj"`
+	ObjectID    object.ID            `json:"obj,omitempty"`
 	DirSummary  *fs.DirectorySummary `json:"summ,omitempty"`
 }
 
@@ -188,8 +188,8 @@ func (m *Manifest) Clone() *Manifest {
 type StorageStats struct {
 	// amount of new unique data in this snapshot that wasn't there before.
 	// note that this depends on ordering of snapshots.
-	NewData      StorageUsageDetails `json:"newData"`
-	RunningTotal StorageUsageDetails `json:"runningTotal"`
+	NewData      StorageUsageDetails `json:"newData,omitempty"`
+	RunningTotal StorageUsageDetails `json:"runningTotal,omitempty"`
 }
 
 // StorageUsageDetails provides details about snapshot storage usage.

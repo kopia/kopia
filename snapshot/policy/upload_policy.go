@@ -8,16 +8,16 @@ import (
 
 // UploadPolicy describes policy to apply when uploading snapshots.
 type UploadPolicy struct {
-	MaxParallelSnapshots    *OptionalInt   `json:"maxParallelSnapshots,omitzero"`
-	MaxParallelFileReads    *OptionalInt   `json:"maxParallelFileReads,omitzero"`
-	ParallelUploadAboveSize *OptionalInt64 `json:"parallelUploadAboveSize,omitzero"`
+	MaxParallelSnapshots    *OptionalInt   `json:"maxParallelSnapshots,omitempty"`
+	MaxParallelFileReads    *OptionalInt   `json:"maxParallelFileReads,omitempty"`
+	ParallelUploadAboveSize *OptionalInt64 `json:"parallelUploadAboveSize,omitempty"`
 }
 
 // UploadPolicyDefinition specifies which policy definition provided the value of a particular field.
 type UploadPolicyDefinition struct {
-	MaxParallelSnapshots    snapshot.SourceInfo `json:"maxParallelSnapshots,omitzero"`
-	MaxParallelFileReads    snapshot.SourceInfo `json:"maxParallelFileReads,omitzero"`
-	ParallelUploadAboveSize snapshot.SourceInfo `json:"parallelUploadAboveSize,omitzero"`
+	MaxParallelSnapshots    snapshot.SourceInfo `json:"maxParallelSnapshots,omitempty"`
+	MaxParallelFileReads    snapshot.SourceInfo `json:"maxParallelFileReads,omitempty"`
+	ParallelUploadAboveSize snapshot.SourceInfo `json:"parallelUploadAboveSize,omitempty"`
 }
 
 // Merge applies default values from the provided policy.
