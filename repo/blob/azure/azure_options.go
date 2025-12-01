@@ -43,4 +43,8 @@ type Options struct {
 
 	// PointInTime specifies a view of the (versioned) store at that time
 	PointInTime *time.Time `json:"pointInTime,omitempty"`
+
+	// UseAzureCLICredential forces Kopia to try Azure CLI cached credential (reads `az login` cache, useful for `az login` and `az login --identity` flows).
+	// If not set, Kopia will use DefaultAzureCredential (env -> managed identity -> shared cache -> CLI -> ...).
+	UseAzureCLICredential bool `json:"useAzureCliCredential,omitempty"`
 }
