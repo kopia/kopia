@@ -13,7 +13,7 @@ import (
 // repository.
 type UpgradeLockIntent struct {
 	OwnerID                string        `json:"ownerID,omitempty"`
-	CreationTime           time.Time     `json:"creationTime,omitempty"`
+	CreationTime           time.Time     `json:"creationTime"`
 	AdvanceNoticeDuration  time.Duration `json:"advanceNoticeDuration,omitempty"`
 	IODrainTimeout         time.Duration `json:"ioDrainTimeout,omitempty"`
 	StatusPollInterval     time.Duration `json:"statusPollInterval,omitempty"`
