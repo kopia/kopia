@@ -63,21 +63,21 @@ func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
 
 // SchedulingPolicy describes policy for scheduling snapshots.
 type SchedulingPolicy struct {
-	IntervalSeconds    int64         `json:"intervalSeconds,omitzero"`
+	IntervalSeconds    int64         `json:"intervalSeconds,omitempty"`
 	TimesOfDay         []TimeOfDay   `json:"timeOfDay,omitempty"`
-	NoParentTimesOfDay bool          `json:"noParentTimeOfDay,omitzero"`
+	NoParentTimesOfDay bool          `json:"noParentTimeOfDay,omitempty"`
+	Manual             bool          `json:"manual,omitempty"`
 	Cron               []string      `json:"cron,omitempty"`
-	Manual             bool          `json:"manual,omitzero"`
-	RunMissed          *OptionalBool `json:"runMissed,omitzero"`
+	RunMissed          *OptionalBool `json:"runMissed,omitempty"`
 }
 
 // SchedulingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type SchedulingPolicyDefinition struct {
-	IntervalSeconds snapshot.SourceInfo `json:"intervalSeconds,omitzero"`
-	TimesOfDay      snapshot.SourceInfo `json:"timeOfDay,omitempty"` //nolint:modernize
-	Cron            snapshot.SourceInfo `json:"cron,omitempty"`      //nolint:modernize
-	Manual          snapshot.SourceInfo `json:"manual,omitzero"`
-	RunMissed       snapshot.SourceInfo `json:"runMissed,omitzero"`
+	IntervalSeconds snapshot.SourceInfo `json:"intervalSeconds,omitempty"`
+	TimesOfDay      snapshot.SourceInfo `json:"timeOfDay,omitempty"`
+	Cron            snapshot.SourceInfo `json:"cron,omitempty"`
+	Manual          snapshot.SourceInfo `json:"manual,omitempty"`
+	RunMissed       snapshot.SourceInfo `json:"runMissed,omitempty"`
 }
 
 // defaultRunMissed is the value for RunMissed.
