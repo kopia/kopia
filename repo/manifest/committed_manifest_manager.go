@@ -164,7 +164,9 @@ func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Conte
 			}
 
 			mu.Lock()
+
 			manifests[ci.ContentID] = man
+
 			mu.Unlock()
 
 			return nil

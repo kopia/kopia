@@ -206,7 +206,6 @@ func (p *cliProgress) spinnerCharacter() string {
 	return s
 }
 
-// +checklocksignore.
 func (p *cliProgress) StartShared() {
 	*p = cliProgress{
 		uploadStartTime: timetrack.Start(),
@@ -222,7 +221,6 @@ func (p *cliProgress) FinishShared() {
 	p.output(defaultColor, "")
 }
 
-// +checklocksignore.
 func (p *cliProgress) UploadStarted() {
 	if p.shared {
 		// do nothing

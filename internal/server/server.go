@@ -976,6 +976,7 @@ func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, i
 	}
 
 	var result notifydata.ManifestWithError
+
 	result.Manifest.Source = src
 
 	defer s.endUpload(ctx, src, &result)

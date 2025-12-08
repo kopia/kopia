@@ -18,13 +18,13 @@ import (
 )
 
 const (
-	maintenanceScheduleKeySize = 32
-	maintenanceScheduleBlobID  = "kopia.maintenance"
+	maintenanceScheduleKeySize    = 32
+	maintenanceScheduleBlobID     = "kopia.maintenance"
+	maintenanceScheduleKeyPurpose = "maintenance schedule"
 )
 
 //nolint:gochecknoglobals
 var (
-	maintenanceScheduleKeyPurpose    = []byte("maintenance schedule")
 	maintenanceScheduleAEADExtraData = []byte("maintenance")
 )
 

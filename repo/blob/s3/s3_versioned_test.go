@@ -663,7 +663,9 @@ func randLongHex(tb testing.TB, length int) string {
 	b := make([]byte, byteLength)
 
 	rMu.Lock()
+
 	n, err := r.Read(b)
+
 	rMu.Unlock()
 
 	require.NoError(tb, err)
@@ -847,25 +849,25 @@ func isRetriable(err error) bool {
 func getVersionedTestStore(tb testing.TB, envName string) *s3Storage {
 	tb.Helper()
 
-	ctx := testlogging.Context(tb)
 	o := getProviderOptions(tb, envName)
 	o.Prefix = path.Join(tb.Name(), uuid.NewString()) + "/"
 
-	s, err := newStorage(ctx, o)
+	s, err := newStorage(testlogging.Context(tb), o)
 	require.NoError(tb, err, "error creating versioned store client")
 
 	tb.Cleanup(func() {
-		cleanupVersions(tb, s)
+		ctx := testlogging.ContextForCleanup(tb)
+
+		cleanupVersions(ctx, tb, s)
 		blobtesting.CleanupOldData(ctx, tb, s, 0)
 	})
 
 	return s
 }
 
-func cleanupVersions(tb testing.TB, s *s3Storage) {
+func cleanupVersions(ctx context.Context, tb testing.TB, s *s3Storage) {
 	tb.Helper()
 
-	ctx := testlogging.Context(tb)
 	ch := make(chan minio.ObjectInfo, 4)
 	errChan := s.cli.RemoveObjects(ctx, s.BucketName, ch, minio.RemoveObjectsOptions{})
 

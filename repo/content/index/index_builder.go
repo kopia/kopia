@@ -75,11 +75,7 @@ func (b Builder) sortedContents() []*Info {
 
 	numWorkers := runtime.NumCPU()
 	for worker := range numWorkers {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			for i := range buckets {
 				if i%numWorkers == worker {
 					buck := buckets[i]
@@ -89,7 +85,7 @@ func (b Builder) sortedContents() []*Info {
 					})
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -97,7 +93,7 @@ func (b Builder) sortedContents() []*Info {
 	// Phase 3 - merge results from all buckets.
 	result := make([]*Info, 0, len(b))
 
-	for i := range len(buckets) { //nolint:intrange
+	for i := range buckets {
 		result = append(result, buckets[i]...)
 	}
 

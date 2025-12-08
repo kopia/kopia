@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package kopiaclient provides a client to interact with a Kopia repo.
 package kopiaclient
@@ -72,7 +71,7 @@ func (kc *KopiaClient) CreateOrConnectRepo(ctx context.Context, repoDir, bucketN
 		return errors.Wrap(iErr, "error connecting to repository")
 	}
 
-	return errors.Wrap(err, "unable to open repository")
+	return nil
 }
 
 // SetCacheLimits sets cache size limits to the already connected repository.

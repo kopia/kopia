@@ -62,6 +62,7 @@ func TestLog(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "test message", logEntry["m"])
@@ -88,6 +89,7 @@ func TestLog(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "test message", logEntry["m"])
@@ -126,6 +128,7 @@ func TestLog1(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "processing item", logEntry["m"])
@@ -165,6 +168,7 @@ func TestLog1(t *testing.T) {
 				require.NotEmpty(t, captured)
 
 				var logEntry map[string]any
+
 				err := json.Unmarshal(captured, &logEntry)
 				require.NoError(t, err)
 				require.Equal(t, tc.message, logEntry["m"])
@@ -192,6 +196,7 @@ func TestLog2(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "processing item", logEntry["m"])
@@ -219,6 +224,7 @@ func TestLog3(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "processing item", logEntry["m"])
@@ -248,6 +254,7 @@ func TestLog4(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "processing item", logEntry["m"])
@@ -279,6 +286,7 @@ func TestLog5(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "processing item", logEntry["m"])
@@ -312,6 +320,7 @@ func TestLog6(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "processing item", logEntry["m"])
@@ -345,6 +354,7 @@ func TestEmit(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "custom entry", logEntry["message"])
@@ -377,6 +387,7 @@ func TestEmit(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "custom entry", logEntry["message"])
@@ -424,12 +435,14 @@ func TestLoggerMultipleLogs(t *testing.T) {
 
 		// Check first entry
 		var entry1 map[string]any
+
 		err := json.Unmarshal([]byte(lines[0]), &entry1)
 		require.NoError(t, err)
 		require.Equal(t, "first message", entry1["m"])
 
 		// Check second entry
 		var entry2 map[string]any
+
 		err = json.Unmarshal([]byte(lines[1]), &entry2)
 		require.NoError(t, err)
 		require.Equal(t, "second message", entry2["m"])
@@ -437,6 +450,7 @@ func TestLoggerMultipleLogs(t *testing.T) {
 
 		// Check third entry
 		var entry3 map[string]any
+
 		err = json.Unmarshal([]byte(lines[2]), &entry3)
 		require.NoError(t, err)
 		require.Equal(t, "third message", entry3["m"])
@@ -461,6 +475,7 @@ func TestLoggerErrorHandling(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "error test", logEntry["m"])
@@ -483,6 +498,7 @@ func TestLoggerErrorHandling(t *testing.T) {
 		require.NotEmpty(t, captured)
 
 		var logEntry map[string]any
+
 		err := json.Unmarshal(captured, &logEntry)
 		require.NoError(t, err)
 		require.Equal(t, "error test", logEntry["m"])

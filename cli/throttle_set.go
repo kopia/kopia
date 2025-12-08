@@ -109,7 +109,7 @@ func (c *commonThrottleSet) setThrottleInt(ctx context.Context, desc string, val
 		return nil
 	}
 
-	v, err := strconv.ParseInt(str, 10, 64)
+	v, err := strconv.Atoi(str)
 	if err != nil {
 		return errors.Wrapf(err, "can't parse the %v %q", desc, str)
 	}
@@ -118,7 +118,7 @@ func (c *commonThrottleSet) setThrottleInt(ctx context.Context, desc string, val
 
 	log(ctx).Infof("Setting %v to %v.", desc, v)
 
-	*val = int(v)
+	*val = v
 
 	return nil
 }

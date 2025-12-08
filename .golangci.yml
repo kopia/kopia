@@ -80,9 +80,15 @@ linters:
         - (*go.uber.org/zap.SugaredLogger).With
     misspell:
       locale: US
+    modernize:
+      disable:
+        - omitzero
+    wsl_v5:
+      allow-whole-block: true
 
   default: all
   disable:
+    - embeddedstructfieldcheck
     - exhaustruct
     - funcorder
     - gochecknoglobals
@@ -91,8 +97,10 @@ linters:
     - importas
     - ireturn # this one may be interesting to control allocations
     - musttag
+    - nakedret # already enforced by gofumpt in a stricter manner
     - nilnil
-    - nlreturn
+    - nlreturn # already enforced by wsl_v5
+    - noinlineerr # inline error handling is a common Go idiom used in this codebase
     - nonamedreturns
     - paralleltest
     - prealloc
@@ -106,14 +114,12 @@ linters:
     - usetesting
     - varnamelen # this one may be interesting, but too much churn
     - whitespace
+    - wsl
     - zerologlint # zerolog not currently used in the codebase
 
   exclusions:
     generated: lax
     rules:
-      - path: reporter.go
-        linters:
-          - musttag
       - path: _test\.go|testing|tests|test_env|fshasher|fault 
         linters:
           - contextcheck
@@ -131,12 +137,6 @@ linters:
           - perfsprint
           - revive
           - wrapcheck
-      - text: "log is a global variable"
-        linters:
-          - gochecknoglobals
-      - text: "tracer is a global variable"
-        linters:
-          - gochecknoglobals
       - text: "Magic number: 1e"
         linters:
           - mnd

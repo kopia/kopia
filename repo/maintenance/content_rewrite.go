@@ -75,11 +75,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	var wg sync.WaitGroup
 
 	for range opt.Parallel {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			for c := range cnt {
 				if c.err != nil {
 					failedCount.Add(1)
@@ -136,7 +132,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 					rewritten.Add(int64(c.PackedLength))
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

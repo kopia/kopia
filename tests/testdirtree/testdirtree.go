@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"unicode"
@@ -43,7 +44,7 @@ func generateHexString(l int) string {
 
 func generateUnicodeString(rangeMin, rangeMax, l int) string {
 	// generate a random unicode string within a defined range
-	s := ""
+	var s strings.Builder
 
 	for i := 0; i < l; {
 		c := rand.Intn(rangeMax-rangeMin+1) + rangeMin
@@ -51,12 +52,13 @@ func generateUnicodeString(rangeMin, rangeMax, l int) string {
 		// IsLetter & IsDigit function as a sanity check to prevent writing punctuation/control characters
 		// ValidRune is a sanity check for macOS since APFS can't handle invalid utf-8 and will error out
 		if (unicode.IsLetter(r) || unicode.IsDigit(r)) && utf8.ValidRune(r) {
-			s += string(r)
+			s.WriteRune(r)
+
 			i++
 		}
 	}
 
-	return s
+	return s.String()
 }
 
 func randomUnicodeName(l int) string {

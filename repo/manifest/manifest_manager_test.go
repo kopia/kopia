@@ -208,7 +208,9 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}{
 		{"GetRaw", func() error {
 			var raw json.RawMessage
+
 			_, err := mgr.Get(ctx, "anything", &raw)
+
 			return err
 		}},
 		{"GetMetadata", func() error { _, err := mgr.GetMetadata(ctx, "anything"); return err }},

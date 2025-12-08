@@ -1,8 +1,8 @@
-// Package restore manages restoring filesystem snapshots.
 package restore
 
 import (
 	"context"
+	stderrors "errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -110,6 +110,12 @@ type FilesystemOutput struct {
 	// copier is the StreamCopier to use for copying the actual bit stream to output.
 	// It is assigned at runtime based on the target filesystem and restore options.
 	copier streamCopier `json:"-"`
+
+	// Indicate whether or not flush files after restore.
+	// Varying from OS, the copier may write the file data to the system cache,
+	// so the data may not be written to disk when the restore to the file completes.
+	// This flag guarantees the file data is flushed to disk.
+	FlushFiles bool `json:"flushFiles"`
 }
 
 // Init initializes the internal members of the filesystem writer output.
@@ -374,26 +380,29 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
+func write(targetPath string, r fs.Reader, size int64, flush bool, c streamCopier) (err error) {
 	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,mnd
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
 
+	defer func() {
+		// always close f and report close error
+		err = stderrors.Join(err, f.Close())
+	}()
+
 	if err := f.Truncate(size); err != nil {
 		return err //nolint:wrapcheck
 	}
-
-	// ensure we always close f. Note that this does not conflict with the
-	// close below, as close is idempotent.
-	defer f.Close() //nolint:errcheck
 
 	if _, err := c(f, r); err != nil {
 		return errors.Wrapf(err, "cannot write data to file %q", f.Name())
 	}
 
-	if err := f.Close(); err != nil {
-		return err //nolint:wrapcheck
+	if flush {
+		if err := f.Sync(); err != nil {
+			return errors.Wrapf(err, "cannot flush file %q", f.Name())
+		}
 	}
 
 	return nil
@@ -431,7 +440,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		return atomicfile.Write(targetPath, rr)
 	}
 
-	return write(targetPath, rr, f.Size(), o.copier)
+	return write(targetPath, rr, f.Size(), o.FlushFiles, o.copier)
 }
 
 func isEmptyDirectory(name string) (bool, error) {

@@ -154,6 +154,7 @@ func (s *sourceManager) setUploader(u *upload.Uploader) {
 
 func (s *sourceManager) start(ctx context.Context, isLocal bool) {
 	s.refreshStatus(ctx)
+
 	go s.run(ctx, isLocal)
 }
 

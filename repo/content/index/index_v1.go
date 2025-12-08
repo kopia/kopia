@@ -92,6 +92,7 @@ func (b *indexV1) entryToInfoStruct(contentID ID, data []byte, result *Info) err
 	result.Deleted = data[12]&0x80 != 0 //nolint:mnd
 
 	const packOffsetMask = 1<<31 - 1
+
 	result.PackOffset = decodeBigEndianUint32(data[12:]) & packOffsetMask
 	result.PackedLength = decodeBigEndianUint32(data[16:])
 	result.OriginalLength = result.PackedLength - b.v1PerContentOverhead

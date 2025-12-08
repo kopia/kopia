@@ -550,6 +550,7 @@ func TestInitializeWithNoRetention(t *testing.T) {
 	// are not supplied.
 	var b gather.WriteBuffer
 	defer b.Close()
+
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &b))
 }
 
@@ -611,6 +612,7 @@ func TestWriteSessionFlushOnSuccess(t *testing.T) {
 					afterFlushCount.Add(1)
 					return nil
 				})
+
 				return nil
 			})
 		},
@@ -672,6 +674,7 @@ func TestWriteSessionFlushOnSuccessClient(t *testing.T) {
 					afterFlushCount.Add(1)
 					return nil
 				})
+
 				return nil
 			},
 		},
@@ -854,7 +857,8 @@ func TestAllRegistryMetricsAreMapped(t *testing.T) {
 }
 
 func TestDeriveKey(t *testing.T) {
-	testPurpose := []byte{0, 0, 0, 0}
+	const testPurpose = "test purpose"
+
 	testKeyLength := 8
 	masterKey := []byte("01234567890123456789012345678901")
 	uniqueID := []byte("a5ba5d2da4b14b518b9501b64b5d87ca")

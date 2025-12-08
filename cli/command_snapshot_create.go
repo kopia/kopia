@@ -499,7 +499,6 @@ func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir st
 
 func parseFullSource(str, hostname, username string) (snapshot.SourceInfo, error) {
 	sourceInfo, err := snapshot.ParseSourceInfo(str, hostname, username)
-
 	if err != nil {
 		return snapshot.SourceInfo{}, errors.Wrapf(err, "not a valid source %v", str)
 	} else if sourceInfo.Host == "" || sourceInfo.UserName == "" || sourceInfo.Path == "" {

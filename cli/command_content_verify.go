@@ -51,12 +51,10 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 	}()
 
 	// start a goroutine that will populate totalCount
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		c.getTotalContentCount(subctx, rep, &totalCount)
-	}()
+	})
 
 	rep.DisableIndexRefresh()
 
@@ -81,6 +79,7 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 			}
 
 			verifiedCount := vps.SuccessCount + vps.ErrorCount
+
 			timings, ok := est.Estimate(float64(verifiedCount), float64(totalCount.Load()))
 			if ok {
 				log(ctx).Infof("  Verified %v of %v contents (%.1f%%), %v errors, remaining %v, ETA %v",

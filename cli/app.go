@@ -122,7 +122,6 @@ type advancedAppServices interface {
 type App struct {
 	// global flags
 	enableAutomaticMaintenance    bool
-	pf                            profileFlags
 	progress                      *cliProgress
 	restoreProgress               RestoreProgress
 	initialUpdateCheckDelay       time.Duration
@@ -260,7 +259,9 @@ func (c *App) setup(app *kingpin.Application) {
 
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(func(pc *kingpin.ParseContext) error {
 		_ = app.UsageForContextWithTemplate(pc, 0, kingpin.DefaultUsageTemplate)
+
 		c.exitWithError(nil)
+
 		return nil
 	}).Bool()
 
@@ -293,7 +294,6 @@ func (c *App) setup(app *kingpin.Application) {
 
 	c.setupOSSpecificKeychainFlags(c, app)
 
-	c.pf.setup(app)
 	c.progress.setup(c, app)
 
 	c.blob.setup(c, app)
@@ -400,11 +400,7 @@ func (c *App) currentActionName() string {
 
 func (c *App) noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
-			return c.pf.withProfiling(func() error {
-				return act(ctx)
-			})
-		})
+		return c.runAppWithContext(kpc.SelectedCommand, act)
 	}
 }
 
@@ -522,11 +518,7 @@ type repositoryAccessMode struct {
 
 func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		return c.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
-			return c.pf.withProfiling(func() error {
-				return act(ctx)
-			})
-		})
+		return c.runAppWithContext(kpc.SelectedCommand, act)
 	}
 }
 

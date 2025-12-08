@@ -11,6 +11,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/hex"
 	"encoding/pem"
+	stderrors "errors"
 	"math/big"
 	"net"
 	"net/http"
@@ -86,12 +87,15 @@ func GenerateServerCertificate(ctx context.Context, keySize int, certValid time.
 }
 
 // WritePrivateKeyToFile writes the private key to a given file.
-func WritePrivateKeyToFile(fname string, priv *rsa.PrivateKey) error {
+func WritePrivateKeyToFile(fname string, priv *rsa.PrivateKey) (err error) {
 	f, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, privateKeyFileMode) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "error opening private key file")
 	}
-	defer f.Close() //nolint:errcheck
+
+	defer func() {
+		err = stderrors.Join(err, f.Close())
+	}()
 
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
@@ -106,12 +110,15 @@ func WritePrivateKeyToFile(fname string, priv *rsa.PrivateKey) error {
 }
 
 // WriteCertificateToFile writes the certificate to a given file.
-func WriteCertificateToFile(fname string, cert *x509.Certificate) error {
+func WriteCertificateToFile(fname string, cert *x509.Certificate) (err error) {
 	f, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, certificateFileMode) //nolint:gosec
 	if err != nil {
 		return errors.Wrap(err, "error opening certificate file")
 	}
-	defer f.Close() //nolint:errcheck
+
+	defer func() {
+		err = stderrors.Join(err, f.Close())
+	}()
 
 	if err := pem.Encode(f, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
 		return errors.Wrap(err, "Failed to write data")

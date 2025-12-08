@@ -58,7 +58,8 @@ func runAndGetOutput(t *testing.T, cmd string, args ...string) ([]byte, error) {
 
 	var stderr bytes.Buffer
 
-	c := exec.Command(cmd, args...)
+	ctx := testlogging.Context(t)
+	c := exec.CommandContext(ctx, cmd, args...)
 	c.Stderr = &stderr
 
 	o, err := c.Output()
@@ -102,12 +103,14 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 		sftpUsernameWithPasswordAuth+":"+sftpUserPassword+":::upload2")
 	sftpEndpoint := testutil.GetContainerMappedPortAddress(t, shortContainerID, "22")
 
+	ctx := testlogging.Context(t)
+
 	// wait for SFTP server to come up.
 	deadline := clock.Now().Add(dialTimeout)
 	for clock.Now().Before(deadline) {
 		t.Logf("waiting for SFTP server to come up on '%v'...", sftpEndpoint)
 
-		conn, err := net.DialTimeout("tcp", sftpEndpoint, time.Second)
+		conn, err := (&net.Dialer{Timeout: time.Second}).DialContext(ctx, "tcp", sftpEndpoint)
 		if err != nil {
 			t.Logf("err: %v", err)
 			time.Sleep(time.Second)
@@ -209,8 +212,9 @@ func TestSFTPStorageValid(t *testing.T) {
 
 	t.Run("PasswordCreds", func(t *testing.T) {
 		ctx := testlogging.Context(t)
+		newctx, cancel := context.WithCancel(ctx)
 
-		st, err := createSFTPStorage(ctx, t, sftp.Options{
+		st, err := createSFTPStorage(newctx, t, sftp.Options{
 			Path:           "/upload2",
 			Host:           host,
 			Username:       sftpUsernameWithPasswordAuth,
@@ -222,6 +226,8 @@ func TestSFTPStorageValid(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unable to connect to SSH: %v", err)
 		}
+
+		cancel()
 
 		deleteBlobs(ctx, t, st)
 

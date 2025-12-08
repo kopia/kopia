@@ -1,4 +1,3 @@
-// Package metricid provides mapping between metric names and persistent IDs.
 package metricid
 
 // Mapping contains translation of names to indexes and vice versa, which allows maps

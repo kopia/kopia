@@ -166,6 +166,7 @@ func TestMergedGetInfoError(t *testing.T) {
 	m := Merged{failingIndex{nil, someError}}
 
 	var info Info
+
 	ok, err := m.GetInfo(mustParseID(t, "xabcdef"), &info)
 	require.ErrorIs(t, err, someError)
 	require.False(t, ok)

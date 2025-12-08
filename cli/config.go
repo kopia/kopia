@@ -34,6 +34,7 @@ func (c *App) onTerminate(f func()) {
 
 		case <-s:
 		}
+
 		f()
 	}()
 }

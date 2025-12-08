@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package walker wraps calls to the fswalker Walker
 package walker
@@ -21,7 +20,7 @@ const (
 
 // Walk performs a walk governed by the contents of the provided
 // Policy, and returns the pointer to the Walk.
-func Walk(ctx context.Context, policy *fspb.Policy) (*fspb.Walk, error) { //nolint:interfacer
+func Walk(ctx context.Context, policy *fspb.Policy) (*fspb.Walk, error) {
 	f, err := os.CreateTemp("", "fswalker-policy-")
 	if err != nil {
 		return nil, err

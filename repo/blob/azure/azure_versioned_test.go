@@ -103,11 +103,12 @@ func TestGetBlobVersions(t *testing.T) {
 		latestData   = "latest version"
 	)
 
-	dataBlobs := []string{originalData, updatedData, latestData}
-
 	const blobName = "TestGetBlobVersions"
+
 	blobID := blob.ID(blobName)
+	dataBlobs := []string{originalData, updatedData, latestData}
 	dataTimestamps, err := putBlobs(ctx, st, blobID, dataBlobs)
+
 	require.NoError(t, err)
 
 	pastPIT := dataTimestamps[0].Add(-1 * time.Second)
@@ -162,6 +163,7 @@ func TestGetBlobVersions(t *testing.T) {
 		require.NoError(t, err)
 
 		var tmp gather.WriteBuffer
+
 		err = st.GetBlob(ctx, blobID, 0, -1, &tmp)
 		require.ErrorIs(t, err, tt.expectedError)
 		require.Equal(t, tt.expectedBlobData, string(tmp.ToByteSlice()))
@@ -212,6 +214,7 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	dataBlobs := []string{originalData, updatedData}
 
 	const blobName = "TestGetBlobVersionsWithDeletion"
+
 	blobID := blob.ID(blobName)
 	dataTimestamps, err := putBlobs(ctx, st, blobID, dataBlobs)
 	require.NoError(t, err)
@@ -235,6 +238,7 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	require.Equal(t, 1, count)
 
 	var tmp gather.WriteBuffer
+
 	err = st.GetBlob(ctx, blobID, 0, -1, &tmp)
 	require.NoError(t, err)
 	require.Equal(t, updatedData, string(tmp.ToByteSlice()))

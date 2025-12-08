@@ -38,6 +38,7 @@ func (s *formatSpecificTestSuite) TestMaintenanceSafety(t *testing.T) {
 		fmt.Fprintf(ow, "hello world")
 
 		var err error
+
 		objectID, err = ow.Result()
 
 		return err
