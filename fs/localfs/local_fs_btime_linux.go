@@ -6,6 +6,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// platformSpecificBirthTimeFromStat retrieves birth time using statx(2).
+// Requires Linux kernel 4.11+ and filesystem support (e.g., ext4 with btime, btrfs, xfs).
+// Returns 0 if birth time is unavailable (older kernels, unsupported filesystems like ext3).
 func platformSpecificBirthTimeFromStat(_ *syscall.Stat_t, path string) int64 {
 	// Linux doesn't have birth time in syscall.Stat_t
 	var statx unix.Statx_t
