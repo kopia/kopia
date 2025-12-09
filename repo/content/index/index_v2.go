@@ -137,7 +137,7 @@ type indexV2FormatInfo struct {
 
 type indexV2 struct {
 	hdr         v2HeaderInfo
-	data        []byte
+	data        Source
 	closer      func() error
 	formats     []indexV2FormatInfo
 	packBlobIDs []blob.ID
@@ -670,7 +670,7 @@ func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it *Info) error {
 	return errors.Wrap(err, "error writing index value entry")
 }
 
-func openV2PackIndex(data []byte, closer func() error) (Index, error) {
+func openV2PackIndex(data Source, closer func() error) (Index, error) {
 	header, err := safeSlice(data, 0, v2IndexHeaderSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid header")
