@@ -4,7 +4,7 @@ package object
 type IndirectObjectEntry struct {
 	Start  int64 `json:"s,omitempty"`
 	Length int64 `json:"l,omitempty"`
-	Object ID    `json:"o,omitempty"`
+	Object ID    `json:"o"`
 }
 
 func (i *IndirectObjectEntry) endOffset() int64 {
