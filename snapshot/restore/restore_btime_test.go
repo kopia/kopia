@@ -240,8 +240,12 @@ func verifySnapshotMetadataUpdate(t *testing.T, ctx context.Context, rep repo.Re
 	require.Equal(t, expectedFileBtime.Unix(), newFileBtime.Unix(), "file snapshot should reflect updated birthtime")
 	require.Equal(t, expectedDirBtime.Unix(), newDirBtime.Unix(), "dir snapshot should reflect updated birthtime")
 
-	// Verify content NOT re-uploaded (file size unchanged)
-	require.Equal(t, oldFile.Size(), newFile.Size(), "file size should be unchanged (content not re-uploaded)")
+	// Verify content NOT re-uploaded by comparing ObjectIDs
+	oldDirEntry := oldFile.(snapshot.HasDirEntry).DirEntry()
+	newDirEntry := newFile.(snapshot.HasDirEntry).DirEntry()
+
+	require.Equal(t, oldDirEntry.ObjectID, newDirEntry.ObjectID,
+		"ObjectID should be identical (content not re-uploaded, only metadata changed)")
 }
 
 // getFileFromSnapshot retrieves a file entry from a snapshot by name.
