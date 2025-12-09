@@ -24,6 +24,15 @@ type Index interface {
 	Iterate(r IDRange, cb func(Info) error) error
 }
 
+// Source encapsulates a source of index data.
+//
+// Currently, Source is backed by a byte slice, but this abstraction was introduced
+// to allow for future support of file-backed sources or other data sources.
+// This design enables flexibility in how index data is provided and accessed.
+type Source struct {
+	data []byte
+}
+
 // SliceIndexSource creates an index source from a byte slice.
 func SliceIndexSource(data []byte) Source {
 	return Source{data: data}
@@ -46,15 +55,6 @@ func Open(data Source, closer func() error, v1PerContentOverhead func() int) (In
 	default:
 		return nil, errors.Errorf("invalid header format: %v", h.version)
 	}
-}
-
-// Source encapsulates a source of index data.
-//
-// Currently, Source is backed by a byte slice, but this abstraction was introduced
-// to allow for future support of file-backed sources or other data sources.
-// This design enables flexibility in how index data is provided and accessed.
-type Source struct {
-	data []byte
 }
 
 func safeSlice(src Source, offset int64, length int) (v []byte, err error) {
