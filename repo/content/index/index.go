@@ -49,7 +49,7 @@ func Open(data Source, closer func() error, v1PerContentOverhead func() int) (In
 }
 
 // Source encapsulates a source of index data.
-// 
+//
 // Currently, Source is backed by a byte slice, but this abstraction was introduced
 // to allow for future support of file-backed sources or other data sources.
 // This design enables flexibility in how index data is provided and accessed.
