@@ -30,14 +30,15 @@ func symlinkChtimes(linkPath string, btime, atime, mtime time.Time) error {
 }
 
 func chtimes(path string, btime, atime, mtime time.Time) error {
-	// On Linux/FreeBSD, birth time cannot be set after file creation.
+	// On Unix-like systems (Linux, FreeBSD, OpenBSD, etc.), birth time cannot be set after file creation.
+	// macOS has its own implementation in local_fs_output_darwin.go, which handles birth time differently.
 	// The birthtime stored in snapshots is still valuable for:
 	// 1. Cross-platform restore (e.g., Linux snapshot -> macOS/Windows restore)
-	// 2. Future Linux kernel support for birthtime setting
+	// 2. Future kernel support for birthtime setting
 	// 3. Consistent metadata model across all platforms
 	//
-	// When restoring on Linux, birthtime will be set to file creation time (now).
-	// This is consistent with standard Linux filesystem behavior.
+	// When restoring on Unix-like systems, birthtime will be set to file creation time (now).
+	// This is consistent with standard Unix filesystem behavior
 	//nolint:wrapcheck
 	return os.Chtimes(path, atime, mtime)
 }
