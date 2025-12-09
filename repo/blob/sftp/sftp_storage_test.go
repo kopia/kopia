@@ -212,8 +212,9 @@ func TestSFTPStorageValid(t *testing.T) {
 
 	t.Run("PasswordCreds", func(t *testing.T) {
 		ctx := testlogging.Context(t)
+		newctx, cancel := context.WithCancel(ctx)
 
-		st, err := createSFTPStorage(ctx, t, sftp.Options{
+		st, err := createSFTPStorage(newctx, t, sftp.Options{
 			Path:           "/upload2",
 			Host:           host,
 			Username:       sftpUsernameWithPasswordAuth,
@@ -225,6 +226,8 @@ func TestSFTPStorageValid(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unable to connect to SSH: %v", err)
 		}
+
+		cancel()
 
 		deleteBlobs(ctx, t, st)
 

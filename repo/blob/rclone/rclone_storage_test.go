@@ -62,6 +62,38 @@ func mustGetRcloneExeOrSkip(t *testing.T) string {
 	return rcloneExe
 }
 
+func TestRCloneStorageCancelContext(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	rcloneExe := mustGetRcloneExeOrSkip(t)
+	dataDir := testutil.TempDirectory(t)
+	ctx := testlogging.Context(t)
+
+	// use context that gets canceled after opening storage to ensure it's not used beyond New().
+	newCtx, cancel := context.WithCancel(ctx)
+	st, err := rclone.New(newCtx, &rclone.Options{
+		// pass local file as remote path.
+		RemotePath: dataDir,
+		RCloneExe:  rcloneExe,
+	}, true)
+
+	cancel()
+
+	require.NoError(t, err, "unable to connect to rclone backend")
+	require.NotNil(t, st, "unable to connect to rclone backend")
+
+	t.Cleanup(func() {
+		st.Close(testlogging.ContextForCleanup(t))
+	})
+
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	err = st.GetBlob(ctx, blob.ID(uuid.New().String()), 0, -1, &tmp)
+	require.ErrorIs(t, err, blob.ErrBlobNotFound, "unexpected error when downloading non-existent blob")
+}
+
 func TestRCloneStorage(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
@@ -72,8 +104,8 @@ func TestRCloneStorage(t *testing.T) {
 	dataDir := testutil.TempDirectory(t)
 
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
-	newctx, cancel := context.WithCancel(ctx)
-	st, err := rclone.New(newctx, &rclone.Options{
+	newCtx, cancel := context.WithCancel(ctx)
+	st, err := rclone.New(newCtx, &rclone.Options{
 		// pass local file as remote path.
 		RemotePath: dataDir,
 		RCloneExe:  rcloneExe,

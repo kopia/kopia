@@ -465,7 +465,7 @@ func getSFTPClientExternal(ctx context.Context, opt *Options) (*sftpConnection, 
 
 	log(ctx).Debugf("launching external SSH process %v %v", sshCommand, strings.Join(cmdArgs, " "))
 
-	cmd := exec.Command(sshCommand, cmdArgs...) //nolint:gosec
+	cmd := exec.CommandContext(ctx, sshCommand, cmdArgs...) //nolint:gosec
 
 	// send errors from ssh to stderr
 	cmd.Stderr = os.Stderr
@@ -553,7 +553,9 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 
 	impl.rec = connection.NewReconnector(impl)
 
-	conn, err := impl.rec.GetOrOpenConnection(ctx)
+	// removing cancelation from ctx since ctx is likely to be canceled after
+	// New returns, causing the initial connection to be closed and not reused
+	conn, err := impl.rec.GetOrOpenConnection(context.WithoutCancel(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open SFTP storage")
 	}

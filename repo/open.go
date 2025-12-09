@@ -63,7 +63,7 @@ const throttleBucketInitialFill = 0.1
 const localCacheIntegrityHMACSecretLength = 16
 
 //nolint:gochecknoglobals
-var localCacheIntegrityPurpose = []byte("local-cache-integrity")
+const localCacheIntegrityPurpose = "local-cache-integrity"
 
 var log = logging.Module("kopia/repo")
 

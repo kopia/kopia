@@ -21,24 +21,24 @@ const (
 
 // RetentionPolicy describes snapshot retention policy.
 type RetentionPolicy struct {
-	KeepLatest               *OptionalInt  `json:"keepLatest,omitzero"`
-	KeepHourly               *OptionalInt  `json:"keepHourly,omitzero"`
-	KeepDaily                *OptionalInt  `json:"keepDaily,omitzero"`
-	KeepWeekly               *OptionalInt  `json:"keepWeekly,omitzero"`
-	KeepMonthly              *OptionalInt  `json:"keepMonthly,omitzero"`
-	KeepAnnual               *OptionalInt  `json:"keepAnnual,omitzero"`
-	IgnoreIdenticalSnapshots *OptionalBool `json:"ignoreIdenticalSnapshots,omitzero"`
+	KeepLatest               *OptionalInt  `json:"keepLatest,omitempty"`
+	KeepHourly               *OptionalInt  `json:"keepHourly,omitempty"`
+	KeepDaily                *OptionalInt  `json:"keepDaily,omitempty"`
+	KeepWeekly               *OptionalInt  `json:"keepWeekly,omitempty"`
+	KeepMonthly              *OptionalInt  `json:"keepMonthly,omitempty"`
+	KeepAnnual               *OptionalInt  `json:"keepAnnual,omitempty"`
+	IgnoreIdenticalSnapshots *OptionalBool `json:"ignoreIdenticalSnapshots,omitempty"`
 }
 
 // RetentionPolicyDefinition specifies which policy definition provided the value of a particular field.
 type RetentionPolicyDefinition struct {
-	KeepLatest               snapshot.SourceInfo `json:"keepLatest,omitzero"`
-	KeepHourly               snapshot.SourceInfo `json:"keepHourly,omitzero"`
-	KeepDaily                snapshot.SourceInfo `json:"keepDaily,omitzero"`
-	KeepWeekly               snapshot.SourceInfo `json:"keepWeekly,omitzero"`
-	KeepMonthly              snapshot.SourceInfo `json:"keepMonthly,omitzero"`
-	KeepAnnual               snapshot.SourceInfo `json:"keepAnnual,omitzero"`
-	IgnoreIdenticalSnapshots snapshot.SourceInfo `json:"ignoreIdenticalSnapshots,omitzero"`
+	KeepLatest               snapshot.SourceInfo `json:"keepLatest,omitempty"`
+	KeepHourly               snapshot.SourceInfo `json:"keepHourly,omitempty"`
+	KeepDaily                snapshot.SourceInfo `json:"keepDaily,omitempty"`
+	KeepWeekly               snapshot.SourceInfo `json:"keepWeekly,omitempty"`
+	KeepMonthly              snapshot.SourceInfo `json:"keepMonthly,omitempty"`
+	KeepAnnual               snapshot.SourceInfo `json:"keepAnnual,omitempty"`
+	IgnoreIdenticalSnapshots snapshot.SourceInfo `json:"ignoreIdenticalSnapshots,omitempty"`
 }
 
 // ComputeRetentionReasons computes the reasons why each snapshot is retained, based on
