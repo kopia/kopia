@@ -192,7 +192,7 @@ if ($args.Length -eq 0) {
     $kopiaSourcePath = $env:KOPIA_SOURCE_PATH
 } else {
     $kopiaSnapshotId = $args[0]
-    # Path has been encoded to avoid whitespace issues
+    # Path has been Base64 encoded when re-invoking with elevated privileges to preserve spaces and avoid issues with whitespace in PowerShell arguments
     $kopiaSourcePath = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($args[1]))
 }
 
