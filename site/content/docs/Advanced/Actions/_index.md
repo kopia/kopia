@@ -211,7 +211,7 @@ if (([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::
 
     cmd /c mklink /d $mountPoint "${shadowDevice}\"
 } else {
-    # Avoid path with whitespaces issues
+    # Encode path in Base64 to avoid whitespace issues when passing as argument
     $encodedPath = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($kopiaSourcePath))
     $proc = Start-Process 'powershell' '-f', $MyInvocation.MyCommand.Path, $kopiaSnapshotId, $encodedPath -PassThru -Verb RunAs -WindowStyle Hidden -Wait
     if ($proc.ExitCode) {
