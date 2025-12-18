@@ -24,10 +24,9 @@ import (
 )
 
 const (
-	defaultNumMemorySegments    = 8          // number of segments to keep in RAM
-	defaultMemorySegmentSize    = 18 * 1e6   // 18MB enough to store >1M 16-17-byte keys
-	defaultFileSegmentSize      = 1024 << 20 // 1 GiB
-	defaultInitialSizeLogarithm = 20
+	// defaultNumMemorySegments, defaultMemorySegmentSize, defaultFileSegmentSize,
+	// and defaultInitialSizeLogarithm are defined in bigmap_32bit.go and bigmap_64bit.go
+	// to use appropriate values for different architectures.
 
 	// grow hash table above this percentage utilization, higher values (close to 100) will be very slow,
 	// smaller values will waste memory.
