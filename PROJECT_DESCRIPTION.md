@@ -4,7 +4,7 @@
 This project aims to implement a native recovery mechanism for Kopia when the underlying storage repository runs out of space. 
 
 ## The Problem
-Currently (as of v0.10.4), when Kopia's storage repository becomes full, the application enters an unrecoverable state where:
+Currently (as of v0.22.3), when Kopia's storage repository becomes full, the application enters an unrecoverable state where:
 - All operations fail due to inability to create temporary files
 - `snapshot delete` commands cannot execute
 - `maintenance` operations cannot run to clean up and free space
