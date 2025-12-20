@@ -38,6 +38,18 @@ func (s *enospcStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes
 	return s.Storage.PutBlob(ctx, id, data, opts)
 }
 
+type capacityStorage struct {
+	blob.Storage
+	free uint64
+}
+
+func (s *capacityStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	return blob.Capacity{
+		SizeB: 2 << 30, // 2GB
+		FreeB: s.free,
+	}, nil
+}
+
 func TestEmergencyRecovery(t *testing.T) {
 	ctx := testlogging.Context(t)
 	_, env := repotesting.NewEnvironment(t, format.FormatVersion3)
@@ -88,7 +100,7 @@ func TestStorageReserveGuards(t *testing.T) {
 	_, env := repotesting.NewEnvironment(t, format.FormatVersion3)
 	st := env.RootStorage()
 
-	// --- Case 1: Snapshot Create Guard ---
+	// --- Case 1: Snapshot Create Guard (ENOSPC) ---
 	// Delete reserve manually
 	err := storagereserve.Delete(ctx, st)
 	require.NoError(t, err)
@@ -101,8 +113,21 @@ func TestStorageReserveGuards(t *testing.T) {
 		},
 	}
 
-	// --- Case 2: Snapshot Delete Guard ---
-	// Re-add ENOSPC fault for ANY new blob if we want, but let's just test the helper
+	// Try to "Ensure" (simulating snapshot create guard)
+	err = storagereserve.Ensure(ctx, faulty, storagereserve.DefaultReserveSize)
+	require.Error(t, err)
+	require.ErrorIs(t, err, syscall.ENOSPC)
+
+	// --- Case 2: Headspace Rule (Insufficient Space) ---
+	// Wrap with capacityStorage: 2GB total, but only 600MB free.
+	// Reserve (500MB) + 10% headspace (200MB) = 700MB required.
+	capSt := &capacityStorage{Storage: st, free: 600 << 20}
+	err = storagereserve.Ensure(ctx, capSt, storagereserve.DefaultReserveSize)
+	require.Error(t, err)
+	require.ErrorIs(t, err, storagereserve.ErrInsufficientSpace)
+
+	// --- Case 3: Snapshot Delete Guard ---
+	// Re-use the faulty storage from case 1
 	err = ensureReserveOrDeleteForRecoveryHelper(ctx, faulty)
 	require.NoError(t, err, "Delete guard helper should succeed by deleting existing reserve or ignoring missing one")
 	
