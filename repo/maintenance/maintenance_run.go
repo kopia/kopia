@@ -207,7 +207,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 
 	// Ensure storage reserve is present before starting maintenance.
 	if err := storagereserve.Ensure(ctx, rep.BlobStorage(), storagereserve.DefaultReserveSize); err != nil {
-		if errors.Is(err, syscall.ENOSPC) || strings.Contains(err.Error(), "no space left on device") {
+		if errors.Is(err, syscall.ENOSPC) || strings.Contains(err.Error(), "no space left on device") || errors.Is(err, storagereserve.ErrInsufficientSpace) {
 			userLog(ctx).Warnf("Could not ensure storage reserve due to low space, entering emergency mode: %v", err)
 			runParams.LowSpace = true
 			if err := storagereserve.Delete(ctx, rep.BlobStorage()); err != nil {
@@ -288,12 +288,14 @@ func checkClockSkewBounds(rp RunParameters) error {
 // Run performs maintenance activities for a repository.
 func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
 	if runParams.LowSpace {
-		userLog(ctx).Infof("Running maintenance in emergency mode (LowSpace=true)")
+		userLog(ctx).Infof("Running maintenance in emergency mode (LowSpace=true): forcing safety=none to reclaim space immediately")
+
 		// In emergency mode, we prioritize freeing space and skip optimizations that might consume space.
 		if runParams.Mode == ModeFull {
-			return runTaskDeleteOrphanedPacksFull(ctx, runParams, nil, safety)
+			return runTaskDeleteOrphanedPacksFull(ctx, runParams, nil, SafetyNone)
 		}
-		return runTaskDeleteOrphanedPacksQuick(ctx, runParams, nil, safety)
+
+		return runTaskDeleteOrphanedPacksQuick(ctx, runParams, nil, SafetyNone)
 	}
 
 	switch runParams.Mode {

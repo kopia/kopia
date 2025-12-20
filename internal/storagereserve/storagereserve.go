@@ -59,16 +59,42 @@ func Exists(ctx context.Context, st blob.Storage) (bool, error) {
 	return false, errors.Wrap(err, "error checking for reserve blob")
 }
 
+// ErrInsufficientSpace is returned when the storage reserve cannot be created or maintained.
+var ErrInsufficientSpace = errors.New("insufficient space for storage reserve")
+
 // Ensure ensures that the reserve blob exists in the provided storage.
-// If it doesn't exist, it attempts to create it.
+// If it doesn't exist, it attempts to create it only if there is sufficient space
+// (reserve size + 10% of total volume capacity).
+// If it exists but free space is critically low, it returns an error to trigger emergency deletion.
 func Ensure(ctx context.Context, st blob.Storage, size int64) error {
 	exists, err := Exists(ctx, st)
 	if err != nil {
 		return err
 	}
 
+	cap, capErr := st.GetCapacity(ctx)
+	
+	// Emergency fallback: If disk is extremely full (< 10MB), 
+	// we "fail" the ensure check to trigger deletion of the reserve in the caller.
+	if capErr == nil && exists && cap.FreeB < 10 << 20 {
+		return errors.Wrap(ErrInsufficientSpace, "critical low space")
+	}
+
 	if exists {
 		return nil
+	}
+
+	// Dynamic Headspace rule for creation: reserve_size + 10% of total capacity
+	if capErr == nil {
+		headspace := cap.SizeB / 10 // 10% of total size
+		required := uint64(size) + headspace
+		
+		if cap.FreeB < required {
+			log(ctx).Warnf("Insufficient space to create storage reserve. Need %v (reserve + 10%% headspace), have %v.", required, cap.FreeB)
+			return ErrInsufficientSpace
+		}
+	} else if !errors.Is(capErr, blob.ErrNotAVolume) {
+		return errors.Wrap(capErr, "error checking storage capacity")
 	}
 
 	return Create(ctx, st, size)
