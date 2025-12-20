@@ -1,39 +1,43 @@
 # Kopia Storage Recovery Project
 
 ## Overview
-This project aims to implement a native recovery mechanism for Kopia when the underlying storage repository runs out of space. 
+This project implements a native recovery mechanism for Kopia when the underlying storage repository runs out of space. It uses a "Storage Reserve" strategy to ensure that maintenance and deletion operations have enough working space to complete even when the disk is technically full.
 
 ## The Problem
-Currently (as of v0.22.3), when Kopia's storage repository becomes full, the application enters an unrecoverable state where:
-- All operations fail due to inability to create temporary files
-- `snapshot delete` commands cannot execute
-- `maintenance` operations cannot run to clean up and free space
-- Users are forced to manually delete repository files, risking data corruption
+Kopia's architecture (CABS - Content Addressable Blob Storage) requires writing new data (indexes and manifests) to perform deletions and maintenance. When storage is 100% full:
+- `snapshot delete` fails because it cannot write the "tombstone" manifest.
+- `maintenance` fails because it cannot write the updated maintenance schedule or new consolidated index blobs.
+- Users are trapped in a loop where they cannot free space because they have no space to run the cleanup.
 
-## Current Behavior
-When storage is exhausted, Kopia throws errors like:
-```
-ERROR error updating maintenance schedule: unable to complete PutBlobInPath despite 10 retries, 
-last error: cannot create temporary file: There is not enough space on the disk. 
-```
+## The Solution: Storage Reserve
+We implement a reserved space mechanism (default ~500MB) that acts as emergency "working capital" for the repository.
 
-This affects all operations including:
-- Snapshot deletion
-- Maintenance runs
-- Any command requiring temporary file creation
+### 1. The Reserve File
+- A file named `kopia.reserve` is created in the repository root during `repo connect` or `repo create`.
+- Managed by a dedicated internal package: `internal/storagereserve`.
 
-## Expected Behavior
-Kopia should be able to gracefully handle out-of-space conditions by:
-- Allowing snapshot deletion operations to proceed without requiring temp space
-- Enabling maintenance operations to clean up and reclaim storage
-- Providing a native recovery path that doesn't require manual file deletion
+### 2. Emergency Recovery Path
+When a write operation fails with `ENOSPC` (No space left on device):
+1. **Detection:** The error is caught at the repository/maintenance layer.
+2. **Activation:** Kopia enters "Emergency Recovery Mode".
+3. **Space Reclamation:** The `kopia.reserve` file is deleted, immediately granting ~500MB of free space.
+4. **Prioritized Maintenance:** 
+   - Maintenance runs with high priority on GC (Garbage Collection).
+   - Space-filling operations (like creating new snapshots) are blocked.
+   - Non-essential maintenance tasks are deferred.
+5. **Restoration:** Once space is freed, the `kopia.reserve` file is automatically recreated.
+
+### 3. Guarding Critical Tasks
+- `snapshot create` and other space-filling tasks will check for the existence of the reserve.
+- If the reserve is missing and cannot be recreated, these tasks will be blocked to prevent total exhaustion.
+
+## Future Refinements
+### 1. Memory-Backed Temporary Files
+As a "last resort" safety net, `internal/tempfile` could be refactored to return an interface instead of `*os.File`. If disk-based temporary file creation fails with `ENOSPC` even after the reserve is deleted, Kopia could fall back to an in-memory buffer (e.g., `bytes.Buffer`). This would be particularly useful for:
+- **`internal/bigmap`**: Used during Garbage Collection to track live objects. Allowing this to run in RAM would ensure GC can complete even if the underlying OS temporary directory is also full.
 
 ## Goal
-Implement a recovery mechanism that allows Kopia to: 
-1. Delete snapshots even when storage is full
-2. Execute maintenance operations to free up space
-3. Recover gracefully without manual intervention or data loss
-
-## Reference
-- Original Issue: [kopia/kopia#1738](https://github.com/kopia/kopia/issues/1738)
-- Discussed with Jarek on Slack prior to issue creation
+1. Implement `internal/storagereserve` package.
+2. Integrate reserve creation into `repo.Initialize`.
+3. Implement "Emergency Mode" logic in `repo/maintenance`.
+4. Add guards to `cli/command_snapshot_create.go` and `cli/command_snapshot_delete.go`.
