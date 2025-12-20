@@ -25,8 +25,8 @@ func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.M
 	//nolint:wrapcheck
 	return maintenance.RunExclusive(ctx, dr, mode, force,
 		func(ctx context.Context, runParams maintenance.RunParameters) error {
-			// run snapshot GC before full maintenance
-			if runParams.Mode == maintenance.ModeFull {
+			// run snapshot GC before full maintenance or in emergency mode
+			if runParams.Mode == maintenance.ModeFull || runParams.LowSpace {
 				if err := snapshotgc.Run(ctx, dr, true, safety, runParams.MaintenanceStartTime); err != nil {
 					return errors.Wrap(err, "snapshot GC failure")
 				}
