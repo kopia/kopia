@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/splitter"
+	"github.com/kopia/kopia/internal/storagereserve"
 )
 
 const (
@@ -48,8 +49,12 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "invalid parameters")
 	}
 
-	//nolint:wrapcheck
-	return format.Initialize(ctx, st, formatBlob, repoConfig, blobcfg, password)
+	if err := format.Initialize(ctx, st, formatBlob, repoConfig, blobcfg, password); err != nil {
+		return errors.Wrap(err, "error initializing format")
+	}
+
+	// Create storage reserve after format is initialized.
+	return storagereserve.Create(ctx, st, storagereserve.DefaultReserveSize)
 }
 
 func formatBlobFromOptions(opt *NewRepositoryOptions) *format.KopiaRepositoryJSON {

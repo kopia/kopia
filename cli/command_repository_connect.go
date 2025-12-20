@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/internal/storagereserve"
 )
 
 type commandRepositoryConnect struct {
@@ -133,6 +134,14 @@ func (c *App) runConnectCommandWithStorageAndPassword(ctx context.Context, co *c
 
 	log(ctx).Info("Connected to repository.")
 	c.maybeInitializeUpdateCheck(ctx, co)
+
+	// Attempt to ensure storage reserve exists. 
+	// We don't fail connection if this fails, but we log a warning.
+	if !co.connectReadonly {
+		if err := storagereserve.Ensure(ctx, st, storagereserve.DefaultReserveSize); err != nil {
+			log(ctx).Warnf("Could not ensure storage reserve: %v", err)
+		}
+	}
 
 	return nil
 }

@@ -7,9 +7,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/internal/storagereserve"
 )
 
 type commandSnapshotDelete struct {
@@ -29,6 +31,15 @@ func (c *commandSnapshotDelete) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandSnapshotDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {
+	// Snapshot deletion is a recovery action.
+	// We ensure reserve or delete it if we are already out of space.
+	// This only applies to direct repositories.
+	if dr, ok := rep.(repo.DirectRepositoryWriter); ok {
+		if err := ensureReserveOrDeleteForRecovery(ctx, dr.BlobStorage()); err != nil {
+			return err
+		}
+	}
+
 	if c.snapshotDeleteAllSnapshotsForSource {
 		return c.snapshotDeleteSources(ctx, rep)
 	}
@@ -113,6 +124,15 @@ func (c *commandSnapshotDelete) deleteSnapshotsByRootObjectID(ctx context.Contex
 		if err := c.deleteSnapshot(ctx, rep, m); err != nil {
 			return errors.Wrap(err, "error deleting")
 		}
+	}
+
+	return nil
+}
+
+func ensureReserveOrDeleteForRecovery(ctx context.Context, st blob.Storage) error {
+	if err := storagereserve.Ensure(ctx, st, storagereserve.DefaultReserveSize); err != nil {
+		log(ctx).Warnf("Could not ensure storage reserve, attempting to delete it to free up space: %v", err)
+		return storagereserve.Delete(ctx, st)
 	}
 
 	return nil
