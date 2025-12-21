@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -28,7 +29,7 @@ const (
 
 // Create creates the reserve blob in the provided storage.
 func Create(ctx context.Context, st blob.Storage, size int64) error {
-	log(ctx).Infof("Creating storage reserve (%v bytes)...", size)
+	log(ctx).Infof("Creating storage reserve (%v)...", units.BytesString(size))
 
 	data := &zeroBytes{length: int(size)}
 
@@ -115,7 +116,7 @@ func Ensure(ctx context.Context, st blob.Storage, size int64) error {
 		}
 		
 		if cap.FreeB < required {
-			log(ctx).Warnf("Insufficient space for storage reserve (%v required, %v free). Skipping.", required, cap.FreeB)
+			log(ctx).Warnf("Insufficient space for storage reserve (%v required, %v free). Skipping.", units.BytesString(required), units.BytesString(cap.FreeB))
 			return ErrInsufficientSpace
 		}
 	} else if !errors.Is(capErr, blob.ErrNotAVolume) {
