@@ -13,7 +13,9 @@ Kopia's architecture (CABS - Content Addressable Blob Storage) requires writing 
 We implement a reserved space mechanism (default ~500MB) that acts as emergency "working capital" for the repository.
 
 ### 1. The Reserve File
-- A file named `kopia.reserve` is created in the repository root during `repo connect` or `repo create`.
+- A reserve named `kopia.reserve` is created during `repo connect` or `repo create`:
+  - For filesystem-based repositories, this is a regular file in the repository root directory.
+  - For blob-based repositories, this is a blob/object named `kopia.reserve` stored in the repository’s blob storage namespace alongside other repository blobs.
 - Managed by a dedicated internal package: `internal/storagereserve`.
 
 ### 2. Emergency Recovery Path

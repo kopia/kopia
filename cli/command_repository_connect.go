@@ -8,10 +8,10 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/passwordpersist"
+	"github.com/kopia/kopia/internal/storagereserve"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/internal/storagereserve"
 )
 
 type commandRepositoryConnect struct {
