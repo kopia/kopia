@@ -101,19 +101,21 @@ func Ensure(ctx context.Context, st blob.Storage, size int64) error {
 		return nil
 	}
 
-	// 2x rule for creation: reserve_size + 10% of total capacity
+	// Dynamic Headspace rule for creation: reserve_size + 10% of total capacity
 	if capErr == nil {
+		base := uint64(size)
 		headspace := cap.SizeB / 10 // 10% of total size
 		
-		// Guard against overflow
-		if headspace > math.MaxUint64-uint64(size) {
-			headspace = math.MaxUint64 - uint64(size)
+		// Guard against overflow when computing required = base + headspace.
+		var required uint64
+		if headspace > math.MaxUint64-base {
+			required = math.MaxUint64
+		} else {
+			required = base + headspace
 		}
 		
-		required := uint64(size) + headspace
-		
 		if cap.FreeB < required {
-			log(ctx).Warnf("Insufficient space for storage reserve (%v required, %v free). skipping.", required, cap.FreeB)
+			log(ctx).Warnf("Insufficient space for storage reserve (%v required, %v free). Skipping.", required, cap.FreeB)
 			return ErrInsufficientSpace
 		}
 	} else if !errors.Is(capErr, blob.ErrNotAVolume) {

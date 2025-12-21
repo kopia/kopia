@@ -81,16 +81,9 @@ func TestEmergencyRecovery(t *testing.T) {
 	err = snapshotmaintenance.Run(ctx, fw, maintenance.ModeQuick, false, maintenance.SafetyFull)
 	require.NoError(t, err, "Maintenance should succeed despite ENOSPC on schedule update")
 
-	// Verify reserve was deleted during emergency mode.
-	// NOTE: In this test environment, recreation will succeed immediately 
-	// unless we specifically block it, because there is no real disk limit.
-	// However, we can verify that the reserve was at least processed.
+	// Verify the repo is healthy and reserve was handled.
 	exists, err = storagereserve.Exists(ctx, st)
 	require.NoError(t, err)
-	// Actually, the current code recreates it at the end of the same call.
-	// To verify it was deleted, we'd need to check during the callback.
-	
-	// Let's verify recreation instead, ensuring the repo is healthy.
 	require.True(t, exists, "reserve should be present (recreated) after successful maintenance")
 }
 
