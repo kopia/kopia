@@ -3,6 +3,7 @@ package storagereserve
 import (
 	"context"
 	"io"
+	"math"
 
 	"github.com/pkg/errors"
 
@@ -18,11 +19,16 @@ const (
 
 	// DefaultReserveSize is the default size of the reserve blob (500MB).
 	DefaultReserveSize = 500 << 20
+
+	// MinSpaceToSacrificeReserve is the minimum free space threshold (10MB).
+	// Below this, the reserve is considered "critical" and will be sacrificed
+	// to allow recovery metadata to be written.
+	MinSpaceToSacrificeReserve = 10 << 20
 )
 
 // Create creates the reserve blob in the provided storage.
 func Create(ctx context.Context, st blob.Storage, size int64) error {
-	log(ctx).Infof("Creating storage reserve of %v bytes...", size)
+	log(ctx).Infof("Creating storage reserve (%v bytes)...", size)
 
 	data := &zeroBytes{length: int(size)}
 
@@ -33,11 +39,20 @@ func Create(ctx context.Context, st blob.Storage, size int64) error {
 	return nil
 }
 
-// Delete removes the reserve blob from the provided storage.
+// Delete removes the reserve blob from the provided storage if it exists.
 func Delete(ctx context.Context, st blob.Storage) error {
-	log(ctx).Infof("Deleting storage reserve to free up space...")
+	exists, err := Exists(ctx, st)
+	if err != nil {
+		return err
+	}
 
-	err := st.DeleteBlob(ctx, ReserveBlobID)
+	if !exists {
+		return nil
+	}
+
+	log(ctx).Infof("Deleting storage reserve...")
+
+	err = st.DeleteBlob(ctx, ReserveBlobID)
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
 	}
@@ -64,7 +79,9 @@ var ErrInsufficientSpace = errors.New("insufficient space for storage reserve")
 
 // Ensure ensures that the reserve blob exists in the provided storage.
 // If it doesn't exist, it attempts to create it only if there is sufficient space
-// (reserve size + 10% of total volume capacity).
+// (reserve size + 10% of total volume capacity). This "headspace" prevents
+// starting operations that would likely fail and leave "ghost files" (partial,
+// orphaned temporary files that consume space but aren't cleaned up by standard GC).
 // If it exists but free space is critically low, it returns an error to trigger emergency deletion.
 func Ensure(ctx context.Context, st blob.Storage, size int64) error {
 	exists, err := Exists(ctx, st)
@@ -74,9 +91,9 @@ func Ensure(ctx context.Context, st blob.Storage, size int64) error {
 
 	cap, capErr := st.GetCapacity(ctx)
 	
-	// Emergency fallback: If disk is extremely full (< 10MB), 
-	// we "fail" the ensure check to trigger deletion of the reserve in the caller.
-	if capErr == nil && exists && cap.FreeB < 10 << 20 {
+	// Emergency fallback: If disk is extremely full, we "fail" the ensure check
+	// to trigger deletion of the reserve in the caller.
+	if capErr == nil && exists && cap.FreeB < MinSpaceToSacrificeReserve {
 		return errors.Wrap(ErrInsufficientSpace, "critical low space")
 	}
 
@@ -84,16 +101,23 @@ func Ensure(ctx context.Context, st blob.Storage, size int64) error {
 		return nil
 	}
 
-	// Dynamic Headspace rule for creation: reserve_size + 10% of total capacity
+	// 2x rule for creation: reserve_size + 10% of total capacity
 	if capErr == nil {
 		headspace := cap.SizeB / 10 // 10% of total size
+		
+		// Guard against overflow
+		if headspace > math.MaxUint64-uint64(size) {
+			headspace = math.MaxUint64 - uint64(size)
+		}
+		
 		required := uint64(size) + headspace
 		
 		if cap.FreeB < required {
-			log(ctx).Warnf("Insufficient space to create storage reserve. Need %v (reserve + 10%% headspace), have %v.", required, cap.FreeB)
+			log(ctx).Warnf("Insufficient space for storage reserve (%v required, %v free). skipping.", required, cap.FreeB)
 			return ErrInsufficientSpace
 		}
 	} else if !errors.Is(capErr, blob.ErrNotAVolume) {
+		// Unexpected error checking capacity - fail fast as per PR review
 		return errors.Wrap(capErr, "error checking storage capacity")
 	}
 
@@ -105,18 +129,18 @@ type zeroBytes struct {
 	length int
 }
 
+var zeroBuf = make([]byte, 64<<10) // 64KB shared zero buffer
+
 func (b *zeroBytes) WriteTo(w io.Writer) (int64, error) {
-	const bufSize = 64 << 10
-	buf := make([]byte, bufSize)
 	var total int64
 
 	for total < int64(b.length) {
-		toWrite := int64(bufSize)
+		toWrite := int64(len(zeroBuf))
 		if remaining := int64(b.length) - total; remaining < toWrite {
 			toWrite = remaining
 		}
 
-		n, err := w.Write(buf[:toWrite])
+		n, err := w.Write(zeroBuf[:toWrite])
 		total += int64(n)
 		if err != nil {
 			return total, err
@@ -147,8 +171,10 @@ func (r *zeroReader) Read(p []byte) (n int, err error) {
 		p = p[:remaining]
 	}
 
-	for i := range p {
-		p[i] = 0
+	// Optimized zero filling using copy instead of loop
+	n = copy(p, zeroBuf)
+	for n < len(p) {
+		n += copy(p[n:], zeroBuf)
 	}
 
 	r.offset += int64(len(p))
