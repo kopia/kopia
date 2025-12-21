@@ -28,20 +28,20 @@ func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.M
 	//nolint:wrapcheck
 	return maintenance.RunExclusive(ctx, dr, mode, force,
 		func(ctx context.Context, runParams maintenance.RunParameters) error {
-			effectiveSafety := safety
+			actualSafety := safety
 			if runParams.LowSpace {
 				userLog(ctx).Infof("Emergency mode detected: forcing safety=none to reclaim space immediately")
-				effectiveSafety = maintenance.SafetyNone
+				actualSafety = maintenance.SafetyNone
 			}
 
 			// run snapshot GC before full maintenance or in emergency mode
 			if runParams.Mode == maintenance.ModeFull || runParams.LowSpace {
-				if err := snapshotgc.Run(ctx, dr, true, effectiveSafety, runParams.MaintenanceStartTime); err != nil {
+				if err := snapshotgc.Run(ctx, dr, true, actualSafety, runParams.MaintenanceStartTime); err != nil {
 					return errors.Wrap(err, "snapshot GC failure")
 				}
 			}
 
 			//nolint:wrapcheck
-			return maintenance.Run(ctx, runParams, effectiveSafety)
+			return maintenance.Run(ctx, runParams, actualSafety)
 		})
 }

@@ -223,13 +223,13 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	if err = updateSchedule(ctx, runParams); err != nil {
 		if isNoSpaceError(err) {
 			userLog(ctx).Warnf("Maintenance schedule update failed due to low space, proceeding in emergency mode: %v", err)
-			runParams.LowSpace = true
 			
-			// Only delete reserve if we haven't already marked this as LowSpace/Emergency
-			// from the Ensure step above.
+			// If we haven't already entered emergency mode from the Ensure step,
+			// trigger the reserve sacrifice now.
 			if !runParams.LowSpace {
+				runParams.LowSpace = true
 				if err := storagereserve.Delete(ctx, rep.BlobStorage()); err != nil {
-					userLog(ctx).Debugf("Emergency cleanup (retry) failed: %v", err)
+					userLog(ctx).Errorf("Emergency cleanup failed: %v", err)
 				}
 			}
 		} else {
@@ -267,6 +267,8 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	if err == nil && runParams.LowSpace {
 		if ensureErr := storagereserve.Ensure(ctx, rep.BlobStorage(), storagereserve.DefaultReserveSize); ensureErr != nil {
 			userLog(ctx).Warnf("Could not recreate storage reserve after successful maintenance: %v", ensureErr)
+		} else {
+			userLog(ctx).Infof("Successfully recreated storage reserve after emergency maintenance.")
 		}
 	}
 
@@ -274,7 +276,33 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 }
 
 func isNoSpaceError(err error) bool {
-	return errors.Is(err, syscall.ENOSPC) || strings.Contains(strings.ToLower(err.Error()), "no space left on device")
+	if err == nil {
+		return false
+	}
+
+	// Prefer structured errno check when available.
+	if errors.Is(err, syscall.ENOSPC) {
+		return true
+	}
+
+	// Fallback to matching common cross-platform "out of space" phrases.
+	msg := strings.ToLower(err.Error())
+
+	noSpacePhrases := []string{
+		"no space left on device",
+		"no space left on disk",
+		"not enough space",
+		"insufficient space",
+		"disk is full",
+	}
+
+	for _, phrase := range noSpacePhrases {
+		if strings.Contains(msg, phrase) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func checkClockSkewBounds(rp RunParameters) error {
