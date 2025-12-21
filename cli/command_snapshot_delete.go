@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strings"
+	"syscall"
 
 	"github.com/pkg/errors"
 
@@ -130,10 +132,50 @@ func (c *commandSnapshotDelete) deleteSnapshotsByRootObjectID(ctx context.Contex
 }
 
 func ensureReserveOrDeleteForRecovery(ctx context.Context, st blob.Storage) error {
-	if err := storagereserve.Ensure(ctx, st, storagereserve.DefaultReserveSize); err != nil {
-		log(ctx).Warnf("Could not ensure storage reserve, attempting to delete it to free up space: %v", err)
-		return storagereserve.Delete(ctx, st)
+	err := storagereserve.Ensure(ctx, st, storagereserve.DefaultReserveSize)
+	if err == nil {
+		return nil
 	}
 
-	return nil
+	// Only attempt sacrificial deletion if we are actually out of space.
+	// For other errors (e.g. permissions), we should fail fast.
+	if errors.Is(err, storagereserve.ErrInsufficientSpace) || isNoSpaceError(err) {
+		log(ctx).Warnf("Could not ensure storage reserve, attempting to delete it to free up space: %v", err)
+		if delErr := storagereserve.Delete(ctx, st); delErr != nil {
+			return errors.Wrapf(delErr, "emergency cleanup failed after original error: %v", err)
+		}
+
+		return nil
+	}
+
+	return errors.Wrap(err, "error ensuring storage reserve")
+}
+
+// isNoSpaceError is a helper to detect out-of-space conditions consistently.
+// This matches the implementation in repo/maintenance/maintenance_run.go.
+func isNoSpaceError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if errors.Is(err, syscall.ENOSPC) {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	noSpacePhrases := []string{
+		"no space left on device",
+		"no space left on disk",
+		"not enough space",
+		"insufficient space",
+		"disk is full",
+	}
+
+	for _, phrase := range noSpacePhrases {
+		if strings.Contains(msg, phrase) {
+			return true
+		}
+	}
+
+	return false
 }

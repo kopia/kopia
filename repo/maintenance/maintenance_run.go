@@ -211,7 +211,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 			userLog(ctx).Warnf("Could not ensure storage reserve due to low space, entering emergency mode: %v", err)
 			runParams.LowSpace = true
 			if err := storagereserve.Delete(ctx, rep.BlobStorage()); err != nil {
-				userLog(ctx).Errorf("Emergency cleanup failed: %v", err)
+				return errors.Wrap(err, "emergency cleanup failed: could not sacrifice storage reserve")
 			}
 		} else {
 			return errors.Wrap(err, "error ensuring storage reserve")
@@ -229,7 +229,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 			if !runParams.LowSpace {
 				runParams.LowSpace = true
 				if err := storagereserve.Delete(ctx, rep.BlobStorage()); err != nil {
-					userLog(ctx).Errorf("Emergency cleanup failed: %v", err)
+					return errors.Wrap(err, "emergency cleanup failed: could not sacrifice storage reserve")
 				}
 			}
 		} else {
