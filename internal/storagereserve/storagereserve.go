@@ -126,7 +126,7 @@ func Ensure(ctx context.Context, st blob.Storage, size int64) error {
 	return Create(ctx, st, size)
 }
 
-// zeroBytes implements blob.Bytes by providing an infinite stream of zeros.
+// zeroBytes implements blob.Bytes by providing a fixed-length stream of zeros.
 type zeroBytes struct {
 	length int
 }
