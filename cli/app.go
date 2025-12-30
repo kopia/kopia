@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/releasable"
+	"github.com/kopia/kopia/internal/repodiag/repolog"
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/notification/notifytemplate"
@@ -441,7 +442,7 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 
 func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
 	return c.repositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
-		rep.LogManager().Enable()
+		rep.(repolog.Provider).LogManager().Enable()
 
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "cli:" + c.currentActionName(),
