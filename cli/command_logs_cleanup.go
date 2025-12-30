@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/repodiag/repolog"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
 )
@@ -29,7 +30,7 @@ func (c *commandLogsCleanup) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandLogsCleanup) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	rep.LogManager().Disable()
+	rep.(repolog.Provider).LogManager().Disable()
 
 	stats, err := maintenance.CleanupLogs(ctx, rep, maintenance.LogRetentionOptions{
 		MaxTotalSize: c.maxTotalSizeMB << 20, //nolint:mnd

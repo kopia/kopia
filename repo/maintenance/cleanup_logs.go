@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/repodiag/repolog"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/maintenancestats"
@@ -48,7 +49,7 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:cleanup-logs", contentlog.RandomSpanID()))
 
-	log := rep.LogManager().NewLogger("maintenance-cleanup-logs")
+	log := rep.(repolog.Provider).LogManager().NewLogger("maintenance-cleanup-logs")
 
 	if opt.TimeFunc == nil {
 		opt.TimeFunc = clock.Now
