@@ -52,3 +52,38 @@ func mustFindMetric(t *testing.T, wantName string, wantType io_prometheus_client
 
 	return nil
 }
+
+func mustNotFindMetric(t *testing.T, wantName string, wantType io_prometheus_client.MetricType, wantLabels map[string]string) {
+	t.Helper()
+
+	mf, err := prometheus.DefaultGatherer.Gather()
+	require.NoError(t, err)
+
+	for _, f := range mf {
+		if f.GetName() != wantName {
+			continue
+		}
+
+		if f.GetType() != wantType {
+			continue
+		}
+
+		for _, l := range f.GetMetric() {
+			if len(l.GetLabel()) != len(wantLabels) {
+				continue
+			}
+
+			found := true
+
+			for _, lab := range l.GetLabel() {
+				if wantLabels[lab.GetName()] != lab.GetValue() {
+					found = false
+				}
+			}
+
+			if found {
+				require.Failf(t, "metric %v found but should not be", wantName)
+			}
+		}
+	}
+}
