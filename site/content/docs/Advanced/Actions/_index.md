@@ -224,7 +224,7 @@ You can check if the snapshots are created correctly with the command:
 
 `tmutil listlocalsnapshotdates`
 
-This will list all created snapshots and when you repeat the command a day later, sou should see that all snapshots older than 24 hours have been deleted. If you want to manually delete snapshots, use the Disk Utility in the Utilities App folder.
+This will list all created snapshots and when you repeat the command a day later, you should see that all snapshots older than 24 hours have been deleted. If you want to manually delete snapshots, use the Disk Utility in the Utilities App folder.
 
 ### Windows shadow copy
 
