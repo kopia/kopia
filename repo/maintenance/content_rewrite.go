@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -13,9 +14,11 @@ import (
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/contentparam"
+	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 const parallelContentRewritesCPUMultiplier = 2
@@ -42,14 +45,14 @@ type contentInfoOrError struct {
 // blobs and index entries to point at them.
 //
 //nolint:funlen
-func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) error {
+func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) (*maintenancestats.RewriteContentsStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:content-rewrite", contentlog.RandomSpanID()))
 
 	log := rep.LogManager().NewLogger("maintenance-content-rewrite")
 
 	if opt == nil {
-		return errors.New("missing options")
+		return nil, errors.New("missing options")
 	}
 
 	if opt.ShortPacks {
@@ -61,9 +64,8 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	cnt := getContentToRewrite(ctx, rep, opt)
 
 	var (
-		mu          sync.Mutex
-		totalBytes  int64
-		failedCount int
+		toRewrite, retained, rewritten stats.CountSum
+		failedCount                    atomic.Uint64
 	)
 
 	if opt.Parallel == 0 {
@@ -73,16 +75,10 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	var wg sync.WaitGroup
 
 	for range opt.Parallel {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			for c := range cnt {
 				if c.err != nil {
-					mu.Lock()
-					failedCount++
-					mu.Unlock()
+					failedCount.Add(1)
 
 					return
 				}
@@ -97,6 +93,8 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 						logparam.Bool("deleted", c.Deleted),
 						logparam.Duration("age", age))
 
+					retained.Add(int64(c.PackedLength))
+
 					continue
 				}
 
@@ -108,9 +106,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 					logparam.Bool("deleted", c.Deleted),
 					logparam.Duration("age", age))
 
-				mu.Lock()
-				totalBytes += int64(c.PackedLength)
-				mu.Unlock()
+				toRewrite.Add(int64(c.PackedLength))
 
 				if opt.DryRun {
 					continue
@@ -130,27 +126,41 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 							contentparam.ContentID("contentID", c.ContentID),
 							logparam.Error("error", err))
 
-						mu.Lock()
-						failedCount++
-						mu.Unlock()
+						failedCount.Add(1)
 					}
+				} else {
+					rewritten.Add(int64(c.PackedLength))
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()
 
-	contentlog.Log1(ctx, log,
-		"Total bytes rewritten",
-		logparam.Int64("bytes", totalBytes))
+	toRewriteCount, toRewriteBytes := toRewrite.Approximate()
+	retainedCount, retainedBytes := retained.Approximate()
+	rewrittenCount, rewrittenBytes := rewritten.Approximate()
 
-	if failedCount == 0 {
-		//nolint:wrapcheck
-		return rep.ContentManager().Flush(ctx)
+	result := &maintenancestats.RewriteContentsStats{
+		ToRewriteContentCount: int(toRewriteCount),
+		ToRewriteContentSize:  toRewriteBytes,
+		RewrittenContentCount: int(rewrittenCount),
+		RewrittenContentSize:  rewrittenBytes,
+		RetainedContentCount:  int(retainedCount),
+		RetainedContentSize:   retainedBytes,
 	}
 
-	return errors.Errorf("failed to rewrite %v contents", failedCount)
+	contentlog.Log1(ctx, log, "Rewritten contents", result)
+
+	if failedCount.Load() == 0 {
+		if err := rep.ContentManager().Flush(ctx); err != nil {
+			return nil, errors.Wrap(err, "error flushing repo")
+		}
+
+		return result, nil
+	}
+
+	return nil, errors.Errorf("failed to rewrite %v contents", failedCount.Load())
 }
 
 func getContentToRewrite(ctx context.Context, rep repo.DirectRepository, opt *RewriteContentsOptions) <-chan contentInfoOrError {

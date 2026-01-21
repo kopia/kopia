@@ -54,17 +54,13 @@ func runInParallelNoResult[A any](args []A, run func(arg A)) {
 	})
 }
 
-func runInParallel[A any, T any](args []A, run func(arg A) T) T {
+func runInParallel[A, T any](args []A, run func(arg A) T) T {
 	var wg sync.WaitGroup
 
 	for _, arg := range args[1:] {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			run(arg)
-		}()
+		})
 	}
 
 	// run one on the main goroutine and N-1 in parallel.

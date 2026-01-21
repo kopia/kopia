@@ -34,6 +34,7 @@ func (e chacha20poly1305hmacSha256Encryptor) aeadForContent(contentID []byte) (c
 	}
 
 	var hashBuf [32]byte
+
 	key := h.Sum(hashBuf[:0])
 
 	//nolint:wrapcheck

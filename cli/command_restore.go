@@ -125,6 +125,7 @@ type commandRestore struct {
 	restoreIncremental            bool
 	restoreDeleteExtra            bool
 	restoreIgnoreErrors           bool
+	flushFiles                    bool
 	restoreShallowAtDepth         int32
 	minSizeForPlaceholder         int32
 	snapshotTime                  string
@@ -158,6 +159,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
 	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").Default("latest").StringVar(&c.snapshotTime)
+	cmd.Flag("flush-files", "Specifies whether or not to flush files after restore completes").Default("false").BoolVar(&c.flushFiles)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -269,6 +271,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository)
 			SkipPermissions:        c.restoreSkipPermissions,
 			SkipTimes:              c.restoreSkipTimes,
 			WriteSparseFiles:       c.restoreWriteSparseFiles,
+			FlushFiles:             c.flushFiles,
 		}
 
 		if err := o.Init(ctx); err != nil {

@@ -1,5 +1,4 @@
 //go:build linux || freebsd || openbsd
-// +build linux freebsd openbsd
 
 package restore
 

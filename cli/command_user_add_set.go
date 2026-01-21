@@ -108,6 +108,8 @@ To refresh credentials in a running server use 'kopia server refresh' command.
 	return nil
 }
 
+var errPasswordsDoNotMatch = errors.New("passwords do not match")
+
 func askConfirmPass(out io.Writer, initialPrompt string) (string, error) {
 	pwd, err := askPass(out, initialPrompt)
 	if err != nil {
@@ -120,7 +122,7 @@ func askConfirmPass(out io.Writer, initialPrompt string) (string, error) {
 	}
 
 	if pwd != pwd2 {
-		return "", errors.Wrap(err, "passwords don't match")
+		return "", errPasswordsDoNotMatch
 	}
 
 	return pwd, nil

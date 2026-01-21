@@ -63,7 +63,7 @@ const throttleBucketInitialFill = 0.1
 const localCacheIntegrityHMACSecretLength = 16
 
 //nolint:gochecknoglobals
-var localCacheIntegrityPurpose = []byte("local-cache-integrity")
+const localCacheIntegrityPurpose = "local-cache-integrity"
 
 var log = logging.Module("kopia/repo")
 
@@ -426,7 +426,7 @@ func wrapLockingStorage(st blob.Storage, r format.BlobStorageConfiguration) blob
 
 	return beforeop.NewWrapper(st, nil, nil, nil, func(_ context.Context, id blob.ID, opts *blob.PutOptions) error {
 		for _, prefix := range prefixes {
-			if strings.HasPrefix(string(id), prefix) {
+			if strings.HasPrefix(string(id), string(prefix)) {
 				opts.RetentionMode = r.RetentionMode
 				opts.RetentionPeriod = r.RetentionPeriod
 
@@ -467,6 +467,7 @@ func upgradeLockMonitor(
 			m.RUnlock()
 			return nil
 		}
+
 		m.RUnlock()
 
 		// upgrade the lock and verify again in-case someone else won the race to refresh

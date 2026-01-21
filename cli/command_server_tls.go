@@ -47,10 +47,10 @@ func (c *commandServerStart) startServerWithOptionalTLS(ctx context.Context, htt
 
 	switch len(listeners) {
 	case 0:
-		if strings.HasPrefix(httpServer.Addr, "unix:") {
-			l, err = net.Listen("unix", strings.TrimPrefix(httpServer.Addr, "unix:"))
+		if after, ok := strings.CutPrefix(httpServer.Addr, "unix:"); ok {
+			l, err = (&net.ListenConfig{}).Listen(ctx, "unix", after)
 		} else {
-			l, err = net.Listen("tcp", httpServer.Addr)
+			l, err = (&net.ListenConfig{}).Listen(ctx, "tcp", httpServer.Addr)
 		}
 
 		if err != nil {

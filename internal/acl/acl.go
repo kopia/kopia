@@ -2,6 +2,7 @@ package acl
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -81,10 +82,8 @@ func nonEmptyString(v string) error {
 
 func oneOf(allowed ...string) valueValidatorFunc {
 	return func(v string) error {
-		for _, a := range allowed {
-			if v == a {
-				return nil
-			}
+		if slices.Contains(allowed, v) {
+			return nil
 		}
 
 		return errors.Errorf("must be one of: %v", strings.Join(allowed, ", "))

@@ -1,5 +1,4 @@
 //go:build !windows && !freebsd && !openbsd
-// +build !windows,!freebsd,!openbsd
 
 package mount
 
@@ -37,7 +36,7 @@ func newPosixWedavController(ctx context.Context, entry fs.Directory, mountPoint
 }
 
 func (c posixWedavController) Unmount(ctx context.Context) error {
-	if err := unmountWebDevHelper(ctx, c.mountPoint); err != nil {
+	if err := unmountWebDavHelper(ctx, c.mountPoint); err != nil {
 		return err
 	}
 

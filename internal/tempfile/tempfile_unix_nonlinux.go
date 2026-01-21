@@ -1,5 +1,4 @@
 //go:build freebsd || darwin || openbsd
-// +build freebsd darwin openbsd
 
 package tempfile
 

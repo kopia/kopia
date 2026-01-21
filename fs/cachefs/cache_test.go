@@ -3,6 +3,7 @@ package cachefs
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -134,10 +135,7 @@ func errorPrefix() string {
 }
 
 func (cv *cacheVerifier) reset() {
-	cv.lastCallCounter = make(map[string]int)
-	for k, v := range cv.cacheSource.callCounter {
-		cv.lastCallCounter[k] = v
-	}
+	cv.lastCallCounter = maps.Clone(cv.cacheSource.callCounter)
 }
 
 type lockState struct {

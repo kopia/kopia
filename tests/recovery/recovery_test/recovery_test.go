@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 package recovery
 
@@ -21,6 +20,7 @@ import (
 
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/diff"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/tests/recovery/blobmanipulator"
 	"github.com/kopia/kopia/tests/testenv"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
@@ -54,8 +54,9 @@ func TestSnapshotFix(t *testing.T) {
 		t.FailNow()
 	}
 
+	ctx := testlogging.Context(t)
 	kopiaExe := os.Getenv("KOPIA_EXE")
-	cmd := exec.Command(kopiaExe, "maintenance", "run", "--full", "--force", "--safety", "none")
+	cmd := exec.CommandContext(ctx, kopiaExe, "maintenance", "run", "--full", "--force", "--safety", "none")
 
 	err = cmd.Start()
 	if err != nil {
@@ -132,8 +133,9 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 		t.FailNow()
 	}
 
+	ctx := testlogging.Context(t)
 	kopiaExe := os.Getenv("KOPIA_EXE")
-	cmd := exec.Command(kopiaExe, "maintenance", "run", "--full", "--force", "--safety", "none")
+	cmd := exec.CommandContext(ctx, kopiaExe, "maintenance", "run", "--full", "--force", "--safety", "none")
 
 	err = cmd.Start()
 	if err != nil {
@@ -208,11 +210,12 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	require.NoError(t, err)
 
 	newDir := bm.PathToTakeSnapshot
+	ctx := testlogging.Context(t)
 
 	// connect with repository with the environment configuration, otherwise it will display "ERROR open repository: repository is not connected.kopia connect repo".
 	kopiaExe := os.Getenv("KOPIA_EXE")
 
-	cmd := exec.Command(kopiaExe, "repo", "connect", "filesystem", "--path="+dataRepoPath, "--content-cache-size-mb", "500", "--metadata-cache-size-mb", "500", "--no-check-for-updates")
+	cmd := exec.CommandContext(ctx, kopiaExe, "repo", "connect", "filesystem", "--path="+dataRepoPath, "--content-cache-size-mb", "500", "--metadata-cache-size-mb", "500", "--no-check-for-updates")
 	env := []string{"KOPIA_PASSWORD=" + testenv.TestRepoPassword}
 	cmd.Env = append(os.Environ(), env...)
 
@@ -221,7 +224,7 @@ func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	t.Log(string(o))
 
 	// create snapshot with StderrPipe
-	cmd = exec.Command(kopiaExe, "snap", "create", newDir, "--json", "--parallel=1")
+	cmd = exec.CommandContext(ctx, kopiaExe, "snap", "create", newDir, "--json", "--parallel=1")
 
 	// kill the kopia command before it exits
 	t.Logf("Kill the kopia command before it exits:")
@@ -255,11 +258,8 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 	var wg sync.WaitGroup
 
 	// Add a WaitGroup counter for the first goroutine
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
-
+	wg.Go(func() {
 		// Create a scanner to read from stderrPipe
 		scanner := bufio.NewScanner(stderrPipe)
 		scanner.Split(bufio.ScanLines)
@@ -276,7 +276,7 @@ func killOnCondition(t *testing.T, cmd *exec.Cmd) {
 				break
 			}
 		}
-	}()
+	})
 
 	// Start the command
 	err = cmd.Start()

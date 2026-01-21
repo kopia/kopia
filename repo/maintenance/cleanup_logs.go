@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // LogRetentionOptions provides options for logs retention.
@@ -43,7 +44,7 @@ func defaultLogRetention() LogRetentionOptions {
 }
 
 // CleanupLogs deletes old logs blobs beyond certain age, total size or count.
-func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRetentionOptions) ([]blob.Metadata, error) {
+func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRetentionOptions) (*maintenancestats.CleanupLogsStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:cleanup-logs", contentlog.RandomSpanID()))
 
@@ -63,14 +64,14 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 		return allLogBlobs[i].Timestamp.After(allLogBlobs[j].Timestamp)
 	})
 
-	var totalSize int64
+	var retainedSize int64
 
 	deletePosition := len(allLogBlobs)
 
 	for i, bm := range allLogBlobs {
-		totalSize += bm.Length
+		retainedSize += bm.Length
 
-		if totalSize > opt.MaxTotalSize && opt.MaxTotalSize > 0 {
+		if retainedSize > opt.MaxTotalSize && opt.MaxTotalSize > 0 {
 			deletePosition = i
 			break
 		}
@@ -88,10 +89,21 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 
 	toDelete := allLogBlobs[deletePosition:]
 
-	contentlog.Log2(ctx, log,
-		"Keeping logs",
-		logparam.Int("count", deletePosition),
-		logparam.Int64("bytes", totalSize))
+	var toDeleteSize int64
+	for _, bm := range toDelete {
+		toDeleteSize += bm.Length
+	}
+
+	result := &maintenancestats.CleanupLogsStats{
+		RetainedBlobCount: deletePosition,
+		RetainedBlobSize:  retainedSize,
+		ToDeleteBlobCount: len(toDelete),
+		ToDeleteBlobSize:  toDeleteSize,
+		DeletedBlobCount:  0,
+		DeletedBlobSize:   0,
+	}
+
+	contentlog.Log1(ctx, log, "Clean up logs", result)
 
 	if !opt.DryRun {
 		for _, bm := range toDelete {
@@ -99,7 +111,10 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 				return nil, errors.Wrapf(err, "error deleting log %v", bm.BlobID)
 			}
 		}
+
+		result.DeletedBlobCount = result.ToDeleteBlobCount
+		result.DeletedBlobSize = result.ToDeleteBlobSize
 	}
 
-	return toDelete, nil
+	return result, nil
 }

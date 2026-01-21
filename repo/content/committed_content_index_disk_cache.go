@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edsrzf/mmap-go"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobparam"
@@ -38,7 +37,7 @@ func (c *diskCommittedContentIndexCache) indexBlobPath(indexBlobID blob.ID) stri
 func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (index.Index, error) {
 	fullpath := c.indexBlobPath(indexBlobID)
 
-	f, closeMmap, err := c.mmapOpenWithRetry(ctx, fullpath)
+	f, closeMmap, err := c.mmapFile(ctx, fullpath)
 	if err != nil {
 		return nil, err
 	}
@@ -50,54 +49,6 @@ func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlo
 	}
 
 	return ndx, nil
-}
-
-// mmapOpenWithRetry attempts mmap.Open() with exponential back-off to work around rare issue specific to Windows where
-// we can't open the file right after it has been written.
-func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(ctx context.Context, path string) (mmap.MMap, func() error, error) {
-	const (
-		maxRetries    = 8
-		startingDelay = 10 * time.Millisecond
-	)
-
-	// retry milliseconds: 10, 20, 40, 80, 160, 320, 640, 1280, total ~2.5s
-	f, err := os.Open(path) //nolint:gosec
-	nextDelay := startingDelay
-
-	retryCount := 0
-	for err != nil && retryCount < maxRetries {
-		retryCount++
-		contentlog.Log2(ctx, c.log, "retry #%v unable to mmap.Open()",
-			logparam.Int("retryCount", retryCount),
-			logparam.Error("err", err))
-		time.Sleep(nextDelay)
-		nextDelay *= 2
-
-		f, err = os.Open(path) //nolint:gosec
-	}
-
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to open file despite retries")
-	}
-
-	mm, err := mmap.Map(f, mmap.RDONLY, 0)
-	if err != nil {
-		f.Close() //nolint:errcheck
-
-		return nil, nil, errors.Wrap(err, "mmap error")
-	}
-
-	return mm, func() error {
-		if err2 := mm.Unmap(); err2 != nil {
-			return errors.Wrapf(err2, "error unmapping index %v", path)
-		}
-
-		if err2 := f.Close(); err2 != nil {
-			return errors.Wrapf(err2, "error closing index %v", path)
-		}
-
-		return nil
-	}, nil
 }
 
 func (c *diskCommittedContentIndexCache) hasIndexBlobID(_ context.Context, indexBlobID blob.ID) (bool, error) {
@@ -192,8 +143,7 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 			return errors.Wrap(err, "failed to read file info")
 		}
 
-		if strings.HasSuffix(ent.Name(), simpleIndexSuffix) {
-			n := strings.TrimSuffix(ent.Name(), simpleIndexSuffix)
+		if n, ok := strings.CutSuffix(ent.Name(), simpleIndexSuffix); ok {
 			remaining[blob.ID(n)] = fi
 		}
 	}

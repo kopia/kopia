@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -208,7 +208,9 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}{
 		{"GetRaw", func() error {
 			var raw json.RawMessage
+
 			_, err := mgr.Get(ctx, "anything", &raw)
+
 			return err
 		}},
 		{"GetMetadata", func() error { _, err := mgr.GetMetadata(ctx, "anything"); return err }},
@@ -302,9 +304,7 @@ func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[s
 }
 
 func sortIDs(s []ID) {
-	sort.Slice(s, func(i, j int) bool {
-		return s[i] < s[j]
-	})
+	slices.Sort(s)
 }
 
 type contentManagerOpts struct {
@@ -498,7 +498,7 @@ func BenchmarkLargeCompaction(b *testing.B) {
 
 	for _, numItems := range table {
 		b.Run(fmt.Sprintf("%dItems", numItems), func(b *testing.B) {
-			for range b.N {
+			for b.Loop() {
 				b.StopTimer()
 				// Use default context to avoid lots of log output during benchmark.
 				ctx := context.Background()

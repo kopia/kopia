@@ -88,7 +88,9 @@ func TestCleanupOldData(t *testing.T) {
 
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
+	t.Cleanup(func() {
+		st.Close(testlogging.ContextForCleanup(t))
+	})
 
 	blobtesting.CleanupOldData(ctx, t, st, blobtesting.MinCleanupAge)
 }
@@ -154,8 +156,12 @@ func TestAzureStorageSASToken(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
-	defer st.Close(ctx)
-	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+	t.Cleanup(func() {
+		ctx := testlogging.ContextForCleanup(t)
+
+		blobtesting.CleanupOldData(ctx, t, st, 0)
+		st.Close(ctx)
+	})
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -192,8 +198,12 @@ func TestAzureStorageClientSecret(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
-	defer st.Close(ctx)
-	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+	t.Cleanup(func() {
+		ctx := testlogging.ContextForCleanup(t)
+
+		blobtesting.CleanupOldData(ctx, t, st, 0)
+		st.Close(ctx)
+	})
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -230,8 +240,12 @@ func TestAzureStorageClientCertificate(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
-	defer st.Close(ctx)
-	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+	t.Cleanup(func() {
+		ctx := testlogging.ContextForCleanup(t)
+
+		blobtesting.CleanupOldData(ctx, t, st, 0)
+		st.Close(ctx)
+	})
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -268,8 +282,12 @@ func TestAzureFederatedIdentity(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
-	defer st.Close(ctx)
-	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+	t.Cleanup(func() {
+		ctx := testlogging.ContextForCleanup(t)
+
+		blobtesting.CleanupOldData(ctx, t, st, 0)
+		st.Close(ctx)
+	})
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)

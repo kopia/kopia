@@ -85,10 +85,7 @@ func (b *Bytes) AppendSectionTo(w io.Writer, offset, size int) error {
 		s := b.Slices[sliceNdx]
 
 		// l is how many bytes we consume out of the current slice
-		l := size
-		if l > len(s) {
-			l = len(s)
-		}
+		l := min(size, len(s))
 
 		if _, err := w.Write(s[0:l]); err != nil {
 			return errors.Wrap(err, "error appending")

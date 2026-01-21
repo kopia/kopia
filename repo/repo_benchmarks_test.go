@@ -21,9 +21,7 @@ func BenchmarkWriterDedup1M(b *testing.B) {
 	require.NoError(b, err)
 	writer.Close()
 
-	b.ResetTimer()
-
-	for range b.N {
+	for b.Loop() {
 		// write exactly the same data
 		writer := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 		writer.Write(dataBuf)

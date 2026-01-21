@@ -115,7 +115,7 @@ func handleEstimate(ctx context.Context, rc requestContext) (any, *apiError) {
 
 	dir, ok := e.(fs.Directory)
 	if !ok {
-		return nil, internalServerError(errors.Wrap(err, "estimation is only supported on directories"))
+		return nil, internalServerError(errors.New("estimation is only supported on directories"))
 	}
 
 	taskIDChan := make(chan string)

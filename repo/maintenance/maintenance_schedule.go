@@ -14,16 +14,17 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 const (
-	maintenanceScheduleKeySize = 32
-	maintenanceScheduleBlobID  = "kopia.maintenance"
+	maintenanceScheduleKeySize    = 32
+	maintenanceScheduleBlobID     = "kopia.maintenance"
+	maintenanceScheduleKeyPurpose = "maintenance schedule"
 )
 
 //nolint:gochecknoglobals
 var (
-	maintenanceScheduleKeyPurpose    = []byte("maintenance schedule")
 	maintenanceScheduleAEADExtraData = []byte("maintenance")
 )
 
@@ -32,10 +33,11 @@ const maxRetainedRunInfoPerRunType = 50
 
 // RunInfo represents information about a single run of a maintenance task.
 type RunInfo struct {
-	Start   time.Time `json:"start"`
-	End     time.Time `json:"end"`
-	Success bool      `json:"success,omitempty"`
-	Error   string    `json:"error,omitempty"`
+	Start   time.Time                `json:"start"`
+	End     time.Time                `json:"end"`
+	Success bool                     `json:"success,omitempty"`
+	Error   string                   `json:"error,omitempty"`
+	Extra   []maintenancestats.Extra `json:"extra,omitempty"`
 }
 
 // Schedule keeps track of scheduled maintenance times.
@@ -185,7 +187,7 @@ func SetSchedule(ctx context.Context, rep repo.DirectRepositoryWriter, s *Schedu
 }
 
 // ReportRun reports timing of a maintenance run and persists it in repository.
-func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() error) error {
+func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType TaskType, s *Schedule, run func() (maintenancestats.Kind, error)) error {
 	if s == nil {
 		var err error
 
@@ -199,7 +201,7 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 		Start: rep.Time(),
 	}
 
-	runErr := run()
+	stats, runErr := run()
 
 	ri.End = rep.Time()
 
@@ -207,6 +209,7 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 		ri.Error = runErr.Error()
 	} else {
 		ri.Success = true
+		ri.Extra = buildRunStats(ctx, stats)
 	}
 
 	s.ReportRun(taskType, ri)
@@ -216,4 +219,18 @@ func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, taskType Ta
 	}
 
 	return runErr
+}
+
+func buildRunStats(ctx context.Context, stats maintenancestats.Kind) []maintenancestats.Extra {
+	if stats == nil {
+		return nil
+	}
+
+	extra, err := maintenancestats.BuildExtra(stats)
+	if err != nil {
+		userLog(ctx).Warnf("error building raw data from stats %v, err %v", stats, err)
+		return nil
+	}
+
+	return []maintenancestats.Extra{extra}
 }

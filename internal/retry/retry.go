@@ -84,11 +84,7 @@ func internalRetry[T any](ctx context.Context, desc string, attempt func() (T, e
 
 		log(ctx).Debugf("got error %v when %v (#%v), sleeping for %v before retrying", err, desc, i, sleepAmount)
 		time.Sleep(sleepAmount)
-		sleepAmount = time.Duration(float64(sleepAmount) * factor)
-
-		if sleepAmount > maxSleep {
-			sleepAmount = maxSleep
-		}
+		sleepAmount = min(time.Duration(float64(sleepAmount)*factor), maxSleep)
 	}
 
 	return defaultT, errors.Wrapf(lastError, "unable to complete %v despite %v retries", desc, i)

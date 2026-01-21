@@ -288,25 +288,31 @@ hide_summary: true
 
 `, title, title)
 
-	flagSummary := ""
-	argSummary := ""
+	var (
+		argSummary  strings.Builder
+		flagSummary strings.Builder
+	)
 
 	for _, a := range cmd.Args {
 		if a.Required {
-			argSummary += " <" + a.Name + ">"
+			argSummary.WriteString(" <")
+			argSummary.WriteString(a.Name)
+			argSummary.WriteRune('>')
 		} else {
-			argSummary += " [" + a.Name + "]"
+			argSummary.WriteString(" [")
+			argSummary.WriteString(a.Name)
+			argSummary.WriteRune(']')
 		}
 	}
 
 	for _, fl := range cmd.Flags {
 		if fl.Required {
-			flagSummary += " \\\n        --" + fl.Name + "=..."
+			flagSummary.WriteString(" \\\n        --" + fl.Name + "=...")
 		}
 	}
 
-	fmt.Fprintf(f, "```shell\n$ kopia %v%v%v\n```\n\n", cmd.FullCommand, flagSummary, argSummary) //nolint:errcheck
-	fmt.Fprintf(f, "%v\n\n", escapeFlags(cmd.Help))                                               //nolint:errcheck
+	fmt.Fprintf(f, "```shell\n$ kopia %v%v%v\n```\n\n", cmd.FullCommand, flagSummary.String(), argSummary.String()) //nolint:errcheck
+	fmt.Fprintf(f, "%v\n\n", escapeFlags(cmd.Help))                                                                 //nolint:errcheck
 
 	emitFlags(f, cmd.Flags)
 	emitArgs(f, cmd.Args)

@@ -11,6 +11,8 @@ builds:
     - amd64
     - arm
     - arm64
+  flags:
+    - -trimpath
   ldflags:
   - -s -w -X "github.com/kopia/kopia/repo.BuildVersion={{.Version}}" -X "github.com/kopia/kopia/repo.BuildInfo={{.Commit}}" -X "github.com/kopia/kopia/repo.BuildGitHubRepo={{.Env.GITHUB_REPOSITORY}}"
 release:

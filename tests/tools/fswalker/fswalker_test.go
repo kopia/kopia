@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 package fswalker
 
@@ -194,6 +193,7 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 								return true
 							}
 						}
+
 						return false
 					},
 				},
@@ -345,6 +345,7 @@ func TestWalkChecker_filterReportDiffs(t *testing.T) {
 							return true
 						}
 					}
+
 					return false
 				},
 			},

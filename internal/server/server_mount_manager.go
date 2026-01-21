@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"maps"
 
 	"github.com/pkg/errors"
 
@@ -40,13 +41,7 @@ func (s *Server) listMounts() map[object.ID]mount.Controller {
 	s.serverMutex.RLock()
 	defer s.serverMutex.RUnlock()
 
-	result := map[object.ID]mount.Controller{}
-
-	for oid, c := range s.mounts {
-		result[oid] = c
-	}
-
-	return result
+	return maps.Clone(s.mounts)
 }
 
 func (s *Server) deleteMount(oid object.ID) {

@@ -61,7 +61,7 @@ func (m *CountersMap[K]) Get(key K) (uint32, bool) {
 // Range iterates over all key/count pairs in the map, calling f for each item.
 // If f returns false, iteration stops.
 func (m *CountersMap[K]) Range(f func(key K, count uint32) bool) {
-	m.data.Range(func(k any, v any) bool {
+	m.data.Range(func(k, v any) bool {
 		return f(k.(K), v.(*atomic.Uint32).Load()) //nolint:forcetypeassert
 	})
 }

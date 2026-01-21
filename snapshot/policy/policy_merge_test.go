@@ -25,37 +25,39 @@ var omittedDefinitionFields = map[string]bool{
 func TestPolicyDefinition(t *testing.T) {
 	// verify that each field in the policy struct recursively matches a corresponding field
 	// from the policy.Definition() struct.
-	ensureTypesMatch(t, reflect.TypeOf(policy.Policy{}), reflect.TypeOf(policy.Definition{}))
+	ensureTypesMatch(t, reflect.TypeFor[policy.Policy](), reflect.TypeFor[policy.Definition]())
 }
 
 func ensureTypesMatch(t *testing.T, policyType, definitionType reflect.Type) {
 	t.Helper()
 
-	sourceInfoType := reflect.TypeOf(snapshot.SourceInfo{})
+	sourceInfoType := reflect.TypeFor[snapshot.SourceInfo]()
 
 	for i := range policyType.NumField() {
 		f := policyType.Field(i)
 
-		dt, ok := definitionType.FieldByName(f.Name)
-		if !ok {
-			require.True(t, omittedDefinitionFields[definitionType.Name()+"."+f.Name], "definition field %q not found in %q", f.Name, definitionType.Name())
-			continue
-		}
+		t.Run(definitionType.Name()+"_"+f.Name, func(t *testing.T) {
+			t.Logf("f: %v %v", definitionType.Name(), f.Name)
 
-		t.Logf("f: %v %v", definitionType.Name(), f.Name)
+			dt, ok := definitionType.FieldByName(f.Name)
+			if !ok {
+				require.True(t, omittedDefinitionFields[definitionType.Name()+"."+f.Name], "definition field %q not found in %q", f.Name, definitionType.Name())
+				return
+			}
 
-		if f.Type.Kind() == reflect.Struct {
-			ensureTypesMatch(t, f.Type, dt.Type)
-		} else {
-			require.True(t, sourceInfoType.AssignableTo(dt.Type), "invalid type of %v.%v - %v", definitionType.Name(), dt.Name, dt.Type)
-		}
+			if f.Type.Kind() == reflect.Struct {
+				ensureTypesMatch(t, f.Type, dt.Type)
+			} else {
+				require.True(t, sourceInfoType.AssignableTo(dt.Type), "invalid type of %v.%v - %v", definitionType.Name(), dt.Name, dt.Type)
+			}
 
-		require.Equal(t, f.Tag.Get("json"), dt.Tag.Get("json"), dt.Name)
+			require.Equal(t, f.Tag.Get("json"), dt.Tag.Get("json"), dt.Name)
+		})
 	}
 }
 
 func TestPolicyMerge(t *testing.T) {
-	testPolicyMerge(t, reflect.TypeOf(policy.Policy{}), reflect.TypeOf(policy.Definition{}), "")
+	testPolicyMerge(t, reflect.TypeFor[policy.Policy](), reflect.TypeFor[policy.Definition](), "")
 }
 
 //nolint:thelper

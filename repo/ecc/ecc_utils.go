@@ -16,7 +16,7 @@ func computeShards(spaceOverhead float32) (data, parity int) {
 		data = between(applyPercent(parity, 100/spaceOverhead), 128, 254) //nolint:mnd
 	}
 
-	return
+	return data, parity
 }
 
 func between(val, minValue, maxValue int) int {

@@ -108,11 +108,7 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 	}()
 
 	for range parallelFetches {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			var tmp gather.WriteBuffer
 			defer tmp.Close()
 
@@ -143,7 +139,7 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 					}
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

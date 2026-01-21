@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/format"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // V0IndexBlobPrefix is the prefix for all legacy (v0) index blobs.
@@ -148,28 +149,35 @@ func (m *ManagerV0) Invalidate() {
 
 // Compact performs compaction of index blobs by merging smaller ones into larger
 // and registering compaction and cleanup blobs in the repository.
-func (m *ManagerV0) Compact(ctx context.Context, opt CompactOptions) error {
+func (m *ManagerV0) Compact(ctx context.Context, opt CompactOptions) (*maintenancestats.CompactIndexesStats, error) {
 	indexBlobs, _, err := m.ListActiveIndexBlobs(ctx)
 	if err != nil {
-		return errors.Wrap(err, "error listing active index blobs")
+		return nil, errors.Wrap(err, "error listing active index blobs")
 	}
 
 	mp, mperr := m.formattingOptions.GetMutableParameters(ctx)
 	if mperr != nil {
-		return errors.Wrap(mperr, "mutable parameters")
+		return nil, errors.Wrap(mperr, "mutable parameters")
 	}
 
 	blobsToCompact := m.getBlobsToCompact(ctx, indexBlobs, opt, mp)
 
-	if err := m.compactIndexBlobs(ctx, blobsToCompact, opt); err != nil {
-		return errors.Wrap(err, "error performing compaction")
+	compacted, err := m.compactIndexBlobs(ctx, blobsToCompact, opt)
+	if err != nil {
+		return nil, errors.Wrap(err, "error performing compaction")
 	}
 
 	if err := m.cleanup(ctx, opt.maxEventualConsistencySettleTime()); err != nil {
-		return errors.Wrap(err, "error cleaning up index blobs")
+		return nil, errors.Wrap(err, "error cleaning up index blobs")
 	}
 
-	return nil
+	if compacted {
+		return &maintenancestats.CompactIndexesStats{
+			DroppedContentsDeletedBefore: opt.DropDeletedBefore,
+		}, nil
+	}
+
+	return nil, nil
 }
 
 func (m *ManagerV0) registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata, maxEventualConsistencySettleTime time.Duration) error {
@@ -374,7 +382,7 @@ func (m *ManagerV0) findBlobsToDelete(entries map[blob.ID]*cleanupEntry, maxEven
 		}
 	}
 
-	return
+	return compactionLogs, cleanupBlobs
 }
 
 func (m *ManagerV0) delayCleanupBlobs(ctx context.Context, blobIDs []blob.ID, cleanupScheduleTime time.Time) error {
@@ -489,14 +497,14 @@ func (m *ManagerV0) getBlobsToCompact(ctx context.Context, indexBlobs []Metadata
 	return nonCompactedBlobs
 }
 
-func (m *ManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs []Metadata, opt CompactOptions) error {
+func (m *ManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs []Metadata, opt CompactOptions) (bool, error) {
 	if len(indexBlobs) <= 1 && opt.DropDeletedBefore.IsZero() && len(opt.DropContents) == 0 {
-		return nil
+		return false, nil
 	}
 
 	mp, mperr := m.formattingOptions.GetMutableParameters(ctx)
 	if mperr != nil {
-		return errors.Wrap(mperr, "mutable parameters")
+		return false, errors.Wrap(mperr, "mutable parameters")
 	}
 
 	bld := make(index.Builder)
@@ -510,7 +518,7 @@ func (m *ManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs []Metadata
 			blobparam.BlobMetadataList("superseded", indexBlob.Superseded))
 
 		if err := addIndexBlobsToBuilder(ctx, m.enc, bld.Add, indexBlob.BlobID); err != nil {
-			return errors.Wrap(err, "error adding index to builder")
+			return false, errors.Wrap(err, "error adding index to builder")
 		}
 
 		inputs = append(inputs, indexBlob.Metadata)
@@ -522,23 +530,23 @@ func (m *ManagerV0) compactIndexBlobs(ctx context.Context, indexBlobs []Metadata
 
 	dataShards, cleanupShards, err := bld.BuildShards(mp.IndexVersion, false, DefaultIndexShardSize)
 	if err != nil {
-		return errors.Wrap(err, "unable to build an index")
+		return false, errors.Wrap(err, "unable to build an index")
 	}
 
 	defer cleanupShards()
 
 	compactedIndexBlobs, err := m.WriteIndexBlobs(ctx, dataShards, "")
 	if err != nil {
-		return errors.Wrap(err, "unable to write compacted indexes")
+		return false, errors.Wrap(err, "unable to write compacted indexes")
 	}
 
 	outputs = append(outputs, compactedIndexBlobs...)
 
 	if err := m.registerCompaction(ctx, inputs, outputs, opt.maxEventualConsistencySettleTime()); err != nil {
-		return errors.Wrap(err, "unable to register compaction")
+		return false, errors.Wrap(err, "unable to register compaction")
 	}
 
-	return nil
+	return true, nil
 }
 
 func (m *ManagerV0) dropContentsFromBuilder(ctx context.Context, bld index.Builder, opt CompactOptions) {

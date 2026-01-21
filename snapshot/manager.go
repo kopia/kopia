@@ -3,6 +3,7 @@ package snapshot
 
 import (
 	"context"
+	"maps"
 
 	"github.com/pkg/errors"
 
@@ -195,9 +196,7 @@ func ListSnapshotManifests(ctx context.Context, rep repo.Repository, src *Source
 		labels = sourceInfoToLabels(*src)
 	}
 
-	for key, value := range tags {
-		labels[key] = value
-	}
+	maps.Copy(labels, tags)
 
 	entries, err := rep.FindManifests(ctx, labels)
 	if err != nil {

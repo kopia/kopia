@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/repo/maintenancestats"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -78,14 +79,14 @@ func findInUseContentIDs(ctx context.Context, log *contentlog.Logger, rep repo.R
 
 // Run performs garbage collection on all the snapshots in the repository.
 func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) error {
-	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() error {
+	err := maintenance.ReportRun(ctx, rep, maintenance.TaskSnapshotGarbageCollection, nil, func() (maintenancestats.Kind, error) {
 		return runInternal(ctx, rep, gcDelete, safety, maintenanceStartTime)
 	})
 
 	return errors.Wrap(err, "error running snapshot gc")
 }
 
-func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) error {
+func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, maintenanceStartTime time.Time) (*maintenancestats.SnapshotGCStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:snapshot-gc", contentlog.RandomSpanID()))
 
@@ -93,18 +94,17 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 
 	used, serr := bigmap.NewSet(ctx)
 	if serr != nil {
-		return errors.Wrap(serr, "unable to create new set")
+		return nil, errors.Wrap(serr, "unable to create new set")
 	}
 	defer used.Close(ctx)
 
 	if err := findInUseContentIDs(ctx, log, rep, used); err != nil {
-		return errors.Wrap(err, "unable to find in-use content ID")
+		return nil, errors.Wrap(err, "unable to find in-use content ID")
 	}
 
 	return findUnreferencedAndRepairRereferenced(ctx, log, rep, gcDelete, safety, maintenanceStartTime, used)
 }
 
-//nolint:funlen
 func findUnreferencedAndRepairRereferenced(
 	ctx context.Context,
 	log *contentlog.Logger,
@@ -113,8 +113,8 @@ func findUnreferencedAndRepairRereferenced(
 	safety maintenance.SafetyParameters,
 	maintenanceStartTime time.Time,
 	used *bigmap.Set,
-) error {
-	var unused, inUse, system, tooRecent, undeleted stats.CountSum
+) (*maintenancestats.SnapshotGCStats, error) {
+	var unused, inUse, system, tooRecent, undeleted, deleted stats.CountSum
 
 	contentlog.Log(ctx, log, "Looking for unreferenced contents...")
 
@@ -165,6 +165,8 @@ func findUnreferencedAndRepairRereferenced(
 			if err := rep.ContentManager().DeleteContent(ctx, ci.ContentID); err != nil {
 				return errors.Wrap(err, "error deleting content")
 			}
+
+			deleted.Add(int64(ci.PackedLength))
 		}
 
 		if cnt%100000 == 0 {
@@ -183,50 +185,57 @@ func findUnreferencedAndRepairRereferenced(
 		return nil
 	})
 
-	unusedCount, unusedBytes := unused.Approximate()
-	inUseCount, inUseBytes := inUse.Approximate()
-	systemCount, systemBytes := system.Approximate()
-	tooRecentCount, tooRecentBytes := tooRecent.Approximate()
-	undeletedCount, undeletedBytes := undeleted.Approximate()
+	result := buildGCResult(&unused, &inUse, &system, &tooRecent, &undeleted, &deleted)
 
-	userLog(ctx).Infof("GC found %v unused contents (%v)", unusedCount, units.BytesString(unusedBytes))
-	userLog(ctx).Infof("GC found %v unused contents that are too recent to delete (%v)", tooRecentCount, units.BytesString(tooRecentBytes))
-	userLog(ctx).Infof("GC found %v in-use contents (%v)", inUseCount, units.BytesString(inUseBytes))
-	userLog(ctx).Infof("GC found %v in-use system-contents (%v)", systemCount, units.BytesString(systemBytes))
-	userLog(ctx).Infof("GC undeleted %v contents (%v)", undeletedCount, units.BytesString(undeletedBytes))
+	userLog(ctx).Infof("GC found %v unused contents (%v)", result.UnreferencedContentCount, units.BytesString(result.UnreferencedContentSize))
+	userLog(ctx).Infof("GC found %v unused contents that are too recent to delete (%v)", result.UnreferencedRecentContentCount, units.BytesString(result.UnreferencedRecentContentSize))
+	userLog(ctx).Infof("GC found %v in-use contents (%v)", result.InUseContentCount, units.BytesString(result.InUseContentSize))
+	userLog(ctx).Infof("GC found %v in-use system-contents (%v)", result.InUseSystemContentCount, units.BytesString(result.InUseSystemContentSize))
+	userLog(ctx).Infof("GC undeleted %v contents (%v)", result.RecoveredContentCount, units.BytesString(result.RecoveredContentSize))
 
-	contentlog.Log2(ctx, log,
-		"GC found unused contents",
-		logparam.UInt32("count", unusedCount),
-		logparam.Int64("bytes", unusedBytes))
-	contentlog.Log2(ctx, log,
-		"GC found unused contents that are too recent to delete",
-		logparam.UInt32("count", tooRecentCount),
-		logparam.Int64("bytes", tooRecentBytes))
-	contentlog.Log2(ctx, log,
-		"GC found in-use contents",
-		logparam.UInt32("count", inUseCount),
-		logparam.Int64("bytes", inUseBytes))
-	contentlog.Log2(ctx, log,
-		"GC found in-use system-contents",
-		logparam.UInt32("count", systemCount),
-		logparam.Int64("bytes", systemBytes))
-	contentlog.Log2(ctx, log,
-		"GC undeleted contents",
-		logparam.UInt32("count", undeletedCount),
-		logparam.Int64("bytes", undeletedBytes))
+	contentlog.Log1(ctx, log, "Snapshot GC", result)
 
 	if err != nil {
-		return errors.Wrap(err, "error iterating contents")
+		return nil, errors.Wrap(err, "error iterating contents")
 	}
 
 	if err := rep.Flush(ctx); err != nil {
-		return errors.Wrap(err, "flush error")
+		return nil, errors.Wrap(err, "flush error")
 	}
 
-	if unusedCount > 0 && !gcDelete {
-		return errors.New("Not deleting because 'gcDelete' was not set")
+	if result.UnreferencedContentCount > 0 && !gcDelete {
+		return result, errors.New("Not deleting because 'gcDelete' was not set")
 	}
 
-	return nil
+	return result, nil
+}
+
+func buildGCResult(unused, inUse, system, tooRecent, undeleted, deleted *stats.CountSum) *maintenancestats.SnapshotGCStats {
+	result := &maintenancestats.SnapshotGCStats{}
+
+	cnt, size := unused.Approximate()
+	result.UnreferencedContentCount = cnt
+	result.UnreferencedContentSize = size
+
+	cnt, size = tooRecent.Approximate()
+	result.UnreferencedRecentContentCount = cnt
+	result.UnreferencedRecentContentSize = size
+
+	cnt, size = inUse.Approximate()
+	result.InUseContentCount = cnt
+	result.InUseContentSize = size
+
+	cnt, size = system.Approximate()
+	result.InUseSystemContentCount = cnt
+	result.InUseSystemContentSize = size
+
+	cnt, size = undeleted.Approximate()
+	result.RecoveredContentCount = cnt
+	result.RecoveredContentSize = size
+
+	cnt, size = deleted.Approximate()
+	result.DeletedContentCount = cnt
+	result.DeletedContentSize = size
+
+	return result
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -37,10 +38,8 @@ func checkPopulated(
 		)
 	}
 
-	for _, typ := range ignoreTypeSubfields {
-		if typ == v.Type() {
-			return
-		}
+	if slices.Contains(ignoreTypeSubfields, v.Type()) {
+		return
 	}
 
 	switch v.Kind() {

@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"sync"
 	"testing"
 
@@ -393,10 +394,8 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 					return errors.Wrapf(err, "Checkpoint() returned invalid object %v", cpID)
 				}
 
-				for _, id := range ids {
-					if id == content.EmptyID {
-						return errors.New("checkpoint returned empty id")
-					}
+				if slices.Contains(ids, content.EmptyID) {
+					return errors.New("checkpoint returned empty id")
 				}
 			}
 

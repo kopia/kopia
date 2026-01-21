@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 package robustness
 
@@ -247,7 +246,7 @@ func (th *kopiaRobustnessTestHarness) cleanup(ctx context.Context) (retErr error
 		os.RemoveAll(th.baseDirPath)
 	}
 
-	return
+	return retErr
 }
 
 func (th *kopiaRobustnessTestHarness) getUpgrader() bool {

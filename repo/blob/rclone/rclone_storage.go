@@ -339,7 +339,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		"--vfs-write-back=0s", // disable write-back, critical for correctness
 	)
 
-	r.cmd = exec.Command(rcloneExe, arguments...) //nolint:gosec
+	r.cmd = exec.CommandContext(context.WithoutCancel(ctx), rcloneExe, arguments...) //nolint:gosec
 	r.cmd.Env = append(r.cmd.Env, opt.RCloneEnv...)
 
 	// https://github.com/kopia/kopia/issues/1934
@@ -361,6 +361,7 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	fingerprintHexString := hex.EncodeToString(fingerprintBytes[:])
 
 	var cli http.Client
+
 	cli.Transport = &http.Transport{
 		TLSClientConfig: tlsutil.TLSConfigTrustingSingleCertificate(fingerprintHexString),
 	}

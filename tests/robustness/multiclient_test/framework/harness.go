@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 package framework
 
@@ -303,6 +302,7 @@ func (th *TestHarness) GetDirsToLog(ctx context.Context) []string {
 	}
 
 	var dirList []string
+
 	dirList = append(dirList,
 		th.dataRepoPath, // repo under test base dir
 		th.metaRepoPath, // metadata repository base dir

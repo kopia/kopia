@@ -23,7 +23,6 @@ import (
 const (
 	failedSnapshotRetryInterval = 5 * time.Minute
 	refreshTimeout              = 30 * time.Second // max amount of time to refresh a single source
-	oneDay                      = 24 * time.Hour
 )
 
 type sourceManagerServerInterface interface {
@@ -155,6 +154,7 @@ func (s *sourceManager) setUploader(u *upload.Uploader) {
 
 func (s *sourceManager) start(ctx context.Context, isLocal bool) {
 	s.refreshStatus(ctx)
+
 	go s.run(ctx, isLocal)
 }
 

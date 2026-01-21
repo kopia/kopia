@@ -97,7 +97,7 @@ func (c *commandBenchmarkCompression) shouldIncludeAlgorithm(name compression.Na
 		return true
 	}
 
-	for _, a := range strings.Split(c.algorithms, ",") {
+	for a := range strings.SplitSeq(c.algorithms, ",") {
 		if strings.HasPrefix(string(name), a) {
 			return true
 		}

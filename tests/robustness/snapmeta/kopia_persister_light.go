@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 package snapmeta
 
@@ -112,6 +111,7 @@ func (kpl *KopiaPersisterLight) Cleanup() {
 
 func (kpl *KopiaPersisterLight) waitFor(key string) {
 	kpl.c.L.Lock()
+
 	for kpl.keysInProcess[key] {
 		kpl.c.Wait()
 	}

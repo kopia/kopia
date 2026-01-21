@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package blobmanipulator provides the framework for snapshot fix testing.
 package blobmanipulator

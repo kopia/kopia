@@ -41,7 +41,6 @@ func Hash(ctx context.Context, e fs.Entry) ([]byte, error) {
 	return h.Sum(nil), nil
 }
 
-//nolint:interfacer
 func write(ctx context.Context, tw *tar.Writer, fullpath string, e fs.Entry) error {
 	h, err := header(ctx, fullpath, e)
 	if err != nil {

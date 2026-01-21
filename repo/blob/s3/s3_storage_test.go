@@ -537,10 +537,9 @@ func TestNeedMD5AWS(t *testing.T) {
 	getOrMakeBucket(t, cli, options, true)
 
 	// ensure it is a bucket with object locking enabled
-	want := "Enabled"
-	if got, _, _, _, _ := cli.GetObjectLockConfig(ctx, options.BucketName); got != want {
-		t.Fatalf("object locking is not enabled: got '%s', want '%s'", got, want)
-	}
+	got, _, _, _, _ := cli.GetObjectLockConfig(ctx, options.BucketName) //nolint:dogsled
+
+	require.Equal(t, "Enabled", got, "object locking is not enabled")
 
 	// ensure a locking configuration is in place
 	lockingMode := minio.Governance
@@ -555,7 +554,7 @@ func TestNeedMD5AWS(t *testing.T) {
 	require.NoError(t, err, "could not create storage")
 
 	t.Cleanup(func() {
-		blobtesting.CleanupOldData(ctx, t, s, 0)
+		blobtesting.CleanupOldData(testlogging.ContextForCleanup(t), t, s, 0)
 	})
 
 	err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")), blob.PutOptions{})
@@ -586,8 +585,12 @@ func testStorage(t *testing.T, options *Options, runValidationTest bool, opts bl
 	cancel()
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
-	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+	t.Cleanup(func() {
+		ctx := testlogging.ContextForCleanup(t)
+
+		blobtesting.CleanupOldData(ctx, t, st, 0)
+		st.Close(ctx)
+	})
 
 	blobtesting.VerifyStorage(ctx, t, st, opts)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -608,8 +611,12 @@ func testPutBlobWithInvalidRetention(t *testing.T, options Options, opts blob.Pu
 	st, err := newStorage(ctx, &options)
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
-	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+	t.Cleanup(func() {
+		ctx := testlogging.ContextForCleanup(t)
+
+		blobtesting.CleanupOldData(ctx, t, st, 0)
+		st.Close(ctx)
+	})
 
 	// Now attempt to add a block and expect to fail
 	require.Error(t,

@@ -79,7 +79,7 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 
 	var walkDir func(string, string) error
 
-	walkDir = func(directory string, currentPrefix string) error {
+	walkDir = func(directory, currentPrefix string) error {
 		select {
 		case <-finished: // already finished
 			return nil
@@ -259,12 +259,12 @@ func (s *Storage) getShardDirectory(ctx context.Context, blobID blob.ID) (string
 func (s *Storage) GetShardedPathAndFilePath(ctx context.Context, blobID blob.ID) (shardPath, filePath string, err error) {
 	shardPath, blobID, err = s.getShardDirectory(ctx, blobID)
 	if err != nil {
-		return
+		return "", "", err
 	}
 
 	filePath = path.Join(shardPath, s.makeFileName(blobID))
 
-	return
+	return shardPath, filePath, nil
 }
 
 // New returns new sharded.Storage helper.
