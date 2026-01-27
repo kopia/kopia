@@ -52,8 +52,9 @@ func setFileTimes(path string, btime, atime, mtime time.Time) error {
 		return errors.Wrap(err, "unable to set atime/mtime")
 	}
 
-	// Birth time setting is best-effort on macOS
-	// Silently ignore errors to avoid failing restore over timestamp issues
+	// Birth time setting is best-effort on macOS.
+	// Expected errors: EPERM (SIP-protected or restricted paths),
+	// ENOTSUP (unsupported filesystem like NFS, SMB, or certain APFS configurations).
 	_ = setBirthTime(path, btime)
 
 	return nil
