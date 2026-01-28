@@ -128,7 +128,7 @@
     "concurrently": "^9.1.2",
     "dotenv": "^16.5.0",
     "electron": "^36.8.1",
-    "electron-builder": "^26.0.12",
+    "electron-builder": "^26.6.0",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1",
     "prettier": "^3.5.3"
