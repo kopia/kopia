@@ -19,12 +19,13 @@ const (
 
 // virtualEntry is an in-memory implementation of a directory entry.
 type virtualEntry struct {
-	name    string
-	mode    os.FileMode
-	size    int64
-	modTime time.Time
-	owner   fs.OwnerInfo
-	device  fs.DeviceInfo
+	name      string
+	mode      os.FileMode
+	size      int64
+	modTime   time.Time
+	birthTime time.Time
+	owner     fs.OwnerInfo
+	device    fs.DeviceInfo
 }
 
 func (e *virtualEntry) Name() string {
@@ -61,6 +62,10 @@ func (e *virtualEntry) Device() fs.DeviceInfo {
 
 func (e *virtualEntry) LocalFilesystemPath() string {
 	return ""
+}
+
+func (e *virtualEntry) BirthTime() time.Time {
+	return e.birthTime
 }
 
 func (e *virtualEntry) Close() {
@@ -187,9 +192,23 @@ func StreamingFileWithModTimeFromReader(name string, t time.Time, reader io.Read
 	}
 }
 
+// StreamingFileWithBirthTimeFromReader returns a streaming file with given name, birth time, modified time, and reader.
+func StreamingFileWithBirthTimeFromReader(name string, btime, mtime time.Time, reader io.ReadCloser) fs.StreamingFile {
+	return &virtualFile{
+		virtualEntry: virtualEntry{
+			name:      name,
+			mode:      defaultPermissions,
+			modTime:   mtime,
+			birthTime: btime,
+		},
+		reader: reader,
+	}
+}
+
 var (
-	_ fs.Directory     = &staticDirectory{}
-	_ fs.Directory     = &streamingDirectory{}
-	_ fs.StreamingFile = &virtualFile{}
-	_ fs.Entry         = &virtualEntry{}
+	_ fs.Directory          = &staticDirectory{}
+	_ fs.Directory          = &streamingDirectory{}
+	_ fs.StreamingFile      = &virtualFile{}
+	_ fs.Entry              = &virtualEntry{}
+	_ fs.EntryWithBirthTime = &virtualEntry{}
 )

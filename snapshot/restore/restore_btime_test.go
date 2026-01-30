@@ -47,7 +47,8 @@ func TestBirthTimeSnapshotAndRestore(t *testing.T) {
 	verifyBirthtimePreservation(t, ctx, env.RepositoryWriter, newSnapshot,
 		originalBtime, originalDirBtime, mtime, canRestoreBirthTime)
 
-	// SCENARIO 3: Metadata-only update (photo date fix use case)
+	// SCENARIO 3: Metadata-only update (birthtime changed on source without content change,
+	// e.g. user corrects a file's creation date before taking a new snapshot)
 	if canRestoreBirthTime {
 		t.Log("=== Scenario 3: Birthtime metadata update without content re-upload ===")
 		verifyMetadataOnlyUpdate(t, ctx, env.RepositoryWriter, sourceDir, testFile,
@@ -165,13 +166,17 @@ func verifyBirthtimePreservation(t *testing.T, ctx context.Context, rep repo.Rep
 	}
 }
 
-// verifyMetadataOnlyUpdate tests that changing only birthtime doesn't trigger content re-upload.
+// verifyMetadataOnlyUpdate tests that changing only birthtime doesn't trigger content re-upload
+// and that the snapshot cache is properly updated.
+//
+// Technical note: Kopia's cache key is based on mtime (not btime), so btime-only changes
+// still allow cache hits. The updated btime is captured in the new snapshot's DirEntry.
 func verifyMetadataOnlyUpdate(t *testing.T, ctx context.Context, rep repo.RepositoryWriter,
 	sourceDir, testFile string, previousSnapshot *snapshot.Manifest,
 	originalFileBtime, originalDirBtime, mtime time.Time) {
 	t.Helper()
 
-	// Update birthtimes (simulating photo date correction)
+	// Update birthtimes (simulating, for instance, photo create date correction from exif)
 	newFileBtime := originalFileBtime.Add(-24 * time.Hour)
 	newDirBtime := originalDirBtime.Add(-48 * time.Hour)
 	updateBirthtimes(t, testFile, sourceDir, newFileBtime, newDirBtime, mtime)
