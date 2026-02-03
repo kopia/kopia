@@ -3,6 +3,8 @@ package ignorefs_test
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"sort"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -573,6 +576,171 @@ func TestIgnoreFS(t *testing.T) {
 			verifyDirectoryTree(t, ifs, expectedFiles)
 		})
 	}
+}
+
+func TestAbsolutePathsToIgnoreInPolicy(t *testing.T) {
+	sourceDir := t.TempDir()
+	externalDir := t.TempDir()
+
+	// create files in sourceDir
+	createFile(t, sourceDir, "file1.txt", "content1")
+	createFile(t, sourceDir, "file2.log", "content2")
+	createFile(t, sourceDir, "file3.txt", "content3")
+	createFile(t, sourceDir, "file4.db", "content4")
+	createFile(t, sourceDir, "ignored.tmp", "ignored")
+
+	// create ignore file in externalDir
+	ignoreFilePath := filepath.Join(externalDir, "ignorefile")
+	createFile(t, externalDir, "ignorefile", "*.tmp\n*.log\n")
+
+	// create ignorefs policy that references the external ignore file
+	srcDirPolicy := policy.Policy{
+		FilesPolicy: policy.FilesPolicy{
+			DotIgnoreFiles: []string{ignoreFilePath},
+			IgnoreRules:    []string{"*.db"},
+		},
+	}
+
+	definedPolicyMap := map[string]*policy.Policy{
+		".": &srcDirPolicy,
+	}
+
+	// build policy tree for the sourceDir
+	sourcDirPolicyTree := policy.BuildTree(definedPolicyMap, policy.DefaultPolicy)
+
+	sourceDirEntry, err := localfs.NewEntry(sourceDir)
+	require.NoError(t, err)
+
+	// check entry is a directory
+	srcDirEntry, ok := sourceDirEntry.(fs.Directory)
+	require.True(t, ok, "sourceDirEntry is not a directory")
+
+	wrappedFS := ignorefs.New(srcDirEntry, sourcDirPolicyTree)
+
+	dirContents, err := fs.GetAllEntries(t.Context(), wrappedFS)
+	require.NoError(t, err)
+
+	fsEntries := make([]string, 0, len(dirContents))
+	for _, e := range dirContents {
+		fsEntries = append(fsEntries, e.Name())
+	}
+
+	require.Contains(t, fsEntries, "file1.txt")
+	require.Contains(t, fsEntries, "file3.txt")
+	require.NotContains(t, fsEntries, "file2.log", "file2.log should be ignored by external ignore file")
+	require.NotContains(t, fsEntries, "ignored.tmp", "ignored.tmp should be ignored by external ignore file")
+	require.NotContains(t, fsEntries, "file4.db", "file4.db should be ignored by policy ignore rule")
+}
+
+func TestPolicyWithBothRelativeAndAbsolutePaths(t *testing.T) {
+	sourceDir := t.TempDir()
+	externalDir := t.TempDir()
+
+	// create files in sourceDir
+	createFile(t, sourceDir, "file1.txt", "content1")
+	createFile(t, sourceDir, "file2.log", "content2")
+	createFile(t, sourceDir, "file3.go", "content3")
+	createFile(t, sourceDir, "ignored.tmp", "ignored")
+	createFile(t, sourceDir, ".kopiaignore", "*.go\n")
+
+	// create ignore file in externalDir
+	ignoreFilePath := filepath.Join(externalDir, "ignorefile")
+	createFile(t, externalDir, "ignorefile", "*.tmp\n*.log\n")
+
+	// create ignorefs policy that references the external ignore file
+	srcDirPolicy := policy.Policy{
+		FilesPolicy: policy.FilesPolicy{
+			DotIgnoreFiles: []string{".kopiaignore", ignoreFilePath},
+		},
+	}
+
+	definedPolicyMap := map[string]*policy.Policy{
+		".": &srcDirPolicy,
+	}
+
+	// build policy tree for sourceDir
+	sourcDirPolicyTree := policy.BuildTree(definedPolicyMap, policy.DefaultPolicy)
+
+	sourceDirEntry, err := localfs.NewEntry(sourceDir)
+	require.NoError(t, err)
+
+	srcDirEntry, ok := sourceDirEntry.(fs.Directory)
+	require.True(t, ok, "sourceDirEntry is not a directory")
+
+	wrappedFS := ignorefs.New(srcDirEntry, sourcDirPolicyTree)
+
+	dirContents, err := fs.GetAllEntries(t.Context(), wrappedFS)
+	require.NoError(t, err)
+
+	fsEntries := make([]string, 0, len(dirContents))
+	for _, e := range dirContents {
+		fsEntries = append(fsEntries, e.Name())
+	}
+
+	require.Contains(t, fsEntries, "file1.txt")
+	require.Contains(t, fsEntries, ".kopiaignore")
+	require.NotContains(t, fsEntries, "file2.log", "*.log should be ignored by external ignore file")
+	require.NotContains(t, fsEntries, "file3.go", "*.log should be ignored by the .kopiaignore file")
+	require.NotContains(t, fsEntries, "ignored.tmp", "*.tmp should be ignored by external ignore file")
+}
+
+func TestAbsolutePathsToIgnoreDoesNotExist(t *testing.T) {
+	// source dir to be backed up
+	sourceDir := t.TempDir()
+
+	// create files in sourceDir
+	createFile(t, sourceDir, "file1.txt", "content1")
+	createFile(t, sourceDir, "file2.log", "content2")
+	createFile(t, sourceDir, "file3.txt", "content3")
+	createFile(t, sourceDir, "file4.db", "content4")
+	createFile(t, sourceDir, "ignored.tmp", "ignored")
+
+	// create ignore file in externalDir
+	ignoreFilePath := filepath.Join("/asd/dgn/jsdnf/jsndf", "ignorefile")
+
+	// create ignorefs policy that references the external ignore file
+	srcDirPolicy := policy.Policy{
+		FilesPolicy: policy.FilesPolicy{
+			DotIgnoreFiles: []string{ignoreFilePath},
+			IgnoreRules:    []string{"*.db"},
+		},
+	}
+
+	definedPolicyMap := map[string]*policy.Policy{
+		".": &srcDirPolicy,
+	}
+
+	// build policy tree for the sourceDir
+	sourcDirPolicyTree := policy.BuildTree(definedPolicyMap, policy.DefaultPolicy)
+
+	sourceDirEntry, err := localfs.NewEntry(sourceDir)
+	require.NoError(t, err)
+
+	srcDirEntry, ok := sourceDirEntry.(fs.Directory)
+	require.True(t, ok, "sourceDirEntry is not a directory")
+
+	wrappedFS := ignorefs.New(srcDirEntry, sourcDirPolicyTree)
+
+	dirContents, err := fs.GetAllEntries(t.Context(), wrappedFS)
+	require.NoError(t, err)
+
+	fsEntries := make([]string, 0, len(dirContents))
+	for _, e := range dirContents {
+		fsEntries = append(fsEntries, e.Name())
+	}
+
+	require.Contains(t, fsEntries, "file1.txt")
+	require.Contains(t, fsEntries, "file3.txt")
+	require.Contains(t, fsEntries, "file2.log")
+	require.Contains(t, fsEntries, "ignored.tmp")
+	require.NotContains(t, fsEntries, "file4.db", "file4.db should be ignored by policy ignore rule")
+}
+
+func createFile(t *testing.T, dir, name, content string) {
+	t.Helper()
+
+	path := filepath.Join(dir, name)
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }
 
 func addAndSubtractFiles(original, added, removed []string) []string {

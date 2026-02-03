@@ -800,3 +800,227 @@ func TestSnapshotCreateWithAllAndPath(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1, "--all")
 }
+
+// TestSnapshotCreateExternalIgnorefileWithNoPolicyForSource tests snapshot creation
+// with a custom ignore rules file when no pre-existing policy exists for the source.
+func TestSnapshotCreateExternalIgnorefileWithNoSourcePolicy(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	var policyListBefore []policy.TargetWithPolicy
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "list", "--json"), &policyListBefore)
+
+	baseDir := testutil.TempDirectory(t)
+	files := []testFileEntry{
+		{Name: "important.txt"},
+		{Name: "data.log"},
+		{Name: "cache.tmp"},
+		{Name: "test.db"},
+		{Name: "readme.md"},
+		{Name: "subdir/file1.txt"},
+		{Name: "subdir/file2.log"},
+		{Name: "tmp/package.json"},
+		{Name: "cache/data.txt"},
+	}
+
+	require.NoError(t, createFileStructure(baseDir, files))
+
+	ignoreRulesFile := filepath.Join(testutil.TempDirectory(t), "custom-ignore.txt")
+	ignoreContent := `*.log
+	*.tmp
+	*.db
+	tmp/
+	cache/
+	`
+	require.NoError(t, os.WriteFile(ignoreRulesFile, []byte(ignoreContent), 0o644))
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", baseDir, "--ignore-rules-file", ignoreRulesFile)
+
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
+	require.Len(t, sources, 1)
+	oid := sources[0].Snapshots[0].ObjectID
+	entries := clitestutil.ListDirectoryRecursive(t, e, oid)
+
+	var output []string
+	for _, s := range entries {
+		output = append(output, s.Name)
+	}
+
+	expected := []string{
+		"important.txt",
+		"readme.md",
+		"subdir/",
+		"subdir/file1.txt",
+	}
+
+	var expectedWithDirs []string
+	for _, ex := range expected {
+		expectedWithDirs = appendIfMissing(expectedWithDirs, ex)
+		if !strings.HasSuffix(ex, "/") {
+			for d, _ := path.Split(ex); d != ""; d, _ = path.Split(d) {
+				expectedWithDirs = appendIfMissing(expectedWithDirs, d)
+				d = strings.TrimSuffix(d, "/")
+			}
+		}
+	}
+
+	sort.Strings(output)
+	sort.Strings(expectedWithDirs)
+
+	if diff := pretty.Compare(output, expectedWithDirs); diff != "" {
+		t.Errorf("unexpected directory tree, diff(-got,+want): %v\n", diff)
+	}
+
+	// Verify that the original policy was not modified
+	var policyListAfter []policy.TargetWithPolicy
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "list", "--json"), &policyListAfter)
+
+	require.Len(t, policyListAfter, len(policyListBefore), "Policy count should remain the same")
+}
+
+// TestSnapshotCreateExternalIgnorefileWithSourcePolicy tests snapshot creation
+// with a custom ignore rules file when a pre-existing policy does exist for the source.
+func TestSnapshotCreateExternalIgnorefileWithSourcePolicy(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	baseDir := testutil.TempDirectory(t)
+	files := []testFileEntry{
+		{Name: "important.txt"},
+		{Name: "data.log"},
+		{Name: "cache.tmp"},
+		{Name: "backup.db"},
+		{Name: "config.yaml"},
+		{Name: "test.json"},
+		{Name: "subdir/doc.pdf"},
+		{Name: "subdir/image.png"},
+	}
+
+	require.NoError(t, createFileStructure(baseDir, files))
+
+	e.RunAndExpectSuccess(t, "policy", "set", baseDir, "--add-ignore", "*.tmp", "--add-ignore", "*.json")
+
+	var policyListBefore []policy.TargetWithPolicy
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "list", "--json"), &policyListBefore)
+
+	ignoreRulesFile := filepath.Join(testutil.TempDirectory(t), "additional-ignore.txt")
+	ignoreContent := `*.db
+	*.png
+	`
+	require.NoError(t, os.WriteFile(ignoreRulesFile, []byte(ignoreContent), 0o644))
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", baseDir, "--ignore-rules-file", ignoreRulesFile)
+
+	// Verify snapshot contents
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
+	require.Len(t, sources, 1)
+	oid := sources[0].Snapshots[0].ObjectID
+	entries := clitestutil.ListDirectoryRecursive(t, e, oid)
+
+	var output []string
+	for _, s := range entries {
+		output = append(output, s.Name)
+	}
+
+	expected := []string{
+		"important.txt",
+		"data.log",
+		"config.yaml",
+		"subdir/",
+		"subdir/doc.pdf",
+	}
+
+	var expectedWithDirs []string
+	for _, ex := range expected {
+		expectedWithDirs = appendIfMissing(expectedWithDirs, ex)
+		if !strings.HasSuffix(ex, "/") {
+			for d, _ := path.Split(ex); d != ""; d, _ = path.Split(d) {
+				expectedWithDirs = appendIfMissing(expectedWithDirs, d)
+				d = strings.TrimSuffix(d, "/")
+			}
+		}
+	}
+
+	sort.Strings(output)
+	sort.Strings(expectedWithDirs)
+
+	if diff := pretty.Compare(output, expectedWithDirs); diff != "" {
+		t.Errorf("unexpected directory tree, diff(-got,+want): %v\n", diff)
+	}
+
+	// Verify that the original policy was not modified
+	var policyListAfter []policy.TargetWithPolicy
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "list", "--json"), &policyListAfter)
+
+	require.Len(t, policyListAfter, len(policyListBefore), "Policy count should remain the same")
+
+	policyOutput := e.RunAndExpectSuccess(t, "policy", "show", baseDir, "--json")
+
+	var policyShow policy.Policy
+	testutil.MustParseJSONLines(t, policyOutput, &policyShow)
+
+	// The original policy should still only contain the originally set ignore rules
+	require.Contains(t, policyShow.FilesPolicy.IgnoreRules, "*.tmp")
+	require.Contains(t, policyShow.FilesPolicy.IgnoreRules, "*.json")
+	require.NotContains(t, policyShow.FilesPolicy.IgnoreRules, "*.db", "Custom ignore rules should not be persisted to policy")
+	require.NotContains(t, policyShow.FilesPolicy.IgnoreRules, "*.png", "Custom ignore rules should not be persisted to policy")
+}
+
+// TestSnapshotCreateIgnoreRulesFileInvalidPath tests error handling for invalid external ignore file path.
+func TestSnapshotCreateIgnoreRulesFileInvalidPath(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	baseDir := testutil.TempDirectory(t)
+	files := []testFileEntry{
+		{Name: "file1.txt"},
+		{Name: "file2.log"},
+	}
+
+	require.NoError(t, createFileStructure(baseDir, files))
+
+	// Try to use a non-existent ignore rules file
+	e.RunAndExpectFailure(t, "snapshot", "create", baseDir, "--ignore-rules-file", "/nonexistent/path/to/ignore.txt")
+}
+
+// TestSnapshotCreateIgnoreRulesFileInvalidPath tests error handling for relative ignore file path which is disallowed.
+func TestSnapshotCreateIgnoreRulesFileInvalidRelativePath(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	baseDir := testutil.TempDirectory(t)
+	files := []testFileEntry{
+		{Name: "file1.txt"},
+		{Name: "file2.log"},
+	}
+
+	require.NoError(t, createFileStructure(baseDir, files))
+
+	// Try to pass in a relative path for the ignore rules file
+	e.RunAndExpectFailure(t, "snapshot", "create", baseDir, "--ignore-rules-file", "../../relative/path/to/ignorefile")
+	e.RunAndExpectFailure(t, "snapshot", "create", baseDir, "--ignore-rules-file", "./relative/path/to/ignorefile")
+}

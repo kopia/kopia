@@ -10,7 +10,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/cachedir"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/wcmatch"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot"
@@ -310,7 +312,8 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 	var dotIgnoreFiles []fs.File
 
 	for _, dotfile := range effectiveDotIgnoreFiles {
-		if e, err := d.Directory.Child(ctx, dotfile); err == nil {
+		e, err := d.Directory.Child(ctx, dotfile)
+		if err == nil {
 			switch entry := e.(type) {
 			case fs.File:
 				dotIgnoreFiles = append(dotIgnoreFiles, entry)
@@ -322,6 +325,16 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 				}
 
 				dotIgnoreFiles = append(dotIgnoreFiles, target)
+			}
+		}
+
+		// the dotfile might be an absolute path
+		if ospath.IsAbs(dotfile) {
+			entry, err2 := localfs.NewEntry(dotfile)
+			if err2 == nil {
+				if file, ok := entry.(fs.File); ok {
+					dotIgnoreFiles = append(dotIgnoreFiles, file)
+				}
 			}
 		}
 	}
