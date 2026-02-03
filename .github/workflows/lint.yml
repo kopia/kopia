@@ -37,7 +37,7 @@ jobs:
       uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
       with:
         cache: false
-        go-version-input: '1.25.5'
+        go-version-input: '1.25.6'
         # An explicit Go version is needed for govulncheck-action since internally
         # it uses an outdated setup-go@v5.0 action that does not respect the 'toolchain'
         # directive in the 'go.mod' file.
