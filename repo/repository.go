@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/compression"
@@ -12,7 +14,6 @@ import (
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/pkg/errors"
 )
 
 // Repository exposes public API of Kopia repository, including objects and manifests.
@@ -60,7 +61,13 @@ type RemoteRetentionPolicy interface {
 
 // RemoteNotifications is an interface implemented by repository clients that support remote notifications.
 type RemoteNotifications interface {
-	SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType int32, severity int32) error
+	SendNotification(
+		ctx context.Context,
+		templateName string,
+		templateDataJSON []byte,
+		templateDataType int32,
+		severity int32,
+	) error
 }
 
 // DirectRepository provides additional low-level repository functionality.

@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/blobparam"
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
-	"github.com/kopia/kopia/internal/repodiag/repolog"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -33,7 +33,7 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:pack-gc", contentlog.RandomSpanID()))
 
-	log := rep.(repolog.Provider).LogManager().NewLogger("maintenance-pack-gc")
+	log := repodiag.NewContentLogger(rep, "maintenance-pack-gc")
 
 	if opt.Parallel == 0 {
 		opt.Parallel = 16

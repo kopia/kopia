@@ -23,7 +23,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/grpcapi"
-	"github.com/kopia/kopia/internal/repodiag/repolog"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/repo"
@@ -93,7 +93,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return status.Errorf(codes.Unavailable, "not connected to a direct repository")
 	}
 
-	log := dr.(repolog.Provider).LogManager().NewLogger("grpc-session")
+	log := repodiag.NewContentLogger(dr, "grpc-session")
 	ctx = contentlog.WithParams(ctx, logparam.String("span:server-session", contentlog.RandomSpanID()))
 
 	usernameAtHostname, err := s.authenticateGRPCSession(ctx, dr)

@@ -12,7 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/contentparam"
-	"github.com/kopia/kopia/internal/repodiag/repolog"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
@@ -91,7 +91,7 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete 
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:snapshot-gc", contentlog.RandomSpanID()))
 
-	log := rep.(repolog.Provider).LogManager().NewLogger("maintenance-snapshot-gc")
+	log := repodiag.NewContentLogger(rep, "maintenance-snapshot-gc")
 
 	used, serr := bigmap.NewSet(ctx)
 	if serr != nil {

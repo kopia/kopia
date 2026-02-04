@@ -25,7 +25,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/iocopy"
-	"github.com/kopia/kopia/internal/repodiag/repolog"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/workshare"
 	"github.com/kopia/kopia/repo"
@@ -1267,8 +1267,8 @@ func (u *Uploader) Upload(
 
 	ctx = contentlog.WithParams(ctx, logparam.String("span:upload", contentlog.HashSpanID(sourceInfo.String())))
 
-	if dr, ok := u.repo.(repolog.Provider); ok {
-		log := dr.LogManager().NewLogger("uploader")
+	if dr, ok := u.repo.(repo.DirectRepository); ok {
+		log := repodiag.NewContentLogger(dr, "uploader")
 
 		contentlog.Log(ctx, log, "uploading started")
 		defer contentlog.Log(ctx, log, "uploading finished")

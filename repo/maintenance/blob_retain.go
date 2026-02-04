@@ -13,7 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/impossible"
-	"github.com/kopia/kopia/internal/repodiag/repolog"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/format"
@@ -33,7 +33,7 @@ type ExtendBlobRetentionTimeOptions struct {
 func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (*maintenancestats.ExtendBlobRetentionStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:blob-retain", contentlog.RandomSpanID()))
-	log := rep.(repolog.Provider).LogManager().NewLogger("maintenance-blob-retain")
+	log := repodiag.NewContentLogger(rep, "maintenance-blob-retain")
 
 	blobCfg, err := rep.FormatManager().BlobCfgBlob(ctx)
 	if err != nil {
