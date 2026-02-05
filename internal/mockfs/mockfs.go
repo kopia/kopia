@@ -36,12 +36,13 @@ func (c readerSeekerCloser) Close() error {
 }
 
 type entry struct {
-	name    string
-	mode    os.FileMode
-	size    int64
-	modTime time.Time
-	owner   fs.OwnerInfo
-	device  fs.DeviceInfo
+	name      string
+	mode      os.FileMode
+	size      int64
+	modTime   time.Time
+	birthTime time.Time
+	owner     fs.OwnerInfo
+	device    fs.DeviceInfo
 }
 
 func (e *entry) Name() string {
@@ -80,6 +81,10 @@ func (e *entry) LocalFilesystemPath() string {
 	return ""
 }
 
+func (e *entry) BirthTime() time.Time {
+	return e.birthTime
+}
+
 func (e *entry) Close() {
 }
 
@@ -91,6 +96,11 @@ type Directory struct {
 	children     []fs.Entry
 	readdirError error
 	onReaddir    func()
+}
+
+// SetBirthTime sets the birth time of a directory.
+func (imd *Directory) SetBirthTime(t time.Time) {
+	imd.birthTime = t
 }
 
 // AddFileLines adds a mock file with the specified name, text content and permissions.
@@ -344,6 +354,11 @@ type File struct {
 	source func() (ReaderSeekerCloser, error)
 }
 
+// SetBirthTime sets the birth time of a file.
+func (imf *File) SetBirthTime(t time.Time) {
+	imf.birthTime = t
+}
+
 // SetContents changes the contents of a given file.
 func (imf *File) SetContents(b []byte) {
 	imf.source = func() (ReaderSeekerCloser, error) {
@@ -440,8 +455,11 @@ func (e *ErrorEntry) ErrorInfo() error {
 }
 
 var (
-	_ fs.Directory  = &Directory{}
-	_ fs.File       = &File{}
-	_ fs.Symlink    = &Symlink{}
-	_ fs.ErrorEntry = &ErrorEntry{}
+	_ fs.Directory          = &Directory{}
+	_ fs.File               = &File{}
+	_ fs.Symlink            = &Symlink{}
+	_ fs.ErrorEntry         = &ErrorEntry{}
+	_ fs.EntryWithBirthTime = &Directory{}
+	_ fs.EntryWithBirthTime = &File{}
+	_ fs.EntryWithBirthTime = &Symlink{}
 )
