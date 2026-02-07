@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/fatih/color"
+	"golang.org/x/term"
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
@@ -29,7 +31,12 @@ type progressFlags struct {
 }
 
 func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
-	app.Flag("progress", "Enable progress output").Default("true").BoolVar(&p.enableProgress)
+	progressDefault := "true"
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		progressDefault = "false"
+	}
+
+	app.Flag("progress", "Enable progress output").Default(progressDefault).BoolVar(&p.enableProgress)
 	app.Flag("progress-estimation-type", "Set type of estimation of the data to be snapshotted").Hidden().Default(upload.EstimationTypeClassic).
 		EnumVar(&p.progressEstimationType, upload.EstimationTypeClassic, upload.EstimationTypeRough, upload.EstimationTypeAdaptive)
 	app.Flag("progress-update-interval", "How often to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
