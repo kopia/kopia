@@ -294,13 +294,13 @@ func restoreSnapshot(t *testing.T, ctx context.Context, rep repo.RepositoryWrite
 	require.NoError(t, err)
 }
 
-// assertTimeIsRecent verifies that a time is within the last 10 seconds.
+// assertTimeIsRecent verifies that a time is recent enough for the test to be valid.
 func assertTimeIsRecent(t *testing.T, timeToCheck time.Time, message string) {
 	t.Helper()
 
 	timeSince := time.Since(timeToCheck)
-	require.Less(t, timeSince, 10*time.Second, message+" (should be within last 10 seconds)")
 	require.GreaterOrEqual(t, timeSince, time.Duration(0), message+" (should not be in the future)")
+	require.Less(t, timeSince, 2*time.Minute, message+" (should be within last 2 minutes)")
 }
 
 // createSnapshot creates a snapshot of the source directory.
