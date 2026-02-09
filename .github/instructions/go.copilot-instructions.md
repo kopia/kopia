@@ -78,10 +78,12 @@ Refer to the linter configuration in `.golangci.yml` for style checks and standa
 
 ### Formatting
 
+- Indent with tabs
 - Use `gofumt` to format code
 - Use `goimports` to manage ordering of `import` statements
 - Keep line length reasonable (no hard limit, but consider readability)
-- Add blank lines to separate logical groups of code, adhering to the linter constraints.
+- Add blank lines to separate logical groups of code, adhering to the linter constraints
+- Ensure there is a new line `\r` at the end of the files
 
 ### Comments
 
@@ -329,6 +331,8 @@ Refer to the linter configuration in `.golangci.yml` for style checks and standa
 - `go test`: Run tests
 - `go mod`: Manage dependencies
 - `go generate`: Code generation
+
+`make lint vet` runs `go vet` and `golangci-lint`
 
 ### Development Practices
 
