@@ -1,15 +1,20 @@
 package crypto
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/scrypt"
 )
 
 const (
-	// ScryptAlgorithm is the registration name for the scrypt algorithm instance.
+	// ScryptAlgorithm is the full algorithm name for scrypt.
 	ScryptAlgorithm = "scrypt-65536-8-1"
 
-	// The recommended minimum size for a salt to be used for scrypt.
+	// Scrypt is the short name for scrypt, used in CLI flags.
+	Scrypt = "scrypt"
+
+	// scryptMinSaltLength is the recommended minimum size for a salt for scrypt.
 	// Currently set to 16 bytes (128 bits).
 	//
 	// A good rule of thumb is to use a salt that is the same size
@@ -27,6 +32,30 @@ func init() {
 		p:             1,
 		minSaltLength: scryptMinSaltLength,
 	})
+}
+
+// NewScryptKeyDeriverWithMemory creates a new scrypt key deriver with the specified memory cost in MB.
+// The scrypt N parameter is calculated as: N = memMB * 1024 (since r=8 and block size=128)
+// The algorithm name is unique to the memory setting, allowing multiple configurations to coexist.
+// If the algorithm is already registered, returns the existing algorithm name.
+func NewScryptKeyDeriverWithMemory(memMB int) string {
+	// scrypt: memory = N * r * 128 bytes. With r=8: N = memMB * 1024
+	n := memMB * 1024
+	algorithmName := fmt.Sprintf("scrypt-%d-8-1", n)
+
+	// Check if already registered
+	if _, ok := keyDerivers[algorithmName]; ok {
+		return algorithmName
+	}
+
+	registerPBKeyDeriver(algorithmName, &scryptKeyDeriver{
+		n:             n,
+		r:             8,
+		p:             1,
+		minSaltLength: scryptMinSaltLength,
+	})
+
+	return algorithmName
 }
 
 type scryptKeyDeriver struct {
