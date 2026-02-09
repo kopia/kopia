@@ -182,6 +182,10 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 			return errors.Wrap(err, "can't write temporary file")
 		}
 
+		if err = f.Sync(); err != nil {
+			return errors.Wrap(err, "can't sync temporary file data")
+		}
+
 		if err = f.Close(); err != nil {
 			return errors.Wrap(err, "can't close temporary file")
 		}
