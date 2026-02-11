@@ -48,12 +48,14 @@ func (vf *verifySyncBeforeCloseFile) Sync() error {
 }
 
 func (vf *verifySyncBeforeCloseFile) Close() error {
-	vf.mu.Lock()
-	defer vf.mu.Unlock()
+	dirty, err := func() (bool, error) {
+		vf.mu.Lock()
+		defer vf.mu.Unlock()
 
-	err := vf.osWriteFile.Close()
+		return vf.dirty, vf.osWriteFile.Close()
+	}()
 
-	if vf.dirty {
+	if dirty {
 		vf.notifyDirtyClose()
 	}
 
