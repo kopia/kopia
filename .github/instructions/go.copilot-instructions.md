@@ -83,7 +83,7 @@ Refer to the linter configuration in `.golangci.yml` for style checks and standa
 - Use `goimports` to manage ordering of `import` statements
 - Keep line length reasonable (no hard limit, but consider readability)
 - Add blank lines to separate logical groups of code, adhering to the linter constraints
-- Ensure there is a new line `\r` at the end of the files
+- Ensure the file ends with a trailing newline `\n`
 
 ### Comments
 
