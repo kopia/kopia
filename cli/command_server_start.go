@@ -52,6 +52,8 @@ type commandServerStart struct {
 	serverControlUsername       string
 	serverControlPassword       string
 
+	serverControlUsernameDeprecatedEnvName string
+
 	serverAuthCookieSingingKey string
 
 	serverStartShutdownWhenStdinClosed bool
@@ -99,7 +101,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("htpasswd-file", "Path to htpasswd file that contains allowed user@hostname entries").Hidden().ExistingFileVar(&c.serverStartHtpasswdFile)
 
 	cmd.Flag("random-server-control-password", "Generate random server control password and print to stderr").Hidden().BoolVar(&c.randomServerControlPassword)
-	cmd.Flag("server-control-username", "Server control username").Default(defaultServerControlUsername).Envar(svc.EnvName("KOPIA_SERVER_CONTROL_USER")).StringVar(&c.serverControlUsername)
+	cmd.Flag("server-control-username", "Server control username").Envar(svc.EnvName("KOPIA_SERVER_CONTROL_USERNAME")).StringVar(&c.serverControlUsername)
 	cmd.Flag("server-control-password", "Server control password").PlaceHolder("PASSWORD").Envar(svc.EnvName("KOPIA_SERVER_CONTROL_PASSWORD")).StringVar(&c.serverControlPassword)
 
 	cmd.Flag("auth-cookie-signing-key", "Force particular auth cookie signing key").Envar(svc.EnvName("KOPIA_AUTH_COOKIE_SIGNING_KEY")).Hidden().StringVar(&c.serverAuthCookieSingingKey)
@@ -134,9 +136,38 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	c.out.setup(svc)
 
 	cmd.Action(svc.baseActionWithContext(c.run))
+
+	c.serverControlUsernameDeprecatedEnvName = svc.EnvName("KOPIA_SERVER_CONTROL_USER")
 }
 
-func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Options, error) {
+func (c *commandServerStart) mergeDeprecatedFlags(app *App) error {
+	serverControlUsernameDeprecated := os.Getenv(c.serverControlUsernameDeprecatedEnvName)
+
+	username, err := app.mergeDeprecatedFlags(serverControlUsernameDeprecated, c.serverControlUsername, "server control username env var", c.serverControlUsernameDeprecatedEnvName, "--server-control-username", "KOPIA_SERVER_CONTROL_USERNAME")
+	if err != nil {
+		return err
+	}
+
+	if username == "" {
+		username = defaultServerControlUsername
+	}
+
+	c.serverControlUsername = username
+
+	return nil
+}
+
+func (c *commandServerStart) serverStartOptions(ctx context.Context, app *App) (*server.Options, error) {
+	err := c.sf.mergeDeprecatedFlags(app)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.mergeDeprecatedFlags(app)
+	if err != nil {
+		return nil, err
+	}
+
 	authn, err := c.getAuthenticator(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize authentication")
@@ -190,7 +221,12 @@ func (c *commandServerStart) initRepositoryPossiblyAsync(ctx context.Context, sr
 }
 
 func (c *commandServerStart) run(ctx context.Context) (reterr error) {
-	opts, err := c.serverStartOptions(ctx)
+	app, ok := c.svc.(*App)
+	if !ok {
+		return errors.New("commandServerStart requires svc is App")
+	}
+
+	opts, err := c.serverStartOptions(ctx, app)
 	if err != nil {
 		return err
 	}
