@@ -6,7 +6,7 @@
 #
 # you will need to have git and golang too in the PATH.
 
-.PHONY: all-tools install-linter install-gotestsum
+.PHONY: all-tools install-checklocks install-gotestsum install-linter
 
 # windows,linux,darwin
 GOOS:=$(shell go env GOOS)
@@ -168,6 +168,8 @@ $(checklocks):
 	go install gvisor.dev/gvisor/tools/checklocks/cmd/checklocks@$(CHECKLOCKS_VERSION)
 	go clean -modcache
 
+install-checklocks: $(checklocks)
+
 # cli2md
 cli2mdbin=$(TOOLS_DIR)$(slash)cli2md-current$(exe_suffix)
 
@@ -322,4 +324,4 @@ regenerate-checksums:
 	  --output-dir /tmp/all-tools \
 	  --tool $(ALL_TOOL_VERSIONS)
 
-all-tools: install-gotestsum $(npm) install-linter $(maybehugo)
+all-tools: install-gotestsum install-linter $(maybehugo) $(npm)
