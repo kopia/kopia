@@ -24,11 +24,12 @@ func (c *refCountedCloser) Close(ctx context.Context) error {
 		return nil
 	}
 
-	if c.closed.Load() {
+	// Set closed flag first before checking if already closed
+	// This ensures addRef() racing with us will see the closed flag
+	if !c.closed.CompareAndSwap(false, true) {
+		// Already closed by another goroutine
 		panic("already closed")
 	}
-
-	c.closed.Store(true)
 
 	var errors []error
 
@@ -40,11 +41,21 @@ func (c *refCountedCloser) Close(ctx context.Context) error {
 }
 
 func (c *refCountedCloser) addRef() {
+	// Increment refcount first
+	newCount := c.refCount.Add(1)
+
+	// Then check if closed - this prevents the race where Close() sets closed=true
+	// after we check but before we increment
 	if c.closed.Load() {
+		// We were already closed, decrement back and panic
+		c.refCount.Add(-1)
 		panic("already closed")
 	}
 
-	c.refCount.Add(1)
+	// Additional safety: if the count went negative, something is very wrong
+	if newCount <= 0 {
+		panic("refcount underflow")
+	}
 }
 
 func (c *refCountedCloser) registerEarlyCloseFunc(f closeFunc) {
