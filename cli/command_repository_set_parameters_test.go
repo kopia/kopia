@@ -184,7 +184,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	require.Contains(t, out, "Format version:      3")
 	require.Contains(t, out, "Epoch cleanup margin:    23h0m0s")
 	require.Contains(t, out, "Epoch advance on:        22 blobs or 80.7 MB, minimum 3h0m0s")
-	require.Contains(t, out, "Epoch checkpoint every:  9 epochs")
+	require.Contains(t, out, "Epoch range-compaction every: 9 epochs")
 
 	env.RunAndExpectSuccess(t, "index", "epoch", "list")
 }
