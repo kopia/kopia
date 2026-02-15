@@ -9,7 +9,7 @@ import (
 
 const cleanupLogsStatsKind = "cleanupLogsStats"
 
-// CleanupLogsStats are the stats for cleanning up logs.
+// CleanupLogsStats are the stats for cleaning up logs.
 type CleanupLogsStats struct {
 	ToDeleteBlobCount int   `json:"toDeleteBlobCount"`
 	ToDeleteBlobSize  int64 `json:"toDeleteBlobSize"`
