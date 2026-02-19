@@ -93,17 +93,15 @@ func TestFileStorageTouch(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	path := testutil.TempDirectory(t)
-
 	r, err := New(ctx, &Options{
-		Path: path,
+		Path: testutil.TempDirectory(t),
 	}, true)
 
-	if r == nil || err != nil {
-		t.Errorf("unexpected result: %v %v", r, err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, r)
 
 	fs := testutil.EnsureType[*fsStorage](t, r)
+
 	require.NoError(t, fs.PutBlob(ctx, t1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 	require.NoError(t, fs.PutBlob(ctx, t2, gather.FromSlice([]byte{1}), blob.PutOptions{}))
