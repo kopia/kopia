@@ -166,7 +166,9 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 		return errors.Wrap(blob.ErrUnsupportedPutBlobOption, "do-not-recreate")
 	}
 
-	return retry.WithExponentialBackoffNoValue(ctx, "PutBlobInPath:"+path, func() error {
+	const maxAttempts = 2
+
+	_, err := retry.WithExponentialBackoffMaxRetries(ctx, maxAttempts, "PutBlobInPath:"+path, retry.NoValueFn(func() error {
 		tempFile, err := fs.createTempFileWithData(path, data)
 		if err != nil {
 			return err
@@ -204,7 +206,9 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 		}
 
 		return nil
-	}, fs.isRetriable)
+	}), fs.isRetriable)
+
+	return err
 }
 
 // createTempFileWithData creates a temporary file, writes data to it, syncs and closes it.
