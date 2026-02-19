@@ -135,12 +135,10 @@ func TestFileStorageConcurrency(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
-	path := testutil.TempDirectory(t)
-
 	ctx := testlogging.Context(t)
 
 	st, err := New(ctx, &Options{
-		Path: path,
+		Path: testutil.TempDirectory(t),
 	}, true)
 	require.NoError(t, err)
 
@@ -181,15 +179,12 @@ func TestFileStorage_GetBlob_RetriesOnReadError(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 
 	osi.readFileRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
@@ -212,11 +207,10 @@ func TestFileStorage_GetMetadata_RetriesOnError(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-	dataDir := testutil.TempDirectory(t)
 	osi := newMockOS()
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
@@ -308,13 +302,11 @@ func TestFileStorage_DeleteBlob_ErrorHandling(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 	osi.removeRemainingNonRetriableErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
