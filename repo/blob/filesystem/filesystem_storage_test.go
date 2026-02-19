@@ -249,52 +249,60 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	dataDir := testutil.TempDirectory(t)
-
-	osi := newMockOS()
-
-	osi.createNewFileRemainingErrors.Store(3)
-	osi.mkdirAllRemainingErrors.Store(2)
-	osi.writeFileRemainingErrors.Store(3)
-	osi.writeFileCloseRemainingErrors.Store(2)
-	osi.renameRemainingErrors.Store(1)
-	osi.removeRemainingRetriableErrors.Store(3)
-	osi.chownRemainingErrors.Store(3)
-	osi.chtimesRemainingErrors.Store(3)
+	errorCases := []func(*mockOS){
+		func(osi *mockOS) { osi.createNewFileRemainingErrors.Store(1) },
+		func(osi *mockOS) { osi.mkdirRemainingErrors.Store(1) },
+		func(osi *mockOS) { osi.writeFileRemainingErrors.Store(1) },
+		func(osi *mockOS) { osi.writeFileCloseRemainingErrors.Store(1) },
+		func(osi *mockOS) { osi.renameRemainingErrors.Store(1) },
+		func(osi *mockOS) { osi.chownRemainingErrors.Store(2) }, // these are ignored
+		func(osi *mockOS) { osi.chtimesRemainingErrors.Store(1) },
+	}
 
 	fileUID := 3
 	fileGID := 4
 
-	st, err := New(ctx, &Options{
-		Path:    dataDir,
-		FileUID: &fileUID,
-		FileGID: &fileGID,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
-		osInterfaceOverride: osi,
-	}, true)
-	require.NoError(t, err)
+	for _, ec := range errorCases {
+		t.Run("", func(t *testing.T) {
+			osi := newMockOS()
 
-	defer st.Close(ctx)
+			st, err := New(ctx, &Options{
+				Path:    testutil.TempDirectory(t),
+				FileUID: &fileUID,
+				FileGID: &fileGID,
+				Options: sharded.Options{
+					DirectoryShards: []int{5, 2},
+				},
+				osInterfaceOverride: osi,
+			}, true)
+			require.NoError(t, err)
 
-	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+			defer st.Close(ctx)
 
-	var buf gather.WriteBuffer
-	defer buf.Close()
+			// create dummy blob to force creating .shards file, so it does not interfere with error injection
+			require.NoError(t, st.PutBlob(ctx, "dummy", gather.FromSlice([]byte{0}), blob.PutOptions{}))
 
-	require.NoError(t, st.GetBlob(ctx, "someblob1234567812345678", 1, 2, &buf))
-	require.Equal(t, []byte{2, 3}, buf.ToByteSlice())
+			ec(osi) // inject error
 
-	var mt time.Time
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
-	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
-		GetModTime: &mt,
-	}))
+			var buf gather.WriteBuffer
+			defer buf.Close()
 
-	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
-		SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
-	}))
+			require.NoError(t, st.GetBlob(ctx, "someblob1234567812345678", 1, 2, &buf))
+			require.Equal(t, []byte{2, 3}, buf.ToByteSlice())
+
+			var mt time.Time
+
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				GetModTime: &mt,
+			}))
+
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
+			}))
+		})
+	}
 }
 
 func TestFileStorage_DeleteBlob_ErrorHandling(t *testing.T) {
