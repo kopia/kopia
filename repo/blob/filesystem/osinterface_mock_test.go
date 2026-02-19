@@ -181,7 +181,12 @@ type writeCloseFailureFile struct {
 }
 
 func (f writeCloseFailureFile) Close() error {
-	return &os.PathError{Op: "close", Err: errors.New("underlying problem")}
+	// close the file to avoid leaking handles
+	if err := f.osWriteFile.Close(); err != nil {
+		return errors.Wrap(err, "underlying close error")
+	}
+
+	return &os.PathError{Op: "close", Err: errors.New("injected close error")}
 }
 
 type mockDirEntryInfoError struct {

@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -634,12 +633,7 @@ func TestFileStorage_CreateTempFileWithData_CloseError(t *testing.T) {
 	require.Error(t, err)
 	require.ErrorContains(t, err, "can't close temporary file")
 	require.Empty(t, tempFile)
-
-	// Skip this check on Windows because the file cannot be removed because it
-	// is still open, since there was an error closing it.
-	if runtime.GOOS != "windows" {
-		verifyEmptyDir(t, filepath.Join(dataDir, "someb", "lo"))
-	}
+	verifyEmptyDir(t, filepath.Join(dataDir, "someb", "lo"))
 }
 
 func verifyEmptyDir(t *testing.T, dir string) {
