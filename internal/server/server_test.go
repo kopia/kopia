@@ -78,7 +78,7 @@ func TestGRPCServerKeepaliveEnforcement(t *testing.T) {
 	}, servertesting.TestPassword, &repo.Options{})
 	require.NoError(t, err)
 
-	defer rep.Close(ctx)
+	defer func() { require.NoError(t, rep.Close(ctx)) }()
 
 	// Perform operations to verify the connection remains functional
 	// with keepalive enabled on both client and server.
@@ -99,7 +99,7 @@ func TestGRPCSessionInnerSessionHasCancelFunc(t *testing.T) {
 	}, servertesting.TestPassword, &repo.Options{})
 	require.NoError(t, err)
 
-	defer rep.Close(ctx)
+	defer func() { require.NoError(t, rep.Close(ctx)) }()
 
 	// Verify the connection is functional, which confirms the session
 	// was established with a cancel function (new behavior).
