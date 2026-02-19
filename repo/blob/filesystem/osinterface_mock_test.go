@@ -54,7 +54,7 @@ func (osi *mockOS) Open(fname string) (osReadFile, error) {
 
 func (osi *mockOS) Rename(oldname, newname string) error {
 	if osi.renameRemainingErrors.Add(-1) >= 0 {
-		return &os.LinkError{Op: "rename", Old: oldname, New: newname, Err: errors.New("underlying problem")}
+		return &os.LinkError{Op: "rename", Old: oldname, New: newname, Err: errors.New("injected rename error")}
 	}
 
 	return osi.osInterface.Rename(oldname, newname)
@@ -64,7 +64,7 @@ func (osi *mockOS) IsPathSeparator(c byte) bool { return os.IsPathSeparator(c) }
 
 func (osi *mockOS) ReadDir(dirname string) ([]fs.DirEntry, error) {
 	if osi.readDirRemainingErrors.Add(-1) >= 0 {
-		return nil, &os.PathError{Op: "readdir", Err: errors.New("underlying problem")}
+		return nil, &os.PathError{Op: "readdir", Err: errors.New("injected readdir error")}
 	}
 
 	if osi.readDirRemainingNonRetriableErrors.Add(-1) >= 0 {
@@ -89,7 +89,7 @@ func (osi *mockOS) ReadDir(dirname string) ([]fs.DirEntry, error) {
 
 func (osi *mockOS) Remove(fname string) error {
 	if osi.removeRemainingRetriableErrors.Add(-1) >= 0 {
-		return &os.PathError{Op: "unlink", Err: errors.New("underlying problem")}
+		return &os.PathError{Op: "unlink", Err: errors.New("injected remove error")}
 	}
 
 	if osi.removeRemainingNonRetriableErrors.Add(-1) >= 0 {
@@ -101,7 +101,7 @@ func (osi *mockOS) Remove(fname string) error {
 
 func (osi *mockOS) Chtimes(fname string, atime, mtime time.Time) error {
 	if osi.chtimesRemainingErrors.Add(-1) >= 0 {
-		return &os.PathError{Op: "chtimes", Err: errors.New("underlying problem")}
+		return &os.PathError{Op: "chtimes", Err: errors.New("injected chtimes error")}
 	}
 
 	return osi.osInterface.Chtimes(fname, atime, mtime)
@@ -109,7 +109,7 @@ func (osi *mockOS) Chtimes(fname string, atime, mtime time.Time) error {
 
 func (osi *mockOS) Chown(fname string, uid, gid int) error {
 	if osi.chownRemainingErrors.Add(-1) >= 0 {
-		return &os.PathError{Op: "chown", Err: errors.New("underlying problem")}
+		return &os.PathError{Op: "chown", Err: errors.New("injected chown error")}
 	}
 
 	return osi.osInterface.Chown(fname, uid, gid)
@@ -117,7 +117,7 @@ func (osi *mockOS) Chown(fname string, uid, gid int) error {
 
 func (osi *mockOS) CreateNewFile(fname string, perm os.FileMode) (osWriteFile, error) {
 	if osi.createNewFileRemainingErrors.Add(-1) >= 0 {
-		return nil, &os.PathError{Op: "create", Err: errors.New("underlying problem")}
+		return nil, &os.PathError{Op: "create", Err: errors.New("injected error on CreateNewFile")}
 	}
 
 	wf, err := osi.osInterface.CreateNewFile(fname, perm)
@@ -142,7 +142,7 @@ func (osi *mockOS) CreateNewFile(fname string, perm os.FileMode) (osWriteFile, e
 
 func (osi *mockOS) Mkdir(fname string, mode os.FileMode) error {
 	if osi.mkdirAllRemainingErrors.Add(-1) >= 0 {
-		return &os.PathError{Op: "mkdir", Err: errors.New("underlying problem")}
+		return &os.PathError{Op: "mkdir", Err: errors.New("injected mkdir error")}
 	}
 
 	return osi.osInterface.Mkdir(fname, mode)
@@ -157,7 +157,7 @@ type readFailureFile struct {
 }
 
 func (f readFailureFile) Read(b []byte) (int, error) {
-	return 0, &os.PathError{Op: "read", Err: errors.New("underlying problem")}
+	return 0, &os.PathError{Op: "read", Err: errors.New("injected read error")}
 }
 
 type writeFailureFile struct {
@@ -165,7 +165,7 @@ type writeFailureFile struct {
 }
 
 func (f writeFailureFile) Write(b []byte) (int, error) {
-	return 0, &os.PathError{Op: "write", Err: errors.New("underlying problem")}
+	return 0, &os.PathError{Op: "write", Err: errors.New("injected write error")}
 }
 
 type syncFailureFile struct {
@@ -173,7 +173,7 @@ type syncFailureFile struct {
 }
 
 func (f syncFailureFile) Sync() error {
-	return &os.PathError{Op: "fsync", Err: errors.New("sync failure")}
+	return &os.PathError{Op: "fsync", Err: errors.New("injected sync error")}
 }
 
 type writeCloseFailureFile struct {
