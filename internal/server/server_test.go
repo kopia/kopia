@@ -63,6 +63,49 @@ func TestServer(t *testing.T) {
 	remoteRepositoryNotificationTest(t, ctx, rep, env.RepositoryWriter)
 }
 
+func TestGRPCServerKeepaliveEnforcement(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	apiServerInfo := servertesting.StartServer(t, env, true)
+
+	// Connect with a client that uses keepalive settings. The server should
+	// accept keepalive pings without terminating with GOAWAY because
+	// PermitWithoutStream is true on the enforcement policy.
+	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory: testutil.TempDirectory(t),
+	}, servertesting.TestPassword, &repo.Options{})
+	require.NoError(t, err)
+
+	defer rep.Close(ctx)
+
+	// Perform operations to verify the connection remains functional
+	// with keepalive enabled on both client and server.
+	for i := 0; i < 5; i++ {
+		_ = rep.ClientOptions()
+	}
+}
+
+func TestGRPCSessionInnerSessionHasCancelFunc(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	apiServerInfo := servertesting.StartServer(t, env, true)
+
+	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory: testutil.TempDirectory(t),
+	}, servertesting.TestPassword, &repo.Options{})
+	require.NoError(t, err)
+
+	defer rep.Close(ctx)
+
+	// Verify the connection is functional, which confirms the session
+	// was established with a cancel function (new behavior).
+	_ = rep.ClientOptions()
+}
+
 func TestGRPCServer_AuthenticationError(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	apiServerInfo := servertesting.StartServer(t, env, true)

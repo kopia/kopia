@@ -1,10 +1,36 @@
 package repo
 
 import (
+	"context"
+	"io"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
+
+	apipb "github.com/kopia/kopia/internal/grpcapi"
 )
+
+// mockSessionClient implements apipb.KopiaRepository_SessionClient for testing.
+type mockSessionClient struct {
+	grpc.ClientStream
+	ctx context.Context
+}
+
+func (m *mockSessionClient) Send(*apipb.SessionRequest) error { return nil }
+func (m *mockSessionClient) Recv() (*apipb.SessionResponse, error) {
+	<-m.ctx.Done()
+	return nil, io.EOF
+}
+func (m *mockSessionClient) CloseSend() error             { return nil }
+func (m *mockSessionClient) Header() (metadata.MD, error) { return nil, nil }
+func (m *mockSessionClient) Trailer() metadata.MD         { return nil }
+func (m *mockSessionClient) Context() context.Context     { return m.ctx }
+func (m *mockSessionClient) SendMsg(interface{}) error    { return nil }
+func (m *mockSessionClient) RecvMsg(interface{}) error    { return nil }
 
 func TestBaseURLToURI(t *testing.T) {
 	for _, tc := range []struct {
@@ -61,4 +87,117 @@ func TestBaseURLToURI(t *testing.T) {
 			require.Equal(t, tc.expURI, gotURI)
 		})
 	}
+}
+
+func TestKillInnerSessionCancelsContext(t *testing.T) {
+	sessCtx, sessCancel := context.WithCancel(context.Background())
+
+	mock := &mockSessionClient{ctx: sessCtx}
+
+	sess := &grpcInnerSession{
+		cancelFunc:     sessCancel,
+		cli:            mock,
+		activeRequests: make(map[int64]chan *apipb.SessionResponse),
+	}
+
+	// Verify the session context is not cancelled yet.
+	require.NoError(t, sessCtx.Err())
+
+	client := &grpcRepositoryClient{
+		innerSession: sess,
+	}
+
+	// Set up a goroutine that simulates readLoop blocking on the context.
+	readLoopDone := make(chan struct{})
+
+	sess.wg.Add(1)
+
+	go func() {
+		defer sess.wg.Done()
+		<-sessCtx.Done()
+		close(readLoopDone)
+	}()
+
+	// Kill the inner session - this should cancel the context.
+	client.killInnerSession()
+
+	// The readLoop goroutine should have terminated promptly.
+	select {
+	case <-readLoopDone:
+		// Success - readLoop terminated.
+	case <-time.After(5 * time.Second):
+		t.Fatal("readLoop goroutine did not terminate after killInnerSession")
+	}
+
+	// The session context should be cancelled.
+	require.ErrorIs(t, sessCtx.Err(), context.Canceled)
+
+	// innerSession should be nil after kill.
+	require.Nil(t, client.innerSession)
+}
+
+func TestKillInnerSessionNilCancelFunc(t *testing.T) {
+	ctx := context.Background()
+
+	mock := &mockSessionClient{ctx: ctx}
+
+	sess := &grpcInnerSession{
+		cancelFunc:     nil,
+		cli:            mock,
+		activeRequests: make(map[int64]chan *apipb.SessionResponse),
+	}
+
+	sess.wg.Add(1)
+
+	go func() {
+		defer sess.wg.Done()
+	}()
+
+	client := &grpcRepositoryClient{
+		innerSession: sess,
+	}
+
+	// Should not panic when cancelFunc is nil.
+	require.NotPanics(t, func() {
+		client.killInnerSession()
+	})
+}
+
+func TestKillInnerSessionConcurrency(t *testing.T) {
+	// Verify that concurrent calls to killInnerSession don't race.
+	sessCtx, sessCancel := context.WithCancel(context.Background())
+
+	mock := &mockSessionClient{ctx: sessCtx}
+
+	sess := &grpcInnerSession{
+		cancelFunc:     sessCancel,
+		cli:            mock,
+		activeRequests: make(map[int64]chan *apipb.SessionResponse),
+	}
+
+	sess.wg.Add(1)
+
+	go func() {
+		defer sess.wg.Done()
+		<-sessCtx.Done()
+	}()
+
+	client := &grpcRepositoryClient{
+		innerSession: sess,
+	}
+
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			client.killInnerSession()
+		}()
+	}
+
+	wg.Wait()
+
+	require.Nil(t, client.innerSession)
 }

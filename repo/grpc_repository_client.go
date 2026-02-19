@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -101,6 +102,7 @@ type grpcInnerSession struct {
 
 	cli        apipb.KopiaRepository_SessionClient
 	repoParams *apipb.RepositoryParameters
+	cancelFunc context.CancelFunc
 
 	wg sync.WaitGroup
 }
@@ -875,6 +877,11 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 			grpc.MaxCallRecvMsgSize(MaxGRPCMessageSize),
 			grpc.MaxCallSendMsgSize(MaxGRPCMessageSize),
 		),
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                30 * time.Second,
+			Timeout:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "gRPC client creation error")
@@ -930,8 +937,20 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 		r.innerSessionAttemptCount++
 
 		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
-			sess, err := cli.Session(context.WithoutCancel(ctx))
+			sessCtx, sessCancel := context.WithCancel(context.WithoutCancel(ctx))
+
+			establishCtx, establishCancel := context.WithTimeout(ctx, 30*time.Second)
+			defer establishCancel()
+
+			sess, err := cli.Session(sessCtx)
 			if err != nil {
+				sessCancel()
+
+				// if the establish timeout fired, wrap with a clearer message
+				if establishCtx.Err() != nil {
+					return nil, errors.Wrap(err, "session establishment timed out")
+				}
+
 				return nil, errors.Wrap(err, "Session()")
 			}
 
@@ -939,14 +958,16 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 				cli:            sess,
 				activeRequests: make(map[int64]chan *apipb.SessionResponse),
 				nextRequestID:  1,
+				cancelFunc:     sessCancel,
 			}
 
 			newSess.wg.Add(1)
 
 			go newSess.readLoop(ctx)
 
-			newSess.repoParams, err = newSess.initializeSession(ctx, r.opt.Purpose, r.isReadOnly)
+			newSess.repoParams, err = newSess.initializeSession(establishCtx, r.opt.Purpose, r.isReadOnly)
 			if err != nil {
+				sessCancel()
 				return nil, errors.Wrap(err, "unable to initialize session")
 			}
 
@@ -967,6 +988,10 @@ func (r *grpcRepositoryClient) killInnerSession() {
 	defer r.innerSessionMutex.Unlock()
 
 	if r.innerSession != nil {
+		if r.innerSession.cancelFunc != nil {
+			r.innerSession.cancelFunc()
+		}
+
 		r.innerSession.cli.CloseSend() //nolint:errcheck
 		r.innerSession.wg.Wait()
 		r.innerSession = nil
