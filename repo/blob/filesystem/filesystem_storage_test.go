@@ -214,18 +214,15 @@ func TestFileStorage_GetMetadata_RetriesOnError(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
 	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
-
-	osi.statRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
 		Path: dataDir,
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
+		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
 
@@ -233,7 +230,7 @@ func TestFileStorage_GetMetadata_RetriesOnError(t *testing.T) {
 
 	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
-	asFsImpl(t, st).osi = osi
+	osi.statRemainingErrors.Store(1)
 
 	_, err = st.GetMetadata(ctx, "someblob1234567812345678")
 	require.NoError(t, err)
@@ -275,10 +272,9 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
+		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
-
-	asFsImpl(t, st).osi = osi
 
 	defer st.Close(ctx)
 
@@ -316,10 +312,9 @@ func TestFileStorage_DeleteBlob_ErrorHandling(t *testing.T) {
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
+		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
-
-	asFsImpl(t, st).osi = osi
 
 	defer st.Close(ctx)
 
@@ -330,14 +325,11 @@ func TestFileStorage_New_MkdirAllFailureIsIgnored(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 	osi.mkdirAllRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
@@ -352,15 +344,12 @@ func TestFileStorage_New_ChecksDirectoryExistence(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 
 	osi.statRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
@@ -374,23 +363,19 @@ func TestFileStorage_ListBlobs_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 
 	osi.readDirRemainingErrors.Store(3)
 	osi.readDirRemainingFileDeletedDirEntry.Store(3)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
+		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
-
-	asFsImpl(t, st).osi = osi
 
 	defer st.Close(ctx)
 
@@ -415,20 +400,16 @@ func TestFileStorage_TouchBlob_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
+		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
-
-	asFsImpl(t, st).osi = osi
 
 	defer st.Close(ctx)
 
