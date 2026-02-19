@@ -20,6 +20,7 @@ type mockOS struct {
 	writeFileCloseRemainingErrors       atomic.Int32
 	writeFileSyncRemainingErrors        atomic.Int32
 	createNewFileRemainingErrors        atomic.Int32
+	mkdirRemainingErrors                atomic.Int32
 	mkdirAllRemainingErrors             atomic.Int32
 	renameRemainingErrors               atomic.Int32
 	removeRemainingRetriableErrors      atomic.Int32
@@ -141,11 +142,19 @@ func (osi *mockOS) CreateNewFile(fname string, perm os.FileMode) (osWriteFile, e
 }
 
 func (osi *mockOS) Mkdir(fname string, mode os.FileMode) error {
-	if osi.mkdirAllRemainingErrors.Add(-1) >= 0 {
+	if osi.mkdirRemainingErrors.Add(-1) >= 0 {
 		return &os.PathError{Op: "mkdir", Err: errors.New("injected mkdir error")}
 	}
 
 	return osi.osInterface.Mkdir(fname, mode)
+}
+
+func (osi *mockOS) MkdirAll(fname string, mode os.FileMode) error {
+	if osi.mkdirAllRemainingErrors.Add(-1) >= 0 {
+		return &os.PathError{Op: "mkdirall", Err: errors.New("injected mkdirall error")}
+	}
+
+	return osi.osInterface.MkdirAll(fname, mode)
 }
 
 func (osi *mockOS) Geteuid() int {
