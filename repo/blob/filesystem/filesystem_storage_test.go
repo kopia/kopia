@@ -648,15 +648,5 @@ func verifyEmptyDir(t *testing.T, dir string) {
 	entries, err := os.ReadDir(dir)
 
 	require.NoError(t, err)
-
-	var blobCount uint
-
-	for _, e := range entries {
-		blobCount++
-
-		t.Log("found file:", e.Name())
-		t.Fail()
-	}
-
-	require.Zero(t, blobCount)
+	require.Empty(t, entries)
 }
