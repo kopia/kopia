@@ -104,32 +104,32 @@ func TestFileStorageTouch(t *testing.T) {
 	}
 
 	fs := testutil.EnsureType[*fsStorage](t, r)
-	assertNoError(t, fs.PutBlob(ctx, t1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	require.NoError(t, fs.PutBlob(ctx, t1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
-	assertNoError(t, fs.PutBlob(ctx, t2, gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	require.NoError(t, fs.PutBlob(ctx, t2, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second)
-	assertNoError(t, fs.PutBlob(ctx, t3, gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	require.NoError(t, fs.PutBlob(ctx, t3, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	verifyBlobTimestampOrder(t, fs, t1, t2, t3)
 
 	_, err = fs.TouchBlob(ctx, t2, 1*time.Hour)
-	assertNoError(t, err) // has no effect, all timestamps are very new
+	require.NoError(t, err) // has no effect, all timestamps are very new
 	verifyBlobTimestampOrder(t, fs, t1, t2, t3)
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	_, err = fs.TouchBlob(ctx, t1, 0)
-	assertNoError(t, err) // moves t1 to the top of the pile
+	require.NoError(t, err) // moves t1 to the top of the pile
 	verifyBlobTimestampOrder(t, fs, t2, t3, t1)
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	_, err = fs.TouchBlob(ctx, t2, 0)
-	assertNoError(t, err) // moves t2 to the top of the pile
+	require.NoError(t, err) // moves t2 to the top of the pile
 	verifyBlobTimestampOrder(t, fs, t3, t1, t2)
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	_, err = fs.TouchBlob(ctx, t1, 0)
-	assertNoError(t, err) // moves t1 to the top of the pile
+	require.NoError(t, err) // moves t1 to the top of the pile
 	verifyBlobTimestampOrder(t, fs, t3, t2, t1)
 }
 
@@ -462,14 +462,6 @@ func verifyBlobTimestampOrder(t *testing.T, st blob.Storage, want ...blob.ID) {
 
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("incorrect blob order: %v, wanted %v", blobs, want)
-	}
-}
-
-func assertNoError(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Errorf("err: %v", err)
 	}
 }
 
