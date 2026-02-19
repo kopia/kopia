@@ -2,8 +2,10 @@ package filesystem
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -495,4 +497,156 @@ func newMockOS() *mockOS {
 	return &mockOS{
 		osInterface: realOS{},
 	}
+}
+
+func TestFileStorage_CreateTempFileWithData_Success(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	dataDir := testutil.TempDirectory(t)
+
+	st, err := New(ctx, &Options{
+		Path: dataDir,
+		Options: sharded.Options{
+			DirectoryShards: []int{5, 2},
+		},
+	}, true)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, st.Close(ctx))
+	})
+
+	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
+	testPath := filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f")
+	tempFile, err := asFsImpl(t, st).createTempFileWithData(testPath, data)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, tempFile)
+
+	t.Cleanup(func() {
+		require.NoError(t, os.Remove(tempFile))
+	})
+
+	require.Contains(t, tempFile, ".tmp.")
+
+	// Verify temp file exists and has correct content
+	content, err := os.ReadFile(tempFile)
+	require.NoError(t, err)
+	require.Equal(t, []byte{1, 2, 3, 4, 5}, content)
+}
+
+func TestFileStorage_CreateTempFileWithData_WriteError(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	dataDir := testutil.TempDirectory(t)
+
+	osi := newMockOS()
+	osi.writeFileRemainingErrors.Store(1)
+
+	st, err := New(ctx, &Options{
+		Path: dataDir,
+		Options: sharded.Options{
+			DirectoryShards: []int{5, 2},
+		},
+		osInterfaceOverride: osi,
+	}, true)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, st.Close(ctx))
+	})
+
+	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
+	testPath := filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f")
+	tempFile, err := asFsImpl(t, st).createTempFileWithData(testPath, data)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "can't write temporary file")
+	require.Empty(t, tempFile)
+
+	// Verify temp file was removed (doesn't exist). There should be no other
+	// blobs with the same prefix, so listing blobs should return 0 entries.
+	verifyEmptyDir(t, filepath.Join(dataDir, "someb", "lo"))
+}
+
+func TestFileStorage_CreateTempFileWithData_SyncError(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	dataDir := testutil.TempDirectory(t)
+
+	osi := newMockOS()
+	osi.writeFileSyncRemainingErrors.Store(1)
+
+	st, err := New(ctx, &Options{
+		Path: dataDir,
+		Options: sharded.Options{
+			DirectoryShards: []int{5, 2},
+		},
+		osInterfaceOverride: osi,
+	}, true)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, st.Close(ctx))
+	})
+
+	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
+	testPath := filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f")
+	tempFile, err := asFsImpl(t, st).createTempFileWithData(testPath, data)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "can't sync temporary file data")
+	require.Empty(t, tempFile)
+
+	verifyEmptyDir(t, filepath.Join(dataDir, "someb", "lo"))
+}
+
+func TestFileStorage_CreateTempFileWithData_CloseError(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	dataDir := testutil.TempDirectory(t)
+
+	osi := newMockOS()
+	osi.writeFileCloseRemainingErrors.Store(1)
+
+	st, err := New(ctx, &Options{
+		Path: dataDir,
+		Options: sharded.Options{
+			DirectoryShards: []int{5, 2},
+		},
+		osInterfaceOverride: osi,
+	}, true)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, st.Close(ctx))
+	})
+
+	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
+	testPath := filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f")
+	tempFile, err := asFsImpl(t, st).createTempFileWithData(testPath, data)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "can't close temporary file")
+	require.Empty(t, tempFile)
+
+	// Skip this check on Windows because the file cannot be removed because it
+	// is still open, since there was an error closing it.
+	if runtime.GOOS != "windows" {
+		verifyEmptyDir(t, filepath.Join(dataDir, "someb", "lo"))
+	}
+}
+
+func verifyEmptyDir(t *testing.T, dir string) {
+	t.Helper()
+
+	entries, err := os.ReadDir(dir)
+
+	require.NoError(t, err)
+	require.Empty(t, entries)
 }
