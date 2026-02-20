@@ -241,21 +241,45 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	errorCases := []func(*mockOS){
-		func(osi *mockOS) { osi.createNewFileRemainingErrors.Store(1) },
-		func(osi *mockOS) { osi.mkdirRemainingErrors.Store(1) },
-		func(osi *mockOS) { osi.writeFileRemainingErrors.Store(1) },
-		func(osi *mockOS) { osi.writeFileCloseRemainingErrors.Store(1) },
-		func(osi *mockOS) { osi.renameRemainingErrors.Store(1) },
-		func(osi *mockOS) { osi.chownRemainingErrors.Store(2) }, // these are ignored
-		func(osi *mockOS) { osi.chtimesRemainingErrors.Store(1) },
+	cases := []struct {
+		desc        string
+		injectError func(*mockOS)
+	}{
+		{
+			desc:        "CreateNewFile",
+			injectError: func(osi *mockOS) { osi.createNewFileRemainingErrors.Store(1) },
+		},
+		{
+			desc:        "Mkdir",
+			injectError: func(osi *mockOS) { osi.mkdirRemainingErrors.Store(1) },
+		},
+		{
+			desc:        "Write",
+			injectError: func(osi *mockOS) { osi.writeFileRemainingErrors.Store(1) },
+		},
+		{
+			desc:        "Close",
+			injectError: func(osi *mockOS) { osi.writeFileCloseRemainingErrors.Store(1) },
+		},
+		{
+			desc:        "Rename",
+			injectError: func(osi *mockOS) { osi.renameRemainingErrors.Store(1) },
+		},
+		{
+			desc:        "Chown",
+			injectError: func(osi *mockOS) { osi.chownRemainingErrors.Store(2) }, // these are ignored
+		},
+		{
+			desc:        "Chtimes",
+			injectError: func(osi *mockOS) { osi.chtimesRemainingErrors.Store(1) },
+		},
 	}
 
 	fileUID := 3
 	fileGID := 4
 
-	for _, ec := range errorCases {
-		t.Run("", func(t *testing.T) {
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
 			osi := newMockOS()
 
 			st, err := New(ctx, &Options{
@@ -274,7 +298,7 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 			// create dummy blob to force creating .shards file, so it does not interfere with error injection
 			require.NoError(t, st.PutBlob(ctx, "dummy", gather.FromSlice([]byte{0}), blob.PutOptions{}))
 
-			ec(osi) // inject error
+			tc.injectError(osi) // inject error
 
 			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
 				SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC), // exercise chtimes code path
@@ -304,20 +328,46 @@ func TestFileStorage_PutBlob_DoesNotExceedRetriesOnErrors(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	errorCases := []func(*mockOS) bool{
-		func(osi *mockOS) bool { osi.createNewFileRemainingErrors.Store(2); return true },
-		func(osi *mockOS) bool { osi.mkdirRemainingErrors.Store(2); return true },
-		func(osi *mockOS) bool { osi.writeFileRemainingErrors.Store(2); return true },
-		func(osi *mockOS) bool { osi.writeFileCloseRemainingErrors.Store(2); return true },
-		func(osi *mockOS) bool { osi.renameRemainingErrors.Store(2); return true },
-		func(osi *mockOS) bool { osi.chtimesRemainingErrors.Store(2); return false },
+	cases := []struct {
+		desc                 string
+		injectError          func(*mockOS)
+		expectGetBlobSucceed bool
+	}{
+		{
+			desc:        "CreateNewFile",
+			injectError: func(osi *mockOS) { osi.createNewFileRemainingErrors.Store(2) },
+		},
+		{
+			desc:        "Mkdir",
+			injectError: func(osi *mockOS) { osi.mkdirRemainingErrors.Store(2) },
+		},
+
+		{
+			desc:        "Write",
+			injectError: func(osi *mockOS) { osi.writeFileRemainingErrors.Store(2) },
+		},
+
+		{
+			desc:        "Close",
+			injectError: func(osi *mockOS) { osi.writeFileCloseRemainingErrors.Store(2) },
+		},
+
+		{
+			desc:        "Rename",
+			injectError: func(osi *mockOS) { osi.renameRemainingErrors.Store(2) },
+		},
+		{
+			desc:                 "Chtimes",
+			injectError:          func(osi *mockOS) { osi.chtimesRemainingErrors.Store(2) },
+			expectGetBlobSucceed: true,
+		},
 	}
 
 	fileUID := 3
 	fileGID := 4
 
-	for _, ec := range errorCases {
-		t.Run("", func(t *testing.T) {
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
 			osi := newMockOS()
 
 			st, err := New(ctx, &Options{
@@ -336,7 +386,7 @@ func TestFileStorage_PutBlob_DoesNotExceedRetriesOnErrors(t *testing.T) {
 			// create dummy blob to force creating .shards file, so it does not interfere with error injection
 			require.NoError(t, st.PutBlob(ctx, "dummy", gather.FromSlice([]byte{0}), blob.PutOptions{}))
 
-			expectGetBlobError := ec(osi) // inject error
+			tc.injectError(osi)
 
 			require.Error(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
 				SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
@@ -345,11 +395,11 @@ func TestFileStorage_PutBlob_DoesNotExceedRetriesOnErrors(t *testing.T) {
 			var buf gather.WriteBuffer
 			defer buf.Close()
 
-			if err := st.GetBlob(ctx, "someblob1234567812345678", 1, 2, &buf); expectGetBlobError {
+			if err := st.GetBlob(ctx, "someblob1234567812345678", 1, 2, &buf); tc.expectGetBlobSucceed {
+				require.NoError(t, err)
+			} else {
 				require.Error(t, err)
 				require.Zero(t, buf.Length())
-			} else {
-				require.NoError(t, err)
 			}
 
 			var mt time.Time
