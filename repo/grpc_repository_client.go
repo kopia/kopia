@@ -237,24 +237,34 @@ func (r *grpcRepositoryClient) VerifyObject(ctx context.Context, id object.ID) (
 }
 
 func (r *grpcInnerSession) initializeSession(ctx context.Context, purpose string, readOnly bool) (*apipb.RepositoryParameters, error) {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_InitializeSession{
 			InitializeSession: &apipb.InitializeSessionRequest{
 				Purpose:  purpose,
 				ReadOnly: readOnly,
 			},
 		},
-	}) {
-		switch rr := resp.GetResponse().(type) {
-		case *apipb.SessionResponse_InitializeSession:
-			return rr.InitializeSession.GetParameters(), nil
+	})
 
-		default:
-			return nil, unhandledSessionResponse(resp)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx.Err(), "context cancelled waiting for session initialization")
+
+		case resp, ok := <-ch:
+			if !ok {
+				return nil, errNoSessionResponse()
+			}
+
+			switch rr := resp.GetResponse().(type) {
+			case *apipb.SessionResponse_InitializeSession:
+				return rr.InitializeSession.GetParameters(), nil
+
+			default:
+				return nil, unhandledSessionResponse(resp)
+			}
 		}
 	}
-
-	return nil, errNoSessionResponse()
 }
 
 func (r *grpcRepositoryClient) GetManifest(ctx context.Context, id manifest.ID, data any) (*manifest.EntryMetadata, error) {
