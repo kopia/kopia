@@ -299,6 +299,73 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 	}
 }
 
+func TestFileStorage_PutBlob_DoesNotExceedRetriesOnErrors(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	errorCases := []func(*mockOS) bool{
+		func(osi *mockOS) bool { osi.createNewFileRemainingErrors.Store(2); return true },
+		func(osi *mockOS) bool { osi.mkdirRemainingErrors.Store(2); return true },
+		func(osi *mockOS) bool { osi.writeFileRemainingErrors.Store(2); return true },
+		func(osi *mockOS) bool { osi.writeFileCloseRemainingErrors.Store(2); return true },
+		func(osi *mockOS) bool { osi.renameRemainingErrors.Store(2); return true },
+		func(osi *mockOS) bool { osi.chtimesRemainingErrors.Store(2); return false },
+	}
+
+	fileUID := 3
+	fileGID := 4
+
+	for _, ec := range errorCases {
+		t.Run("", func(t *testing.T) {
+			osi := newMockOS()
+
+			st, err := New(ctx, &Options{
+				Path:    testutil.TempDirectory(t),
+				FileUID: &fileUID,
+				FileGID: &fileGID,
+				Options: sharded.Options{
+					DirectoryShards: []int{5, 2},
+				},
+				osInterfaceOverride: osi,
+			}, true)
+			require.NoError(t, err)
+
+			defer st.Close(ctx)
+
+			// create dummy blob to force creating .shards file, so it does not interfere with error injection
+			require.NoError(t, st.PutBlob(ctx, "dummy", gather.FromSlice([]byte{0}), blob.PutOptions{}))
+
+			expectGetBlobError := ec(osi) // inject error
+
+			require.Error(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
+			}))
+
+			var buf gather.WriteBuffer
+			defer buf.Close()
+
+			if err := st.GetBlob(ctx, "someblob1234567812345678", 1, 2, &buf); expectGetBlobError {
+				require.Error(t, err)
+				require.Zero(t, buf.Length())
+			} else {
+				require.NoError(t, err)
+			}
+
+			var mt time.Time
+
+			// these PutBlob calls should succeed since the injected errors are exhausted
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				GetModTime: &mt,
+			}))
+
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
+			}))
+		})
+	}
+}
+
 func TestFileStorage_DeleteBlob_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
