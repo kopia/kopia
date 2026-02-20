@@ -64,6 +64,10 @@ func TestServer(t *testing.T) {
 }
 
 func TestGRPCServerKeepaliveEnforcement(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping keepalive test in short mode (requires 35s idle period)")
+	}
+
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	apiServerInfo := servertesting.StartServer(t, env, true)
 
@@ -80,11 +84,19 @@ func TestGRPCServerKeepaliveEnforcement(t *testing.T) {
 
 	defer func() { require.NoError(t, rep.Close(ctx)) }()
 
-	// Perform operations to verify the connection remains functional
-	// with keepalive enabled on both client and server.
-	for i := 0; i < 5; i++ {
-		_ = rep.ClientOptions()
-	}
+	// Verify the connection works before idling.
+	_ = rep.ClientOptions()
+
+	// Idle for longer than the keepalive interval (30s) to trigger at least one
+	// keepalive ping cycle. Without proper keepalive enforcement on the server,
+	// the client's pings would cause the server to send GOAWAY and drop the
+	// connection.
+	t.Log("idling for 35s to trigger keepalive ping cycle...")
+	time.Sleep(35 * time.Second)
+
+	// After the idle period, the connection should still be alive thanks to
+	// keepalive pings maintaining it.
+	_ = rep.ClientOptions()
 }
 
 func TestGRPCServer_AuthenticationError(t *testing.T) {
