@@ -942,12 +942,52 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 		r.innerSessionAttemptCount++
 
 		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
+			// sessCtx is detached from ctx (via WithoutCancel) so the GRPC stream
+			// outlives the caller's context, but wrapped with WithCancel so
+			// killInnerSession can terminate it.
 			sessCtx, sessCancel := context.WithCancel(context.WithoutCancel(ctx))
 
-			sess, err := cli.Session(sessCtx)
-			if err != nil {
-				sessCancel()
-				return nil, errors.Wrap(err, "Session()")
+			// Ensure sessCancel is always called on any exit path (including
+			// panics) to prevent goroutine leaks. On the success path we set
+			// ownershipTransferred=true so the defer becomes a no-op — the
+			// cancel func is handed off to the grpcInnerSession instead.
+			ownershipTransferred := false
+			defer func() {
+				if !ownershipTransferred {
+					sessCancel()
+				}
+			}()
+
+			// Use a 30s timeout for session establishment to avoid hanging
+			// indefinitely when the server is unreachable. This covers both
+			// the cli.Session() call and the initializeSession handshake.
+			type sessionResult struct {
+				sess apipb.KopiaRepository_SessionClient
+				err  error
+			}
+
+			ch := make(chan sessionResult, 1)
+
+			go func() {
+				s, e := cli.Session(sessCtx)
+				ch <- sessionResult{s, e}
+			}()
+
+			establishTimer := time.NewTimer(30 * time.Second)
+			defer establishTimer.Stop()
+
+			var sess apipb.KopiaRepository_SessionClient
+
+			select {
+			case res := <-ch:
+				if res.err != nil {
+					return nil, errors.Wrap(res.err, "Session()")
+				}
+
+				sess = res.sess
+
+			case <-establishTimer.C:
+				return nil, errors.New("session establishment timed out waiting for Session()")
 			}
 
 			newSess := &grpcInnerSession{
@@ -961,22 +1001,23 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 
 			go newSess.readLoop(sessCtx)
 
-			// Use a 30s timeout for session initialization to avoid hanging
-			// indefinitely when the server is unreachable.
 			establishCtx, establishCancel := context.WithTimeout(ctx, 30*time.Second)
 			defer establishCancel()
 
-			newSess.repoParams, err = newSess.initializeSession(establishCtx, r.opt.Purpose, r.isReadOnly)
-			if err != nil {
-				sessCancel()
+			var initErr error
+
+			newSess.repoParams, initErr = newSess.initializeSession(establishCtx, r.opt.Purpose, r.isReadOnly)
+			if initErr != nil {
 				newSess.wg.Wait()
 
 				if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
-					return nil, errors.Wrap(err, "session establishment timed out")
+					return nil, errors.Wrap(initErr, "session initialization timed out")
 				}
 
-				return nil, errors.Wrap(err, "unable to initialize session")
+				return nil, errors.Wrap(initErr, "unable to initialize session")
 			}
+
+			ownershipTransferred = true
 
 			return newSess, nil
 		}, retryPolicy)
