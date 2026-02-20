@@ -958,9 +958,10 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 				}
 			}()
 
-			// Use a 30s timeout for session establishment to avoid hanging
-			// indefinitely when the server is unreachable. This covers both
-			// the cli.Session() call and the initializeSession handshake.
+			// Use up to 30s per step for session establishment to avoid hanging
+			// indefinitely when the server is unreachable. This applies separately
+			// to the cli.Session() call and the initializeSession handshake, for a
+			// combined worst-case of about 60s.
 			type sessionResult struct {
 				sess apipb.KopiaRepository_SessionClient
 				err  error
