@@ -276,7 +276,9 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 
 			ec(osi) // inject error
 
-			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC), // exercise chtimes code path
+			}))
 
 			var buf gather.WriteBuffer
 			defer buf.Close()
