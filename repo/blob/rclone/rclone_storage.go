@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/foomo/htpasswd"
@@ -310,7 +311,8 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		"serve", "webdav", opt.RemotePath,
 	}, opt.RCloneArgs...)
 
-	if opt.EmbeddedConfig != "" {
+	// Skip embedded config if using on-the-fly remote syntax (starts with ':')
+	if opt.EmbeddedConfig != "" && !strings.HasPrefix(opt.RemotePath, ":") {
 		tmpConfigFile := filepath.Join(r.temporaryDir, "rclone.conf")
 
 		//nolint:mnd
