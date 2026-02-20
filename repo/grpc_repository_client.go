@@ -877,6 +877,11 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 			grpc.MaxCallRecvMsgSize(MaxGRPCMessageSize),
 			grpc.MaxCallSendMsgSize(MaxGRPCMessageSize),
 		),
+		// Keepalive detects dead TCP connections when the server becomes unreachable.
+		// Time is the interval between pings; Timeout is how long to wait for a response.
+		// PermitWithoutStream enables pings even when no active RPCs exist, which is
+		// needed to detect failures during idle periods between backup operations.
+		// See https://github.com/kopia/kopia/issues/3073
 		grpc.WithKeepaliveParams(keepalive.ClientParameters{
 			Time:                30 * time.Second,
 			Timeout:             10 * time.Second,
@@ -939,18 +944,9 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
 			sessCtx, sessCancel := context.WithCancel(context.WithoutCancel(ctx))
 
-			establishCtx, establishCancel := context.WithTimeout(ctx, 30*time.Second)
-			defer establishCancel()
-
 			sess, err := cli.Session(sessCtx)
 			if err != nil {
 				sessCancel()
-
-				// if the establish timeout fired, wrap with a clearer message
-				if establishCtx.Err() != nil {
-					return nil, errors.Wrap(err, "session establishment timed out")
-				}
-
 				return nil, errors.Wrap(err, "Session()")
 			}
 
@@ -963,11 +959,22 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 
 			newSess.wg.Add(1)
 
-			go newSess.readLoop(ctx)
+			go newSess.readLoop(sessCtx)
+
+			// Use a 30s timeout for session initialization to avoid hanging
+			// indefinitely when the server is unreachable.
+			establishCtx, establishCancel := context.WithTimeout(ctx, 30*time.Second)
+			defer establishCancel()
 
 			newSess.repoParams, err = newSess.initializeSession(establishCtx, r.opt.Purpose, r.isReadOnly)
 			if err != nil {
 				sessCancel()
+				newSess.wg.Wait()
+
+				if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
+					return nil, errors.Wrap(err, "session establishment timed out")
+				}
+
 				return nil, errors.Wrap(err, "unable to initialize session")
 			}
 

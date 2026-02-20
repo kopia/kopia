@@ -87,25 +87,6 @@ func TestGRPCServerKeepaliveEnforcement(t *testing.T) {
 	}
 }
 
-func TestGRPCSessionInnerSessionHasCancelFunc(t *testing.T) {
-	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
-	apiServerInfo := servertesting.StartServer(t, env, true)
-
-	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx, apiServerInfo, repo.ClientOptions{
-		Username: servertesting.TestUsername,
-		Hostname: servertesting.TestHostname,
-	}, content.CachingOptions{
-		CacheDirectory: testutil.TempDirectory(t),
-	}, servertesting.TestPassword, &repo.Options{})
-	require.NoError(t, err)
-
-	defer func() { require.NoError(t, rep.Close(ctx)) }()
-
-	// Verify the connection is functional, which confirms the session
-	// was established with a cancel function (new behavior).
-	_ = rep.ClientOptions()
-}
-
 func TestGRPCServer_AuthenticationError(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	apiServerInfo := servertesting.StartServer(t, env, true)

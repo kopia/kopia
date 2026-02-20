@@ -646,6 +646,11 @@ func (s *Server) GRPCRouterHandler(handler http.Handler) http.Handler {
 		s.grpcServer = grpc.NewServer(
 			grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
 			grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
+			// Keepalive enforcement allows clients to send pings at up to 2x the
+			// server's own ping interval (MinTime=15s vs client Time=30s).
+			// PermitWithoutStream allows pings during idle periods so dead
+			// connections are detected even between backup operations.
+			// See https://github.com/kopia/kopia/issues/3073
 			grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
 				MinTime:             15 * time.Second,
 				PermitWithoutStream: true,
