@@ -469,9 +469,9 @@ func (r *grpcInnerSession) ApplyRetentionPolicy(ctx context.Context, sourcePath 
 	return nil, errNoSessionResponse()
 }
 
-func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType apipb.NotificationEventArgType, importance int32) error {
+func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType, importance int32) error {
 	_, err := maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (struct{}, error) {
-		return sess.SendNotification(ctx, templateName, templateDataJSON, templateDataType, importance)
+		return sess.SendNotification(ctx, templateName, templateDataJSON, apipb.NotificationEventArgType(templateDataType), importance)
 	})
 
 	return err
