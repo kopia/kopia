@@ -15,7 +15,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/keepalive"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -101,6 +103,7 @@ type grpcInnerSession struct {
 
 	cli        apipb.KopiaRepository_SessionClient
 	repoParams *apipb.RepositoryParameters
+	cancelFunc context.CancelFunc
 
 	wg sync.WaitGroup
 }
@@ -207,6 +210,24 @@ func (r *grpcInnerSession) sendStreamBrokenAndClose(ch chan *apipb.SessionRespon
 	}
 }
 
+func (r *grpcInnerSession) shutdown() {
+	if r == nil {
+		return
+	}
+
+	if r.cancelFunc != nil {
+		r.cancelFunc()
+	}
+
+	if r.cli != nil {
+		if err := r.cli.CloseSend(); err != nil && !errors.Is(err, io.EOF) {
+			_ = err // best-effort close during teardown; stream may already be closed.
+		}
+	}
+
+	r.wg.Wait()
+}
+
 // Description returns description associated with a repository client.
 func (r *grpcRepositoryClient) Description() string {
 	if r.cliOpts.Description != "" {
@@ -235,24 +256,34 @@ func (r *grpcRepositoryClient) VerifyObject(ctx context.Context, id object.ID) (
 }
 
 func (r *grpcInnerSession) initializeSession(ctx context.Context, purpose string, readOnly bool) (*apipb.RepositoryParameters, error) {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_InitializeSession{
 			InitializeSession: &apipb.InitializeSessionRequest{
 				Purpose:  purpose,
 				ReadOnly: readOnly,
 			},
 		},
-	}) {
-		switch rr := resp.GetResponse().(type) {
-		case *apipb.SessionResponse_InitializeSession:
-			return rr.InitializeSession.GetParameters(), nil
+	})
 
-		default:
-			return nil, unhandledSessionResponse(resp)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(ctx.Err(), "context cancelled waiting for session initialization")
+
+		case resp, ok := <-ch:
+			if !ok {
+				return nil, errNoSessionResponse()
+			}
+
+			switch rr := resp.GetResponse().(type) {
+			case *apipb.SessionResponse_InitializeSession:
+				return rr.InitializeSession.GetParameters(), nil
+
+			default:
+				return nil, unhandledSessionResponse(resp)
+			}
 		}
 	}
-
-	return nil, errNoSessionResponse()
 }
 
 func (r *grpcRepositoryClient) GetManifest(ctx context.Context, id manifest.ID, data any) (*manifest.EntryMetadata, error) {
@@ -875,6 +906,16 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 			grpc.MaxCallRecvMsgSize(MaxGRPCMessageSize),
 			grpc.MaxCallSendMsgSize(MaxGRPCMessageSize),
 		),
+		// Keepalive detects dead TCP connections when the server becomes unreachable.
+		// Time is the interval between pings; Timeout is how long to wait for a response.
+		// PermitWithoutStream enables pings even when no active RPCs exist, which is
+		// needed to detect failures during idle periods between backup operations.
+		// See https://github.com/kopia/kopia/issues/3073
+		grpc.WithKeepaliveParams(keepalive.ClientParameters{
+			Time:                30 * time.Second,
+			Timeout:             10 * time.Second,
+			PermitWithoutStream: true,
+		}),
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "gRPC client creation error")
@@ -930,25 +971,102 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 		r.innerSessionAttemptCount++
 
 		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
-			sess, err := cli.Session(context.WithoutCancel(ctx))
-			if err != nil {
-				return nil, errors.Wrap(err, "Session()")
+			// Reset GRPC's internal connect backoff so it immediately attempts
+			// to reconnect rather than waiting through exponential backoff.
+			// This is critical after sleep/wake when the transport is dead but
+			// GRPC may be in a long backoff delay from a previous failure.
+			r.conn.ResetConnectBackoff()
+
+			// If the connection is in TransientFailure, wait briefly for it
+			// to transition to Connecting/Ready before attempting cli.Session().
+			// Without this, cli.Session() would hang for the full 30s timeout
+			// on a connection that just needs a moment to reconnect.
+			if state := r.conn.GetState(); state == connectivity.TransientFailure {
+				waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
+				r.conn.WaitForStateChange(waitCtx, connectivity.TransientFailure)
+				waitCancel()
+			}
+
+			// sessCtx is detached from ctx (via WithoutCancel) so the GRPC stream
+			// outlives the caller's context, but wrapped with WithCancel so
+			// killInnerSession can terminate it.
+			sessCtx, sessCancel := context.WithCancel(context.WithoutCancel(ctx))
+
+			// Ensure sessCancel is always called on any exit path (including
+			// panics) to prevent goroutine leaks. On the success path we set
+			// ownershipTransferred=true so the defer becomes a no-op — the
+			// cancel func is handed off to the grpcInnerSession instead.
+			ownershipTransferred := false
+			defer func() {
+				if !ownershipTransferred {
+					sessCancel()
+				}
+			}()
+
+			// Use up to 30s per step for session establishment to avoid hanging
+			// indefinitely when the server is unreachable. This applies separately
+			// to the cli.Session() call and the initializeSession handshake, for a
+			// combined worst-case of about 60s.
+			type sessionResult struct {
+				sess apipb.KopiaRepository_SessionClient
+				err  error
+			}
+
+			ch := make(chan sessionResult, 1)
+
+			go func() {
+				s, e := cli.Session(sessCtx)
+				ch <- sessionResult{s, e}
+			}()
+
+			establishTimer := time.NewTimer(30 * time.Second)
+			defer establishTimer.Stop()
+
+			var sess apipb.KopiaRepository_SessionClient
+
+			select {
+			case res := <-ch:
+				if res.err != nil {
+					return nil, errors.Wrap(res.err, "Session()")
+				}
+
+				sess = res.sess
+
+			case <-establishTimer.C:
+				return nil, errors.New("session establishment timed out waiting for Session()")
+
+			case <-ctx.Done():
+				return nil, errors.Wrap(ctx.Err(), "context cancelled during session establishment")
 			}
 
 			newSess := &grpcInnerSession{
 				cli:            sess,
 				activeRequests: make(map[int64]chan *apipb.SessionResponse),
 				nextRequestID:  1,
+				cancelFunc:     sessCancel,
 			}
 
 			newSess.wg.Add(1)
 
-			go newSess.readLoop(ctx)
+			go newSess.readLoop(sessCtx)
 
-			newSess.repoParams, err = newSess.initializeSession(ctx, r.opt.Purpose, r.isReadOnly)
-			if err != nil {
-				return nil, errors.Wrap(err, "unable to initialize session")
+			establishCtx, establishCancel := context.WithTimeout(ctx, 30*time.Second)
+			defer establishCancel()
+
+			var initErr error
+
+			newSess.repoParams, initErr = newSess.initializeSession(establishCtx, r.opt.Purpose, r.isReadOnly)
+			if initErr != nil {
+				newSess.shutdown()
+
+				if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
+					return nil, errors.Wrap(initErr, "session initialization timed out")
+				}
+
+				return nil, errors.Wrap(initErr, "unable to initialize session")
 			}
+
+			ownershipTransferred = true
 
 			return newSess, nil
 		}, retryPolicy)
@@ -967,8 +1085,7 @@ func (r *grpcRepositoryClient) killInnerSession() {
 	defer r.innerSessionMutex.Unlock()
 
 	if r.innerSession != nil {
-		r.innerSession.cli.CloseSend() //nolint:errcheck
-		r.innerSession.wg.Wait()
+		r.innerSession.shutdown()
 		r.innerSession = nil
 	}
 }
