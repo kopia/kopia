@@ -84,8 +84,8 @@ func TestGRPCServerKeepaliveEnforcement(t *testing.T) {
 
 	defer func() { require.NoError(t, rep.Close(ctx)) }()
 
-	// Verify the connection works before idling.
-	_ = rep.ClientOptions()
+	// Verify the connection works before idling with a real RPC.
+	mustListSnapshotCount(ctx, t, rep, 0)
 
 	// Idle for longer than the keepalive interval (30s) to trigger at least one
 	// keepalive ping cycle. Without proper keepalive enforcement on the server,
@@ -94,9 +94,8 @@ func TestGRPCServerKeepaliveEnforcement(t *testing.T) {
 	t.Log("idling for 35s to trigger keepalive ping cycle...")
 	time.Sleep(35 * time.Second)
 
-	// After the idle period, the connection should still be alive thanks to
-	// keepalive pings maintaining it.
-	_ = rep.ClientOptions()
+	// After the idle period, the connection should still be alive and serve RPCs.
+	mustListSnapshotCount(ctx, t, rep, 0)
 }
 
 func TestGRPCServer_AuthenticationError(t *testing.T) {

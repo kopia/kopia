@@ -210,6 +210,24 @@ func (r *grpcInnerSession) sendStreamBrokenAndClose(ch chan *apipb.SessionRespon
 	}
 }
 
+func (r *grpcInnerSession) shutdown() {
+	if r == nil {
+		return
+	}
+
+	if r.cancelFunc != nil {
+		r.cancelFunc()
+	}
+
+	if r.cli != nil {
+		if err := r.cli.CloseSend(); err != nil && !errors.Is(err, io.EOF) {
+			_ = err // best-effort close during teardown; stream may already be closed.
+		}
+	}
+
+	r.wg.Wait()
+}
+
 // Description returns description associated with a repository client.
 func (r *grpcRepositoryClient) Description() string {
 	if r.cliOpts.Description != "" {
@@ -1039,7 +1057,7 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 
 			newSess.repoParams, initErr = newSess.initializeSession(establishCtx, r.opt.Purpose, r.isReadOnly)
 			if initErr != nil {
-				newSess.wg.Wait()
+				newSess.shutdown()
 
 				if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
 					return nil, errors.Wrap(initErr, "session initialization timed out")
@@ -1067,12 +1085,7 @@ func (r *grpcRepositoryClient) killInnerSession() {
 	defer r.innerSessionMutex.Unlock()
 
 	if r.innerSession != nil {
-		if r.innerSession.cancelFunc != nil {
-			r.innerSession.cancelFunc()
-		}
-
-		r.innerSession.cli.CloseSend() //nolint:errcheck
-		r.innerSession.wg.Wait()
+		r.innerSession.shutdown()
 		r.innerSession = nil
 	}
 }
