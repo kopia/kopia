@@ -128,6 +128,36 @@ func TestStreamingFileGetReader(t *testing.T) {
 	}
 }
 
+func TestStreamingFileBirthTime(t *testing.T) {
+	data := []byte("data")
+
+	f1 := StreamingFileFromReader("f1", io.NopCloser(bytes.NewReader(data)))
+	assert.True(t, f1.(fs.EntryWithBirthTime).BirthTime().IsZero())
+
+	btime := time.Date(2020, 6, 15, 10, 30, 0, 0, time.UTC)
+	mtime := time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
+	f2 := StreamingFileWithBirthTimeFromReader("f2", btime, mtime, io.NopCloser(bytes.NewReader(data)))
+
+	assert.Equal(t, btime, f2.(fs.EntryWithBirthTime).BirthTime())
+	assert.Equal(t, mtime, f2.ModTime())
+}
+
+func TestStaticDirectoryBirthTime(t *testing.T) {
+	data := []byte("data")
+	btime := time.Date(2020, 6, 15, 10, 30, 0, 0, time.UTC)
+	mtime := time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	f := StreamingFileWithBirthTimeFromReader("f1", btime, mtime, io.NopCloser(bytes.NewReader(data)))
+	rootDir := NewStaticDirectory("root", []fs.Entry{f})
+
+	child, err := rootDir.Child(testlogging.Context(t), "f1")
+	require.NoError(t, err)
+
+	ewbt, ok := child.(fs.EntryWithBirthTime)
+	require.True(t, ok, "child should implement fs.EntryWithBirthTime")
+	assert.Equal(t, btime, ewbt.BirthTime())
+}
+
 func TestStreamingDirectory(t *testing.T) {
 	// Create a temporary file with test data
 	content := []byte("Temporary file content")
