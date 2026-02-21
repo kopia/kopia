@@ -104,6 +104,9 @@ type FilesystemOutput struct {
 	// SkipTimes when set to true causes restore to skip restoring modification times.
 	SkipTimes bool `json:"skipTimes"`
 
+	// SkipTargetDir when set to true, don't create or modify the target dir.
+	SkipTargetDir bool `json:"skipTargetDir"`
+
 	// WriteSparseFiles when set to true, write contents as sparse files, minimizing allocated disk space.
 	WriteSparseFiles bool `json:"writeSparseFiles"`
 
@@ -138,6 +141,10 @@ func (o *FilesystemOutput) Parallelizable() bool {
 
 // BeginDirectory implements restore.Output interface.
 func (o *FilesystemOutput) BeginDirectory(ctx context.Context, relativePath string, _ fs.Directory) error {
+	if relativePath == "" && o.SkipTargetDir {
+		return nil
+	}
+
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
 	if err := o.createDirectory(ctx, path); err != nil {
@@ -150,8 +157,11 @@ func (o *FilesystemOutput) BeginDirectory(ctx context.Context, relativePath stri
 // FinishDirectory implements restore.Output interface.
 func (o *FilesystemOutput) FinishDirectory(_ context.Context, relativePath string, e fs.Directory) error {
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
-	if err := o.setAttributes(path, e, os.FileMode(0)); err != nil {
-		return errors.Wrap(err, "error setting attributes")
+
+	if relativePath != "" || !o.SkipTargetDir {
+		if err := o.setAttributes(path, e, os.FileMode(0)); err != nil {
+			return errors.Wrap(err, "error setting attributes")
+		}
 	}
 
 	return SafeRemoveAll(path)
