@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
@@ -952,6 +953,22 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 		r.innerSessionAttemptCount++
 
 		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
+			// Reset GRPC's internal connect backoff so it immediately attempts
+			// to reconnect rather than waiting through exponential backoff.
+			// This is critical after sleep/wake when the transport is dead but
+			// GRPC may be in a long backoff delay from a previous failure.
+			r.conn.ResetConnectBackoff()
+
+			// If the connection is in TransientFailure, wait briefly for it
+			// to transition to Connecting/Ready before attempting cli.Session().
+			// Without this, cli.Session() would hang for the full 30s timeout
+			// on a connection that just needs a moment to reconnect.
+			if state := r.conn.GetState(); state == connectivity.TransientFailure {
+				waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
+				r.conn.WaitForStateChange(waitCtx, connectivity.TransientFailure)
+				waitCancel()
+			}
+
 			// sessCtx is detached from ctx (via WithoutCancel) so the GRPC stream
 			// outlives the caller's context, but wrapped with WithCancel so
 			// killInnerSession can terminate it.
@@ -999,6 +1016,9 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 
 			case <-establishTimer.C:
 				return nil, errors.New("session establishment timed out waiting for Session()")
+
+			case <-ctx.Done():
+				return nil, errors.Wrap(ctx.Err(), "context cancelled during session establishment")
 			}
 
 			newSess := &grpcInnerSession{
