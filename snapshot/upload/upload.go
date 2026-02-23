@@ -450,8 +450,6 @@ func newDirEntryWithSummary(d fs.Entry, oid object.ID, summ *fs.DirectorySummary
 func setBirthTime(de *snapshot.DirEntry, md fs.Entry) {
 	if ewb, ok := md.(fs.EntryWithBirthTime); ok {
 		if btime := ewb.BirthTime(); !btime.IsZero() {
-			// Note: IsZero() checks for Go's zero time (not Unix epoch), so legitimate
-			// birthtimes at Unix epoch (1970-01-01) will be correctly captured
 			btimeVal := fs.UTCTimestampFromTime(btime)
 			de.BirthTime = &btimeVal
 		}
