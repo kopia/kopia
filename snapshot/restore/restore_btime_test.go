@@ -2,6 +2,7 @@ package restore_test
 
 import (
 	"context"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,10 +23,11 @@ import (
 )
 
 // TestBirthTimeSnapshotAndRestore validates birthtime support across snapshot/restore lifecycle.
-// Tests three scenarios:
+// Tests four scenarios:
 // 1. Old snapshot without btime (backward compatibility)
-// 2. New snapshot with btime (full preservation)
+// 2. New snapshot with btime (full restore preservation)
 // 3. Metadata-only update (photo date fix use case)
+// 4. Shallow restore with btime (placeholder files)
 func TestBirthTimeSnapshotAndRestore(t *testing.T) {
 	// Setup test environment
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
@@ -42,7 +44,7 @@ func TestBirthTimeSnapshotAndRestore(t *testing.T) {
 	oldSnapshot := createOldStyleSnapshot(t, ctx, env.RepositoryWriter, sourceDir)
 	verifyOldSnapshotRestore(t, ctx, env.RepositoryWriter, oldSnapshot, canRestoreBirthTime)
 
-	// SCENARIO 2: New snapshot with birthtime support
+	// SCENARIO 2: New snapshot with birthtime support (full restore)
 	t.Log("=== Scenario 2: New snapshot with full btime support ===")
 	newSnapshot := createSnapshot(t, ctx, env.RepositoryWriter, sourceDir)
 	verifyBirthtimePreservation(t, ctx, env.RepositoryWriter, newSnapshot,
@@ -55,6 +57,11 @@ func TestBirthTimeSnapshotAndRestore(t *testing.T) {
 		verifyMetadataOnlyUpdate(t, ctx, env.RepositoryWriter, sourceDir, testFile,
 			newSnapshot, originalBtime, originalDirBtime, mtime)
 	}
+
+	// SCENARIO 4: Shallow restore (placeholder files should also have correct btime)
+	t.Log("=== Scenario 4: Shallow restore with btime ===")
+	verifyShallowRestoreBirthtime(t, ctx, env.RepositoryWriter, newSnapshot,
+		originalBtime, originalDirBtime, mtime, canRestoreBirthTime)
 }
 
 // setupTestFile creates a test file with distinct birthtime and mtime.
@@ -146,8 +153,8 @@ func verifyBirthtimePreservation(t *testing.T, ctx context.Context, rep repo.Rep
 	restoreDir := t.TempDir()
 	restoreSnapshot(t, ctx, rep, snap, restoreDir)
 
-	// Verify file times
-	restoredFile := filepath.Join(restoreDir, "dummy.txt"+localfs.ShallowEntrySuffix)
+	// Verify file times (full restore, not shallow placeholder)
+	restoredFile := filepath.Join(restoreDir, "dummy.txt")
 	fileEntry, err := localfs.NewEntry(restoredFile)
 	require.NoError(t, err)
 	restoredFileBtime := fs.GetBirthTime(fileEntry)
@@ -207,6 +214,40 @@ func verifyMetadataOnlyUpdate(t *testing.T, ctx context.Context, rep repo.Reposi
 		updatedFileBtime, updatedDirBtime)
 
 	t.Log("SUCCESS: Birthtime metadata updated for both file and directory without re-uploading content")
+}
+
+// verifyShallowRestoreBirthtime verifies that shallow restore (placeholder files) also preserves btime.
+func verifyShallowRestoreBirthtime(t *testing.T, ctx context.Context, rep repo.RepositoryWriter,
+	snap *snapshot.Manifest, expectedFileBtime, expectedDirBtime, expectedMtime time.Time,
+	canRestoreBirthTime bool) {
+	t.Helper()
+
+	restoreDir := t.TempDir()
+	restoreSnapshotShallow(t, ctx, rep, snap, restoreDir)
+
+	// Shallow restore creates placeholder files with .kopia-entry suffix
+	restoredFile := filepath.Join(restoreDir, "dummy.txt"+localfs.ShallowEntrySuffix)
+	fileEntry, err := localfs.NewEntry(restoredFile)
+	require.NoError(t, err)
+	restoredFileBtime := fs.GetBirthTime(fileEntry)
+	restoredMtime := fileEntry.ModTime()
+
+	dirEntry, err := localfs.NewEntry(restoreDir)
+	require.NoError(t, err)
+	restoredDirBtime := fs.GetBirthTime(dirEntry)
+
+	t.Logf("Shallow restored times - file btime: %v, mtime: %v", restoredFileBtime, restoredMtime)
+	t.Logf("Shallow restored times - dir btime: %v", restoredDirBtime)
+
+	require.Equal(t, expectedMtime, restoredMtime, "shallow restore mtime should match")
+
+	if canRestoreBirthTime {
+		require.Equal(t, expectedFileBtime, restoredFileBtime, "shallow restore file btime should match on "+runtime.GOOS)
+		require.Equal(t, expectedDirBtime, restoredDirBtime, "shallow restore dir btime should match on "+runtime.GOOS)
+	} else {
+		assertTimeIsRecent(t, restoredFileBtime, "shallow restore file btime should be recent on "+runtime.GOOS)
+		assertTimeIsRecent(t, restoredDirBtime, "shallow restore dir btime should be recent on "+runtime.GOOS)
+	}
 }
 
 // updateBirthtimes changes birthtimes on file and directory without changing content or mtime.
@@ -286,9 +327,25 @@ func getFileFromSnapshot(t *testing.T, ctx context.Context, rep repo.RepositoryW
 	return file
 }
 
-// restoreSnapshot restores a snapshot to the specified directory.
+// restoreSnapshot performs a full restore of a snapshot to the specified directory.
 func restoreSnapshot(t *testing.T, ctx context.Context, rep repo.RepositoryWriter,
 	snap *snapshot.Manifest, targetDir string) {
+	t.Helper()
+
+	restoreSnapshotWithDepth(t, ctx, rep, snap, targetDir, math.MaxInt32)
+}
+
+// restoreSnapshotShallow performs a shallow restore of a snapshot to the specified directory.
+func restoreSnapshotShallow(t *testing.T, ctx context.Context, rep repo.RepositoryWriter,
+	snap *snapshot.Manifest, targetDir string) {
+	t.Helper()
+
+	restoreSnapshotWithDepth(t, ctx, rep, snap, targetDir, 0)
+}
+
+// restoreSnapshotWithDepth restores a snapshot with the given RestoreDirEntryAtDepth.
+func restoreSnapshotWithDepth(t *testing.T, ctx context.Context, rep repo.RepositoryWriter,
+	snap *snapshot.Manifest, targetDir string, depth int32) {
 	t.Helper()
 
 	root, err := snapshotfs.SnapshotRoot(rep, snap)
@@ -303,7 +360,9 @@ func restoreSnapshot(t *testing.T, ctx context.Context, rep repo.RepositoryWrite
 	}
 	require.NoError(t, output.Init(ctx))
 
-	_, err = restore.Entry(ctx, rep, &output, root, restore.Options{})
+	_, err = restore.Entry(ctx, rep, &output, root, restore.Options{
+		RestoreDirEntryAtDepth: depth,
+	})
 	require.NoError(t, err)
 }
 
