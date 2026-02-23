@@ -540,10 +540,15 @@ func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, e
 			de.BirthTime = cachedBtime
 		}
 	} else {
-		// For other types, use current metadata directly (birthtime already set from filesystem in newDirEntry)
+		// For other types, use current metadata directly (birthtime set from filesystem in newDirEntry)
 		de, err = newDirEntry(md, fname, hoid.ObjectID())
 		if err != nil {
 			return nil, err
+		}
+
+		// If current filesystem lacks btime support, preserve cached btime from previous snapshot.
+		if de.BirthTime == nil {
+			de.BirthTime = getBirthTime(cached)
 		}
 	}
 
