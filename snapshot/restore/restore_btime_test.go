@@ -64,7 +64,7 @@ func setupTestFile(t *testing.T, dir string) string {
 	require.NoError(t, os.WriteFile(testFile, []byte("test"), 0o644))
 
 	// Set mtime to 1 minute in the future to differentiate from birth time
-	futureTime := time.Now().Add(1 * time.Minute)
+	futureTime := time.Now().Add(1 * time.Minute) //nolint:forbidigo
 	require.NoError(t, os.Chtimes(testFile, futureTime, futureTime))
 
 	return testFile
@@ -310,7 +310,7 @@ func restoreSnapshot(t *testing.T, ctx context.Context, rep repo.RepositoryWrite
 func assertTimeIsRecent(t *testing.T, timeToCheck time.Time, message string) {
 	t.Helper()
 
-	timeSince := time.Since(timeToCheck)
+	timeSince := time.Since(timeToCheck) //nolint:forbidigo
 	require.GreaterOrEqual(t, timeSince, time.Duration(0), message+" (should not be in the future)")
 	require.Less(t, timeSince, 2*time.Minute, message+" (should be within last 2 minutes)")
 }
