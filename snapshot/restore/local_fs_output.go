@@ -351,7 +351,11 @@ func (o *FilesystemOutput) shouldUpdateTimes(local, remote fs.Entry) bool {
 		return false
 	}
 
-	return !local.ModTime().Equal(remote.ModTime()) || !fs.GetBirthTime(local).Equal(fs.GetBirthTime(remote))
+	if !local.ModTime().Equal(remote.ModTime()) {
+		return true
+	}
+
+	return !fs.GetBirthTime(local).Equal(fs.GetBirthTime(remote))
 }
 
 func isWindows() bool {

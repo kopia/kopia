@@ -19,7 +19,7 @@ func platformSpecificDeviceInfo(_ os.FileInfo) fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
 
-func platformSpecificBirthTime(fi os.FileInfo, path string) int64 {
+func platformSpecificBirthTime(fi os.FileInfo, _ string) int64 {
 	if stat, ok := fi.Sys().(*syscall.Win32FileAttributeData); ok {
 		// Windows stores creation time in the Filetime structure
 		// Convert from Windows FILETIME (100-nanosecond intervals since Jan 1, 1601)

@@ -54,8 +54,11 @@ func setFileTimes(path string, btime, atime, mtime time.Time, isSymlink bool) er
 		return errors.Wrap(err, "UTF16PtrFromString")
 	}
 
-	var access uint32
-	var flags uint32
+	var (
+		access uint32
+		flags  uint32
+	)
+
 	if isSymlink {
 		access = windows.GENERIC_READ | windows.GENERIC_WRITE
 		flags = windows.FILE_FLAG_OPEN_REPARSE_POINT

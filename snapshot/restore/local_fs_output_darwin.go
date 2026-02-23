@@ -20,7 +20,7 @@ func symlinkChmod(path string, mode os.FileMode) error {
 	return unix.Fchmodat(unix.AT_FDCWD, path, uint32(mode), unix.AT_SYMLINK_NOFOLLOW)
 }
 
-func symlinkChtimes(linkPath string, btime, atime, mtime time.Time) error {
+func symlinkChtimes(linkPath string, _, atime, mtime time.Time) error {
 	// macOS Lutimes only supports atime and mtime, birth time cannot be set on symlinks
 	//nolint:wrapcheck
 	return unix.Lutimes(linkPath, []unix.Timeval{
@@ -60,10 +60,10 @@ func setFileTimes(path string, btime, atime, mtime time.Time) error {
 	return nil
 }
 
-// macOS setattrlist structures and constants
+// macOS setattrlist structures and constants.
 const (
-	ATTR_BIT_MAP_COUNT = 5
-	ATTR_CMN_CRTIME    = 0x00000200
+	attrBitMapCount = 5
+	attrCmnCrtime   = 0x00000200
 )
 
 type attrlist struct {
@@ -78,8 +78,8 @@ type attrlist struct {
 
 func setBirthTime(path string, btime time.Time) error {
 	attrs := attrlist{
-		bitmapcount: ATTR_BIT_MAP_COUNT,
-		commonattr:  ATTR_CMN_CRTIME,
+		bitmapcount: attrBitMapCount,
+		commonattr:  attrCmnCrtime,
 	}
 
 	crtime := syscall.Timespec{

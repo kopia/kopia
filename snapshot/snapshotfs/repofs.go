@@ -62,7 +62,7 @@ func (e *repositoryEntry) ModTime() time.Time {
 
 func (e *repositoryEntry) BirthTime() time.Time {
 	if e.metadata.BirthTime == nil {
-		return time.Time{} // Return zero time if btime not available
+		return time.Time{}
 	}
 	return e.metadata.BirthTime.ToTime()
 }
