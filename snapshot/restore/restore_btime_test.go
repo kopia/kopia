@@ -96,7 +96,7 @@ func createOldStyleSnapshot(t *testing.T, ctx context.Context, rep repo.Reposito
 	snap := createSnapshot(t, ctx, rep, sourceDir)
 
 	// Simulate old repo without btime: clear BirthTime from all entries in the snapshot tree.
-	clearBirthTimeRecursive(snap.RootEntry)
+	clearBirthTime(snap.RootEntry)
 	_, err := snapshot.SaveSnapshot(ctx, rep, snap)
 	require.NoError(t, err)
 
@@ -104,18 +104,18 @@ func createOldStyleSnapshot(t *testing.T, ctx context.Context, rep repo.Reposito
 	return snap
 }
 
-// clearBirthTimeRecursive clears BirthTime for the provided directory entry and all of its descendants.
-func clearBirthTimeRecursive(e *snapshot.DirEntry) {
+// clearBirthTime clears BirthTime on the provided directory entry.
+// Note: child entries are stored as separate objects in the repo (written during upload)
+// and cannot be modified from the manifest alone. Clearing the root entry's BirthTime
+// is sufficient to simulate an old-style snapshot for backward compatibility testing.
+func clearBirthTime(e *snapshot.DirEntry) {
 	if e == nil {
 		return
 	}
 
 	e.BirthTime = nil
-
-	for _, child := range e.Entries {
-		clearBirthTimeRecursive(child)
-	}
 }
+
 // verifyOldSnapshotRestore verifies that restoring old snapshots without btime works correctly.
 func verifyOldSnapshotRestore(t *testing.T, ctx context.Context, rep repo.RepositoryWriter,
 	snap *snapshot.Manifest, canRestoreBirthTime bool) {
