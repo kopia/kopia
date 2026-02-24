@@ -174,6 +174,58 @@ rmdir /mnt/$KOPIA_SNAPSHOT_ID
 lvremove -f $VG_NAME/$KOPIA_SNAPSHOT_ID
 ```
 
+### Apple MacOS snapshots with APFS
+
+Similar to LVM and ZFS, the APFS filesystem on MacOS offers a convenient way to create snapshots for Kopia backups. For this to work, you need to give Kopia(UI) full disk access under **System Settings -> Privacy & Security -> Full Disk Access**. Creating the snapshots is then done with a simple shellscript that you can put in `Users/<your usern>/bin`. You might have to create the `bin` directory first or store the scripts at another location, as you prefer.
+
+We are using the `tmutil`command to create the snapshots. The advantage of this is that a MacOS service called `deleted` will automatically delete the snpashots after 24 hours, freeing up precious disk space.
+
+The scripts we need are straightforward. We can name them `kopiabefore.sh` and `kopiaafter.sh` and add them to the Actions section of the Snapshot policy in Kopia. The `before` script creates a snapshot of `/System/Volumes/Data` which should contain all you need for your backup.
+
+Before:
+
+```shell
+#!/bin/bash
+
+# Exit on error
+set -o errexit
+
+# Create the snapshot with tmutil
+VOLUME_PATH="/System/Volumes/Data"
+SNAP_DATE=$(/usr/bin/tmutil snapshot "$VOLUME_PATH" | /usr/bin/tail -n1 | /usr/bin/sed s/'Created local snapshot with date: '//)
+
+# Create mountpoint for snapshot using the SNAPSHOT_ID from Kopia
+LOCAL_MOUNTPOINT=/tmp/kopia_snapshot_"$KOPIA_SNAPSHOT_ID"
+mkdir "$LOCAL_MOUNTPOINT" || true
+umount "$LOCAL_MOUNTPOINT" || true
+
+# Mount the snapshot
+/sbin/mount -t apfs -o nobrowse,-r,-s="com.apple.TimeMachine.${SNAP_DATE}.local" "$VOLUME_PATH" "$LOCAL_MOUNTPOINT"
+
+# Use the directory to backup inside the snapshot and let Kopia do its job
+echo KOPIA_SNAPSHOT_PATH="$LOCAL_MOUNTPOINT"/"$KOPIA_SOURCE_PATH"
+```
+
+After:
+
+```shell
+#!/bin/bash
+
+# Exit on error
+set -o errexit
+
+# Unmount the snapshot, delete the mountpoint
+LOCAL_MOUNTPOINT=/tmp/kopia_snapshot_"$KOPIA_SNAPSHOT_ID"
+umount "$LOCAL_MOUNTPOINT" || true
+rm -rf "$LOCAL_MOUNTPOINT" || true
+```
+
+You can check if the snapshots are created correctly with the command:
+
+`tmutil listlocalsnapshotdates`
+
+This will list all created snapshots and when you repeat the command a day later, you should see that all snapshots older than 24 hours have been deleted. If you want to manually delete snapshots, use the Disk Utility in the Utilities App folder.
+
 ### Windows shadow copy
 
 When backing up files opened with exclusive lock in Windows, Kopia would fail the snapshot task because it can't read the file content.
