@@ -14,6 +14,7 @@ import (
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	"github.com/minio/minio-go/v7/pkg/encrypt"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
@@ -130,6 +131,24 @@ func (s *s3Storage) getVersionMetadata(ctx context.Context, b blob.ID, version s
 	return infoToVersionMetadata(s.Prefix, &oi), nil
 }
 
+func (s *s3Storage) getServerSideEncryption() (encrypt.ServerSide, error) {
+	if s.ServerSideEncryption == "" {
+		return nil, nil
+	}
+	switch s.ServerSideEncryption {
+	case "AES256":
+		return encrypt.NewSSE(), nil
+	case "aws:kms":
+		sse, err := encrypt.NewSSEKMS(s.KMSKeyID, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to initialize KMS encryption")
+		}
+		return sse, nil
+	default:
+		return nil, nil
+	}
+}
+
 func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	switch {
 	case opts.DoNotRecreate:
@@ -168,6 +187,11 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		retainUntilDate = clock.Now().Add(opts.RetentionPeriod).UTC()
 	}
 
+	sse, err := s.getServerSideEncryption()
+	if err != nil {
+		return versionMetadata{}, err
+	}
+
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), data.Reader(), int64(data.Length()), minio.PutObjectOptions{
 		ContentType: "application/x-kopia",
 		// Kopia already splits snapshot contents into small blobs to improve
@@ -182,6 +206,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		StorageClass:    storageClass,
 		RetainUntilDate: retainUntilDate,
 		Mode:            retentionMode,
+		ServerSideEncryption: sse,
 	})
 
 	if isInvalidCredentials(err) {
@@ -196,11 +221,17 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 		// special case empty stream
-		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
-			ContentType:     "application/x-kopia",
-			StorageClass:    storageClass,
-			RetainUntilDate: retainUntilDate,
-			Mode:            retentionMode,
+		sse, err := s.getServerSideEncryption()
+		if err != nil {
+			return versionMetadata{}, err
+		}
+
+		uploadInfo, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
+			ContentType:          "application/x-kopia",
+			StorageClass:         storageClass,
+			RetainUntilDate:     retainUntilDate,
+			Mode:                retentionMode,
+			ServerSideEncryption: sse,
 		})
 	}
 

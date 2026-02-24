@@ -34,6 +34,14 @@ type Options struct {
 	// Region is an optional region to pass in authorization header.
 	Region string `json:"region,omitempty"`
 
+	// ServerSideEncryption specifies the server-side encryption algorithm to use.
+	// Valid values are: "AES256", "aws:kms"
+	ServerSideEncryption string `json:"serverSideEncryption,omitempty"`
+
+	// KMSKeyID specifies the KMS key ID to use for server-side encryption.
+	// Only used when ServerSideEncryption is set to "aws:kms"
+	KMSKeyID string `json:"kmsKeyID,omitempty"`
+
 	throttling.Limits
 
 	// PointInTime specifies a view of the (versioned) store at that time
