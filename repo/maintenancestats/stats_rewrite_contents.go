@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/units"
 )
 
 const rewriteContentsStatsKind = "rewriteContentsStats"
@@ -33,7 +34,7 @@ func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 // Summary generates a human readable summary for the stats.
 func (rs *RewriteContentsStats) Summary() string {
 	return fmt.Sprintf("Found %v(%v) contents to rewrite and rewrote %v(%v). Retained %v(%v) contents from rewrite",
-		rs.ToRewriteContentCount, rs.ToRewriteContentSize, rs.RewrittenContentCount, rs.RewrittenContentSize, rs.RetainedContentCount, rs.RetainedContentSize)
+		rs.ToRewriteContentCount, units.BytesString(rs.ToRewriteContentSize), rs.RewrittenContentCount, units.BytesString(rs.RewrittenContentSize), rs.RetainedContentCount, units.BytesString(rs.RetainedContentSize))
 }
 
 // Kind returns the kind name for the stats.
