@@ -289,6 +289,10 @@ func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) er
 	}, fs.isRetriable)
 }
 
+func (fs *fsImpl) RemoveDirInPath(_ context.Context, dirPath string) error {
+	return fs.osi.Remove(dirPath)
+}
+
 func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
 	entries, err := retry.WithExponentialBackoff(ctx, "ReadDir:"+dirname, func() ([]os.DirEntry, error) {
 		v, err := fs.osi.ReadDir(dirname)

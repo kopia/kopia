@@ -31,6 +31,12 @@ type Impl interface {
 	ReadDir(ctx context.Context, path string) ([]os.FileInfo, error)
 }
 
+// DirRemover is optionally implemented by Impl to enable
+// cleanup of empty shard directories after blob deletion.
+type DirRemover interface {
+	RemoveDirInPath(ctx context.Context, dirPath string) error
+}
+
 // Storage provides common implementation of sharded storage.
 type Storage struct {
 	Impl Impl
@@ -88,6 +94,10 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 
 		entries, err := s.Impl.ReadDir(ctx, directory)
 		if err != nil {
+			if os.IsNotExist(err) {
+				return nil // directory removed by concurrent sweep, skip
+			}
+
 			return errors.Wrap(err, "error reading directory")
 		}
 
@@ -196,8 +206,29 @@ func (s *Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 		return errors.Wrap(err, "error determining sharded path")
 	}
 
-	//nolint:wrapcheck
-	return s.Impl.DeleteBlobInPath(ctx, dirPath, filePath)
+	if err := s.Impl.DeleteBlobInPath(ctx, dirPath, filePath); err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	if dr, ok := s.Impl.(DirRemover); ok {
+		s.sweepEmptyDirs(ctx, dr, dirPath)
+	}
+
+	return nil
+}
+
+func (s *Storage) sweepEmptyDirs(ctx context.Context, dr DirRemover, dir string) {
+	rootPath := path.Clean(s.RootPath)
+
+	for dir != rootPath && dir != "" && dir != "." && dir != "/" {
+		if err := dr.RemoveDirInPath(ctx, dir); err != nil {
+			return
+		}
+
+		log(ctx).Debugf("removed empty shard directory %v", dir)
+
+		dir = path.Dir(dir)
+	}
 }
 
 func (s *Storage) getParameters(ctx context.Context) (*Parameters, error) {
