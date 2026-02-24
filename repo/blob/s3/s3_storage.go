@@ -393,10 +393,16 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 		return nil, errors.New("bucket name must be specified")
 	}
 
+	bucketLookup := minio.BucketLookupAuto
+	if opt.VirtualHostedStyleRequests {
+		bucketLookup = minio.BucketLookupDNS
+	}
+
 	minioOpts := &minio.Options{
 		Creds:  creds,
 		Secure: !opt.DoNotUseTLS,
 		Region: opt.Region,
+		BucketLookup: bucketLookup,
 	}
 
 	var err error
