@@ -285,7 +285,7 @@ func (c *committedContentIndex) combineSmallIndexes(ctx context.Context, m index
 		return nil, errors.Wrap(err, "error building combined in-memory index")
 	}
 
-	combined, err := index.Open(buf.Bytes(), nil, c.v1PerContentOverhead)
+	combined, err := index.Open(index.SliceIndexSource(buf.Bytes()), nil, c.v1PerContentOverhead)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening combined in-memory index")
 	}
