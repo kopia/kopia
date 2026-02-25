@@ -23,6 +23,7 @@ type commandSnapshotMigrate struct {
 	migrateOverwritePolicies bool
 	migrateLatestOnly        bool
 	migrateParallel          int
+	migrateTags              []string
 	applyIgnoreRules         bool
 
 	svc advancedAppServices
@@ -39,6 +40,7 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 	cmd.Flag("latest-only", "Only migrate the latest snapshot").BoolVar(&c.migrateLatestOnly)
 	cmd.Flag("parallel", "Number of sources to migrate in parallel").Default("1").IntVar(&c.migrateParallel)
 	cmd.Flag("apply-ignore-rules", "When migrating also apply current ignore rules").BoolVar(&c.applyIgnoreRules)
+	cmd.Flag("tags", "List of tags to be migrated").StringsVar(&c.migrateTags)
 	cmd.Action(svc.repositoryWriterAction(c.run))
 
 	c.svc = svc
@@ -295,6 +297,16 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 	newm.StartTime = m.StartTime
 	newm.EndTime = m.EndTime
 	newm.Description = m.Description
+
+	if newm.Tags == nil {
+		newm.Tags = make(map[string]string)
+	}
+
+	for _, name := range c.migrateTags {
+		if v, ok := m.Tags[name]; ok {
+			newm.Tags[name] = v
+		}
+	}
 
 	if newm.IncompleteReason == "" {
 		if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
