@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 DIST_DIR=${1:-dist}
 DOCKER_BUILD_DIR=tools/docker
