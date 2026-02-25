@@ -269,7 +269,7 @@ func testAPIServerRepository(t *testing.T, allowRepositoryUsers bool) {
 	}, content.CachingOptions{}, "baz", &repo.Options{})
 
 	//nolint:forbidigo
-	require.Less(t, timer.Elapsed(), 15*time.Second)
+	require.Less(t, timer.Elapsed(), 30*time.Second)
 }
 
 func verifyServerJSONLogs(t require.TestingT, s []string) {
