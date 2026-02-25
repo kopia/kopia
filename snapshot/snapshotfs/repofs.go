@@ -217,6 +217,13 @@ func (rf *repositoryFile) Open(ctx context.Context) (fs.Reader, error) {
 	return withFileInfo(r, rf), nil
 }
 
+// ReadChunksParallel reads the chunks of this file in parallel, calling
+// callback(startOffset, data) for each chunk (possibly out of order).
+// Returns object.ErrNotParallelizable for single-chunk or non-indirect objects.
+func (rf *repositoryFile) ReadChunksParallel(ctx context.Context, workers int, callback func(offset int64, data []byte) error) error {
+	return object.ReadIndirectObjectParallel(ctx, rf.repo, rf.metadata.ObjectID, workers, callback)
+}
+
 func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	r, err := rsl.repo.OpenObject(ctx, rsl.metadata.ObjectID)
 	if err != nil {

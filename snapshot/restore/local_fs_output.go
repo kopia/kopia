@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/sparsefile"
 	"github.com/kopia/kopia/internal/stat"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -71,6 +72,12 @@ func (r *progressReportingReader) Read(p []byte) (int, error) {
 	return bytesRead, err //nolint:wrapcheck
 }
 
+// parallelChunkedFile is optionally implemented by fs.File to support parallel chunk restore.
+// It is satisfied by snapshotfs.repositoryFile for multi-chunk indirect objects.
+type parallelChunkedFile interface {
+	ReadChunksParallel(ctx context.Context, workers int, callback func(offset int64, data []byte) error) error
+}
+
 // FilesystemOutput contains the options for outputting a file system tree.
 type FilesystemOutput struct {
 	// TargetPath for restore.
@@ -116,6 +123,13 @@ type FilesystemOutput struct {
 	// so the data may not be written to disk when the restore to the file completes.
 	// This flag guarantees the file data is flushed to disk.
 	FlushFiles bool `json:"flushFiles"`
+
+	// ParallelChunkWorkers sets the number of concurrent goroutines used to fetch
+	// chunks of a single large file during restore. When > 1, chunks are fetched in
+	// parallel and written via WriteAt, which significantly improves restore speed for
+	// large files on high-latency storage (e.g. S3). 0 means use the default (8).
+	// Has no effect when WriteFilesAtomically or WriteSparseFiles is set.
+	ParallelChunkWorkers int `json:"parallelChunkWorkers"`
 }
 
 // Init initializes the internal members of the filesystem writer output.
@@ -380,6 +394,46 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
+// writeParallel fetches all chunks of pf in parallel and writes them to
+// targetPath using WriteAt, allowing out-of-order writes. This avoids the
+// sequential round-trip overhead when restoring large files from remote storage.
+func writeParallel(ctx context.Context, targetPath string, pf parallelChunkedFile, size int64, workers int, flush bool, progressCb FileWriteProgress) (err error) {
+	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,mnd
+	if err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	defer func() {
+		err = stderrors.Join(err, f.Close())
+	}()
+
+	if err := f.Truncate(size); err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	if err := pf.ReadChunksParallel(ctx, workers, func(offset int64, data []byte) error {
+		if _, werr := f.WriteAt(data, offset); werr != nil {
+			return errors.Wrapf(werr, "writing chunk at offset %v", offset)
+		}
+
+		if progressCb != nil {
+			progressCb(int64(len(data)))
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if flush {
+		if err := f.Sync(); err != nil {
+			return errors.Wrapf(err, "cannot flush file %q", f.Name())
+		}
+	}
+
+	return nil
+}
+
 func write(targetPath string, r fs.Reader, size int64, flush bool, c streamCopier) (err error) {
 	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,mnd
 	if err != nil {
@@ -421,6 +475,31 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		return errors.Wrap(err, "failed to stat "+targetPath)
 	}
 
+	log(ctx).Debugf("copying file contents to: %v", targetPath)
+	targetPath = atomicfile.MaybePrefixLongFilenameOnWindows(targetPath)
+
+	// Use parallel chunk restore for multi-chunk indirect objects when not using
+	// atomic or sparse writes, which require a sequential byte stream.
+	if !o.WriteFilesAtomically && !o.WriteSparseFiles {
+		if pf, ok := f.(parallelChunkedFile); ok {
+			workers := o.ParallelChunkWorkers
+			if workers <= 0 {
+				workers = object.DefaultParallelChunkWorkers
+			}
+
+			err := writeParallel(ctx, targetPath, pf, f.Size(), workers, o.FlushFiles, progressCb)
+			if err == nil {
+				return nil
+			}
+
+			if !errors.Is(err, object.ErrNotParallelizable) {
+				return err
+			}
+
+			// Single-chunk object: fall through to the sequential path.
+		}
+	}
+
 	r, err := f.Open(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to open snapshot file for "+targetPath)
@@ -431,9 +510,6 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 		Reader: r,
 		cb:     progressCb,
 	}
-
-	log(ctx).Debugf("copying file contents to: %v", targetPath)
-	targetPath = atomicfile.MaybePrefixLongFilenameOnWindows(targetPath)
 
 	if o.WriteFilesAtomically {
 		//nolint:wrapcheck
