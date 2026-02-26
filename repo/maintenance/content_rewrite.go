@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/contentparam"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -49,7 +50,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:content-rewrite", contentlog.RandomSpanID()))
 
-	log := rep.LogManager().NewLogger("maintenance-content-rewrite")
+	log := repodiag.NewContentLogger(rep, "maintenance-content-rewrite")
 
 	if opt == nil {
 		return nil, errors.New("missing options")

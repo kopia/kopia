@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
@@ -257,7 +258,7 @@ func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) 
 }
 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
-	log := runParams.rep.LogManager().NewLogger("maintenance-quick")
+	log := repodiag.NewContentLogger(runParams.rep, "maintenance-quick")
 
 	s, err := GetSchedule(ctx, runParams.rep)
 	if err != nil {
@@ -432,7 +433,7 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 func runTaskDropDeletedContentsFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	var safeDropTime time.Time
 
-	log := runParams.rep.LogManager().NewLogger("maintenance-drop-deleted-contents")
+	log := repodiag.NewContentLogger(runParams.rep, "maintenance-drop-deleted-contents")
 
 	if safety.RequireTwoGCCycles {
 		safeDropTime = findSafeDropTime(s.Runs[TaskSnapshotGarbageCollection], safety)
@@ -499,7 +500,7 @@ func runTaskExtendBlobRetentionTimeFull(ctx context.Context, runParams RunParame
 }
 
 func runFullMaintenance(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
-	log := runParams.rep.LogManager().NewLogger("maintenance-full")
+	log := repodiag.NewContentLogger(runParams.rep, "maintenance-full")
 
 	s, err := GetSchedule(ctx, runParams.rep)
 	if err != nil {
