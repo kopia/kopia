@@ -24,12 +24,13 @@ type Options struct {
 var DefaultOptions = &Options{}
 
 type filesystemEntry struct {
-	name       string
-	size       int64
-	mtimeNanos int64
-	mode       os.FileMode
-	owner      fs.OwnerInfo
-	device     fs.DeviceInfo
+	name        string
+	size        int64
+	mtimeNanos  int64
+	btimeNanos  int64
+	mode        os.FileMode
+	owner       fs.OwnerInfo
+	device      fs.DeviceInfo
 
 	prefix  string
 	options *Options
@@ -53,6 +54,14 @@ func (e *filesystemEntry) Size() int64 {
 
 func (e *filesystemEntry) ModTime() time.Time {
 	return time.Unix(0, e.mtimeNanos)
+}
+
+func (e *filesystemEntry) BirthTime() time.Time {
+	if e.btimeNanos == 0 {
+		// Birth time not available or not supported
+		return time.Time{}
+	}
+	return time.Unix(0, e.btimeNanos)
 }
 
 func (e *filesystemEntry) Sys() any {

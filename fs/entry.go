@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 	"sort"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -34,6 +35,20 @@ type OwnerInfo struct {
 type DeviceInfo struct {
 	Dev  uint64 `json:"dev"`
 	Rdev uint64 `json:"rdev"`
+}
+
+// EntryWithBirthTime is optionally implemented by Entry to provide birth time (creation time).
+type EntryWithBirthTime interface {
+	Entry
+	BirthTime() time.Time
+}
+
+// GetBirthTime extracts birth time from an entry if available, otherwise returns zero time.
+func GetBirthTime(e Entry) time.Time {
+	if ewb, ok := e.(EntryWithBirthTime); ok {
+		return ewb.BirthTime()
+	}
+	return time.Time{}
 }
 
 // Reader allows reading from a file and retrieving its up-to-date file info.

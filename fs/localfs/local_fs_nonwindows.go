@@ -32,6 +32,14 @@ func platformSpecificDeviceInfo(fi os.FileInfo) fs.DeviceInfo {
 	return oi
 }
 
+func platformSpecificBirthTime(fi os.FileInfo, path string) int64 {
+	stat, ok := fi.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0
+	}
+	return platformSpecificBirthTimeFromStat(stat, path)
+}
+
 // Direct Windows volume paths (e.g. Shadow Copy) require a trailing separator.
 // The non-windows implementation can be optimized away by the compiler.
 func trailingSeparator(_ *filesystemDirectory) string {
