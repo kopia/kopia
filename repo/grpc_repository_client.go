@@ -15,7 +15,6 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
@@ -50,6 +49,10 @@ const (
 
 	// number of manifests to fetch in a single batch.
 	defaultFindManifestsPageSize = 1000
+
+	// default upper bound for establishing a fresh streaming session when caller did not
+	// provide an explicit deadline.
+	defaultSessionEstablishmentTimeout = 30 * time.Second
 )
 
 var errShouldRetry = errors.New("should retry")
@@ -118,11 +121,16 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 		r.activeRequestsMutex.Lock()
 		ch := r.activeRequests[msg.GetRequestId()]
 
-		if !msg.GetHasMore() {
+		if ch != nil && !msg.GetHasMore() {
 			delete(r.activeRequests, msg.GetRequestId())
 		}
 
 		r.activeRequestsMutex.Unlock()
+
+		if ch == nil {
+			// The caller may have canceled this request and removed its channel.
+			continue
+		}
 
 		ch <- msg
 
@@ -146,9 +154,7 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 
 // sendRequest sends the provided request to the server and returns a channel on which the
 // caller can receive session response(s).
-func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRequest) chan *apipb.SessionResponse {
-	_ = ctx
-
+func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRequest) (int64, chan *apipb.SessionResponse) {
 	// allocate request ID and create channel to which we're forwarding the responses.
 	r.activeRequestsMutex.Lock()
 	rid := r.nextRequestID
@@ -184,7 +190,25 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 		r.sendStreamBrokenAndClose(ch2, err)
 	}
 
-	return ch
+	return rid, ch
+}
+
+func (r *grpcInnerSession) waitForResponse(ctx context.Context, rid int64, ch chan *apipb.SessionResponse) (*apipb.SessionResponse, bool, error) {
+	select {
+	case <-ctx.Done():
+		// Remove the request mapping so stale responses for canceled operations
+		// won't be routed to a channel with no receiver.
+		r.activeRequestsMutex.Lock()
+		if r.activeRequests[rid] == ch {
+			delete(r.activeRequests, rid)
+		}
+		r.activeRequestsMutex.Unlock()
+
+		return nil, false, errors.Wrap(ctx.Err(), "context cancelled waiting for session response")
+
+	case resp, ok := <-ch:
+		return resp, ok, nil
+	}
 }
 
 // +checklocks:r.activeRequestsMutex
@@ -256,7 +280,7 @@ func (r *grpcRepositoryClient) VerifyObject(ctx context.Context, id object.ID) (
 }
 
 func (r *grpcInnerSession) initializeSession(ctx context.Context, purpose string, readOnly bool) (*apipb.RepositoryParameters, error) {
-	ch := r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_InitializeSession{
 			InitializeSession: &apipb.InitializeSessionRequest{
 				Purpose:  purpose,
@@ -266,22 +290,21 @@ func (r *grpcInnerSession) initializeSession(ctx context.Context, purpose string
 	})
 
 	for {
-		select {
-		case <-ctx.Done():
-			return nil, errors.Wrap(ctx.Err(), "context cancelled waiting for session initialization")
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			return nil, errors.Wrap(err, "context cancelled waiting for session initialization")
+		}
 
-		case resp, ok := <-ch:
-			if !ok {
-				return nil, errNoSessionResponse()
-			}
+		if !ok {
+			return nil, errNoSessionResponse()
+		}
 
-			switch rr := resp.GetResponse().(type) {
-			case *apipb.SessionResponse_InitializeSession:
-				return rr.InitializeSession.GetParameters(), nil
+		switch rr := resp.GetResponse().(type) {
+		case *apipb.SessionResponse_InitializeSession:
+			return rr.InitializeSession.GetParameters(), nil
 
-			default:
-				return nil, unhandledSessionResponse(resp)
-			}
+		default:
+			return nil, unhandledSessionResponse(resp)
 		}
 	}
 }
@@ -293,13 +316,24 @@ func (r *grpcRepositoryClient) GetManifest(ctx context.Context, id manifest.ID, 
 }
 
 func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data any) (*manifest.EntryMetadata, error) {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetManifest{
 			GetManifest: &apipb.GetManifestRequest{
 				ManifestId: string(id),
 			},
 		},
-	}) {
+	})
+
+	for {
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			return nil, err
+		}
+
+		if !ok {
+			return nil, errNoSessionResponse()
+		}
+
 		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_GetManifest:
 			return decodeManifestEntryMetadata(rr.GetManifest.GetMetadata()), json.Unmarshal(rr.GetManifest.GetJsonData(), data)
@@ -308,8 +342,6 @@ func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data
 			return nil, unhandledSessionResponse(resp)
 		}
 	}
-
-	return nil, errNoSessionResponse()
 }
 
 func appendManifestEntryMetadataList(result []*manifest.EntryMetadata, md []*apipb.ManifestEntryMetadata) []*manifest.EntryMetadata {
@@ -346,14 +378,25 @@ func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]st
 		return "", errors.Wrap(err, "unable to marshal JSON")
 	}
 
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_PutManifest{
 			PutManifest: &apipb.PutManifestRequest{
 				JsonData: v,
 				Labels:   labels,
 			},
 		},
-	}) {
+	})
+
+	for {
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			return "", err
+		}
+
+		if !ok {
+			return "", errNoSessionResponse()
+		}
+
 		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_PutManifest:
 			return manifest.ID(rr.PutManifest.GetManifestId()), nil
@@ -362,8 +405,6 @@ func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]st
 			return "", unhandledSessionResponse(resp)
 		}
 	}
-
-	return "", errNoSessionResponse()
 }
 
 func (r *grpcRepositoryClient) SetFindManifestPageSizeForTesting(v int32) {
@@ -379,14 +420,25 @@ func (r *grpcRepositoryClient) FindManifests(ctx context.Context, labels map[str
 func (r *grpcInnerSession) FindManifests(ctx context.Context, labels map[string]string, pageSize int32) ([]*manifest.EntryMetadata, error) {
 	var entries []*manifest.EntryMetadata
 
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_FindManifests{
 			FindManifests: &apipb.FindManifestsRequest{
 				Labels:   labels,
 				PageSize: pageSize,
 			},
 		},
-	}) {
+	})
+
+	for {
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			return nil, err
+		}
+
+		if !ok {
+			return nil, errNoSessionResponse()
+		}
+
 		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_FindManifests:
 			entries = appendManifestEntryMetadataList(entries, rr.FindManifests.GetMetadata())
@@ -399,8 +451,6 @@ func (r *grpcInnerSession) FindManifests(ctx context.Context, labels map[string]
 			return nil, unhandledSessionResponse(resp)
 		}
 	}
-
-	return nil, errNoSessionResponse()
 }
 
 func (r *grpcRepositoryClient) DeleteManifest(ctx context.Context, id manifest.ID) error {
@@ -412,13 +462,24 @@ func (r *grpcRepositoryClient) DeleteManifest(ctx context.Context, id manifest.I
 }
 
 func (r *grpcInnerSession) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_DeleteManifest{
 			DeleteManifest: &apipb.DeleteManifestRequest{
 				ManifestId: string(id),
 			},
 		},
-	}) {
+	})
+
+	for {
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			return errNoSessionResponse()
+		}
+
 		switch resp.GetResponse().(type) {
 		case *apipb.SessionResponse_DeleteManifest:
 			return nil
@@ -427,8 +488,6 @@ func (r *grpcInnerSession) DeleteManifest(ctx context.Context, id manifest.ID) e
 			return unhandledSessionResponse(resp)
 		}
 	}
-
-	return errNoSessionResponse()
 }
 
 func (r *grpcRepositoryClient) PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error) {
@@ -445,14 +504,27 @@ func (r *grpcRepositoryClient) PrefetchContents(ctx context.Context, contentIDs 
 }
 
 func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) []content.ID {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_PrefetchContents{
 			PrefetchContents: &apipb.PrefetchContentsRequest{
 				ContentIds: content.IDsToStrings(contentIDs),
 				Hint:       hint,
 			},
 		},
-	}) {
+	})
+
+	for {
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			log(ctx).Warnf("context canceled waiting for PrefetchContents response: %v", err)
+			return nil
+		}
+
+		if !ok {
+			log(ctx).Warn("missing response to PrefetchContents")
+			return nil
+		}
+
 		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_PrefetchContents:
 			ids, err := content.IDsFromStrings(rr.PrefetchContents.GetContentIds())
@@ -467,10 +539,6 @@ func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []co
 			return nil
 		}
 	}
-
-	log(ctx).Warn("missing response to PrefetchContents")
-
-	return nil
 }
 
 func (r *grpcRepositoryClient) ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error) {
@@ -480,14 +548,25 @@ func (r *grpcRepositoryClient) ApplyRetentionPolicy(ctx context.Context, sourceP
 }
 
 func (r *grpcInnerSession) ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error) {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_ApplyRetentionPolicy{
 			ApplyRetentionPolicy: &apipb.ApplyRetentionPolicyRequest{
 				SourcePath:   sourcePath,
 				ReallyDelete: reallyDelete,
 			},
 		},
-	}) {
+	})
+
+	for {
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			return nil, err
+		}
+
+		if !ok {
+			return nil, errNoSessionResponse()
+		}
+
 		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_ApplyRetentionPolicy:
 			return manifest.IDsFromStrings(rr.ApplyRetentionPolicy.GetManifestIds()), nil
@@ -496,8 +575,6 @@ func (r *grpcInnerSession) ApplyRetentionPolicy(ctx context.Context, sourcePath 
 			return nil, unhandledSessionResponse(resp)
 		}
 	}
-
-	return nil, errNoSessionResponse()
 }
 
 func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType apipb.NotificationEventArgType, importance int32) error {
@@ -511,7 +588,7 @@ func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateNam
 var _ RemoteNotifications = (*grpcRepositoryClient)(nil)
 
 func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType apipb.NotificationEventArgType, severity int32) (struct{}, error) {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_SendNotification{
 			SendNotification: &apipb.SendNotificationRequest{
 				TemplateName:  templateName,
@@ -520,7 +597,18 @@ func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName st
 				Severity:      severity,
 			},
 		},
-	}) {
+	})
+
+	for {
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			return struct{}{}, err
+		}
+
+		if !ok {
+			return struct{}{}, errNoSessionResponse()
+		}
+
 		switch resp.GetResponse().(type) {
 		case *apipb.SessionResponse_SendNotification:
 			return struct{}{}, nil
@@ -529,8 +617,6 @@ func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName st
 			return struct{}{}, unhandledSessionResponse(resp)
 		}
 	}
-
-	return struct{}{}, errNoSessionResponse()
 }
 
 func (r *grpcRepositoryClient) Time() time.Time {
@@ -564,11 +650,22 @@ func (r *grpcRepositoryClient) Flush(ctx context.Context) error {
 }
 
 func (r *grpcInnerSession) Flush(ctx context.Context) error {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_Flush{
 			Flush: &apipb.FlushRequest{},
 		},
-	}) {
+	})
+
+	for {
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			return err
+		}
+
+		if !ok {
+			return errNoSessionResponse()
+		}
+
 		switch resp.GetResponse().(type) {
 		case *apipb.SessionResponse_Flush:
 			return nil
@@ -577,8 +674,6 @@ func (r *grpcInnerSession) Flush(ctx context.Context) error {
 			return unhandledSessionResponse(resp)
 		}
 	}
-
-	return errNoSessionResponse()
 }
 
 func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
@@ -646,13 +741,24 @@ func (r *grpcRepositoryClient) ContentInfo(ctx context.Context, contentID conten
 }
 
 func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetContentInfo{
 			GetContentInfo: &apipb.GetContentInfoRequest{
 				ContentId: contentID.String(),
 			},
 		},
-	}) {
+	})
+
+	for {
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			return content.Info{}, err
+		}
+
+		if !ok {
+			return content.Info{}, errNoSessionResponse()
+		}
+
 		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_GetContentInfo:
 			contentID, err := content.ParseID(rr.GetContentInfo.GetInfo().GetId())
@@ -675,8 +781,6 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 			return content.Info{}, unhandledSessionResponse(resp)
 		}
 	}
-
-	return content.Info{}, errNoSessionResponse()
 }
 
 func errorFromSessionResponse(rr *apipb.ErrorResponse) error {
@@ -728,13 +832,24 @@ func (r *grpcRepositoryClient) GetContent(ctx context.Context, contentID content
 }
 
 func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetContent{
 			GetContent: &apipb.GetContentRequest{
 				ContentId: contentID.String(),
 			},
 		},
-	}) {
+	})
+
+	for {
+		resp, ok, err := r.waitForResponse(ctx, rid, ch)
+		if err != nil {
+			return nil, err
+		}
+
+		if !ok {
+			return nil, errNoSessionResponse()
+		}
+
 		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_GetContent:
 			return rr.GetContent.GetData(), nil
@@ -743,8 +858,6 @@ func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID)
 			return nil, unhandledSessionResponse(resp)
 		}
 	}
-
-	return nil, errNoSessionResponse()
 }
 
 func (r *grpcRepositoryClient) SupportsContentCompression() bool {
@@ -811,7 +924,7 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 }
 
 func (r *grpcInnerSession) writeContentAsyncAndVerify(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID, eg *errgroup.Group) {
-	ch := r.sendRequest(ctx, &apipb.SessionRequest{
+	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_WriteContent{
 			WriteContent: &apipb.WriteContentRequest{
 				Data:        data,
@@ -822,7 +935,16 @@ func (r *grpcInnerSession) writeContentAsyncAndVerify(ctx context.Context, conte
 	})
 
 	eg.Go(func() error {
-		for resp := range ch {
+		for {
+			resp, ok, err := r.waitForResponse(ctx, rid, ch)
+			if err != nil {
+				return err
+			}
+
+			if !ok {
+				return errNoSessionResponse()
+			}
+
 			switch rr := resp.GetResponse().(type) {
 			case *apipb.SessionResponse_WriteContent:
 				got, err := content.ParseID(rr.WriteContent.GetContentId())
@@ -840,8 +962,6 @@ func (r *grpcInnerSession) writeContentAsyncAndVerify(ctx context.Context, conte
 				return unhandledSessionResponse(resp)
 			}
 		}
-
-		return errNoSessionResponse()
 	})
 }
 
@@ -962,30 +1082,29 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 		log(ctx).Debugf("establishing new GRPC streaming session (purpose=%v)", r.opt.Purpose)
 
 		retryPolicy := retry.Always
-		if r.transparentRetries && r.innerSessionAttemptCount == 0 {
-			// the first time the read-only session is established, don't do retries
-			// to avoid spinning in place while the server is not connectable.
+		switch {
+		case !r.transparentRetries:
+			// Callers that opted out of transparent retries should fail fast.
+			retryPolicy = retry.Never
+		case r.innerSessionAttemptCount == 0:
+			// The first attempt for read-only sessions should also fail fast,
+			// instead of retrying in place while unreachable.
 			retryPolicy = retry.Never
 		}
 
 		r.innerSessionAttemptCount++
 
-		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
+		retryCtx := ctx
+		retryCancel := context.CancelFunc(func() {})
+		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+			retryCtx, retryCancel = context.WithTimeout(ctx, defaultSessionEstablishmentTimeout)
+		}
+		defer retryCancel()
+
+		v, err := retry.WithExponentialBackoff(retryCtx, "establishing session", func() (*grpcInnerSession, error) {
 			// Reset GRPC's internal connect backoff so it immediately attempts
 			// to reconnect rather than waiting through exponential backoff.
-			// This is critical after sleep/wake when the transport is dead but
-			// GRPC may be in a long backoff delay from a previous failure.
 			r.conn.ResetConnectBackoff()
-
-			// If the connection is in TransientFailure, wait briefly for it
-			// to transition to Connecting/Ready before attempting cli.Session().
-			// Without this, cli.Session() would hang for the full 30s timeout
-			// on a connection that just needs a moment to reconnect.
-			if state := r.conn.GetState(); state == connectivity.TransientFailure {
-				waitCtx, waitCancel := context.WithTimeout(ctx, 10*time.Second)
-				r.conn.WaitForStateChange(waitCtx, connectivity.TransientFailure)
-				waitCancel()
-			}
 
 			// sessCtx is detached from ctx (via WithoutCancel) so the GRPC stream
 			// outlives the caller's context, but wrapped with WithCancel so
@@ -1003,10 +1122,6 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 				}
 			}()
 
-			// Use up to 30s per step for session establishment to avoid hanging
-			// indefinitely when the server is unreachable. This applies separately
-			// to the cli.Session() call and the initializeSession handshake, for a
-			// combined worst-case of about 60s.
 			type sessionResult struct {
 				sess apipb.KopiaRepository_SessionClient
 				err  error
@@ -1019,9 +1134,6 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 				ch <- sessionResult{s, e}
 			}()
 
-			establishTimer := time.NewTimer(30 * time.Second)
-			defer establishTimer.Stop()
-
 			var sess apipb.KopiaRepository_SessionClient
 
 			select {
@@ -1032,11 +1144,12 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 
 				sess = res.sess
 
-			case <-establishTimer.C:
-				return nil, errors.New("session establishment timed out waiting for Session()")
+			case <-retryCtx.Done():
+				if errors.Is(retryCtx.Err(), context.DeadlineExceeded) {
+					return nil, errors.New("session establishment timed out")
+				}
 
-			case <-ctx.Done():
-				return nil, errors.Wrap(ctx.Err(), "context cancelled during session establishment")
+				return nil, errors.Wrap(retryCtx.Err(), "context cancelled during session establishment")
 			}
 
 			newSess := &grpcInnerSession{
@@ -1050,17 +1163,14 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 
 			go newSess.readLoop(sessCtx)
 
-			establishCtx, establishCancel := context.WithTimeout(ctx, 30*time.Second)
-			defer establishCancel()
-
 			var initErr error
 
-			newSess.repoParams, initErr = newSess.initializeSession(establishCtx, r.opt.Purpose, r.isReadOnly)
+			newSess.repoParams, initErr = newSess.initializeSession(retryCtx, r.opt.Purpose, r.isReadOnly)
 			if initErr != nil {
 				newSess.shutdown()
 
-				if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
-					return nil, errors.Wrap(initErr, "session initialization timed out")
+				if errors.Is(retryCtx.Err(), context.DeadlineExceeded) {
+					return nil, errors.Wrap(initErr, "session establishment timed out")
 				}
 
 				return nil, errors.Wrap(initErr, "unable to initialize session")

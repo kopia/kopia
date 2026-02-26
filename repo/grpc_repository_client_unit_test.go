@@ -32,6 +32,34 @@ func (m *mockSessionClient) Context() context.Context     { return m.ctx }
 func (m *mockSessionClient) SendMsg(interface{}) error    { return nil }
 func (m *mockSessionClient) RecvMsg(interface{}) error    { return nil }
 
+type scriptedSessionClient struct {
+	grpc.ClientStream
+
+	mu        sync.Mutex
+	responses []*apipb.SessionResponse
+}
+
+func (m *scriptedSessionClient) Send(*apipb.SessionRequest) error { return nil }
+func (m *scriptedSessionClient) Recv() (*apipb.SessionResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.responses) == 0 {
+		return nil, io.EOF
+	}
+
+	resp := m.responses[0]
+	m.responses = m.responses[1:]
+
+	return resp, nil
+}
+func (m *scriptedSessionClient) CloseSend() error             { return nil }
+func (m *scriptedSessionClient) Header() (metadata.MD, error) { return nil, nil }
+func (m *scriptedSessionClient) Trailer() metadata.MD         { return nil }
+func (m *scriptedSessionClient) Context() context.Context     { return context.Background() }
+func (m *scriptedSessionClient) SendMsg(interface{}) error    { return nil }
+func (m *scriptedSessionClient) RecvMsg(interface{}) error    { return nil }
+
 func TestBaseURLToURI(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
@@ -200,4 +228,64 @@ func TestKillInnerSessionConcurrency(t *testing.T) {
 	wg.Wait()
 
 	require.Nil(t, client.innerSession)
+}
+
+func TestWaitForResponseContextCancelRemovesActiveRequest(t *testing.T) {
+	t.Parallel()
+
+	sess := &grpcInnerSession{
+		activeRequests: make(map[int64]chan *apipb.SessionResponse),
+	}
+
+	rid := int64(123)
+	ch := make(chan *apipb.SessionResponse, 1)
+
+	sess.activeRequestsMutex.Lock()
+	sess.activeRequests[rid] = ch
+	sess.activeRequestsMutex.Unlock()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, ok, err := sess.waitForResponse(ctx, rid, ch)
+	require.False(t, ok)
+	require.ErrorIs(t, err, context.Canceled)
+
+	sess.activeRequestsMutex.Lock()
+	defer sess.activeRequestsMutex.Unlock()
+
+	_, found := sess.activeRequests[rid]
+	require.False(t, found)
+}
+
+func TestReadLoopIgnoresResponsesForCanceledRequests(t *testing.T) {
+	t.Parallel()
+
+	sess := &grpcInnerSession{
+		cli: &scriptedSessionClient{
+			responses: []*apipb.SessionResponse{
+				{
+					RequestId: 999,
+					Response: &apipb.SessionResponse_Flush{
+						Flush: &apipb.FlushResponse{},
+					},
+				},
+			},
+		},
+		activeRequests: make(map[int64]chan *apipb.SessionResponse),
+	}
+
+	sess.wg.Add(1)
+
+	done := make(chan struct{})
+	go func() {
+		sess.readLoop(context.Background())
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("readLoop blocked on response for unknown request id")
+	}
 }
