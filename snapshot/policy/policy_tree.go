@@ -72,6 +72,11 @@ var (
 		ParallelUploadAboveSize: newOptionalInt64(2 << 30), //nolint:mnd
 	}
 
+	// defaultMetricsPolicy is the default metrics policy.
+	defaultMetricsPolicy = MetricsPolicy{
+		ExposeMetrics: NewOptionalBool(true),
+	}
+
 	// DefaultPolicy is a default policy returned by policy tree in absence of other policies.
 	DefaultPolicy = &Policy{
 		FilesPolicy:               defaultFilesPolicy,
@@ -84,6 +89,7 @@ var (
 		Actions:                   defaultActionsPolicy,
 		OSSnapshotPolicy:          defaultOSSnapshotPolicy,
 		UploadPolicy:              defaultUploadPolicy,
+		MetricsPolicy:             defaultMetricsPolicy,
 	}
 
 	// DefaultDefinition provides the Definition for the default policy.
