@@ -95,10 +95,10 @@ func (c *policyCompressionFlags) setCompressionPolicyFromFlags(ctx context.Conte
 		}
 	}
 
-	applyPolicyStringList(ctx, "only-compress extensions",
+	applyPolicyExtensionSet(ctx, "only-compress extensions",
 		&p.OnlyCompress, c.policySetAddOnlyCompress, c.policySetRemoveOnlyCompress, c.policySetClearOnlyCompress, changeCount)
 
-	applyPolicyStringList(ctx, "never-compress extensions",
+	applyPolicyExtensionSet(ctx, "never-compress extensions",
 		&p.NeverCompress, c.policySetAddNeverCompress, c.policySetRemoveNeverCompress, c.policySetClearNeverCompress, changeCount)
 
 	return nil
