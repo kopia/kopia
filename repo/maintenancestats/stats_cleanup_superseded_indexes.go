@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/units"
 )
 
 const cleanupSupersededIndexesStatsKind = "cleanupSupersededIndexesStats"
@@ -27,7 +28,7 @@ func (cs *CleanupSupersededIndexesStats) WriteValueTo(jw *contentlog.JSONWriter)
 
 // Summary generates a human readable summary for the stats.
 func (cs *CleanupSupersededIndexesStats) Summary() string {
-	return fmt.Sprintf("Cleaned up %v(%v) superseded index blobs, max replacement time %v", cs.DeletedBlobCount, cs.DeletedTotalSize, cs.MaxReplacementTime)
+	return fmt.Sprintf("Cleaned up %v(%v) superseded index blobs, max replacement time %v", cs.DeletedBlobCount, units.BytesString(cs.DeletedTotalSize), cs.MaxReplacementTime)
 }
 
 // Kind returns the kind name for the stats.

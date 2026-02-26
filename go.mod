@@ -1,6 +1,6 @@
 module github.com/kopia/kopia
 
-go 1.25
+go 1.25.0
 
 toolchain go1.25.7
 
@@ -30,7 +30,7 @@ require (
 	github.com/klauspost/compress v1.18.4
 	github.com/klauspost/pgzip v1.2.6
 	github.com/klauspost/reedsolomon v1.13.2
-	github.com/kopia/htmluibuild v0.0.1-0.20260220043103-12827e348d58
+	github.com/kopia/htmluibuild v0.0.1-0.20260223225928-affc284183d9
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
@@ -67,7 +67,7 @@ require (
 	golang.org/x/sys v0.41.0
 	golang.org/x/term v0.40.0
 	golang.org/x/text v0.34.0
-	google.golang.org/api v0.267.0
+	google.golang.org/api v0.268.0
 	google.golang.org/grpc v1.79.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
