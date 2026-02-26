@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/upload"
+	"github.com/kopia/kopia/internal/storagereserve"
 )
 
 const (
@@ -91,6 +92,15 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 
 //nolint:gocyclo
 func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWriter) error {
+	// Ensure storage reserve is present before space-filling operation.
+	// If this fails, it likely means the storage is full and we can't create the reserve.
+	// This only applies to direct repositories.
+	if dr, ok := rep.(repo.DirectRepositoryWriter); ok {
+		if err := storagereserve.Ensure(ctx, dr.BlobStorage(), storagereserve.DefaultReserveSize); err != nil {
+			return errors.Wrap(err, "error ensuring storage reserve")
+		}
+	}
+
 	sources := c.snapshotCreateSources
 
 	if c.snapshotCreateAll && len(sources) > 0 {

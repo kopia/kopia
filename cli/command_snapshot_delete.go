@@ -3,10 +3,14 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strings"
+	"syscall"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/storagereserve"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -29,6 +33,15 @@ func (c *commandSnapshotDelete) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandSnapshotDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {
+	// Snapshot deletion is a recovery action.
+	// We ensure reserve or delete it if we are already out of space.
+	// This only applies to direct repositories.
+	if dr, ok := rep.(repo.DirectRepositoryWriter); ok {
+		if err := ensureReserveOrDeleteForRecovery(ctx, dr.BlobStorage()); err != nil {
+			return err
+		}
+	}
+
 	if c.snapshotDeleteAllSnapshotsForSource {
 		return c.snapshotDeleteSources(ctx, rep)
 	}
@@ -116,4 +129,53 @@ func (c *commandSnapshotDelete) deleteSnapshotsByRootObjectID(ctx context.Contex
 	}
 
 	return nil
+}
+
+func ensureReserveOrDeleteForRecovery(ctx context.Context, st blob.Storage) error {
+	err := storagereserve.Ensure(ctx, st, storagereserve.DefaultReserveSize)
+	if err == nil {
+		return nil
+	}
+
+	// Only attempt sacrificial deletion if we are actually out of space.
+	// For other errors (e.g. permissions), we should fail fast.
+	if errors.Is(err, storagereserve.ErrInsufficientSpace) || isNoSpaceError(err) {
+		log(ctx).Warnf("Could not ensure storage reserve, attempting to delete it to free up space: %v", err)
+		if delErr := storagereserve.Delete(ctx, st); delErr != nil {
+			return errors.Wrapf(delErr, "emergency cleanup failed after original error: %v", err)
+		}
+
+		return nil
+	}
+
+	return errors.Wrap(err, "error ensuring storage reserve")
+}
+
+// isNoSpaceError is a helper to detect out-of-space conditions consistently.
+// This matches the implementation in repo/maintenance/maintenance_run.go.
+func isNoSpaceError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if errors.Is(err, syscall.ENOSPC) {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	noSpacePhrases := []string{
+		"no space left on device",
+		"no space left on disk",
+		"not enough space",
+		"insufficient space",
+		"disk is full",
+	}
+
+	for _, phrase := range noSpacePhrases {
+		if strings.Contains(msg, phrase) {
+			return true
+		}
+	}
+
+	return false
 }
