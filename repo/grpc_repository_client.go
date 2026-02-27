@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
 
@@ -1105,6 +1106,11 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 			// Reset GRPC's internal connect backoff so it immediately attempts
 			// to reconnect rather than waiting through exponential backoff.
 			r.conn.ResetConnectBackoff()
+			r.conn.Connect()
+
+			if err := waitForGRPCConnectionReady(retryCtx, r.conn); err != nil {
+				return nil, errors.Wrap(err, "waiting for gRPC connection readiness")
+			}
 
 			// sessCtx is detached from ctx (via WithoutCancel) so the GRPC stream
 			// outlives the caller's context, but wrapped with WithCancel so
@@ -1146,7 +1152,7 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 
 			case <-retryCtx.Done():
 				if errors.Is(retryCtx.Err(), context.DeadlineExceeded) {
-					return nil, errors.New("session establishment timed out")
+					return nil, errors.Errorf("session establishment timed out (connection state=%v)", r.conn.GetState())
 				}
 
 				return nil, errors.Wrap(retryCtx.Err(), "context cancelled during session establishment")
@@ -1188,6 +1194,34 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 	}
 
 	return r.innerSession, nil
+}
+
+func waitForGRPCConnectionReady(ctx context.Context, conn *grpc.ClientConn) error {
+	for {
+		state := conn.GetState()
+
+		switch state {
+		case connectivity.Ready:
+			return nil
+		case connectivity.Shutdown:
+			return errors.New("gRPC connection is shut down")
+		case connectivity.Idle, connectivity.Connecting, connectivity.TransientFailure:
+			// Keep waiting for a transition to READY or terminal failure.
+		default:
+			return errors.Errorf("unexpected gRPC connection state: %v", state)
+		}
+
+		if conn.WaitForStateChange(ctx, state) {
+			continue
+		}
+
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return errors.Errorf("timed out waiting for gRPC connection readiness (last state=%v)", state)
+		}
+
+		//nolint:wrapcheck
+		return ctx.Err()
+	}
 }
 
 func (r *grpcRepositoryClient) killInnerSession() {
