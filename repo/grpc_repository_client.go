@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"io"
 	"net"
@@ -854,13 +855,29 @@ func (c grpcCreds) RequireTransportSecurity() bool {
 // openGRPCAPIRepository opens the Repository based on remote GRPC server.
 // The APIServerInfo must have the address of the repository as 'https://host:port'
 func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password string, par *immutableServerRepositoryParameters) (Repository, error) {
-	var transportCreds credentials.TransportCredentials
-
+	var tlsConfig *tls.Config
 	if si.TrustedServerCertificateFingerprint != "" {
-		transportCreds = credentials.NewTLS(tlsutil.TLSConfigTrustingSingleCertificate(si.TrustedServerCertificateFingerprint))
+		tlsConfig = tlsutil.TLSConfigTrustingSingleCertificate(si.TrustedServerCertificateFingerprint)
 	} else {
-		transportCreds = credentials.NewClientTLSFromCert(nil, "")
+		tlsConfig = &tls.Config{
+			ServerName: "",
+			RootCAs:    nil,
+			MinVersion: tls.VersionTLS13,
+		}
 	}
+
+	if si.ClientCertificateFile != "" && si.ClientPrivateKeyFile != "" {
+		certificate, err := tls.LoadX509KeyPair(si.ClientCertificateFile, si.ClientPrivateKeyFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "Loading client certificate")
+		}
+
+		tlsConfig.Certificates = []tls.Certificate{
+			certificate,
+		}
+	}
+
+	transportCreds := credentials.NewTLS(tlsConfig)
 
 	uri, err := baseURLToURI(si.BaseURL)
 	if err != nil {

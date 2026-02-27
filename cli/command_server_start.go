@@ -59,6 +59,7 @@ type commandServerStart struct {
 	serverStartTLSGenerateCert          bool
 	serverStartTLSCertFile              string
 	serverStartTLSKeyFile               string
+	serverStartCAFile                   string
 	serverStartTLSGenerateRSAKeySize    int
 	serverStartTLSGenerateCertValidDays int
 	serverStartTLSGenerateCertNames     []string
@@ -111,6 +112,7 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("tls-generate-cert", "Generate TLS certificate").Hidden().BoolVar(&c.serverStartTLSGenerateCert)
 	cmd.Flag("tls-cert-file", "TLS certificate PEM").StringVar(&c.serverStartTLSCertFile)
 	cmd.Flag("tls-key-file", "TLS key PEM file").StringVar(&c.serverStartTLSKeyFile)
+	cmd.Flag("tls-ca-file", "TLS CA PEM file, used for client authentication").StringVar(&c.serverStartCAFile)
 	cmd.Flag("tls-generate-rsa-key-size", "TLS RSA Key size (bits)").Hidden().Default("4096").IntVar(&c.serverStartTLSGenerateRSAKeySize)
 	cmd.Flag("tls-generate-cert-valid-days", "How long should the TLS certificate be valid").Default("3650").Hidden().IntVar(&c.serverStartTLSGenerateCertValidDays)
 	cmd.Flag("tls-generate-cert-name", "Host names/IP addresses to generate TLS certificate for").Default("127.0.0.1").Hidden().StringsVar(&c.serverStartTLSGenerateCertNames)
@@ -388,6 +390,11 @@ User accounts can be added using 'kopia server user add'.
 
 	// handle user accounts stored in the repository
 	authenticators = append(authenticators, auth.AuthenticateRepositoryUsers())
+
+	// handle client certificate authentication
+	if c.serverStartCAFile != "" {
+		authenticators = append(authenticators, auth.AuthenticateClientCertificateUsers())
+	}
 
 	return auth.CombineAuthenticators(authenticators...), nil
 }
