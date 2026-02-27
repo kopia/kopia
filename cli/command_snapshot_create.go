@@ -332,6 +332,19 @@ func (c *commandSnapshotCreate) snapshotSingleSource(
 	manifest.Tags = tags
 	manifest.UpdatePins(c.pins, nil)
 
+	progress := c.svc.getProgress()
+
+	manifest.Progress = map[string]int64{
+		"uploadedBytes":     progress.uploadedBytes.Load(),
+		"cachedBytes":       progress.cachedBytes.Load(),
+		"hashedBytes":       progress.hashedBytes.Load(),
+		"cachedFiles":       int64(progress.cachedFiles.Load()),
+		"hashedFiles":       int64(progress.hashedFiles.Load()),
+		"uploadedFiles":     int64(progress.uploadedFiles.Load()),
+		"ignoredErrorCount": int64(progress.ignoredErrorCount.Load()),
+		"fatalErrorCount":   int64(progress.fatalErrorCount.Load()),
+	}
+
 	startTimeOverride, _ := parseTimestamp(c.snapshotCreateStartTime)
 	endTimeOverride, _ := parseTimestamp(c.snapshotCreateEndTime)
 
@@ -384,7 +397,7 @@ func (c *commandSnapshotCreate) snapshotSingleSource(
 		}
 	}
 
-	c.svc.getProgress().Finish()
+	progress.Finish()
 
 	return c.reportSnapshotStatus(ctx, manifest)
 }
