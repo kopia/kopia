@@ -255,9 +255,6 @@ type grpcRepositoryClient struct {
 	// +checklocks:innerSessionMutex
 	innerSession *grpcInnerSession
 
-	// +checklocks:innerSessionMutex
-	sessionClosing bool
-
 	opt                WriteSessionOptions
 	isReadOnly         bool
 	transparentRetries bool
@@ -297,41 +294,15 @@ type sessionRequestRoute struct {
 	requestDone <-chan struct{}
 }
 
-type sessionRouterCommandType int
-
-const (
-	sessionRouterCommandRegister sessionRouterCommandType = iota
-	sessionRouterCommandCancel
-	sessionRouterCommandRouteResponse
-	sessionRouterCommandRequestBroken
-	sessionRouterCommandFailAll
-	sessionRouterCommandHasActiveRequest
-	sessionRouterCommandActiveRequestCount
-)
-
-type sessionRouterCommand struct {
-	commandType sessionRouterCommandType
-
-	// Mutation commands.
-	requestID int64
-	route     sessionRequestRoute
-	response  *apipb.SessionResponse
-	err       error
-
-	// Query command responses.
-	hasActiveResponseCh   chan bool
-	activeCountResponseCh chan int
-}
-
 type sessionResponseRouter struct {
-	commandCh chan sessionRouterCommand
-	done      chan struct{}
+	cmdCh chan func(map[int64]sessionRequestRoute)
+	done  chan struct{}
 }
 
 func newSessionResponseRouter(ctx context.Context) *sessionResponseRouter {
 	router := &sessionResponseRouter{
-		commandCh: make(chan sessionRouterCommand),
-		done:      make(chan struct{}),
+		cmdCh: make(chan func(map[int64]sessionRequestRoute)),
+		done:  make(chan struct{}),
 	}
 
 	go router.run(ctx)
@@ -342,75 +313,133 @@ func newSessionResponseRouter(ctx context.Context) *sessionResponseRouter {
 func (router *sessionResponseRouter) run(ctx context.Context) {
 	defer close(router.done)
 
-	activeRequests := map[int64]sessionRequestRoute{}
+	active := map[int64]sessionRequestRoute{}
 
 	for {
 		select {
 		case <-ctx.Done():
-			router.failAllActiveRequests(activeRequests, ctx.Err())
+			failAllActiveRequests(active, ctx.Err())
 			return
 
-		case cmd := <-router.commandCh:
-			switch cmd.commandType {
-			case sessionRouterCommandRegister:
-				activeRequests[cmd.requestID] = cmd.route
-
-			case sessionRouterCommandCancel:
-				if route, ok := activeRequests[cmd.requestID]; ok {
-					delete(activeRequests, cmd.requestID)
-					close(route.responseCh)
-				}
-
-			case sessionRouterCommandRouteResponse:
-				router.routeResponse(activeRequests, cmd.response)
-
-			case sessionRouterCommandRequestBroken:
-				if route, ok := activeRequests[cmd.requestID]; ok {
-					delete(activeRequests, cmd.requestID)
-					router.sendStreamBrokenAndClose(route.responseCh, cmd.err)
-				}
-
-			case sessionRouterCommandFailAll:
-				router.failAllActiveRequests(activeRequests, cmd.err)
-
-			case sessionRouterCommandHasActiveRequest:
-				_, ok := activeRequests[cmd.requestID]
-				cmd.hasActiveResponseCh <- ok
-
-			case sessionRouterCommandActiveRequestCount:
-				cmd.activeCountResponseCh <- len(activeRequests)
-			}
+		case cmd := <-router.cmdCh:
+			cmd(active)
 		}
 	}
 }
 
-func (router *sessionResponseRouter) routeResponse(activeRequests map[int64]sessionRequestRoute, response *apipb.SessionResponse) {
+// tryPost submits a command unless the router is already shut down.
+func (router *sessionResponseRouter) tryPost(cmd func(map[int64]sessionRequestRoute)) bool {
+	select {
+	case <-router.done:
+		return false
+	default:
+	}
+
+	select {
+	case <-router.done:
+		return false
+	case router.cmdCh <- cmd:
+		return true
+	}
+}
+
+func (router *sessionResponseRouter) registerRequest(requestID int64, responseCh chan *apipb.SessionResponse, requestDone <-chan struct{}) {
+	router.tryPost(func(active map[int64]sessionRequestRoute) {
+		active[requestID] = sessionRequestRoute{
+			responseCh:  responseCh,
+			requestDone: requestDone,
+		}
+	})
+}
+
+func (router *sessionResponseRouter) cancelRequest(requestID int64) {
+	router.tryPost(func(active map[int64]sessionRequestRoute) {
+		if route, ok := active[requestID]; ok {
+			delete(active, requestID)
+			close(route.responseCh)
+		}
+	})
+}
+
+func (router *sessionResponseRouter) routeIncomingResponse(response *apipb.SessionResponse) {
+	router.tryPost(func(active map[int64]sessionRequestRoute) {
+		routeResponse(active, response)
+	})
+}
+
+func (router *sessionResponseRouter) reportRequestBroken(requestID int64, err error) {
+	router.tryPost(func(active map[int64]sessionRequestRoute) {
+		if route, ok := active[requestID]; ok {
+			delete(active, requestID)
+			sendStreamBrokenAndClose(route.responseCh, err)
+		}
+	})
+}
+
+func (router *sessionResponseRouter) failAllRequests(err error) {
+	router.tryPost(func(active map[int64]sessionRequestRoute) {
+		failAllActiveRequests(active, err)
+	})
+}
+
+func (router *sessionResponseRouter) hasActiveRequest(requestID int64) bool {
+	resultCh := make(chan bool, 1)
+	if !router.tryPost(func(active map[int64]sessionRequestRoute) {
+		_, ok := active[requestID]
+		resultCh <- ok
+	}) {
+		return false
+	}
+
+	select {
+	case <-router.done:
+		return false
+	case ok := <-resultCh:
+		return ok
+	}
+}
+
+func (router *sessionResponseRouter) activeRequestCount() int {
+	resultCh := make(chan int, 1)
+	if !router.tryPost(func(active map[int64]sessionRequestRoute) {
+		resultCh <- len(active)
+	}) {
+		return 0
+	}
+
+	select {
+	case <-router.done:
+		return 0
+	case n := <-resultCh:
+		return n
+	}
+}
+
+func routeResponse(active map[int64]sessionRequestRoute, response *apipb.SessionResponse) {
 	if response == nil {
 		return
 	}
 
 	requestID := response.GetRequestId()
-	route, ok := activeRequests[requestID]
+	route, ok := active[requestID]
 	if !ok {
-		// The caller may have canceled this request and removed its route.
 		return
 	}
 
-	if !router.deliverResponse(route, response) {
-		delete(activeRequests, requestID)
-
+	if !deliverResponse(route, response) {
+		delete(active, requestID)
 		close(route.responseCh)
 
 		return
 	}
 
 	if !response.GetHasMore() {
-		delete(activeRequests, requestID)
+		delete(active, requestID)
 		close(route.responseCh)
 	}
 }
 
-func (router *sessionResponseRouter) deliverResponse(route sessionRequestRoute, response *apipb.SessionResponse) bool {
+func deliverResponse(route sessionRequestRoute, response *apipb.SessionResponse) bool {
 	if route.requestDone != nil {
 		select {
 		case <-route.requestDone:
@@ -431,98 +460,7 @@ func (router *sessionResponseRouter) deliverResponse(route sessionRequestRoute, 
 	return true
 }
 
-// tryPostCommand submits a command unless the router is already shut down.
-func (router *sessionResponseRouter) tryPostCommand(cmd sessionRouterCommand) bool {
-	select {
-	case <-router.done:
-		return false
-	default:
-	}
-
-	select {
-	case <-router.done:
-		return false
-	case router.commandCh <- cmd:
-		return true
-	}
-}
-
-func (router *sessionResponseRouter) registerRequest(requestID int64, responseCh chan *apipb.SessionResponse, requestDone <-chan struct{}) {
-	router.tryPostCommand(sessionRouterCommand{
-		commandType: sessionRouterCommandRegister,
-		requestID:   requestID,
-		route: sessionRequestRoute{
-			responseCh:  responseCh,
-			requestDone: requestDone,
-		},
-	})
-}
-
-func (router *sessionResponseRouter) cancelRequest(requestID int64) {
-	router.tryPostCommand(sessionRouterCommand{
-		commandType: sessionRouterCommandCancel,
-		requestID:   requestID,
-	})
-}
-
-func (router *sessionResponseRouter) routeIncomingResponse(response *apipb.SessionResponse) {
-	router.tryPostCommand(sessionRouterCommand{
-		commandType: sessionRouterCommandRouteResponse,
-		response:    response,
-	})
-}
-
-func (router *sessionResponseRouter) reportRequestBroken(requestID int64, err error) {
-	router.tryPostCommand(sessionRouterCommand{
-		commandType: sessionRouterCommandRequestBroken,
-		requestID:   requestID,
-		err:         err,
-	})
-}
-
-func (router *sessionResponseRouter) failAllRequests(err error) {
-	router.tryPostCommand(sessionRouterCommand{
-		commandType: sessionRouterCommandFailAll,
-		err:         err,
-	})
-}
-
-func (router *sessionResponseRouter) hasActiveRequest(requestID int64) bool {
-	resultCh := make(chan bool, 1)
-	if !router.tryPostCommand(sessionRouterCommand{
-		commandType:         sessionRouterCommandHasActiveRequest,
-		requestID:           requestID,
-		hasActiveResponseCh: resultCh,
-	}) {
-		return false
-	}
-
-	select {
-	case <-router.done:
-		return false
-	case ok := <-resultCh:
-		return ok
-	}
-}
-
-func (router *sessionResponseRouter) activeRequestCount() int {
-	resultCh := make(chan int, 1)
-	if !router.tryPostCommand(sessionRouterCommand{
-		commandType:           sessionRouterCommandActiveRequestCount,
-		activeCountResponseCh: resultCh,
-	}) {
-		return 0
-	}
-
-	select {
-	case <-router.done:
-		return 0
-	case n := <-resultCh:
-		return n
-	}
-}
-
-func (router *sessionResponseRouter) sendStreamBrokenAndClose(responseCh chan *apipb.SessionResponse, err error) {
+func sendStreamBrokenAndClose(responseCh chan *apipb.SessionResponse, err error) {
 	if responseCh == nil {
 		return
 	}
@@ -535,10 +473,10 @@ func (router *sessionResponseRouter) sendStreamBrokenAndClose(responseCh chan *a
 	close(responseCh)
 }
 
-func (router *sessionResponseRouter) failAllActiveRequests(activeRequests map[int64]sessionRequestRoute, err error) {
-	for requestID, route := range activeRequests {
-		delete(activeRequests, requestID)
-		router.sendStreamBrokenAndClose(route.responseCh, err)
+func failAllActiveRequests(active map[int64]sessionRequestRoute, err error) {
+	for requestID, route := range active {
+		delete(active, requestID)
+		sendStreamBrokenAndClose(route.responseCh, err)
 	}
 }
 
@@ -635,20 +573,18 @@ func sendAndReceive[T any](ctx context.Context, sess *grpcInnerSession, req *api
 // sendAndReceiveOnChannel waits for a single response on a pre-existing request channel.
 // This supports cases where send and receive are decoupled (e.g. async writes).
 func sendAndReceiveOnChannel[T any](ctx context.Context, sess *grpcInnerSession, rid int64, ch chan *apipb.SessionResponse, handle func(*apipb.SessionResponse) (T, error)) (T, error) {
-	for {
-		resp, ok, err := sess.waitForResponse(ctx, rid, ch)
-		if err != nil {
-			var zero T
-			return zero, err
-		}
-
-		if !ok {
-			var zero T
-			return zero, errNoSessionResponse()
-		}
-
-		return handle(resp)
+	resp, ok, err := sess.waitForResponse(ctx, rid, ch)
+	if err != nil {
+		var zero T
+		return zero, err
 	}
+
+	if !ok {
+		var zero T
+		return zero, errNoSessionResponse()
+	}
+
+	return handle(resp)
 }
 
 // sendAndCollect sends a request and collects a multi-page response. The handle callback
@@ -885,49 +821,39 @@ func (r *grpcRepositoryClient) PrefetchObjects(ctx context.Context, objectIDs []
 }
 
 func (r *grpcRepositoryClient) PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) []content.ID {
-	result, _ := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) ([]content.ID, error) {
-		return sess.PrefetchContents(ctx, contentIDs, hint), nil
+	result, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) ([]content.ID, error) {
+		return sess.PrefetchContents(ctx, contentIDs, hint)
 	})
+	if err != nil {
+		log(ctx).Warnf("PrefetchContents: %v", err)
+		return nil
+	}
 
 	return result
 }
 
-func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) []content.ID {
-	rid, ch := r.sendRequest(ctx, &apipb.SessionRequest{
+func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) ([]content.ID, error) {
+	return sendAndReceive(ctx, r, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_PrefetchContents{
 			PrefetchContents: &apipb.PrefetchContentsRequest{
 				ContentIds: content.IDsToStrings(contentIDs),
 				Hint:       hint,
 			},
 		},
-	})
-
-	for {
-		resp, ok, err := r.waitForResponse(ctx, rid, ch)
-		if err != nil {
-			log(ctx).Warnf("context canceled waiting for PrefetchContents response: %v", err)
-			return nil
-		}
-
-		if !ok {
-			log(ctx).Warn("missing response to PrefetchContents")
-			return nil
-		}
-
+	}, func(resp *apipb.SessionResponse) ([]content.ID, error) {
 		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_PrefetchContents:
 			ids, err := content.IDsFromStrings(rr.PrefetchContents.GetContentIds())
 			if err != nil {
-				log(ctx).Warnf("invalid response to PrefetchContents: %v", err)
+				return nil, errors.Wrap(err, "invalid response to PrefetchContents")
 			}
 
-			return ids
+			return ids, nil
 
 		default:
-			log(ctx).Warnf("unexpected response to PrefetchContents: %v", resp)
-			return nil
+			return nil, unhandledSessionResponse(resp)
 		}
-	}
+	})
 }
 
 func (r *grpcRepositoryClient) ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error) {
@@ -1411,48 +1337,38 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 	r.innerSessionMutex.Lock()
 	defer r.innerSessionMutex.Unlock()
 
-	if r.sessionClosing {
-		return nil, errors.New("gRPC session is closing")
-	}
-
 	if r.innerSession != nil {
 		return r.innerSession, nil
 	}
 
 	log(ctx).Debugf("establishing new GRPC streaming session (purpose=%v)", r.opt.Purpose)
 
-	establishCtx, cancelEstablish := r.sessionEstablishmentContext(ctx)
+	var (
+		establishCtx    context.Context
+		cancelEstablish context.CancelFunc
+	)
+
+	if _, hasDeadline := ctx.Deadline(); hasDeadline {
+		establishCtx, cancelEstablish = ctx, func() {}
+	} else {
+		establishCtx, cancelEstablish = context.WithTimeout(ctx, r.effectiveSessionEstablishmentTimeout())
+	}
+
 	defer cancelEstablish()
 
-	conn, err := r.prepareConnectionForSession(establishCtx)
+	conn, err := r.connManager.currentOrDial(establishCtx)
 	if err != nil {
-		return nil, errors.Wrap(err, "error establishing session")
+		return nil, errors.Wrap(err, "error establishing session: unable to (re)create gRPC connection")
 	}
+
+	conn.ResetConnectBackoff()
+	conn.Connect()
 
 	if err := waitForGRPCConnectionReady(establishCtx, conn); err != nil {
 		r.connManager.markForRefresh()
 		return nil, errors.Wrap(err, "error establishing session")
 	}
 
-	newSession, err := r.establishAndInitializeSession(ctx, establishCtx, conn)
-	if err != nil {
-		return nil, err
-	}
-
-	r.innerSession = newSession
-
-	return r.innerSession, nil
-}
-
-func (r *grpcRepositoryClient) sessionEstablishmentContext(ctx context.Context) (context.Context, context.CancelFunc) {
-	if _, hasDeadline := ctx.Deadline(); hasDeadline {
-		return ctx, func() {}
-	}
-
-	return context.WithTimeout(ctx, r.effectiveSessionEstablishmentTimeout())
-}
-
-func (r *grpcRepositoryClient) establishAndInitializeSession(ctx, establishCtx context.Context, conn grpcConnection) (*grpcInnerSession, error) {
 	sessionClient, sessCtx, sessCancel, err := r.openSessionStream(ctx, establishCtx, conn)
 	if err != nil {
 		return nil, err
@@ -1471,8 +1387,9 @@ func (r *grpcRepositoryClient) establishAndInitializeSession(ctx, establishCtx c
 	}
 
 	ownershipTransferred = true
+	r.innerSession = newSession
 
-	return newSession, nil
+	return r.innerSession, nil
 }
 
 func (r *grpcRepositoryClient) openSessionStream(ctx, establishCtx context.Context, conn grpcConnection) (apipb.KopiaRepository_SessionClient, context.Context, context.CancelFunc, error) {
@@ -1551,18 +1468,6 @@ func (r *grpcRepositoryClient) effectiveSessionEstablishmentTimeout() time.Durat
 	return r.sessionEstablishmentTimeout
 }
 
-func (r *grpcRepositoryClient) prepareConnectionForSession(ctx context.Context) (grpcConnection, error) {
-	conn, err := r.connManager.currentOrDial(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to (re)create gRPC connection")
-	}
-
-	conn.ResetConnectBackoff()
-	conn.Connect()
-
-	return conn, nil
-}
-
 type grpcConnectionReadiness interface {
 	GetState() connectivity.State
 	WaitForStateChange(ctx context.Context, sourceState connectivity.State) bool
@@ -1608,10 +1513,8 @@ func (r *grpcRepositoryClient) killInnerSession() {
 	defer r.innerSessionMutex.Unlock()
 
 	if r.innerSession != nil {
-		r.sessionClosing = true
 		r.innerSession.shutdown()
 		r.innerSession = nil
-		r.sessionClosing = false
 	}
 }
 

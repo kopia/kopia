@@ -650,15 +650,13 @@ func TestReadLoopMultiPageResponseCallerCancelDoesNotBlock(t *testing.T) {
 func TestDeliverResponseReturnsFalseAfterRequestCancellation(t *testing.T) {
 	t.Parallel()
 
-	router := &sessionResponseRouter{}
-
 	ch := make(chan *apipb.SessionResponse, 1)
 	ch <- &apipb.SessionResponse{RequestId: 99}
 
 	reqCtx, cancelReq := context.WithCancel(context.Background())
 	cancelReq()
 
-	ok := router.deliverResponse(sessionRequestRoute{
+	ok := deliverResponse(sessionRequestRoute{
 		responseCh:  ch,
 		requestDone: reqCtx.Done(),
 	}, &apipb.SessionResponse{RequestId: 99, HasMore: true})
@@ -668,8 +666,6 @@ func TestDeliverResponseReturnsFalseAfterRequestCancellation(t *testing.T) {
 func TestDeliverResponseSucceedsWhenBackpressureClears(t *testing.T) {
 	t.Parallel()
 
-	router := &sessionResponseRouter{}
-
 	ch := make(chan *apipb.SessionResponse, 1)
 	ch <- &apipb.SessionResponse{RequestId: 7}
 
@@ -677,7 +673,7 @@ func TestDeliverResponseSucceedsWhenBackpressureClears(t *testing.T) {
 	msg := &apipb.SessionResponse{RequestId: 7, HasMore: true}
 
 	go func() {
-		done <- router.deliverResponse(sessionRequestRoute{
+		done <- deliverResponse(sessionRequestRoute{
 			responseCh:  ch,
 			requestDone: context.Background().Done(),
 		}, msg)
