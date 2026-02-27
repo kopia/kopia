@@ -14,6 +14,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/singleflight"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
@@ -73,12 +74,9 @@ type grpcConnection interface {
 
 type grpcConnectionDialer func(ctx context.Context) (grpcConnection, error)
 
-type grpcDialState struct {
-	done chan struct{}
-	err  error
-}
-
 var errGRPCConnectionClosed = errors.New("gRPC connection is closed")
+
+const grpcDialSingleflightKey = "grpc-dial"
 
 type grpcConnectionManager struct {
 	mu sync.Mutex
@@ -86,8 +84,8 @@ type grpcConnectionManager struct {
 	conn             grpcConnection
 	dialer           grpcConnectionDialer
 	refreshOnNextUse bool
-	dialing          *grpcDialState
 	closed           bool
+	dialGroup        singleflight.Group
 }
 
 func newGRPCConnectionManager(conn grpcConnection, dialer grpcConnectionDialer) *grpcConnectionManager {
@@ -110,95 +108,111 @@ func (m *grpcConnectionManager) replace(ctx context.Context) (grpcConnection, er
 	return m.currentOrDial(ctx)
 }
 
+// dialPrerequisitesLocked reports whether dialing is needed and validates dial configuration.
+//
+// +checklocks:m.mu
+func (m *grpcConnectionManager) dialPrerequisitesLocked() (grpcConnection, grpcConnectionDialer, error) {
+	if m.closed {
+		return nil, nil, errGRPCConnectionClosed
+	}
+
+	if m.conn != nil && !m.refreshOnNextUse {
+		return m.conn, nil, nil
+	}
+
+	if m.dialer == nil {
+		return nil, nil, errors.New("gRPC redial is not configured")
+	}
+
+	return nil, m.dialer, nil
+}
+
 func (m *grpcConnectionManager) currentOrDial(ctx context.Context) (grpcConnection, error) {
 	for {
 		m.mu.Lock()
-
-		if m.closed {
-			m.mu.Unlock()
-			return nil, errGRPCConnectionClosed
+		conn, _, err := m.dialPrerequisitesLocked()
+		m.mu.Unlock()
+		if err != nil {
+			return nil, err
 		}
 
-		if m.conn != nil && !m.refreshOnNextUse {
-			conn := m.conn
-			m.mu.Unlock()
+		if conn != nil {
 			return conn, nil
 		}
 
-		if m.dialer == nil {
-			m.mu.Unlock()
-			return nil, errors.New("gRPC redial is not configured")
-		}
+		resultCh := m.dialGroup.DoChan(grpcDialSingleflightKey, func() (interface{}, error) {
+			return m.dialAndInstall(ctx)
+		})
 
-		if d := m.dialing; d != nil {
-			m.mu.Unlock()
-
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-d.done:
-				if d.err != nil {
-					if shouldRetryDialAfterSharedDialError(ctx, d.err) {
-						continue
-					}
-
-					return nil, d.err
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case res := <-resultCh:
+			if res.Err != nil {
+				if shouldRetryDialAfterSharedDialError(ctx, res.Err) {
+					continue
 				}
 
-				continue
-			}
-		}
-
-		d := &grpcDialState{done: make(chan struct{})}
-		m.dialing = d
-		dialer := m.dialer
-		m.mu.Unlock()
-
-		newConn, err := dialer(ctx)
-
-		var oldConn grpcConnection
-		var usableConn grpcConnection
-		resultErr := err
-
-		m.mu.Lock()
-
-		if m.closed {
-			resultErr = errGRPCConnectionClosed
-		} else if err == nil {
-			// Another path may have already installed a usable connection.
-			if m.conn != nil && !m.refreshOnNextUse {
-				usableConn = m.conn
-			} else {
-				oldConn = m.conn
-				m.conn = newConn
-				m.refreshOnNextUse = false
-				usableConn = newConn
-			}
-		}
-
-		d.err = resultErr
-		m.dialing = nil
-		close(d.done)
-		m.mu.Unlock()
-
-		if oldConn != nil {
-			_ = oldConn.Close()
-		}
-
-		if resultErr != nil {
-			if newConn != nil {
-				_ = newConn.Close()
+				return nil, res.Err
 			}
 
-			return nil, resultErr
-		}
+			conn, ok := res.Val.(grpcConnection)
+			if !ok || conn == nil {
+				return nil, errors.New("invalid gRPC dial result")
+			}
 
-		if usableConn != newConn {
-			_ = newConn.Close()
+			return conn, nil
 		}
-
-		return usableConn, nil
 	}
+}
+
+func (m *grpcConnectionManager) dialAndInstall(ctx context.Context) (grpcConnection, error) {
+	m.mu.Lock()
+	conn, dialer, err := m.dialPrerequisitesLocked()
+	m.mu.Unlock()
+
+	if err != nil {
+		return nil, err
+	}
+
+	if conn != nil {
+		return conn, nil
+	}
+
+	newConn, err := dialer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var oldConn grpcConnection
+	var usableConn grpcConnection
+
+	m.mu.Lock()
+	if m.closed {
+		m.mu.Unlock()
+		_ = newConn.Close()
+		return nil, errGRPCConnectionClosed
+	}
+
+	if m.conn != nil && !m.refreshOnNextUse {
+		usableConn = m.conn
+	} else {
+		oldConn = m.conn
+		m.conn = newConn
+		m.refreshOnNextUse = false
+		usableConn = newConn
+	}
+	m.mu.Unlock()
+
+	if oldConn != nil {
+		_ = oldConn.Close()
+	}
+
+	if usableConn != newConn {
+		_ = newConn.Close()
+	}
+
+	return usableConn, nil
 }
 
 func (m *grpcConnectionManager) markForRefresh() {
@@ -241,6 +255,9 @@ type grpcRepositoryClient struct {
 	// +checklocks:innerSessionMutex
 	innerSession *grpcInnerSession
 
+	// +checklocks:innerSessionMutex
+	sessionState grpcSessionState
+
 	opt                WriteSessionOptions
 	isReadOnly         bool
 	transparentRetries bool
@@ -265,110 +282,321 @@ type grpcRepositoryClient struct {
 type grpcInnerSession struct {
 	sendMutex sync.Mutex
 
-	activeRequestsMutex sync.Mutex
-
-	// +checklocks:activeRequestsMutex
 	nextRequestID int64
-
-	// +checklocks:activeRequestsMutex
-	activeRequests map[int64]chan *apipb.SessionResponse
 
 	cli        apipb.KopiaRepository_SessionClient
 	repoParams *apipb.RepositoryParameters
 	cancelFunc context.CancelFunc
+	router     *sessionResponseRouter
 
 	wg sync.WaitGroup
 }
 
-// readLoop runs in a goroutine and consumes all messages in session and forwards them to appropriate channels.
+type grpcSessionState string
+
+const (
+	grpcSessionStateIdle       grpcSessionState = "idle"
+	grpcSessionStateConnecting grpcSessionState = "connecting"
+	grpcSessionStateReady      grpcSessionState = "ready"
+	grpcSessionStateClosing    grpcSessionState = "closing"
+)
+
+type sessionRequestRoute struct {
+	responseCh  chan *apipb.SessionResponse
+	requestDone <-chan struct{}
+}
+
+type sessionRouterCommandType int
+
+const (
+	sessionRouterCommandRegister sessionRouterCommandType = iota
+	sessionRouterCommandCancel
+	sessionRouterCommandRouteResponse
+	sessionRouterCommandRequestBroken
+	sessionRouterCommandFailAll
+	sessionRouterCommandHasActiveRequest
+	sessionRouterCommandActiveRequestCount
+)
+
+type sessionRouterCommand struct {
+	commandType sessionRouterCommandType
+
+	// Mutation commands.
+	requestID int64
+	route     sessionRequestRoute
+	response  *apipb.SessionResponse
+	err       error
+
+	// Query command responses.
+	hasActiveResponseCh   chan bool
+	activeCountResponseCh chan int
+}
+
+type sessionResponseRouter struct {
+	commandCh chan sessionRouterCommand
+	done      chan struct{}
+}
+
+func newSessionResponseRouter(ctx context.Context) *sessionResponseRouter {
+	router := &sessionResponseRouter{
+		commandCh: make(chan sessionRouterCommand),
+		done:      make(chan struct{}),
+	}
+
+	go router.run(ctx)
+
+	return router
+}
+
+func (router *sessionResponseRouter) run(ctx context.Context) {
+	defer close(router.done)
+
+	activeRequests := map[int64]sessionRequestRoute{}
+
+	for {
+		select {
+		case <-ctx.Done():
+			router.failAllActiveRequests(activeRequests, ctx.Err())
+			return
+
+		case cmd := <-router.commandCh:
+			switch cmd.commandType {
+			case sessionRouterCommandRegister:
+				activeRequests[cmd.requestID] = cmd.route
+
+			case sessionRouterCommandCancel:
+				if route, ok := activeRequests[cmd.requestID]; ok {
+					delete(activeRequests, cmd.requestID)
+					close(route.responseCh)
+				}
+
+			case sessionRouterCommandRouteResponse:
+				router.routeResponse(activeRequests, cmd.response)
+
+			case sessionRouterCommandRequestBroken:
+				if route, ok := activeRequests[cmd.requestID]; ok {
+					delete(activeRequests, cmd.requestID)
+					router.sendStreamBrokenAndClose(route.responseCh, cmd.err)
+				}
+
+			case sessionRouterCommandFailAll:
+				router.failAllActiveRequests(activeRequests, cmd.err)
+
+			case sessionRouterCommandHasActiveRequest:
+				_, ok := activeRequests[cmd.requestID]
+				cmd.hasActiveResponseCh <- ok
+
+			case sessionRouterCommandActiveRequestCount:
+				cmd.activeCountResponseCh <- len(activeRequests)
+			}
+		}
+	}
+}
+
+func (router *sessionResponseRouter) routeResponse(activeRequests map[int64]sessionRequestRoute, response *apipb.SessionResponse) {
+	if response == nil {
+		return
+	}
+
+	requestID := response.GetRequestId()
+	route, ok := activeRequests[requestID]
+	if !ok {
+		// The caller may have canceled this request and removed its route.
+		return
+	}
+
+	if !router.deliverResponse(route, response) {
+		delete(activeRequests, requestID)
+
+		close(route.responseCh)
+
+		return
+	}
+
+	if !response.GetHasMore() {
+		delete(activeRequests, requestID)
+		close(route.responseCh)
+	}
+}
+
+func (router *sessionResponseRouter) deliverResponse(route sessionRequestRoute, response *apipb.SessionResponse) bool {
+	if route.requestDone != nil {
+		select {
+		case <-route.requestDone:
+			return false
+		default:
+		}
+
+		select {
+		case route.responseCh <- response:
+			return true
+		case <-route.requestDone:
+			return false
+		}
+	}
+
+	route.responseCh <- response
+
+	return true
+}
+
+// tryPostCommand submits a command unless the router is already shut down.
+func (router *sessionResponseRouter) tryPostCommand(cmd sessionRouterCommand) bool {
+	select {
+	case <-router.done:
+		return false
+	default:
+	}
+
+	select {
+	case <-router.done:
+		return false
+	case router.commandCh <- cmd:
+		return true
+	}
+}
+
+func (router *sessionResponseRouter) registerRequest(requestID int64, responseCh chan *apipb.SessionResponse, requestDone <-chan struct{}) {
+	router.tryPostCommand(sessionRouterCommand{
+		commandType: sessionRouterCommandRegister,
+		requestID:   requestID,
+		route: sessionRequestRoute{
+			responseCh:  responseCh,
+			requestDone: requestDone,
+		},
+	})
+}
+
+func (router *sessionResponseRouter) cancelRequest(requestID int64) {
+	router.tryPostCommand(sessionRouterCommand{
+		commandType: sessionRouterCommandCancel,
+		requestID:   requestID,
+	})
+}
+
+func (router *sessionResponseRouter) routeIncomingResponse(response *apipb.SessionResponse) {
+	router.tryPostCommand(sessionRouterCommand{
+		commandType: sessionRouterCommandRouteResponse,
+		response:    response,
+	})
+}
+
+func (router *sessionResponseRouter) reportRequestBroken(requestID int64, err error) {
+	router.tryPostCommand(sessionRouterCommand{
+		commandType: sessionRouterCommandRequestBroken,
+		requestID:   requestID,
+		err:         err,
+	})
+}
+
+func (router *sessionResponseRouter) failAllRequests(err error) {
+	router.tryPostCommand(sessionRouterCommand{
+		commandType: sessionRouterCommandFailAll,
+		err:         err,
+	})
+}
+
+func (router *sessionResponseRouter) hasActiveRequest(requestID int64) bool {
+	resultCh := make(chan bool, 1)
+	if !router.tryPostCommand(sessionRouterCommand{
+		commandType:         sessionRouterCommandHasActiveRequest,
+		requestID:           requestID,
+		hasActiveResponseCh: resultCh,
+	}) {
+		return false
+	}
+
+	select {
+	case <-router.done:
+		return false
+	case ok := <-resultCh:
+		return ok
+	}
+}
+
+func (router *sessionResponseRouter) activeRequestCount() int {
+	resultCh := make(chan int, 1)
+	if !router.tryPostCommand(sessionRouterCommand{
+		commandType:           sessionRouterCommandActiveRequestCount,
+		activeCountResponseCh: resultCh,
+	}) {
+		return 0
+	}
+
+	select {
+	case <-router.done:
+		return 0
+	case n := <-resultCh:
+		return n
+	}
+}
+
+func (router *sessionResponseRouter) sendStreamBrokenAndClose(responseCh chan *apipb.SessionResponse, err error) {
+	if responseCh == nil {
+		return
+	}
+
+	select {
+	case responseCh <- streamBrokenResponse(err):
+	default:
+	}
+
+	close(responseCh)
+}
+
+func (router *sessionResponseRouter) failAllActiveRequests(activeRequests map[int64]sessionRequestRoute, err error) {
+	for requestID, route := range activeRequests {
+		delete(activeRequests, requestID)
+		router.sendStreamBrokenAndClose(route.responseCh, err)
+	}
+}
+
+func streamBrokenResponse(err error) *apipb.SessionResponse {
+	errMessage := io.EOF.Error()
+	if err != nil {
+		errMessage = err.Error()
+	}
+
+	return &apipb.SessionResponse{
+		Response: &apipb.SessionResponse_Error{
+			Error: &apipb.ErrorResponse{
+				Code:    apipb.ErrorResponse_STREAM_BROKEN,
+				Message: errMessage,
+			},
+		},
+	}
+}
+
+// readLoop runs in a goroutine and consumes all messages in session and forwards them to the response router.
 func (r *grpcInnerSession) readLoop(ctx context.Context) {
 	defer r.wg.Done()
 
 	msg, err := r.cli.Recv()
 
 	for ; err == nil; msg, err = r.cli.Recv() {
-		r.activeRequestsMutex.Lock()
-		ch := r.activeRequests[msg.GetRequestId()]
-
-		if ch != nil && !msg.GetHasMore() {
-			delete(r.activeRequests, msg.GetRequestId())
-		}
-
-		r.activeRequestsMutex.Unlock()
-
-		if ch == nil {
-			// The caller may have canceled this request and removed its channel.
-			continue
-		}
-
-		if !r.deliverResponse(msg.GetRequestId(), ch, msg) {
-			// The caller cancelled and removed its mapping while the channel was full.
-			// Drop this response and continue serving other requests.
-			continue
-		}
-
-		if !msg.GetHasMore() {
-			close(ch)
-		}
+		r.router.routeIncomingResponse(msg)
 	}
 
 	log(ctx).Debugf("GRPC stream read loop terminated with %v", err)
 
-	// when a read loop error occurs, close all pending client channels with an artificial error.
-	r.activeRequestsMutex.Lock()
-	defer r.activeRequestsMutex.Unlock()
-
-	for id := range r.activeRequests {
-		r.sendStreamBrokenAndClose(r.getAndDeleteResponseChannelLocked(id), err)
-	}
-
+	// The stream is broken. Notify all pending requests with a synthetic STREAM_BROKEN error.
+	r.router.failAllRequests(err)
 	log(ctx).Debug("finished closing active requests")
-}
-
-func (r *grpcInnerSession) deliverResponse(rid int64, ch chan *apipb.SessionResponse, msg *apipb.SessionResponse) bool {
-	const (
-		deliverResponseSpinBeforeSleep = 8
-		deliverResponseSleep           = 1 * time.Millisecond
-	)
-
-	for attempts := 0; ; attempts++ {
-		select {
-		case ch <- msg:
-			return true
-		default:
-		}
-
-		r.activeRequestsMutex.Lock()
-		stillActive := r.activeRequests[rid] == ch
-		r.activeRequestsMutex.Unlock()
-
-		if !stillActive {
-			return false
-		}
-
-		// Receiver is still active but currently backpressured.
-		// Yield a few times for low latency, then sleep briefly to avoid CPU spin.
-		if attempts < deliverResponseSpinBeforeSleep {
-			runtime.Gosched()
-			continue
-		}
-
-		time.Sleep(deliverResponseSleep)
-	}
 }
 
 // sendRequest sends the provided request to the server and returns a channel on which the
 // caller can receive session response(s).
 func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRequest) (int64, chan *apipb.SessionResponse) {
-	// allocate request ID and create channel to which we're forwarding the responses.
-	r.activeRequestsMutex.Lock()
+	// Sends to GRPC stream must be single-threaded.
+	r.sendMutex.Lock()
+	defer r.sendMutex.Unlock()
+
+	// Allocate request ID and create channel to which we're forwarding the responses.
 	rid := r.nextRequestID
 	r.nextRequestID++
 
 	ch := make(chan *apipb.SessionResponse, 1)
-
-	r.activeRequests[rid] = ch
-	r.activeRequestsMutex.Unlock()
+	r.router.registerRequest(rid, ch, ctx.Done())
 
 	req.RequestId = rid
 
@@ -381,18 +609,10 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 		tc.Inject(ctx, propagation.MapCarrier(req.GetTraceContext()))
 	}
 
-	// sends to GRPC stream must be single-threaded.
-	r.sendMutex.Lock()
-	defer r.sendMutex.Unlock()
-
 	// try sending the request and if unable to do so, stuff an error response to the channel
 	// to simplify client code.
 	if err := r.cli.Send(req); err != nil {
-		r.activeRequestsMutex.Lock()
-		ch2 := r.getAndDeleteResponseChannelLocked(rid)
-		r.activeRequestsMutex.Unlock()
-
-		r.sendStreamBrokenAndClose(ch2, err)
+		r.router.reportRequestBroken(rid, err)
 	}
 
 	return rid, ch
@@ -403,39 +623,12 @@ func (r *grpcInnerSession) waitForResponse(ctx context.Context, rid int64, ch ch
 	case <-ctx.Done():
 		// Remove the request mapping so stale responses for canceled operations
 		// won't be routed to a channel with no receiver.
-		r.activeRequestsMutex.Lock()
-		if r.activeRequests[rid] == ch {
-			delete(r.activeRequests, rid)
-		}
-		r.activeRequestsMutex.Unlock()
+		r.router.cancelRequest(rid)
 
 		return nil, false, errors.Wrap(ctx.Err(), "context cancelled waiting for session response")
 
 	case resp, ok := <-ch:
 		return resp, ok, nil
-	}
-}
-
-// +checklocks:r.activeRequestsMutex
-func (r *grpcInnerSession) getAndDeleteResponseChannelLocked(rid int64) chan *apipb.SessionResponse {
-	ch := r.activeRequests[rid]
-	delete(r.activeRequests, rid)
-
-	return ch
-}
-
-func (r *grpcInnerSession) sendStreamBrokenAndClose(ch chan *apipb.SessionResponse, err error) {
-	if ch != nil {
-		ch <- &apipb.SessionResponse{
-			Response: &apipb.SessionResponse_Error{
-				Error: &apipb.ErrorResponse{
-					Code:    apipb.ErrorResponse_STREAM_BROKEN,
-					Message: err.Error(),
-				},
-			},
-		}
-
-		close(ch)
 	}
 }
 
@@ -455,6 +648,10 @@ func (r *grpcInnerSession) shutdown() {
 	}
 
 	r.wg.Wait()
+
+	if r.router != nil {
+		<-r.router.done
+	}
 }
 
 // Description returns description associated with a repository client.
@@ -1293,107 +1490,159 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 	r.innerSessionMutex.Lock()
 	defer r.innerSessionMutex.Unlock()
 
-	if r.innerSession == nil {
-		log(ctx).Debugf("establishing new GRPC streaming session (purpose=%v)", r.opt.Purpose)
-
-		establishCtx := ctx
-		cancelEstablish := context.CancelFunc(func() {})
-		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-			establishCtx, cancelEstablish = context.WithTimeout(ctx, r.effectiveSessionEstablishmentTimeout())
-		}
-		defer cancelEstablish()
-
-		conn, err := r.prepareConnectionForSession(establishCtx)
-		if err != nil {
-			return nil, errors.Wrap(err, "error establishing session")
-		}
-
-		if err := waitForGRPCConnectionReady(establishCtx, conn); err != nil {
-			r.connManager.markForRefresh()
-			return nil, errors.Wrap(err, "error establishing session")
-		}
-
-		cli := apipb.NewKopiaRepositoryClient(conn)
-
-		// sessCtx is detached from ctx (via WithoutCancel) so the GRPC stream
-		// outlives the caller's context, but wrapped with WithCancel so
-		// killInnerSession can terminate it.
-		sessCtx, sessCancel := context.WithCancel(context.WithoutCancel(ctx))
-
-		// Ensure sessCancel is always called on any exit path (including
-		// panics) to prevent goroutine leaks. On the success path we set
-		// ownershipTransferred=true so the defer becomes a no-op — the
-		// cancel func is handed off to the grpcInnerSession instead.
-		ownershipTransferred := false
-		defer func() {
-			if !ownershipTransferred {
-				sessCancel()
-			}
-		}()
-
-		type sessionResult struct {
-			sess apipb.KopiaRepository_SessionClient
-			err  error
-		}
-
-		ch := make(chan sessionResult, 1)
-
-		go func() {
-			s, e := cli.Session(sessCtx)
-			ch <- sessionResult{s, e}
-		}()
-
-		var sess apipb.KopiaRepository_SessionClient
-
-		select {
-		case res := <-ch:
-			if res.err != nil {
-				r.connManager.markForRefresh()
-				return nil, errors.Wrap(res.err, "error establishing session")
-			}
-
-			sess = res.sess
-
-		case <-establishCtx.Done():
-			r.connManager.markForRefresh()
-			if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
-				return nil, errors.Errorf("error establishing session: session establishment timed out (connection state=%v)", conn.GetState())
-			}
-
-			return nil, errors.Wrap(establishCtx.Err(), "error establishing session: context cancelled during session establishment")
-		}
-
-		newSess := &grpcInnerSession{
-			cli:            sess,
-			activeRequests: make(map[int64]chan *apipb.SessionResponse),
-			nextRequestID:  1,
-			cancelFunc:     sessCancel,
-		}
-
-		newSess.wg.Add(1)
-
-		go newSess.readLoop(sessCtx)
-
-		var initErr error
-
-		newSess.repoParams, initErr = newSess.initializeSession(establishCtx, r.opt.Purpose, r.isReadOnly)
-		if initErr != nil {
-			newSess.shutdown()
-			r.connManager.markForRefresh()
-
-			if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
-				return nil, errors.Wrap(initErr, "error establishing session: session establishment timed out")
-			}
-
-			return nil, errors.Wrap(initErr, "error establishing session: unable to initialize session")
-		}
-
-		ownershipTransferred = true
-
-		r.innerSession = newSess
+	if r.sessionState == grpcSessionStateClosing {
+		return nil, errors.New("gRPC session is closing")
 	}
 
+	if r.innerSession != nil {
+		r.markSessionReadyLocked()
+		return r.innerSession, nil
+	}
+
+	restoreState := r.markSessionConnectingLocked()
+	defer restoreState()
+
+	log(ctx).Debugf("establishing new GRPC streaming session (purpose=%v)", r.opt.Purpose)
+
+	establishCtx, cancelEstablish := r.sessionEstablishmentContext(ctx)
+	defer cancelEstablish()
+
+	conn, err := r.prepareConnectionForSession(establishCtx)
+	if err != nil {
+		return nil, errors.Wrap(err, "error establishing session")
+	}
+
+	if err := waitForGRPCConnectionReady(establishCtx, conn); err != nil {
+		r.connManager.markForRefresh()
+		return nil, errors.Wrap(err, "error establishing session")
+	}
+
+	newSession, err := r.establishAndInitializeSession(ctx, establishCtx, conn)
+	if err != nil {
+		return nil, err
+	}
+
+	r.innerSession = newSession
+	r.markSessionReadyLocked()
+
 	return r.innerSession, nil
+}
+
+// +checklocks:r.innerSessionMutex
+func (r *grpcRepositoryClient) markSessionConnectingLocked() func() {
+	r.sessionState = grpcSessionStateConnecting
+
+	return func() {
+		if r.innerSession == nil {
+			r.sessionState = grpcSessionStateIdle
+		}
+	}
+}
+
+// +checklocks:r.innerSessionMutex
+func (r *grpcRepositoryClient) markSessionReadyLocked() {
+	if r.innerSession != nil {
+		r.sessionState = grpcSessionStateReady
+	}
+}
+
+func (r *grpcRepositoryClient) sessionEstablishmentContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if _, hasDeadline := ctx.Deadline(); hasDeadline {
+		return ctx, func() {}
+	}
+
+	return context.WithTimeout(ctx, r.effectiveSessionEstablishmentTimeout())
+}
+
+func (r *grpcRepositoryClient) establishAndInitializeSession(ctx, establishCtx context.Context, conn grpcConnection) (*grpcInnerSession, error) {
+	sessionClient, sessCtx, sessCancel, err := r.openSessionStream(ctx, establishCtx, conn)
+	if err != nil {
+		return nil, err
+	}
+
+	ownershipTransferred := false
+	defer func() {
+		if !ownershipTransferred {
+			sessCancel()
+		}
+	}()
+
+	newSession, err := r.newInitializedInnerSession(establishCtx, sessCtx, sessCancel, sessionClient)
+	if err != nil {
+		return nil, err
+	}
+
+	ownershipTransferred = true
+
+	return newSession, nil
+}
+
+func (r *grpcRepositoryClient) openSessionStream(ctx, establishCtx context.Context, conn grpcConnection) (apipb.KopiaRepository_SessionClient, context.Context, context.CancelFunc, error) {
+	client := apipb.NewKopiaRepositoryClient(conn)
+
+	// sessCtx is detached from ctx (via WithoutCancel) so the GRPC stream
+	// outlives the caller's context, but wrapped with WithCancel so
+	// killInnerSession can terminate it.
+	sessCtx, sessCancel := context.WithCancel(context.WithoutCancel(ctx))
+
+	type sessionResult struct {
+		sess apipb.KopiaRepository_SessionClient
+		err  error
+	}
+
+	resultCh := make(chan sessionResult, 1)
+	go func() {
+		sess, sessionErr := client.Session(sessCtx)
+		resultCh <- sessionResult{sess, sessionErr}
+	}()
+
+	select {
+	case result := <-resultCh:
+		if result.err != nil {
+			sessCancel()
+			r.connManager.markForRefresh()
+			return nil, nil, nil, errors.Wrap(result.err, "error establishing session")
+		}
+
+		return result.sess, sessCtx, sessCancel, nil
+
+	case <-establishCtx.Done():
+		sessCancel()
+		r.connManager.markForRefresh()
+		if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
+			return nil, nil, nil, errors.Errorf("error establishing session: session establishment timed out (connection state=%v)", conn.GetState())
+		}
+
+		return nil, nil, nil, errors.Wrap(establishCtx.Err(), "error establishing session: context cancelled during session establishment")
+	}
+}
+
+func (r *grpcRepositoryClient) newInitializedInnerSession(establishCtx, sessCtx context.Context, sessCancel context.CancelFunc, sessionClient apipb.KopiaRepository_SessionClient) (*grpcInnerSession, error) {
+	newSession := &grpcInnerSession{
+		cli:           sessionClient,
+		nextRequestID: 1,
+		cancelFunc:    sessCancel,
+		router:        newSessionResponseRouter(sessCtx),
+	}
+
+	newSession.wg.Add(1)
+	go newSession.readLoop(sessCtx)
+
+	repoParams, initErr := newSession.initializeSession(establishCtx, r.opt.Purpose, r.isReadOnly)
+	if initErr != nil {
+		newSession.shutdown()
+		r.connManager.markForRefresh()
+
+		if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
+			return nil, errors.Wrap(initErr, "error establishing session: session establishment timed out")
+		}
+
+		return nil, errors.Wrap(initErr, "error establishing session: unable to initialize session")
+	}
+
+	newSession.repoParams = repoParams
+
+	return newSession, nil
 }
 
 func (r *grpcRepositoryClient) effectiveSessionEstablishmentTimeout() time.Duration {
@@ -1461,9 +1710,12 @@ func (r *grpcRepositoryClient) killInnerSession() {
 	defer r.innerSessionMutex.Unlock()
 
 	if r.innerSession != nil {
+		r.sessionState = grpcSessionStateClosing
 		r.innerSession.shutdown()
 		r.innerSession = nil
 	}
+
+	r.sessionState = grpcSessionStateIdle
 }
 
 // newGRPCAPIRepositoryForConnection opens GRPC-based repository connection.
@@ -1487,6 +1739,7 @@ func newGRPCAPIRepositoryForConnection(
 		asyncWritesWG:                       new(errgroup.Group),
 		findManifestsPageSize:               defaultFindManifestsPageSize,
 		sessionEstablishmentTimeout:         defaultSessionEstablishmentTimeout,
+		sessionState:                        grpcSessionStateIdle,
 	}
 
 	return inSessionWithoutRetry(ctx, rr, func(ctx context.Context, sess *grpcInnerSession) (*grpcRepositoryClient, error) {

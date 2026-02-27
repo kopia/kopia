@@ -64,6 +64,25 @@ func (m *scriptedSessionClient) Context() context.Context     { return context.B
 func (m *scriptedSessionClient) SendMsg(interface{}) error    { return nil }
 func (m *scriptedSessionClient) RecvMsg(interface{}) error    { return nil }
 
+func newTestInnerSession(t *testing.T, cli apipb.KopiaRepository_SessionClient) *grpcInnerSession {
+	t.Helper()
+
+	sessCtx, sessCancel := context.WithCancel(context.Background())
+
+	sess := &grpcInnerSession{
+		cli:           cli,
+		cancelFunc:    sessCancel,
+		nextRequestID: 1,
+		router:        newSessionResponseRouter(sessCtx),
+	}
+
+	t.Cleanup(func() {
+		sess.shutdown()
+	})
+
+	return sess
+}
+
 func TestBaseURLToURI(t *testing.T) {
 	for _, tc := range []struct {
 		name      string
@@ -127,9 +146,8 @@ func TestKillInnerSessionCancelsContext(t *testing.T) {
 	mock := &mockSessionClient{ctx: sessCtx}
 
 	sess := &grpcInnerSession{
-		cancelFunc:     sessCancel,
-		cli:            mock,
-		activeRequests: make(map[int64]chan *apipb.SessionResponse),
+		cancelFunc: sessCancel,
+		cli:        mock,
 	}
 
 	// Verify the session context is not cancelled yet.
@@ -174,9 +192,8 @@ func TestKillInnerSessionNilCancelFunc(t *testing.T) {
 	mock := &mockSessionClient{ctx: ctx}
 
 	sess := &grpcInnerSession{
-		cancelFunc:     nil,
-		cli:            mock,
-		activeRequests: make(map[int64]chan *apipb.SessionResponse),
+		cancelFunc: nil,
+		cli:        mock,
 	}
 
 	sess.wg.Add(1)
@@ -202,9 +219,8 @@ func TestKillInnerSessionConcurrency(t *testing.T) {
 	mock := &mockSessionClient{ctx: sessCtx}
 
 	sess := &grpcInnerSession{
-		cancelFunc:     sessCancel,
-		cli:            mock,
-		activeRequests: make(map[int64]chan *apipb.SessionResponse),
+		cancelFunc: sessCancel,
+		cli:        mock,
 	}
 
 	sess.wg.Add(1)
@@ -237,47 +253,35 @@ func TestKillInnerSessionConcurrency(t *testing.T) {
 func TestWaitForResponseContextCancelRemovesActiveRequest(t *testing.T) {
 	t.Parallel()
 
-	sess := &grpcInnerSession{
-		activeRequests: make(map[int64]chan *apipb.SessionResponse),
-	}
+	sess := newTestInnerSession(t, nil)
 
 	rid := int64(123)
 	ch := make(chan *apipb.SessionResponse, 1)
 
-	sess.activeRequestsMutex.Lock()
-	sess.activeRequests[rid] = ch
-	sess.activeRequestsMutex.Unlock()
-
 	ctx, cancel := context.WithCancel(context.Background())
+	sess.router.registerRequest(rid, ch, ctx.Done())
+
 	cancel()
 
 	_, ok, err := sess.waitForResponse(ctx, rid, ch)
 	require.False(t, ok)
 	require.ErrorIs(t, err, context.Canceled)
-
-	sess.activeRequestsMutex.Lock()
-	defer sess.activeRequestsMutex.Unlock()
-
-	_, found := sess.activeRequests[rid]
-	require.False(t, found)
+	require.False(t, sess.router.hasActiveRequest(rid))
 }
 
 func TestReadLoopIgnoresResponsesForCanceledRequests(t *testing.T) {
 	t.Parallel()
 
-	sess := &grpcInnerSession{
-		cli: &scriptedSessionClient{
-			responses: []*apipb.SessionResponse{
-				{
-					RequestId: 999,
-					Response: &apipb.SessionResponse_Flush{
-						Flush: &apipb.FlushResponse{},
-					},
+	sess := newTestInnerSession(t, &scriptedSessionClient{
+		responses: []*apipb.SessionResponse{
+			{
+				RequestId: 999,
+				Response: &apipb.SessionResponse_Flush{
+					Flush: &apipb.FlushResponse{},
 				},
 			},
 		},
-		activeRequests: make(map[int64]chan *apipb.SessionResponse),
-	}
+	})
 
 	sess.wg.Add(1)
 
@@ -557,29 +561,21 @@ func (c *channelSessionClient) RecvMsg(interface{}) error    { return nil }
 func TestReadLoopStreamBreakCleansUpActiveRequests(t *testing.T) {
 	t.Parallel()
 
-	sessCtx, sessCancel := context.WithCancel(context.Background())
-	defer sessCancel()
-
 	recvCh := make(chan recvResult, 10)
 
 	cli := &channelSessionClient{
-		ctx:    sessCtx,
+		ctx:    context.Background(),
 		recvCh: recvCh,
 	}
 
-	sess := &grpcInnerSession{
-		cli:            cli,
-		activeRequests: make(map[int64]chan *apipb.SessionResponse),
-	}
+	sess := newTestInnerSession(t, cli)
 
 	// Register two active requests.
 	ch1 := make(chan *apipb.SessionResponse, 1)
 	ch2 := make(chan *apipb.SessionResponse, 1)
 
-	sess.activeRequestsMutex.Lock()
-	sess.activeRequests[1] = ch1
-	sess.activeRequests[2] = ch2
-	sess.activeRequestsMutex.Unlock()
+	sess.router.registerRequest(1, ch1, nil)
+	sess.router.registerRequest(2, ch2, nil)
 
 	sess.wg.Add(1)
 
@@ -612,37 +608,27 @@ func TestReadLoopStreamBreakCleansUpActiveRequests(t *testing.T) {
 		require.False(t, ok, "channel should be closed")
 	}
 
-	// activeRequests should be empty.
-	sess.activeRequestsMutex.Lock()
-	defer sess.activeRequestsMutex.Unlock()
-
-	require.Empty(t, sess.activeRequests)
+	// All active requests should be cleared after stream break.
+	require.Equal(t, 0, sess.router.activeRequestCount())
 }
 
 func TestReadLoopMultiPageResponseCallerCancelDoesNotBlock(t *testing.T) {
 	t.Parallel()
 
-	sessCtx, sessCancel := context.WithCancel(context.Background())
-	defer sessCancel()
-
 	recvCh := make(chan recvResult, 10)
 
 	cli := &channelSessionClient{
-		ctx:    sessCtx,
+		ctx:    context.Background(),
 		recvCh: recvCh,
 	}
 
-	sess := &grpcInnerSession{
-		cli:            cli,
-		activeRequests: make(map[int64]chan *apipb.SessionResponse),
-	}
+	sess := newTestInnerSession(t, cli)
 
 	// Register a request with a buffer-of-1 channel (same as production code).
 	ch := make(chan *apipb.SessionResponse, 1)
 
-	sess.activeRequestsMutex.Lock()
-	sess.activeRequests[42] = ch
-	sess.activeRequestsMutex.Unlock()
+	reqCtx, cancelReq := context.WithCancel(context.Background())
+	sess.router.registerRequest(42, ch, reqCtx.Done())
 
 	sess.wg.Add(1)
 
@@ -666,16 +652,12 @@ func TestReadLoopMultiPageResponseCallerCancelDoesNotBlock(t *testing.T) {
 	// Drain the first page so readLoop can proceed.
 	<-ch
 
-	// Now simulate the caller cancelling: remove the entry from activeRequests
-	// (mimicking what waitForResponse does on context cancel) without reading
-	// from the channel.
-	sess.activeRequestsMutex.Lock()
-	delete(sess.activeRequests, 42)
-	sess.activeRequestsMutex.Unlock()
+	// Now simulate the caller cancelling.
+	cancelReq()
 
-	// Second page: HasMore=true again. readLoop should look up ch, find it nil
-	// (deleted), and skip. If the fix is missing, readLoop would block forever
-	// trying to send on a full channel.
+	// Second page: HasMore=true again. readLoop should see the request as canceled
+	// and skip delivery. If the fix is missing, readLoop would block forever trying
+	// to send on a full channel.
 	recvCh <- recvResult{
 		resp: &apipb.SessionResponse{
 			RequestId: 42,
@@ -706,55 +688,44 @@ func TestReadLoopMultiPageResponseCallerCancelDoesNotBlock(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("readLoop blocked on cancelled multi-page response (non-blocking send fix missing?)")
 	}
+
+	require.False(t, sess.router.hasActiveRequest(42))
 }
 
 func TestDeliverResponseReturnsFalseAfterRequestCancellation(t *testing.T) {
 	t.Parallel()
 
+	router := &sessionResponseRouter{}
+
 	ch := make(chan *apipb.SessionResponse, 1)
 	ch <- &apipb.SessionResponse{RequestId: 99}
 
-	sess := &grpcInnerSession{
-		activeRequests: map[int64]chan *apipb.SessionResponse{
-			99: ch,
-		},
-	}
+	reqCtx, cancelReq := context.WithCancel(context.Background())
+	cancelReq()
 
-	done := make(chan bool, 1)
-
-	go func() {
-		done <- sess.deliverResponse(99, ch, &apipb.SessionResponse{RequestId: 99, HasMore: true})
-	}()
-
-	sess.activeRequestsMutex.Lock()
-	delete(sess.activeRequests, 99)
-	sess.activeRequestsMutex.Unlock()
-
-	select {
-	case ok := <-done:
-		require.False(t, ok)
-	case <-time.After(2 * time.Second):
-		t.Fatal("deliverResponse did not stop after request cancellation")
-	}
+	ok := router.deliverResponse(sessionRequestRoute{
+		responseCh:  ch,
+		requestDone: reqCtx.Done(),
+	}, &apipb.SessionResponse{RequestId: 99, HasMore: true})
+	require.False(t, ok)
 }
 
 func TestDeliverResponseSucceedsWhenBackpressureClears(t *testing.T) {
 	t.Parallel()
 
+	router := &sessionResponseRouter{}
+
 	ch := make(chan *apipb.SessionResponse, 1)
 	ch <- &apipb.SessionResponse{RequestId: 7}
-
-	sess := &grpcInnerSession{
-		activeRequests: map[int64]chan *apipb.SessionResponse{
-			7: ch,
-		},
-	}
 
 	done := make(chan bool, 1)
 	msg := &apipb.SessionResponse{RequestId: 7, HasMore: true}
 
 	go func() {
-		done <- sess.deliverResponse(7, ch, msg)
+		done <- router.deliverResponse(sessionRequestRoute{
+			responseCh:  ch,
+			requestDone: context.Background().Done(),
+		}, msg)
 	}()
 
 	// Relieve backpressure by consuming the queued message.
