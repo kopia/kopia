@@ -383,35 +383,31 @@ func (router *sessionResponseRouter) failAllRequests(err error) {
 }
 
 func (router *sessionResponseRouter) hasActiveRequest(requestID int64) bool {
-	resultCh := make(chan bool, 1)
-	if !router.tryPost(func(active map[int64]sessionRequestRoute) {
+	return queryActiveRequests(router, false, func(active map[int64]sessionRequestRoute) bool {
 		_, ok := active[requestID]
-		resultCh <- ok
-	}) {
-		return false
-	}
-
-	select {
-	case <-router.done:
-		return false
-	case ok := <-resultCh:
 		return ok
-	}
+	})
 }
 
 func (router *sessionResponseRouter) activeRequestCount() int {
-	resultCh := make(chan int, 1)
+	return queryActiveRequests(router, 0, func(active map[int64]sessionRequestRoute) int {
+		return len(active)
+	})
+}
+
+func queryActiveRequests[T any](router *sessionResponseRouter, fallback T, query func(map[int64]sessionRequestRoute) T) T {
+	resultCh := make(chan T, 1)
 	if !router.tryPost(func(active map[int64]sessionRequestRoute) {
-		resultCh <- len(active)
+		resultCh <- query(active)
 	}) {
-		return 0
+		return fallback
 	}
 
 	select {
 	case <-router.done:
-		return 0
-	case n := <-resultCh:
-		return n
+		return fallback
+	case v := <-resultCh:
+		return v
 	}
 }
 
@@ -598,6 +594,14 @@ func sendAndReceiveOnChannel[T any](ctx context.Context, sess *grpcInnerSession,
 	}
 
 	return handle(resp)
+}
+
+func sendAndReceiveNoValue(ctx context.Context, sess *grpcInnerSession, req *apipb.SessionRequest, handle func(*apipb.SessionResponse) error) error {
+	_, err := sendAndReceive(ctx, sess, req, func(resp *apipb.SessionResponse) (struct{}, error) {
+		return struct{}{}, handle(resp)
+	})
+
+	return err
 }
 
 // sendAndCollect sends a request and collects a multi-page response. The handle callback
@@ -805,22 +809,20 @@ func (r *grpcRepositoryClient) DeleteManifest(ctx context.Context, id manifest.I
 }
 
 func (r *grpcInnerSession) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	_, err := sendAndReceive(ctx, r, &apipb.SessionRequest{
+	return sendAndReceiveNoValue(ctx, r, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_DeleteManifest{
 			DeleteManifest: &apipb.DeleteManifestRequest{
 				ManifestId: string(id),
 			},
 		},
-	}, func(resp *apipb.SessionResponse) (struct{}, error) {
+	}, func(resp *apipb.SessionResponse) error {
 		switch resp.GetResponse().(type) {
 		case *apipb.SessionResponse_DeleteManifest:
-			return struct{}{}, nil
+			return nil
 		default:
-			return struct{}{}, unhandledSessionResponse(resp)
+			return unhandledSessionResponse(resp)
 		}
 	})
-
-	return err
 }
 
 func (r *grpcRepositoryClient) PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error) {
@@ -899,7 +901,7 @@ func (r *grpcRepositoryClient) SendNotification(ctx context.Context, templateNam
 var _ RemoteNotifications = (*grpcRepositoryClient)(nil)
 
 func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName string, templateDataJSON []byte, templateDataType apipb.NotificationEventArgType, severity int32) (struct{}, error) {
-	return sendAndReceive(ctx, r, &apipb.SessionRequest{
+	return struct{}{}, sendAndReceiveNoValue(ctx, r, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_SendNotification{
 			SendNotification: &apipb.SendNotificationRequest{
 				TemplateName:  templateName,
@@ -908,12 +910,12 @@ func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName st
 				Severity:      severity,
 			},
 		},
-	}, func(resp *apipb.SessionResponse) (struct{}, error) {
+	}, func(resp *apipb.SessionResponse) error {
 		switch resp.GetResponse().(type) {
 		case *apipb.SessionResponse_SendNotification:
-			return struct{}{}, nil
+			return nil
 		default:
-			return struct{}{}, unhandledSessionResponse(resp)
+			return unhandledSessionResponse(resp)
 		}
 	})
 }
@@ -949,20 +951,18 @@ func (r *grpcRepositoryClient) Flush(ctx context.Context) error {
 }
 
 func (r *grpcInnerSession) Flush(ctx context.Context) error {
-	_, err := sendAndReceive(ctx, r, &apipb.SessionRequest{
+	return sendAndReceiveNoValue(ctx, r, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_Flush{
 			Flush: &apipb.FlushRequest{},
 		},
-	}, func(resp *apipb.SessionResponse) (struct{}, error) {
+	}, func(resp *apipb.SessionResponse) error {
 		switch resp.GetResponse().(type) {
 		case *apipb.SessionResponse_Flush:
-			return struct{}{}, nil
+			return nil
 		default:
-			return struct{}{}, unhandledSessionResponse(resp)
+			return unhandledSessionResponse(resp)
 		}
 	})
-
-	return err
 }
 
 func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
