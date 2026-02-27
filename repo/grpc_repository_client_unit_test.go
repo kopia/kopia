@@ -10,10 +10,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 
 	apipb "github.com/kopia/kopia/internal/grpcapi"
@@ -497,16 +495,6 @@ func TestWaitForGRPCConnectionReadyTimesOut(t *testing.T) {
 	require.ErrorContains(t, err, "last state=CONNECTING")
 }
 
-func TestShouldRetrySessionEstablishmentError(t *testing.T) {
-	t.Parallel()
-
-	require.False(t, shouldRetrySessionEstablishmentError(status.Error(codes.PermissionDenied, "denied")))
-	require.False(t, shouldRetrySessionEstablishmentError(status.Error(codes.Unauthenticated, "unauthenticated")))
-	require.False(t, shouldRetrySessionEstablishmentError(context.Canceled))
-	require.True(t, shouldRetrySessionEstablishmentError(context.DeadlineExceeded))
-	require.True(t, shouldRetrySessionEstablishmentError(status.Error(codes.Unavailable, "unavailable")))
-}
-
 func TestGRPCConnectionManagerReplaceClosesOldConnection(t *testing.T) {
 	t.Parallel()
 
@@ -583,16 +571,23 @@ func TestGetOrEstablishInnerSessionRedialsAfterFailedAttempt(t *testing.T) {
 		opt: WriteSessionOptions{
 			Purpose: "test",
 		},
-		sessionEstablishmentTimeout:        600 * time.Millisecond,
-		sessionEstablishmentAttemptTimeout: 80 * time.Millisecond,
+		sessionEstablishmentTimeout: 80 * time.Millisecond,
 	}
+
+	_, err := client.getOrEstablishInnerSession(context.Background())
+	require.Error(t, err)
+	require.ErrorContains(t, err, "session establishment timed out")
+	require.Equal(t, 0, dialCount)
+	require.Equal(t, 0, badConn.closeCalls)
+	require.GreaterOrEqual(t, badConn.connectCalls, 1)
+
+	client.sessionEstablishmentTimeout = 600 * time.Millisecond
 
 	sess, err := client.getOrEstablishInnerSession(context.Background())
 	require.NoError(t, err)
 	require.NotNil(t, sess)
 	require.Equal(t, 1, dialCount)
 	require.Equal(t, 1, badConn.closeCalls)
-	require.GreaterOrEqual(t, badConn.connectCalls, 1)
 	require.GreaterOrEqual(t, goodConn.connectCalls, 1)
 
 	client.killInnerSession()

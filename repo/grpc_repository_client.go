@@ -15,11 +15,9 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/status"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -56,9 +54,6 @@ const (
 	// default upper bound for establishing a fresh streaming session when caller did not
 	// provide an explicit deadline.
 	defaultSessionEstablishmentTimeout = 30 * time.Second
-
-	// maximum time budget for each individual attempt to establish a streaming session.
-	defaultSessionEstablishmentAttemptTimeout = 10 * time.Second
 )
 
 var errShouldRetry = errors.New("should retry")
@@ -81,8 +76,9 @@ type grpcConnectionDialer func(ctx context.Context) (grpcConnection, error)
 type grpcConnectionManager struct {
 	mu sync.RWMutex
 
-	conn   grpcConnection
-	dialer grpcConnectionDialer
+	conn             grpcConnection
+	dialer           grpcConnectionDialer
+	refreshOnNextUse bool
 }
 
 func newGRPCConnectionManager(conn grpcConnection, dialer grpcConnectionDialer) *grpcConnectionManager {
@@ -121,6 +117,54 @@ func (m *grpcConnectionManager) replace(ctx context.Context) (grpcConnection, er
 	return newConn, nil
 }
 
+func (m *grpcConnectionManager) currentOrDial(ctx context.Context) (grpcConnection, error) {
+	m.mu.RLock()
+	conn := m.conn
+	dialer := m.dialer
+	refresh := m.refreshOnNextUse
+	m.mu.RUnlock()
+
+	if conn != nil && !refresh {
+		return conn, nil
+	}
+
+	if dialer == nil {
+		return nil, errors.New("gRPC redial is not configured")
+	}
+
+	newConn, err := dialer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	m.mu.Lock()
+
+	if m.conn != nil && !m.refreshOnNextUse {
+		existing := m.conn
+		m.mu.Unlock()
+		_ = newConn.Close()
+		return existing, nil
+	}
+
+	oldConn := m.conn
+	m.conn = newConn
+	m.refreshOnNextUse = false
+	m.mu.Unlock()
+
+	if oldConn != nil {
+		_ = oldConn.Close()
+	}
+
+	return newConn, nil
+}
+
+func (m *grpcConnectionManager) markForRefresh() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.refreshOnNextUse = true
+}
+
 func (m *grpcConnectionManager) close() error {
 	m.mu.Lock()
 	conn := m.conn
@@ -150,9 +194,8 @@ type grpcRepositoryClient struct {
 
 	afterFlush []RepositoryWriterCallback
 
-	// per-client time budgets for creating a streaming session.
-	sessionEstablishmentTimeout        time.Duration
-	sessionEstablishmentAttemptTimeout time.Duration
+	// per-client time budget for creating a streaming session.
+	sessionEstablishmentTimeout time.Duration
 
 	asyncWritesWG *errgroup.Group
 
@@ -1164,111 +1207,101 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 	if r.innerSession == nil {
 		log(ctx).Debugf("establishing new GRPC streaming session (purpose=%v)", r.opt.Purpose)
 
-		retryCtx := ctx
-		retryCancel := context.CancelFunc(func() {})
+		establishCtx := ctx
+		cancelEstablish := context.CancelFunc(func() {})
 		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-			retryCtx, retryCancel = context.WithTimeout(ctx, r.effectiveSessionEstablishmentTimeout())
+			establishCtx, cancelEstablish = context.WithTimeout(ctx, r.effectiveSessionEstablishmentTimeout())
 		}
-		defer retryCancel()
+		defer cancelEstablish()
 
-		attemptNumber := 0
-
-		v, err := retry.WithExponentialBackoff(retryCtx, "establishing session", func() (*grpcInnerSession, error) {
-			attemptNumber++
-
-			attemptCtx, attemptCancel := context.WithTimeout(retryCtx, r.effectiveSessionEstablishmentAttemptTimeout())
-			defer attemptCancel()
-
-			conn, err := r.prepareConnectionForSessionAttempt(attemptCtx, attemptNumber)
-			if err != nil {
-				return nil, err
-			}
-
-			if err := waitForGRPCConnectionReady(attemptCtx, conn); err != nil {
-				return nil, errors.Wrap(err, "waiting for gRPC connection readiness")
-			}
-
-			cli := apipb.NewKopiaRepositoryClient(conn)
-
-			// sessCtx is detached from ctx (via WithoutCancel) so the GRPC stream
-			// outlives the caller's context, but wrapped with WithCancel so
-			// killInnerSession can terminate it.
-			sessCtx, sessCancel := context.WithCancel(context.WithoutCancel(ctx))
-
-			// Ensure sessCancel is always called on any exit path (including
-			// panics) to prevent goroutine leaks. On the success path we set
-			// ownershipTransferred=true so the defer becomes a no-op — the
-			// cancel func is handed off to the grpcInnerSession instead.
-			ownershipTransferred := false
-			defer func() {
-				if !ownershipTransferred {
-					sessCancel()
-				}
-			}()
-
-			type sessionResult struct {
-				sess apipb.KopiaRepository_SessionClient
-				err  error
-			}
-
-			ch := make(chan sessionResult, 1)
-
-			go func() {
-				s, e := cli.Session(sessCtx)
-				ch <- sessionResult{s, e}
-			}()
-
-			var sess apipb.KopiaRepository_SessionClient
-
-			select {
-			case res := <-ch:
-				if res.err != nil {
-					return nil, errors.Wrap(res.err, "Session()")
-				}
-
-				sess = res.sess
-
-			case <-attemptCtx.Done():
-				if errors.Is(attemptCtx.Err(), context.DeadlineExceeded) {
-					return nil, errors.Errorf("session establishment timed out (attempt=%v, connection state=%v)", attemptNumber, conn.GetState())
-				}
-
-				return nil, errors.Wrap(attemptCtx.Err(), "context cancelled during session establishment")
-			}
-
-			newSess := &grpcInnerSession{
-				cli:            sess,
-				activeRequests: make(map[int64]chan *apipb.SessionResponse),
-				nextRequestID:  1,
-				cancelFunc:     sessCancel,
-			}
-
-			newSess.wg.Add(1)
-
-			go newSess.readLoop(sessCtx)
-
-			var initErr error
-
-			newSess.repoParams, initErr = newSess.initializeSession(attemptCtx, r.opt.Purpose, r.isReadOnly)
-			if initErr != nil {
-				newSess.shutdown()
-
-				if errors.Is(attemptCtx.Err(), context.DeadlineExceeded) {
-					return nil, errors.Wrap(initErr, "session establishment timed out")
-				}
-
-				return nil, errors.Wrap(initErr, "unable to initialize session")
-			}
-
-			ownershipTransferred = true
-
-			return newSess, nil
-		}, shouldRetrySessionEstablishmentError)
+		conn, err := r.prepareConnectionForSession(establishCtx)
 		if err != nil {
 			return nil, errors.Wrap(err, "error establishing session")
 		}
 
-		r.innerSession = v
+		if err := waitForGRPCConnectionReady(establishCtx, conn); err != nil {
+			r.connManager.markForRefresh()
+			return nil, errors.Wrap(err, "error establishing session")
+		}
+
+		cli := apipb.NewKopiaRepositoryClient(conn)
+
+		// sessCtx is detached from ctx (via WithoutCancel) so the GRPC stream
+		// outlives the caller's context, but wrapped with WithCancel so
+		// killInnerSession can terminate it.
+		sessCtx, sessCancel := context.WithCancel(context.WithoutCancel(ctx))
+
+		// Ensure sessCancel is always called on any exit path (including
+		// panics) to prevent goroutine leaks. On the success path we set
+		// ownershipTransferred=true so the defer becomes a no-op — the
+		// cancel func is handed off to the grpcInnerSession instead.
+		ownershipTransferred := false
+		defer func() {
+			if !ownershipTransferred {
+				sessCancel()
+			}
+		}()
+
+		type sessionResult struct {
+			sess apipb.KopiaRepository_SessionClient
+			err  error
+		}
+
+		ch := make(chan sessionResult, 1)
+
+		go func() {
+			s, e := cli.Session(sessCtx)
+			ch <- sessionResult{s, e}
+		}()
+
+		var sess apipb.KopiaRepository_SessionClient
+
+		select {
+		case res := <-ch:
+			if res.err != nil {
+				r.connManager.markForRefresh()
+				return nil, errors.Wrap(res.err, "error establishing session")
+			}
+
+			sess = res.sess
+
+		case <-establishCtx.Done():
+			r.connManager.markForRefresh()
+			if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
+				return nil, errors.Errorf("error establishing session: session establishment timed out (connection state=%v)", conn.GetState())
+			}
+
+			return nil, errors.Wrap(establishCtx.Err(), "error establishing session: context cancelled during session establishment")
+		}
+
+		newSess := &grpcInnerSession{
+			cli:            sess,
+			activeRequests: make(map[int64]chan *apipb.SessionResponse),
+			nextRequestID:  1,
+			cancelFunc:     sessCancel,
+		}
+
+		newSess.wg.Add(1)
+
+		go newSess.readLoop(sessCtx)
+
+		var initErr error
+
+		newSess.repoParams, initErr = newSess.initializeSession(establishCtx, r.opt.Purpose, r.isReadOnly)
+		if initErr != nil {
+			newSess.shutdown()
+			r.connManager.markForRefresh()
+
+			if errors.Is(establishCtx.Err(), context.DeadlineExceeded) {
+				return nil, errors.Wrap(initErr, "error establishing session: session establishment timed out")
+			}
+
+			return nil, errors.Wrap(initErr, "error establishing session: unable to initialize session")
+		}
+
+		ownershipTransferred = true
+
+		r.innerSession = newSess
 	}
 
 	return r.innerSession, nil
@@ -1282,54 +1315,16 @@ func (r *grpcRepositoryClient) effectiveSessionEstablishmentTimeout() time.Durat
 	return r.sessionEstablishmentTimeout
 }
 
-func (r *grpcRepositoryClient) effectiveSessionEstablishmentAttemptTimeout() time.Duration {
-	if r.sessionEstablishmentAttemptTimeout <= 0 {
-		return defaultSessionEstablishmentAttemptTimeout
-	}
-
-	return r.sessionEstablishmentAttemptTimeout
-}
-
-func (r *grpcRepositoryClient) prepareConnectionForSessionAttempt(ctx context.Context, attemptNumber int) (grpcConnection, error) {
-	if attemptNumber > 1 {
-		conn, err := r.connManager.replace(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to recreate gRPC connection")
-		}
-
-		conn.ResetConnectBackoff()
-		conn.Connect()
-
-		return conn, nil
-	}
-
-	conn := r.connManager.current()
-	if conn == nil {
-		return nil, errors.New("gRPC connection is closed")
+func (r *grpcRepositoryClient) prepareConnectionForSession(ctx context.Context) (grpcConnection, error) {
+	conn, err := r.connManager.currentOrDial(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to (re)create gRPC connection")
 	}
 
 	conn.ResetConnectBackoff()
 	conn.Connect()
 
 	return conn, nil
-}
-
-func shouldRetrySessionEstablishmentError(err error) bool {
-	switch {
-	case err == nil:
-		return false
-	case errors.Is(err, context.Canceled):
-		return false
-	case errors.Is(err, context.DeadlineExceeded):
-		return true
-	}
-
-	switch status.Code(err) {
-	case codes.PermissionDenied, codes.Unauthenticated, codes.InvalidArgument, codes.Unimplemented:
-		return false
-	default:
-		return true
-	}
 }
 
 type grpcConnectionReadiness interface {
@@ -1403,7 +1398,6 @@ func newGRPCAPIRepositoryForConnection(
 		asyncWritesWG:                       new(errgroup.Group),
 		findManifestsPageSize:               defaultFindManifestsPageSize,
 		sessionEstablishmentTimeout:         defaultSessionEstablishmentTimeout,
-		sessionEstablishmentAttemptTimeout:  defaultSessionEstablishmentAttemptTimeout,
 	}
 
 	return inSessionWithoutRetry(ctx, rr, func(ctx context.Context, sess *grpcInnerSession) (*grpcRepositoryClient, error) {
