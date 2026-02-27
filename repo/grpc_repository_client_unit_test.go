@@ -18,51 +18,36 @@ import (
 	apipb "github.com/kopia/kopia/internal/grpcapi"
 )
 
-// mockSessionClient implements apipb.KopiaRepository_SessionClient for testing.
-type mockSessionClient struct {
+// fakeSessionClient implements apipb.KopiaRepository_SessionClient for testing.
+// When recvCh is nil, Recv blocks until ctx is done (matching the old mockSessionClient).
+// When recvCh is non-nil, Recv selects between ctx cancellation and channel receives.
+type fakeSessionClient struct {
 	grpc.ClientStream
-	ctx context.Context
+	ctx     context.Context
+	recvCh  chan recvResult // nil → blocks until ctx cancel
+	sendErr error
 }
 
-func (m *mockSessionClient) Send(*apipb.SessionRequest) error { return nil }
-func (m *mockSessionClient) Recv() (*apipb.SessionResponse, error) {
-	<-m.ctx.Done()
-	return nil, io.EOF
-}
-func (m *mockSessionClient) CloseSend() error             { return nil }
-func (m *mockSessionClient) Header() (metadata.MD, error) { return nil, nil }
-func (m *mockSessionClient) Trailer() metadata.MD         { return nil }
-func (m *mockSessionClient) Context() context.Context     { return m.ctx }
-func (m *mockSessionClient) SendMsg(interface{}) error    { return nil }
-func (m *mockSessionClient) RecvMsg(interface{}) error    { return nil }
-
-type scriptedSessionClient struct {
-	grpc.ClientStream
-
-	mu        sync.Mutex
-	responses []*apipb.SessionResponse
+type recvResult struct {
+	resp *apipb.SessionResponse
+	err  error
 }
 
-func (m *scriptedSessionClient) Send(*apipb.SessionRequest) error { return nil }
-func (m *scriptedSessionClient) Recv() (*apipb.SessionResponse, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if len(m.responses) == 0 {
+func (c *fakeSessionClient) Send(*apipb.SessionRequest) error { return c.sendErr }
+func (c *fakeSessionClient) Recv() (*apipb.SessionResponse, error) {
+	select {
+	case <-c.ctx.Done():
 		return nil, io.EOF
+	case r := <-c.recvCh:
+		return r.resp, r.err
 	}
-
-	resp := m.responses[0]
-	m.responses = m.responses[1:]
-
-	return resp, nil
 }
-func (m *scriptedSessionClient) CloseSend() error             { return nil }
-func (m *scriptedSessionClient) Header() (metadata.MD, error) { return nil, nil }
-func (m *scriptedSessionClient) Trailer() metadata.MD         { return nil }
-func (m *scriptedSessionClient) Context() context.Context     { return context.Background() }
-func (m *scriptedSessionClient) SendMsg(interface{}) error    { return nil }
-func (m *scriptedSessionClient) RecvMsg(interface{}) error    { return nil }
+func (c *fakeSessionClient) CloseSend() error             { return nil }
+func (c *fakeSessionClient) Header() (metadata.MD, error) { return nil, nil }
+func (c *fakeSessionClient) Trailer() metadata.MD         { return nil }
+func (c *fakeSessionClient) Context() context.Context     { return c.ctx }
+func (c *fakeSessionClient) SendMsg(interface{}) error    { return c.sendErr }
+func (c *fakeSessionClient) RecvMsg(interface{}) error    { return nil }
 
 func newTestInnerSession(t *testing.T, cli apipb.KopiaRepository_SessionClient) *grpcInnerSession {
 	t.Helper()
@@ -143,11 +128,11 @@ func TestBaseURLToURI(t *testing.T) {
 func TestKillInnerSessionCancelsContext(t *testing.T) {
 	sessCtx, sessCancel := context.WithCancel(context.Background())
 
-	mock := &mockSessionClient{ctx: sessCtx}
+	cli := &fakeSessionClient{ctx: sessCtx}
 
 	sess := &grpcInnerSession{
 		cancelFunc: sessCancel,
-		cli:        mock,
+		cli:        cli,
 	}
 
 	// Verify the session context is not cancelled yet.
@@ -189,11 +174,11 @@ func TestKillInnerSessionCancelsContext(t *testing.T) {
 func TestKillInnerSessionNilCancelFunc(t *testing.T) {
 	ctx := context.Background()
 
-	mock := &mockSessionClient{ctx: ctx}
+	cli := &fakeSessionClient{ctx: ctx}
 
 	sess := &grpcInnerSession{
 		cancelFunc: nil,
-		cli:        mock,
+		cli:        cli,
 	}
 
 	sess.wg.Add(1)
@@ -216,11 +201,11 @@ func TestKillInnerSessionConcurrency(t *testing.T) {
 	// Verify that concurrent calls to killInnerSession don't race.
 	sessCtx, sessCancel := context.WithCancel(context.Background())
 
-	mock := &mockSessionClient{ctx: sessCtx}
+	cli := &fakeSessionClient{ctx: sessCtx}
 
 	sess := &grpcInnerSession{
 		cancelFunc: sessCancel,
-		cli:        mock,
+		cli:        cli,
 	}
 
 	sess.wg.Add(1)
@@ -272,16 +257,16 @@ func TestWaitForResponseContextCancelRemovesActiveRequest(t *testing.T) {
 func TestReadLoopIgnoresResponsesForCanceledRequests(t *testing.T) {
 	t.Parallel()
 
-	sess := newTestInnerSession(t, &scriptedSessionClient{
-		responses: []*apipb.SessionResponse{
-			{
-				RequestId: 999,
-				Response: &apipb.SessionResponse_Flush{
-					Flush: &apipb.FlushResponse{},
-				},
-			},
+	recvCh := make(chan recvResult, 2)
+	recvCh <- recvResult{resp: &apipb.SessionResponse{
+		RequestId: 999,
+		Response: &apipb.SessionResponse_Flush{
+			Flush: &apipb.FlushResponse{},
 		},
-	})
+	}}
+	recvCh <- recvResult{err: io.EOF}
+
+	sess := newTestInnerSession(t, &fakeSessionClient{ctx: context.Background(), recvCh: recvCh})
 
 	sess.wg.Add(1)
 
@@ -528,42 +513,12 @@ func TestGRPCConnectionManagerReplaceClosesOldConnection(t *testing.T) {
 	require.Nil(t, mgr.current())
 }
 
-// channelSessionClient lets tests feed responses via a channel and inject Recv errors.
-type channelSessionClient struct {
-	grpc.ClientStream
-
-	ctx     context.Context
-	recvCh  chan recvResult
-	sendErr error
-}
-
-type recvResult struct {
-	resp *apipb.SessionResponse
-	err  error
-}
-
-func (c *channelSessionClient) Send(*apipb.SessionRequest) error { return c.sendErr }
-func (c *channelSessionClient) Recv() (*apipb.SessionResponse, error) {
-	select {
-	case <-c.ctx.Done():
-		return nil, io.EOF
-	case r := <-c.recvCh:
-		return r.resp, r.err
-	}
-}
-func (c *channelSessionClient) CloseSend() error             { return nil }
-func (c *channelSessionClient) Header() (metadata.MD, error) { return nil, nil }
-func (c *channelSessionClient) Trailer() metadata.MD         { return nil }
-func (c *channelSessionClient) Context() context.Context     { return c.ctx }
-func (c *channelSessionClient) SendMsg(interface{}) error    { return c.sendErr }
-func (c *channelSessionClient) RecvMsg(interface{}) error    { return nil }
-
 func TestReadLoopStreamBreakCleansUpActiveRequests(t *testing.T) {
 	t.Parallel()
 
 	recvCh := make(chan recvResult, 10)
 
-	cli := &channelSessionClient{
+	cli := &fakeSessionClient{
 		ctx:    context.Background(),
 		recvCh: recvCh,
 	}
@@ -617,7 +572,7 @@ func TestReadLoopMultiPageResponseCallerCancelDoesNotBlock(t *testing.T) {
 
 	recvCh := make(chan recvResult, 10)
 
-	cli := &channelSessionClient{
+	cli := &fakeSessionClient{
 		ctx:    context.Background(),
 		recvCh: recvCh,
 	}
