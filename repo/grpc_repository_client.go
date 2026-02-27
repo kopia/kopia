@@ -15,9 +15,11 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -54,6 +56,9 @@ const (
 	// default upper bound for establishing a fresh streaming session when caller did not
 	// provide an explicit deadline.
 	defaultSessionEstablishmentTimeout = 30 * time.Second
+
+	// maximum time budget for each individual attempt to establish a streaming session.
+	defaultSessionEstablishmentAttemptTimeout = 10 * time.Second
 )
 
 var errShouldRetry = errors.New("should retry")
@@ -62,10 +67,77 @@ func errNoSessionResponse() error {
 	return errors.New("did not receive response from the server")
 }
 
+type grpcConnection interface {
+	grpc.ClientConnInterface
+	Connect()
+	ResetConnectBackoff()
+	GetState() connectivity.State
+	WaitForStateChange(ctx context.Context, sourceState connectivity.State) bool
+	Close() error
+}
+
+type grpcConnectionDialer func(ctx context.Context) (grpcConnection, error)
+
+type grpcConnectionManager struct {
+	mu sync.RWMutex
+
+	conn   grpcConnection
+	dialer grpcConnectionDialer
+}
+
+func newGRPCConnectionManager(conn grpcConnection, dialer grpcConnectionDialer) *grpcConnectionManager {
+	return &grpcConnectionManager{
+		conn:   conn,
+		dialer: dialer,
+	}
+}
+
+func (m *grpcConnectionManager) current() grpcConnection {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	return m.conn
+}
+
+func (m *grpcConnectionManager) replace(ctx context.Context) (grpcConnection, error) {
+	if m.dialer == nil {
+		return nil, errors.New("gRPC redial is not configured")
+	}
+
+	newConn, err := m.dialer(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	m.mu.Lock()
+	oldConn := m.conn
+	m.conn = newConn
+	m.mu.Unlock()
+
+	if oldConn != nil {
+		_ = oldConn.Close()
+	}
+
+	return newConn, nil
+}
+
+func (m *grpcConnectionManager) close() error {
+	m.mu.Lock()
+	conn := m.conn
+	m.conn = nil
+	m.mu.Unlock()
+
+	if conn == nil {
+		return nil
+	}
+
+	return conn.Close()
+}
+
 // grpcRepositoryClient is an implementation of Repository that connects to an instance of
 // GPRC API server hosted by `kopia server`.
 type grpcRepositoryClient struct {
-	conn *grpc.ClientConn
+	connManager *grpcConnectionManager
 
 	innerSessionMutex sync.Mutex
 
@@ -78,9 +150,9 @@ type grpcRepositoryClient struct {
 
 	afterFlush []RepositoryWriterCallback
 
-	// how many times we tried to establish inner session
-	// +checklocks:innerSessionMutex
-	innerSessionAttemptCount int
+	// per-client time budgets for creating a streaming session.
+	sessionEstablishmentTimeout        time.Duration
+	sessionEstablishmentAttemptTimeout time.Duration
 
 	asyncWritesWG *errgroup.Group
 
@@ -678,7 +750,7 @@ func (r *grpcInnerSession) Flush(ctx context.Context) error {
 }
 
 func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error) {
-	w, err := newGRPCAPIRepositoryForConnection(ctx, r.conn, opt, false, r.immutableServerRepositoryParameters)
+	w, err := newGRPCAPIRepositoryForConnection(ctx, r.connManager, opt, false, r.immutableServerRepositoryParameters)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1019,35 +1091,47 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		return nil, errors.Wrap(err, "parsing base URL")
 	}
 
-	conn, err := grpc.NewClient(
-		uri,
-		grpc.WithPerRPCCredentials(grpcCreds{par.cliOpts.Hostname, par.cliOpts.Username, password}),
-		grpc.WithTransportCredentials(transportCreds),
-		grpc.WithDefaultCallOptions(
-			grpc.MaxCallRecvMsgSize(MaxGRPCMessageSize),
-			grpc.MaxCallSendMsgSize(MaxGRPCMessageSize),
-		),
-		// Keepalive detects dead TCP connections when the server becomes unreachable.
-		// Time is the interval between pings; Timeout is how long to wait for a response.
-		// PermitWithoutStream enables pings even when no active RPCs exist, which is
-		// needed to detect failures during idle periods between backup operations.
-		// See https://github.com/kopia/kopia/issues/3073
-		grpc.WithKeepaliveParams(keepalive.ClientParameters{
-			Time:                30 * time.Second,
-			Timeout:             10 * time.Second,
-			PermitWithoutStream: true,
-		}),
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "gRPC client creation error")
+	creds := grpcCreds{par.cliOpts.Hostname, par.cliOpts.Username, password}
+	dialGRPCConnection := func(_ context.Context) (grpcConnection, error) {
+		conn, err := grpc.NewClient(
+			uri,
+			grpc.WithPerRPCCredentials(creds),
+			grpc.WithTransportCredentials(transportCreds),
+			grpc.WithDefaultCallOptions(
+				grpc.MaxCallRecvMsgSize(MaxGRPCMessageSize),
+				grpc.MaxCallSendMsgSize(MaxGRPCMessageSize),
+			),
+			// Keepalive detects dead TCP connections when the server becomes unreachable.
+			// Time is the interval between pings; Timeout is how long to wait for a response.
+			// PermitWithoutStream enables pings even when no active RPCs exist, which is
+			// needed to detect failures during idle periods between backup operations.
+			// See https://github.com/kopia/kopia/issues/3073
+			grpc.WithKeepaliveParams(keepalive.ClientParameters{
+				Time:                30 * time.Second,
+				Timeout:             10 * time.Second,
+				PermitWithoutStream: true,
+			}),
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "gRPC client creation error")
+		}
+
+		return conn, nil
 	}
+
+	conn, err := dialGRPCConnection(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	connManager := newGRPCConnectionManager(conn, dialGRPCConnection)
 
 	par.registerEarlyCloseFunc(
 		func(_ context.Context) error {
-			return errors.Wrap(conn.Close(), "error closing GRPC connection")
+			return errors.Wrap(connManager.close(), "error closing GRPC connection")
 		})
 
-	rep, err := newGRPCAPIRepositoryForConnection(ctx, conn, WriteSessionOptions{}, true, par)
+	rep, err := newGRPCAPIRepositoryForConnection(ctx, connManager, WriteSessionOptions{}, true, par)
 	if err != nil {
 		return nil, err
 	}
@@ -1078,39 +1162,33 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 	defer r.innerSessionMutex.Unlock()
 
 	if r.innerSession == nil {
-		cli := apipb.NewKopiaRepositoryClient(r.conn)
-
 		log(ctx).Debugf("establishing new GRPC streaming session (purpose=%v)", r.opt.Purpose)
-
-		retryPolicy := retry.Always
-		switch {
-		case !r.transparentRetries:
-			// Callers that opted out of transparent retries should fail fast.
-			retryPolicy = retry.Never
-		case r.innerSessionAttemptCount == 0:
-			// The first attempt for read-only sessions should also fail fast,
-			// instead of retrying in place while unreachable.
-			retryPolicy = retry.Never
-		}
-
-		r.innerSessionAttemptCount++
 
 		retryCtx := ctx
 		retryCancel := context.CancelFunc(func() {})
 		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
-			retryCtx, retryCancel = context.WithTimeout(ctx, defaultSessionEstablishmentTimeout)
+			retryCtx, retryCancel = context.WithTimeout(ctx, r.effectiveSessionEstablishmentTimeout())
 		}
 		defer retryCancel()
 
-		v, err := retry.WithExponentialBackoff(retryCtx, "establishing session", func() (*grpcInnerSession, error) {
-			// Reset GRPC's internal connect backoff so it immediately attempts
-			// to reconnect rather than waiting through exponential backoff.
-			r.conn.ResetConnectBackoff()
-			r.conn.Connect()
+		attemptNumber := 0
 
-			if err := waitForGRPCConnectionReady(retryCtx, r.conn); err != nil {
+		v, err := retry.WithExponentialBackoff(retryCtx, "establishing session", func() (*grpcInnerSession, error) {
+			attemptNumber++
+
+			attemptCtx, attemptCancel := context.WithTimeout(retryCtx, r.effectiveSessionEstablishmentAttemptTimeout())
+			defer attemptCancel()
+
+			conn, err := r.prepareConnectionForSessionAttempt(attemptCtx, attemptNumber)
+			if err != nil {
+				return nil, err
+			}
+
+			if err := waitForGRPCConnectionReady(attemptCtx, conn); err != nil {
 				return nil, errors.Wrap(err, "waiting for gRPC connection readiness")
 			}
+
+			cli := apipb.NewKopiaRepositoryClient(conn)
 
 			// sessCtx is detached from ctx (via WithoutCancel) so the GRPC stream
 			// outlives the caller's context, but wrapped with WithCancel so
@@ -1150,12 +1228,12 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 
 				sess = res.sess
 
-			case <-retryCtx.Done():
-				if errors.Is(retryCtx.Err(), context.DeadlineExceeded) {
-					return nil, errors.Errorf("session establishment timed out (connection state=%v)", r.conn.GetState())
+			case <-attemptCtx.Done():
+				if errors.Is(attemptCtx.Err(), context.DeadlineExceeded) {
+					return nil, errors.Errorf("session establishment timed out (attempt=%v, connection state=%v)", attemptNumber, conn.GetState())
 				}
 
-				return nil, errors.Wrap(retryCtx.Err(), "context cancelled during session establishment")
+				return nil, errors.Wrap(attemptCtx.Err(), "context cancelled during session establishment")
 			}
 
 			newSess := &grpcInnerSession{
@@ -1171,11 +1249,11 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 
 			var initErr error
 
-			newSess.repoParams, initErr = newSess.initializeSession(retryCtx, r.opt.Purpose, r.isReadOnly)
+			newSess.repoParams, initErr = newSess.initializeSession(attemptCtx, r.opt.Purpose, r.isReadOnly)
 			if initErr != nil {
 				newSess.shutdown()
 
-				if errors.Is(retryCtx.Err(), context.DeadlineExceeded) {
+				if errors.Is(attemptCtx.Err(), context.DeadlineExceeded) {
 					return nil, errors.Wrap(initErr, "session establishment timed out")
 				}
 
@@ -1185,7 +1263,7 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 			ownershipTransferred = true
 
 			return newSess, nil
-		}, retryPolicy)
+		}, shouldRetrySessionEstablishmentError)
 		if err != nil {
 			return nil, errors.Wrap(err, "error establishing session")
 		}
@@ -1196,17 +1274,87 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 	return r.innerSession, nil
 }
 
-func waitForGRPCConnectionReady(ctx context.Context, conn *grpc.ClientConn) error {
+func (r *grpcRepositoryClient) effectiveSessionEstablishmentTimeout() time.Duration {
+	if r.sessionEstablishmentTimeout <= 0 {
+		return defaultSessionEstablishmentTimeout
+	}
+
+	return r.sessionEstablishmentTimeout
+}
+
+func (r *grpcRepositoryClient) effectiveSessionEstablishmentAttemptTimeout() time.Duration {
+	if r.sessionEstablishmentAttemptTimeout <= 0 {
+		return defaultSessionEstablishmentAttemptTimeout
+	}
+
+	return r.sessionEstablishmentAttemptTimeout
+}
+
+func (r *grpcRepositoryClient) prepareConnectionForSessionAttempt(ctx context.Context, attemptNumber int) (grpcConnection, error) {
+	if attemptNumber > 1 {
+		conn, err := r.connManager.replace(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to recreate gRPC connection")
+		}
+
+		conn.ResetConnectBackoff()
+		conn.Connect()
+
+		return conn, nil
+	}
+
+	conn := r.connManager.current()
+	if conn == nil {
+		return nil, errors.New("gRPC connection is closed")
+	}
+
+	conn.ResetConnectBackoff()
+	conn.Connect()
+
+	return conn, nil
+}
+
+func shouldRetrySessionEstablishmentError(err error) bool {
+	switch {
+	case err == nil:
+		return false
+	case errors.Is(err, context.Canceled):
+		return false
+	case errors.Is(err, context.DeadlineExceeded):
+		return true
+	}
+
+	switch status.Code(err) {
+	case codes.PermissionDenied, codes.Unauthenticated, codes.InvalidArgument, codes.Unimplemented:
+		return false
+	default:
+		return true
+	}
+}
+
+type grpcConnectionReadiness interface {
+	GetState() connectivity.State
+	WaitForStateChange(ctx context.Context, sourceState connectivity.State) bool
+	Connect()
+}
+
+func waitForGRPCConnectionReady(ctx context.Context, conn grpcConnectionReadiness) error {
 	for {
 		state := conn.GetState()
 
 		switch state {
+		case connectivity.Idle:
+			// gRPC Connect() only kicks the channel out of Idle. If the channel re-enters
+			// Idle after a wake/reconnect transition we must trigger Connect() again.
+			conn.Connect()
+		case connectivity.Connecting:
+			// Keep waiting for a transition to READY or terminal failure.
 		case connectivity.Ready:
 			return nil
+		case connectivity.TransientFailure:
+			// Keep waiting for a transition to READY or terminal failure.
 		case connectivity.Shutdown:
 			return errors.New("gRPC connection is shut down")
-		case connectivity.Idle, connectivity.Connecting, connectivity.TransientFailure:
-			// Keep waiting for a transition to READY or terminal failure.
 		default:
 			return errors.Errorf("unexpected gRPC connection state: %v", state)
 		}
@@ -1237,7 +1385,7 @@ func (r *grpcRepositoryClient) killInnerSession() {
 // newGRPCAPIRepositoryForConnection opens GRPC-based repository connection.
 func newGRPCAPIRepositoryForConnection(
 	ctx context.Context,
-	conn *grpc.ClientConn,
+	connManager *grpcConnectionManager,
 	opt WriteSessionOptions,
 	transparentRetries bool,
 	par *immutableServerRepositoryParameters,
@@ -1248,12 +1396,14 @@ func newGRPCAPIRepositoryForConnection(
 
 	rr := &grpcRepositoryClient{
 		immutableServerRepositoryParameters: par,
-		conn:                                conn,
+		connManager:                         connManager,
 		transparentRetries:                  transparentRetries,
 		opt:                                 opt,
 		isReadOnly:                          par.cliOpts.ReadOnly,
 		asyncWritesWG:                       new(errgroup.Group),
 		findManifestsPageSize:               defaultFindManifestsPageSize,
+		sessionEstablishmentTimeout:         defaultSessionEstablishmentTimeout,
+		sessionEstablishmentAttemptTimeout:  defaultSessionEstablishmentAttemptTimeout,
 	}
 
 	return inSessionWithoutRetry(ctx, rr, func(ctx context.Context, sess *grpcInnerSession) (*grpcRepositoryClient, error) {
