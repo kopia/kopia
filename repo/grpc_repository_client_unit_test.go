@@ -254,6 +254,37 @@ func TestWaitForResponseContextCancelRemovesActiveRequest(t *testing.T) {
 	require.False(t, sess.router.hasActiveRequest(rid))
 }
 
+func TestSendAndReceiveWhenRouterClosedReturnsPromptly(t *testing.T) {
+	t.Parallel()
+
+	sess := newTestInnerSession(t, &fakeSessionClient{
+		ctx:    context.Background(),
+		recvCh: make(chan recvResult),
+	})
+
+	sess.cancelFunc()
+	<-sess.router.done
+
+	done := make(chan error, 1)
+
+	go func() {
+		_, err := sendAndReceive(context.Background(), sess, &apipb.SessionRequest{
+			Request: &apipb.SessionRequest_Flush{Flush: &apipb.FlushRequest{}},
+		}, func(resp *apipb.SessionResponse) (struct{}, error) {
+			return struct{}{}, unhandledSessionResponse(resp)
+		})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, io.EOF)
+
+	case <-time.After(2 * time.Second):
+		t.Fatal("sendAndReceive blocked after router shutdown")
+	}
+}
+
 func TestReadLoopIgnoresResponsesForCanceledRequests(t *testing.T) {
 	t.Parallel()
 
