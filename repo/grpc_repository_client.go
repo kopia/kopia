@@ -73,12 +73,21 @@ type grpcConnection interface {
 
 type grpcConnectionDialer func(ctx context.Context) (grpcConnection, error)
 
+type grpcDialState struct {
+	done chan struct{}
+	err  error
+}
+
+var errGRPCConnectionClosed = errors.New("gRPC connection is closed")
+
 type grpcConnectionManager struct {
-	mu sync.RWMutex
+	mu sync.Mutex
 
 	conn             grpcConnection
 	dialer           grpcConnectionDialer
 	refreshOnNextUse bool
+	dialing          *grpcDialState
+	closed           bool
 }
 
 func newGRPCConnectionManager(conn grpcConnection, dialer grpcConnectionDialer) *grpcConnectionManager {
@@ -89,73 +98,107 @@ func newGRPCConnectionManager(conn grpcConnection, dialer grpcConnectionDialer) 
 }
 
 func (m *grpcConnectionManager) current() grpcConnection {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	return m.conn
 }
 
 func (m *grpcConnectionManager) replace(ctx context.Context) (grpcConnection, error) {
-	if m.dialer == nil {
-		return nil, errors.New("gRPC redial is not configured")
-	}
+	m.markForRefresh()
 
-	newConn, err := m.dialer(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	m.mu.Lock()
-	oldConn := m.conn
-	m.conn = newConn
-	m.mu.Unlock()
-
-	if oldConn != nil {
-		_ = oldConn.Close()
-	}
-
-	return newConn, nil
+	return m.currentOrDial(ctx)
 }
 
 func (m *grpcConnectionManager) currentOrDial(ctx context.Context) (grpcConnection, error) {
-	m.mu.RLock()
-	conn := m.conn
-	dialer := m.dialer
-	refresh := m.refreshOnNextUse
-	m.mu.RUnlock()
+	for {
+		m.mu.Lock()
 
-	if conn != nil && !refresh {
-		return conn, nil
-	}
+		if m.closed {
+			m.mu.Unlock()
+			return nil, errGRPCConnectionClosed
+		}
 
-	if dialer == nil {
-		return nil, errors.New("gRPC redial is not configured")
-	}
+		if m.conn != nil && !m.refreshOnNextUse {
+			conn := m.conn
+			m.mu.Unlock()
+			return conn, nil
+		}
 
-	newConn, err := dialer(ctx)
-	if err != nil {
-		return nil, err
-	}
+		if m.dialer == nil {
+			m.mu.Unlock()
+			return nil, errors.New("gRPC redial is not configured")
+		}
 
-	m.mu.Lock()
+		if d := m.dialing; d != nil {
+			m.mu.Unlock()
 
-	if m.conn != nil && !m.refreshOnNextUse {
-		existing := m.conn
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-d.done:
+				if d.err != nil {
+					if shouldRetryDialAfterSharedDialError(ctx, d.err) {
+						continue
+					}
+
+					return nil, d.err
+				}
+
+				continue
+			}
+		}
+
+		d := &grpcDialState{done: make(chan struct{})}
+		m.dialing = d
+		dialer := m.dialer
 		m.mu.Unlock()
-		_ = newConn.Close()
-		return existing, nil
+
+		newConn, err := dialer(ctx)
+
+		var oldConn grpcConnection
+		var usableConn grpcConnection
+		resultErr := err
+
+		m.mu.Lock()
+
+		if m.closed {
+			resultErr = errGRPCConnectionClosed
+		} else if err == nil {
+			// Another path may have already installed a usable connection.
+			if m.conn != nil && !m.refreshOnNextUse {
+				usableConn = m.conn
+			} else {
+				oldConn = m.conn
+				m.conn = newConn
+				m.refreshOnNextUse = false
+				usableConn = newConn
+			}
+		}
+
+		d.err = resultErr
+		m.dialing = nil
+		close(d.done)
+		m.mu.Unlock()
+
+		if oldConn != nil {
+			_ = oldConn.Close()
+		}
+
+		if resultErr != nil {
+			if newConn != nil {
+				_ = newConn.Close()
+			}
+
+			return nil, resultErr
+		}
+
+		if usableConn != newConn {
+			_ = newConn.Close()
+		}
+
+		return usableConn, nil
 	}
-
-	oldConn := m.conn
-	m.conn = newConn
-	m.refreshOnNextUse = false
-	m.mu.Unlock()
-
-	if oldConn != nil {
-		_ = oldConn.Close()
-	}
-
-	return newConn, nil
 }
 
 func (m *grpcConnectionManager) markForRefresh() {
@@ -169,6 +212,8 @@ func (m *grpcConnectionManager) close() error {
 	m.mu.Lock()
 	conn := m.conn
 	m.conn = nil
+	m.refreshOnNextUse = false
+	m.closed = true
 	m.mu.Unlock()
 
 	if conn == nil {
@@ -176,6 +221,14 @@ func (m *grpcConnectionManager) close() error {
 	}
 
 	return conn.Close()
+}
+
+func shouldRetryDialAfterSharedDialError(ctx context.Context, err error) bool {
+	if ctx.Err() != nil {
+		return false
+	}
+
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // grpcRepositoryClient is an implementation of Repository that connects to an instance of
@@ -273,7 +326,12 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 }
 
 func (r *grpcInnerSession) deliverResponse(rid int64, ch chan *apipb.SessionResponse, msg *apipb.SessionResponse) bool {
-	for {
+	const (
+		deliverResponseSpinBeforeSleep = 8
+		deliverResponseSleep           = 1 * time.Millisecond
+	)
+
+	for attempts := 0; ; attempts++ {
 		select {
 		case ch <- msg:
 			return true
@@ -289,7 +347,13 @@ func (r *grpcInnerSession) deliverResponse(rid int64, ch chan *apipb.SessionResp
 		}
 
 		// Receiver is still active but currently backpressured.
-		runtime.Gosched()
+		// Yield a few times for low latency, then sleep briefly to avoid CPU spin.
+		if attempts < deliverResponseSpinBeforeSleep {
+			runtime.Gosched()
+			continue
+		}
+
+		time.Sleep(deliverResponseSleep)
 	}
 }
 

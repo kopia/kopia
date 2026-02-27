@@ -5,6 +5,7 @@ import (
 	stderrors "errors"
 	"io"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -833,12 +834,142 @@ func TestConcurrentCurrentOrDialUnderRefresh(t *testing.T) {
 		require.Samef(t, final, c, "goroutine %d got a different connection", i)
 	}
 
-	// At least one dial must happen while refresh is requested. The implementation
-	// dials outside the lock, so multiple concurrent dials are expected under load.
+	// Exactly one dial should happen; concurrent callers must share the same in-flight dial.
 	mu.Lock()
-	require.GreaterOrEqual(t, dialCount, 1, "expected at least 1 dial")
-	require.LessOrEqual(t, dialCount, goroutines, "dial count should be bounded by callers")
+	require.Equal(t, 1, dialCount, "expected exactly one shared dial")
 	mu.Unlock()
+}
+
+func TestConcurrentCurrentOrDialUnderRefreshSharesDialFailure(t *testing.T) {
+	t.Parallel()
+
+	var (
+		mu        sync.Mutex
+		dialCount int
+	)
+
+	dialErr := stderrors.New("dial failed")
+
+	mgr := newGRPCConnectionManager(
+		&fakeGRPCConn{state: connectivity.Ready},
+		func(context.Context) (grpcConnection, error) {
+			mu.Lock()
+			dialCount++
+			mu.Unlock()
+
+			time.Sleep(20 * time.Millisecond)
+
+			return nil, dialErr
+		},
+	)
+
+	mgr.markForRefresh()
+
+	const goroutines = 20
+
+	var wg sync.WaitGroup
+
+	errCh := make(chan error, goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			_, err := mgr.currentOrDial(context.Background())
+			errCh <- err
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.ErrorIs(t, err, dialErr)
+	}
+
+	mu.Lock()
+	require.Equal(t, 1, dialCount, "expected exactly one shared dial attempt")
+	mu.Unlock()
+}
+
+func TestConcurrentCurrentOrDialLeaderTimeoutDoesNotPoisonWaiters(t *testing.T) {
+	t.Parallel()
+
+	var dialCount atomic.Int32
+
+	firstDialStarted := make(chan struct{})
+
+	mgr := newGRPCConnectionManager(
+		nil,
+		func(ctx context.Context) (grpcConnection, error) {
+			n := dialCount.Add(1)
+			if n == 1 {
+				close(firstDialStarted)
+				<-ctx.Done()
+				return nil, ctx.Err()
+			}
+
+			return &fakeGRPCConn{state: connectivity.Ready}, nil
+		},
+	)
+
+	leaderCtx, cancelLeader := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancelLeader()
+
+	leaderErrCh := make(chan error, 1)
+	go func() {
+		_, err := mgr.currentOrDial(leaderCtx)
+		leaderErrCh <- err
+	}()
+
+	<-firstDialStarted
+
+	waiterCtx, cancelWaiter := context.WithTimeout(context.Background(), time.Second)
+	defer cancelWaiter()
+
+	conn, err := mgr.currentOrDial(waiterCtx)
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+
+	leaderErr := <-leaderErrCh
+	require.ErrorIs(t, leaderErr, context.DeadlineExceeded)
+	require.Equal(t, int32(2), dialCount.Load(), "expected waiter to perform a new dial after leader timeout")
+	require.Same(t, conn, mgr.current())
+}
+
+func TestCurrentOrDialCloseDuringInFlightDialDoesNotInstallConnection(t *testing.T) {
+	t.Parallel()
+
+	dialStarted := make(chan struct{})
+	releaseDial := make(chan struct{})
+
+	mgr := newGRPCConnectionManager(
+		nil,
+		func(context.Context) (grpcConnection, error) {
+			close(dialStarted)
+			<-releaseDial
+
+			return &fakeGRPCConn{state: connectivity.Ready}, nil
+		},
+	)
+
+	errCh := make(chan error, 1)
+
+	go func() {
+		_, err := mgr.currentOrDial(context.Background())
+		errCh <- err
+	}()
+
+	<-dialStarted
+	require.NoError(t, mgr.close())
+
+	close(releaseDial)
+
+	err := <-errCh
+	require.ErrorIs(t, err, errGRPCConnectionClosed)
+	require.Nil(t, mgr.current())
 }
 
 func TestSlowInitializeSessionTimesOut(t *testing.T) {
