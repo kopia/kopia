@@ -343,8 +343,8 @@ func (router *sessionResponseRouter) tryPost(cmd func(map[int64]sessionRequestRo
 	}
 }
 
-func (router *sessionResponseRouter) registerRequest(requestID int64, responseCh chan *apipb.SessionResponse, requestDone <-chan struct{}) {
-	router.tryPost(func(active map[int64]sessionRequestRoute) {
+func (router *sessionResponseRouter) registerRequest(requestID int64, responseCh chan *apipb.SessionResponse, requestDone <-chan struct{}) bool {
+	return router.tryPost(func(active map[int64]sessionRequestRoute) {
 		active[requestID] = sessionRequestRoute{
 			responseCh:  responseCh,
 			requestDone: requestDone,
@@ -525,7 +525,12 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 	r.nextRequestID++
 
 	ch := make(chan *apipb.SessionResponse, 1)
-	r.router.registerRequest(rid, ch, ctx.Done())
+	if !r.router.registerRequest(rid, ch, ctx.Done()) {
+		// The router is already closed (session teardown in progress), so avoid
+		// sending on a stream that no longer has a response reader.
+		sendStreamBrokenAndClose(ch, io.EOF)
+		return rid, ch
+	}
 
 	req.RequestId = rid
 
@@ -561,6 +566,19 @@ func (r *grpcInnerSession) waitForResponse(ctx context.Context, rid int64, ch ch
 	}
 }
 
+func (r *grpcInnerSession) waitForRequiredResponse(ctx context.Context, rid int64, ch chan *apipb.SessionResponse) (*apipb.SessionResponse, error) {
+	resp, ok, err := r.waitForResponse(ctx, rid, ch)
+	if err != nil {
+		return nil, err
+	}
+
+	if !ok {
+		return nil, errNoSessionResponse()
+	}
+
+	return resp, nil
+}
+
 // sendAndReceive sends a request and receives a single response, handling the common
 // send/wait/type-switch/error boilerplate. The handle callback receives each response and
 // returns the extracted value; unrecognised response types should call unhandledSessionResponse.
@@ -573,15 +591,10 @@ func sendAndReceive[T any](ctx context.Context, sess *grpcInnerSession, req *api
 // sendAndReceiveOnChannel waits for a single response on a pre-existing request channel.
 // This supports cases where send and receive are decoupled (e.g. async writes).
 func sendAndReceiveOnChannel[T any](ctx context.Context, sess *grpcInnerSession, rid int64, ch chan *apipb.SessionResponse, handle func(*apipb.SessionResponse) (T, error)) (T, error) {
-	resp, ok, err := sess.waitForResponse(ctx, rid, ch)
+	resp, err := sess.waitForRequiredResponse(ctx, rid, ch)
 	if err != nil {
 		var zero T
 		return zero, err
-	}
-
-	if !ok {
-		var zero T
-		return zero, errNoSessionResponse()
 	}
 
 	return handle(resp)
@@ -593,15 +606,10 @@ func sendAndCollect[T any](ctx context.Context, sess *grpcInnerSession, req *api
 	rid, ch := sess.sendRequest(ctx, req)
 
 	for {
-		resp, ok, err := sess.waitForResponse(ctx, rid, ch)
+		resp, err := sess.waitForRequiredResponse(ctx, rid, ch)
 		if err != nil {
 			var zero T
 			return zero, err
-		}
-
-		if !ok {
-			var zero T
-			return zero, errNoSessionResponse()
 		}
 
 		v, hasMore, handleErr := handle(resp)
