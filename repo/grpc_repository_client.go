@@ -248,7 +248,11 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 			continue
 		}
 
-		ch <- msg
+		if !r.deliverResponse(msg.GetRequestId(), ch, msg) {
+			// The caller cancelled and removed its mapping while the channel was full.
+			// Drop this response and continue serving other requests.
+			continue
+		}
 
 		if !msg.GetHasMore() {
 			close(ch)
@@ -266,6 +270,27 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 	}
 
 	log(ctx).Debug("finished closing active requests")
+}
+
+func (r *grpcInnerSession) deliverResponse(rid int64, ch chan *apipb.SessionResponse, msg *apipb.SessionResponse) bool {
+	for {
+		select {
+		case ch <- msg:
+			return true
+		default:
+		}
+
+		r.activeRequestsMutex.Lock()
+		stillActive := r.activeRequests[rid] == ch
+		r.activeRequestsMutex.Unlock()
+
+		if !stillActive {
+			return false
+		}
+
+		// Receiver is still active but currently backpressured.
+		runtime.Gosched()
+	}
 }
 
 // sendRequest sends the provided request to the server and returns a channel on which the

@@ -523,6 +523,358 @@ func TestGRPCConnectionManagerReplaceClosesOldConnection(t *testing.T) {
 	require.Nil(t, mgr.current())
 }
 
+// channelSessionClient lets tests feed responses via a channel and inject Recv errors.
+type channelSessionClient struct {
+	grpc.ClientStream
+
+	ctx     context.Context
+	recvCh  chan recvResult
+	sendErr error
+}
+
+type recvResult struct {
+	resp *apipb.SessionResponse
+	err  error
+}
+
+func (c *channelSessionClient) Send(*apipb.SessionRequest) error { return c.sendErr }
+func (c *channelSessionClient) Recv() (*apipb.SessionResponse, error) {
+	select {
+	case <-c.ctx.Done():
+		return nil, io.EOF
+	case r := <-c.recvCh:
+		return r.resp, r.err
+	}
+}
+func (c *channelSessionClient) CloseSend() error             { return nil }
+func (c *channelSessionClient) Header() (metadata.MD, error) { return nil, nil }
+func (c *channelSessionClient) Trailer() metadata.MD         { return nil }
+func (c *channelSessionClient) Context() context.Context     { return c.ctx }
+func (c *channelSessionClient) SendMsg(interface{}) error    { return c.sendErr }
+func (c *channelSessionClient) RecvMsg(interface{}) error    { return nil }
+
+func TestReadLoopStreamBreakCleansUpActiveRequests(t *testing.T) {
+	t.Parallel()
+
+	sessCtx, sessCancel := context.WithCancel(context.Background())
+	defer sessCancel()
+
+	recvCh := make(chan recvResult, 10)
+
+	cli := &channelSessionClient{
+		ctx:    sessCtx,
+		recvCh: recvCh,
+	}
+
+	sess := &grpcInnerSession{
+		cli:            cli,
+		activeRequests: make(map[int64]chan *apipb.SessionResponse),
+	}
+
+	// Register two active requests.
+	ch1 := make(chan *apipb.SessionResponse, 1)
+	ch2 := make(chan *apipb.SessionResponse, 1)
+
+	sess.activeRequestsMutex.Lock()
+	sess.activeRequests[1] = ch1
+	sess.activeRequests[2] = ch2
+	sess.activeRequestsMutex.Unlock()
+
+	sess.wg.Add(1)
+
+	done := make(chan struct{})
+	go func() {
+		sess.readLoop(context.Background())
+		close(done)
+	}()
+
+	// Inject a stream error.
+	streamErr := stderrors.New("transport closed")
+	recvCh <- recvResult{nil, streamErr}
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("readLoop did not exit after stream error")
+	}
+
+	// Both channels should have received a STREAM_BROKEN response and been closed.
+	for _, ch := range []chan *apipb.SessionResponse{ch1, ch2} {
+		resp, ok := <-ch
+		require.True(t, ok, "channel should have a STREAM_BROKEN response")
+		require.NotNil(t, resp.GetError())
+		require.Equal(t, apipb.ErrorResponse_STREAM_BROKEN, resp.GetError().GetCode())
+		require.Contains(t, resp.GetError().GetMessage(), "transport closed")
+
+		// Channel should be closed after the error response.
+		_, ok = <-ch
+		require.False(t, ok, "channel should be closed")
+	}
+
+	// activeRequests should be empty.
+	sess.activeRequestsMutex.Lock()
+	defer sess.activeRequestsMutex.Unlock()
+
+	require.Empty(t, sess.activeRequests)
+}
+
+func TestReadLoopMultiPageResponseCallerCancelDoesNotBlock(t *testing.T) {
+	t.Parallel()
+
+	sessCtx, sessCancel := context.WithCancel(context.Background())
+	defer sessCancel()
+
+	recvCh := make(chan recvResult, 10)
+
+	cli := &channelSessionClient{
+		ctx:    sessCtx,
+		recvCh: recvCh,
+	}
+
+	sess := &grpcInnerSession{
+		cli:            cli,
+		activeRequests: make(map[int64]chan *apipb.SessionResponse),
+	}
+
+	// Register a request with a buffer-of-1 channel (same as production code).
+	ch := make(chan *apipb.SessionResponse, 1)
+
+	sess.activeRequestsMutex.Lock()
+	sess.activeRequests[42] = ch
+	sess.activeRequestsMutex.Unlock()
+
+	sess.wg.Add(1)
+
+	readLoopDone := make(chan struct{})
+	go func() {
+		sess.readLoop(context.Background())
+		close(readLoopDone)
+	}()
+
+	// First page: HasMore=true. This fills the buffer.
+	recvCh <- recvResult{
+		resp: &apipb.SessionResponse{
+			RequestId: 42,
+			HasMore:   true,
+			Response: &apipb.SessionResponse_FindManifests{
+				FindManifests: &apipb.FindManifestsResponse{},
+			},
+		},
+	}
+
+	// Drain the first page so readLoop can proceed.
+	<-ch
+
+	// Now simulate the caller cancelling: remove the entry from activeRequests
+	// (mimicking what waitForResponse does on context cancel) without reading
+	// from the channel.
+	sess.activeRequestsMutex.Lock()
+	delete(sess.activeRequests, 42)
+	sess.activeRequestsMutex.Unlock()
+
+	// Second page: HasMore=true again. readLoop should look up ch, find it nil
+	// (deleted), and skip. If the fix is missing, readLoop would block forever
+	// trying to send on a full channel.
+	recvCh <- recvResult{
+		resp: &apipb.SessionResponse{
+			RequestId: 42,
+			HasMore:   true,
+			Response: &apipb.SessionResponse_FindManifests{
+				FindManifests: &apipb.FindManifestsResponse{},
+			},
+		},
+	}
+
+	// Third page: final page. readLoop should skip this too.
+	recvCh <- recvResult{
+		resp: &apipb.SessionResponse{
+			RequestId: 42,
+			HasMore:   false,
+			Response: &apipb.SessionResponse_FindManifests{
+				FindManifests: &apipb.FindManifestsResponse{},
+			},
+		},
+	}
+
+	// Now terminate the stream so readLoop exits.
+	recvCh <- recvResult{nil, io.EOF}
+
+	select {
+	case <-readLoopDone:
+		// Success — readLoop did not block.
+	case <-time.After(2 * time.Second):
+		t.Fatal("readLoop blocked on cancelled multi-page response (non-blocking send fix missing?)")
+	}
+}
+
+func TestDeliverResponseReturnsFalseAfterRequestCancellation(t *testing.T) {
+	t.Parallel()
+
+	ch := make(chan *apipb.SessionResponse, 1)
+	ch <- &apipb.SessionResponse{RequestId: 99}
+
+	sess := &grpcInnerSession{
+		activeRequests: map[int64]chan *apipb.SessionResponse{
+			99: ch,
+		},
+	}
+
+	done := make(chan bool, 1)
+
+	go func() {
+		done <- sess.deliverResponse(99, ch, &apipb.SessionResponse{RequestId: 99, HasMore: true})
+	}()
+
+	sess.activeRequestsMutex.Lock()
+	delete(sess.activeRequests, 99)
+	sess.activeRequestsMutex.Unlock()
+
+	select {
+	case ok := <-done:
+		require.False(t, ok)
+	case <-time.After(2 * time.Second):
+		t.Fatal("deliverResponse did not stop after request cancellation")
+	}
+}
+
+func TestDeliverResponseSucceedsWhenBackpressureClears(t *testing.T) {
+	t.Parallel()
+
+	ch := make(chan *apipb.SessionResponse, 1)
+	ch <- &apipb.SessionResponse{RequestId: 7}
+
+	sess := &grpcInnerSession{
+		activeRequests: map[int64]chan *apipb.SessionResponse{
+			7: ch,
+		},
+	}
+
+	done := make(chan bool, 1)
+	msg := &apipb.SessionResponse{RequestId: 7, HasMore: true}
+
+	go func() {
+		done <- sess.deliverResponse(7, ch, msg)
+	}()
+
+	// Relieve backpressure by consuming the queued message.
+	<-ch
+
+	select {
+	case ok := <-done:
+		require.True(t, ok)
+	case <-time.After(2 * time.Second):
+		t.Fatal("deliverResponse did not complete after backpressure cleared")
+	}
+
+	select {
+	case got := <-ch:
+		require.Same(t, msg, got)
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected delivered message after backpressure cleared")
+	}
+}
+
+func TestConcurrentCurrentOrDialUnderRefresh(t *testing.T) {
+	t.Parallel()
+
+	var (
+		mu        sync.Mutex
+		dialCount int
+	)
+
+	mgr := newGRPCConnectionManager(
+		&fakeGRPCConn{state: connectivity.Ready},
+		func(context.Context) (grpcConnection, error) {
+			mu.Lock()
+			dialCount++
+			mu.Unlock()
+
+			return &fakeGRPCConn{state: connectivity.Ready}, nil
+		},
+	)
+
+	mgr.markForRefresh()
+
+	const goroutines = 20
+
+	var wg sync.WaitGroup
+
+	conns := make([]grpcConnection, goroutines)
+	errCh := make(chan error, goroutines)
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+
+		go func(idx int) {
+			defer wg.Done()
+
+			c, err := mgr.currentOrDial(context.Background())
+			if err != nil {
+				errCh <- err
+				return
+			}
+
+			conns[idx] = c
+		}(i)
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		require.NoError(t, err)
+	}
+
+	// All goroutines must see the same final connection.
+	final := mgr.current()
+	require.NotNil(t, final)
+
+	for i, c := range conns {
+		require.Samef(t, final, c, "goroutine %d got a different connection", i)
+	}
+
+	// At least one dial must happen while refresh is requested. The implementation
+	// dials outside the lock, so multiple concurrent dials are expected under load.
+	mu.Lock()
+	require.GreaterOrEqual(t, dialCount, 1, "expected at least 1 dial")
+	require.LessOrEqual(t, dialCount, goroutines, "dial count should be bounded by callers")
+	mu.Unlock()
+}
+
+func TestSlowInitializeSessionTimesOut(t *testing.T) {
+	t.Parallel()
+
+	conn := &fakeGRPCConn{
+		state: connectivity.Ready,
+		newStreamHandler: func(ctx context.Context, _ *grpc.StreamDesc, _ string, _ ...grpc.CallOption) (grpc.ClientStream, error) {
+			// cli.Session() succeeds immediately, but initializeSession
+			// will block because Recv never returns a response.
+			return &fakeSessionStream{
+				ctx:    ctx,
+				recvCh: make(chan *apipb.SessionResponse), // unbuffered, never fed
+			}, nil
+		},
+	}
+
+	client := &grpcRepositoryClient{
+		connManager: newGRPCConnectionManager(conn, nil),
+		opt: WriteSessionOptions{
+			Purpose: "test-slow-init",
+		},
+		sessionEstablishmentTimeout: 80 * time.Millisecond,
+	}
+
+	start := time.Now()
+
+	_, err := client.getOrEstablishInnerSession(context.Background())
+
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "session establishment timed out")
+	require.Less(t, elapsed, 2*time.Second, "should have timed out promptly")
+}
+
 func TestGetOrEstablishInnerSessionRedialsAfterFailedAttempt(t *testing.T) {
 	badConn := &fakeGRPCConn{
 		state: connectivity.Ready,
@@ -589,6 +941,93 @@ func TestGetOrEstablishInnerSessionRedialsAfterFailedAttempt(t *testing.T) {
 	require.Equal(t, 1, dialCount)
 	require.Equal(t, 1, badConn.closeCalls)
 	require.GreaterOrEqual(t, goodConn.connectCalls, 1)
+
+	client.killInnerSession()
+}
+
+func TestDoRetryEOFKillsAndReEstablishesSession(t *testing.T) {
+	t.Parallel()
+
+	// conn responds to initializeSession, and provides a session that returns
+	// a controllable response to Flush requests.
+	var mu sync.Mutex
+
+	attempt := 0
+
+	conn := &fakeGRPCConn{
+		state: connectivity.Ready,
+		newStreamHandler: func(ctx context.Context, _ *grpc.StreamDesc, _ string, _ ...grpc.CallOption) (grpc.ClientStream, error) {
+			stream := &fakeSessionStream{
+				ctx:    ctx,
+				recvCh: make(chan *apipb.SessionResponse, 4),
+			}
+
+			stream.onSend = func(req *apipb.SessionRequest) {
+				if req.GetInitializeSession() != nil {
+					stream.recvCh <- &apipb.SessionResponse{
+						RequestId: req.GetRequestId(),
+						Response: &apipb.SessionResponse_InitializeSession{
+							InitializeSession: &apipb.InitializeSessionResponse{
+								Parameters: &apipb.RepositoryParameters{},
+							},
+						},
+					}
+
+					return
+				}
+
+				if req.GetFlush() != nil {
+					mu.Lock()
+					attempt++
+					cur := attempt
+					mu.Unlock()
+
+					if cur == 1 {
+						// First attempt: return STREAM_BROKEN (maps to io.EOF).
+						stream.recvCh <- &apipb.SessionResponse{
+							RequestId: req.GetRequestId(),
+							Response: &apipb.SessionResponse_Error{
+								Error: &apipb.ErrorResponse{
+									Code:    apipb.ErrorResponse_STREAM_BROKEN,
+									Message: "connection lost",
+								},
+							},
+						}
+					} else {
+						// Second attempt: succeed.
+						stream.recvCh <- &apipb.SessionResponse{
+							RequestId: req.GetRequestId(),
+							Response: &apipb.SessionResponse_Flush{
+								Flush: &apipb.FlushResponse{},
+							},
+						}
+					}
+				}
+			}
+
+			return stream, nil
+		},
+	}
+
+	client := &grpcRepositoryClient{
+		connManager:                 newGRPCConnectionManager(conn, nil),
+		transparentRetries:          true,
+		opt:                         WriteSessionOptions{Purpose: "retry-test"},
+		sessionEstablishmentTimeout: 2 * time.Second,
+	}
+
+	// doRetry should:
+	// 1. Establish a session, call Flush → get STREAM_BROKEN (io.EOF)
+	// 2. Kill the inner session
+	// 3. Re-establish a new session, call Flush → succeed
+	_, err := doRetry(context.Background(), client, func(ctx context.Context, sess *grpcInnerSession) (bool, error) {
+		return false, sess.Flush(ctx)
+	})
+	require.NoError(t, err)
+
+	mu.Lock()
+	require.Equal(t, 2, attempt, "expected 2 attempts: first fails with EOF, second succeeds")
+	mu.Unlock()
 
 	client.killInnerSession()
 }
