@@ -516,6 +516,27 @@ func TestWaitForGRPCConnectionReadyTimesOut(t *testing.T) {
 	require.ErrorContains(t, err, "last state=CONNECTING")
 }
 
+func TestWaitForGRPCConnectionReadyTransientFailureFailsFast(t *testing.T) {
+	t.Parallel()
+
+	conn := &scriptedReadinessConn{
+		states:      []connectivity.State{connectivity.TransientFailure},
+		blockOnLast: true,
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	err := waitForGRPCConnectionReadyWithTransientFailureTimeout(ctx, conn, 20*time.Millisecond)
+	elapsed := time.Since(start)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "timed out waiting for gRPC connection readiness")
+	require.ErrorContains(t, err, "last state=TRANSIENT_FAILURE")
+	require.Less(t, elapsed, 500*time.Millisecond)
+}
+
 func TestGRPCConnectionManagerReplaceClosesOldConnection(t *testing.T) {
 	t.Parallel()
 

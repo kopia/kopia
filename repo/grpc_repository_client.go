@@ -55,6 +55,10 @@ const (
 	// default upper bound for establishing a fresh streaming session when caller did not
 	// provide an explicit deadline.
 	defaultSessionEstablishmentTimeout = 30 * time.Second
+
+	// upper bound for waiting in TRANSIENT_FAILURE before failing fast.
+	// this avoids consuming the full session establishment budget when the server is down.
+	defaultTransientFailureReadinessTimeout = 10 * time.Second
 )
 
 var errShouldRetry = errors.New("should retry")
@@ -1446,6 +1450,10 @@ type grpcConnectionReadiness interface {
 }
 
 func waitForGRPCConnectionReady(ctx context.Context, conn grpcConnectionReadiness) error {
+	return waitForGRPCConnectionReadyWithTransientFailureTimeout(ctx, conn, defaultTransientFailureReadinessTimeout)
+}
+
+func waitForGRPCConnectionReadyWithTransientFailureTimeout(ctx context.Context, conn grpcConnectionReadiness, transientFailureTimeout time.Duration) error {
 	for {
 		state := conn.GetState()
 
@@ -1459,7 +1467,22 @@ func waitForGRPCConnectionReady(ctx context.Context, conn grpcConnectionReadines
 		case connectivity.Ready:
 			return nil
 		case connectivity.TransientFailure:
-			// Keep waiting for a transition to READY or terminal failure.
+			// Treat sustained TRANSIENT_FAILURE as a fast-fail condition instead of waiting
+			// for the whole session establishment timeout.
+			waitCtx, cancel := context.WithTimeout(ctx, transientFailureTimeout)
+			changed := conn.WaitForStateChange(waitCtx, state)
+			cancel()
+
+			if changed {
+				continue
+			}
+
+			if errors.Is(waitCtx.Err(), context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return errors.Errorf("timed out waiting for gRPC connection readiness (last state=%v)", state)
+			}
+
+			//nolint:wrapcheck
+			return ctx.Err()
 		case connectivity.Shutdown:
 			return errors.New("gRPC connection is shut down")
 		default:
