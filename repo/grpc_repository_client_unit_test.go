@@ -285,6 +285,52 @@ func TestSendAndReceiveWhenRouterClosedReturnsPromptly(t *testing.T) {
 	}
 }
 
+func TestRouterTryPostUnblocksOnSessionCancelWhenCommandBlocked(t *testing.T) {
+	t.Parallel()
+
+	sessCtx, sessCancel := context.WithCancel(context.Background())
+	router := newSessionResponseRouter(sessCtx)
+
+	t.Cleanup(func() {
+		sessCancel()
+		<-router.done
+	})
+
+	ch := make(chan *apipb.SessionResponse, 1)
+	ch <- &apipb.SessionResponse{RequestId: 1}
+
+	require.True(t, router.registerRequest(1, ch, nil))
+
+	// This command blocks in deliverResponse because ch is full and requestDone is nil.
+	router.routeIncomingResponse(&apipb.SessionResponse{RequestId: 1, HasMore: true})
+
+	postDone := make(chan bool, 1)
+	go func() {
+		postDone <- router.tryPost(func(map[int64]sessionRequestRoute) {})
+	}()
+
+	select {
+	case ok := <-postDone:
+		t.Fatalf("tryPost returned before cancellation: %v", ok)
+	case <-time.After(50 * time.Millisecond):
+	}
+
+	sessCancel()
+
+	select {
+	case ok := <-postDone:
+		require.False(t, ok)
+	case <-time.After(2 * time.Second):
+		t.Fatal("tryPost did not unblock after session cancellation")
+	}
+
+	select {
+	case <-router.done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("router did not terminate after session cancellation")
+	}
+}
+
 func TestReadLoopIgnoresResponsesForCanceledRequests(t *testing.T) {
 	t.Parallel()
 
@@ -711,7 +757,7 @@ func TestDeliverResponseReturnsFalseAfterRequestCancellation(t *testing.T) {
 	ok := deliverResponse(sessionRequestRoute{
 		responseCh:  ch,
 		requestDone: reqCtx.Done(),
-	}, &apipb.SessionResponse{RequestId: 99, HasMore: true})
+	}, &apipb.SessionResponse{RequestId: 99, HasMore: true}, context.Background().Done())
 	require.False(t, ok)
 }
 
@@ -728,7 +774,7 @@ func TestDeliverResponseSucceedsWhenBackpressureClears(t *testing.T) {
 		done <- deliverResponse(sessionRequestRoute{
 			responseCh:  ch,
 			requestDone: context.Background().Done(),
-		}, msg)
+		}, msg, context.Background().Done())
 	}()
 
 	// Relieve backpressure by consuming the queued message.

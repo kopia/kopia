@@ -643,6 +643,21 @@ func (s *Server) GRPCRouterHandler(handler http.Handler) http.Handler {
 	defer s.grpcMutex.Unlock()
 
 	if s.grpcServer == nil {
+		keepaliveMinTime := 15 * time.Second
+		if s.options.GRPCKeepaliveMinTime > 0 {
+			keepaliveMinTime = s.options.GRPCKeepaliveMinTime
+		}
+
+		keepaliveTime := 30 * time.Second
+		if s.options.GRPCKeepaliveTime > 0 {
+			keepaliveTime = s.options.GRPCKeepaliveTime
+		}
+
+		keepaliveTimeout := 10 * time.Second
+		if s.options.GRPCKeepaliveTimeout > 0 {
+			keepaliveTimeout = s.options.GRPCKeepaliveTimeout
+		}
+
 		s.grpcServer = grpc.NewServer(
 			grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
 			grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
@@ -652,12 +667,12 @@ func (s *Server) GRPCRouterHandler(handler http.Handler) http.Handler {
 			// connections are detected even between backup operations.
 			// See https://github.com/kopia/kopia/issues/3073
 			grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
-				MinTime:             15 * time.Second,
+				MinTime:             keepaliveMinTime,
 				PermitWithoutStream: true,
 			}),
 			grpc.KeepaliveParams(keepalive.ServerParameters{
-				Time:    30 * time.Second,
-				Timeout: 10 * time.Second,
+				Time:    keepaliveTime,
+				Timeout: keepaliveTimeout,
 			}),
 		)
 

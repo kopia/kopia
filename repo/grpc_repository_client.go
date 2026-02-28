@@ -283,14 +283,16 @@ type sessionRequestRoute struct {
 }
 
 type sessionResponseRouter struct {
-	cmdCh chan func(map[int64]sessionRequestRoute)
-	done  chan struct{}
+	cmdCh    chan func(map[int64]sessionRequestRoute)
+	stopping <-chan struct{}
+	done     chan struct{}
 }
 
 func newSessionResponseRouter(ctx context.Context) *sessionResponseRouter {
 	router := &sessionResponseRouter{
-		cmdCh: make(chan func(map[int64]sessionRequestRoute)),
-		done:  make(chan struct{}),
+		cmdCh:    make(chan func(map[int64]sessionRequestRoute)),
+		stopping: ctx.Done(),
+		done:     make(chan struct{}),
 	}
 
 	go router.run(ctx)
@@ -318,6 +320,8 @@ func (router *sessionResponseRouter) run(ctx context.Context) {
 // tryPost submits a command unless the router is already shut down.
 func (router *sessionResponseRouter) tryPost(cmd func(map[int64]sessionRequestRoute)) bool {
 	select {
+	case <-router.stopping:
+		return false
 	case <-router.done:
 		return false
 	case router.cmdCh <- cmd:
@@ -345,7 +349,7 @@ func (router *sessionResponseRouter) cancelRequest(requestID int64) {
 
 func (router *sessionResponseRouter) routeIncomingResponse(response *apipb.SessionResponse) {
 	router.tryPost(func(active map[int64]sessionRequestRoute) {
-		routeResponse(active, response)
+		routeResponse(active, response, router.stopping)
 	})
 }
 
@@ -393,7 +397,7 @@ func queryActiveRequests[T any](router *sessionResponseRouter, fallback T, query
 	}
 }
 
-func routeResponse(active map[int64]sessionRequestRoute, response *apipb.SessionResponse) {
+func routeResponse(active map[int64]sessionRequestRoute, response *apipb.SessionResponse, stopping <-chan struct{}) {
 	if response == nil {
 		return
 	}
@@ -404,7 +408,7 @@ func routeResponse(active map[int64]sessionRequestRoute, response *apipb.Session
 		return
 	}
 
-	if !deliverResponse(route, response) {
+	if !deliverResponse(route, response, stopping) {
 		delete(active, requestID)
 		close(route.responseCh)
 
@@ -417,10 +421,12 @@ func routeResponse(active map[int64]sessionRequestRoute, response *apipb.Session
 	}
 }
 
-func deliverResponse(route sessionRequestRoute, response *apipb.SessionResponse) bool {
+func deliverResponse(route sessionRequestRoute, response *apipb.SessionResponse, stopping <-chan struct{}) bool {
 	if route.requestDone != nil {
 		select {
 		case <-route.requestDone:
+			return false
+		case <-stopping:
 			return false
 		default:
 		}
@@ -430,12 +436,17 @@ func deliverResponse(route sessionRequestRoute, response *apipb.SessionResponse)
 			return true
 		case <-route.requestDone:
 			return false
+		case <-stopping:
+			return false
 		}
 	}
 
-	route.responseCh <- response
-
-	return true
+	select {
+	case route.responseCh <- response:
+		return true
+	case <-stopping:
+		return false
+	}
 }
 
 func sendStreamBrokenAndClose(responseCh chan *apipb.SessionResponse, err error) {
@@ -1258,6 +1269,17 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	}
 
 	creds := grpcCreds{par.cliOpts.Hostname, par.cliOpts.Username, password}
+
+	keepaliveTime := 30 * time.Second
+	if par.grpcKeepaliveTime > 0 {
+		keepaliveTime = par.grpcKeepaliveTime
+	}
+
+	keepaliveTimeout := 10 * time.Second
+	if par.grpcKeepaliveTimeout > 0 {
+		keepaliveTimeout = par.grpcKeepaliveTimeout
+	}
+
 	dialGRPCConnection := func(_ context.Context) (grpcConnection, error) {
 		conn, err := grpc.NewClient(
 			uri,
@@ -1273,8 +1295,8 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 			// needed to detect failures during idle periods between backup operations.
 			// See https://github.com/kopia/kopia/issues/3073
 			grpc.WithKeepaliveParams(keepalive.ClientParameters{
-				Time:                30 * time.Second,
-				Timeout:             10 * time.Second,
+				Time:                keepaliveTime,
+				Timeout:             keepaliveTimeout,
 				PermitWithoutStream: true,
 			}),
 		)
