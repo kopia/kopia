@@ -600,10 +600,13 @@ func sendAndReceiveNoValue(ctx context.Context, sess *grpcInnerSession, req *api
 // sendAndCollect sends a request and collects a multi-page response. The handle callback
 // returns the accumulated value, whether more pages are expected, and any error.
 func sendAndCollect[T any](ctx context.Context, sess *grpcInnerSession, req *apipb.SessionRequest, handle func(*apipb.SessionResponse) (T, bool, error)) (T, error) {
-	rid, ch := sess.sendRequest(ctx, req)
+	reqCtx, cancelReq := context.WithCancel(ctx)
+	defer cancelReq()
+
+	rid, ch := sess.sendRequest(reqCtx, req)
 
 	for {
-		resp, err := sess.waitForRequiredResponse(ctx, rid, ch)
+		resp, err := sess.waitForRequiredResponse(reqCtx, rid, ch)
 		if err != nil {
 			var zero T
 			return zero, err
@@ -611,6 +614,11 @@ func sendAndCollect[T any](ctx context.Context, sess *grpcInnerSession, req *api
 
 		v, hasMore, handleErr := handle(resp)
 		if handleErr != nil {
+			// Make request cancellation observable to the router immediately to avoid
+			// getting stuck delivering additional pages to a channel with no receiver.
+			cancelReq()
+			go sess.router.cancelRequest(rid) // best-effort cleanup without blocking caller
+
 			return v, handleErr
 		}
 

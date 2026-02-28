@@ -745,6 +745,94 @@ func TestReadLoopMultiPageResponseCallerCancelDoesNotBlock(t *testing.T) {
 	require.False(t, sess.router.hasActiveRequest(42))
 }
 
+func TestSendAndCollectHandleErrorDoesNotBlockRouterOnExtraPages(t *testing.T) {
+	t.Parallel()
+
+	recvCh := make(chan recvResult, 10)
+
+	cli := &fakeSessionClient{
+		ctx:    context.Background(),
+		recvCh: recvCh,
+	}
+
+	sess := newTestInnerSession(t, cli)
+
+	sess.wg.Add(1)
+
+	readLoopDone := make(chan struct{})
+	go func() {
+		sess.readLoop(context.Background())
+		close(readLoopDone)
+	}()
+
+	expectedErr := stderrors.New("handle failed")
+	collectDone := make(chan error, 1)
+
+	go func() {
+		_, err := sendAndCollect(context.Background(), sess, &apipb.SessionRequest{
+			Request: &apipb.SessionRequest_FindManifests{
+				FindManifests: &apipb.FindManifestsRequest{},
+			},
+		}, func(*apipb.SessionResponse) (struct{}, bool, error) {
+			return struct{}{}, true, expectedErr
+		})
+
+		collectDone <- err
+	}()
+
+	require.Eventually(t, func() bool {
+		return sess.router.hasActiveRequest(1)
+	}, time.Second, 10*time.Millisecond)
+
+	recvCh <- recvResult{
+		resp: &apipb.SessionResponse{
+			RequestId: 1,
+			HasMore:   true,
+			Response: &apipb.SessionResponse_FindManifests{
+				FindManifests: &apipb.FindManifestsResponse{},
+			},
+		},
+	}
+
+	select {
+	case err := <-collectDone:
+		require.ErrorIs(t, err, expectedErr)
+	case <-time.After(2 * time.Second):
+		t.Fatal("sendAndCollect did not return after handle error")
+	}
+
+	// Simulate the server continuing to stream pages after the handler has failed.
+	recvCh <- recvResult{
+		resp: &apipb.SessionResponse{
+			RequestId: 1,
+			HasMore:   true,
+			Response: &apipb.SessionResponse_FindManifests{
+				FindManifests: &apipb.FindManifestsResponse{},
+			},
+		},
+	}
+
+	recvCh <- recvResult{
+		resp: &apipb.SessionResponse{
+			RequestId: 1,
+			HasMore:   true,
+			Response: &apipb.SessionResponse_FindManifests{
+				FindManifests: &apipb.FindManifestsResponse{},
+			},
+		},
+	}
+
+	recvCh <- recvResult{err: io.EOF}
+
+	select {
+	case <-readLoopDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("readLoop blocked after sendAndCollect handle error")
+	}
+
+	require.False(t, sess.router.hasActiveRequest(1))
+}
+
 func TestDeliverResponseReturnsFalseAfterRequestCancellation(t *testing.T) {
 	t.Parallel()
 
