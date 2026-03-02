@@ -4,11 +4,12 @@ import (
 	"fmt"
 
 	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/units"
 )
 
 const cleanupLogsStatsKind = "cleanupLogsStats"
 
-// CleanupLogsStats are the stats for cleanning up logs.
+// CleanupLogsStats are the stats for cleaning up logs.
 type CleanupLogsStats struct {
 	ToDeleteBlobCount int   `json:"toDeleteBlobCount"`
 	ToDeleteBlobSize  int64 `json:"toDeleteBlobSize"`
@@ -32,7 +33,10 @@ func (cs *CleanupLogsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 
 // Summary generates a human readable summary for the stats.
 func (cs *CleanupLogsStats) Summary() string {
-	return fmt.Sprintf("Found %v(%v) logs blobs for deletion and deleted %v(%v) of them. Retained %v(%v) log blobs.", cs.ToDeleteBlobCount, cs.ToDeleteBlobSize, cs.DeletedBlobCount, cs.DeletedBlobSize, cs.RetainedBlobCount, cs.RetainedBlobSize)
+	return fmt.Sprintf("Found %v(%v) logs blobs for deletion and deleted %v(%v) of them. Retained %v(%v) log blobs.",
+		cs.ToDeleteBlobCount, units.BytesString(cs.ToDeleteBlobSize), cs.DeletedBlobCount,
+		units.BytesString(cs.DeletedBlobSize), cs.RetainedBlobCount,
+		units.BytesString(cs.RetainedBlobSize))
 }
 
 // Kind returns the kind name for the stats.

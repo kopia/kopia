@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/units"
 )
 
 const deleteUnreferencedPacksStatsKind = "deleteUnreferencedPacksStats"
@@ -33,7 +34,7 @@ func (ds *DeleteUnreferencedPacksStats) WriteValueTo(jw *contentlog.JSONWriter) 
 // Summary generates a human readable summary for the stats.
 func (ds *DeleteUnreferencedPacksStats) Summary() string {
 	return fmt.Sprintf("Found %v(%v) unreferenced pack blobs to delete and deleted %v(%v). Retained %v(%v) unreferenced pack blobs.",
-		ds.UnreferencedPackCount, ds.UnreferencedTotalSize, ds.DeletedPackCount, ds.DeletedTotalSize, ds.RetainedPackCount, ds.RetainedTotalSize)
+		ds.UnreferencedPackCount, units.BytesString(ds.UnreferencedTotalSize), ds.DeletedPackCount, units.BytesString(ds.DeletedTotalSize), ds.RetainedPackCount, units.BytesString(ds.RetainedTotalSize))
 }
 
 // Kind returns the kind name for the stats.

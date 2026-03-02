@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/units"
 )
 
 const compactSingleEpochStatsKind = "compactSingleEpochStats"
@@ -26,7 +27,7 @@ func (cs *CompactSingleEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
 
 // Summary generates a human readable summary for the stats.
 func (cs *CompactSingleEpochStats) Summary() string {
-	return fmt.Sprintf("Compacted %v(%v) index blobs for epoch %v", cs.SupersededIndexBlobCount, cs.SupersededIndexTotalSize, cs.Epoch)
+	return fmt.Sprintf("Compacted %v(%v) index blobs for epoch %v", cs.SupersededIndexBlobCount, units.BytesString(cs.SupersededIndexTotalSize), cs.Epoch)
 }
 
 // Kind returns the kind name for the stats.
