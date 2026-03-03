@@ -223,12 +223,13 @@ build-multiarch-packages:
 	  $(MAKE) nfpm-pkg GOARCH=$$goarch NFPM_ARCH=$$nfpm_arch DEB_FILE_ARCH=$$deb_arch BINARY_DIR=$$dir; \
 	done
 
-# Single .deb and .rpm for one arch (BINARY_DIR, NFPM_ARCH, DEB_FILE_ARCH set by caller)
+# Single .deb and .rpm for one arch (BINARY_DIR, NFPM_ARCH, DEB_FILE_ARCH set by caller).
+# Unset GOOS/GOARCH so nfpm is built for the host; otherwise go run builds nfpm for the target arch and fails with "exec format error".
 nfpm-pkg:
 	@mkdir -p dist
 	export BINARY_DIR NFPM_ARCH && \
-	go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.35.2 pkg --packager deb --target dist/kopia_$(KOPIA_VERSION_NO_PREFIX)_linux_$(DEB_FILE_ARCH).deb --config $(CURDIR)/tools/nfpm.yaml && \
-	go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.35.2 pkg --packager rpm --target dist/kopia-$(KOPIA_VERSION_NO_PREFIX).$(NFPM_ARCH).rpm --config $(CURDIR)/tools/nfpm.yaml
+	GOOS= GOARCH= go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.35.2 pkg --packager deb --target dist/kopia_$(KOPIA_VERSION_NO_PREFIX)_linux_$(DEB_FILE_ARCH).deb --config $(CURDIR)/tools/nfpm.yaml && \
+	GOOS= GOARCH= go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.35.2 pkg --packager rpm --target dist/kopia-$(KOPIA_VERSION_NO_PREFIX).$(NFPM_ARCH).rpm --config $(CURDIR)/tools/nfpm.yaml
 
 # checksums.txt for all archives and packages (same set goreleaser would produce)
 build-multiarch-checksums:
