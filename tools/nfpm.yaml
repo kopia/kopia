@@ -1,8 +1,9 @@
 # nfpm config for Kopia .deb and .rpm (replaces goreleaser nfpms section).
-# Makefile sets per arch: BINARY_DIR, NFPM_DEB_ARCH (amd64/arm64/armhf), NFPM_RPM_ARCH (x86_64/aarch64/armhfp), KOPIA_VERSION_NO_PREFIX.
+# Makefile invokes nfpm twice per arch: once for .deb with NFPM_ARCH=Debian arch (amd64/arm64/armhf),
+# once for .rpm with NFPM_ARCH=RPM arch (x86_64/aarch64/armhfp), plus BINARY_DIR and KOPIA_VERSION_NO_PREFIX.
 name: kopia
 version: ${KOPIA_VERSION_NO_PREFIX}
-arch: ${NFPM_DEB_ARCH}
+arch: ${NFPM_ARCH}
 platform: linux
 maintainer: Kopia Project <kopia-pmc@googlegroups.com>
 description: Fast and secure open source backup.
@@ -12,7 +13,3 @@ license: Apache 2.0
 contents:
   - src: ${BINARY_DIR}/kopia
     dst: /usr/bin/kopia
-# RPM uses different arch strings than Debian (x86_64 not amd64, etc.)
-overrides:
-  rpm:
-    arch: ${NFPM_RPM_ARCH}

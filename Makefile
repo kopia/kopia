@@ -224,11 +224,12 @@ build-multiarch-packages:
 	done
 
 # Single .deb and .rpm for one arch (BINARY_DIR, NFPM_DEB_ARCH, NFPM_RPM_ARCH set by caller).
+# Invoke nfpm twice: .deb with NFPM_ARCH=Debian arch, .rpm with NFPM_ARCH=RPM arch (overrides.rpm.arch not in nfpm 2.35 Overridables).
 nfpm-pkg: $(nfpm)
 	@mkdir -p dist
-	export BINARY_DIR NFPM_DEB_ARCH NFPM_RPM_ARCH KOPIA_VERSION_NO_PREFIX && \
-	$(nfpm) pkg --packager deb --target dist/kopia_$(KOPIA_VERSION_NO_PREFIX)_linux_$(NFPM_DEB_ARCH).deb --config $(CURDIR)/tools/nfpm.yaml && \
-	$(nfpm) pkg --packager rpm --target dist/kopia-$(KOPIA_VERSION_NO_PREFIX).$(NFPM_RPM_ARCH).rpm --config $(CURDIR)/tools/nfpm.yaml
+	export BINARY_DIR KOPIA_VERSION_NO_PREFIX && \
+	NFPM_ARCH=$(NFPM_DEB_ARCH) $(nfpm) pkg --packager deb --target dist/kopia_$(KOPIA_VERSION_NO_PREFIX)_linux_$(NFPM_DEB_ARCH).deb --config $(CURDIR)/tools/nfpm.yaml && \
+	NFPM_ARCH=$(NFPM_RPM_ARCH) $(nfpm) pkg --packager rpm --target dist/kopia-$(KOPIA_VERSION_NO_PREFIX).$(NFPM_RPM_ARCH).rpm --config $(CURDIR)/tools/nfpm.yaml
 
 # checksums.txt for all archives and packages (same set goreleaser would produce).
 # Fail if no artifacts or if neither sha256sum nor shasum is available.
