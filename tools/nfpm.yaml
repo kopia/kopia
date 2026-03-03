@@ -13,3 +13,4 @@ license: Apache 2.0
 contents:
   - src: ${BINARY_DIR}/kopia
     dst: /usr/bin/kopia
+    expand: true
