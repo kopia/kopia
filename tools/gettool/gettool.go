@@ -104,6 +104,17 @@ var tools = map[string]ToolInfo{
 			"arm": "armv6",
 		},
 	},
+	"nfpm": {
+		urlTemplate: "https://github.com/goreleaser/nfpm/releases/download/vVERSION/nfpm_VERSION_GOOS_GOARCH.EXT",
+		archMap: map[string]string{
+			"amd64": "x86_64",
+		},
+		osMap: map[string]string{
+			"darwin": "Darwin",
+			"linux":  "Linux",
+			"windows": "Windows",
+		},
+	},
 	"node": {
 		urlTemplate:         "https://nodejs.org/dist/vVERSION/node-vVERSION-GOOS-GOARCH.EXT",
 		osMap:               map[string]string{"windows": "win"},

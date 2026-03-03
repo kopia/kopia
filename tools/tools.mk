@@ -109,6 +109,7 @@ CHECKLOCKS_VERSION=release-20241104.0
 NODE_VERSION=22.15.1
 HUGO_VERSION=0.113.0
 GOTESTSUM_VERSION=1.11.0
+NFPM_VERSION=2.35.2
 RCLONE_VERSION=1.68.2
 GITCHGLOG_VERSION=0.15.1
 
@@ -188,6 +189,13 @@ gitchglog=$(gitchglog_dir)/git-chglog$(exe_suffix)
 
 $(gitchglog):
 	go run github.com/kopia/kopia/tools/gettool --tool gitchglog:$(GITCHGLOG_VERSION) --output-dir $(gitchglog_dir)
+
+# nfpm (deb/rpm packaging)
+nfpm_dir=$(TOOLS_DIR)$(slash)nfpm-$(NFPM_VERSION)
+nfpm=$(nfpm_dir)$(slash)nfpm$(exe_suffix)
+
+$(nfpm):
+	go run github.com/kopia/kopia/tools/gettool --tool nfpm:$(NFPM_VERSION) --output-dir $(nfpm_dir)
 
 # rclone
 rclone_dir=$(TOOLS_DIR)$(slash)rclone-$(RCLONE_VERSION)
@@ -304,7 +312,7 @@ else
 maybehugo=
 endif
 
-ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),kopia:0.8.4,kopia:0.17.0,gitchglog:$(GITCHGLOG_VERSION)
+ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),nfpm:$(NFPM_VERSION),kopia:0.8.4,kopia:0.17.0,gitchglog:$(GITCHGLOG_VERSION)
 
 verify-all-tool-checksums:
 	go run github.com/kopia/kopia/tools/gettool --test-all \
