@@ -29,7 +29,7 @@ The source code documentation can be found on [godoc.org](https://godoc.org/gith
 * Pull Requests must go through a number of CI checks before being approved. Before submitting a PR, it's a good idea to run some of these checks locally:
   - `make ci-tests`
   - `make lint-all` (if developing cross-platform code)
-  - `make goreleaser`
+  - `make goreleaser` (or `make build-multiarch` for CLI packages only)
 * When creating a PR, the title should match the pattern `<type>`(`<domain>`): `<description>` where:
   - `<type>` is one of: `feat`, `fix`, `breaking`, `build`, `chore`, `docs`, `style`, `refactor`, `test`.
   - `<domain>` is one of: `kopiaui`, `cli`, `ui`, `repository`, `snapshots`, `server`, `providers`, `deps`, `deps-dev`, `site`, `ci`, `infra`, `general`.

@@ -14,7 +14,7 @@ Kopia build is based on `Makefile` and provides the following main targets:
 
 * `$ make install-noui` - builds simplified `kopia` executable without embedded graphical UI. The output is stored in `$HOME/go/bin/kopia`
 
-* `$ make goreleaser && make kopia-ui` - builds desktop application based on [Electron](https://electronjs.org) using [Electron Builder](https://electron.build) The output is stored in the `dist/kopia-ui` subdirectory
+* `$ make goreleaser && make kopia-ui` - builds Kopia for all supported platforms (Linux, FreeBSD, OpenBSD; .tar.gz, .deb, .rpm) via Makefile targets, then builds the desktop application based on [Electron](https://electronjs.org) using [Electron Builder](https://electron.build). The output is stored in the `dist/kopia-ui` subdirectory. Use `make build-multiarch` to build only the CLI packages without kopia-ui.
 
 * `$ make website` - builds [kopia.io](https://kopia.io) website using [Hugo](https://gohugo.io). The output is stored in `site/public` and published to [Github Pages](https://github.com/kopia/kopia.github.io) from [Travis CI](https://travis-ci.org/kopia/kopia) on each build.
 

@@ -187,15 +187,64 @@ endif
 	(cd dist && zip -r kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64.zip kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64)
 	rm -rf dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64
 
-# On Linux use use goreleaser which will build Kopia for all supported Linux architectures
-# and creates .tar.gz, rpm and deb packages.
-dist/kopia_linux_x64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_armv7l/kopia: $(all_go_sources)
-ifeq ($(GOARCH),amd64)
-	$(MAKE) goreleaser
+# build-multiarch builds kopia for linux, freebsd, openbsd (amd64, arm, arm64),
+# creates .tar.gz archives, .deb/.rpm for Linux, checksums.txt, and symlinks for kopia-ui.
+# Replaces the former goreleaser-based build.
+MULTIARCH_SPECS = linux/amd64 linux/arm linux/arm64 freebsd/amd64 freebsd/arm freebsd/arm64 openbsd/amd64 openbsd/arm openbsd/arm64
+
+build-multiarch: $(all_go_sources) print_build_info
+	@mkdir -p dist
+	@for spec in $(MULTIARCH_SPECS); do \
+	  goos=$${spec%/*}; goarch=$${spec#*/}; \
+	  if [ "$$goarch" = "arm" ]; then arch_dir=arm_6; else arch_dir=$$goarch; fi; \
+	  dir=dist/kopia_$$goos_$$arch_dir; \
+	  mkdir -p $$dir; \
+	  echo "Building $$goos/$$goarch -> $$dir/kopia"; \
+	  GOOS=$$goos GOARCH=$$goarch CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $$dir/kopia -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia; \
+	  case $$goos in linux) os_suffix=linux;; freebsd) os_suffix=freebsd-experimental;; openbsd) os_suffix=openbsd-experimental;; esac; \
+	  case $$goarch in amd64) arch_suffix=x64;; arm) arch_suffix=arm;; arm64) arch_suffix=arm64;; esac; \
+	  archive_base=kopia-$(KOPIA_VERSION_NO_PREFIX)-$$os_suffix-$$arch_suffix; \
+	  echo "Creating $$archive_base.tar.gz"; \
+	  $(CURDIR)/tools/make-tgz.sh dist $$archive_base $$dir/kopia; \
+	done
+	$(MAKE) build-multiarch-packages
+	$(MAKE) build-multiarch-checksums
 	rm -f dist/kopia_linux_x64
 	ln -sf kopia_linux_amd64 dist/kopia_linux_x64
 	rm -f dist/kopia_linux_armv7l
 	ln -sf kopia_linux_arm_6 dist/kopia_linux_armv7l
+
+# .deb and .rpm for Linux only (via nfpm). Called after the build-multiarch loop creates the binaries.
+# DEB_FILE_ARCH must match release/apt: amd64, arm64, armhf (not x86_64/aarch64/armhfp).
+build-multiarch-packages:
+	@for spec in amd64/x86_64/amd64 arm/armhfp/armhf arm64/aarch64/arm64; do \
+	  goarch=$$(echo "$$spec" | cut -d/ -f1); nfpm_arch=$$(echo "$$spec" | cut -d/ -f2); deb_arch=$$(echo "$$spec" | cut -d/ -f3); \
+	  if [ "$$goarch" = "arm" ]; then dir=dist/kopia_linux_arm_6; else dir=dist/kopia_linux_$$goarch; fi; \
+	  $(MAKE) nfpm-pkg GOARCH=$$goarch NFPM_ARCH=$$nfpm_arch DEB_FILE_ARCH=$$deb_arch BINARY_DIR=$$dir; \
+	done
+
+# Single .deb and .rpm for one arch (BINARY_DIR, NFPM_ARCH, DEB_FILE_ARCH set by caller)
+nfpm-pkg:
+	@mkdir -p dist
+	export BINARY_DIR NFPM_ARCH && \
+	go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.35.2 pkg --packager deb --target dist/kopia_$(KOPIA_VERSION_NO_PREFIX)_linux_$(DEB_FILE_ARCH).deb --config $(CURDIR)/tools/nfpm.yaml && \
+	go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.35.2 pkg --packager rpm --target dist/kopia-$(KOPIA_VERSION_NO_PREFIX).$(NFPM_ARCH).rpm --config $(CURDIR)/tools/nfpm.yaml
+
+# checksums.txt for all archives and packages (same set goreleaser would produce)
+build-multiarch-checksums:
+	@cd dist && (sha256sum kopia-*.tar.gz kopia_*.deb kopia-*.rpm 2>/dev/null || true) > checksums.txt; \
+	cat dist/checksums.txt
+
+# Compare dist/ against a reference GitHub release (filenames, sizes, stripped binary, version stamp).
+# Usage: CI_TAG=v20260224.0.42919 make build-multiarch && make verify-release-build RELEASE_TAG=v20260224.0.42919
+verify-release-build:
+	$(CURDIR)/tools/verify-release-build.sh $(RELEASE_TAG) dist
+
+# On Linux (amd64 host) use build-multiarch to build all supported Linux architectures
+# and create .tar.gz, .deb and .rpm. On other hosts build only current arch for kopia-ui.
+dist/kopia_linux_x64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_armv7l/kopia: $(all_go_sources)
+ifeq ($(GOARCH),amd64)
+	$(MAKE) build-multiarch
 else
 	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
 endif
@@ -246,24 +295,16 @@ ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	-bash -c "bash <(curl -s https://codecov.io/bash) -f coverage.txt"
 endif
 
-# goreleaser - builds packages for all platforms when on linux/amd64,
-# but don't publish here, we'll upload to GitHub separately.
-GORELEASER_OPTIONS=--rm-dist --parallelism=6 --skip-publish --skip-sign
-
-ifeq ($(CI_TAG),)
-	GORELEASER_OPTIONS+=--snapshot
-endif
-
 print_build_info:
 	@echo CI_TAG: $(CI_TAG)
 	@echo IS_PULL_REQUEST: $(IS_PULL_REQUEST)
 	@echo GOOS: $(GOOS)
 	@echo GOARCH: $(GOARCH)
 
+# goreleaser target kept for compatibility; now runs Makefile-based multi-arch build.
 goreleaser: export GITHUB_REPOSITORY:=$(GITHUB_REPOSITORY)
-goreleaser: $(goreleaser) print_build_info
-	-git diff | cat
-	$(goreleaser) release $(GORELEASER_OPTIONS)
+goreleaser: print_build_info
+	$(MAKE) build-multiarch
 
 dev-deps:
 	GO111MODULE=off go get -u golang.org/x/tools/cmd/gorename

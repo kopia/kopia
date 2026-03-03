@@ -109,7 +109,6 @@ CHECKLOCKS_VERSION=release-20241104.0
 NODE_VERSION=22.15.1
 HUGO_VERSION=0.113.0
 GOTESTSUM_VERSION=1.11.0
-GORELEASER_VERSION=v0.176.0
 RCLONE_VERSION=1.68.2
 GITCHGLOG_VERSION=0.15.1
 
@@ -233,13 +232,6 @@ wwhrd=$(TOOLS_DIR)/bin/wwhrd$(exe_suffix)
 $(wwhrd):
 	GOBIN=$(TOOLS_DIR)/bin go install github.com/frapposelli/wwhrd@latest
 
-# goreleaser
-goreleaser_dir=$(TOOLS_DIR)$(slash)goreleaser-$(GORELEASER_VERSION)
-goreleaser=$(goreleaser_dir)$(slash)goreleaser$(exe_suffix)
-
-$(goreleaser):
-	go run github.com/kopia/kopia/tools/gettool --tool goreleaser:$(GORELEASER_VERSION) --output-dir $(goreleaser_dir)
-
 ifeq ($(IS_PULL_REQUEST),false)
 
 ifneq ($(CI_TAG),)
@@ -312,7 +304,7 @@ else
 maybehugo=
 endif
 
-ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION),kopia:0.8.4,kopia:0.17.0,gitchglog:$(GITCHGLOG_VERSION)
+ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),kopia:0.8.4,kopia:0.17.0,gitchglog:$(GITCHGLOG_VERSION)
 
 verify-all-tool-checksums:
 	go run github.com/kopia/kopia/tools/gettool --test-all \
