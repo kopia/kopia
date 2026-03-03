@@ -194,7 +194,7 @@ MULTIARCH_SPECS = linux/amd64 linux/arm linux/arm64 freebsd/amd64 freebsd/arm fr
 
 build-multiarch: $(all_go_sources) print_build_info
 	@mkdir -p dist
-	@for spec in $(MULTIARCH_SPECS); do \
+	@set -e; for spec in $(MULTIARCH_SPECS); do \
 	  goos=$${spec%/*}; goarch=$${spec#*/}; \
 	  if [ "$$goarch" = "arm" ]; then arch_dir=arm_6; else arch_dir=$$goarch; fi; \
 	  dir=dist/kopia_$$goos_$$arch_dir; \
@@ -215,25 +215,40 @@ build-multiarch: $(all_go_sources) print_build_info
 	ln -sf kopia_linux_arm_6 dist/kopia_linux_armv7l
 
 # .deb and .rpm for Linux only (via nfpm). Called after the build-multiarch loop creates the binaries.
-# DEB_FILE_ARCH must match release/apt: amd64, arm64, armhf (not x86_64/aarch64/armhfp).
+# Debian arch: amd64, arm64, armhf. RPM arch: x86_64, aarch64, armhfp. Both passed so package metadata is correct.
 build-multiarch-packages:
-	@for spec in amd64/x86_64/amd64 arm/armhfp/armhf arm64/aarch64/arm64; do \
-	  goarch=$$(echo "$$spec" | cut -d/ -f1); nfpm_arch=$$(echo "$$spec" | cut -d/ -f2); deb_arch=$$(echo "$$spec" | cut -d/ -f3); \
+	@set -e; for spec in amd64/x86_64/amd64 arm/armhfp/armhf arm64/aarch64/arm64; do \
+	  goarch=$$(echo "$$spec" | cut -d/ -f1); rpm_arch=$$(echo "$$spec" | cut -d/ -f2); deb_arch=$$(echo "$$spec" | cut -d/ -f3); \
 	  if [ "$$goarch" = "arm" ]; then dir=dist/kopia_linux_arm_6; else dir=dist/kopia_linux_$$goarch; fi; \
-	  $(MAKE) nfpm-pkg GOARCH=$$goarch NFPM_ARCH=$$nfpm_arch DEB_FILE_ARCH=$$deb_arch BINARY_DIR=$$dir; \
+	  $(MAKE) nfpm-pkg BINARY_DIR=$$dir NFPM_DEB_ARCH=$$deb_arch NFPM_RPM_ARCH=$$rpm_arch || exit 1; \
 	done
 
-# Single .deb and .rpm for one arch (BINARY_DIR, NFPM_ARCH, DEB_FILE_ARCH set by caller).
+# Single .deb and .rpm for one arch (BINARY_DIR, NFPM_DEB_ARCH, NFPM_RPM_ARCH set by caller).
 nfpm-pkg: $(nfpm)
 	@mkdir -p dist
-	export BINARY_DIR NFPM_ARCH && \
-	$(nfpm) pkg --packager deb --target dist/kopia_$(KOPIA_VERSION_NO_PREFIX)_linux_$(DEB_FILE_ARCH).deb --config $(CURDIR)/tools/nfpm.yaml && \
-	$(nfpm) pkg --packager rpm --target dist/kopia-$(KOPIA_VERSION_NO_PREFIX).$(NFPM_ARCH).rpm --config $(CURDIR)/tools/nfpm.yaml
+	export BINARY_DIR NFPM_DEB_ARCH NFPM_RPM_ARCH KOPIA_VERSION_NO_PREFIX && \
+	$(nfpm) pkg --packager deb --target dist/kopia_$(KOPIA_VERSION_NO_PREFIX)_linux_$(NFPM_DEB_ARCH).deb --config $(CURDIR)/tools/nfpm.yaml && \
+	$(nfpm) pkg --packager rpm --target dist/kopia-$(KOPIA_VERSION_NO_PREFIX).$(NFPM_RPM_ARCH).rpm --config $(CURDIR)/tools/nfpm.yaml
 
-# checksums.txt for all archives and packages (same set goreleaser would produce)
+# checksums.txt for all archives and packages (same set goreleaser would produce).
+# Fail if no artifacts or if neither sha256sum nor shasum is available.
 build-multiarch-checksums:
-	@cd dist && (sha256sum kopia-*.tar.gz kopia_*.deb kopia-*.rpm 2>/dev/null || true) > checksums.txt; \
-	cat dist/checksums.txt
+	@cd dist && \
+	files="" && \
+	for p in kopia-*.tar.gz kopia_*.deb kopia-*.rpm; do \
+	  for f in $$p; do \
+	    if [ "$$f" != "$$p" ] && [ -f "$$f" ]; then files="$$files $$f"; fi; \
+	  done; \
+	done && \
+	if [ -z "$$files" ]; then echo "ERROR: No artifacts found to generate checksums." >&2; exit 1; fi && \
+	if command -v sha256sum >/dev/null 2>&1; then \
+	  sha256sum $$files > checksums.txt; \
+	elif command -v shasum >/dev/null 2>&1; then \
+	  shasum -a 256 $$files > checksums.txt; \
+	else \
+	  echo "ERROR: Neither sha256sum nor shasum is available." >&2; exit 1; \
+	fi && \
+	cat checksums.txt
 
 # Compare dist/ against a reference GitHub release (filenames, sizes, stripped binary, version stamp).
 # Usage: CI_TAG=v20260224.0.42919 make build-multiarch && make verify-release-build RELEASE_TAG=v20260224.0.42919
@@ -243,7 +258,7 @@ verify-release-build:
 # On Linux (amd64 host) use build-multiarch to build all supported Linux architectures
 # and create .tar.gz, .deb and .rpm. On other hosts build only current arch for kopia-ui.
 dist/kopia_linux_x64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_armv7l/kopia: $(all_go_sources)
-ifeq ($(GOARCH),amd64)
+ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	$(MAKE) build-multiarch
 else
 	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia

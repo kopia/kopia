@@ -6,13 +6,16 @@
 #   tools/verify-release-build.sh <release-tag> [dist-dir]
 #   CI_TAG=v20260224.0.42919 make build-multiarch && tools/verify-release-build.sh v20260224.0.42919 dist
 #
-# Requires: curl, jq
-set -e
+# Requires: curl, jq. Set GITHUB_TOKEN to avoid API rate limits.
+set -euo pipefail
 
-RELEASE_TAG="${1:-${RELEASE_TAG}}"
+RELEASE_TAG="${1:-${RELEASE_TAG:-}}"
 DIST_DIR="${2:-dist}"
 REF_DIR="${REF_DIR:-/tmp/kopia-release-ref-$$}"
 GITHUB_REPO="${GITHUB_REPO:-kopia/kopia-test-builds}"
+
+# CLI-only artifacts from build-multiarch (no kopia-ui, no macOS/Windows from other jobs)
+CLI_PATTERN='^kopia_[0-9].*_linux_.*\.deb$|^checksums\.txt$|^kopia-[0-9].*\.(x86_64|aarch64|armhfp)\.rpm$|^kopia-[0-9].*-(linux|freebsd-experimental|openbsd-experimental)-(x64|arm|arm64)\.tar\.gz$'
 
 if [[ -z "$RELEASE_TAG" ]]; then
   echo "Usage: $0 <release-tag> [dist-dir]"
@@ -20,28 +23,25 @@ if [[ -z "$RELEASE_TAG" ]]; then
   exit 1
 fi
 
-# CLI-only artifacts from build-multiarch (no kopia-ui, no macOS/Windows from other jobs)
-CLI_PATTERN='^kopia-[0-9].*-freebsd-experimental-(arm|arm64|x64)\.tar\.gz$|^kopia-[0-9].*-linux-(arm|arm64|x64)\.tar\.gz$|^kopia-[0-9].*-openbsd-experimental-(arm|arm64|x64)\.tar\.gz$|^kopia_[0-9].*_linux_(amd64|arm64|armhf)\.deb$|^kopia-[0-9].*\.(x86_64|aarch64|armhfp)\.rpm$|^checksums\.txt$'
-
 mkdir -p "$REF_DIR"
 echo "=== Reference: $GITHUB_REPO $RELEASE_TAG ===="
 echo "=== Compare with: $DIST_DIR ===="
 echo ""
 
-# Download reference CLI assets (build-multiarch set only: linux/freebsd/openbsd tgz, linux deb/rpm, checksums; no macOS/Windows)
+# Download reference CLI assets (build-multiarch set only). Use GITHUB_TOKEN if set to avoid rate limits.
+CURL_AUTH=()
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  CURL_AUTH=(-H "Authorization: token $GITHUB_TOKEN")
+fi
 echo "Downloading reference assets (build-multiarch set only)..."
-curl -sS "https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${RELEASE_TAG}" | jq -r '.assets[] | "\(.name)\t\(.browser_download_url)"' | while IFS=$'\t' read -r name url; do
-  if echo "$name" | grep -qE '^kopia_[0-9].*_linux_.*\.deb$|^checksums\.txt$'; then
-    curl -sSL -o "$REF_DIR/$name" "$url"
-    echo "  $name"
-  elif echo "$name" | grep -qE '^kopia-[0-9].*\.(x86_64|aarch64|armhfp)\.rpm$'; then
-    curl -sSL -o "$REF_DIR/$name" "$url"
-    echo "  $name"
-  elif echo "$name" | grep -qE '^kopia-[0-9].*-(linux|freebsd-experimental|openbsd-experimental)-(x64|arm|arm64)\.tar\.gz$'; then
-    curl -sSL -o "$REF_DIR/$name" "$url"
-    echo "  $name"
-  fi
-done
+curl -sS "${CURL_AUTH[@]}" "https://api.github.com/repos/${GITHUB_REPO}/releases/tags/${RELEASE_TAG}" | \
+  jq -r '.assets[] | "\(.name)\t\(.browser_download_url)"' | \
+  while IFS=$'\t' read -r name url; do
+    if echo "$name" | grep -qE "$CLI_PATTERN"; then
+      curl -sSL "${CURL_AUTH[@]}" -o "$REF_DIR/$name" "$url"
+      echo "  $name"
+    fi
+  done
 echo ""
 
 # Compare file set by pattern (normalize version to V so we can match)
@@ -50,6 +50,10 @@ ref_patterns=$(cd "$REF_DIR" && ls -1 2>/dev/null | while read -r f; do get_patt
 dist_patterns=$(cd "$DIST_DIR" && ls -1 2>/dev/null | while read -r f; do get_pattern "$f"; done | sort -u)
 
 echo "--- Filename patterns ---"
+if [[ -z "$ref_patterns" ]]; then
+  echo "ERROR: No reference assets downloaded (bad tag, rate limit, or API error)." >&2
+  exit 1
+fi
 missing=$(comm -23 <(echo "$ref_patterns") <(echo "$dist_patterns"))
 if [[ -n "$missing" ]]; then
   echo "Missing patterns in $DIST_DIR:"
@@ -98,7 +102,8 @@ echo "--- Binary: stripped + version stamp ---"
 sample_tgz=$(cd "$DIST_DIR" && ls -1 kopia-*-linux-x64.tar.gz 2>/dev/null | head -1)
 if [[ -n "$sample_tgz" && -f "$DIST_DIR/$sample_tgz" ]]; then
   tmpdir=$(mktemp -d)
-  trap "rm -rf $tmpdir" EXIT
+  cleanup() { rm -rf "$tmpdir"; }
+  trap cleanup EXIT
   tar -xzf "$DIST_DIR/$sample_tgz" -C "$tmpdir" --strip-components=1
   bin="$tmpdir/kopia"
   if [[ -f "$bin" ]]; then
@@ -114,7 +119,6 @@ if [[ -n "$sample_tgz" && -f "$DIST_DIR/$sample_tgz" ]]; then
       echo "  Warning: --version did not show version string"
     fi
   fi
-  rm -rf "$tmpdir"
 else
   echo "  No kopia-*-linux-x64.tar.gz in $DIST_DIR to sample"
 fi
