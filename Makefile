@@ -220,7 +220,7 @@ build-multiarch-packages:
 	@set -e; for spec in amd64/x86_64/amd64 arm/armhfp/armhf arm64/aarch64/arm64; do \
 	  goarch=$$(echo "$$spec" | cut -d/ -f1); rpm_arch=$$(echo "$$spec" | cut -d/ -f2); deb_arch=$$(echo "$$spec" | cut -d/ -f3); \
 	  if [ "$$goarch" = "arm" ]; then dir=dist/kopia_linux_arm_6; else dir=dist/kopia_linux_$$goarch; fi; \
-	  $(MAKE) nfpm-pkg BINARY_DIR=$$dir NFPM_DEB_ARCH=$$deb_arch NFPM_RPM_ARCH=$$rpm_arch || exit 1; \
+	  $(MAKE) nfpm-pkg BINARY_DIR=$(CURDIR)/$$dir NFPM_DEB_ARCH=$$deb_arch NFPM_RPM_ARCH=$$rpm_arch || exit 1; \
 	done
 
 # Single .deb and .rpm for one arch (BINARY_DIR, NFPM_DEB_ARCH, NFPM_RPM_ARCH set by caller).
