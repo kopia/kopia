@@ -187,26 +187,24 @@ endif
 	(cd dist && zip -r kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64.zip kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64)
 	rm -rf dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64
 
-# build-multiarch builds kopia for linux, freebsd, openbsd (amd64, arm, arm64),
-# creates .tar.gz archives, .deb/.rpm for Linux, checksums.txt, and symlinks for kopia-ui.
-# Replaces the former goreleaser-based build.
+# build-multiarch: parallelizable per-platform builds (use make -j4 build-multiarch).
+# Depends on MULTIARCH_TGZ so top-level make -j builds all binaries and .tar.gz in parallel.
 MULTIARCH_SPECS = linux/amd64 linux/arm linux/arm64 freebsd/amd64 freebsd/arm freebsd/arm64 openbsd/amd64 openbsd/arm openbsd/arm64
 
-build-multiarch: $(all_go_sources) print_build_info
+# Archive targets (and their binary prerequisites); build-multiarch depends on these so make -j parallelizes both.
+MULTIARCH_TGZ = \
+  dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-linux-x64.tar.gz \
+  dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-linux-arm.tar.gz \
+  dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-linux-arm64.tar.gz \
+  dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-freebsd-experimental-x64.tar.gz \
+  dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-freebsd-experimental-arm.tar.gz \
+  dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-freebsd-experimental-arm64.tar.gz \
+  dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-openbsd-experimental-x64.tar.gz \
+  dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-openbsd-experimental-arm.tar.gz \
+  dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-openbsd-experimental-arm64.tar.gz
+
+build-multiarch: print_build_info $(MULTIARCH_TGZ)
 	@mkdir -p dist
-	@set -e; for spec in $(MULTIARCH_SPECS); do \
-	  goos=$${spec%/*}; goarch=$${spec#*/}; \
-	  if [ "$$goarch" = "arm" ]; then arch_dir=arm_6; else arch_dir=$$goarch; fi; \
-	  dir=dist/kopia_$$goos_$$arch_dir; \
-	  mkdir -p $$dir; \
-	  echo "Building $$goos/$$goarch -> $$dir/kopia"; \
-	  GOOS=$$goos GOARCH=$$goarch CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $$dir/kopia -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia; \
-	  case $$goos in linux) os_suffix=linux;; freebsd) os_suffix=freebsd-experimental;; openbsd) os_suffix=openbsd-experimental;; esac; \
-	  case $$goarch in amd64) arch_suffix=x64;; arm) arch_suffix=arm;; arm64) arch_suffix=arm64;; esac; \
-	  archive_base=kopia-$(KOPIA_VERSION_NO_PREFIX)-$$os_suffix-$$arch_suffix; \
-	  echo "Creating $$archive_base.tar.gz"; \
-	  $(CURDIR)/tools/make-tgz.sh dist $$archive_base $$dir/kopia; \
-	done
 	$(MAKE) build-multiarch-packages
 	$(MAKE) build-multiarch-checksums
 	rm -f dist/kopia_linux_x64
@@ -214,8 +212,27 @@ build-multiarch: $(all_go_sources) print_build_info
 	rm -f dist/kopia_linux_armv7l
 	ln -sf kopia_linux_arm_6 dist/kopia_linux_armv7l
 
-# Linux binaries required for .deb/.rpm. Built by build-multiarch loop; these targets allow
-# build-multiarch-packages to be run standalone (e.g. make build-multiarch-packages).
+# Per-platform binary + .tar.gz (so make -j can run these in parallel).
+dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-linux-x64.tar.gz: dist/kopia_linux_amd64/kopia
+	$(CURDIR)/tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-linux-x64 $<
+dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-linux-arm.tar.gz: dist/kopia_linux_arm_6/kopia
+	$(CURDIR)/tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-linux-arm $<
+dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-linux-arm64.tar.gz: dist/kopia_linux_arm64/kopia
+	$(CURDIR)/tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-linux-arm64 $<
+dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-freebsd-experimental-x64.tar.gz: dist/kopia_freebsd_amd64/kopia
+	$(CURDIR)/tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-freebsd-experimental-x64 $<
+dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-freebsd-experimental-arm.tar.gz: dist/kopia_freebsd_arm_6/kopia
+	$(CURDIR)/tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-freebsd-experimental-arm $<
+dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-freebsd-experimental-arm64.tar.gz: dist/kopia_freebsd_arm64/kopia
+	$(CURDIR)/tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-freebsd-experimental-arm64 $<
+dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-openbsd-experimental-x64.tar.gz: dist/kopia_openbsd_amd64/kopia
+	$(CURDIR)/tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-openbsd-experimental-x64 $<
+dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-openbsd-experimental-arm.tar.gz: dist/kopia_openbsd_arm_6/kopia
+	$(CURDIR)/tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-openbsd-experimental-arm $<
+dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-openbsd-experimental-arm64.tar.gz: dist/kopia_openbsd_arm64/kopia
+	$(CURDIR)/tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-openbsd-experimental-arm64 $<
+
+# Per-platform binaries (built in parallel when using make -j).
 dist/kopia_linux_amd64/kopia: $(all_go_sources)
 	@mkdir -p $(dir $@)
 	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
@@ -225,6 +242,24 @@ dist/kopia_linux_arm_6/kopia: $(all_go_sources)
 dist/kopia_linux_arm64/kopia: $(all_go_sources)
 	@mkdir -p $(dir $@)
 	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+dist/kopia_freebsd_amd64/kopia: $(all_go_sources)
+	@mkdir -p $(dir $@)
+	GOOS=freebsd GOARCH=amd64 CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+dist/kopia_freebsd_arm_6/kopia: $(all_go_sources)
+	@mkdir -p $(dir $@)
+	GOOS=freebsd GOARCH=arm CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+dist/kopia_freebsd_arm64/kopia: $(all_go_sources)
+	@mkdir -p $(dir $@)
+	GOOS=freebsd GOARCH=arm64 CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+dist/kopia_openbsd_amd64/kopia: $(all_go_sources)
+	@mkdir -p $(dir $@)
+	GOOS=openbsd GOARCH=amd64 CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+dist/kopia_openbsd_arm_6/kopia: $(all_go_sources)
+	@mkdir -p $(dir $@)
+	GOOS=openbsd GOARCH=arm CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+dist/kopia_openbsd_arm64/kopia: $(all_go_sources)
+	@mkdir -p $(dir $@)
+	GOOS=openbsd GOARCH=arm64 CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
 
 # .deb and .rpm for Linux only (via nfpm). Depends on Linux binaries so nfpm always sees them (works when
 # invoked from build-multiarch or directly). Debian arch: amd64, arm64, armhf. RPM: x86_64, aarch64, armhfp.
@@ -273,7 +308,7 @@ verify-release-build:
 # and create .tar.gz, .deb and .rpm. On other hosts build only current arch for kopia-ui.
 dist/kopia_linux_x64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_armv7l/kopia: $(all_go_sources)
 ifeq ($(GOOS)/$(GOARCH),linux/amd64)
-	$(MAKE) build-multiarch
+	$(MAKE) -j$(or $(PARALLEL),4) build-multiarch
 else
 	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
 endif

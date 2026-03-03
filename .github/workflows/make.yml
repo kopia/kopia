@@ -73,7 +73,7 @@ jobs:
         WINDOWS_SIGN_TOOL: ${{ secrets.WINDOWS_SIGN_TOOL }}
       if: ${{ contains(matrix.os, 'windows') }}
     - name: Build 
-      run: make ci-build
+      run: make -j4 ci-build
       timeout-minutes: 40
       env:
         # Apple credentials for notarization, used by Electron Builder
