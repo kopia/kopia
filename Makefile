@@ -214,9 +214,21 @@ build-multiarch: $(all_go_sources) print_build_info
 	rm -f dist/kopia_linux_armv7l
 	ln -sf kopia_linux_arm_6 dist/kopia_linux_armv7l
 
-# .deb and .rpm for Linux only (via nfpm). Called after the build-multiarch loop creates the binaries.
-# Debian arch: amd64, arm64, armhf. RPM arch: x86_64, aarch64, armhfp. Both passed so package metadata is correct.
-build-multiarch-packages:
+# Linux binaries required for .deb/.rpm. Built by build-multiarch loop; these targets allow
+# build-multiarch-packages to be run standalone (e.g. make build-multiarch-packages).
+dist/kopia_linux_amd64/kopia: $(all_go_sources)
+	@mkdir -p $(dir $@)
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+dist/kopia_linux_arm_6/kopia: $(all_go_sources)
+	@mkdir -p $(dir $@)
+	GOOS=linux GOARCH=arm CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+dist/kopia_linux_arm64/kopia: $(all_go_sources)
+	@mkdir -p $(dir $@)
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build $(KOPIA_BUILD_FLAGS) -o $@ -tags "$(KOPIA_BUILD_TAGS)" github.com/kopia/kopia
+
+# .deb and .rpm for Linux only (via nfpm). Depends on Linux binaries so nfpm always sees them (works when
+# invoked from build-multiarch or directly). Debian arch: amd64, arm64, armhf. RPM: x86_64, aarch64, armhfp.
+build-multiarch-packages: dist/kopia_linux_amd64/kopia dist/kopia_linux_arm_6/kopia dist/kopia_linux_arm64/kopia
 	@set -e; for spec in amd64/x86_64/amd64 arm/armhfp/armhf arm64/aarch64/arm64; do \
 	  goarch=$$(echo "$$spec" | cut -d/ -f1); rpm_arch=$$(echo "$$spec" | cut -d/ -f2); deb_arch=$$(echo "$$spec" | cut -d/ -f3); \
 	  if [ "$$goarch" = "arm" ]; then dir=dist/kopia_linux_arm_6; else dir=dist/kopia_linux_$$goarch; fi; \
@@ -224,10 +236,11 @@ build-multiarch-packages:
 	done
 
 # Single .deb and .rpm for one arch (BINARY_DIR, NFPM_DEB_ARCH, NFPM_RPM_ARCH set by caller).
-# Invoke nfpm twice: .deb with NFPM_ARCH=Debian arch, .rpm with NFPM_ARCH=RPM arch (overrides.rpm.arch not in nfpm 2.35 Overridables).
+# Copy binary to a staging dir so nfpm always sees it (avoids path/cwd issues); then run nfpm from repo root.
 nfpm-pkg: $(nfpm)
-	@mkdir -p dist
-	export BINARY_DIR KOPIA_VERSION_NO_PREFIX && \
+	@mkdir -p dist dist/.nfpm-staging
+	@cp "$(BINARY_DIR)/kopia" dist/.nfpm-staging/kopia
+	@cd $(CURDIR) && BINARY_DIR=$(CURDIR)/dist/.nfpm-staging export BINARY_DIR KOPIA_VERSION_NO_PREFIX && \
 	NFPM_ARCH=$(NFPM_DEB_ARCH) $(nfpm) pkg --packager deb --target dist/kopia_$(KOPIA_VERSION_NO_PREFIX)_linux_$(NFPM_DEB_ARCH).deb --config $(CURDIR)/tools/nfpm.yaml && \
 	NFPM_ARCH=$(NFPM_RPM_ARCH) $(nfpm) pkg --packager rpm --target dist/kopia-$(KOPIA_VERSION_NO_PREFIX).$(NFPM_RPM_ARCH).rpm --config $(CURDIR)/tools/nfpm.yaml
 
