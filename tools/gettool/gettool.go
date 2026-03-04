@@ -110,8 +110,8 @@ var tools = map[string]ToolInfo{
 			"amd64": "x86_64",
 		},
 		osMap: map[string]string{
-			"darwin": "Darwin",
-			"linux":  "Linux",
+			"darwin":  "Darwin",
+			"linux":   "Linux",
 			"windows": "Windows",
 		},
 	},
