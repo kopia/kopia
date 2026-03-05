@@ -15,6 +15,7 @@ In the following, we will highlight and explain some advanced topics related to 
 * [Storage Classes](storage-tiers/#storage-classes)
 * [Encryption](encryption/#encryption)
 * [Compression](compression/#compression)
+* [File Metadata](metadata/#file-metadata)
 * [Error Correction Algorithm: Reed-Solomon](ecc/#error-correction-algorithm)
 * [Maintenance](maintenance/#maintenance)
 * [Consistency](consistency/#consistency)
