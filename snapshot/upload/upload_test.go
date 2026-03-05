@@ -1708,3 +1708,129 @@ func verifyLogDetails(t *testing.T, desc string, wantDetailKeys []string, keysAn
 	sort.Strings(wantDetailKeys)
 	require.Equal(t, wantDetailKeys, gotDetailKeys, "invalid details for "+desc)
 }
+
+// findChildBirthTime reads back a snapshot directory from the repo and returns the BirthTime
+// of the named child entry. Returns zero time if the child has no birthtime.
+func findChildBirthTime(t *testing.T, ctx context.Context, rep repo.Repository, rootEntry *snapshot.DirEntry, childName string) time.Time {
+	t.Helper()
+
+	dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(rep, rootEntry))
+
+	var found fs.Entry
+
+	require.NoError(t, fs.IterateEntries(ctx, dir, func(_ context.Context, e fs.Entry) error {
+		if e.Name() == childName {
+			found = e
+		}
+
+		return nil
+	}))
+
+	require.NotNil(t, found, "child %q not found in snapshot", childName)
+
+	return fs.GetBirthTime(found)
+}
+
+func TestUpload_BirthTime_RegularFile(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
+
+	validBtime := time.Date(2020, 1, 15, 10, 30, 0, 0, time.UTC)
+
+	sourceDir := mockfs.NewDirectory()
+	f := sourceDir.AddFile("test.txt", []byte("content"), defaultPermissions)
+	f.SetBirthTime(validBtime)
+
+	u := NewUploader(th.repo)
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	// First upload (no previous) - birthtime should be captured.
+	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	btime1 := findChildBirthTime(t, ctx, th.repo, s1.RootEntry, "test.txt")
+	require.Equal(t, validBtime.Unix(), btime1.Unix(), "first upload should capture birthtime")
+
+	// Second upload with s1 as previous (cached path) - birthtime should be preserved.
+	s2, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{}, s1)
+	require.NoError(t, err)
+
+	btime2 := findChildBirthTime(t, ctx, th.repo, s2.RootEntry, "test.txt")
+	require.Equal(t, validBtime.Unix(), btime2.Unix(), "cached upload should preserve birthtime")
+
+	// Change birthtime on source (keep mtime same so cache key matches).
+	newBtime := time.Date(2021, 6, 20, 14, 45, 0, 0, time.UTC)
+	f.SetBirthTime(newBtime)
+
+	// Third upload with s2 as previous - should capture the updated birthtime.
+	s3, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{}, s2)
+	require.NoError(t, err)
+
+	btime3 := findChildBirthTime(t, ctx, th.repo, s3.RootEntry, "test.txt")
+	require.Equal(t, newBtime.Unix(), btime3.Unix(), "should capture updated birthtime")
+}
+
+func TestUpload_BirthTime_StreamingFile(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
+
+	validBtime := time.Date(2020, 1, 15, 10, 30, 0, 0, time.UTC)
+	mtime := time.Date(2021, 1, 2, 3, 4, 5, 0, time.UTC)
+	content := []byte("streaming content")
+
+	u := NewUploader(th.repo)
+	u.ForceHashPercentage = 0
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	// First upload - birthtime should be captured.
+	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
+		virtualfs.StreamingFileWithBirthTimeFromReader("stream.txt", validBtime, mtime, io.NopCloser(bytes.NewReader(content))),
+	})
+
+	s1, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	btime1 := findChildBirthTime(t, ctx, th.repo, s1.RootEntry, "stream.txt")
+	require.Equal(t, validBtime.Unix(), btime1.Unix(), "first upload should capture birthtime")
+
+	// Second upload with previous manifest (triggers cached streaming file path).
+	staticRoot = virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
+		virtualfs.StreamingFileWithBirthTimeFromReader("stream.txt", validBtime, mtime, io.NopCloser(bytes.NewReader(content))),
+	})
+
+	s2, err := u.Upload(ctx, staticRoot, policyTree, snapshot.SourceInfo{}, s1)
+	require.NoError(t, err)
+
+	btime2 := findChildBirthTime(t, ctx, th.repo, s2.RootEntry, "stream.txt")
+	require.Equal(t, validBtime.Unix(), btime2.Unix(), "cached upload should preserve birthtime")
+}
+
+func TestUpload_BirthTime_NoBirthTime(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
+
+	sourceDir := mockfs.NewDirectory()
+	sourceDir.AddFile("test.txt", []byte("content"), defaultPermissions)
+	// No SetBirthTime called - birthtime is zero.
+
+	u := NewUploader(th.repo)
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	btime := findChildBirthTime(t, ctx, th.repo, s1.RootEntry, "test.txt")
+	require.True(t, btime.IsZero(), "zero birthtime should result in no birthtime in snapshot")
+}

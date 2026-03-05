@@ -183,6 +183,7 @@ func newEntry(basename string, fi os.FileInfo, prefix string, options *Options) 
 		TrimShallowSuffix(basename),
 		fi.Size(),
 		fi.ModTime().UnixNano(),
+		platformSpecificBirthTime(fi, prefix+basename),
 		fi.Mode(),
 		platformSpecificOwnerInfo(fi),
 		platformSpecificDeviceInfo(fi),
