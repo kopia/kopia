@@ -16,6 +16,8 @@ type commandRepositoryConnectServer struct {
 	connectAPIServerURL                              string
 	connectAPIServerCertFingerprint                  string
 	connectAPIServerLocalCacheKeyDerivationAlgorithm string
+	connectAPIServerClientCertificate                string
+	connectAPIServerClientPrivateKey                 string
 
 	svc advancedAppServices
 	out textOutput
@@ -29,18 +31,27 @@ func (c *commandRepositoryConnectServer) setup(svc advancedAppServices, parent c
 	cmd := parent.Command("server", "Connect to a repository API Server.")
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
+	cmd.Flag("client-certificate", "Certificate to be sent to the server").StringVar(&c.connectAPIServerClientCertificate)
+	cmd.Flag("client-key", "Private key of the client-certificate. Proves the certificate owner is trustworthy").StringVar(&c.connectAPIServerClientPrivateKey)
 	//nolint:lll
 	cmd.Flag("local-cache-key-derivation-algorithm", "Key derivation algorithm used to derive the local cache encryption key").Hidden().Default(repo.DefaultServerRepoCacheKeyDerivationAlgorithm).EnumVar(&c.connectAPIServerLocalCacheKeyDerivationAlgorithm, repo.SupportedLocalCacheKeyDerivationAlgorithms()...)
 	cmd.Action(svc.noRepositoryAction(c.run))
 }
 
 func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
+	if (c.connectAPIServerClientCertificate != "" && c.connectAPIServerClientPrivateKey == "") ||
+		(c.connectAPIServerClientCertificate == "" && c.connectAPIServerClientPrivateKey != "") {
+		return errors.New("Both --client-certificate and --client-key are required for client certificate authentication")
+	}
+
 	localCacheKeyDerivationAlgorithm := c.connectAPIServerLocalCacheKeyDerivationAlgorithm
 
 	as := &repo.APIServerInfo{
 		BaseURL:                             strings.TrimSuffix(c.connectAPIServerURL, "/"),
 		TrustedServerCertificateFingerprint: strings.ToLower(c.connectAPIServerCertFingerprint),
 		LocalCacheKeyDerivationAlgorithm:    localCacheKeyDerivationAlgorithm,
+		ClientCertificateFile:               c.connectAPIServerClientCertificate,
+		ClientPrivateKeyFile:                c.connectAPIServerClientPrivateKey,
 	}
 
 	configFile := c.svc.repositoryConfigFileName()
@@ -58,9 +69,15 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 
 	log(ctx).Infof("Connecting to server '%v' as '%v@%v'...", as.BaseURL, u, h)
 
-	pass, err := c.svc.getPasswordFromFlags(ctx, false, false)
-	if err != nil {
-		return errors.Wrap(err, "getting password")
+	var pass string
+
+	if c.connectAPIServerClientCertificate == "" {
+		var err error
+
+		pass, err = c.svc.getPasswordFromFlags(ctx, false, false)
+		if err != nil {
+			return errors.Wrap(err, "getting password")
+		}
 	}
 
 	if err := passwordpersist.OnSuccess(
