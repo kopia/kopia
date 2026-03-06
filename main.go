@@ -15,6 +15,7 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 
 	"github.com/kopia/kopia/cli"
+	"github.com/kopia/kopia/internal/i18n"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/repo"
 )
@@ -64,8 +65,19 @@ Commands (use --help-full to list all commands):
 `
 
 func main() {
+	// Initialize global translator early, before creating commands
+	lang := detectLanguageFromArgs(os.Args[1:])
+	if lang == "" {
+		lang = i18n.DetectLanguageFromEnv()
+	}
+	translator, err := i18n.NewTranslator(lang)
+	if err != nil {
+		translator, _ = i18n.NewTranslator("en")
+	}
+	i18n.SetGlobalTranslator(translator)
+
 	app := cli.NewApp()
-	kp := kingpin.New("kopia", "Kopia - Fast And Secure Open-Source Backup").Author("http://kopia.github.io/")
+	kp := kingpin.New("kopia", i18n.T("Kopia - Fast And Secure Open-Source Backup")).Author("http://kopia.github.io/")
 
 	kp.Version(repo.BuildVersion + " build: " + repo.BuildInfo + " from: " + repo.BuildGitHubRepo)
 	logfile.Attach(app, kp)
@@ -75,4 +87,17 @@ func main() {
 
 	app.Attach(kp)
 	kingpin.MustParse(kp.Parse(os.Args[1:]))
+}
+
+// detectLanguageFromArgs extracts language from command line arguments.
+func detectLanguageFromArgs(args []string) string {
+	for i, arg := range args {
+		if arg == "--language" && i+1 < len(args) {
+			return args[i+1]
+		}
+		if len(arg) > 11 && arg[:11] == "--language=" {
+			return arg[11:]
+		}
+	}
+	return ""
 }

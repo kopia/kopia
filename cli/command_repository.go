@@ -16,7 +16,7 @@ type commandRepository struct {
 }
 
 func (c *commandRepository) setup(svc advancedAppServices, parent commandParent) {
-	cmd := parent.Command("repository", "Commands to manipulate repository.").Alias("repo")
+	cmd := parent.Command("repository", svc.T("Commands to manipulate repository.")).Alias("repo")
 
 	c.connect.setup(svc, cmd)
 	c.create.setup(svc, cmd)

@@ -17,6 +17,7 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/i18n"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/notification"
@@ -99,6 +100,7 @@ type appServices interface {
 	onRepositoryFatalError(callback func(err error))
 	enableTestOnlyFlags() bool
 	EnvName(s string) string
+	T(msgID string, args ...any) string
 }
 
 //nolint:interfacebloat
@@ -136,6 +138,8 @@ type App struct {
 	DangerousCommands             string
 	cliStorageProviders           []StorageProvider
 	trackReleasable               []string
+	language                      string
+	translator                    *i18n.Translator
 
 	observability       observabilityFlags
 	upgradeOwnerID      string
@@ -219,6 +223,20 @@ func (c *App) SetLoggerFactory(loggerForModule logging.LoggerFactory, contentLog
 	c.contentLogWriter = contentLogWriter
 }
 
+// Translator returns the translator for internationalization.
+func (c *App) Translator() *i18n.Translator {
+	if c.translator == nil {
+		// Fallback to English if not initialized
+		c.translator, _ = i18n.NewTranslator("en")
+	}
+	return c.translator
+}
+
+// T is a shorthand for Translator().Translate.
+func (c *App) T(msgID string, args ...any) string {
+	return c.Translator().Translate(msgID, args...)
+}
+
 // RegisterOnExit registers the provided function to run before app exits.
 func (c *App) RegisterOnExit(f func()) {
 	c.onExitCallbacks = append(c.onExitCallbacks, f)
@@ -254,6 +272,20 @@ func (c *App) setup(app *kingpin.Application) {
 			c.currentAction = "unknown-action"
 		}
 
+		// Initialize translator after parsing language flag
+		if c.translator == nil {
+			lang := c.language
+			if lang == "" {
+				lang = i18n.DetectLanguageFromEnv()
+			}
+			var err error
+			c.translator, err = i18n.NewTranslator(lang)
+			if err != nil {
+				// Fall back to English on error
+				c.translator, _ = i18n.NewTranslator("en")
+			}
+		}
+
 		return nil
 	})
 
@@ -264,6 +296,9 @@ func (c *App) setup(app *kingpin.Application) {
 
 		return nil
 	}).Bool()
+
+	// Language flag
+	app.Flag("language", "Set the language for output (e.g., en, ru, ru_RU)").Hidden().Envar(c.EnvName("KOPIA_LANGUAGE")).StringVar(&c.language)
 
 	app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().BoolVar(&c.enableAutomaticMaintenance)
 
