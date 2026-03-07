@@ -98,22 +98,21 @@ var tools = map[string]ToolInfo{
 		osMap:               map[string]string{"darwin": "osx"},
 		stripPathComponents: 1,
 	},
-	"goreleaser": {
-		urlTemplate: "https://github.com/goreleaser/goreleaser/releases/download/VERSION/goreleaser_GOOS_GOARCH.EXT",
+	"gitchglog": {
+		urlTemplate: "https://github.com/git-chglog/git-chglog/releases/download/vVERSION/git-chglog_VERSION_GOOS_GOARCH.EXT",
+		archMap: map[string]string{
+			"arm": "armv6",
+		},
+	},
+	"nfpm": {
+		urlTemplate: "https://github.com/goreleaser/nfpm/releases/download/vVERSION/nfpm_VERSION_GOOS_GOARCH.EXT",
 		archMap: map[string]string{
 			"amd64": "x86_64",
-			"arm":   "armv6",
 		},
 		osMap: map[string]string{
 			"darwin":  "Darwin",
 			"linux":   "Linux",
 			"windows": "Windows",
-		},
-	},
-	"gitchglog": {
-		urlTemplate: "https://github.com/git-chglog/git-chglog/releases/download/vVERSION/git-chglog_VERSION_GOOS_GOARCH.EXT",
-		archMap: map[string]string{
-			"arm": "armv6",
 		},
 	},
 	"node": {

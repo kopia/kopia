@@ -183,7 +183,7 @@ make test UNIT_TEST_RACE_FLAGS=-race UNIT_TESTS_TIMEOUT=1200s
 3. **Platform-specific builds:**
    - macOS: Creates universal binaries (AMD64 + ARM64) with `lipo`
    - Windows: Requires chocolatey packages: make, zip, unzip, curl
-   - Linux ARM: Uses goreleaser for multi-arch builds on AMD64 host
+   - Linux ARM: Uses Makefile build-multiarch for multi-arch builds on AMD64 host (cross-compile + nfpm for .deb/.rpm)
 
 4. **KopiaUI build failures on ARM:** KopiaUI (Electron app) only builds on amd64. The build is skipped on ARM architectures.
 
@@ -271,7 +271,7 @@ make test UNIT_TEST_RACE_FLAGS=-race UNIT_TESTS_TIMEOUT=1200s
 
 - `.golangci.yml` - Linter config with 40+ enabled linters, custom rules
 - `.codecov.yml` - Code coverage reporting config
-- `.goreleaser.yml` - Release automation config
+- `tools/nfpm.yaml` - nfpm config for .deb/.rpm packaging (used by Makefile build-multiarch)
 - `.github/workflows/*.yml` - GitHub Actions workflows (19 workflow files)
 
 ## GitHub Actions Workflows
@@ -378,7 +378,7 @@ make test UNIT_TEST_RACE_FLAGS=-race UNIT_TESTS_TIMEOUT=1200s
 
 1. **Do not modify go.mod/go.sum manually** - Use `go get` to update dependencies. CI runs `git checkout go.mod go.sum` after ci-setup to revert local changes from tool downloads.
 
-2. **Build artifacts in dist/** - Gitignored. Contains platform-specific binaries and installers after `make ci-build` or `make goreleaser`.
+2. **Build artifacts in dist/** - Gitignored. Contains platform-specific binaries and installers after `make ci-build` or `make goreleaser` (which runs `make build-multiarch`).
 
 3. **Tools directory** - `tools/.tools/` is gitignored and populated by `make ci-setup`. Contains downloaded versions of gotestsum, linter, node, hugo, etc.
 
@@ -387,7 +387,7 @@ make test UNIT_TEST_RACE_FLAGS=-race UNIT_TESTS_TIMEOUT=1200s
 5. **Platform differences:**
    - macOS: Creates universal binaries, requires Xcode command line tools
    - Windows: Requires chocolatey tools, uses PowerShell for some commands
-   - Linux ARM: Builds via goreleaser on AMD64 host, creates ARM packages
+   - Linux ARM: Builds via Makefile build-multiarch on AMD64 host, creates ARM packages
 
 6. **Parallelism:** Makefiles use `-j4` for parallel execution. Tests use `-parallel 8` on amd64, `-parallel 2` on ARM.
 
