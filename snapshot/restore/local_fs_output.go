@@ -278,7 +278,7 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry, modclear
 	var (
 		osChmod   = os.Chmod
 		osChown   = os.Chown
-		osChtimes = os.Chtimes
+		osChtimes = chtimes
 	)
 
 	// symbolic links require special handling that is OS-specific and sometimes unsupported
@@ -305,8 +305,8 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry, modclear
 	}
 
 	if o.shouldUpdateTimes(le, e) {
-		if err = o.maybeIgnorePermissionError(osChtimes(targetPath, e.ModTime(), e.ModTime())); err != nil {
-			return errors.Wrap(err, "could not change mod time on "+targetPath)
+		if err = o.maybeIgnorePermissionError(osChtimes(targetPath, fs.GetBirthTime(e), e.ModTime(), e.ModTime())); err != nil {
+			return errors.Wrap(err, "could not change times on "+targetPath)
 		}
 	}
 
@@ -351,7 +351,11 @@ func (o *FilesystemOutput) shouldUpdateTimes(local, remote fs.Entry) bool {
 		return false
 	}
 
-	return !local.ModTime().Equal(remote.ModTime())
+	if !local.ModTime().Equal(remote.ModTime()) {
+		return true
+	}
+
+	return !fs.GetBirthTime(local).Equal(fs.GetBirthTime(remote))
 }
 
 func isWindows() bool {
