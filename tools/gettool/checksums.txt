@@ -31,6 +31,7 @@ https://github.com/kopia/kopia/releases/download/v0.17.0/kopia-0.17.0-linux-x64.
 https://github.com/kopia/kopia/releases/download/v0.17.0/kopia-0.17.0-macOS-arm64.tar.gz: e81b2b7a91501b7d4f834daaec78c11f910ed1a8f50ba46ba4c9725c87787c9e
 https://github.com/kopia/kopia/releases/download/v0.17.0/kopia-0.17.0-macOS-x64.tar.gz: 8f0c41835b70a1c529cb6e946193785b10df1da09c5bfe3cc96a3007226b04d6
 https://github.com/kopia/kopia/releases/download/v0.17.0/kopia-0.17.0-windows-x64.zip: 0bcfc616e52fe3847e7d0484fb6612512e926990277a37c8ced446dcce2dc6cb
+https://github.com/kopia/kopia/releases/download/v0.22.3/kopia-0.22.3-linux-x64.tar.gz: d9e906e0813fc73addca7caa91c6ee33641e49e4fabe3462cd221445cc790c2d
 https://github.com/kopia/kopia/releases/download/v0.8.4/kopia-0.8.4-linux-arm.tar.gz: 31e9ecd9600dc60f98d4777fb64043b3431ad758dc7ba57d9a7661a103946d6f
 https://github.com/kopia/kopia/releases/download/v0.8.4/kopia-0.8.4-linux-arm64.tar.gz: 3ad81fd7e856ec177b737130710823ef0e64a344be1233d9a7ef456c78e535f2
 https://github.com/kopia/kopia/releases/download/v0.8.4/kopia-0.8.4-linux-x64.tar.gz: 118e3eece462d6e5bd8e357f6cbb48eabaecc3a22b99c804b54eaba6f6f1b7d5
