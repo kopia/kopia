@@ -95,41 +95,36 @@ func (fsd *filesystemDirectory) Child(_ context.Context, name string) (fs.Entry,
 func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 	n := dirEntry.Name()
 
-	fi, err := os.Lstat(prefix + n)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
-		}
-
-		// For permission denied errors, return an ErrorEntry instead of
-		// failing the entire directory iteration. This allows the upload
-		// process to handle the error according to the configured error
-		// handling policy and continue processing other entries in the
-		// directory.
+	switch fi, err := os.Lstat(prefix + n); {
+	case err == nil:
+		return entryFromDirEntry(n, fi, prefix), nil
+	case os.IsNotExist(err):
+		return nil, nil
+	case os.IsPermission(err):
+		// For permission denied errors, return an ErrorEntry instead of failing
+		// the entire directory iteration. This allows the upload process to
+		// handle the error according to the configured error handling policy
+		// and continue processing other entries in the directory.
 		//
-		// This is particularly important for inaccessible mount points
-		// (e.g., FUSE/sshfs mounts owned by another user); without this,
-		// a single inaccessible entry causes the entire containing
-		// directory to fail and be omitted from the snapshot, resulting
-		// in data loss.
-		if os.IsPermission(err) {
-			e := filesystemEntry{
-				name:       TrimShallowSuffix(n),
-				size:       0,
-				mtimeNanos: 0,
-				mode:       dirEntry.Type(),
-				owner:      fs.OwnerInfo{},
-				device:     fs.DeviceInfo{},
-				prefix:     prefix,
-			}
-
-			return newFilesystemErrorEntry(e, err), nil
+		// This is particularly important for inaccessible mount points such as
+		// FUSE/sshfs mounts owned by another user. If an error is returned here
+		// then a single inaccessible entry causes the entire containing directory
+		// to fail and be omitted from the snapshot, which results in omitting
+		// other accessible entries in the same directory.
+		e := filesystemEntry{
+			name:       TrimShallowSuffix(n),
+			size:       0,
+			mtimeNanos: 0,
+			mode:       dirEntry.Type(),
+			owner:      fs.OwnerInfo{},
+			device:     fs.DeviceInfo{},
+			prefix:     prefix,
 		}
 
+		return newFilesystemErrorEntry(e, err), nil
+	default:
 		return nil, errors.Wrap(err, "error reading directory")
 	}
-
-	return entryFromDirEntry(n, fi, prefix), nil
 }
 
 // NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
