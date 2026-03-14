@@ -39,7 +39,7 @@ endif
 endif
 
 GOTESTSUM_FORMAT=pkgname-and-test-fails
-GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped
+GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --hide-summary=output
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
 LINTER_DEADLINE=1200s
@@ -279,13 +279,13 @@ test-with-coverage: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
 test-with-coverage: $(gotestsum) $(TESTING_ACTION_EXE)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -short -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
-test: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped --jsonfile=.tmp.unit-tests.json
+test: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=output --jsonfile=.tmp.unit-tests.json
 test: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
 test: $(gotestsum) $(TESTING_ACTION_EXE)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) -skip '^TestIndexBlobManagerStress$$' ./...
 	-$(gotestsum) tool slowest --jsonfile .tmp.unit-tests.json  --threshold 1000ms
 
-test-index-blob-v0: GOTESTSUM_FLAGS=--format=pkgname --no-summary=output,skipped
+test-index-blob-v0: GOTESTSUM_FLAGS=--format=pkgname --no-summary=output
 test-index-blob-v0: $(gotestsum) $(TESTING_ACTION_EXE)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -tags testing -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT)  -run '^TestIndexBlobManagerStress$$' ./repo/content/indexblob/...
 
@@ -295,7 +295,7 @@ PROVIDER_TEST_TARGET=...
 
 provider-tests: export KOPIA_PROVIDER_TEST=true
 provider-tests: export RCLONE_EXE=$(rclone)
-provider-tests: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped --jsonfile=.tmp.provider-tests.json
+provider-tests: GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=output --jsonfile=.tmp.provider-tests.json
 provider-tests: $(gotestsum) $(rclone) $(MINIO_MC_PATH)
 	$(GO_TEST) $(UNIT_TEST_RACE_FLAGS) -count=$(REPEAT_TEST) -timeout 15m ./repo/blob/$(PROVIDER_TEST_TARGET)
 	-$(gotestsum) tool slowest --jsonfile .tmp.provider-tests.json  --threshold 1000ms
@@ -318,7 +318,7 @@ $(TESTING_ACTION_EXE): tests/testingaction/main.go
 compat-tests: export KOPIA_CURRENT_EXE=$(CURDIR)/$(kopia_ui_embedded_exe)
 compat-tests: export KOPIA_08_EXE=$(kopia08)
 compat-tests: export KOPIA_017_EXE=$(kopia017)
-compat-tests: GOTESTSUM_FLAGS=--format=testname --no-summary=skipped --jsonfile=.tmp.compat-tests.json
+compat-tests: GOTESTSUM_FLAGS=--format=testname --no-summary=output --jsonfile=.tmp.compat-tests.json
 compat-tests: $(kopia_ui_embedded_exe) $(kopia08) $(kopia017) $(gotestsum)
 	$(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/compat_test
 	#  -$(gotestsum) tool slowest --jsonfile .tmp.compat-tests.json  --threshold 1000ms
