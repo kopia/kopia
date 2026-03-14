@@ -286,7 +286,7 @@ func testSnapshotFail(
 	}
 }
 
-func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath string) {
+func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath string) {
 	t.Helper()
 
 	dirname := fmt.Sprintf("dir%d", currDepth)
@@ -306,8 +306,8 @@ func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath stri
 
 	testdirtree.MustCreateRandomFile(t, filePath, testdirtree.DirectoryTreeOptions{}, nil)
 
-	if dirDepth > currDepth+1 {
-		createSimplestFileTree(t, dirDepth, currDepth+1, dirPath)
+	if maxDirDepth > currDepth+1 {
+		createSimplestFileTree(t, maxDirDepth, currDepth+1, dirPath)
 	}
 }
 
