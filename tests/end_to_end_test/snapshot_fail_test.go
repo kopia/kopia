@@ -117,12 +117,22 @@ func testSnapshotFail(
 			var (
 				expectedSuccess           = expectedSnapshotResult{success: true}
 				expectEarlyFailure        = expectedSnapshotResult{success: false}
-				expectedWhenIgnoringFiles = expectedSnapshotResult{success: ignoringFiles, wantErrors: cond(ignoringFiles, 0, 1), wantIgnoredErrors: cond(ignoringFiles, 1, 0), wantPartial: !ignoringFiles && isFailFast}
-				expectedWhenIgnoringDirs  = expectedSnapshotResult{success: ignoringDirs, wantErrors: cond(ignoringDirs, 0, 1), wantIgnoredErrors: cond(ignoringDirs, 1, 0), wantPartial: !ignoringDirs && isFailFast}
+				expectedWhenIgnoringFiles = expectedSnapshotResult{
+					success:           ignoringFiles,
+					wantErrors:        cond(ignoringFiles, 0, 1),
+					wantIgnoredErrors: cond(ignoringFiles, 1, 0),
+					wantPartial:       !ignoringFiles && isFailFast,
+				}
+				expectedWhenIgnoringDirs = expectedSnapshotResult{
+					success:           ignoringDirs,
+					wantErrors:        cond(ignoringDirs, 0, 1),
+					wantIgnoredErrors: cond(ignoringDirs, 1, 0),
+					wantPartial:       !ignoringDirs && isFailFast,
+				}
 			)
 
 			// Test the root dir permissions
-			for tcIdx, tc := range []struct {
+			cases := []struct {
 				desc          string
 				modifyEntry   string
 				snapSource    string
@@ -248,7 +258,9 @@ func testSnapshotFail(
 						0o400: expectedSuccess,
 					},
 				},
-			} {
+			}
+
+			for tcIdx, tc := range cases {
 				// Reference test conditions outside of range variables to satisfy linter
 				tcIgnoreDirErr := ignoreDirErr
 				tcIgnoreFileErr := ignoreFileErr
