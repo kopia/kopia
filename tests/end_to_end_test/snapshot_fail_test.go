@@ -264,7 +264,7 @@ func testSnapshotFail(
 				// Reference test conditions outside of range variables to satisfy linter
 				tcIgnoreDirErr := ignoreDirErr
 				tcIgnoreFileErr := ignoreFileErr
-				tname := fmt.Sprintf("%s_ignoreFileErr_%s_ignoreDirErr_%s_failFast_%v", tc.desc, ignoreDirErr, ignoreFileErr, isFailFast)
+				tname := fmt.Sprintf("failFast=%v:ignoreFileErr=%s:ignoreDirErr=%s:%s", isFailFast, ignoreDirErr, ignoreFileErr, tc.desc)
 
 				t.Run(tname, func(t *testing.T) {
 					t.Parallel()
