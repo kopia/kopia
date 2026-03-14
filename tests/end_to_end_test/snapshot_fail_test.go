@@ -325,7 +325,7 @@ func testPermissions(
 	snapshotCreateFlags []string,
 	snapshotCreateEnv map[string]string,
 	parseSnapshotResultFn func(_ *testing.T, _, _ []string) parsedSnapshotResult,
-) int {
+) {
 	var numSuccessfulSnapshots int
 
 	changeFile, err := os.Stat(modifyEntry)
@@ -377,8 +377,6 @@ func testPermissions(
 			require.Equal(t, expected.wantPartial, parsed.partial, "unexpected partial")
 		})
 	}
-
-	return numSuccessfulSnapshots
 }
 
 var (
