@@ -362,9 +362,7 @@ func testPermissions(
 
 			stdOut, stdErr, runErr := e.Run(t, !expected.success, snapshotCreateWithArgs...)
 
-			if got, want := (runErr == nil), expected.success; got != want {
-				t.Fatalf("unexpected success %v, want %v", got, want)
-			}
+			require.Equalf(t, expected.success, (runErr == nil), "expected success: %t", expected.success)
 
 			parsed := parseSnapshotResultFn(t, stdOut, stdErr)
 
@@ -374,18 +372,10 @@ func testPermissions(
 				e.RunAndExpectSuccess(t, "snapshot", "restore", parsed.manifestID, restoreDir)
 			}
 
-			if got, want := parsed.errorCount, expected.wantErrors; got != want {
-				t.Fatalf("unexpected number of errors: %v, want %v", got, want)
-			}
-
-			if got, want := parsed.ignoredErrorCount, expected.wantIgnoredErrors; got != want {
-				t.Fatalf("unexpected number of ignored errors: %v, want %v", got, want)
-			}
-
-			if got, want := parsed.partial, expected.wantPartial; got != want {
-				t.Fatalf("unexpected partial %v, want %v (%s)", got, want, stdErr)
-			}
-		}()
+			require.Equal(t, expected.wantErrors, parsed.errorCount, "unexpected number of errors")
+			require.Equal(t, expected.wantIgnoredErrors, parsed.ignoredErrorCount, "unexpected number of ignored errors")
+			require.Equal(t, expected.wantPartial, parsed.partial, "unexpected partial")
+		})
 	}
 
 	return numSuccessfulSnapshots
@@ -422,16 +412,12 @@ func parseSnapshotResultFromLog(t *testing.T, _, stdErr []string) parsedSnapshot
 
 		if match := fatalErrorsPattern.FindStringSubmatch(l); match != nil {
 			res.errorCount, err = strconv.Atoi(match[1])
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 		}
 
 		if match := ignoredErrorsPattern.FindStringSubmatch(l); match != nil {
 			res.ignoredErrorCount, err = strconv.Atoi(match[1])
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 		}
 	}
 
