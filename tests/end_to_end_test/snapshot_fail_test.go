@@ -260,7 +260,7 @@ func testSnapshotFail(
 				},
 			}
 
-			for tcIdx, tc := range cases {
+			for _, tc := range cases {
 				// Reference test conditions outside of range variables to satisfy linter
 				tcIgnoreDirErr := ignoreDirErr
 				tcIgnoreFileErr := ignoreFileErr
@@ -269,33 +269,45 @@ func testSnapshotFail(
 				t.Run(tname, func(t *testing.T) {
 					t.Parallel()
 
-					runner := testenv.NewInProcRunner(t)
-					e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
-
-					defer e.RunAndExpectSuccess(t, "repo", "disconnect")
-
-					e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
-
-					scratchDir := testutil.TempDirectory(t)
-
-					snapSource := filepath.Join(scratchDir, tc.snapSource)
-					modifyEntry := filepath.Join(scratchDir, tc.modifyEntry)
-
-					// Each directory tier will have a file, an empty directory, and the next tier's directory
-					// (unless at max depth). Naming scheme is [file|dir|emptyDir][tier #].
-					createSimplestFileTree(t, 3, 0, scratchDir)
-
-					restoreDirPrefix := filepath.Join(scratchDir, "target")
-
-					e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", tcIgnoreDirErr, "--ignore-file-errors", tcIgnoreFileErr)
-					restoreDir := fmt.Sprintf("%s%d_%v_%v", restoreDirPrefix, tcIdx, tcIgnoreDirErr, tcIgnoreFileErr)
-					testPermissions(t, e, snapSource, modifyEntry, restoreDir, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
-
-					e.RunAndExpectSuccess(t, "policy", "remove", snapSource)
+					testSnapshotFailCase(t, tc.snapSource, tc.modifyEntry, tcIgnoreDirErr, tcIgnoreFileErr, snapshotCreateFlags, snapshotCreateEnv, tc.expectSuccess, parseSnapshotResultFn)
 				})
 			}
 		}
 	}
+}
+
+func testSnapshotFailCase(
+	t *testing.T,
+	tcSnapSource string,
+	tcModifyEntry string,
+	tcIgnoreDirErr string,
+	tcIgnoreFileErr string,
+	snapshotCreateFlags []string,
+	snapshotCreateEnv map[string]string,
+	expect map[os.FileMode]expectedSnapshotResult,
+	parseSnapshotResultFn func(t *testing.T, stdOut, stderr []string) parsedSnapshotResult,
+) {
+	t.Helper()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	scratchDir := testutil.TempDirectory(t)
+	snapSource := filepath.Join(scratchDir, tcSnapSource)
+	modifyEntry := filepath.Join(scratchDir, tcModifyEntry)
+
+	// Each directory tier will have a file, an empty directory, and the next tier's directory
+	// (unless at max depth). Naming scheme is [file|dir|emptyDir][tier #].
+	createSimplestFileTree(t, 3, 0, scratchDir)
+	e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", tcIgnoreDirErr, "--ignore-file-errors", tcIgnoreFileErr)
+
+	restoreDir := filepath.Join(scratchDir, "target")
+	testPermissions(t, e, snapSource, modifyEntry, restoreDir, expect, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
+
+	e.RunAndExpectSuccess(t, "policy", "remove", snapSource)
 }
 
 func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath string) {
