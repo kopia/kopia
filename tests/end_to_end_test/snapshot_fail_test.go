@@ -345,8 +345,7 @@ func testPermissions(
 
 	// Iterate over all permission bit configurations
 	for chmod, expected := range expect {
-		// run in nested function go be able to do defer
-		func() {
+		t.Run("mode:"+chmod.String(), func(t *testing.T) {
 			mode := changeFile.Mode()
 
 			// restore permissions even if we fail to avoid leaving non-deletable files behind.
