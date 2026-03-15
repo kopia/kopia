@@ -304,7 +304,7 @@ func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath s
 	fileName := fmt.Sprintf("file%d", currDepth+1)
 	filePath := filepath.Join(dirPath, fileName)
 
-	testdirtree.MustCreateRandomFile(t, filePath, testdirtree.DirectoryTreeOptions{}, nil)
+	testdirtree.MustCreateRandomFile(t, filePath, testdirtree.DirectoryTreeOptions{MaxFileSize: 8}, nil)
 
 	if maxDirDepth > currDepth+1 {
 		createSimplestFileTree(t, maxDirDepth, currDepth+1, dirPath)
