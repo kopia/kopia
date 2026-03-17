@@ -4,6 +4,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/kopia/kopia/internal/ospath"
 )
 
 var veryLongSegment = strings.Repeat("f", 270)
@@ -37,7 +39,7 @@ func TestMaybePrefixLongFilenameOnWindows(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if got := MaybePrefixLongFilenameOnWindows(tc.input); got != tc.want {
+		if got := ospath.SafeLongFilename(tc.input); got != tc.want {
 			t.Errorf("invalid result for %v: got %v, want %v", tc.input, got, tc.want)
 		}
 	}

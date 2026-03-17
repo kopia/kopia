@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs/localfs"
-	"github.com/kopia/kopia/internal/atomicfile"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/restore"
@@ -146,7 +146,7 @@ func TestShallowFullCycle(t *testing.T) {
 	fpathinlong := filepath.Join(dirpathlong, "nestedfile")
 
 	require.NoError(t, os.Mkdir(dirpathlong, 0o755))
-	testdirtree.MustCreateRandomFile(t, atomicfile.MaybePrefixLongFilenameOnWindows(fpathinlong), testdirtree.DirectoryTreeOptions{}, (*testdirtree.DirectoryTreeCounters)(nil))
+	testdirtree.MustCreateRandomFile(t, ospath.SafeLongFilename(fpathinlong), testdirtree.DirectoryTreeOptions{}, (*testdirtree.DirectoryTreeCounters)(nil))
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
@@ -226,7 +226,7 @@ func doNothing(_ *mutatorArgs) {
 
 // mplfow makes atomicfile.MaybePrefixLongFilenameOnWindows easier to type.
 func mplfow(fname string) string {
-	return atomicfile.MaybePrefixLongFilenameOnWindows(fname)
+	return ospath.SafeLongFilename(fname)
 }
 
 // moveDirectory moves a directory from one location to another (in the
