@@ -5,13 +5,21 @@ import (
 	"io/fs"
 	"os"
 	"time"
+
+	"github.com/kopia/kopia/internal/atomicfile"
 )
 
 // realOS is an implementation of osInterface that uses real operating system calls.
 type realOS struct{}
 
+// longPath applies MaybePrefixLongFilenameOnWindows to handle paths exceeding
+// MAX_PATH on Windows. On non-Windows platforms this is a no-op.
+func longPath(p string) string {
+	return atomicfile.MaybePrefixLongFilenameOnWindows(p)
+}
+
 func (realOS) Open(fname string) (osReadFile, error) {
-	f, err := os.Open(fname) //nolint:gosec
+	f, err := os.Open(longPath(fname))
 	if err != nil {
 		//nolint:wrapcheck
 		return nil, err
@@ -28,12 +36,12 @@ func (realOS) IsPathSeparator(c byte) bool { return os.IsPathSeparator(c) }
 
 func (realOS) Rename(oldname, newname string) error {
 	//nolint:wrapcheck
-	return os.Rename(oldname, newname)
+	return os.Rename(longPath(oldname), longPath(newname))
 }
 
 func (realOS) ReadDir(dirname string) ([]fs.DirEntry, error) {
 	//nolint:wrapcheck
-	return os.ReadDir(dirname)
+	return os.ReadDir(longPath(dirname))
 }
 
 func (realOS) IsPathError(err error) bool {
@@ -50,32 +58,32 @@ func (realOS) IsLinkError(err error) bool {
 
 func (realOS) Remove(fname string) error {
 	//nolint:wrapcheck
-	return os.Remove(fname)
+	return os.Remove(longPath(fname))
 }
 
 func (realOS) Stat(fname string) (os.FileInfo, error) {
 	//nolint:wrapcheck
-	return os.Stat(fname)
+	return os.Stat(longPath(fname))
 }
 
 func (realOS) CreateNewFile(fname string, perm os.FileMode) (osWriteFile, error) {
-	//nolint:wrapcheck,gosec
-	return os.OpenFile(fname, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
+	//nolint:wrapcheck
+	return os.OpenFile(longPath(fname), os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
 }
 
 func (realOS) Mkdir(fname string, mode os.FileMode) error {
 	//nolint:wrapcheck
-	return os.Mkdir(fname, mode)
+	return os.Mkdir(longPath(fname), mode)
 }
 
 func (realOS) MkdirAll(fname string, mode os.FileMode) error {
 	//nolint:wrapcheck
-	return os.MkdirAll(fname, mode)
+	return os.MkdirAll(longPath(fname), mode)
 }
 
 func (realOS) Chtimes(fname string, atime, mtime time.Time) error {
 	//nolint:wrapcheck
-	return os.Chtimes(fname, atime, mtime)
+	return os.Chtimes(longPath(fname), atime, mtime)
 }
 
 func (realOS) Geteuid() int {
@@ -84,7 +92,7 @@ func (realOS) Geteuid() int {
 
 func (realOS) Chown(fname string, uid, gid int) error {
 	//nolint:wrapcheck
-	return os.Chown(fname, uid, gid)
+	return os.Chown(longPath(fname), uid, gid)
 }
 
 var _ osInterface = realOS{}
