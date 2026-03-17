@@ -19,7 +19,7 @@ func longPath(p string) string {
 }
 
 func (realOS) Open(fname string) (osReadFile, error) {
-	f, err := os.Open(longPath(fname)) //nolint:gosec
+	f, err := os.Open(longPath(fname))
 	if err != nil {
 		//nolint:wrapcheck
 		return nil, err
@@ -67,7 +67,7 @@ func (realOS) Stat(fname string) (os.FileInfo, error) {
 }
 
 func (realOS) CreateNewFile(fname string, perm os.FileMode) (osWriteFile, error) {
-	//nolint:wrapcheck,gosec
+	//nolint:wrapcheck
 	return os.OpenFile(longPath(fname), os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
 }
 
