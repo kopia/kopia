@@ -117,6 +117,7 @@ type commandRestore struct {
 	restoreConsistentAttributes   bool
 	restoreMode                   string
 	restoreParallel               int
+	restoreParallelChunkWorkers   int
 	restoreIgnorePermissionErrors bool
 	restoreWriteFilesAtomically   bool
 	restoreSkipTimes              bool
@@ -148,6 +149,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar(svc.EnvName("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES")).BoolVar(&c.restoreConsistentAttributes)
 	cmd.Flag("mode", "Override restore mode").Default(restoreModeAuto).EnumVar(&c.restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
 	cmd.Flag("parallel", "Restore parallelism (1=disable)").Default("8").IntVar(&c.restoreParallel)
+	cmd.Flag("parallel-chunks", "Number of parallel chunk fetchers per file for large file restore (0=default 8, 1=disable)").Default("0").IntVar(&c.restoreParallelChunkWorkers)
 	cmd.Flag("skip-owners", "Skip owners during restore").BoolVar(&c.restoreSkipOwners)
 	cmd.Flag("skip-permissions", "Skip permissions during restore").BoolVar(&c.restoreSkipPermissions)
 	cmd.Flag("skip-times", "Skip times during restore").BoolVar(&c.restoreSkipTimes)
@@ -272,6 +274,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository)
 			SkipTimes:              c.restoreSkipTimes,
 			WriteSparseFiles:       c.restoreWriteSparseFiles,
 			FlushFiles:             c.flushFiles,
+			ParallelChunkWorkers:   c.restoreParallelChunkWorkers,
 		}
 
 		if err := o.Init(ctx); err != nil {
