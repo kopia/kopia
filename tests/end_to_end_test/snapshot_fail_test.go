@@ -356,7 +356,6 @@ func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath s
 // testPermissions iterates over readable and executable permission states, testing
 // files and directories (if present). It issues the kopia snapshot command
 // against "source" and will test permissions against all entries in "parentDir".
-// It returns the number of successful snapshot operations.
 func testPermissions(
 	t *testing.T,
 	e *testenv.CLITest,
@@ -367,8 +366,6 @@ func testPermissions(
 	parseSnapshotResultFn func(_ *testing.T, _, _ []string) parsedSnapshotResult,
 ) {
 	t.Helper()
-
-	var numSuccessfulSnapshots int
 
 	changeFile, err := os.Stat(modifyEntry)
 	require.NoError(t, err)
@@ -408,7 +405,6 @@ func testPermissions(
 			parsed := parseSnapshotResultFn(t, stdOut, stdErr)
 
 			if expected.success {
-				numSuccessfulSnapshots++
 				target := filepath.Join(t.TempDir(), "target")
 
 				e.RunAndExpectSuccess(t, "snapshot", "restore", parsed.manifestID, target)
