@@ -68,7 +68,7 @@ require (
 	golang.org/x/term v0.41.0
 	golang.org/x/text v0.35.0
 	google.golang.org/api v0.272.0
-	google.golang.org/grpc v1.79.2
+	google.golang.org/grpc v1.79.3
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
 )
