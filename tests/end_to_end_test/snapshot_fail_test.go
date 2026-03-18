@@ -375,8 +375,8 @@ func testPermissions(
 	require.NoError(t, err)
 
 	// Iterate over all permission bit configurations
-	for chmod, expected := range expect {
-		t.Run("mode:"+chmod.String(), func(t *testing.T) {
+	for permissions, expected := range expect {
+		t.Run("mode:"+permissions.String(), func(t *testing.T) {
 			mode := changeFile.Mode()
 
 			// restore permissions even if we fail to avoid leaving non-deletable files behind.
@@ -385,9 +385,9 @@ func testPermissions(
 				require.NoError(t, os.Chmod(modifyEntry, mode.Perm()))
 			}()
 
-			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), mode, chmod)
+			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), mode, permissions)
 
-			err := os.Chmod(modifyEntry, chmod)
+			err := os.Chmod(modifyEntry, permissions)
 			require.NoError(t, err)
 
 			// set up environment for the child process.
