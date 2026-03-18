@@ -295,8 +295,8 @@ func testSnapshotFailCase(
 	t *testing.T,
 	tcSnapSource string,
 	tcModifyEntry string,
-	tcIgnoreDirErr string,
-	tcIgnoreFileErr string,
+	ignoreDirErr string,
+	ignoreFileErr string,
 	snapshotCreateFlags []string,
 	snapshotCreateEnv map[string]string,
 	expect map[os.FileMode]expectedSnapshotResult,
@@ -317,7 +317,7 @@ func testSnapshotFailCase(
 	// Each directory tier will have a file, an empty directory, and the next tier's directory
 	// (unless at max depth). Naming scheme is [file|dir|emptyDir][tier #].
 	createSimplestFileTree(t, 3, 0, scratchDir)
-	e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", tcIgnoreDirErr, "--ignore-file-errors", tcIgnoreFileErr)
+	e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", ignoreDirErr, "--ignore-file-errors", ignoreFileErr)
 
 	restoreDir := filepath.Join(scratchDir, "target")
 	testPermissions(t, e, snapSource, modifyEntry, restoreDir, expect, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
