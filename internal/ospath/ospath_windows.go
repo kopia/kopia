@@ -2,7 +2,6 @@ package ospath
 
 import (
 	"os"
-	"runtime"
 	"strings"
 )
 
@@ -25,7 +24,7 @@ func SafeLongFilename(fname string) string {
 	// Intentionally using less than MAX_PATH in Windows to allow some suffixes.
 	const maxPathLength = 240
 
-	if runtime.GOOS != "windows" || len(fname) < maxPathLength ||
+	if len(fname) < maxPathLength ||
 		fname[:4] == `\\?\` || !IsAbs(fname) {
 		return fname
 	}
