@@ -106,12 +106,16 @@ func testSnapshotFail(
 		}
 
 		t.Run(fmt.Sprintf("failFast=%v:ignoreFileErr=%s", isFailFast, ignoreFileErr), func(t *testing.T) {
+			t.Parallel()
+
 			for _, ignoreDirErr := range []string{"true", "false"} {
 				if ignoreDirErr == "false" && rand.Intn(2) == 0 {
 					ignoreDirErr = "inherit"
 				}
 
 				t.Run("ignoreDirErr="+ignoreDirErr, func(t *testing.T) {
+					t.Parallel()
+
 					testSnapshotFailCases(t, isFailFast, ignoreDirErr, ignoreFileErr,
 						snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
 				})
@@ -286,8 +290,6 @@ func testSnapshotFailCases(
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			t.Parallel()
-
 			testSnapshotFailCase(t, tc.snapSource, tc.modifyEntry, ignoreDirErr, ignoreFileErr, snapshotCreateFlags, snapshotCreateEnv, tc.expectSuccess, parseSnapshotResultFn)
 		})
 	}
