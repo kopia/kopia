@@ -283,14 +283,10 @@ func testSnapshotFailCases(
 	}
 
 	for _, tc := range cases {
-		// Reference test conditions outside of range variables to satisfy linter
-		tcIgnoreDirErr := ignoreDirErr
-		tcIgnoreFileErr := ignoreFileErr
-
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			testSnapshotFailCase(t, tc.snapSource, tc.modifyEntry, tcIgnoreDirErr, tcIgnoreFileErr, snapshotCreateFlags, snapshotCreateEnv, tc.expectSuccess, parseSnapshotResultFn)
+			testSnapshotFailCase(t, tc.snapSource, tc.modifyEntry, ignoreDirErr, ignoreFileErr, snapshotCreateFlags, snapshotCreateEnv, tc.expectSuccess, parseSnapshotResultFn)
 		})
 	}
 }
