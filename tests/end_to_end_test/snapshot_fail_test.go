@@ -379,10 +379,10 @@ func testPermissions(
 		t.Run("mode:"+permissions.String(), func(t *testing.T) {
 			prevPerms := changeFile.Mode().Perm()
 
-			defer func() {
+			t.Cleanup(func() {
 				// restore permissions even if we fail to avoid leaving non-deletable files behind.
 				require.NoErrorf(t, os.Chmod(modifyEntry, prevPerms), "restoring file mode on %s to %v", modifyEntry, prevPerms)
-			}()
+			})
 
 			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), prevPerms, permissions)
 
