@@ -323,8 +323,7 @@ func testSnapshotFailCase(
 	createSimplestFileTree(t, 3, 0, scratchDir)
 	e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", ignoreDirErr, "--ignore-file-errors", ignoreFileErr)
 
-	restoreDir := filepath.Join(scratchDir, "target")
-	testPermissions(t, e, snapSource, modifyEntry, restoreDir, expect, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
+	testPermissions(t, e, snapSource, modifyEntry, expect, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
 
 	e.RunAndExpectSuccess(t, "policy", "remove", snapSource)
 }
@@ -361,7 +360,7 @@ func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath s
 func testPermissions(
 	t *testing.T,
 	e *testenv.CLITest,
-	source, modifyEntry, restoreDir string,
+	source, modifyEntry string,
 	expect map[os.FileMode]expectedSnapshotResult,
 	snapshotCreateFlags []string,
 	snapshotCreateEnv map[string]string,
@@ -410,8 +409,9 @@ func testPermissions(
 
 			if expected.success {
 				numSuccessfulSnapshots++
+				target := filepath.Join(t.TempDir(), "target")
 
-				e.RunAndExpectSuccess(t, "snapshot", "restore", parsed.manifestID, restoreDir)
+				e.RunAndExpectSuccess(t, "snapshot", "restore", parsed.manifestID, target)
 			}
 
 			require.Equal(t, expected.wantErrors, parsed.errorCount, "unexpected number of errors")
