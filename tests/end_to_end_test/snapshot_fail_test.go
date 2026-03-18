@@ -303,7 +303,7 @@ func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath s
 	err := os.MkdirAll(dirPath, 0o700)
 	require.NoError(t, err)
 
-	if maxDirDepth <= currDepth+1 {
+	if currDepth >= maxDirDepth {
 		return
 	}
 
