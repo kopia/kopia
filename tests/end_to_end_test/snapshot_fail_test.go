@@ -374,6 +374,8 @@ func testPermissions(
 	changeFile, err := os.Stat(modifyEntry)
 	require.NoError(t, err)
 
+	prevPerms := changeFile.Mode().Perm()
+
 	// save environment so it can be restored after each subtest modifies it
 	oldEnv := e.Environment
 	defer func() { e.Environment = oldEnv }()
@@ -381,8 +383,6 @@ func testPermissions(
 	// Iterate over all permission bit configurations
 	for permissions, expected := range expect {
 		t.Run("mode:"+permissions.String(), func(t *testing.T) {
-			prevPerms := changeFile.Mode().Perm()
-
 			t.Cleanup(func() {
 				// restore permissions even if we fail to avoid leaving non-deletable files behind.
 				require.NoErrorf(t, os.Chmod(modifyEntry, prevPerms), "restoring file mode on %s to %v", modifyEntry, prevPerms)
