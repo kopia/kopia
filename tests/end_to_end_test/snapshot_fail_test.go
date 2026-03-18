@@ -377,14 +377,14 @@ func testPermissions(
 	// Iterate over all permission bit configurations
 	for permissions, expected := range expect {
 		t.Run("mode:"+permissions.String(), func(t *testing.T) {
-			mode := changeFile.Mode()
+			prevPerms := changeFile.Mode().Perm()
 
-			// restore permissions even if we fail to avoid leaving non-deletable files behind.
 			defer func() {
-				require.NoErrorf(t, os.Chmod(modifyEntry, mode.Perm()), "restoring file mode on %s to %v", modifyEntry, mode)
+				// restore permissions even if we fail to avoid leaving non-deletable files behind.
+				require.NoErrorf(t, os.Chmod(modifyEntry, prevPerms), "restoring file mode on %s to %v", modifyEntry, prevPerms)
 			}()
 
-			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), mode, permissions)
+			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), prevPerms, permissions)
 
 			err := os.Chmod(modifyEntry, permissions)
 			require.NoError(t, err)
