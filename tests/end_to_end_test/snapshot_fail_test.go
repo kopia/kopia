@@ -353,9 +353,13 @@ func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath s
 	}
 }
 
-// testPermissions iterates over readable and executable permission states, testing
-// files and directories (if present). It issues the kopia snapshot command
-// against "source" and will test permissions against all entries in "parentDir".
+// testPermissions verifies that a kopia snapshot command returns
+// the expected result when the access permissions of modifyEntry
+// are set according to the expect map.
+// It iterates over the permissions (keys in the expect map), changes
+// the permissions for modifyEntry, then issues a kopia snapshot command
+// against the modified source and verifies that the command returns
+// the corresponding expectedSnapshotResult (value in the expect map).
 func testPermissions(
 	t *testing.T,
 	e *testenv.CLITest,
