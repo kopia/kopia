@@ -374,6 +374,10 @@ func testPermissions(
 	changeFile, err := os.Stat(modifyEntry)
 	require.NoError(t, err)
 
+	// save environment so it can be restored after each subtest modifies it
+	oldEnv := e.Environment
+	defer func() { e.Environment = oldEnv }()
+
 	// Iterate over all permission bit configurations
 	for permissions, expected := range expect {
 		t.Run("mode:"+permissions.String(), func(t *testing.T) {
@@ -390,14 +394,8 @@ func testPermissions(
 			require.NoError(t, err)
 
 			// set up environment for the child process.
-			oldEnv := e.Environment
-
-			e.Environment = map[string]string{}
-
-			maps.Copy(e.Environment, oldEnv)
+			e.Environment = maps.Clone(oldEnv)
 			maps.Copy(e.Environment, snapshotCreateEnv)
-
-			defer func() { e.Environment = oldEnv }()
 
 			snapshotCreateWithArgs := append([]string{"snapshot", "create", source}, snapshotCreateFlags...)
 
