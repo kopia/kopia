@@ -99,22 +99,23 @@ func testSnapshotFail(
 	}
 
 	for _, ignoreFileErr := range []string{"true", "false"} {
-		for _, ignoreDirErr := range []string{"true", "false"} {
-			ignoringDirs := ignoreDirErr == "true"
-			ignoringFiles := ignoreFileErr == "true"
-
-			// Use "inherit" instead of "false" sometimes. Inherit defaults to false
-			if !ignoringFiles && rand.Intn(2) == 0 {
-				ignoreFileErr = "inherit"
-			}
-
-			if !ignoringDirs && rand.Intn(2) == 0 {
-				ignoreDirErr = "inherit"
-			}
-
-			testSnapshotFailCases(t, isFailFast, ignoreDirErr, ignoreFileErr,
-				snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
+		// Use "inherit" instead of "false" sometimes. Inherit defaults to false
+		if ignoreFileErr == "false" && rand.Intn(2) == 0 {
+			ignoreFileErr = "inherit"
 		}
+
+		t.Run(fmt.Sprintf("failFast=%v:ignoreFileErr=%s", isFailFast, ignoreFileErr), func(t *testing.T) {
+			for _, ignoreDirErr := range []string{"true", "false"} {
+				if ignoreDirErr == "false" && rand.Intn(2) == 0 {
+					ignoreDirErr = "inherit"
+				}
+
+				t.Run("ignoreDirErr="+ignoreDirErr, func(t *testing.T) {
+					testSnapshotFailCases(t, isFailFast, ignoreDirErr, ignoreFileErr,
+						snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
+				})
+			}
+		})
 	}
 }
 
@@ -285,9 +286,8 @@ func testSnapshotFailCases(
 		// Reference test conditions outside of range variables to satisfy linter
 		tcIgnoreDirErr := ignoreDirErr
 		tcIgnoreFileErr := ignoreFileErr
-		tname := fmt.Sprintf("failFast=%v:ignoreFileErr=%s:ignoreDirErr=%s:%s", isFailFast, ignoreDirErr, ignoreFileErr, tc.desc)
 
-		t.Run(tname, func(t *testing.T) {
+		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
 			testSnapshotFailCase(t, tc.snapSource, tc.modifyEntry, tcIgnoreDirErr, tcIgnoreFileErr, snapshotCreateFlags, snapshotCreateEnv, tc.expectSuccess, parseSnapshotResultFn)
