@@ -303,6 +303,10 @@ func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath s
 	err := os.MkdirAll(dirPath, 0o700)
 	require.NoError(t, err)
 
+	if maxDirDepth <= currDepth+1 {
+		return
+	}
+
 	// Put an empty directory in the new directory
 	emptyDirName := fmt.Sprintf("emptyDir%v", currDepth+1)
 	emptyDirPath := filepath.Join(dirPath, emptyDirName)
@@ -315,9 +319,7 @@ func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath s
 
 	testdirtree.MustCreateRandomFile(t, filePath, testdirtree.DirectoryTreeOptions{MaxFileSize: 8}, nil)
 
-	if maxDirDepth > currDepth+1 {
-		createSimplestFileTree(t, maxDirDepth, currDepth+1, dirPath)
-	}
+	createSimplestFileTree(t, maxDirDepth, currDepth+1, dirPath)
 }
 
 // testPermissions verifies that a kopia snapshot command returns
