@@ -6,8 +6,8 @@ package ospath
 // Currently it only handles absolute paths on Windows. It is a no-op on other
 // platforms.
 //
-// On Windows, the prefixes the given filename with \\?\ when the filename is
-// longer than 260 characters, which is required to be able to use some
+// On Windows, it prefixes the given filename with \\?\ when the filename length
+// approximates MAX_PATH characters, which is required to be able to use some
 // low-level Windows APIs.
 //
 // Relative paths are always limited to a total of MAX_PATH characters:
