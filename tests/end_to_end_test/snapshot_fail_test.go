@@ -120,6 +120,7 @@ func testSnapshotFail(
 	}
 }
 
+//nolint:cyclop
 func testSnapshotFailCases(
 	t *testing.T,
 	isFailFast bool,
