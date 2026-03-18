@@ -381,8 +381,7 @@ func testPermissions(
 
 			// restore permissions even if we fail to avoid leaving non-deletable files behind.
 			defer func() {
-				t.Logf("restoring file mode on %s to %v", modifyEntry, mode)
-				require.NoError(t, os.Chmod(modifyEntry, mode.Perm()))
+				require.NoErrorf(t, os.Chmod(modifyEntry, mode.Perm()), "restoring file mode on %s to %v", modifyEntry, mode)
 			}()
 
 			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), mode, permissions)
