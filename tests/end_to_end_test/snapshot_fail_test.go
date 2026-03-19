@@ -162,7 +162,7 @@ func testSnapshotFailCases(
 			success:           ignoringFiles && ignoringDirs,
 			wantErrors:        fatalErrorCount(ignoringDirs, ignoringFiles),
 			wantIgnoredErrors: ignoredErrorCount(ignoringDirs, ignoringFiles),
-			wantPartial:       !(ignoringFiles && ignoringDirs) && isFailFast,
+			wantPartial:       !(ignoringFiles && ignoringDirs) && isFailFast, //nolint:staticcheck
 		}
 	)
 
