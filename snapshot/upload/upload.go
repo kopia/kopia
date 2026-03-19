@@ -831,7 +831,7 @@ func (u *Uploader) processDirectoryEntries(
 	return nil
 }
 
-//nolint:funlen
+//nolint:funlen,gocyclo
 func (u *Uploader) processSingle(
 	ctx context.Context,
 	entry fs.Entry,
@@ -938,8 +938,14 @@ func (u *Uploader) processSingle(
 
 			prefix = "unknown entry"
 		} else {
-			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
 			prefix = "error"
+			ehp := policyTree.EffectivePolicy().ErrorHandlingPolicy
+
+			if entry.IsDir() {
+				isIgnoredError = ehp.IgnoreDirectoryErrors.OrDefault(false)
+			} else {
+				isIgnoredError = ehp.IgnoreFileErrors.OrDefault(false)
+			}
 		}
 
 		return u.processEntryUploadResult(ctx, nil, entry.ErrorInfo(), entryRelativePath, parentDirBuilder,

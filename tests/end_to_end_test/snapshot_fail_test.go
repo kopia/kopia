@@ -157,6 +157,13 @@ func testSnapshotFailCases(
 			wantIgnoredErrors: cond(ignoringDirs, 1, 0),
 			wantPartial:       !ignoringDirs && isFailFast,
 		}
+
+		expectedWhenUnreadableDirEntries = expectedSnapshotResult{
+			success:           ignoringFiles && ignoringDirs,
+			wantErrors:        fatalErrorCount(ignoringDirs, ignoringFiles),
+			wantIgnoredErrors: ignoredErrorCount(ignoringDirs, ignoringFiles),
+			wantPartial:       !(ignoringFiles && ignoringDirs) && isFailFast, //nolint:staticcheck
+		}
 	)
 
 	// Test the root dir permissions
@@ -213,7 +220,7 @@ func testSnapshotFailCases(
 			expectSuccess: map[os.FileMode]expectedSnapshotResult{
 				0o000: expectEarlyFailure,
 				0o100: expectEarlyFailure,
-				0o400: expectEarlyFailure,
+				0o400: expectedWhenUnreadableDirEntries,
 			},
 		},
 		{
@@ -243,7 +250,7 @@ func testSnapshotFailCases(
 			expectSuccess: map[os.FileMode]expectedSnapshotResult{
 				0o000: expectedWhenIgnoringDirs,
 				0o100: expectedWhenIgnoringDirs,
-				0o400: expectedWhenIgnoringDirs,
+				0o400: expectedWhenUnreadableDirEntries,
 			},
 		},
 		{
@@ -273,7 +280,7 @@ func testSnapshotFailCases(
 			expectSuccess: map[os.FileMode]expectedSnapshotResult{
 				0o000: expectedWhenIgnoringDirs,
 				0o100: expectedWhenIgnoringDirs,
-				0o400: expectedWhenIgnoringDirs,
+				0o400: expectedWhenUnreadableDirEntries,
 			},
 		},
 		{
@@ -293,6 +300,24 @@ func testSnapshotFailCases(
 			testPermissions(t, tc.snapSource, tc.modifyEntry, ignoreDirErr, ignoreFileErr, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
 		})
 	}
+}
+
+func ignoredErrorCount(ignoringDirErrs, ignoringFileErrs bool) int {
+	var errCount int
+
+	if ignoringDirErrs {
+		errCount += 2
+	}
+
+	if ignoringFileErrs {
+		errCount += 1
+	}
+
+	return errCount
+}
+
+func fatalErrorCount(ignoringDirErrs, ignoringFileErrs bool) int {
+	return 3 - ignoredErrorCount(ignoringDirErrs, ignoringFileErrs)
 }
 
 func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath string) {
@@ -397,9 +422,16 @@ func testPermissions(
 				e.RunAndExpectSuccess(t, "snapshot", "restore", parsed.manifestID, target)
 			}
 
-			require.Equal(t, expected.wantErrors, parsed.errorCount, "unexpected number of errors")
-			require.Equal(t, expected.wantIgnoredErrors, parsed.ignoredErrorCount, "unexpected number of ignored errors")
 			require.Equal(t, expected.wantPartial, parsed.partial, "unexpected partial")
+
+			if expected.wantPartial {
+				// for partial snapshots, only check that at least one fatal error was recorded
+				require.Positive(t, parsed.errorCount, "expected at least one fatal error")
+			} else {
+				// the total number of errors can only be validated for non-partial snapshots
+				require.Equal(t, expected.wantErrors, parsed.errorCount, "unexpected number of errors")
+				require.Equal(t, expected.wantIgnoredErrors, parsed.ignoredErrorCount, "unexpected number of ignored errors")
+			}
 		})
 	}
 }
