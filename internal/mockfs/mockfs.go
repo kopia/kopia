@@ -204,7 +204,7 @@ func (imd *Directory) AddDir(name string, permissions os.FileMode) *Directory {
 	return subdir
 }
 
-// AddErrorEntry adds a fake directory with a given name and permissions.
+// AddErrorEntry adds a fake directory-typed error entry with a given name and permissions.
 func (imd *Directory) AddErrorEntry(name string, permissions os.FileMode, err error) *ErrorEntry {
 	imd, name = imd.resolveSubdir(name)
 
@@ -212,6 +212,24 @@ func (imd *Directory) AddErrorEntry(name string, permissions os.FileMode, err er
 		entry: entry{
 			name:    name,
 			mode:    permissions | os.ModeDir,
+			modTime: DefaultModTime,
+		},
+		err: err,
+	}
+
+	imd.addChild(ee)
+
+	return ee
+}
+
+// AddFileErrorEntry adds a fake file-typed error entry with a given name and permissions.
+func (imd *Directory) AddFileErrorEntry(name string, permissions os.FileMode, err error) *ErrorEntry {
+	imd, name = imd.resolveSubdir(name)
+
+	ee := &ErrorEntry{
+		entry: entry{
+			name:    name,
+			mode:    permissions &^ os.ModeDir,
 			modTime: DefaultModTime,
 		},
 		err: err,
