@@ -290,42 +290,9 @@ func testSnapshotFailCases(
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			testSnapshotFailCase(t, tc.snapSource, tc.modifyEntry, ignoreDirErr, ignoreFileErr, snapshotCreateFlags, snapshotCreateEnv, tc.expectSuccess, parseSnapshotResultFn)
+			testPermissions(t, tc.snapSource, tc.modifyEntry, ignoreDirErr, ignoreFileErr, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
 		})
 	}
-}
-
-func testSnapshotFailCase(
-	t *testing.T,
-	tcSnapSource string,
-	tcModifyEntry string,
-	ignoreDirErr string,
-	ignoreFileErr string,
-	snapshotCreateFlags []string,
-	snapshotCreateEnv map[string]string,
-	expect map[os.FileMode]expectedSnapshotResult,
-	parseSnapshotResultFn func(t *testing.T, stdOut, stderr []string) parsedSnapshotResult,
-) {
-	t.Helper()
-
-	runner := testenv.NewInProcRunner(t)
-	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
-
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
-	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
-
-	scratchDir := testutil.TempDirectory(t)
-	snapSource := filepath.Join(scratchDir, tcSnapSource)
-	modifyEntry := filepath.Join(scratchDir, tcModifyEntry)
-
-	// Each directory tier will have a file, an empty directory, and the next tier's directory
-	// (unless at max depth). Naming scheme is [file|dir|emptyDir][tier #].
-	createSimplestFileTree(t, 3, 0, scratchDir)
-	e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", ignoreDirErr, "--ignore-file-errors", ignoreFileErr)
-
-	testPermissions(t, e, snapSource, modifyEntry, expect, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
-
-	e.RunAndExpectSuccess(t, "policy", "remove", snapSource)
 }
 
 func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath string) {
@@ -335,6 +302,10 @@ func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath s
 	dirPath := filepath.Join(currPath, dirname)
 	err := os.MkdirAll(dirPath, 0o700)
 	require.NoError(t, err)
+
+	if currDepth >= maxDirDepth {
+		return
+	}
 
 	// Put an empty directory in the new directory
 	emptyDirName := fmt.Sprintf("emptyDir%v", currDepth+1)
@@ -348,9 +319,7 @@ func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath s
 
 	testdirtree.MustCreateRandomFile(t, filePath, testdirtree.DirectoryTreeOptions{MaxFileSize: 8}, nil)
 
-	if maxDirDepth > currDepth+1 {
-		createSimplestFileTree(t, maxDirDepth, currDepth+1, dirPath)
-	}
+	createSimplestFileTree(t, maxDirDepth, currDepth+1, dirPath)
 }
 
 // testPermissions verifies that a kopia snapshot command returns
@@ -362,8 +331,7 @@ func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath s
 // the corresponding expectedSnapshotResult (value in the expect map).
 func testPermissions(
 	t *testing.T,
-	e *testenv.CLITest,
-	source, modifyEntry string,
+	tcSnapSource, tcModifyEntry, ignoreDirErr, ignoreFileErr string,
 	expect map[os.FileMode]expectedSnapshotResult,
 	snapshotCreateFlags []string,
 	snapshotCreateEnv map[string]string,
@@ -371,34 +339,49 @@ func testPermissions(
 ) {
 	t.Helper()
 
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	scratchDir := testutil.TempDirectory(t)
+	source := filepath.Join(scratchDir, tcSnapSource)
+
+	// Each directory tier will have a file, an empty directory, and the next tier's directory
+	// (unless at max depth). Naming scheme is [file|dir|emptyDir][tier #].
+	createSimplestFileTree(t, 3, 0, scratchDir)
+
+	e.RunAndExpectSuccess(t, "policy", "set", source, "--ignore-dir-errors", ignoreDirErr, "--ignore-file-errors", ignoreFileErr)
+	defer e.RunAndExpectSuccess(t, "policy", "remove", source)
+
+	modifyEntry := filepath.Join(scratchDir, tcModifyEntry)
+
 	changeFile, err := os.Stat(modifyEntry)
 	require.NoError(t, err)
 
+	prevPerms := changeFile.Mode().Perm()
+
+	// save environment so it can be restored after each subtest modifies it
+	oldEnv := e.Environment
+	defer func() { e.Environment = oldEnv }()
+
 	// Iterate over all permission bit configurations
-	for chmod, expected := range expect {
-		t.Run("mode:"+chmod.String(), func(t *testing.T) {
-			mode := changeFile.Mode()
+	for permissions, expected := range expect {
+		t.Run("mode:"+permissions.String(), func(t *testing.T) {
+			t.Cleanup(func() {
+				// restore permissions even if we fail to avoid leaving non-deletable files behind.
+				require.NoErrorf(t, os.Chmod(modifyEntry, prevPerms), "restoring file mode on %s to %v", modifyEntry, prevPerms)
+			})
 
-			// restore permissions even if we fail to avoid leaving non-deletable files behind.
-			defer func() {
-				t.Logf("restoring file mode on %s to %v", modifyEntry, mode)
-				require.NoError(t, os.Chmod(modifyEntry, mode.Perm()))
-			}()
+			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), prevPerms, permissions)
 
-			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), mode, chmod)
-
-			err := os.Chmod(modifyEntry, chmod)
+			err := os.Chmod(modifyEntry, permissions)
 			require.NoError(t, err)
 
 			// set up environment for the child process.
-			oldEnv := e.Environment
-
-			e.Environment = map[string]string{}
-
-			maps.Copy(e.Environment, oldEnv)
+			e.Environment = maps.Clone(oldEnv)
 			maps.Copy(e.Environment, snapshotCreateEnv)
-
-			defer func() { e.Environment = oldEnv }()
 
 			snapshotCreateWithArgs := append([]string{"snapshot", "create", source}, snapshotCreateFlags...)
 
