@@ -928,8 +928,13 @@ func (u *Uploader) processSingle(
 			prefix         string
 		)
 
+		// Use the child policy for the specific entry path, not the parent directory policy.
+		// This ensures per-entry error handling rules are respected, consistent with how
+		// directory processing derives childTree via policyTree.Child().
+		childPolicy := policyTree.Child(entry.Name()).EffectivePolicy()
+
 		if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
-			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
+			isIgnoredError = childPolicy.ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
 
 			// If unknown types are configured to be ignored, skip them completely without any error reporting
 			if isIgnoredError {
@@ -939,7 +944,7 @@ func (u *Uploader) processSingle(
 			prefix = "unknown entry"
 		} else {
 			prefix = "error"
-			ehp := policyTree.EffectivePolicy().ErrorHandlingPolicy
+			ehp := childPolicy.ErrorHandlingPolicy
 
 			if entry.IsDir() {
 				isIgnoredError = ehp.IgnoreDirectoryErrors.OrDefault(false)
