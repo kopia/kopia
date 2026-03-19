@@ -928,8 +928,10 @@ func (u *Uploader) processSingle(
 			prefix         string
 		)
 
+		entryPolicy := policyTree.Child(entry.Name()).EffectivePolicy()
+
 		if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
-			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
+			isIgnoredError = entryPolicy.ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
 
 			// If unknown types are configured to be ignored, skip them completely without any error reporting
 			if isIgnoredError {
@@ -938,13 +940,13 @@ func (u *Uploader) processSingle(
 
 			prefix = "unknown entry"
 		} else {
-			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
+			isIgnoredError = entryPolicy.ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
 			prefix = "error"
 		}
 
 		return u.processEntryUploadResult(ctx, nil, entry.ErrorInfo(), entryRelativePath, parentDirBuilder,
 			isIgnoredError,
-			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
+			u.OverrideEntryLogDetail.OrDefault(entryPolicy.LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
 			prefix, t0)
 
 	case fs.StreamingFile:
