@@ -422,9 +422,16 @@ func testPermissions(
 				e.RunAndExpectSuccess(t, "snapshot", "restore", parsed.manifestID, target)
 			}
 
-			require.Equal(t, expected.wantErrors, parsed.errorCount, "unexpected number of errors")
-			require.Equal(t, expected.wantIgnoredErrors, parsed.ignoredErrorCount, "unexpected number of ignored errors")
 			require.Equal(t, expected.wantPartial, parsed.partial, "unexpected partial")
+
+			if expected.wantPartial {
+				// for partial snapshots, only check that at least one fatal error was recorded
+				require.Positive(t, parsed.errorCount, "expected at least one fatal error")
+			} else {
+				// the total number of errors can only be validated for non-partial snapshots
+				require.Equal(t, expected.wantErrors, parsed.errorCount, "unexpected number of errors")
+				require.Equal(t, expected.wantIgnoredErrors, parsed.ignoredErrorCount, "unexpected number of ignored errors")
+			}
 		})
 	}
 }
