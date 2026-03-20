@@ -1024,3 +1024,73 @@ func TestSnapshotCreateIgnoreRulesFileInvalidRelativePath(t *testing.T) {
 	e.RunAndExpectFailure(t, "snapshot", "create", baseDir, "--ignore-rules-file", "../../relative/path/to/ignorefile")
 	e.RunAndExpectFailure(t, "snapshot", "create", baseDir, "--ignore-rules-file", "./relative/path/to/ignorefile")
 }
+
+func TestSnapshotCreateIgnoreRulesFileWithSubdirectoryPolicy(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	baseDir := testutil.TempDirectory(t)
+	files := []testFileEntry{
+		{Name: "file1.txt"},
+		{Name: "file2.log"},
+		{Name: "src/main.go"},
+		{Name: "src/debug.log"},
+		{Name: "src/test.tmp"},
+		{Name: "src/internal/helper.go"},
+		{Name: "src/internal/trace.log"},
+	}
+
+	require.NoError(t, createFileStructure(baseDir, files))
+
+	// Set a subdirectory policy on src/ — this is what previously broke global ignore rules
+	srcPath := filepath.Join(baseDir, "src")
+	e.RunAndExpectSuccess(t, "policy", "set", srcPath, "--add-ignore", "*.tmp")
+
+	// Create external ignore file
+	ignoreRulesFile := filepath.Join(testutil.TempDirectory(t), "ignore-rules.txt")
+	require.NoError(t, os.WriteFile(ignoreRulesFile, []byte("*.log\n"), 0o644))
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", baseDir, "--ignore-rules-file", ignoreRulesFile)
+
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
+	require.Len(t, sources, 1)
+	oid := sources[0].Snapshots[0].ObjectID
+	entries := clitestutil.ListDirectoryRecursive(t, e, oid)
+
+	var output []string
+	for _, s := range entries {
+		output = append(output, s.Name)
+	}
+
+	expected := []string{
+		"file1.txt",
+		"src/",
+		"src/main.go",
+		"src/internal/",
+		"src/internal/helper.go",
+	}
+
+	var expectedWithDirs []string
+	for _, ex := range expected {
+		expectedWithDirs = appendIfMissing(expectedWithDirs, ex)
+		if !strings.HasSuffix(ex, "/") {
+			for d, _ := path.Split(ex); d != ""; d, _ = path.Split(d) {
+				expectedWithDirs = appendIfMissing(expectedWithDirs, d)
+				d = strings.TrimSuffix(d, "/")
+			}
+		}
+	}
+
+	sort.Strings(output)
+	sort.Strings(expectedWithDirs)
+
+	if diff := pretty.Compare(output, expectedWithDirs); diff != "" {
+		t.Errorf("unexpected directory tree, diff(-got,+want): %v\n", diff)
+	}
+}

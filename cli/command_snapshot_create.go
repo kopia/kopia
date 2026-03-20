@@ -12,8 +12,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/virtualfs"
 	"github.com/kopia/kopia/internal/ospath"
+	"github.com/kopia/kopia/internal/wcmatch"
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/repo"
@@ -78,7 +81,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("flush-per-source", "Flush writes at the end of each source").Hidden().BoolVar(&c.flushPerSource)
 	cmd.Flag("override-source", "Override the source of the snapshot.").StringVar(&c.sourceOverride)
 	cmd.Flag("send-snapshot-report", "Send a snapshot report notification using configured notification profiles").Default("true").BoolVar(&c.sendSnapshotReport)
-	cmd.Flag("ignore-rules-file", "Absolute path to a file containing ignore rules to also consider when backing up the source path").Default("").StringVar(&c.snapshotCreateIgnoreRuleFilePath)
+	cmd.Flag("ignore-rules-file", "Absolute path to a file containing ignore rules enforced unconditionally, taking precedence over all directory-level policy settings").Default("").StringVar(&c.snapshotCreateIgnoreRuleFilePath)
 
 	c.logDirDetail = -1
 	c.logEntryDetail = -1
@@ -320,14 +323,14 @@ func (c *commandSnapshotCreate) snapshotSingleSource(
 		mwe.Previous = previous[0]
 	}
 
-	currentPolicyTree, finalErr := policy.TreeForSource(ctx, rep, sourceInfo)
+	finalErr = maybeSetUploaderIgnoreMatchers(ctx, u, c.snapshotCreateIgnoreRuleFilePath)
 	if finalErr != nil {
-		return errors.Wrap(finalErr, "unable to get policy tree")
+		return errors.Wrap(finalErr, "unable to set uploader ignore matchers from external ignore rules file")
 	}
 
-	policyTree, err := getPolicyTree(ctx, currentPolicyTree, c.snapshotCreateIgnoreRuleFilePath, rep, sourceInfo)
-	if err != nil {
-		return errors.Wrap(err, "unable to get policy tree with ignore rules")
+	policyTree, finalErr := policy.TreeForSource(ctx, rep, sourceInfo)
+	if finalErr != nil {
+		return errors.Wrap(finalErr, "unable to get policy tree")
 	}
 
 	manifest, finalErr := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)
@@ -398,47 +401,53 @@ func (c *commandSnapshotCreate) snapshotSingleSource(
 	return c.reportSnapshotStatus(ctx, manifest)
 }
 
-func getPolicyTree(
-	ctx context.Context,
-	currentPolicyTree *policy.Tree,
-	ignoreRuleFilePath string,
-	rep repo.RepositoryWriter,
-	sourceInfo snapshot.SourceInfo,
-) (*policy.Tree, error) {
-	emptyPolicy := policy.Policy{}
-
-	sourceDefinedPolicy := currentPolicyTree.DefinedPolicy()
-	if sourceDefinedPolicy == nil {
-		sourceDefinedPolicy = &emptyPolicy
+func maybeSetUploaderIgnoreMatchers(ctx context.Context, u *upload.Uploader, ignoreRuleFilePath string) error {
+	externalEnforcedMatchers, err := parseExternalIgnoreFile(ctx, ignoreRuleFilePath)
+	if err != nil {
+		return errors.Wrap(err, "unable to parse external ignore rules file")
 	}
 
-	var policyTree *policy.Tree
-
-	if ignoreRuleFilePath != "" {
-		// Ensure the path to ignore rule is absolute
-		if !ospath.IsAbs(ignoreRuleFilePath) {
-			return nil, errors.New("path provided to --ignore-rules-file flag must be absolute")
-		}
-
-		// Ensure the path exists
-		_, err := os.Stat(ignoreRuleFilePath)
-		if err != nil {
-			return nil, errors.Wrap(err, "path provided to --ignore-rules-file flag must exist")
-		}
-
-		sourceDefinedPolicy.FilesPolicy.DotIgnoreFiles = append(sourceDefinedPolicy.FilesPolicy.DotIgnoreFiles, ignoreRuleFilePath)
-
-		policyTreeWithOverridePolicy, err := policy.TreeForSourceWithOverride(ctx, rep, sourceInfo, sourceDefinedPolicy)
-		if err != nil {
-			return nil, errors.New("unable to get policy tree")
-		}
-
-		policyTree = policyTreeWithOverridePolicy
-	} else {
-		policyTree = currentPolicyTree
+	if len(externalEnforcedMatchers) > 0 {
+		u.ExternalEnforcedMatchers = externalEnforcedMatchers
 	}
 
-	return policyTree, nil
+	return nil
+}
+
+func parseExternalIgnoreFile(ctx context.Context, ignoreRuleFilePath string) ([]wcmatch.WildcardMatcher, error) {
+	if ignoreRuleFilePath == "" {
+		return nil, nil
+	}
+
+	// Ensure the path is absolute
+	if !ospath.IsAbs(ignoreRuleFilePath) {
+		return nil, errors.New("path provided to --ignore-rules-file flag must be absolute")
+	}
+
+	// check if the file exists
+	_, err := os.Stat(ignoreRuleFilePath)
+	if err != nil {
+		return nil, errors.Wrap(err, "path provided to --ignore-rules-file flag must exist")
+	}
+
+	entry, err := localfs.NewEntry(ignoreRuleFilePath)
+	if err != nil {
+		return nil, errors.Wrap(err, "path provided to --ignore-rules-file flag must exist and be readable")
+	}
+
+	file, ok := entry.(fs.File)
+	if !ok {
+		return nil, errors.New("path provided to --ignore-rules-file flag must be a file")
+	}
+
+	// the base directory of the matchers generated is set to ""
+	// since the ignore rules file is expected to contain rules relative to the snapshot source root.
+	matchers, err := ignorefs.ParseIgnoreFile(ctx, "", file)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to parse ignore rules file provided to --ignore-rules-file flag")
+	}
+
+	return matchers, nil
 }
 
 func (c *commandSnapshotCreate) reportSnapshotStatus(ctx context.Context, manifest *snapshot.Manifest) error {
