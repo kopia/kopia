@@ -427,9 +427,9 @@ func TestUpload_ErrorEntries(t *testing.T) {
 
 	t.Cleanup(th.cleanup)
 
-	th.sourceDir.Subdir("d1").AddErrorEntry("some-unknown-entry", os.ModeIrregular, fs.ErrUnknown)
-	th.sourceDir.Subdir("d1").AddErrorEntry("some-failed-entry", 0, errors.New("some-other-error"))
-	th.sourceDir.Subdir("d2").AddErrorEntry("another-failed-entry", os.ModeIrregular, errors.New("another-error"))
+	th.sourceDir.Subdir("d1").AddErrorEntryIrregular("some-unknown-entry", 0, fs.ErrUnknown)
+	th.sourceDir.Subdir("d1").AddErrorEntryFile("some-failed-entry", 0, errors.New("some-other-error"))
+	th.sourceDir.Subdir("d2").AddErrorEntryIrregular("another-failed-entry", 0, errors.New("another-error"))
 
 	trueValue := policy.OptionalBool(true)
 	falseValue := policy.OptionalBool(false)
@@ -529,9 +529,9 @@ func TestUpload_ErrorEntryChildPolicy(t *testing.T) {
 	t.Cleanup(th.cleanup)
 
 	// Add a dir-typed error entry, a file-typed error entry, and an unknown-typed error entry under d1.
-	th.sourceDir.Subdir("d1").AddErrorEntry("dir-err", 0, errors.New("dir-error"))
-	th.sourceDir.Subdir("d1").AddFileErrorEntry("file-err", 0, errors.New("file-error"))
-	th.sourceDir.Subdir("d1").AddErrorEntry("unknown-err", os.ModeIrregular, fs.ErrUnknown)
+	th.sourceDir.Subdir("d1").AddErrorEntryDir("dir-err", 0, errors.New("dir-error"))
+	th.sourceDir.Subdir("d1").AddErrorEntryFile("file-err", 0, errors.New("file-error"))
+	th.sourceDir.Subdir("d1").AddErrorEntryIrregular("unknown-err", 0, fs.ErrUnknown)
 
 	trueValue := policy.OptionalBool(true)
 	falseValue := policy.OptionalBool(false)
@@ -1458,7 +1458,7 @@ func TestUploadLogging(t *testing.T) {
 	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, defaultPermissions)
 	sourceDir.AddFile("f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
 	sourceDir.AddSymlink("f4", "f2", defaultPermissions)
-	sourceDir.AddErrorEntry("f5", defaultPermissions, errors.New("some error"))
+	sourceDir.AddErrorEntryFile("f5", defaultPermissions, errors.New("some error"))
 
 	sourceDir.AddDir("d1", defaultPermissions)
 	sourceDir.AddDir("d1/d3", defaultPermissions)
