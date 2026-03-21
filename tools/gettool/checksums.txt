@@ -13,12 +13,11 @@ https://github.com/golangci/golangci-lint/releases/download/v2.6.1/golangci-lint
 https://github.com/golangci/golangci-lint/releases/download/v2.6.1/golangci-lint-2.6.1-linux-arm64.tar.gz: 1c22b899f2dd84f9638e0e0352a319a2867b0bb082c5323ad50d8713b65bb793
 https://github.com/golangci/golangci-lint/releases/download/v2.6.1/golangci-lint-2.6.1-linux-armv6.tar.gz: b52331fb224cdc987f8f703120d546a98114c400a453c61a2b51a86d0d669dbe
 https://github.com/golangci/golangci-lint/releases/download/v2.6.1/golangci-lint-2.6.1-windows-amd64.zip: b6edeea3d1d52331e98dc6378f710cfe2d752ca1ba09032fe60e62a87a27a25f
-https://github.com/goreleaser/goreleaser/releases/download/v0.176.0/goreleaser_Darwin_arm64.tar.gz: 1f95e6561974f4766d8833438b646b06930563ca9867447ea03edb623d876c75
-https://github.com/goreleaser/goreleaser/releases/download/v0.176.0/goreleaser_Darwin_x86_64.tar.gz: 17ecad881a50e32f033da5a200c8417d37cae70f09e925645452937998aca506
-https://github.com/goreleaser/goreleaser/releases/download/v0.176.0/goreleaser_Linux_arm64.tar.gz: 8bf2a9b9e84498bfa239f2fe91b2d555642c87ab9d3f5d37f29e6e97116910a3
-https://github.com/goreleaser/goreleaser/releases/download/v0.176.0/goreleaser_Linux_armv6.tar.gz: f1903865b6ede1a4324c71d3efa4155b7067d1d357ccfd844c07c2bb3dcb4af2
-https://github.com/goreleaser/goreleaser/releases/download/v0.176.0/goreleaser_Linux_x86_64.tar.gz: 13bf8ef4ec33d4f3ff2d2c7c02361946e29d69093cf7102e46dcb49e48a31435
-https://github.com/goreleaser/goreleaser/releases/download/v0.176.0/goreleaser_Windows_x86_64.zip: ccd955af3069c3f8a560e40b7d6a92566febeb5abb243274e4484c136ec7b4df
+https://github.com/goreleaser/nfpm/releases/download/v2.35.2/nfpm_2.35.2_Darwin_arm64.tar.gz: 48b36f3db2e1fc97124298dc4453d64722e8854a65d71ada89d2575a8a4f3bc1
+https://github.com/goreleaser/nfpm/releases/download/v2.35.2/nfpm_2.35.2_Darwin_x86_64.tar.gz: 7d212f80434b320ea1d690db0950d02e2ecd7bf513483cfbd2cc2b4e3aa0425a
+https://github.com/goreleaser/nfpm/releases/download/v2.35.2/nfpm_2.35.2_Linux_arm64.tar.gz: 21b2e12302a5ffbdf7647962247c0842f5e0a425a72a552770e7586283b3dca1
+https://github.com/goreleaser/nfpm/releases/download/v2.35.2/nfpm_2.35.2_Linux_x86_64.tar.gz: e976e0d662fe30b87560f0f401d0f7df7377d05e1a61f0e0aee5244cbafd2235
+https://github.com/goreleaser/nfpm/releases/download/v2.35.2/nfpm_2.35.2_Windows_x86_64.zip: f6e62f2c20e132b1d1fcca8bf41c44df722a9f30185d0053614a80fce360dc5e
 https://github.com/gotestyourself/gotestsum/releases/download/v1.11.0/gotestsum_1.11.0_darwin_amd64.tar.gz: e857b31adde83a534cb7ae2b2eec73fed5d96687a25692267dd061e220df102e
 https://github.com/gotestyourself/gotestsum/releases/download/v1.11.0/gotestsum_1.11.0_darwin_arm64.tar.gz: 4e47a76a29150ff90638d249843c2d10c4ed6abdafdde5f8bf9fd9f19e36a3fd
 https://github.com/gotestyourself/gotestsum/releases/download/v1.11.0/gotestsum_1.11.0_linux_amd64.tar.gz: 531c37ec646a9793a3c473831b9ee5314da8056c263772840d96afe9a9498e93
