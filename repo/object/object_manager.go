@@ -129,7 +129,7 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID, metadataComp
 		}
 	}
 
-	log(ctx).Debugf("concatenated %d entries, total: %v", len(concatenatedEntries), totalLength)
+	log(ctx).Debugf("concatenated %d entries, total object length: %d", len(concatenatedEntries), totalLength)
 
 	w := om.NewWriter(ctx, WriterOptions{
 		Prefix:             indirectContentPrefix,
