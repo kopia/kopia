@@ -54,7 +54,7 @@ func (c *commandRepositorySetParameters) setup(svc appServices, parent commandPa
 	cmd.Flag("epoch-advance-on-count", "Advance epoch if the number of indexes exceeds given threshold").IntVar(&c.epochAdvanceOnCount)
 	cmd.Flag("epoch-advance-on-size-mb", "Advance epoch if the total size of indexes exceeds given threshold").Int64Var(&c.epochAdvanceOnSizeMB)
 	cmd.Flag("epoch-delete-parallelism", "Epoch delete parallelism").IntVar(&c.epochDeleteParallelism)
-	cmd.Flag("epoch-checkpoint-frequency", "Checkpoint frequency").IntVar(&c.epochCheckpointFrequency)
+	cmd.Flag("epoch-checkpoint-frequency", "Epoch range-compaction period").PlaceHolder("number-of-epochs").IntVar(&c.epochCheckpointFrequency)
 
 	if svc.enableTestOnlyFlags() {
 		cmd.Flag("add-required-feature", "Add required feature which must be present to open the repository").Hidden().StringVar(&c.addRequiredFeature)
