@@ -16,6 +16,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/dirutil"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
@@ -174,7 +175,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 			return err
 		}
 
-		err = fs.osi.Rename(tempFile, path)
+		err = renameBlob(ctx, fs.osi, tempFile, path)
 		if err != nil {
 			if removeErr := fs.osi.Remove(tempFile); removeErr != nil {
 				log(ctx).Errorf("can't remove temp file: %v", removeErr)
@@ -209,6 +210,20 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 	}), fs.isRetriable)
 
 	return err
+}
+
+func renameBlob(ctx context.Context, osi osInterface, oldPath, newPath string) error {
+	count := 1
+
+	if envflag.Bool("KOPIA_FS_RETRY_BLOB_RENAME") {
+		count = 10
+	}
+
+	return retry.PeriodicallyNoValue(ctx, time.Second, count, "rename blob",
+		func() error {
+			return osi.Rename(oldPath, newPath)
+		},
+		retry.Always)
 }
 
 // createTempFileWithData creates a temporary file, writes data to it, syncs and closes it.
