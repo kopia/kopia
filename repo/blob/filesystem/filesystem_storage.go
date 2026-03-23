@@ -290,7 +290,7 @@ func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) er
 }
 
 func (fs *fsImpl) RemoveDirInPath(_ context.Context, dirPath string) error {
-	return fs.osi.Remove(dirPath)
+	return errors.Wrapf(fs.osi.Remove(dirPath), "error removing directory %v", dirPath)
 }
 
 func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {

@@ -280,10 +280,12 @@ func TestShardedDeleteBlobCleansUpEmptyShardDirs(t *testing.T) {
 		},
 	}, true)
 	require.NoError(t, err)
+
 	defer st.Close(ctx)
 
 	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.
 	blobID := blob.ID("abcdef1234567890abcde")
+
 	require.NoError(t, st.PutBlob(ctx, blobID, gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
 	// Verify shard dirs exist
@@ -313,12 +315,14 @@ func TestShardedDeleteBlobPreservesNonEmptyShardDirs(t *testing.T) {
 		},
 	}, true)
 	require.NoError(t, err)
+
 	defer st.Close(ctx)
 
 	// Two blobs sharing the same top-level shard "abc" but different sub-shards.
 	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.
 	blob1 := blob.ID("abcdef1234567890abcde")
 	blob2 := blob.ID("abcghi9876543210abcde")
+
 	require.NoError(t, st.PutBlob(ctx, blob1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	require.NoError(t, st.PutBlob(ctx, blob2, gather.FromSlice([]byte{2}), blob.PutOptions{}))
 
@@ -343,12 +347,14 @@ func TestShardedDeleteBlobPartialChainCleanup(t *testing.T) {
 		},
 	}, true)
 	require.NoError(t, err)
+
 	defer st.Close(ctx)
 
 	// Two blobs sharing the same top-level shard but different sub-shards.
 	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.
 	blob1 := blob.ID("abcdef1234567890abcde")
 	blob2 := blob.ID("abcxyz0000000000abcde")
+
 	require.NoError(t, st.PutBlob(ctx, blob1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	require.NoError(t, st.PutBlob(ctx, blob2, gather.FromSlice([]byte{2}), blob.PutOptions{}))
 
@@ -376,6 +382,7 @@ func TestShardedDeleteBlobCleanupPreservesShardsFile(t *testing.T) {
 		},
 	}, true)
 	require.NoError(t, err)
+
 	defer st.Close(ctx)
 
 	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.
@@ -400,6 +407,7 @@ func TestShardedDeleteBlobCleanupWithFlatShards(t *testing.T) {
 		},
 	}, true)
 	require.NoError(t, err)
+
 	defer st.Close(ctx)
 
 	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.

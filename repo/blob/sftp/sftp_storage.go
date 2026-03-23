@@ -323,8 +323,9 @@ func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, fullPath strin
 }
 
 func (s *sftpImpl) RemoveDirInPath(ctx context.Context, dirPath string) error {
+	//nolint:wrapcheck
 	return s.rec.UsingConnectionNoResult(ctx, "RemoveDirInPath", func(conn connection.Connection) error {
-		return sftpClientFromConnection(conn).RemoveDirectory(dirPath)
+		return errors.Wrapf(sftpClientFromConnection(conn).RemoveDirectory(dirPath), "error removing directory %v", dirPath)
 	})
 }
 
