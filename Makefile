@@ -39,7 +39,7 @@ endif
 endif
 
 GOTESTSUM_FORMAT=pkgname-and-test-fails
-GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --hide-summary=output
+GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --hide-summary=output,skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
 LINTER_DEADLINE=1200s

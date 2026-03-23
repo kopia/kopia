@@ -904,8 +904,8 @@ func (u *Uploader) processSingle(
 		return nil
 
 	case fs.Symlink:
-		childTree := policyTree.Child(entry.Name())
-		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry, childTree.EffectivePolicy().MetadataCompressionPolicy.MetadataCompressor())
+		compressor := policyTree.Child(entry.Name()).EffectivePolicy().MetadataCompressionPolicy.MetadataCompressor()
+		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry, compressor)
 
 		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
@@ -931,10 +931,10 @@ func (u *Uploader) processSingle(
 		// Use the child policy for the specific entry path, not the parent directory policy.
 		// This ensures per-entry error handling rules are respected, consistent with how
 		// directory processing derives childTree via policyTree.Child().
-		childPolicy := policyTree.Child(entry.Name()).EffectivePolicy()
+		ehp := policyTree.Child(entry.Name()).EffectivePolicy().ErrorHandlingPolicy
 
 		if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
-			isIgnoredError = childPolicy.ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
+			isIgnoredError = ehp.IgnoreUnknownTypes.OrDefault(true)
 
 			// If unknown types are configured to be ignored, skip them completely without any error reporting
 			if isIgnoredError {
@@ -944,7 +944,6 @@ func (u *Uploader) processSingle(
 			prefix = "unknown entry"
 		} else {
 			prefix = "error"
-			ehp := childPolicy.ErrorHandlingPolicy
 
 			if entry.IsDir() {
 				isIgnoredError = ehp.IgnoreDirectoryErrors.OrDefault(false)
