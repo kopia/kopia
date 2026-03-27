@@ -17,7 +17,7 @@ require (
 	github.com/coreos/go-systemd/v22 v22.7.0
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/edsrzf/mmap-go v1.2.0
-	github.com/fatih/color v1.18.0
+	github.com/fatih/color v1.19.0
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/gofrs/flock v0.13.0
 	github.com/golang-jwt/jwt/v4 v4.5.2
@@ -27,10 +27,10 @@ require (
 	github.com/gorilla/mux v1.8.1
 	github.com/hanwen/go-fuse/v2 v2.9.0
 	github.com/hashicorp/cronexpr v1.1.3
-	github.com/klauspost/compress v1.18.4
+	github.com/klauspost/compress v1.18.5
 	github.com/klauspost/pgzip v1.2.6
 	github.com/klauspost/reedsolomon v1.13.3
-	github.com/kopia/htmluibuild v0.0.1-0.20260317050713-8dc0184502e8
+	github.com/kopia/htmluibuild v0.0.1-0.20260326173030-2e9a926f277e
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.14
 	github.com/mattn/go-isatty v0.0.20
@@ -51,7 +51,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/studio-b12/gowebdav v0.12.0
 	github.com/tg123/go-htpasswd v1.2.4
-	github.com/zalando/go-keyring v0.2.6
+	github.com/zalando/go-keyring v0.2.8
 	github.com/zeebo/blake3 v0.2.4
 	go.opentelemetry.io/otel v1.42.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.42.0
@@ -74,7 +74,6 @@ require (
 )
 
 require (
-	al.essio.dev/pkg/shellescape v1.5.1 // indirect
 	cel.dev/expr v0.25.1 // indirect
 	cloud.google.com/go v0.123.0 // indirect
 	cloud.google.com/go/auth v0.18.2 // indirect
@@ -93,7 +92,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chromedp/sysutil v1.1.0 // indirect
 	github.com/cncf/xds/go v0.0.0-20251210132809-ee656c7534f5 // indirect
-	github.com/danieljoos/wincred v1.2.2 // indirect
+	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.36.0 // indirect
@@ -110,7 +109,7 @@ require (
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
-	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/godbus/dbus/v5 v5.2.2 // indirect
 	github.com/golang-jwt/jwt/v5 v5.3.0 // indirect
 	github.com/golang/glog v1.2.5 // indirect
 	github.com/google/pprof v0.0.0-20230602150820-91b7bce49751 // indirect

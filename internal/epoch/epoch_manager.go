@@ -51,7 +51,7 @@ type Parameters struct {
 	// how frequently each client will list blobs to determine the current epoch.
 	EpochRefreshFrequency time.Duration `json:"EpochRefreshFrequency"`
 
-	// number of epochs between full checkpoints.
+	// number of epochs between range compactions.
 	FullCheckpointFrequency int `json:"FullCheckpointFrequency"`
 
 	// do not delete uncompacted blobs if the corresponding compacted blob age is less than this.
@@ -78,11 +78,6 @@ func (p *Parameters) GetEpochManagerEnabled() bool {
 // GetEpochRefreshFrequency determines how frequently each client will list blobs to determine the current epoch.
 func (p *Parameters) GetEpochRefreshFrequency() time.Duration {
 	return p.EpochRefreshFrequency
-}
-
-// GetEpochFullCheckpointFrequency returns the number of epochs between full checkpoints.
-func (p *Parameters) GetEpochFullCheckpointFrequency() int {
-	return p.FullCheckpointFrequency
 }
 
 // GetEpochCleanupSafetyMargin returns safety margin to prevent uncompacted blobs from being deleted if the corresponding compacted blob age is less than this.
@@ -127,7 +122,7 @@ func (p *Parameters) Validate() error {
 	}
 
 	if p.FullCheckpointFrequency <= 0 {
-		return errors.New("invalid epoch checkpoint frequency")
+		return errors.New("invalid epoch range compaction period")
 	}
 
 	if p.CleanupSafetyMargin < p.EpochRefreshFrequency*3 {

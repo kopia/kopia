@@ -1313,7 +1313,7 @@ func TestValidateParameters(t *testing.T) {
 				MinEpochDuration:        1 * time.Hour,
 				EpochRefreshFrequency:   10 * time.Minute,
 				FullCheckpointFrequency: -1,
-			}, "invalid epoch checkpoint frequency",
+			}, "invalid epoch range compaction period",
 		},
 		{
 			Parameters{
