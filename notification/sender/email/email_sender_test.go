@@ -2,7 +2,6 @@ package email_test
 
 import (
 	"context"
-	"regexp"
 	"testing"
 	"time"
 
