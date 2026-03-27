@@ -67,7 +67,7 @@ func TestEmailProvider(t *testing.T) {
 	require.Contains(t, msgContent, "X-ExtraHeader: value\r\n")
 
 	// Verify Date header is present and follows RFC 1123Z format
-	require.Regexp(t, regexp.MustCompile(`Date: [A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} [+-]\d{4}\r\n`), msgContent)
+	require.Regexp(t, `Date: [A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} [+-]\d{4}\r\n`, msgContent)
 
 	// Verify body is present
 	require.Contains(t, msgContent, "This is a test.\r\n")
@@ -132,7 +132,7 @@ func TestEmailProvider_Text(t *testing.T) {
 	require.Contains(t, msgContent, "X-ExtraHeader: value\r\n")
 
 	// Verify Date header is present and follows RFC 1123Z format
-	require.Regexp(t, regexp.MustCompile(`Date: [A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} [+-]\d{4}\r\n`), msgContent)
+	require.Regexp(t, `Date: [A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} [+-]\d{4}\r\n`, msgContent)
 
 	// Verify body is present
 	require.Contains(t, msgContent, "This is a test.\r\n")
