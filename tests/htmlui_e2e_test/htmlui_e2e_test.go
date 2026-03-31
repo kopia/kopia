@@ -214,10 +214,12 @@ func TestEndToEndTest(t *testing.T) {
 			}),
 
 			tc.log("disconnecting"),
+			chromedp.WaitVisible("button[data-testid='disconnect']"), // wait for UI transition
 			chromedp.Click("button[data-testid='disconnect']"),
 			tc.captureScreenshot("disconnected"),
 
 			tc.log("connecting"),
+			chromedp.WaitVisible("button[data-testid='provider-filesystem']"), // wait for UI transition
 			chromedp.Click("button[data-testid='provider-filesystem']"),
 			chromedp.SendKeys("input[data-testid='control-path']", repoPath+"\n"),
 			chromedp.SendKeys("input[data-testid='control-password']", "password1\n"),
@@ -268,10 +270,12 @@ func TestConnectDisconnectReconnect(t *testing.T) {
 			}),
 
 			tc.log("disconnecting"),
+			chromedp.WaitVisible("button[data-testid='disconnect']"), // wait for UI transition
 			chromedp.Click("button[data-testid='disconnect']"),
 			tc.captureScreenshot("disconnected"),
 
 			tc.log("connecting"),
+			chromedp.WaitVisible("button[data-testid='provider-filesystem']"), // wait for UI transition
 			chromedp.Click("button[data-testid='provider-filesystem']"),
 			chromedp.SendKeys("input[data-testid='control-path']", repoPath+"\n"),
 			chromedp.SendKeys("input[data-testid='control-password']", "password1\n"),
