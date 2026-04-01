@@ -208,8 +208,6 @@ func TestEndToEndTest(t *testing.T) {
 			tc.captureScreenshot("repository"),
 
 			chromedp.ActionFunc(func(context.Context) error {
-				t.Skip("Disconnect times out, skipping for now to unblock CI")
-
 				return nil
 			}),
 
@@ -262,8 +260,6 @@ func TestConnectDisconnectReconnect(t *testing.T) {
 			tc.captureScreenshot("repository"),
 
 			chromedp.ActionFunc(func(context.Context) error {
-				t.Skip("Disconnect times out, skipping for now to unblock CI")
-
 				return nil
 			}),
 
