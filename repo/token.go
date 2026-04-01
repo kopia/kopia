@@ -30,7 +30,7 @@ func EncodeToken(password string, ci blob.ConnectionInfo) (string, error) {
 		Password: password,
 	}
 
-	v, err := json.Marshal(ti)
+	v, err := json.Marshal(ti) //nolint:gosec // Password field needs to be included in token
 	if err != nil {
 		return "", errors.Wrap(err, "marshal token")
 	}
