@@ -206,29 +206,58 @@ func (s *Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 		return errors.Wrap(err, "error determining sharded path")
 	}
 
-	if err := s.Impl.DeleteBlobInPath(ctx, dirPath, filePath); err != nil {
-		return err //nolint:wrapcheck
+	//nolint:wrapcheck
+	return s.Impl.DeleteBlobInPath(ctx, dirPath, filePath)
+}
+
+// SweepEmptyDirectories walks the shard directory tree and removes empty
+// directories. It should be called after bulk blob deletions (e.g. during
+// maintenance) rather than after each individual DeleteBlob.
+func (s *Storage) SweepEmptyDirectories(ctx context.Context) error {
+	dr, ok := s.Impl.(DirRemover)
+	if !ok {
+		return nil
 	}
 
-	if dr, ok := s.Impl.(DirRemover); ok {
-		s.sweepEmptyDirs(ctx, dr, dirPath)
+	p, err := s.getParameters(ctx)
+	if err != nil {
+		return errors.Wrap(err, "error getting shard parameters")
+	}
+
+	return s.sweepEmptyDirsRecursive(ctx, dr, s.RootPath, p.maxShardDepth())
+}
+
+func (s *Storage) sweepEmptyDirsRecursive(ctx context.Context, dr DirRemover, dir string, depth int) error {
+	entries, err := s.Impl.ReadDir(ctx, dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return errors.Wrap(err, "error reading directory")
+	}
+
+	if depth > 0 {
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+
+			if err := s.sweepEmptyDirsRecursive(ctx, dr, path.Join(dir, e.Name()), depth-1); err != nil {
+				return err
+			}
+		}
+	}
+
+	if dir == path.Clean(s.RootPath) {
+		return nil
+	}
+
+	if err := dr.RemoveDirInPath(ctx, dir); err == nil {
+		log(ctx).Debugf("removed empty shard directory %v", dir)
 	}
 
 	return nil
-}
-
-func (s *Storage) sweepEmptyDirs(ctx context.Context, dr DirRemover, dir string) {
-	rootPath := path.Clean(s.RootPath)
-
-	for dir != rootPath && dir != "" && dir != "." && dir != "/" {
-		if err := dr.RemoveDirInPath(ctx, dir); err != nil {
-			return
-		}
-
-		log(ctx).Debugf("removed empty shard directory %v", dir)
-
-		dir = path.Dir(dir)
-	}
 }
 
 func (s *Storage) getParameters(ctx context.Context) (*Parameters, error) {

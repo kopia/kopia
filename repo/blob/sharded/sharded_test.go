@@ -2,6 +2,7 @@ package sharded_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -268,7 +269,19 @@ func TestClone(t *testing.T) {
 	require.Equal(t, buf2.String(), buf2after.String())
 }
 
-func TestShardedDeleteBlobCleansUpEmptyShardDirs(t *testing.T) {
+func mustSweep(t *testing.T, st blob.Storage, ctx context.Context) {
+	t.Helper()
+
+	type sweeper interface {
+		SweepEmptyDirectories(ctx context.Context) error
+	}
+
+	s, ok := st.(sweeper)
+	require.True(t, ok, "storage does not implement SweepEmptyDirectories")
+	require.NoError(t, s.SweepEmptyDirectories(ctx))
+}
+
+func TestSweepEmptyDirectoriesRemovesEmptyShardDirs(t *testing.T) {
 	t.Parallel()
 	ctx := testlogging.Context(t)
 	dir := testutil.TempDirectory(t)
@@ -294,7 +307,12 @@ func TestShardedDeleteBlobCleansUpEmptyShardDirs(t *testing.T) {
 
 	require.NoError(t, st.DeleteBlob(ctx, blobID))
 
-	// Shard dirs should be removed
+	// DeleteBlob alone does not remove shard dirs
+	require.DirExists(t, filepath.Join(dir, "abc", "def"))
+
+	mustSweep(t, st, ctx)
+
+	// Now shard dirs should be removed
 	require.NoDirExists(t, filepath.Join(dir, "abc", "def"))
 	require.NoDirExists(t, filepath.Join(dir, "abc"))
 
@@ -303,7 +321,7 @@ func TestShardedDeleteBlobCleansUpEmptyShardDirs(t *testing.T) {
 	require.FileExists(t, filepath.Join(dir, ".shards"))
 }
 
-func TestShardedDeleteBlobPreservesNonEmptyShardDirs(t *testing.T) {
+func TestSweepEmptyDirectoriesPreservesNonEmptyShardDirs(t *testing.T) {
 	t.Parallel()
 	ctx := testlogging.Context(t)
 	dir := testutil.TempDirectory(t)
@@ -326,8 +344,10 @@ func TestShardedDeleteBlobPreservesNonEmptyShardDirs(t *testing.T) {
 	require.NoError(t, st.PutBlob(ctx, blob1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	require.NoError(t, st.PutBlob(ctx, blob2, gather.FromSlice([]byte{2}), blob.PutOptions{}))
 
-	// Delete only the first blob
+	// Delete only the first blob, then sweep
 	require.NoError(t, st.DeleteBlob(ctx, blob1))
+
+	mustSweep(t, st, ctx)
 
 	// Sub-shard "def" should be removed, but "abc" should remain (still has "ghi")
 	require.NoDirExists(t, filepath.Join(dir, "abc", "def"))
@@ -335,7 +355,7 @@ func TestShardedDeleteBlobPreservesNonEmptyShardDirs(t *testing.T) {
 	require.DirExists(t, filepath.Join(dir, "abc", "ghi"))
 }
 
-func TestShardedDeleteBlobPartialChainCleanup(t *testing.T) {
+func TestSweepEmptyDirectoriesPartialChainCleanup(t *testing.T) {
 	t.Parallel()
 	ctx := testlogging.Context(t)
 	dir := testutil.TempDirectory(t)
@@ -360,17 +380,22 @@ func TestShardedDeleteBlobPartialChainCleanup(t *testing.T) {
 
 	require.NoError(t, st.DeleteBlob(ctx, blob1))
 
+	mustSweep(t, st, ctx)
+
 	// "def" sub-shard removed, but "abc" stays because "xyz" still lives there
 	require.NoDirExists(t, filepath.Join(dir, "abc", "def"))
 	require.DirExists(t, filepath.Join(dir, "abc"))
 
-	// Now delete the second blob - everything should be cleaned up
+	// Now delete the second blob and sweep - everything should be cleaned up
 	require.NoError(t, st.DeleteBlob(ctx, blob2))
+
+	mustSweep(t, st, ctx)
+
 	require.NoDirExists(t, filepath.Join(dir, "abc", "xyz"))
 	require.NoDirExists(t, filepath.Join(dir, "abc"))
 }
 
-func TestShardedDeleteBlobCleanupPreservesShardsFile(t *testing.T) {
+func TestSweepEmptyDirectoriesPreservesShardsFile(t *testing.T) {
 	t.Parallel()
 	ctx := testlogging.Context(t)
 	dir := testutil.TempDirectory(t)
@@ -390,12 +415,14 @@ func TestShardedDeleteBlobCleanupPreservesShardsFile(t *testing.T) {
 	require.NoError(t, st.PutBlob(ctx, blobID, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	require.NoError(t, st.DeleteBlob(ctx, blobID))
 
+	mustSweep(t, st, ctx)
+
 	// .shards file must survive
 	require.FileExists(t, filepath.Join(dir, ".shards"))
 	require.DirExists(t, dir)
 }
 
-func TestShardedDeleteBlobCleanupWithFlatShards(t *testing.T) {
+func TestSweepEmptyDirectoriesWithFlatShards(t *testing.T) {
 	t.Parallel()
 	ctx := testlogging.Context(t)
 	dir := testutil.TempDirectory(t)
@@ -418,6 +445,8 @@ func TestShardedDeleteBlobCleanupWithFlatShards(t *testing.T) {
 	require.FileExists(t, filepath.Join(dir, "abcdef1234567890abcde.f"))
 
 	require.NoError(t, st.DeleteBlob(ctx, blobID))
+
+	mustSweep(t, st, ctx)
 
 	// Root should still exist, .shards should still exist
 	require.DirExists(t, dir)
