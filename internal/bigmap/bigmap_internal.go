@@ -294,7 +294,7 @@ func (m *internalMap) PutIfAbsent(ctx context.Context, key, value []byte) bool {
 
 	koff := uint32(len(current)) //nolint:gosec
 
-	current = append(current, byte(len(key)))
+	current = append(current, byte(len(key))) //nolint:gosec // maxKeyLength checked above
 	current = append(current, key...)
 
 	// append the value
