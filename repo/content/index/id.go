@@ -185,7 +185,7 @@ func IDFromHash(prefix IDPrefix, hash []byte) (ID, error) {
 		id.prefix = prefix[0]
 	}
 
-	id.idLen = byte(len(hash))
+	id.idLen = uint8(len(hash)) //nolint:gosec // len(hash) is checked above
 	copy(id.data[:], hash)
 
 	return id, nil

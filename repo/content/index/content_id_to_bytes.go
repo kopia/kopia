@@ -17,7 +17,7 @@ func bytesToContentID(b []byte) ID {
 	var id ID
 
 	id.prefix = b[0]
-	id.idLen = uint8(len(b) - 1)
+	id.idLen = uint8(len(b) - 1) //nolint:gosec // len(b) is checked above
 	copy(id.data[0:len(b)-1], b[1:])
 
 	return id
