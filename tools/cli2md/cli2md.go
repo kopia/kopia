@@ -63,7 +63,7 @@ func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 
 		shortFlag := ""
 		if f.Short != 0 {
-			shortFlag = "`-" + string([]byte{byte(f.Short)}) + "`"
+			shortFlag = "`-" + string(f.Short) + "`"
 		}
 
 		defaultValue := ""
