@@ -67,7 +67,7 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 
 	t.Logf("detected server parameters %#v", sp)
 
-	ctx, cancelTimeout := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancelTimeout := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancelTimeout()
 
 	maybeHeadless := chromedp.Headless
@@ -208,8 +208,6 @@ func TestEndToEndTest(t *testing.T) {
 			tc.captureScreenshot("repository"),
 
 			chromedp.ActionFunc(func(context.Context) error {
-				t.Skip("Disconnect times out, skipping for now to unblock CI")
-
 				return nil
 			}),
 
@@ -262,8 +260,6 @@ func TestConnectDisconnectReconnect(t *testing.T) {
 			tc.captureScreenshot("repository"),
 
 			chromedp.ActionFunc(func(context.Context) error {
-				t.Skip("Disconnect times out, skipping for now to unblock CI")
-
 				return nil
 			}),
 
