@@ -11,23 +11,23 @@ const deleteUnreferencedPacksStatsKind = "deleteUnreferencedPacksStats"
 
 // DeleteUnreferencedPacksStats are the stats for deleting unreferenced packs.
 type DeleteUnreferencedPacksStats struct {
-	UnreferencedPackCount uint32 `json:"unreferencedPackCount"`
-	UnreferencedTotalSize int64  `json:"unreferencedTotalSize"`
-	DeletedPackCount      uint32 `json:"deletedPackCount"`
-	DeletedTotalSize      int64  `json:"deletedTotalSize"`
-	RetainedPackCount     uint32 `json:"retainedPackCount"`
-	RetainedTotalSize     int64  `json:"retainedTotalSize"`
+	UnreferencedPackCount uint64 `json:"unreferencedPackCount"`
+	UnreferencedTotalSize uint64 `json:"unreferencedTotalSize"`
+	DeletedPackCount      uint64 `json:"deletedPackCount"`
+	DeletedTotalSize      uint64 `json:"deletedTotalSize"`
+	RetainedPackCount     uint64 `json:"retainedPackCount"`
+	RetainedTotalSize     uint64 `json:"retainedTotalSize"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
 func (ds *DeleteUnreferencedPacksStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(ds.Kind())
-	jw.UInt32Field("unreferencedPackCount", ds.UnreferencedPackCount)
-	jw.Int64Field("unreferencedTotalSize", ds.UnreferencedTotalSize)
-	jw.UInt32Field("deletedPackCount", ds.DeletedPackCount)
-	jw.Int64Field("deletedTotalSize", ds.DeletedTotalSize)
-	jw.UInt32Field("retainedPackCount", ds.RetainedPackCount)
-	jw.Int64Field("retainedTotalSize", ds.RetainedTotalSize)
+	jw.UInt64Field("unreferencedPackCount", ds.UnreferencedPackCount)
+	jw.UInt64Field("unreferencedTotalSize", ds.UnreferencedTotalSize)
+	jw.UInt64Field("deletedPackCount", ds.DeletedPackCount)
+	jw.UInt64Field("deletedTotalSize", ds.DeletedTotalSize)
+	jw.UInt64Field("retainedPackCount", ds.RetainedPackCount)
+	jw.UInt64Field("retainedTotalSize", ds.RetainedTotalSize)
 	jw.EndObject()
 }
 

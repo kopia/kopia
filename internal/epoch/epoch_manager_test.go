@@ -624,7 +624,7 @@ func TestMaybeAdvanceEpoch_Empty(t *testing.T) {
 	stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.CurrentEpoch)
+	require.EqualValues(t, 0, stats.CurrentEpoch)
 	require.False(t, stats.WasAdvanced)
 
 	// check current epoch again
@@ -674,7 +674,7 @@ func TestMaybeAdvanceEpoch(t *testing.T) {
 	stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 
 	require.NoError(t, err)
-	require.Equal(t, 1, stats.CurrentEpoch)
+	require.EqualValues(t, 1, stats.CurrentEpoch)
 	require.True(t, stats.WasAdvanced)
 
 	err = te.mgr.Refresh(ctx) // force state refresh
@@ -947,7 +947,7 @@ func TestMaybeCompactSingleEpoch_CompactionError(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
@@ -1000,7 +1000,7 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
@@ -1024,8 +1024,8 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 	for j := range newestEpochToCompact {
 		stats, err := te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, idxCount, stats.SupersededIndexBlobCount)
-		require.Equal(t, j, stats.Epoch)
+		require.EqualValues(t, idxCount, stats.SupersededIndexBlobCount)
+		require.EqualValues(t, j, stats.Epoch)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
 		require.NoError(t, err)
@@ -1127,7 +1127,7 @@ func TestMaybeGenerateRangeCheckpoint_CompactionError(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx)
@@ -1178,7 +1178,7 @@ func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx)
@@ -1193,8 +1193,8 @@ func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
 
 	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.RangeMinEpoch)
-	require.Equal(t, 8, stats.RangeMaxEpoch)
+	require.EqualValues(t, 0, stats.RangeMinEpoch)
+	require.EqualValues(t, 8, stats.RangeMaxEpoch)
 
 	err = te.mgr.Refresh(ctx)
 	require.NoError(t, err)
@@ -1233,7 +1233,7 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx)
@@ -1250,8 +1250,8 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 	for j := range newestEpochToCompact {
 		stats, err := te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, idxCount, stats.SupersededIndexBlobCount)
-		require.Equal(t, j, stats.Epoch)
+		require.EqualValues(t, idxCount, stats.SupersededIndexBlobCount)
+		require.EqualValues(t, j, stats.Epoch)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
 		require.NoError(t, err)
@@ -1270,8 +1270,8 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 
 	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.RangeMinEpoch)
-	require.Equal(t, 8, stats.RangeMaxEpoch)
+	require.EqualValues(t, 0, stats.RangeMinEpoch)
+	require.EqualValues(t, 8, stats.RangeMaxEpoch)
 
 	err = te.mgr.Refresh(ctx)
 	require.NoError(t, err)

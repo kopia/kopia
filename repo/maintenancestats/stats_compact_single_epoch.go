@@ -11,17 +11,17 @@ const compactSingleEpochStatsKind = "compactSingleEpochStats"
 
 // CompactSingleEpochStats are the stats for compacting an index epoch.
 type CompactSingleEpochStats struct {
-	SupersededIndexBlobCount int   `json:"supersededIndexBlobCount"`
-	SupersededIndexTotalSize int64 `json:"supersededIndexTotalSize"`
-	Epoch                    int   `json:"epoch"`
+	SupersededIndexBlobCount uint64 `json:"supersededIndexBlobCount"`
+	SupersededIndexTotalSize uint64 `json:"supersededIndexTotalSize"`
+	Epoch                    uint64 `json:"epoch"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
 func (cs *CompactSingleEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(cs.Kind())
-	jw.IntField("supersededIndexBlobCount", cs.SupersededIndexBlobCount)
-	jw.Int64Field("supersededIndexTotalSize", cs.SupersededIndexTotalSize)
-	jw.IntField("epoch", cs.Epoch)
+	jw.UInt64Field("supersededIndexBlobCount", cs.SupersededIndexBlobCount)
+	jw.UInt64Field("supersededIndexTotalSize", cs.SupersededIndexTotalSize)
+	jw.UInt64Field("epoch", cs.Epoch)
 	jw.EndObject()
 }
 
