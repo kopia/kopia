@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "kopia",
+  "project_id": "44fea84b-eb55-4ca8-9c94-7c86314fbe68"
+}
