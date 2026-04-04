@@ -140,6 +140,92 @@ func TestIDHash(t *testing.T) {
 	require.ErrorContains(t, err, "hash too short")
 }
 
+func TestComparePrefixSingleChar(t *testing.T) {
+	t.Parallel()
+
+	// Test single-char prefix fast path (case 1)
+	tests := []struct {
+		id     string
+		prefix string
+		want   int
+	}{
+		// Unprefixed IDs: first hex char compared with prefix
+		{"0012abcd", "0", 1},  // "0012abcd" > "0" (more characters)
+		{"0012abcd", "1", -1}, // "0012abcd" < "1" (first char '0' < '1')
+		{"ffff0000", "f", 1},  // "ffff0000" > "f" (first char matches, more chars)
+		{"ffff0000", "g", -1}, // "ffff0000" < "g" (first char 'f' < 'g')
+		// Prefixed IDs: prefix byte compared with prefix string
+		{"g01234567", "g", 1},  // "g01234567" > "g" (first char matches, more chars)
+		{"g01234567", "h", -1}, // "g01234567" < "h" (prefix 'g' < 'h')
+		{"g01234567", "f", 1},  // "g01234567" > "f" (prefix 'g' > 'f')
+		{"z01234567", "z", 1},  // "z01234567" > "z" (first char matches, more chars)
+		{"z01234567", "y", 1},  // "z01234567" > "y" (prefix 'z' > 'y')
+		// Empty ID vs single-char prefix
+		// EmptyID has case 0 returning 0, case 1 should return -1
+	}
+
+	for _, tt := range tests {
+		id, err := ParseID(tt.id)
+		require.NoError(t, err, "ParseID(%q)", tt.id)
+
+		got := id.comparePrefix(IDPrefix(tt.prefix))
+		require.Equalf(t, tt.want, got, "ID(%q).comparePrefix(%q)", tt.id, tt.prefix)
+	}
+
+	// Empty ID vs single char
+	got := EmptyID.comparePrefix(IDPrefix("a"))
+	require.Equal(t, -1, got)
+}
+
+func TestComparePrefixMultiChar(t *testing.T) {
+	t.Parallel()
+
+	// Test multi-char prefix (default case) - ensures byte-by-byte comparison works
+	tests := []struct {
+		id     string
+		prefix string
+		want   int
+	}{
+		{"0012abcd", "00", 1},      // "0012abcd" > "00"
+		{"0012abcd", "0012abcd", 0}, // exact match
+		{"0012abcd", "0012abce", -1}, // "0012abcd" < "0012abce"
+		{"0012abcd", "0012abcc", 1},  // "0012abcd" > "0012abcc"
+		{"g01234567", "g0", 1},       // "g01234567" > "g0"
+		{"g01234567", "g01234567", 0}, // exact match
+	}
+
+	for _, tt := range tests {
+		id, err := ParseID(tt.id)
+		require.NoError(t, err, "ParseID(%q)", tt.id)
+
+		got := id.comparePrefix(IDPrefix(tt.prefix))
+		require.Equalf(t, tt.want, got, "ID(%q).comparePrefix(%q)", tt.id, tt.prefix)
+	}
+}
+
+func BenchmarkComparePrefix_SingleChar(b *testing.B) {
+	id, _ := ParseID("g01234567890abcdef")
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = id.comparePrefix("g")
+	}
+}
+
+func BenchmarkComparePrefix_FullString(b *testing.B) {
+	id, _ := ParseID("g01234567890abcdef")
+	p := IDPrefix(id.String())
+
+	b.ResetTimer()
+	b.ReportAllocs()
+
+	for b.Loop() {
+		_ = id.comparePrefix(p)
+	}
+}
+
 func TestIDInvalidJSON(t *testing.T) {
 	cases := map[string]string{
 		`"x"`: "invalid ID: id too short: \"x\"",

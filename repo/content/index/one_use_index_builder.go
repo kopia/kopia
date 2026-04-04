@@ -3,7 +3,6 @@ package index
 import (
 	"crypto/rand"
 	"hash/fnv"
-	"io"
 
 	"github.com/petar/GoLLRB/llrb"
 	"github.com/pkg/errors"
@@ -68,7 +67,10 @@ func (b *OneUseBuilder) shard(maxShardSize int) [][]*Info {
 		item := b.indexStore.DeleteMin()
 
 		h := fnv.New32a()
-		io.WriteString(h, item.(*Info).ContentID.String()) //nolint:errcheck,forcetypeassert
+
+		var buf [64]byte
+
+		h.Write(item.(*Info).ContentID.Append(buf[:0])) //nolint:errcheck,forcetypeassert
 
 		shard := h.Sum32() % uint32(numShards) //nolint:gosec
 

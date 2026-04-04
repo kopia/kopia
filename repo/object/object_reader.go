@@ -49,6 +49,7 @@ type objectReader struct {
 	currentChunkIndex    int    // Index of current chunk in the seek table
 	currentChunkData     []byte // Current chunk data
 	currentChunkPosition int    // Read position in the current chunk
+	chunkBuf             []byte // Reusable buffer for chunk reads
 }
 
 func (r *objectReader) Read(buffer []byte) (int, error) {
@@ -113,12 +114,19 @@ func (r *objectReader) openCurrentChunk() error {
 
 	defer rd.Close() //nolint:errcheck
 
-	b := make([]byte, st.Length)
-	if _, err := io.ReadFull(rd, b); err != nil {
+	stLen := int(st.Length)
+
+	if stLen > 0 && cap(r.chunkBuf) >= stLen {
+		r.chunkBuf = r.chunkBuf[:stLen]
+	} else {
+		r.chunkBuf = make([]byte, stLen)
+	}
+
+	if _, err := io.ReadFull(rd, r.chunkBuf); err != nil {
 		return errors.Wrap(err, "error reading chunk")
 	}
 
-	r.currentChunkData = b
+	r.currentChunkData = r.chunkBuf
 	r.currentChunkPosition = 0
 
 	return nil

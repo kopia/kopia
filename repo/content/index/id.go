@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"encoding/json"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -154,9 +153,53 @@ func (i ID) comparePrefix(p IDPrefix) int {
 
 		return 1
 
+	case 1:
+		// fast path for single-char prefix (most common: 'g'..'z' or a hex digit)
+		var myFirst byte
+		if i.prefix != 0 {
+			myFirst = i.prefix
+		} else if i.idLen > 0 {
+			// first hex digit of the hash
+			const hexDigits = "0123456789abcdef"
+			myFirst = hexDigits[i.data[0]>>4]
+		} else {
+			// empty ID < any single-char prefix
+			return -1
+		}
+
+		if myFirst > p[0] {
+			return 1
+		}
+
+		if myFirst < p[0] {
+			return -1
+		}
+
+		// first character matches but we have more characters, so i > p
+		// For prefixed IDs with hash data, or unprefixed IDs with >=1 byte of hash
+		// (which encodes to >=2 hex chars), i.String() is longer than p.
+		if i.prefix != 0 && i.idLen > 0 {
+			return 1
+		}
+
+		if i.prefix == 0 && i.idLen >= 1 {
+			// idLen >= 1 means at least 2 hex chars, which is > 1 char prefix
+			return 1
+		}
+
+		return 0
+
 	default:
-		// slow path
-		return strings.Compare(i.String(), string(p))
+		// for longer prefixes, compare byte-by-byte without string allocation
+		var buf [128]byte
+		s := i.Append(buf[:0])
+		pb := []byte(p)
+
+		if c := bytes.Compare(s, pb); c != 0 {
+			return c
+		}
+
+		return 0
 	}
 }
 

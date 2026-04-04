@@ -154,7 +154,10 @@ func (b Builder) shard(maxShardSize int) []Builder {
 
 	for k, v := range b {
 		h := fnv.New32a()
-		io.WriteString(h, k.String()) //nolint:errcheck
+
+		var buf [64]byte
+
+		h.Write(k.Append(buf[:0])) //nolint:errcheck
 
 		shard := h.Sum32() % uint32(numShards) //nolint:gosec
 

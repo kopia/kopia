@@ -113,6 +113,10 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 		return "", errors.Wrap(err, "can't write to temp file")
 	}
 
+	if err := tf.Sync(); err != nil {
+		return "", errors.Wrap(err, "can't sync temp file data")
+	}
+
 	if err := tf.Close(); err != nil {
 		return "", errors.New("can't close tmp file")
 	}
@@ -130,7 +134,7 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 		return errors.Wrap(err, "can't list cache")
 	}
 
-	remaining := map[blob.ID]os.FileInfo{}
+	remaining := map[blob.ID]time.Time{}
 
 	for _, ent := range entries {
 		fi, err := ent.Info()
@@ -144,7 +148,7 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 		}
 
 		if n, ok := strings.CutSuffix(ent.Name(), simpleIndexSuffix); ok {
-			remaining[blob.ID(n)] = fi
+			remaining[blob.ID(n)] = fi.ModTime()
 		}
 	}
 
@@ -152,21 +156,23 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 		delete(remaining, u)
 	}
 
-	for _, rem := range remaining {
-		if c.timeNow().Sub(rem.ModTime()) > c.minSweepAge {
-			contentlog.Log2(ctx, c.log, "removing unused",
-				logparam.String("name", rem.Name()),
-				logparam.Time("mtime", rem.ModTime()))
+	for id, modTime := range remaining {
+		name := string(id) + simpleIndexSuffix
 
-			if err := os.Remove(filepath.Join(c.dirname, rem.Name())); err != nil {
+		if c.timeNow().Sub(modTime) > c.minSweepAge {
+			contentlog.Log2(ctx, c.log, "removing unused",
+				logparam.String("name", name),
+				logparam.Time("mtime", modTime))
+
+			if err := os.Remove(filepath.Join(c.dirname, name)); err != nil {
 				contentlog.Log1(ctx, c.log,
 					"unable to remove unused index file",
 					logparam.Error("err", err))
 			}
 		} else {
 			contentlog.Log3(ctx, c.log, "keeping unused index because it's too new",
-				logparam.String("name", rem.Name()),
-				logparam.Time("mtime", rem.ModTime()),
+				logparam.String("name", name),
+				logparam.Time("mtime", modTime),
 				logparam.Duration("threshold", c.minSweepAge))
 		}
 	}

@@ -4,8 +4,8 @@ import (
 	"context"
 	"crypto/aes"
 	cryptorand "crypto/rand"
-	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -103,7 +103,23 @@ func writeRandomBytesToBuffer(b *gather.WriteBuffer, count int) error {
 func contentCacheKeyForInfo(bi Info) string {
 	// append format-specific information
 	// see https://github.com/kopia/kopia/issues/1843 for an explanation
-	return fmt.Sprintf("%v.%x.%x.%x", bi.ContentID, bi.CompressionHeaderID, bi.FormatVersion, bi.EncryptionKeyID)
+	s := bi.ContentID.String()
+
+	if bi.CompressionHeaderID == 0 && bi.FormatVersion == 0 && bi.EncryptionKeyID == 0 {
+		return s
+	}
+
+	// uncommon case: append discriminators without fmt.Sprintf
+	buf := make([]byte, 0, len(s)+16)
+	buf = append(buf, s...)
+	buf = append(buf, '.')
+	buf = strconv.AppendUint(buf, uint64(bi.CompressionHeaderID), 16)
+	buf = append(buf, '.')
+	buf = strconv.AppendUint(buf, uint64(bi.FormatVersion), 16)
+	buf = append(buf, '.')
+	buf = strconv.AppendUint(buf, uint64(bi.EncryptionKeyID), 16)
+
+	return string(buf)
 }
 
 func (sm *SharedManager) getContentDataReadLocked(ctx context.Context, pp *pendingPackInfo, bi Info, output *gather.WriteBuffer) error {
