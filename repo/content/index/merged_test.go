@@ -257,5 +257,5 @@ func indexWithItems(items ...Info) (Index, error) {
 		return nil, errors.Wrap(err, "build error")
 	}
 
-	return Open(buf.Bytes(), nil, func() int { return fakeEncryptionOverhead })
+	return Open(SliceIndexSource(buf.Bytes()), nil, func() int { return fakeEncryptionOverhead })
 }
