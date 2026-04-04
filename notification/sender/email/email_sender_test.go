@@ -55,26 +55,29 @@ func TestEmailProvider(t *testing.T) {
 	}, 10*time.Second, time.Second)
 	require.Len(t, srv.Messages(), 1)
 	msg := srv.Messages()[0]
+	msgContent := msg.MsgRequest()
 
-	require.Equal(t, "Subject: Test\r\n"+
-		"From: some-user@example.com\r\n"+
-		"To: another-user@example.com\r\n"+
-		"MIME-version: 1.0;\r\n"+
-		"Content-Type: text/html; charset=\"UTF-8\";\r\n"+
-		"X-ExtraHeader: value\r\n"+
-		"\r\n"+
-		"This is a test.\r\n"+
-		"\r\n"+
-		"* one\r\n"+
-		"* two\r\n"+
-		"* three\r\n"+
-		"\r\n"+
-		"# Header\r\n"+
-		"## Subheader\r\n"+
-		"\r\n"+
-		"- a\r\n"+
-		"- b\r\n"+
-		"- c\r\n", msg.MsgRequest())
+	// Verify headers are present
+	require.Contains(t, msgContent, "Subject: Test\r\n")
+	require.Contains(t, msgContent, "From: some-user@example.com\r\n")
+	require.Contains(t, msgContent, "To: another-user@example.com\r\n")
+	require.Contains(t, msgContent, "MIME-version: 1.0;\r\n")
+	require.Contains(t, msgContent, "Content-Type: text/html; charset=\"UTF-8\";\r\n")
+	require.Contains(t, msgContent, "X-ExtraHeader: value\r\n")
+
+	// Verify Date header is present and follows RFC 1123Z format
+	require.Regexp(t, `Date: [A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} [+-]\d{4}\r\n`, msgContent)
+
+	// Verify body is present
+	require.Contains(t, msgContent, "This is a test.\r\n")
+	require.Contains(t, msgContent, "* one\r\n")
+	require.Contains(t, msgContent, "* two\r\n")
+	require.Contains(t, msgContent, "* three\r\n")
+	require.Contains(t, msgContent, "# Header\r\n")
+	require.Contains(t, msgContent, "## Subheader\r\n")
+	require.Contains(t, msgContent, "- a\r\n")
+	require.Contains(t, msgContent, "- b\r\n")
+	require.Contains(t, msgContent, "- c\r\n")
 }
 
 func TestEmailProvider_Text(t *testing.T) {
@@ -119,24 +122,27 @@ func TestEmailProvider_Text(t *testing.T) {
 	}, 10*time.Second, time.Second)
 	require.Len(t, srv.Messages(), 1)
 	msg := srv.Messages()[0]
+	msgContent := msg.MsgRequest()
 
-	require.Equal(t, "Subject: Test\r\n"+
-		"From: some-user@example.com\r\n"+
-		"To: another-user@example.com\r\n"+
-		"X-ExtraHeader: value\r\n"+
-		"\r\n"+
-		"This is a test.\r\n"+
-		"\r\n"+
-		"* one\r\n"+
-		"* two\r\n"+
-		"* three\r\n"+
-		"\r\n"+
-		"# Header\r\n"+
-		"## Subheader\r\n"+
-		"\r\n"+
-		"- a\r\n"+
-		"- b\r\n"+
-		"- c\r\n", msg.MsgRequest())
+	// Verify headers are present
+	require.Contains(t, msgContent, "Subject: Test\r\n")
+	require.Contains(t, msgContent, "From: some-user@example.com\r\n")
+	require.Contains(t, msgContent, "To: another-user@example.com\r\n")
+	require.Contains(t, msgContent, "X-ExtraHeader: value\r\n")
+
+	// Verify Date header is present and follows RFC 1123Z format
+	require.Regexp(t, `Date: [A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} [+-]\d{4}\r\n`, msgContent)
+
+	// Verify body is present
+	require.Contains(t, msgContent, "This is a test.\r\n")
+	require.Contains(t, msgContent, "* one\r\n")
+	require.Contains(t, msgContent, "* two\r\n")
+	require.Contains(t, msgContent, "* three\r\n")
+	require.Contains(t, msgContent, "# Header\r\n")
+	require.Contains(t, msgContent, "## Subheader\r\n")
+	require.Contains(t, msgContent, "- a\r\n")
+	require.Contains(t, msgContent, "- b\r\n")
+	require.Contains(t, msgContent, "- c\r\n")
 }
 
 func TestEmailProvider_AUTH(t *testing.T) {
