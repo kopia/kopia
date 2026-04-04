@@ -28,7 +28,7 @@ Kopia uses the following types of maintenance tasks:
 
 For correctness reasons, Kopia requires that no more than one instance of certain maintenance operations runs at any given time. To achieve that, one repository `user@hostname` is designated as the Maintenance Owner. Other repository users will not attempt to run maintenance automatically and the designated user will attempt to do so after holding an exclusive lock.
 
-To see the the current maintenance owner, use the `kopia maintenance info` command:
+To see the current maintenance owner, use the `kopia maintenance info` command:
 
 ```
 $ kopia maintenance info
