@@ -126,7 +126,7 @@ func intFd(f *os.File) (int, error) {
 	fd := f.Fd()
 
 	if fd <= math.MaxInt {
-		return int(fd), nil
+		return int(fd), nil //nolint:gosec // overflow is handled
 	}
 
 	return -1, errFdConversionOverflows
