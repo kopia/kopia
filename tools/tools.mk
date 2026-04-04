@@ -150,9 +150,6 @@ linter_dir=$(TOOLS_DIR)$(slash)golangci-lint-$(GOLANGCI_LINT_VERSION)
 linter=$(linter_dir)$(slash)golangci-lint$(exe_suffix)
 
 linter_flags=
-ifeq ($(GOOS),windows)
-linter_flags=-D gofmt -D goimports
-endif
 
 $(linter):
 	go run github.com/kopia/kopia/tools/gettool --tool linter:$(GOLANGCI_LINT_VERSION) --output-dir $(linter_dir)
