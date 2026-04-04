@@ -15,6 +15,8 @@ type commandSnapshotCopyMoveHistory struct {
 	snapshotCopyOrMoveDryRun      bool
 	snapshotCopyOrMoveSource      string
 	snapshotCopyOrMoveDestination string
+
+	svc appServices
 }
 
 func (c *commandSnapshotCopyMoveHistory) setup(svc appServices, parent commandParent, isMove bool) {
@@ -32,6 +34,8 @@ func (c *commandSnapshotCopyMoveHistory) setup(svc appServices, parent commandPa
 	cmd.Action(svc.repositoryWriterAction(func(ctx context.Context, rep repo.RepositoryWriter) error {
 		return c.run(ctx, rep, isMove)
 	}))
+
+	c.svc = svc
 }
 
 func snapshotCopyMoveHelp(verb string) string {
@@ -108,13 +112,13 @@ func (c *commandSnapshotCopyMoveHistory) run(ctx context.Context, rep repo.Repos
 
 		if snapshotExists(dstSnapshots, dstSource, manifest) {
 			if isMoveCommand && !c.snapshotCopyOrMoveDryRun {
-				log(ctx).Infof("%v (%v) already exists - deleting source", dstSource, formatTimestamp(manifest.StartTime.ToTime()))
+				log(ctx).Infof("%v (%v) already exists - deleting source", dstSource, formatTimestamp(manifest.StartTime.ToTime(), c.svc.getTimeZone()))
 
 				if err := rep.DeleteManifest(ctx, manifest.ID); err != nil {
 					return errors.Wrap(err, "unable to delete source manifest")
 				}
 			} else {
-				log(ctx).Infof("%v (%v) already exists", dstSource, formatTimestamp(manifest.StartTime.ToTime()))
+				log(ctx).Infof("%v (%v) already exists", dstSource, formatTimestamp(manifest.StartTime.ToTime(), c.svc.getTimeZone()))
 			}
 
 			continue
@@ -122,7 +126,7 @@ func (c *commandSnapshotCopyMoveHistory) run(ctx context.Context, rep repo.Repos
 
 		srcID := manifest.ID
 
-		log(ctx).Infof("%v %v (%v) => %v", c.getCopySnapshotAction(isMoveCommand), manifest.Source, formatTimestamp(manifest.StartTime.ToTime()), dstSource)
+		log(ctx).Infof("%v %v (%v) => %v", c.getCopySnapshotAction(isMoveCommand), manifest.Source, formatTimestamp(manifest.StartTime.ToTime(), c.svc.getTimeZone()), dstSource)
 
 		if c.snapshotCopyOrMoveDryRun {
 			continue

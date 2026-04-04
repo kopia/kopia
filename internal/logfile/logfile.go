@@ -230,7 +230,7 @@ func (c *loggingFlags) setupLogFileBasedLogger(now time.Time, subdir, suffix, lo
 	// do not scrub directory if custom log file has been provided.
 	if logFileOverride == "" && shouldSweepLog(maxFiles, maxAge) {
 		doSweep = func() {
-			sweepLogDir(context.TODO(), logDir, maxFiles, maxSizeMB, maxAge)
+			sweepLogDir(context.Background(), logDir, maxFiles, maxSizeMB, maxAge)
 		}
 	}
 

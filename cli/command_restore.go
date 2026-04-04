@@ -517,7 +517,7 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 		"   Snapshot source: %v\n"+
 		"   Snapshot time: %v\n"+
 		"   Relative path: %v\n"+
-		"   Object ID: %v", m.Source, formatTimestamp(m.StartTime.ToTime()), relPath, ohid)
+		"   Object ID: %v", m.Source, formatTimestamp(m.StartTime.ToTime(), c.svc.getTimeZone()), relPath, ohid)
 
 	return ohid.String(), nil
 }

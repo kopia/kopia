@@ -12,16 +12,16 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"golang.org/x/exp/constraints"
 
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/units"
 )
 
-const oneHundredPercent = 100.0
+type integer interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+}
 
-// TODO - remove this global.
-var timeZone = "local" //nolint:gochecknoglobals
+const oneHundredPercent = 100.0
 
 func showContentWithFlags(w io.Writer, rd io.Reader, unzip, indentJSON bool) error {
 	if unzip {
@@ -54,7 +54,7 @@ func showContentWithFlags(w io.Writer, rd io.Reader, unzip, indentJSON bool) err
 	return nil
 }
 
-func maybeHumanReadableBytes[I constraints.Integer](enable bool, value I) string {
+func maybeHumanReadableBytes[I integer](enable bool, value I) string {
 	if enable {
 		return units.BytesString(value)
 	}
@@ -62,7 +62,7 @@ func maybeHumanReadableBytes[I constraints.Integer](enable bool, value I) string
 	return strconv.FormatInt(int64(value), 10)
 }
 
-func maybeHumanReadableCount[I constraints.Integer](enable bool, value I) string {
+func maybeHumanReadableCount[I integer](enable bool, value I) string {
 	if enable {
 		return units.Count(value)
 	}
@@ -70,16 +70,16 @@ func maybeHumanReadableCount[I constraints.Integer](enable bool, value I) string
 	return strconv.FormatInt(int64(value), 10)
 }
 
-func formatTimestamp(ts time.Time) string {
-	return convertTimezone(ts).Format("2006-01-02 15:04:05 MST")
+func formatTimestamp(ts time.Time, tz string) string {
+	return convertTimezone(ts, tz).Format("2006-01-02 15:04:05 MST")
 }
 
-func formatTimestampPrecise(ts time.Time) string {
-	return convertTimezone(ts).Format("2006-01-02 15:04:05.000 MST")
+func formatTimestampPrecise(ts time.Time, tz string) string {
+	return convertTimezone(ts, tz).Format("2006-01-02 15:04:05.000 MST")
 }
 
-func convertTimezone(ts time.Time) time.Time {
-	switch timeZone {
+func convertTimezone(ts time.Time, tz string) time.Time {
+	switch tz {
 	case "local":
 		return ts.Local()
 	case "utc":
@@ -87,7 +87,7 @@ func convertTimezone(ts time.Time) time.Time {
 	case "original":
 		return ts
 	default:
-		loc, err := time.LoadLocation(timeZone)
+		loc, err := time.LoadLocation(tz)
 		if err == nil {
 			return ts.In(loc)
 		}

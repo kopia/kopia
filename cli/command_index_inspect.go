@@ -119,8 +119,8 @@ func (c *commandIndexInspect) dumpIndexBlobEntries(entries chan indexBlobPlusCon
 		}
 
 		c.out.printStdout("%v %v %v %v %v %v %v %v\n",
-			formatTimestampPrecise(bm.Timestamp), bm.BlobID,
-			ci.ContentID, state, formatTimestampPrecise(ci.Timestamp()), ci.PackBlobID, ci.PackOffset, ci.PackedLength)
+			formatTimestampPrecise(bm.Timestamp, c.out.timeZone()), bm.BlobID,
+			ci.ContentID, state, formatTimestampPrecise(ci.Timestamp(), c.out.timeZone()), ci.PackBlobID, ci.PackOffset, ci.PackedLength)
 	}
 }
 

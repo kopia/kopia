@@ -120,7 +120,7 @@ func (c *commandSnapshotVerify) makeVerifyWalkerFunc(ctx context.Context, rep re
 		var treeWalkerEntries []twEntry
 
 		for _, man := range manifests {
-			rootPath := fmt.Sprintf("%v@%v", man.Source, formatTimestamp(man.StartTime.ToTime()))
+			rootPath := fmt.Sprintf("%v@%v", man.Source, formatTimestamp(man.StartTime.ToTime(), c.out.timeZone()))
 
 			if man.RootEntry == nil {
 				continue

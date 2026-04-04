@@ -25,7 +25,7 @@ func (c *commandSessionList) run(ctx context.Context, rep repo.DirectRepository)
 	}
 
 	for _, s := range sessions {
-		c.out.printStdout("%v %v@%v %v %v\n", s.ID, s.User, s.Host, formatTimestamp(s.StartTime), formatTimestamp(s.CheckpointTime))
+		c.out.printStdout("%v %v@%v %v %v\n", s.ID, s.User, s.Host, formatTimestamp(s.StartTime, c.out.timeZone()), formatTimestamp(s.CheckpointTime, c.out.timeZone()))
 	}
 
 	return nil

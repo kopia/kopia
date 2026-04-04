@@ -65,7 +65,7 @@ func (c *commandManifestList) listManifestItems(ctx context.Context, rep repo.Re
 			jl.emit(it)
 		} else {
 			t := it.Labels["type"]
-			c.out.printStdout("%v %10v %v type:%v %v\n", it.ID, it.Length, formatTimestamp(it.ModTime.Local()), t, sortedMapValues(it.Labels))
+			c.out.printStdout("%v %10v %v type:%v %v\n", it.ID, it.Length, formatTimestamp(it.ModTime.Local(), c.out.timeZone()), t, sortedMapValues(it.Labels))
 		}
 	}
 

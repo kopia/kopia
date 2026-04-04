@@ -446,11 +446,24 @@ func (c *concurrencyTest) getMetadataWorker(ctx context.Context, worker int) fun
 	}
 }
 
-func (c *concurrencyTest) listBlobWorker(_ context.Context, worker int) func() error {
-	// TODO: implement me
-	_ = worker
-
+func (c *concurrencyTest) listBlobWorker(ctx context.Context, worker int) func() error {
 	return func() error {
+		for clock.Now().Before(c.deadline) {
+			c.randomSleep()
+
+			var count int
+
+			err := c.st.pickOne().ListBlobs(ctx, c.prefix, func(bm blob.Metadata) error {
+				count++
+				return nil
+			})
+			if err != nil {
+				return errors.Wrapf(err, "list worker %d", worker)
+			}
+
+			log(ctx).Debugf("ListBlobs worker %v listed %v blobs", worker, count)
+		}
+
 		return nil
 	}
 }

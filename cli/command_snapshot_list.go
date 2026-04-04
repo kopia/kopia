@@ -278,13 +278,13 @@ func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context
 	if err := c.iterateSnapshotsMaybeWithStorageStats(ctx, rep, manifests, func(m *snapshot.Manifest) error {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
 		if err != nil {
-			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime.ToTime()), err)
+			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime.ToTime(), c.out.timeZone()), err)
 			return nil
 		}
 
 		ent, err := snapshotfs.GetNestedEntry(ctx, root, parts)
 		if err != nil {
-			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime.ToTime()), err)
+			c.out.printStdout("  %v <ERROR> %v\n", formatTimestamp(m.StartTime.ToTime(), c.out.timeZone()), err)
 			return nil
 		}
 
@@ -372,13 +372,13 @@ func (c *commandSnapshotList) outputSnapshotRows(rows []*snapshotListRow) {
 			bits = append(bits, "pins:"+strings.Join(row.pins, ","))
 		}
 
-		row.color.Fprint(c.out.stdout(), fmt.Sprintf("  %v %v %v\n", formatTimestamp(row.firstStartTime), row.oid, strings.Join(bits, " "))) //nolint:errcheck
+		row.color.Fprint(c.out.stdout(), fmt.Sprintf("  %v %v %v\n", formatTimestamp(row.firstStartTime, c.out.timeZone()), row.oid, strings.Join(bits, " "))) //nolint:errcheck
 
 		if row.count > 1 {
 			c.out.printStdout(
 				"  + %v identical snapshots until %v\n",
 				row.count-1,
-				formatTimestamp(row.lastStartTime),
+				formatTimestamp(row.lastStartTime, c.out.timeZone()),
 			)
 		}
 	}
@@ -417,7 +417,7 @@ func (c *commandSnapshotList) entryBits(ctx context.Context, m *snapshot.Manifes
 	}
 
 	if c.snapshotListShowModTime {
-		bits = append(bits, fmt.Sprintf("modified:%v", formatTimestamp(ent.ModTime())))
+		bits = append(bits, fmt.Sprintf("modified:%v", formatTimestamp(ent.ModTime(), c.out.timeZone())))
 	}
 
 	if c.snapshotListShowItemID {

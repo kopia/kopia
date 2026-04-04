@@ -49,7 +49,7 @@ func (c *commandBlobList) run(ctx context.Context, rep repo.DirectRepository) er
 		if c.jo.jsonOutput {
 			jl.emit(b)
 		} else {
-			c.out.printStdout("%-70v %10v %v\n", b.BlobID, b.Length, formatTimestamp(b.Timestamp))
+			c.out.printStdout("%-70v %10v %v\n", b.BlobID, b.Length, formatTimestamp(b.Timestamp, c.out.timeZone()))
 		}
 
 		return nil

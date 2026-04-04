@@ -49,6 +49,14 @@ func (o *textOutput) setup(svc appServices) {
 	o.svc = svc
 }
 
+func (o *textOutput) timeZone() string {
+	if o.svc == nil {
+		return "local"
+	}
+
+	return o.svc.getTimeZone()
+}
+
 func (o *textOutput) stdout() io.Writer {
 	if o.svc == nil {
 		return os.Stdout
@@ -92,6 +100,7 @@ type appServices interface {
 	getRestoreProgress() RestoreProgress
 	notificationTemplateOptions() notifytemplate.Options
 
+	getTimeZone() string
 	stdout() io.Writer
 	Stderr() io.Writer
 	stdin() io.Reader
@@ -121,6 +130,7 @@ type advancedAppServices interface {
 // App contains per-invocation flags and state of Kopia CLI.
 type App struct {
 	// global flags
+	timeZone                      string
 	enableAutomaticMaintenance    bool
 	progress                      *cliProgress
 	restoreProgress               RestoreProgress
@@ -185,6 +195,10 @@ type App struct {
 
 func (c *App) enableTestOnlyFlags() bool {
 	return c.isInProcessTest || os.Getenv("KOPIA_TESTONLY_FLAGS") != ""
+}
+
+func (c *App) getTimeZone() string {
+	return c.timeZone
 }
 
 func (c *App) getProgress() *cliProgress {
@@ -273,7 +287,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("update-available-notify-interval", "Interval between update notifications").Default("1h").Hidden().Envar(c.EnvName("KOPIA_UPDATE_NOTIFY_INTERVAL")).DurationVar(&c.updateAvailableNotifyInterval)
 	app.Flag("config-file", "Specify the config file to use").Default("repository.config").Envar(c.EnvName("KOPIA_CONFIG_PATH")).StringVar(&c.configPath)
 	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
-	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
+	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&c.timeZone)
 	app.Flag("password", "Repository password.").Envar(c.EnvName("KOPIA_PASSWORD")).Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar(c.EnvName("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT")).BoolVar(&c.persistCredentials)
 	app.Flag("disable-repository-log", "Disable repository log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_REPOSITORY_LOG")).BoolVar(&c.disableRepositoryLog)
@@ -325,6 +339,7 @@ type commandParent interface {
 // NewApp creates a new instance of App.
 func NewApp() *App {
 	return &App{
+		timeZone: "local",
 		progress: &cliProgress{},
 		cliStorageProviders: []StorageProvider{
 			{"from-config", "the provided configuration file", func() StorageFlags { return &storageFromConfigFlags{} }},

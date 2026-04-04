@@ -21,6 +21,8 @@ type commandContentVerify struct {
 	progressInterval            time.Duration
 
 	contentRange contentRangeFlags
+
+	svc appServices
 }
 
 func (c *commandContentVerify) setup(svc appServices, parent commandParent) {
@@ -33,6 +35,8 @@ func (c *commandContentVerify) setup(svc appServices, parent commandParent) {
 	cmd.Flag("progress-interval", "Progress output interval").Default("3s").DurationVar(&c.progressInterval)
 	c.contentRange.setup(cmd)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
+
+	c.svc = svc
 }
 
 func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepository) error {
@@ -88,7 +92,7 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 					timings.PercentComplete,
 					vps.ErrorCount,
 					timings.Remaining,
-					formatTimestamp(timings.EstimatedEndTime),
+					formatTimestamp(timings.EstimatedEndTime, c.svc.getTimeZone()),
 				)
 			} else {
 				log(ctx).Infof("  Verified %v contents, %v errors, estimating...", verifiedCount, vps.ErrorCount)

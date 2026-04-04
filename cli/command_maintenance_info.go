@@ -94,7 +94,7 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 
 			c.out.printStdout(
 				"    %v (%v) %v\n",
-				formatTimestamp(t.Start),
+				formatTimestamp(t.Start, c.out.timeZone()),
 				t.End.Sub(t.Start).Truncate(time.Second),
 				message)
 		}
@@ -110,7 +110,7 @@ func (c *commandMaintenanceInfo) displayCycleInfo(cp *maintenance.CycleParams, t
 		c.out.printStdout("  interval: %v\n", cp.Interval)
 
 		if rep.Time().Before(t) {
-			c.out.printStdout("  next run: %v (in %v)\n", formatTimestamp(t), t.Sub(clock.Now()).Truncate(time.Second))
+			c.out.printStdout("  next run: %v (in %v)\n", formatTimestamp(t, c.out.timeZone()), t.Sub(clock.Now()).Truncate(time.Second))
 		} else {
 			c.out.printStdout("  next run: now\n")
 		}

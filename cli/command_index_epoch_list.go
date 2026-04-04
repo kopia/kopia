@@ -40,7 +40,7 @@ func (c *commandIndexEpochList) run(ctx context.Context, rep repo.DirectReposito
 	c.out.printStdout("Current Epoch: %v\n", snap.WriteEpoch)
 
 	if est := snap.EpochStartTime[snap.WriteEpoch]; !est.IsZero() {
-		c.out.printStdout("Epoch Started  %v\n", formatTimestamp(est))
+		c.out.printStdout("Epoch Started  %v\n", formatTimestamp(est, c.out.timeZone()))
 	}
 
 	firstNonRangeCompacted := 0
@@ -55,8 +55,8 @@ func (c *commandIndexEpochList) run(ctx context.Context, rep repo.DirectReposito
 
 			c.out.printStdout("%v %v ... %v, %v blobs, %v, span %v\n",
 				e,
-				formatTimestamp(minTime),
-				formatTimestamp(maxTime),
+				formatTimestamp(minTime, c.out.timeZone()),
+				formatTimestamp(maxTime, c.out.timeZone()),
 				len(uces),
 				units.BytesString(blob.TotalLength(uces)),
 				maxTime.Sub(minTime).Round(time.Second),
@@ -66,7 +66,7 @@ func (c *commandIndexEpochList) run(ctx context.Context, rep repo.DirectReposito
 		if secs := snap.SingleEpochCompactionSets[e]; secs != nil {
 			c.out.printStdout("%v: %v single-epoch %v blobs, %v\n",
 				e,
-				formatTimestamp(secs[0].Timestamp),
+				formatTimestamp(secs[0].Timestamp, c.out.timeZone()),
 				len(secs),
 				units.BytesString(blob.TotalLength(secs)),
 			)

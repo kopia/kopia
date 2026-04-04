@@ -32,6 +32,8 @@ type commonRewriteSnapshots struct {
 	commit             bool
 	parallel           int
 	invalidDirHandling string
+
+	svc appServices
 }
 
 const (
@@ -42,7 +44,7 @@ const (
 )
 
 func (c *commonRewriteSnapshots) setup(svc appServices, cmd *kingpin.CmdClause) {
-	_ = svc
+	c.svc = svc
 
 	cmd.Flag("manifest-id", "Manifest IDs").StringsVar(&c.manifestIDs)
 	cmd.Flag("source", "Source to target (username@hostname:/path)").StringsVar(&c.sources)
@@ -99,7 +101,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 		metadataComp := policyTree.EffectivePolicy().MetadataCompressionPolicy.MetadataCompressor()
 
 		for _, man := range snapshot.SortByTime(mg, false) {
-			log(ctx).Debugf("  %v (%v)", formatTimestamp(man.StartTime.ToTime()), man.ID)
+			log(ctx).Debugf("  %v (%v)", formatTimestamp(man.StartTime.ToTime(), c.svc.getTimeZone()), man.ID)
 
 			old := man.Clone()
 
@@ -109,7 +111,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 			}
 
 			if !changed {
-				log(ctx).Infof("  %v unchanged (%v)", formatTimestamp(man.StartTime.ToTime()), man.ID)
+				log(ctx).Infof("  %v unchanged (%v)", formatTimestamp(man.StartTime.ToTime(), c.svc.getTimeZone()), man.ID)
 
 				continue
 			}
@@ -120,7 +122,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 				}
 			}
 
-			log(ctx).Infof("  %v replaced manifest from %v to %v", formatTimestamp(man.StartTime.ToTime()), old.ID, man.ID)
+			log(ctx).Infof("  %v replaced manifest from %v to %v", formatTimestamp(man.StartTime.ToTime(), c.svc.getTimeZone()), old.ID, man.ID)
 			log(ctx).Infof("    diff %v %v", old.RootEntry.ObjectID, man.RootEntry.ObjectID)
 
 			if d := snapshotSizeDelta(old, man); d != "" {

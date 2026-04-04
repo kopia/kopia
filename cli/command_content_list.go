@@ -91,7 +91,7 @@ func (c *commandContentList) outputLong(b content.Info) {
 	c.out.printStdout("%v %v %v %v %v+%v%v %v\n",
 		b.ContentID,
 		b.OriginalLength,
-		formatTimestamp(b.Timestamp()),
+		formatTimestamp(b.Timestamp(), c.out.timeZone()),
 		b.PackBlobID,
 		b.PackOffset,
 		maybeHumanReadableBytes(c.human, int64(b.PackedLength)),

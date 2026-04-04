@@ -55,7 +55,7 @@ func (c *commandNotificationTemplateList) run(ctx context.Context, rep repo.Repo
 			lastModString = ""
 		} else {
 			typeString = "<customized>"
-			lastModString = formatTimestamp(*i.LastModified)
+			lastModString = formatTimestamp(*i.LastModified, c.out.timeZone())
 		}
 
 		c.out.printStdout("%-30v %-15v %v\n", i.Name, typeString, lastModString)

@@ -116,7 +116,7 @@ func (c *commandList) printDirectoryEntry(ctx context.Context, e fs.Entry, prefi
 			"%v %12s %v %-34v %v%v",
 			e.Mode(),
 			maybeHumanReadableBytes(c.humanReadable, e.Size()),
-			formatTimestamp(e.ModTime().Local()),
+			formatTimestamp(e.ModTime().Local(), c.out.timeZone()),
 			oid,
 			c.nameToDisplay(prefix, e),
 			errorSummary,

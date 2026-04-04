@@ -16,6 +16,8 @@ type commandSnapshotDelete struct {
 	snapshotDeleteIDs                   []string
 	snapshotDeleteConfirm               bool
 	snapshotDeleteAllSnapshotsForSource bool
+
+	svc appServices
 }
 
 func (c *commandSnapshotDelete) setup(svc appServices, parent commandParent) {
@@ -26,6 +28,8 @@ func (c *commandSnapshotDelete) setup(svc appServices, parent commandParent) {
 	// hidden flag for backwards compatibility
 	cmd.Flag("unsafe-ignore-source", "Alias for --delete").Hidden().BoolVar(&c.snapshotDeleteConfirm)
 	cmd.Action(svc.repositoryWriterAction(c.run))
+
+	c.svc = svc
 }
 
 func (c *commandSnapshotDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {
@@ -82,7 +86,7 @@ func (c *commandSnapshotDelete) snapshotDeleteSources(ctx context.Context, rep r
 }
 
 func (c *commandSnapshotDelete) deleteSnapshot(ctx context.Context, rep repo.RepositoryWriter, m *snapshot.Manifest) error {
-	desc := fmt.Sprintf("snapshot %v of %v at %v", m.ID, m.Source, formatTimestamp(m.StartTime.ToTime()))
+	desc := fmt.Sprintf("snapshot %v of %v at %v", m.ID, m.Source, formatTimestamp(m.StartTime.ToTime(), c.svc.getTimeZone()))
 
 	if !c.snapshotDeleteConfirm {
 		log(ctx).Infof("Would delete %v (pass --delete to confirm)", desc)

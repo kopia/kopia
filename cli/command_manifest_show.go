@@ -45,7 +45,7 @@ func (c *commandManifestShow) showManifestItems(ctx context.Context, rep repo.Re
 
 		c.out.printStdout("// id: %v\n", it)
 		c.out.printStdout("// length: %v\n", md.Length)
-		c.out.printStdout("// modified: %v\n", formatTimestamp(md.ModTime))
+		c.out.printStdout("// modified: %v\n", formatTimestamp(md.ModTime, c.out.timeZone()))
 
 		for k, v := range md.Labels {
 			c.out.printStdout("// label %v:%v\n", k, v)

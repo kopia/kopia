@@ -162,7 +162,7 @@ func (c *commandIndexRecover) recoverIndexesFromAllPacks(ctx context.Context, re
 								disc,
 								e.PercentComplete,
 								e.Remaining,
-								formatTimestamp(e.EstimatedEndTime))
+								formatTimestamp(e.EstimatedEndTime, c.svc.getTimeZone()))
 						}
 					} else {
 						log(ctx).Infof("Recovered %v index entries from %v blobs, estimating time remaining... (found %v blobs)",

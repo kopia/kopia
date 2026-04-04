@@ -15,6 +15,8 @@ type commandSnapshotPin struct {
 	addPins     []string
 	removePins  []string
 	snapshotIDs []string
+
+	svc appServices
 }
 
 func (c *commandSnapshotPin) setup(svc appServices, parent commandParent) {
@@ -23,6 +25,8 @@ func (c *commandSnapshotPin) setup(svc appServices, parent commandParent) {
 	cmd.Flag("remove", "Remove pins").StringsVar(&c.removePins)
 	cmd.Arg("id", "Snapshot ID or root object ID").Required().StringsVar(&c.snapshotIDs)
 	cmd.Action(svc.repositoryWriterAction(c.run))
+
+	c.svc = svc
 }
 
 func (c *commandSnapshotPin) run(ctx context.Context, rep repo.RepositoryWriter) error {
@@ -72,12 +76,12 @@ func (c *commandSnapshotPin) pinSnapshotsByRootObjectID(ctx context.Context, rep
 
 func (c *commandSnapshotPin) pinSnapshot(ctx context.Context, rep repo.RepositoryWriter, m *snapshot.Manifest) error {
 	if !m.UpdatePins(c.addPins, c.removePins) {
-		log(ctx).Infof("No change for snapshot at %v of %v", formatTimestamp(m.StartTime.ToTime()), m.Source)
+		log(ctx).Infof("No change for snapshot at %v of %v", formatTimestamp(m.StartTime.ToTime(), c.svc.getTimeZone()), m.Source)
 
 		return nil
 	}
 
-	log(ctx).Infof("Updating snapshot at %v of %v", formatTimestamp(m.StartTime.ToTime()), m.Source)
+	log(ctx).Infof("Updating snapshot at %v of %v", formatTimestamp(m.StartTime.ToTime(), c.svc.getTimeZone()), m.Source)
 
 	return errors.Wrap(snapshot.UpdateSnapshot(ctx, rep, m), "error updating snapshot")
 }

@@ -255,7 +255,7 @@ func (c *commandRepositorySyncTo) runSyncBlobs(ctx context.Context, src blob.Rea
 				progressMutex.Lock()
 
 				if est, ok := tt.Estimate(float64(bytesCopied), float64(totalBytes)); ok {
-					eta = fmt.Sprintf("%v (%v)", est.Remaining, formatTimestamp(est.EstimatedEndTime))
+					eta = fmt.Sprintf("%v (%v)", est.Remaining, formatTimestamp(est.EstimatedEndTime, c.out.timeZone()))
 					speed = units.BytesPerSecondsString(est.SpeedPerSecond)
 				}
 

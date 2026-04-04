@@ -27,6 +27,8 @@ type commandMaintenanceSet struct {
 	extendObjectLocks []bool // optional boolean
 
 	listParallelism int
+
+	svc appServices
 }
 
 func (c *commandMaintenanceSet) setup(svc appServices, parent commandParent) {
@@ -62,6 +64,8 @@ func (c *commandMaintenanceSet) setup(svc appServices, parent commandParent) {
 	cmd.Flag("list-parallelism", "Override list parallelism.").IntVar(&c.listParallelism)
 
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
+
+	c.svc = svc
 }
 
 func (c *commandMaintenanceSet) setLogCleanupParametersFromFlags(ctx context.Context, p *maintenance.Params, changed *bool) {
@@ -179,14 +183,14 @@ func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectReposito
 		s.NextQuickMaintenanceTime = rep.Time().Add(pauseDuration)
 		changedSchedule = true
 
-		log(ctx).Infof("Quick maintenance paused until %v", formatTimestamp(s.NextQuickMaintenanceTime))
+		log(ctx).Infof("Quick maintenance paused until %v", formatTimestamp(s.NextQuickMaintenanceTime, c.svc.getTimeZone()))
 	}
 
 	if pauseDuration := c.maintenanceSetPauseFull; pauseDuration != -1 {
 		s.NextFullMaintenanceTime = rep.Time().Add(pauseDuration)
 		changedSchedule = true
 
-		log(ctx).Infof("Full maintenance paused until %v", formatTimestamp(s.NextFullMaintenanceTime))
+		log(ctx).Infof("Full maintenance paused until %v", formatTimestamp(s.NextFullMaintenanceTime, c.svc.getTimeZone()))
 	}
 
 	if !changedParams && !changedSchedule {

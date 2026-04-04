@@ -40,7 +40,7 @@ func (c *commandLogsList) run(ctx context.Context, rep repo.DirectRepository) er
 	for _, s := range allSessions {
 		c.out.printStdout(
 			"%v %v %v %v %v\n", s.id,
-			formatTimestamp(s.startTime),
+			formatTimestamp(s.startTime, c.out.timeZone()),
 			s.endTime.Sub(s.startTime),
 			units.BytesString(s.totalSize),
 			len(s.segments),

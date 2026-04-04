@@ -6,8 +6,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"golang.org/x/exp/constraints"
 )
 
 //nolint:gochecknoglobals
@@ -24,8 +22,16 @@ func niceNumber(f float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.1f", f), "0"), ".")
 }
 
+type integer interface {
+	~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~uintptr
+}
+
+type float interface {
+	~float32 | ~float64
+}
+
 type realNumber interface {
-	constraints.Integer | constraints.Float
+	integer | float
 }
 
 func toDecimalUnitString[T realNumber](f T, thousand float64, prefixes []string, suffix string) string {
@@ -72,7 +78,7 @@ func BytesPerSecondsString[T realNumber](bps T) string {
 }
 
 // Count returns the given number with the appropriate base-10 suffix (K, M, G, ...)
-func Count[T constraints.Integer](v T) string {
+func Count[T integer](v T) string {
 	//nolint:mnd
 	return toDecimalUnitString(v, 1000, base10UnitPrefixes, "")
 }

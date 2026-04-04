@@ -254,7 +254,7 @@ func (c *commandSnapshotMigrate) migrateSingleSource(ctx context.Context, upload
 
 func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context, uploader *upload.Uploader, sourceRepo repo.Repository, destRepo repo.RepositoryWriter, s snapshot.SourceInfo, m *snapshot.Manifest) error {
 	if m.IncompleteReason != "" {
-		log(ctx).Debugf("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime.ToTime()))
+		log(ctx).Debugf("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime.ToTime(), c.out.timeZone()))
 		return nil
 	}
 
@@ -269,11 +269,11 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 	}
 
 	if existing != nil {
-		log(ctx).Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime.ToTime()))
+		log(ctx).Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime.ToTime(), c.out.timeZone()))
 		return nil
 	}
 
-	log(ctx).Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime.ToTime()))
+	log(ctx).Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime.ToTime(), c.out.timeZone()))
 
 	previous, err := snapshot.FindPreviousManifests(ctx, destRepo, m.Source, &m.StartTime)
 	if err != nil {
