@@ -117,5 +117,5 @@ its kernel backend. Refer to the [macFUSE getting started
 guide](https://github.com/macfuse/macfuse/wiki/Getting-Started#kernel-backend) for the current installation requirements
 for your macOS version and architecture.
 
->NOTE: KopiaUI "Mount as Local Filesystem" button currently uses FUSE-based mount paths on macOS, and so requires
+>NOTE: KopiaUI "Mount as Local Filesystem" button currently uses FUSE-based mount paths on macOS, thus it requires
 >macFUSE to be installed.
