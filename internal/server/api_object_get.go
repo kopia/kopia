@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"errors"
+	"mime"
 	"net/http"
 	"time"
 
@@ -38,7 +39,7 @@ func handleObjectGet(ctx context.Context, rc requestContext) {
 	fname := oid.String()
 	if p := rc.queryParam("fname"); p != "" {
 		fname = p
-		rc.w.Header().Set("Content-Disposition", "attachment; filename=\""+p+"\"")
+		rc.w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": p}))
 	}
 
 	mtime := clock.Now()

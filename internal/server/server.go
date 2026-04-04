@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
@@ -59,6 +59,8 @@ const (
 	csrfTokenRequired csrfTokenOption = 1 + iota
 	csrfTokenNotRequired
 )
+
+const maxRequestBodySize = 20 << 20 // 20MB, matching MaxGRPCMessageSize
 
 type apiRequestFunc func(ctx context.Context, rc requestContext) (any, *apiError)
 
@@ -233,10 +235,12 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 		userLog(rc.req.Context()).Errorf("unable to generate short-term auth cookie: %v", err)
 	} else {
 		http.SetCookie(rc.w, &http.Cookie{
-			Name:    kopiaAuthCookie,
-			Value:   ac,
-			Expires: now.Add(kopiaAuthCookieTTL),
-			Path:    "/",
+			Name:     kopiaAuthCookie,
+			Value:    ac,
+			Expires:  now.Add(kopiaAuthCookieTTL),
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
 		})
 
 		if s.options.LogRequests {
@@ -249,9 +253,16 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 }
 
 func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
-	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.RegisteredClaims{}, func(_ *jwt.Token) (any, error) {
+	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.RegisteredClaims{}, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+
 		return s.authCookieSigningKey, nil
-	})
+	},
+		jwt.WithIssuer(kopiaAuthCookieIssuer),
+		jwt.WithAudience(kopiaAuthCookieAudience),
+	)
 	if err != nil {
 		return false
 	}
@@ -303,6 +314,19 @@ func (s *Server) getOptions() *Options {
 
 func (s *Server) taskManager() *uitask.Manager {
 	return s.taskmgr
+}
+
+// RequireServerControlAuthHandler wraps an http.Handler so that it requires
+// server-control authentication (the same auth used by the control API).
+func (s *Server) RequireServerControlAuthHandler(h http.Handler) http.HandlerFunc {
+	return s.requireAuth(csrfTokenNotRequired, func(_ context.Context, rc requestContext) {
+		if !requireServerControlUser(rc.req.Context(), rc) {
+			http.Error(rc.w, "access denied", http.StatusForbidden)
+			return
+		}
+
+		h.ServeHTTP(rc.w, rc.req)
+	})
 }
 
 func (s *Server) requireAuth(checkCSRFToken csrfTokenOption, f func(ctx context.Context, rc requestContext)) http.HandlerFunc {
@@ -362,6 +386,7 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 		// we must pre-read request body before acquiring the lock as it sometimes leads to deadlock
 		// in HTTP/2 server.
 		// See https://github.com/golang/go/issues/40816
+		rc.req.Body = http.MaxBytesReader(rc.w, rc.req.Body, maxRequestBodySize)
 		body, berr := io.ReadAll(rc.req.Body)
 		if berr != nil {
 			http.Error(rc.w, "error reading request body", http.StatusInternalServerError)
@@ -573,19 +598,7 @@ func (s *Server) sendSnapshotReport(st notifydata.MultiSnapshotStatus) {
 	// send the notification without blocking if we still have the repository
 	// it's possible that repository was closed in the meantime.
 	if rep != nil {
-		notification.Send(s.rootctx, rep, "snapshot-report", st, s.reportSeverity(st), s.notificationTemplateOptions())
-	}
-}
-
-func (*Server) reportSeverity(st notifydata.MultiSnapshotStatus) notification.Severity {
-	// TODO - this is a duplicate of the code in command_snapshot_create.go - we should unify this.
-	switch st.OverallStatusCode() {
-	case notifydata.StatusCodeFatal:
-		return notification.SeverityError
-	case notifydata.StatusCodeWarnings:
-		return notification.SeverityWarning
-	default:
-		return notification.SeverityReport
+		notification.Send(s.rootctx, rep, "snapshot-report", st, notification.ReportSeverity(st), s.notificationTemplateOptions())
 	}
 }
 
@@ -823,9 +836,11 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 				sessionID = uuid.NewString()
 
 				http.SetCookie(w, &http.Cookie{
-					Name:  kopiaSessionCookie,
-					Value: sessionID,
-					Path:  "/",
+					Name:     kopiaSessionCookie,
+					Value:    sessionID,
+					Path:     "/",
+					HttpOnly: true,
+					SameSite: http.SameSiteLaxMode,
 				})
 			}
 

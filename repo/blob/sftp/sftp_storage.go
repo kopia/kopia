@@ -522,7 +522,7 @@ func getSFTPClient(ctx context.Context, opt *Options) (*sftpConnection, error) {
 
 	conn, err := ssh.Dial("tcp", addr, config)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to dial [%s]: %#v", addr, config)
+		return nil, errors.Wrapf(err, "unable to dial [%s]", addr)
 	}
 
 	c, err := sftp.NewClient(conn,

@@ -256,9 +256,8 @@ func (c *commandServerStart) run(ctx context.Context) (reterr error) {
 
 	c.setupHandlers(srv, m)
 
-	// init prometheus after adding interceptors that require credentials, so that this
-	// handler can be called without auth
-	initPrometheus(m)
+	// init prometheus with server control authentication
+	initAuthenticatedPrometheus(srv, m)
 
 	var handler http.Handler = m
 
@@ -319,6 +318,10 @@ func (c *commandServerStart) setupHandlers(srv *server.Server, m *mux.Router) {
 
 func initPrometheus(m *mux.Router) {
 	m.Handle("/metrics", promhttp.Handler())
+}
+
+func initAuthenticatedPrometheus(srv *server.Server, m *mux.Router) {
+	m.Handle("/metrics", srv.RequireServerControlAuthHandler(promhttp.Handler()))
 }
 
 func stripProtocol(addr string) string {

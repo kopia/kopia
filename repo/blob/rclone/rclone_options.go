@@ -15,7 +15,7 @@ type Options struct {
 	StartupTimeout     jsonencoding.Duration `json:"startupTimeout,omitempty"`     // time to wait for rclone to start
 	Debug              bool                  `json:"debug,omitempty"`              // log rclone output
 	NoWaitForTransfers bool                  `json:"noWaitForTransfers,omitempty"` // when set to true, don't wait for transfers to finish when closing
-	EmbeddedConfig     string                `json:"embeddedConfig,omitempty"`
+	EmbeddedConfig     string                `json:"embeddedConfig,omitempty" kopia:"sensitive"`
 	AtomicWrites       bool                  `json:"atomicWrites"`
 
 	sharded.Options
