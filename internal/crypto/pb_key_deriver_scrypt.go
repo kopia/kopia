@@ -6,8 +6,20 @@ import (
 )
 
 const (
+	// scryptCostParameterN, scryptCostParameterR, and scryptCostParameterP
+	// are defined in pb_key_deriver_scrypt_32bit.go and pb_key_deriver_scrypt_64bit.go
+	// with architecture-specific values to avoid OOM on 32-bit systems.
+
 	// ScryptAlgorithm is the registration name for the scrypt algorithm instance.
+	// On 64-bit systems this uses scrypt-65536-8-1 (64MB memory).
+	// On 32-bit systems this uses scrypt-16384-4-1 (8MB memory) to avoid OOM.
+	//
+	// For compatibility, both algorithm names are registered and point to the
+	// same implementation with architecture-appropriate parameters.
 	ScryptAlgorithm = "scrypt-65536-8-1"
+
+	// Scrypt32BitAlgorithm is an alias for 32-bit compatible scrypt parameters.
+	Scrypt32BitAlgorithm = "scrypt-16384-4-1"
 
 	// The recommended minimum size for a salt to be used for scrypt.
 	// Currently set to 16 bytes (128 bits).
@@ -21,12 +33,25 @@ const (
 )
 
 func init() {
-	registerPBKeyDeriver(ScryptAlgorithm, &scryptKeyDeriver{
-		n:             65536, //nolint:mnd
-		r:             8,     //nolint:mnd
-		p:             1,
+	// Register the scrypt key deriver with architecture-specific parameters.
+	// We register under both algorithm names for compatibility:
+	// - The standard name "scrypt-65536-8-1" for existing repositories
+	// - The 32-bit name "scrypt-16384-4-1" for 32-bit compatible repositories
+	//
+	// Both names use the same actual parameters (from scryptCostParameter* constants)
+	// which are architecture-dependent.
+	deriver := &scryptKeyDeriver{
+		n:             scryptCostParameterN,
+		r:             scryptCostParameterR,
+		p:             scryptCostParameterP,
 		minSaltLength: scryptMinSaltLength,
-	})
+	}
+
+	// Register under the standard name (used by existing code/repos)
+	registerPBKeyDeriver(ScryptAlgorithm, deriver)
+
+	// Also register under the 32-bit name for clarity
+	registerPBKeyDeriver(Scrypt32BitAlgorithm, deriver)
 }
 
 type scryptKeyDeriver struct {
