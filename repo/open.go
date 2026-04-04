@@ -207,7 +207,13 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 		beforeFlush:      options.BeforeFlush,
 	}
 
-	return openGRPCAPIRepository(ctx, si, password, par)
+	r, err := openGRPCAPIRepository(ctx, si, password, par)
+	if err != nil {
+		closer.Close(ctx) //nolint:errcheck
+		return nil, err
+	}
+
+	return r, nil
 }
 
 // openDirect opens the repository that directly manipulates blob storage..
