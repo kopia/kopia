@@ -1656,6 +1656,25 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 	}
 }
 
+func (s *contentManagerSuite) TestIterateContents_UncommittedCallbackError(t *testing.T) {
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	bm := s.newTestContentManager(t, st)
+
+	// Write content but do NOT flush, so it remains uncommitted.
+	writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+
+	callbackErr := errors.New("uncommitted callback error")
+
+	// Before the fix, IterateContents dropped errors from uncommitted content callbacks.
+	err := bm.IterateContents(ctx, IterateOptions{}, func(ci Info) error {
+		return callbackErr
+	})
+
+	require.ErrorIs(t, err, callbackErr, "expected callback error from uncommitted content to be propagated")
+}
+
 func (s *contentManagerSuite) TestFindUnreferencedBlobs(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}

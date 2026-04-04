@@ -168,15 +168,17 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 	}
 
 	c.listCacheMutex.Lock()
-	defer c.listCacheMutex.Unlock()
 
 	// make sure the cache has enough room for the new item including any protection overhead.
 	l := data.Length() + c.storageProtection.OverheadBytes()
 	c.pendingWriteBytes += int64(l)
-	c.sweepLocked(ctx)
+	toDelete := c.sweepLocked(ctx)
 
-	// LOCK RELEASED for expensive operations
+	// LOCK RELEASED for expensive I/O operations
 	c.listCacheMutex.Unlock()
+
+	// perform sweep deletes outside the lock
+	c.performSweepDeletes(ctx, toDelete)
 
 	var protected gather.WriteBuffer
 	defer protected.Close()
@@ -184,6 +186,8 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 	c.storageProtection.Protect(key, data, &protected)
 
 	if protected.Length() != l {
+		// No lock is held here, so we can panic safely without causing
+		// a double-unlock from a deferred Unlock.
 		log(ctx).Panicf("protection overhead mismatch, assumed %v got %v", l, protected.Length())
 	}
 
@@ -196,7 +200,7 @@ func (c *PersistentCache) Put(ctx context.Context, key string, data gather.Bytes
 	}
 
 	c.listCacheMutex.Lock()
-	// LOCK RE-ACQUIRED
+	defer c.listCacheMutex.Unlock()
 
 	c.pendingWriteBytes -= int64(protected.Length())
 	c.listCache.AddOrUpdate(blob.Metadata{
@@ -288,41 +292,46 @@ func (c *PersistentCache) aboveHardLimit(extraBytes int64) bool {
 	return c.listCache.totalDataBytes+extraBytes+c.pendingWriteBytes > c.sweep.LimitBytes
 }
 
+// sweepLocked collects cache items that should be deleted to bring the cache
+// below its size limits. It removes them from the heap but does NOT perform
+// I/O. The caller is responsible for deleting the blobs outside the lock and
+// pushing any failed deletes back into the heap.
+//
 // +checklocks:c.listCacheMutex
-func (c *PersistentCache) sweepLocked(ctx context.Context) {
-	var (
-		unsuccessfulDeletes     []blob.Metadata
-		unsuccessfulDeleteBytes int64
-		now                     = c.timeNow()
-	)
+func (c *PersistentCache) sweepLocked(ctx context.Context) []blob.Metadata {
+	var toDelete []blob.Metadata
 
-	for len(c.listCache.data) > 0 && (c.aboveSoftLimit(unsuccessfulDeleteBytes) || c.aboveHardLimit(unsuccessfulDeleteBytes)) {
+	now := c.timeNow()
+
+	for len(c.listCache.data) > 0 && (c.aboveSoftLimit(0) || c.aboveHardLimit(0)) {
 		// examine the oldest cache item without removing it from the heap.
 		oldest := c.listCache.data[0]
 
-		if age := now.Sub(oldest.Timestamp); age < c.sweep.MinSweepAge && !c.aboveHardLimit(unsuccessfulDeleteBytes) {
+		if age := now.Sub(oldest.Timestamp); age < c.sweep.MinSweepAge && !c.aboveHardLimit(0) {
 			// the oldest item is below the specified minimal sweep age and we're below the hard limit, stop here
 			break
 		}
 
 		heap.Pop(&c.listCache)
 
-		if delerr := c.cacheStorage.DeleteBlob(ctx, oldest.BlobID); delerr != nil {
-			log(ctx).Warnw("unable to remove cache item", "cache", c.description, "item", oldest.BlobID, "err", delerr)
-
-			// accumulate unsuccessful deletes to be pushed back into the heap
-			// later so we do not attempt deleting the same blob multiple times
-			//
-			// after this we keep draining from the heap until we bring down
-			// c.listCache.DataSize() to zero
-			unsuccessfulDeletes = append(unsuccessfulDeletes, oldest)
-			unsuccessfulDeleteBytes += oldest.Length
-		}
+		toDelete = append(toDelete, oldest)
 	}
 
-	// put all unsuccessful deletes back into the heap
-	for _, m := range unsuccessfulDeletes {
-		heap.Push(&c.listCache, m)
+	return toDelete
+}
+
+// performSweepDeletes deletes cache blobs outside the lock. Failed deletes are
+// pushed back into the heap so they can be retried on the next sweep.
+func (c *PersistentCache) performSweepDeletes(ctx context.Context, toDelete []blob.Metadata) {
+	for _, item := range toDelete {
+		if delerr := c.cacheStorage.DeleteBlob(ctx, item.BlobID); delerr != nil {
+			log(ctx).Warnw("unable to remove cache item", "cache", c.description, "item", item.BlobID, "err", delerr)
+
+			// push failed deletes back into the heap
+			c.listCacheMutex.Lock()
+			heap.Push(&c.listCache, item)
+			c.listCacheMutex.Unlock()
+		}
 	}
 }
 
@@ -336,7 +345,6 @@ func (c *PersistentCache) initialScan(ctx context.Context) error {
 	)
 
 	c.listCacheMutex.Lock()
-	defer c.listCacheMutex.Unlock()
 
 	err := c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
 		// count items below minimal age.
@@ -350,10 +358,19 @@ func (c *PersistentCache) initialScan(ctx context.Context) error {
 		return nil
 	})
 	if err != nil {
+		c.listCacheMutex.Unlock()
 		return errors.Wrapf(err, "error listing %v", c.description)
 	}
 
-	c.sweepLocked(ctx)
+	toDelete := c.sweepLocked(ctx)
+
+	c.listCacheMutex.Unlock()
+
+	// perform sweep deletes outside the lock
+	c.performSweepDeletes(ctx, toDelete)
+
+	c.listCacheMutex.Lock()
+	defer c.listCacheMutex.Unlock()
 
 	dur := timer.Elapsed()
 

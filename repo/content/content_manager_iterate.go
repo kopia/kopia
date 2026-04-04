@@ -106,14 +106,18 @@ func (bm *WriteManager) snapshotUncommittedItems(ctx context.Context) index.Buil
 
 // IterateContents invokes the provided callback for each content starting with a specified prefix
 // and possibly including deleted items.
-func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions, callback IterateCallback) error {
+func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions, callback IterateCallback) (retErr error) {
 	if opts.Range == (IDRange{}) {
 		// range not specified - default to AllIDs
 		opts.Range = index.AllIDs
 	}
 
 	callback, cleanup := maybeParallelExecutor(opts.Parallel, callback)
-	defer cleanup() //nolint:errcheck
+	defer func() {
+		if cerr := cleanup(); cerr != nil && retErr == nil {
+			retErr = cerr
+		}
+	}()
 
 	uncommitted := bm.snapshotUncommittedItems(ctx)
 
@@ -141,7 +145,9 @@ func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions
 	}
 
 	for _, bi := range uncommitted {
-		_ = invokeCallback(bi)
+		if err := invokeCallback(bi); err != nil {
+			return err
+		}
 	}
 
 	if err := bm.maybeRefreshIndexes(ctx); err != nil {
@@ -152,7 +158,9 @@ func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions
 		return err
 	}
 
-	return cleanup()
+	retErr = cleanup()
+
+	return
 }
 
 // IteratePackOptions are the options used to iterate over packs.

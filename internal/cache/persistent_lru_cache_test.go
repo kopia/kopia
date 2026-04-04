@@ -3,6 +3,7 @@ package cache_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -274,6 +275,72 @@ func TestPersistentLRUCache_Sweep1(t *testing.T) {
 	// simulate error during final sweep
 	fs.AddFaults(blobtesting.MethodListBlobs, fault.New().ErrorInstead(errors.New("some error")))
 	pc.Close(ctx)
+}
+
+// mismatchedProtection is a StorageProtection that reports a different OverheadBytes
+// than what Protect actually produces. This triggers the panic check in Put().
+type mismatchedProtection struct{}
+
+func (mismatchedProtection) Protect(_ string, input gather.Bytes, output *gather.WriteBuffer) {
+	output.Reset()
+	input.WriteTo(output) //nolint:errcheck
+	// Add extra bytes that OverheadBytes() did not account for.
+	output.Append([]byte("extra"))
+}
+
+func (mismatchedProtection) Verify(_ string, input gather.Bytes, output *gather.WriteBuffer) error {
+	output.Reset()
+	input.WriteTo(output) //nolint:errcheck
+
+	return nil
+}
+
+func (mismatchedProtection) OverheadBytes() int {
+	return 0 // lies: Protect adds 5 bytes, but OverheadBytes reports 0
+}
+
+func TestPersistentLRUCache_PutPanicNoDoublePanic(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	data := blobtesting.DataMap{}
+
+	const maxSizeBytes = 10000
+
+	st := blobtesting.NewMapStorageWithLimit(data, nil, nil, maxSizeBytes)
+	fc := faultyCache{blobtesting.NewFaultyStorage(st)}
+
+	pc, err := cache.NewPersistentCache(ctx, "test", fc, mismatchedProtection{}, cache.SweepSettings{
+		MaxSizeBytes: maxSizeBytes,
+	}, nil, clock.Now)
+	require.NoError(t, err)
+
+	defer pc.Close(ctx)
+
+	// Put should panic due to protection overhead mismatch.
+	// Before the fix, this would cause a double-panic (the mismatch panic
+	// followed by "sync: unlock of unlocked mutex" from the deferred Unlock).
+	// After the fix, only the mismatch panic fires cleanly.
+	recovered := func() (r any) {
+		defer func() {
+			r = recover()
+		}()
+
+		pc.Put(ctx, "key1", gather.FromSlice([]byte{1, 2, 3}))
+
+		return nil
+	}()
+
+	require.NotNil(t, recovered, "expected a panic from protection overhead mismatch")
+
+	panicMsg := fmt.Sprintf("%v", recovered)
+	require.Contains(t, panicMsg, "protection overhead mismatch",
+		"expected panic message about protection overhead mismatch, got: %v", panicMsg)
+	// Before the fix, the deferred Unlock of an already-unlocked mutex would
+	// produce a second panic containing "unlock of unlocked mutex".
+	require.NotContains(t, panicMsg, "unlock of unlocked mutex",
+		"double-panic detected: mutex was unlocked twice")
 }
 
 func TestPersistentLRUCacheNil(t *testing.T) {
