@@ -342,8 +342,13 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		result.Previous = manifestsSinceLastCompleteSnapshot[0]
 	}
 
+	// Allow UI cancel to interrupt session establishment before uploader is created.
+	uploadCtx, cancelUpload := context.WithCancel(ctx)
+	defer cancelUpload()
+	ctrl.OnCancel(cancelUpload)
+
 	//nolint:wrapcheck
-	return repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+	return repo.WriteSession(uploadCtx, s.rep, repo.WriteSessionOptions{
 		Purpose: "Source Manager Uploader",
 		OnUpload: func(numBytes int64) {
 			// extra indirection to allow changing onUpload function later
