@@ -3,10 +3,13 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo/object"
 )
+
+const mountUnmountTimeout = 30 * time.Second
 
 func handleMountCreate(ctx context.Context, rc requestContext) (any, *apiError) {
 	req := &serverapi.MountSnapshotRequest{}
@@ -68,11 +71,19 @@ func handleMountDelete(ctx context.Context, rc requestContext) (any, *apiError) 
 		return nil, notFoundError("mount point not found")
 	}
 
-	if err := c.Unmount(ctx); err != nil {
-		return nil, internalServerError(err)
-	}
+	// Always remove the mount from the map, even if unmount fails.
+	// A failed unmount leaves a dead controller that blocks future mounts.
+	// Use a background context so the unmount is not cancelled by the HTTP request timeout.
+	unmountCtx, cancel := context.WithTimeout(context.Background(), mountUnmountTimeout)
+	defer cancel()
+
+	unmountErr := c.Unmount(unmountCtx)
 
 	rc.srv.deleteMount(oid)
+
+	if unmountErr != nil {
+		return nil, internalServerError(unmountErr)
+	}
 
 	return &serverapi.Empty{}, nil
 }
