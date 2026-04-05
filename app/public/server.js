@@ -232,6 +232,10 @@ function newServerForRepo(repoID) {
       return runningServerCertSHA256;
     },
 
+    getServerCertificate() {
+      return runningServerCertificate;
+    },
+
     getServerPassword() {
       return runningServerPassword;
     },

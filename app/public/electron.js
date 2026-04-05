@@ -33,6 +33,7 @@ import {
   isFirstRun,
   isPortableConfig,
 } from "./config.js";
+import { downloadObject, cleanupTempDir } from "./file-viewer.js";
 
 import Store from "electron-store";
 import log from "electron-log";
@@ -210,6 +211,7 @@ app.on("will-quit", function () {
   allConfigs().forEach((repositoryID) =>
     serverForRepo(repositoryID).stopServer(),
   );
+  cleanupTempDir();
 });
 
 app.on("login", (event, webContents, _request, _authInfo, callback) => {
@@ -268,6 +270,33 @@ ipcMain.handle("select-dir", async (_event, _arg) => {
 
 ipcMain.handle("browse-dir", async (_event, path) => {
   shell.openPath(path);
+});
+
+ipcMain.handle("open-file", async (event, objectID, filename) => {
+  const repoID = repoIDForWebContents[event.sender.id];
+  if (!repoID) {
+    throw new Error("unknown repository for this window");
+  }
+
+  const server = serverForRepo(repoID);
+  const address = server.getServerAddress();
+  const password = server.getServerPassword();
+  const certificate = server.getServerCertificate();
+
+  if (!address || !password) {
+    throw new Error("server is not running");
+  }
+
+  const tempPath = await downloadObject(
+    address,
+    objectID,
+    filename,
+    certificate,
+    password,
+  );
+
+  shell.openPath(tempPath);
+  return tempPath;
 });
 
 ipcMain.on("server-status-updated", updateTrayContextMenu);
@@ -485,6 +514,7 @@ function safeTrayHandler(ev, h) {
 
 app.on("ready", () => {
   loadConfigs();
+  cleanupTempDir();
 
   if (isPortableConfig()) {
     const logDir = path.join(configDir(), "logs");

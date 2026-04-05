@@ -9,4 +9,7 @@ contextBridge.exposeInMainWorld("kopiaUI", {
   browseDirectory: function (path) {
     ipcRenderer.invoke("browse-dir", path);
   },
+  openFile: function (objectID, filename) {
+    return ipcRenderer.invoke("open-file", objectID, filename);
+  },
 });
