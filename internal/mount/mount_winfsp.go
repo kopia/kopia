@@ -4,7 +4,11 @@ package mount
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"time"
 
+	"github.com/pkg/errors"
 	cgofuse "github.com/winfsp/cgofuse/fuse"
 
 	"github.com/kopia/kopia/fs"
@@ -18,24 +22,59 @@ func Directory(ctx context.Context, entry fs.Directory, mountPoint string, mount
 		return directoryWebDAVNetUse(ctx, entry, mountPoint)
 	}
 
+	if mountPoint == "*" {
+		drive, err := findFreeDriveLetter()
+		if err != nil {
+			return nil, err
+		}
+
+		mountPoint = drive
+	}
+
 	kopiaFS := winfsp.NewKopiaFS(entry)
 	host := cgofuse.NewFileSystemHost(kopiaFS)
 
-	// WinFsp mount options for read-only filesystem.
-	opts := []string{"-o", "ro", "-o", "uid=-1,gid=-1"}
+	// WinFsp mount options for read-only local filesystem.
+	// FileSystemName=NTFS makes Windows treat it as a trusted local volume.
+	opts := []string{"-o", "ro", "-o", "uid=-1,gid=-1", "-o", "FileSystemName=NTFS", "-o", "volname=Kopia"}
 
+	mountErr := make(chan error, 1)
 	done := make(chan struct{})
 
 	go func() {
-		host.Mount(mountPoint, opts)
+		ok := host.Mount(mountPoint, opts)
+		if !ok {
+			mountErr <- errors.Errorf("WinFsp mount failed on %v", mountPoint)
+		}
+
 		close(done)
 	}()
+
+	// Wait briefly for mount to either fail or start serving.
+	select {
+	case err := <-mountErr:
+		return nil, err
+	case <-time.After(2 * time.Second): //nolint:mnd
+		// Mount is running.
+	}
 
 	return winfspController{
 		mountPoint: mountPoint,
 		host:       host,
 		done:       done,
 	}, nil
+}
+
+// findFreeDriveLetter finds an available drive letter, searching from Z: downward.
+func findFreeDriveLetter() (string, error) {
+	for c := 'Z'; c >= 'D'; c-- {
+		drive := fmt.Sprintf("%c:", c)
+		if _, err := os.Stat(drive + "\\"); os.IsNotExist(err) {
+			return drive, nil
+		}
+	}
+
+	return "", errors.New("no free drive letter available")
 }
 
 type winfspController struct {
