@@ -113,6 +113,10 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 		return "", errors.Wrap(err, "can't write to temp file")
 	}
 
+	if err := tf.Sync(); err != nil {
+		return "", errors.Wrapf(err, "cannot sync temporary file in dir %s", dirname)
+	}
+
 	if err := tf.Close(); err != nil {
 		return "", errors.New("can't close tmp file")
 	}
