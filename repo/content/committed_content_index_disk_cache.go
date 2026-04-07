@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	stderrors "errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -95,30 +96,32 @@ func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, 
 	return nil
 }
 
-func writeTempFileAtomic(dirname string, data []byte) (string, error) {
+func writeTempFileAtomic(dirname string, data []byte) (filename string, err error) {
 	// write to a temp file to avoid race where two processes are writing at the same time.
-	tf, err := os.CreateTemp(dirname, "tmp")
-	if err != nil {
-		if os.IsNotExist(err) {
+	tf, err2 := os.CreateTemp(dirname, "tmp")
+	if err2 != nil {
+		if os.IsNotExist(err2) {
 			os.MkdirAll(dirname, cache.DirMode) //nolint:errcheck
-			tf, err = os.CreateTemp(dirname, "tmp")
+			tf, err2 = os.CreateTemp(dirname, "tmp")
 		}
 	}
 
-	if err != nil {
-		return "", errors.Wrap(err, "can't create tmp file")
+	if err2 != nil {
+		return "", errors.Wrap(err2, "can't create tmp file")
 	}
 
-	if _, err := tf.Write(data); err != nil {
-		return "", errors.Wrap(err, "can't write to temp file")
+	defer func() {
+		if cerr := tf.Close(); cerr != nil {
+			err = stderrors.Join(err, errors.Wrap(cerr, "can't close tmp file"))
+		}
+	}()
+
+	if _, err2 := tf.Write(data); err2 != nil {
+		return "", errors.Wrap(err2, "can't write to temp file")
 	}
 
-	if err := tf.Sync(); err != nil {
-		return "", errors.Wrapf(err, "cannot sync temporary file in dir %s", dirname)
-	}
-
-	if err := tf.Close(); err != nil {
-		return "", errors.New("can't close tmp file")
+	if err2 := tf.Sync(); err2 != nil {
+		return "", errors.Wrapf(err2, "cannot sync temporary file in dir %s", dirname)
 	}
 
 	return tf.Name(), nil
