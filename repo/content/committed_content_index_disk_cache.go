@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrors "errors"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -113,6 +114,15 @@ func writeTempFileAtomic(dirname string, data []byte) (filename string, err erro
 	defer func() {
 		if cerr := tf.Close(); cerr != nil {
 			err = stderrors.Join(err, errors.Wrap(cerr, "can't close tmp file"))
+		}
+
+		if err != nil {
+			// remove tmp file on error to avoid leaving them behind
+			if rerr := os.Remove(path.Join(dirname, tf.Name())); rerr != nil {
+				err = stderrors.Join(err, errors.Wrap(rerr, "can't remove tmp file"))
+			}
+
+			filename = ""
 		}
 	}()
 
