@@ -247,3 +247,45 @@ func TestOnNthCompletion(t *testing.T) {
 		require.Equal(t, n, noErrorCount)
 	})
 }
+
+func TestProcessRecoversPanic(t *testing.T) {
+	queue := parallelwork.NewQueue()
+
+	var completed atomic.Int32
+
+	// First callback panics.
+	queue.EnqueueBack(context.Background(), func() error {
+		panic("test panic in callback")
+	})
+
+	// Second callback should still execute and the queue should not deadlock.
+	queue.EnqueueBack(context.Background(), func() error {
+		completed.Add(1)
+		return nil
+	})
+
+	err := queue.Process(context.Background(), 2)
+	// The panic is converted to an error.
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "panic in parallel work callback")
+	require.Contains(t, err.Error(), "test panic in callback")
+}
+
+func TestProcessRecoversPanicWithEnqueuedWork(t *testing.T) {
+	queue := parallelwork.NewQueue()
+
+	// Callback that enqueues more work then panics — without recovery
+	// this would deadlock because completed() is never called and
+	// activeWorkerCount remains incremented, blocking dequeue() forever.
+	queue.EnqueueBack(context.Background(), func() error {
+		queue.EnqueueBack(context.Background(), func() error {
+			return nil
+		})
+
+		panic("panic after enqueue")
+	})
+
+	err := queue.Process(context.Background(), 1)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "panic after enqueue")
+}
