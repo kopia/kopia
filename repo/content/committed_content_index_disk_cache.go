@@ -2,9 +2,7 @@ package content
 
 import (
 	"context"
-	stderrors "errors"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -12,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobparam"
-	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
@@ -76,7 +73,7 @@ func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, 
 		return nil
 	}
 
-	tmpFile, err := writeTempFileAtomic(c.dirname, data.ToByteSlice())
+	tmpFile, err := writeTempFileAtomic(localFS{}, c.dirname, data.ToByteSlice())
 	if err != nil {
 		return err
 	}
@@ -95,46 +92,6 @@ func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, 
 	}
 
 	return nil
-}
-
-func writeTempFileAtomic(dirname string, data []byte) (filename string, err error) {
-	// write to a temp file to avoid race where two processes are writing at the same time.
-	tf, err2 := os.CreateTemp(dirname, "tmp")
-	if err2 != nil {
-		if os.IsNotExist(err2) {
-			os.MkdirAll(dirname, cache.DirMode) //nolint:errcheck
-			tf, err2 = os.CreateTemp(dirname, "tmp")
-		}
-	}
-
-	if err2 != nil {
-		return "", errors.Wrap(err2, "can't create tmp file")
-	}
-
-	defer func() {
-		if cerr := tf.Close(); cerr != nil {
-			err = stderrors.Join(err, errors.Wrap(cerr, "can't close tmp file"))
-		}
-
-		if err != nil {
-			// remove tmp file on error to avoid leaving them behind
-			if rerr := os.Remove(path.Join(dirname, tf.Name())); rerr != nil {
-				err = stderrors.Join(err, errors.Wrap(rerr, "can't remove tmp file"))
-			}
-
-			filename = ""
-		}
-	}()
-
-	if _, err2 := tf.Write(data); err2 != nil {
-		return "", errors.Wrap(err2, "can't write to temp file")
-	}
-
-	if err2 := tf.Sync(); err2 != nil {
-		return "", errors.Wrapf(err2, "cannot sync temporary file in dir %s", dirname)
-	}
-
-	return tf.Name(), nil
 }
 
 func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
