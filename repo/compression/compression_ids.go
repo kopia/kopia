@@ -23,7 +23,7 @@ const (
 	headerPgzipBestSpeed       HeaderID = 0x1301
 	headerPgzipBestCompression HeaderID = 0x1302
 
-	headerLZ4Default HeaderID = 0x1400
+	headerLZ4Removed HeaderID = 0x1400 // historically used for LZ4 and must not be reused.
 
 	headerDeflateDefault         HeaderID = 0x1500
 	headerDeflateBestSpeed       HeaderID = 0x1501
