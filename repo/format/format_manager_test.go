@@ -352,7 +352,7 @@ func TestChangePassword(t *testing.T) {
 	mgr2, err := format.NewManagerWithCache(ctx, fst, cacheDuration, "some-password", nowFunc, blobCache)
 	require.NoError(t, err)
 
-	require.NoError(t, mgr2.ChangePassword(ctx, "new-password"))
+	require.NoError(t, mgr2.ChangePassword(ctx, "new-password", "", 0, 0))
 
 	// immediately after changing the password, both managers can still read the repo
 	mustGetMutableParameters(t, mgr)
