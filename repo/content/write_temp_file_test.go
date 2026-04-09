@@ -90,7 +90,7 @@ func TestWriteTempFileAtomic_NonExistentDirUnwritable(t *testing.T) {
 
 	_, err := writeTempFileAtomicImp(localFS{}, dir, []byte("data"))
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "can't create tmp file")
+	require.Contains(t, err.Error(), "cannot create parent directory for temp file")
 }
 
 type mockFileSynced struct {
@@ -207,8 +207,8 @@ func (mf mockFileCloseError) Close() error {
 	return errors.New("mock file close error")
 }
 
-// TestWriteTempFileAtomic_NoTempFilesLeftOnWriteError verifies that writeTempFileAtomic
-// does not leak the temporary file after an error writing the file.
+// TestWriteTempFileAtomic_NoTempFilesLeftOnError verifies that writeTempFileAtomic
+// does not leak the temporary file after a write, sync, or close error.
 func TestWriteTempFileAtomic_NoTempFilesLeftOnError(t *testing.T) {
 	t.Parallel()
 
