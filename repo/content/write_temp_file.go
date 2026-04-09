@@ -42,7 +42,11 @@ func writeTempFileAtomic(fsi fsInterface, dirname string, data []byte) (filename
 	tf, err2 := fsi.CreateTemp(dirname, "tmp")
 	if err2 != nil {
 		if os.IsNotExist(err2) {
-			fsi.MkdirAll(dirname, cache.DirMode) //nolint:errcheck
+			if mdErr := fsi.MkdirAll(dirname, cache.DirMode); mdErr != nil {
+				return "", stderrors.Join(errors.Wrap(mdErr, "cannot create parent directory for temp file"),
+					errors.Wrap(err2, "cannot create temp file"))
+			}
+
 			tf, err2 = fsi.CreateTemp(dirname, "tmp")
 		}
 	}
