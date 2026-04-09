@@ -16,6 +16,8 @@ env:
   ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
   # set (to any value other than false) to trigger very long filenames testing
   ENABLE_LONG_FILENAMES: ${{ secrets.ENABLE_LONG_FILENAMES }}
+permissions:
+  contents: read
 jobs:
   build:
     strategy:
@@ -24,6 +26,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     name: Lint
     runs-on: ${{ matrix.os }}
+    permissions:
+      security-events: write
     steps:
     - name: Check out repository
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -34,15 +38,18 @@ jobs:
       with:
         go-version-file: 'go.mod'
     - id: govulncheck
-      uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
+      name: govulncheck
+      # generate report and then fail if issues are found
+      run: |
+        go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
+        govulncheck -format sarif > govulncheck.sarif
+        govulncheck
+    - id: govulncheck-results
+      if: ${{ always() }}
+      name: "Upload govulncheck results to dashboard"
+      uses: github/codeql-action/upload-sarif@c10b8064de6f491fea524254123dbe5e09572f13 # v3.29.5
       with:
-        cache: false
-        go-version-input: '1.25.9'
-        # An explicit Go version is needed for govulncheck-action since internally
-        # it uses an outdated setup-go@v5.0 action that does not respect the 'toolchain'
-        # directive in the 'go.mod' file.
-        #go-version-file: 'go.mod'
-        repo-checkout: false
+        sarif_file: govulncheck.sarif
     - name: Lint
       run: make lint
     - name: Check Locks
