@@ -175,6 +175,10 @@ type mockFileCloseError struct {
 }
 
 func (mf mockFileCloseError) Close() error {
+	if err := mf.file.Close(); err != nil {
+		return err
+	}
+
 	return errors.New("mock file close error")
 }
 
