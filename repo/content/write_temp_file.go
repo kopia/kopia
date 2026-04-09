@@ -5,7 +5,6 @@ import (
 	"io"
 	"io/fs"
 	"os"
-	"path"
 
 	"github.com/pkg/errors"
 
@@ -59,7 +58,7 @@ func writeTempFileAtomic(fsi fsInterface, dirname string, data []byte) (filename
 
 		if err != nil {
 			// remove tmp file on error to avoid leaving them behind
-			if rerr := fsi.Remove(path.Join(dirname, tf.Name())); rerr != nil {
+			if rerr := fsi.Remove(tf.Name()); rerr != nil {
 				err = stderrors.Join(err, errors.Wrap(rerr, "can't remove tmp file"))
 			}
 
