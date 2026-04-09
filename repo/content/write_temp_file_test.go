@@ -3,6 +3,7 @@ package content
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -70,6 +71,10 @@ func TestWriteTempFileAtomic_CreatesDirectoryIfMissing(t *testing.T) {
 func TestWriteTempFileAtomic_NonExistentDirUnwritable(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("skipping permission test when running as root")
+	}
+
+	if runtime.GOOS == "windows" {
+		t.Skip("does not work on windows due to chmod")
 	}
 
 	t.Parallel()
