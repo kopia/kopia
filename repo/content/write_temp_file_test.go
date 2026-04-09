@@ -19,7 +19,7 @@ func TestWriteTempFileAtomic_HappyPath(t *testing.T) {
 	dir := t.TempDir()
 	data := []byte("index-blob-content")
 
-	name, err := writeTempFileAtomic(localFS{}, dir, data)
+	name, err := writeTempFileAtomicImp(localFS{}, dir, data)
 	require.NoError(t, err)
 	require.NotEmpty(t, name)
 
@@ -38,7 +38,7 @@ func TestWriteTempFileAtomic_EmptyData(t *testing.T) {
 
 	dir := t.TempDir()
 
-	name, err := writeTempFileAtomic(localFS{}, dir, []byte{})
+	name, err := writeTempFileAtomicImp(localFS{}, dir, []byte{})
 	require.NoError(t, err)
 
 	info, err := os.Stat(name)
@@ -57,7 +57,7 @@ func TestWriteTempFileAtomic_CreatesDirectoryIfMissing(t *testing.T) {
 
 	data := []byte("hello")
 
-	name, err := writeTempFileAtomic(localFS{}, dir, data)
+	name, err := writeTempFileAtomicImp(localFS{}, dir, data)
 	require.NoError(t, err)
 	require.Equal(t, dir, filepath.Dir(name))
 
@@ -88,7 +88,7 @@ func TestWriteTempFileAtomic_NonExistentDirUnwritable(t *testing.T) {
 
 	dir := filepath.Join(parent, "child")
 
-	_, err := writeTempFileAtomic(localFS{}, dir, []byte("data"))
+	_, err := writeTempFileAtomicImp(localFS{}, dir, []byte("data"))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "can't create tmp file")
 }
@@ -132,7 +132,7 @@ func TestWriteTempFileAtomic_FileIsSynced(t *testing.T) {
 		},
 	}
 
-	name, err := writeTempFileAtomic(mfs, dir, data)
+	name, err := writeTempFileAtomicImp(mfs, dir, data)
 	require.NoError(t, err)
 	require.True(t, mockedFile.synced.Load())
 
@@ -152,7 +152,7 @@ func TestWriteTempFileAtomic_NoTempFilesLeft(t *testing.T) {
 
 	dir := t.TempDir()
 
-	name, err := writeTempFileAtomic(localFS{}, dir, []byte("data"))
+	name, err := writeTempFileAtomicImp(localFS{}, dir, []byte("data"))
 	require.NoError(t, err)
 
 	entries, err := os.ReadDir(dir)
@@ -240,7 +240,7 @@ func TestWriteTempFileAtomic_NoTempFilesLeftOnError(t *testing.T) {
 		t.Run(c.description, func(t *testing.T) {
 			dir := t.TempDir()
 
-			name, err := writeTempFileAtomic(c.mockfs, dir, []byte("data"))
+			name, err := writeTempFileAtomicImp(c.mockfs, dir, []byte("data"))
 			require.Error(t, err)
 			require.Empty(t, name)
 			t.Log("error:", err)

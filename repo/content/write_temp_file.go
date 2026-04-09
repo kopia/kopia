@@ -37,7 +37,11 @@ func (l localFS) MkdirAll(dirPath string, perm fs.FileMode) error {
 	return os.MkdirAll(dirPath, perm) //nolint:wrapcheck
 }
 
-func writeTempFileAtomic(fsi fsInterface, dirname string, data []byte) (filename string, err error) {
+func writeTempFileAtomic(dirname string, data []byte) (filename string, err error) {
+	return writeTempFileAtomicImp(localFS{}, dirname, data)
+}
+
+func writeTempFileAtomicImp(fsi fsInterface, dirname string, data []byte) (filename string, err error) {
 	// write to a temp file to avoid race where two processes are writing at the same time.
 	tf, err2 := fsi.CreateTemp(dirname, "tmp")
 	if err2 != nil {

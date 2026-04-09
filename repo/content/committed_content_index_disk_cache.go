@@ -73,7 +73,7 @@ func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, 
 		return nil
 	}
 
-	tmpFile, err := writeTempFileAtomic(localFS{}, c.dirname, data.ToByteSlice())
+	tmpFile, err := writeTempFileAtomic(c.dirname, data.ToByteSlice())
 	if err != nil {
 		return err
 	}
