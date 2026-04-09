@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync/atomic"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -91,34 +92,53 @@ func TestWriteTempFileAtomic_NonExistentDirUnwritable(t *testing.T) {
 	require.Contains(t, err.Error(), "can't create tmp file")
 }
 
-// TestWriteTempFileAtomic_FileIsSynced verifies that the data written is
-// durable: after writeTempFileAtomic returns, re-reading the file on a freshly
-// opened handle yields identical bytes. This exercises the Sync() call added
-// by the PR — if Sync were absent the content could still be buffered.
-//
-// On most OSes a successful Sync() is the only way to guarantee this;
-// the test is a best-effort correctness check rather than a strict OS
-// durability guarantee.
+type mockFileSynced struct {
+	file
+
+	synced atomic.Bool
+}
+
+func (mf *mockFileSynced) Write(p []byte) (n int, err error) {
+	mf.synced.Store(false)
+
+	return mf.file.Write(p)
+}
+
+func (mf *mockFileSynced) Sync() error {
+	err := mf.file.Sync()
+	if err == nil {
+		mf.synced.Store(true)
+	}
+
+	return err
+}
+
+// TestWriteTempFileAtomic_FileIsSynced verifies that Sync is called after
+// writing data to the temporary file.
 func TestWriteTempFileAtomic_FileIsSynced(t *testing.T) {
 	t.Parallel()
+
+	var mockedFile mockFileSynced
 
 	dir := t.TempDir()
 	data := []byte("synced-content")
 
-	name, err := writeTempFileAtomic(localFS{}, dir, data)
+	mfs := mockfs{
+		createWrapper: func(f file) file {
+			mockedFile.file = f
+
+			return &mockedFile
+		},
+	}
+
+	name, err := writeTempFileAtomic(mfs, dir, data)
 	require.NoError(t, err)
+	require.True(t, mockedFile.synced.Load())
 
 	// Open a new handle to avoid OS read-cache of the same descriptor.
-	f, err := os.Open(name)
+	b, err := os.ReadFile(name)
 	require.NoError(t, err)
-
-	defer f.Close()
-
-	buf := make([]byte, len(data))
-	n, err := f.Read(buf)
-	require.NoError(t, err)
-	require.Equal(t, len(data), n)
-	require.Equal(t, data, buf)
+	require.Equal(t, data, b)
 }
 
 // TestWriteTempFileAtomic_NoTempFilesLeft verifies that writeTempFileAtomic
