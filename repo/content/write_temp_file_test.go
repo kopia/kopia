@@ -77,6 +77,7 @@ func TestWriteTempFileAtomic_NonExistentDirUnwritable(t *testing.T) {
 	if os.Getuid() == 0 {
 		t.Skip("skipping permission test when running as root")
 	}
+
 	t.Parallel()
 
 	// Create a read-only parent so that MkdirAll cannot create the child.
