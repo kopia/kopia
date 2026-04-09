@@ -69,14 +69,13 @@ func TestWriteTempFileAtomic_CreatesDirectoryIfMissing(t *testing.T) {
 // returned when the directory cannot be created (e.g. parent is read-only).
 // Skipped on platforms where root may bypass permissions.
 func TestWriteTempFileAtomic_NonExistentDirUnwritable(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("skipping permission test when running as root")
-	}
-
 	if runtime.GOOS == "windows" {
 		t.Skip("does not work on windows due to chmod")
 	}
 
+	if os.Getuid() == 0 {
+		t.Skip("skipping permission test when running as root")
+	}
 	t.Parallel()
 
 	// Create a read-only parent so that MkdirAll cannot create the child.
