@@ -16,6 +16,8 @@ env:
   ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
   # set (to any value other than false) to trigger very long filenames testing
   ENABLE_LONG_FILENAMES: ${{ secrets.ENABLE_LONG_FILENAMES }}
+permissions:
+  contents: read
 jobs:
   build:
     strategy:
@@ -24,6 +26,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     name: Lint
     runs-on: ${{ matrix.os }}
+    permissions:
+      security-events: write
     steps:
     - name: Check out repository
       uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
