@@ -69,9 +69,9 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 	deletePosition := len(allLogBlobs)
 
 	for i, bm := range allLogBlobs {
-		retainedSize += maintenancestats.ToUint64(bm.Length)
+		bmlen := maintenancestats.ToUint64(bm.Length)
 
-		if opt.MaxTotalSize > 0 && retainedSize > uint64(opt.MaxTotalSize) {
+		if opt.MaxTotalSize > 0 && retainedSize+bmlen > uint64(opt.MaxTotalSize) {
 			deletePosition = i
 			break
 		}
@@ -85,6 +85,8 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 			deletePosition = i
 			break
 		}
+
+		retainedSize += bmlen
 	}
 
 	toDelete := allLogBlobs[deletePosition:]
