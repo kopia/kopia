@@ -831,7 +831,7 @@ func (u *Uploader) processDirectoryEntries(
 	return nil
 }
 
-//nolint:funlen
+//nolint:funlen,gocyclo
 func (u *Uploader) processSingle(
 	ctx context.Context,
 	entry fs.Entry,
@@ -904,8 +904,8 @@ func (u *Uploader) processSingle(
 		return nil
 
 	case fs.Symlink:
-		childTree := policyTree.Child(entry.Name())
-		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry, childTree.EffectivePolicy().MetadataCompressionPolicy.MetadataCompressor())
+		compressor := policyTree.Child(entry.Name()).EffectivePolicy().MetadataCompressionPolicy.MetadataCompressor()
+		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry, compressor)
 
 		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
@@ -928,8 +928,13 @@ func (u *Uploader) processSingle(
 			prefix         string
 		)
 
+		// Use the child policy for the specific entry path, not the parent directory policy.
+		// This ensures per-entry error handling rules are respected, consistent with how
+		// directory processing derives childTree via policyTree.Child().
+		ehp := policyTree.Child(entry.Name()).EffectivePolicy().ErrorHandlingPolicy
+
 		if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
-			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypes.OrDefault(true)
+			isIgnoredError = ehp.IgnoreUnknownTypes.OrDefault(true)
 
 			// If unknown types are configured to be ignored, skip them completely without any error reporting
 			if isIgnoredError {
@@ -938,8 +943,13 @@ func (u *Uploader) processSingle(
 
 			prefix = "unknown entry"
 		} else {
-			isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
 			prefix = "error"
+
+			if entry.IsDir() {
+				isIgnoredError = ehp.IgnoreDirectoryErrors.OrDefault(false)
+			} else {
+				isIgnoredError = ehp.IgnoreFileErrors.OrDefault(false)
+			}
 		}
 
 		return u.processEntryUploadResult(ctx, nil, entry.ErrorInfo(), entryRelativePath, parentDirBuilder,

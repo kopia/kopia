@@ -427,9 +427,9 @@ func TestUpload_ErrorEntries(t *testing.T) {
 
 	t.Cleanup(th.cleanup)
 
-	th.sourceDir.Subdir("d1").AddErrorEntry("some-unknown-entry", os.ModeIrregular, fs.ErrUnknown)
-	th.sourceDir.Subdir("d1").AddErrorEntry("some-failed-entry", 0, errors.New("some-other-error"))
-	th.sourceDir.Subdir("d2").AddErrorEntry("another-failed-entry", os.ModeIrregular, errors.New("another-error"))
+	th.sourceDir.Subdir("d1").AddErrorEntryIrregular("some-unknown-entry", 0, fs.ErrUnknown)
+	th.sourceDir.Subdir("d1").AddErrorEntryFile("some-failed-entry", 0, errors.New("some-other-error"))
+	th.sourceDir.Subdir("d2").AddErrorEntryIrregular("another-failed-entry", 0, errors.New("another-error"))
 
 	trueValue := policy.OptionalBool(true)
 	falseValue := policy.OptionalBool(false)
@@ -516,6 +516,117 @@ func TestUpload_ErrorEntries(t *testing.T) {
 			}
 
 			verifyErrors(t, man, tc.wantFatalErrors, tc.wantIgnoredErrors, expectedErrors)
+		})
+	}
+}
+
+func TestUpload_ErrorEntryChildPolicy(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
+
+	// Add a dir-typed error entry, a file-typed error entry, and an unknown-typed error entry under d1.
+	th.sourceDir.Subdir("d1").AddErrorEntryDir("dir-err", 0, errors.New("dir-error"))
+	th.sourceDir.Subdir("d1").AddErrorEntryFile("file-err", 0, errors.New("file-error"))
+	th.sourceDir.Subdir("d1").AddErrorEntryIrregular("unknown-err", 0, fs.ErrUnknown)
+
+	trueValue := policy.OptionalBool(true)
+	falseValue := policy.OptionalBool(false)
+
+	cases := []struct {
+		desc              string
+		defined           map[string]*policy.Policy
+		defaultPolicy     *policy.Policy
+		wantFatalErrors   int
+		wantIgnoredErrors int
+		wantErrors        entryPathToError
+	}{
+		{
+			desc: "child policy ignores dir errors only",
+			defined: map[string]*policy.Policy{
+				"./d1/dir-err": {
+					ErrorHandlingPolicy: policy.ErrorHandlingPolicy{
+						IgnoreDirectoryErrors: &trueValue,
+						IgnoreFileErrors:      &falseValue,
+					},
+				},
+			},
+			defaultPolicy: &policy.Policy{
+				ErrorHandlingPolicy: policy.ErrorHandlingPolicy{
+					IgnoreDirectoryErrors: &falseValue,
+					IgnoreFileErrors:      &falseValue,
+				},
+			},
+			wantFatalErrors:   1, // file-err is fatal (uses default policy)
+			wantIgnoredErrors: 1, // dir-err is ignored (uses child policy)
+			// unknown-err is silently skipped (IgnoreUnknownTypes defaults to true)
+			wantErrors: entryPathToError{
+				"d1/dir-err":  errors.New("dir-error"),
+				"d1/file-err": errors.New("file-error"),
+			},
+		},
+		{
+			desc: "child policy ignores file errors only",
+			defined: map[string]*policy.Policy{
+				"./d1/file-err": {
+					ErrorHandlingPolicy: policy.ErrorHandlingPolicy{
+						IgnoreDirectoryErrors: &falseValue,
+						IgnoreFileErrors:      &trueValue,
+					},
+				},
+			},
+			defaultPolicy: &policy.Policy{
+				ErrorHandlingPolicy: policy.ErrorHandlingPolicy{
+					IgnoreDirectoryErrors: &falseValue,
+					IgnoreFileErrors:      &falseValue,
+				},
+			},
+			wantFatalErrors:   1, // dir-err is fatal (uses default policy)
+			wantIgnoredErrors: 1, // file-err is ignored (uses child policy)
+			// unknown-err is silently skipped (IgnoreUnknownTypes defaults to true)
+			wantErrors: entryPathToError{
+				"d1/dir-err":  errors.New("dir-error"),
+				"d1/file-err": errors.New("file-error"),
+			},
+		},
+		{
+			desc: "child policy disables unknown type ignore",
+			defined: map[string]*policy.Policy{
+				"./d1/unknown-err": {
+					ErrorHandlingPolicy: policy.ErrorHandlingPolicy{
+						IgnoreUnknownTypes: &falseValue,
+					},
+				},
+			},
+			defaultPolicy: &policy.Policy{
+				ErrorHandlingPolicy: policy.ErrorHandlingPolicy{
+					IgnoreDirectoryErrors: &trueValue,
+					IgnoreFileErrors:      &trueValue,
+				},
+			},
+			wantFatalErrors:   1, // unknown-err is fatal (child policy overrides default)
+			wantIgnoredErrors: 2, // dir-err and file-err are ignored (default policy)
+			wantErrors: entryPathToError{
+				"d1/dir-err":     errors.New("dir-error"),
+				"d1/file-err":    errors.New("file-error"),
+				"d1/unknown-err": fs.ErrUnknown,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			u := NewUploader(th.repo)
+
+			policyTree := policy.BuildTree(tc.defined, tc.defaultPolicy)
+
+			man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+			require.NoError(t, err)
+
+			verifyErrors(t, man, tc.wantFatalErrors, tc.wantIgnoredErrors, tc.wantErrors)
 		})
 	}
 }
@@ -1347,7 +1458,7 @@ func TestUploadLogging(t *testing.T) {
 	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, defaultPermissions)
 	sourceDir.AddFile("f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
 	sourceDir.AddSymlink("f4", "f2", defaultPermissions)
-	sourceDir.AddErrorEntry("f5", defaultPermissions, errors.New("some error"))
+	sourceDir.AddErrorEntryFile("f5", defaultPermissions, errors.New("some error"))
 
 	sourceDir.AddDir("d1", defaultPermissions)
 	sourceDir.AddDir("d1/d3", defaultPermissions)

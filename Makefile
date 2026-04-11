@@ -39,7 +39,7 @@ endif
 endif
 
 GOTESTSUM_FORMAT=pkgname-and-test-fails
-GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --hide-summary=output
+GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --hide-summary=output,skipped
 GO_TEST?=$(gotestsum) $(GOTESTSUM_FLAGS) --
 
 LINTER_DEADLINE=1200s
@@ -385,8 +385,9 @@ ifneq ($(GOOS),windows)
 	             -e github.com/kopia/kopia/issues && exit 1 || echo repo/ layering ok
 endif
 
+htmlui-e2e-test: GOTESTSUM_FORMAT=testname
 htmlui-e2e-test:
-	HTMLUI_E2E_TEST=1 go test -timeout 600s github.com/kopia/kopia/tests/htmlui_e2e_test -v $(TEST_FLAGS)
+	HTMLUI_E2E_TEST=1 $(GO_TEST) -timeout 600s github.com/kopia/kopia/tests/htmlui_e2e_test -v $(TEST_FLAGS)
 
 htmlui-e2e-test-local-htmlui-changes:
 	(cd ../htmlui && npm run build)
