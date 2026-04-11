@@ -323,14 +323,14 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 	var deletedEpochMarkersCount, deletedWatermarksCount atomic.Uint64
 
 	eg.Go(func() error {
-		deleted, err := e.cleanupEpochMarkers(ctx, cs)
+		deleted, err := e.cleanupEpochMarkers(ctx, cs, p.DeleteParallelism)
 		deletedEpochMarkersCount.Store(deleted)
 
 		return err
 	})
 
 	eg.Go(func() error {
-		deleted, err := e.cleanupWatermarks(ctx, cs, p, maxReplacementTime)
+		deleted, err := e.cleanupWatermarks(ctx, cs, maxReplacementTime, p.DeleteParallelism)
 		deletedWatermarksCount.Store(deleted)
 
 		return err
@@ -348,7 +348,7 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 	return result, nil
 }
 
-func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) (uint64, error) {
+func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot, deleteParallelism int) (uint64, error) {
 	// delete epoch markers for epoch < current-1
 	var toDelete []blob.ID
 
@@ -360,15 +360,10 @@ func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) (
 		}
 	}
 
-	p, err := e.getParameters(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	return uint64(len(toDelete)), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting index blob marker")
+	return uint64(len(toDelete)), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism), "error deleting index blob marker")
 }
 
-func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *Parameters, maxReplacementTime time.Time) (uint64, error) {
+func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, maxReplacementTime time.Time, deleteParallelism int) (uint64, error) {
 	var toDelete []blob.ID
 
 	for _, bm := range cs.DeletionWatermarkBlobs {
@@ -386,7 +381,7 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *
 		}
 	}
 
-	return uint64(len(toDelete)), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting watermark blobs")
+	return uint64(len(toDelete)), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism), "error deleting watermark blobs")
 }
 
 // CleanupSupersededIndexes cleans up the indexes which have been superseded by compacted ones.
