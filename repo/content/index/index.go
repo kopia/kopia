@@ -24,8 +24,22 @@ type Index interface {
 	Iterate(r IDRange, cb func(Info) error) error
 }
 
+// Source encapsulates a source of index data.
+//
+// Currently, Source is backed by a byte slice, but this abstraction was introduced
+// to allow for future support of file-backed sources or other data sources.
+// This design enables flexibility in how index data is provided and accessed.
+type Source struct {
+	data []byte
+}
+
+// SliceIndexSource creates an index source from a byte slice.
+func SliceIndexSource(data []byte) Source {
+	return Source{data: data}
+}
+
 // Open reads an Index from a given reader. The caller must call Close() when the index is no longer used.
-func Open(data []byte, closer func() error, v1PerContentOverhead func() int) (Index, error) {
+func Open(data Source, closer func() error, v1PerContentOverhead func() int) (Index, error) {
 	h, err := v1ReadHeader(data)
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid header")
@@ -43,24 +57,24 @@ func Open(data []byte, closer func() error, v1PerContentOverhead func() int) (In
 	}
 }
 
-func safeSlice(data []byte, offset int64, length int) (v []byte, err error) {
+func safeSlice(src Source, offset int64, length int) (v []byte, err error) {
 	defer func() {
 		if recover() != nil {
 			v = nil
-			err = errors.Errorf("invalid slice offset=%v, length=%v, data=%v bytes", offset, length, len(data))
+			err = errors.Errorf("invalid slice offset=%v, length=%v, data=%v bytes", offset, length, len(src.data))
 		}
 	}()
 
-	return data[offset : offset+int64(length)], nil
+	return src.data[offset : offset+int64(length)], nil
 }
 
-func safeSliceString(data []byte, offset int64, length int) (s string, err error) {
+func safeSliceString(src Source, offset int64, length int) (s string, err error) {
 	defer func() {
 		if recover() != nil {
 			s = ""
-			err = errors.Errorf("invalid slice offset=%v, length=%v, data=%v bytes", offset, length, len(data))
+			err = errors.Errorf("invalid slice offset=%v, length=%v, data=%v bytes", offset, length, len(src.data))
 		}
 	}()
 
-	return string(data[offset : offset+int64(length)]), nil
+	return string(src.data[offset : offset+int64(length)]), nil
 }
