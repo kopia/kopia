@@ -33,7 +33,6 @@ require (
 	github.com/kopia/htmluibuild v0.0.1-0.20260407042614-ef9b7e16a97f
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.14
-	github.com/mattn/go-isatty v0.0.20
 	github.com/minio/minio-go/v7 v7.0.100
 	github.com/mocktools/go-smtp-mock/v2 v2.5.3
 	github.com/mxk/go-vss v1.2.1
@@ -122,6 +121,7 @@ require (
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
 	github.com/kr/fs v0.1.0 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
