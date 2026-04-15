@@ -80,7 +80,7 @@ Repeating 100 times per compression method (total 12.5 MiB).
  16. zstd-best-compression      25.1 KiB     19.3 MiB/s   882    99.3 MiB
 ```
 
-While s2 significantly uses significant less memory in this case, pgzip's numbers seem indifferent to the input size. [Turns out](https://github.com/klauspost/pgzip/issues/44), pgzip has different memory usage logic. It would quickly allocate necessary memory and plateau, which s2 is more on a linear fashion. Here is rough graph is demonstrate the difference:
+While s2 uses significantly less memory in this case, pgzip's numbers seem indifferent to the input size. [Turns out](https://github.com/klauspost/pgzip/issues/44), pgzip has different memory usage logic. It would quickly allocate necessary memory and plateau, which s2 is more on a linear fashion. Here is rough graph is demonstrate the difference:
 
 ![s2 vs pgzip](s2_vs_pgzip.svg)
 
