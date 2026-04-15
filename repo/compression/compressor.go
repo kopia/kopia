@@ -60,6 +60,7 @@ func RegisterDeprecatedCompressor(name Name, c Compressor) {
 func registerUnsupportedCompressor(name Name, c Compressor) {
 	RegisterCompressor(name, c)
 
+	IsDeprecated[name] = true
 	isUnsupported[c.HeaderID()] = true
 }
 
@@ -86,6 +87,17 @@ func DecompressByHeader(output io.Writer, input io.Reader) error {
 	}
 
 	return errors.Wrap(compressor.Decompress(output, input, false), "error decompressing")
+}
+
+// IsSupported returns whether a named compression scheme is supported.
+func IsSupported(name Name) bool {
+	c := ByName[name]
+
+	if c == nil {
+		return false
+	}
+
+	return !isUnsupported[c.HeaderID()]
 }
 
 func mustSucceed(err error) {
