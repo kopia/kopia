@@ -32,6 +32,7 @@ var (
 	ByName         = map[Name]Compressor{}
 	HeaderIDToName = map[HeaderID]Name{}
 	IsDeprecated   = map[Name]bool{}
+	isUnsupported  = map[HeaderID]bool{}
 )
 
 // RegisterCompressor registers the provided compressor implementation.
@@ -54,6 +55,12 @@ func RegisterDeprecatedCompressor(name Name, c Compressor) {
 	RegisterCompressor(name, c)
 
 	IsDeprecated[name] = true
+}
+
+func registerUnsupportedCompressor(name Name, c Compressor) {
+	RegisterCompressor(name, c)
+
+	isUnsupported[c.HeaderID()] = true
 }
 
 func compressionHeader(id HeaderID) []byte {
