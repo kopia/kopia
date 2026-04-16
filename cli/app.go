@@ -338,6 +338,7 @@ func NewApp() *App {
 			{"rclone", "a rclone-based provided", func() StorageFlags { return &storageRcloneFlags{} }},
 			{"s3", "an S3 bucket", func() StorageFlags { return &storageS3Flags{} }},
 			{"sftp", "an SFTP storage", func() StorageFlags { return &storageSFTPFlags{} }},
+			{"storj", "a Storj bucket", func() StorageFlags { return &storageStorjFlags{} }},
 			{"webdav", "a WebDAV storage", func() StorageFlags { return &storageWebDAVFlags{} }},
 		},
 
