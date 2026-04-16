@@ -99,6 +99,10 @@ func BenchmarkCompressor(b *testing.B) {
 
 	var sortedNames []Name
 	for id := range ByName {
+		if !IsSupported(id) {
+			continue
+		}
+
 		sortedNames = append(sortedNames, id)
 	}
 
