@@ -73,7 +73,7 @@ func (storj *storjStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Met
 		return blob.Metadata{}, errors.Wrap(translateError(err), "GetMetadata StatObject fail")
 	}
 	bmd := blob.Metadata{
-		BlobID:    blob.ID(o.Key),
+		BlobID:    blob.ID(strings.TrimPrefix(o.Key, storj.Prefix)),
 		Length:    o.System.ContentLength,
 		Timestamp: o.System.Created,
 	}
@@ -146,7 +146,7 @@ func (storj *storjStorage) ListBlobs(ctx context.Context, prefix blob.ID, callba
 			continue
 		}
 		omd := blob.Metadata{
-			BlobID:    blob.ID(o.Key),
+			BlobID:    blob.ID(strings.TrimPrefix(o.Key, storj.Prefix)),
 			Length:    o.System.ContentLength,
 			Timestamp: o.System.Created,
 		}
