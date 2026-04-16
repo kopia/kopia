@@ -31,7 +31,11 @@ type cryptoBenchResult struct {
 	throughput float64
 }
 
-func runInParallelNoInputNoResult(n int, run func()) {
+func runInParallelNoInputNoResult(n uint, run func()) {
+	if n == 0 {
+		return
+	}
+
 	dummyArgs := make([]int, n)
 
 	runInParallelNoResult(dummyArgs, func(_ int) {
@@ -39,7 +43,13 @@ func runInParallelNoInputNoResult(n int, run func()) {
 	})
 }
 
-func runInParallelNoInput[T any](n int, run func() T) T {
+func runInParallelNoInput[T any](n uint, run func() T) T {
+	if n == 0 {
+		var zero T
+
+		return zero
+	}
+
 	dummyArgs := make([]int, n)
 
 	return runInParallel(dummyArgs, func(_ int) T {
