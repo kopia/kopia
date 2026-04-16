@@ -52,6 +52,9 @@ jobs:
         sarif_file: govulncheck.sarif
     - name: Lint
       run: make lint
+    - name: Lint Windows
+      if: ${{ contains(matrix.os, 'ubuntu') }}
+      run: make lint-windows
     - name: Check Locks
       run: make check-locks
     - name: Prettier
