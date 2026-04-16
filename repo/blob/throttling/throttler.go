@@ -52,7 +52,7 @@ func (t *tokenBucketBasedThrottler) BeforeOperation(ctx context.Context, op stri
 	}
 }
 
-func (t *tokenBucketBasedThrottler) AfterOperation(ctx context.Context, op string) {
+func (t *tokenBucketBasedThrottler) AfterOperation(_ context.Context, op string) {
 	switch op {
 	case operationListBlobs:
 	case operationGetBlob, operationGetMetadata:

@@ -7,7 +7,7 @@
 //	  err error
 //	}
 //
-//	func processWork(p *workshare.Pool, req interface{}) {
+//	func processWork(p *workshare.Pool, req any) {
 //	  req := req.(*processWorkRequest)
 //	  req.err = visitNode(p, req.node)
 //	}

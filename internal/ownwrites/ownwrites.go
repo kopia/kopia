@@ -105,7 +105,7 @@ func (s *CacheStorage) ListBlobs(ctx context.Context, prefix blob.ID, cb func(bl
 	// This will be slower than ListBlobs() but we're expecting this set to be empty
 	// most of the time because eventual consistency effects don't show up too often.
 	for blobID := range cachedCreatedSet {
-		bm, err := s.Storage.GetMetadata(ctx, blobID)
+		bm, err := s.GetMetadata(ctx, blobID)
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			// blob did not exist in storage, but we had the marker in cache, ignore.
 			continue

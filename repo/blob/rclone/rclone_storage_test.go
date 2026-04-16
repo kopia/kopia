@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -46,7 +47,8 @@ func mustGetRcloneExeOrSkip(t *testing.T) string {
 		rcloneExe = "rclone"
 	}
 
-	if err := exec.Command(rcloneExe, "version").Run(); err != nil {
+	ctx := testlogging.Context(t)
+	if err := exec.CommandContext(ctx, rcloneExe, "version").Run(); err != nil {
 		if os.Getenv("CI") == "" {
 			t.Skipf("rclone not installed: %v", err)
 		} else {
@@ -60,6 +62,38 @@ func mustGetRcloneExeOrSkip(t *testing.T) string {
 	return rcloneExe
 }
 
+func TestRCloneStorageCancelContext(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	rcloneExe := mustGetRcloneExeOrSkip(t)
+	dataDir := testutil.TempDirectory(t)
+	ctx := testlogging.Context(t)
+
+	// use context that gets canceled after opening storage to ensure it's not used beyond New().
+	newCtx, cancel := context.WithCancel(ctx)
+	st, err := rclone.New(newCtx, &rclone.Options{
+		// pass local file as remote path.
+		RemotePath: dataDir,
+		RCloneExe:  rcloneExe,
+	}, true)
+
+	cancel()
+
+	require.NoError(t, err, "unable to connect to rclone backend")
+	require.NotNil(t, st, "unable to connect to rclone backend")
+
+	t.Cleanup(func() {
+		st.Close(testlogging.ContextForCleanup(t))
+	})
+
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	err = st.GetBlob(ctx, blob.ID(uuid.New().String()), 0, -1, &tmp)
+	require.ErrorIs(t, err, blob.ErrBlobNotFound, "unexpected error when downloading non-existent blob")
+}
+
 func TestRCloneStorage(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
@@ -70,8 +104,8 @@ func TestRCloneStorage(t *testing.T) {
 	dataDir := testutil.TempDirectory(t)
 
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
-	newctx, cancel := context.WithCancel(ctx)
-	st, err := rclone.New(newctx, &rclone.Options{
+	newCtx, cancel := context.WithCancel(ctx)
+	st, err := rclone.New(newCtx, &rclone.Options{
 		// pass local file as remote path.
 		RemotePath: dataDir,
 		RCloneExe:  rcloneExe,
@@ -89,7 +123,7 @@ func TestRCloneStorage(t *testing.T) {
 
 	// trigger multiple parallel reads to ensure we're properly preventing race
 	// described in https://github.com/kopia/kopia/issues/624
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		eg.Go(func() error {
 			var tmp gather.WriteBuffer
 			defer tmp.Close()
@@ -221,8 +255,6 @@ func TestRCloneProviders(t *testing.T) {
 	rcloneExe := mustGetRcloneExeOrSkip(t)
 
 	for name, rp := range rcloneExternalProviders {
-		rp := rp
-
 		opt := &rclone.Options{
 			RemotePath:     rp,
 			RCloneExe:      rcloneExe,
@@ -251,7 +283,7 @@ func TestRCloneProviders(t *testing.T) {
 			k, ok := st.(Killable)
 			require.True(t, ok, "not killable")
 
-			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, testlogging.NewTestLogger(t), "[RCLONE-STORAGE] "),
+			blobtesting.VerifyStorage(ctx, t, logging.NewWrapper(st, testlogging.NewTestLogger(t), nil, "[RCLONE-STORAGE] "),
 				blob.PutOptions{})
 
 			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -263,17 +295,12 @@ func TestRCloneProviders(t *testing.T) {
 
 			prefix := uuid.NewString()
 
-			for i := 0; i < 10; i++ {
-				i := i
-				wg.Add(1)
-
-				go func() {
-					defer wg.Done()
-
-					for j := 0; j < 3; j++ {
-						require.NoError(t, st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j)), gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+			for i := range 10 {
+				wg.Go(func() {
+					for j := range 3 {
+						assert.NoError(t, st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j)), gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 					}
-				}()
+				})
 			}
 
 			wg.Wait()
@@ -293,8 +320,8 @@ func TestRCloneProviders(t *testing.T) {
 
 			var eg errgroup.Group
 
-			for i := 0; i < 10; i++ {
-				for j := 0; j < 3; j++ {
+			for i := range 10 {
+				for j := range 3 {
 					blobID := blob.ID(fmt.Sprintf("%v-%v-%v", prefix, i, j))
 
 					eg.Go(func() error {
@@ -326,13 +353,14 @@ func cleanupOldData(t *testing.T, rcloneExe, remotePath string) {
 
 		configFile = filepath.Join(tmpDir, "rclone.conf")
 
-		//nolint:gomnd
+		//nolint:mnd
 		if err = os.WriteFile(configFile, b, 0o600); err != nil {
 			t.Fatalf("unable to write config file: %v", err)
 		}
 	}
 
-	c := exec.Command(rcloneExe, "--config", configFile, "lsjson", remotePath)
+	ctx := testlogging.Context(t)
+	c := exec.CommandContext(ctx, rcloneExe, "--config", configFile, "lsjson", remotePath)
 	b, err := c.Output()
 	require.NoError(t, err)
 
@@ -353,7 +381,7 @@ func cleanupOldData(t *testing.T, rcloneExe, remotePath string) {
 		if age > cleanupAge {
 			t.Logf("purging: %v %v", e.Name, age)
 
-			if err := exec.Command(rcloneExe, "--config", configFile, "purge", remotePath+"/"+e.Name).Run(); err != nil {
+			if err := exec.CommandContext(ctx, rcloneExe, "--config", configFile, "purge", remotePath+"/"+e.Name).Run(); err != nil {
 				t.Logf("error purging %v: %v", e.Name, err)
 			}
 		}

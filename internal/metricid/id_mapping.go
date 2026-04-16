@@ -1,4 +1,3 @@
-// Package metricid provides mapping between metric names and persistent IDs.
 package metricid
 
 // Mapping contains translation of names to indexes and vice versa, which allows maps
@@ -44,15 +43,15 @@ func NewMapping(fwd map[string]int) *Mapping {
 		IndexToName: inverse(fwd),
 	}
 
-	max := 0
+	maxIndex := 0
 
 	for _, index := range fwd {
-		if index > max {
-			max = index
+		if index > maxIndex {
+			maxIndex = index
 		}
 	}
 
-	m.MaxIndex = max
+	m.MaxIndex = maxIndex
 
 	return m
 }

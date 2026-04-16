@@ -19,7 +19,7 @@ type commandRepositoryRepair struct {
 }
 
 func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandParent) {
-	cmd := parent.Command("repair", "Repairs repository.")
+	cmd := parent.Command("repair", "DEPRECATED: Recover format blob from older-format packs.").Hidden()
 
 	cmd.Flag("recover-format", "Recover format blob from a copy").Default("auto").EnumVar(&c.repairCommandRecoverFormatBlob, "auto", "yes", "no")
 	cmd.Flag("recover-format-block-prefixes", "Prefixes of file names").StringsVar(&c.repairCommandRecoverFormatBlobPrefixes)
@@ -27,10 +27,11 @@ func (c *commandRepositoryRepair) setup(svc advancedAppServices, parent commandP
 
 	for _, prov := range svc.storageProviders() {
 		f := prov.NewFlags()
-		cc := cmd.Command(prov.Name, "Repair repository in "+prov.Description)
+		cc := cmd.Command(prov.Name, "Repair repository in "+prov.Description).Hidden()
 		f.Setup(svc, cc)
 		cc.Action(func(kpc *kingpin.ParseContext) error {
-			//nolint:wrapcheck
+			svc.dangerousCommand()
+
 			return svc.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 				st, err := f.Connect(ctx, false, 0)
 				if err != nil {
@@ -56,13 +57,13 @@ func packBlockPrefixes() []string {
 func (c *commandRepositoryRepair) runRepairCommandWithStorage(ctx context.Context, st blob.Storage) error {
 	switch c.repairCommandRecoverFormatBlob {
 	case "auto":
-		log(ctx).Infof("looking for format blob...")
+		log(ctx).Info("looking for format blob...")
 
 		var tmp gather.WriteBuffer
 		defer tmp.Close()
 
 		if err := st.GetBlob(ctx, format.KopiaRepositoryBlobID, 0, -1, &tmp); err == nil {
-			log(ctx).Infof("format blob already exists, not recovering, pass --recover-format=yes")
+			log(ctx).Info("format blob already exists, not recovering, pass --recover-format=yes")
 			return nil
 		}
 
@@ -84,6 +85,7 @@ func (c *commandRepositoryRepair) recoverFormatBlob(ctx context.Context, st blob
 	for _, prefix := range prefixes {
 		err := st.ListBlobs(ctx, blob.ID(prefix), func(bi blob.Metadata) error {
 			log(ctx).Infof("looking for replica of format blob in %v...", bi.BlobID)
+
 			if b, err := format.RecoverFormatBlob(ctx, st, bi.BlobID, bi.Length); err == nil {
 				if !c.repairDryRun {
 					if puterr := st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice(b), blob.PutOptions{}); puterr != nil {

@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 type commandSnapshotMigrate struct {
@@ -63,21 +64,24 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		wg              sync.WaitGroup
 		mu              sync.Mutex
 		canceled        bool
-		activeUploaders = map[snapshot.SourceInfo]*snapshotfs.Uploader{}
+		activeUploaders = map[snapshot.SourceInfo]*upload.Uploader{}
 	)
 
 	c.svc.getProgress().StartShared()
 
-	c.svc.onCtrlC(func() {
+	c.svc.onTerminate(func() {
 		mu.Lock()
 		defer mu.Unlock()
 
-		if !canceled {
-			canceled = true
-			for s, u := range activeUploaders {
-				log(ctx).Infof("canceling active uploader for %v", s)
-				u.Cancel()
-			}
+		if canceled {
+			return
+		}
+
+		canceled = true
+
+		for s, u := range activeUploaders {
+			log(ctx).Infof("canceling active uploader for %v", s)
+			u.Cancel()
 		}
 	})
 
@@ -96,17 +100,20 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	for _, s := range sources {
 		// start a new uploader unless already canceled
 		mu.Lock()
+
 		if canceled {
 			mu.Unlock()
 			break
 		}
 
-		uploader := snapshotfs.NewUploader(destRepo)
+		uploader := upload.NewUploader(destRepo)
 		uploader.Progress = c.svc.getProgress()
 		activeUploaders[s] = uploader
+
 		mu.Unlock()
 
 		wg.Add(1)
+
 		semaphore <- struct{}{}
 
 		go func(s snapshot.SourceInfo) {
@@ -128,7 +135,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	wg.Wait()
 	c.svc.getProgress().FinishShared()
 	c.out.printStderr("\r\n")
-	log(ctx).Infof("Migration finished.")
+	log(ctx).Info("Migration finished.")
 
 	return nil
 }
@@ -217,7 +224,7 @@ func (c *commandSnapshotMigrate) findPreviousSnapshotManifestWithStartTime(ctx c
 	return nil, nil
 }
 
-func (c *commandSnapshotMigrate) migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo repo.Repository, destRepo repo.RepositoryWriter, s snapshot.SourceInfo) error {
+func (c *commandSnapshotMigrate) migrateSingleSource(ctx context.Context, uploader *upload.Uploader, sourceRepo repo.Repository, destRepo repo.RepositoryWriter, s snapshot.SourceInfo) error {
 	manifests, err := snapshot.ListSnapshotManifests(ctx, sourceRepo, &s, nil)
 	if err != nil {
 		return errors.Wrapf(err, "error listing snapshot manifests for %v", s)
@@ -245,7 +252,7 @@ func (c *commandSnapshotMigrate) migrateSingleSource(ctx context.Context, upload
 	return nil
 }
 
-func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo repo.Repository, destRepo repo.RepositoryWriter, s snapshot.SourceInfo, m *snapshot.Manifest) error {
+func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context, uploader *upload.Uploader, sourceRepo repo.Repository, destRepo repo.RepositoryWriter, s snapshot.SourceInfo, m *snapshot.Manifest) error {
 	if m.IncompleteReason != "" {
 		log(ctx).Debugf("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime.ToTime()))
 		return nil
@@ -268,9 +275,9 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 
 	log(ctx).Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime.ToTime()))
 
-	previous, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
+	previous, err := snapshot.FindPreviousManifests(ctx, destRepo, m.Source, &m.StartTime)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to find previous manifests")
 	}
 
 	policyTree, err := policy.TreeForSource(ctx, destRepo, m.Source)

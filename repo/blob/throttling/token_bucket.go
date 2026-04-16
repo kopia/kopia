@@ -68,11 +68,11 @@ func (b *tokenBucket) Take(ctx context.Context, n float64) {
 	}
 }
 
-func (b *tokenBucket) TakeDuration(ctx context.Context, n float64) time.Duration {
+func (b *tokenBucket) TakeDuration(_ context.Context, n float64) time.Duration {
 	return b.sleepDurationBeforeTokenAreAvailable(n, b.now())
 }
 
-func (b *tokenBucket) Return(ctx context.Context, n float64) {
+func (b *tokenBucket) Return(_ context.Context, n float64) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -87,7 +87,7 @@ func (b *tokenBucket) SetLimit(maxTokens float64) error {
 	defer b.mu.Unlock()
 
 	if maxTokens < 0 {
-		return errors.Errorf("limit cannot be negative")
+		return errors.New("limit cannot be negative")
 	}
 
 	b.maxTokens = maxTokens

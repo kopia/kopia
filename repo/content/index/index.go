@@ -18,7 +18,7 @@ const (
 type Index interface {
 	io.Closer
 	ApproximateCount() int
-	GetInfo(contentID ID) (Info, error)
+	GetInfo(contentID ID, result *Info) (bool, error)
 
 	// invoked the provided callback for all entries such that entry.ID >= startID and entry.ID < endID
 	Iterate(r IDRange, cb func(Info) error) error
@@ -33,7 +33,7 @@ func Open(data []byte, closer func() error, v1PerContentOverhead func() int) (In
 
 	switch h.version {
 	case Version1:
-		return openV1PackIndex(h, data, closer, uint32(v1PerContentOverhead()))
+		return openV1PackIndex(h, data, closer, uint32(v1PerContentOverhead())) //nolint:gosec
 
 	case Version2:
 		return openV2PackIndex(data, closer)

@@ -12,7 +12,7 @@ import (
 func TestImpossible(t *testing.T) {
 	impossible.PanicOnError(nil)
 
-	someErr := errors.Errorf("some error")
+	someErr := errors.New("some error")
 	require.PanicsWithError(t, someErr.Error(), func() {
 		impossible.PanicOnError(someErr)
 	})

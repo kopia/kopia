@@ -64,6 +64,6 @@ func TestLongestRangeCheckpoint(t *testing.T) {
 	}
 }
 
-func newEpochRangeMetadataForTesting(min, max int) *RangeMetadata {
-	return &RangeMetadata{MinEpoch: min, MaxEpoch: max}
+func newEpochRangeMetadataForTesting(minEpoch, maxEpoch int) *RangeMetadata {
+	return &RangeMetadata{MinEpoch: minEpoch, MaxEpoch: maxEpoch}
 }

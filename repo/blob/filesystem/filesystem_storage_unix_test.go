@@ -1,5 +1,4 @@
 //go:build linux || freebsd || darwin
-// +build linux freebsd darwin
 
 package filesystem
 
@@ -33,9 +32,10 @@ func TestFileStorage_ESTALE_ErrorHandling(t *testing.T) {
 	}, true)
 	require.NoError(t, err)
 
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
+	fsi := asFsImpl(t, st)
+	fsi.osi = osi
 
-	require.False(t, st.(*fsStorage).Impl.(*fsImpl).isRetriable(syscall.ESTALE), "ESTALE should not be retryable")
+	require.False(t, fsi.isRetriable(syscall.ESTALE), "ESTALE should not be retryable")
 
 	defer st.Close(ctx)
 

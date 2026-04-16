@@ -20,9 +20,9 @@ func (s *formatSpecificTestSuite) setupInMemoryRepo(t *testing.T) *testenv.CLITe
 	runner := testenv.NewInProcRunner(t)
 	env := testenv.NewCLITest(t, s.formatFlags, runner)
 	st := repotesting.NewReconnectableStorage(t, blobtesting.NewVersionedMapStorage(nil))
+	o := testutil.EnsureType[*repotesting.ReconnectableStorageOptions](t, st.ConnectionInfo().Config)
 
-	env.RunAndExpectSuccess(t, "repo", "create", "in-memory", "--uuid",
-		st.ConnectionInfo().Config.(*repotesting.ReconnectableStorageOptions).UUID)
+	env.RunAndExpectSuccess(t, "repo", "create", "in-memory", "--uuid", o.UUID)
 
 	return env
 }
@@ -35,8 +35,10 @@ func (s *formatSpecificTestSuite) TestRepositorySetParameters(t *testing.T) {
 	require.Contains(t, out, "Max pack length:     21 MB")
 	require.Contains(t, out, fmt.Sprintf("Format version:      %d", s.formatVersion))
 
+	_, out = env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters")
+	require.Contains(t, out, "no changes")
+
 	// failure cases
-	env.RunAndExpectFailure(t, "repository", "set-parameters")
 	env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=33")
 	env.RunAndExpectFailure(t, "repository", "set-parameters", "--max-pack-size-mb=9")
 	env.RunAndExpectFailure(t, "repository", "set-parameters", "--max-pack-size-mb=121")
@@ -72,6 +74,10 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersRetention(t *testin
 	// clear retention settings
 	_, out = env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters", "--retention-mode", "none")
 	require.Contains(t, out, "disabling blob retention")
+
+	// 2nd time also succeeds but disabling is skipped due to already being disabled. !anyChanges returns no error.
+	_, out = env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters", "--retention-mode", "none")
+	require.Contains(t, out, "no changes")
 
 	out = env.RunAndExpectSuccess(t, "repository", "status")
 	require.NotContains(t, out, "Blob retention mode")
@@ -178,7 +184,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersUpgrade(t *testing.
 	require.Contains(t, out, "Format version:      3")
 	require.Contains(t, out, "Epoch cleanup margin:    23h0m0s")
 	require.Contains(t, out, "Epoch advance on:        22 blobs or 80.7 MB, minimum 3h0m0s")
-	require.Contains(t, out, "Epoch checkpoint every:  9 epochs")
+	require.Contains(t, out, "Epoch range-compaction every: 9 epochs")
 
 	env.RunAndExpectSuccess(t, "index", "epoch", "list")
 }
@@ -201,20 +207,25 @@ func (s *formatSpecificTestSuite) TestRepositorySetParametersDowngrade(t *testin
 			require.Contains(t, out, "Format version:      1")
 			require.Contains(t, out, "Epoch Manager:       disabled")
 			env.RunAndExpectFailure(t, "index", "epoch", "list")
+			// setting the current version again is ok
+			_, out = env.RunAndExpectSuccessWithErrOut(t, "repository", "set-parameters", "--index-version=1")
+			require.Contains(t, out, "no changes")
 		case format.FormatVersion2:
 			require.Contains(t, out, "Format version:      2")
 			require.Contains(t, out, "Epoch Manager:       enabled")
 			env.RunAndExpectSuccess(t, "index", "epoch", "list")
+			_, out = env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
+			require.Contains(t, out, "index format version can only be upgraded")
 		default:
 			require.Contains(t, out, "Format version:      3")
 			require.Contains(t, out, "Epoch Manager:       enabled")
 			env.RunAndExpectSuccess(t, "index", "epoch", "list")
+			_, out = env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
+			require.Contains(t, out, "index format version can only be upgraded")
 		}
 	}
 
 	checkStatusForVersion()
-
-	env.RunAndExpectFailure(t, "repository", "set-parameters", "--index-version=1")
 
 	checkStatusForVersion()
 

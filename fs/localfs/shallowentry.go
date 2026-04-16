@@ -26,7 +26,7 @@ func TrimShallowSuffix(path string) string {
 type PlaceholderFilePath string
 
 // DirEntryOrNil returns the snapshot.DirEntry corresponding to this PlaceholderFilePath.
-func (pf PlaceholderFilePath) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
+func (pf PlaceholderFilePath) DirEntryOrNil(_ context.Context) (*snapshot.DirEntry, error) {
 	path := string(pf)
 	if fi, err := os.Lstat(path); err == nil && fi.IsDir() {
 		return dirEntryFromPlaceholder(filepath.Join(path, ShallowEntrySuffix))

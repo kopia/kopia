@@ -45,7 +45,7 @@ func (filePasswordStorage) PersistPassword(ctx context.Context, configFile, pass
 	return os.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), passwordFileMode)
 }
 
-func (filePasswordStorage) DeletePassword(ctx context.Context, configFile string) error {
+func (filePasswordStorage) DeletePassword(_ context.Context, configFile string) error {
 	err := os.Remove(passwordFileName(configFile))
 	if err != nil && !os.IsNotExist(err) {
 		return errors.Wrap(err, "error deleting password file")

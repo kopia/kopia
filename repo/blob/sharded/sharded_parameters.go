@@ -1,4 +1,3 @@
-// Package sharded implements common support for sharded blob providers, such as filesystem or webdav.
 package sharded
 
 import (

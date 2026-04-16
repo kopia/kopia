@@ -1,8 +1,6 @@
 //go:build linux || freebsd || darwin
-// +build linux freebsd darwin
 
-// Package stat provides a cross-platform abstraction for
-// common stat commands.
+// Package stat provides a cross-platform abstraction for common stat commands.
 package stat
 
 import (
@@ -27,6 +25,7 @@ func GetFileAllocSize(fname string) (uint64, error) {
 		return 0, err //nolint:wrapcheck
 	}
 
+	//nolint:gosec
 	return uint64(st.Blocks) * diskBlockSize, nil
 }
 

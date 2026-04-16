@@ -70,8 +70,8 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 	// make sure snapshot IDs are different between two attempts
 	require.NotEqual(t, env1["KOPIA_SNAPSHOT_ID"], env2["KOPIA_SNAPSHOT_ID"], "KOPIA_SNAPSHOT_ID passed to action was not different between runs")
 
-	require.Equal(t, env1["KOPIA_ACTION"], "before-snapshot-root")
-	require.Equal(t, env3["KOPIA_ACTION"], "after-snapshot-root")
+	require.Equal(t, "before-snapshot-root", env1["KOPIA_ACTION"])
+	require.Equal(t, "after-snapshot-root", env3["KOPIA_ACTION"])
 	require.NotEmpty(t, env1["KOPIA_VERSION"])
 	require.NotEmpty(t, env3["KOPIA_VERSION"])
 
@@ -238,10 +238,9 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	env1 := mustReadEnvFile(t, envFile1)
 	env2 := mustReadEnvFile(t, envFile2)
 
-	require.Equal(t, env1["KOPIA_ACTION"], "before-folder")
-	require.Equal(t, env2["KOPIA_ACTION"], "after-folder")
-	require.Equal(t, env1["KOPIA_SOURCE_PATH"], sd2)
-	require.Equal(t, env2["KOPIA_SOURCE_PATH"], sd2)
+	require.Equal(t, "before-folder", env1["KOPIA_ACTION"])
+	require.Equal(t, "after-folder", env2["KOPIA_ACTION"])
+	require.Equal(t, sd2, env1["KOPIA_SOURCE_PATH"])
 	require.NotEmpty(t, env1["KOPIA_VERSION"])
 	require.NotEmpty(t, env2["KOPIA_VERSION"])
 
@@ -266,7 +265,7 @@ func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 		badRedirectScript  = tmpfileWithContents(t, "echo KOPIA_SNAPSHOT_PATH=/no/such/directory")
 	)
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOSName {
 		failingScript = tmpfileWithContents(t, "exit /b 1")
 		successScript2 = tmpfileWithContents(t, "echo Hello world!")
 	} else {
@@ -316,8 +315,6 @@ func TestSnapshotActionsEnable(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
@@ -342,6 +339,7 @@ func TestSnapshotActionsEnable(t *testing.T) {
 			e.RunAndExpectSuccess(t, append([]string{"snapshot", "create", sharedTestDataDir1}, tc.snapshotFlags...)...)
 
 			_, err := os.Stat(envFile)
+
 			didRun := err == nil
 			if didRun != tc.wantRun {
 				t.Errorf("unexpected behavior. did run: %v want run: %v", didRun, tc.wantRun)
@@ -385,6 +383,7 @@ func mustReadEnvFile(t *testing.T, fname string) map[string]string {
 	verifyNoError(t, err)
 
 	defer f.Close()
+
 	s := bufio.NewScanner(f)
 
 	m := map[string]string{}

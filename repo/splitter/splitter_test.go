@@ -38,18 +38,18 @@ func TestSplitterStability(t *testing.T) {
 		{newRabinKarp64SplitterFactory(32768), 121, 41322, 16896, 65536},
 		{newRabinKarp64SplitterFactory(65536), 53, 94339, 35875, 131072},
 
-		{Pooled(Fixed(1000)), 5000, 1000, 1000, 1000},
+		{pooled(Fixed(1000)), 5000, 1000, 1000, 1000},
 
-		{Pooled(newBuzHash32SplitterFactory(32)), 124235, 40, 16, 64},
-		{Pooled(newBuzHash32SplitterFactory(1024)), 3835, 1303, 512, 2048},
-		{Pooled(newBuzHash32SplitterFactory(2048)), 1924, 2598, 1024, 4096},
-		{Pooled(newBuzHash32SplitterFactory(32768)), 112, 44642, 16413, 65536},
-		{Pooled(newBuzHash32SplitterFactory(65536)), 57, 87719, 32932, 131072},
-		{Pooled(newRabinKarp64SplitterFactory(32)), 124108, 40, 16, 64},
-		{Pooled(newRabinKarp64SplitterFactory(1024)), 3771, 1325, 512, 2048},
-		{Pooled(newRabinKarp64SplitterFactory(2048)), 1887, 2649, 1028, 4096},
-		{Pooled(newRabinKarp64SplitterFactory(32768)), 121, 41322, 16896, 65536},
-		{Pooled(newRabinKarp64SplitterFactory(65536)), 53, 94339, 35875, 131072},
+		{pooled(newBuzHash32SplitterFactory(32)), 124235, 40, 16, 64},
+		{pooled(newBuzHash32SplitterFactory(1024)), 3835, 1303, 512, 2048},
+		{pooled(newBuzHash32SplitterFactory(2048)), 1924, 2598, 1024, 4096},
+		{pooled(newBuzHash32SplitterFactory(32768)), 112, 44642, 16413, 65536},
+		{pooled(newBuzHash32SplitterFactory(65536)), 57, 87719, 32932, 131072},
+		{pooled(newRabinKarp64SplitterFactory(32)), 124108, 40, 16, 64},
+		{pooled(newRabinKarp64SplitterFactory(1024)), 3771, 1325, 512, 2048},
+		{pooled(newRabinKarp64SplitterFactory(2048)), 1887, 2649, 1028, 4096},
+		{pooled(newRabinKarp64SplitterFactory(32768)), 121, 41322, 16896, 65536},
+		{pooled(newRabinKarp64SplitterFactory(65536)), 53, 94339, 35875, 131072},
 	}
 
 	// run each test twice to rule out the possibility of some state leaking through splitter reuse
@@ -71,16 +71,12 @@ func TestSplitterStability(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
 			t.Parallel()
 
 			for name, getSplitPointsFunc := range getSplitPointsFunctions {
-				name := name
-				getSplitPointsFunc := getSplitPointsFunc
-
 				t.Run(name, func(t *testing.T) {
-					for repeat := 0; repeat < numRepeats; repeat++ {
+					for range numRepeats {
 						s := tc.factory()
 
 						if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {

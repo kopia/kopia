@@ -34,18 +34,22 @@ func (s *formatSpecificTestSuite) TestMaintenanceSafety(t *testing.T) {
 
 	// create object that's immediately orphaned since nobody refers to it.
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
-		ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "y"})
+		ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "y", MetadataCompressor: "zstd-fastest"})
 		fmt.Fprintf(ow, "hello world")
+
 		var err error
+
 		objectID, err = ow.Result()
+
 		return err
 	}))
 
 	// create another object in separate pack.
 	require.NoError(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
-		ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "y"})
+		ow := w.NewObjectWriter(ctx, object.WriterOptions{Prefix: "y", MetadataCompressor: "zstd-fastest"})
 		fmt.Fprintf(ow, "hello universe")
 		_, err := ow.Result()
+
 		return err
 	}))
 
@@ -105,7 +109,7 @@ func verifyContentDeletedState(ctx context.Context, t *testing.T, rep repo.Repos
 
 	info, err := rep.ContentInfo(ctx, cid)
 	require.NoError(t, err)
-	require.Equal(t, want, info.GetDeleted())
+	require.Equal(t, want, info.Deleted)
 }
 
 func verifyObjectReadable(ctx context.Context, t *testing.T, rep repo.Repository, objectID object.ID) {
@@ -115,6 +119,7 @@ func verifyObjectReadable(ctx context.Context, t *testing.T, rep repo.Repository
 		r, err := w.OpenObject(ctx, objectID)
 		require.NoError(t, err)
 		r.Close()
+
 		return nil
 	}))
 }
@@ -125,6 +130,7 @@ func verifyObjectNotFound(ctx context.Context, t *testing.T, rep repo.Repository
 	require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		_, err := w.OpenObject(ctx, objectID)
 		require.ErrorIs(t, err, object.ErrObjectNotFound)
+
 		return nil
 	}))
 }

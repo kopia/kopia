@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
@@ -43,7 +44,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 			nro.RetentionPeriod = period
 		},
 	})
-	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	io.WriteString(w, "hello world!")
 	w.Result()
 	w.Close()
@@ -51,14 +52,12 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 	env.RepositoryWriter.Flush(ctx)
 
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
-	require.NoError(t, err)
 
-	if got, want := len(blobsBefore), 4; got != want {
-		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
-	}
+	require.NoError(t, err)
+	require.Len(t, blobsBefore, 4, "unexpected number of blobs after writing")
 
 	lastBlobIdx := len(blobsBefore) - 1
-	st := env.RootStorage().(blobtesting.RetentionStorage)
+	st := testutil.EnsureType[blobtesting.RetentionStorage](t, env.RootStorage())
 
 	gotMode, expiry, err := st.GetRetention(ctx, blobsBefore[lastBlobIdx].BlobID)
 	require.NoError(t, err, "getting blob retention info")
@@ -72,8 +71,11 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTime(t *testing.T) {
 	earliestExpiry = ta.NowFunc()().Add(period)
 
 	// extend retention time of all blobs
-	_, err = maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
+	stats, err := maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
 	require.NoError(t, err)
+	require.EqualValues(t, 4, stats.ToExtendBlobCount)
+	require.EqualValues(t, 4, stats.ExtendedBlobCount)
+	require.Equal(t, "24h0m0s", stats.RetentionPeriod)
 
 	gotMode, expiry, err = st.GetRetention(ctx, blobsBefore[lastBlobIdx].BlobID)
 	require.NoError(t, err, "getting blob retention info")
@@ -98,7 +100,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 			nro.BlockFormat.HMACSecret = testHMACSecret
 		},
 	})
-	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
+	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 	io.WriteString(w, "hello world!")
 	w.Result()
 	w.Close()
@@ -106,16 +108,14 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 	env.RepositoryWriter.Flush(ctx)
 
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
-	require.NoError(t, err)
 
-	if got, want := len(blobsBefore), 4; got != want {
-		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
-	}
+	require.NoError(t, err)
+	require.Len(t, blobsBefore, 4, "unexpected number of blobs after writing")
 
 	// Need to continue using TouchBlob because the environment only supports the
 	// locking map if no retention time is given.
 	lastBlobIdx := len(blobsBefore) - 1
-	st := env.RootStorage().(cache.Storage)
+	st := testutil.EnsureType[cache.Storage](t, env.RootStorage())
 
 	ta.Advance(7 * 24 * time.Hour)
 
@@ -123,8 +123,9 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionTimeDisabled(t *testing
 	require.NoError(t, err, "Altering expired object failed")
 
 	// extend retention time of all blobs
-	_, err = maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
+	stats, err := maintenance.ExtendBlobRetentionTime(ctx, env.RepositoryWriter, maintenance.ExtendBlobRetentionTimeOptions{})
 	require.NoError(t, err)
+	require.Nil(t, stats)
 
 	_, err = st.TouchBlob(ctx, blobsBefore[lastBlobIdx].BlobID, time.Hour)
 	require.NoError(t, err, "Altering expired object failed")

@@ -3,20 +3,24 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/scrypt"
 
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/cacheprot"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/crypto"
 	"github.com/kopia/kopia/internal/feature"
 	"github.com/kopia/kopia/internal/metrics"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/beforeop"
@@ -59,18 +63,19 @@ const throttleBucketInitialFill = 0.1
 const localCacheIntegrityHMACSecretLength = 16
 
 //nolint:gochecknoglobals
-var localCacheIntegrityPurpose = []byte("local-cache-integrity")
+const localCacheIntegrityPurpose = "local-cache-integrity"
 
 var log = logging.Module("kopia/repo")
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
-	TraceStorage        bool                       // Logs all storage access using provided Printf-style function
-	TimeNowFunc         func() time.Time           // Time provider
-	DisableInternalLog  bool                       // Disable internal log
-	UpgradeOwnerID      string                     // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
-	DoNotWaitForUpgrade bool                       // Disable the exponential forever backoff on an upgrade lock.
-	BeforeFlush         []RepositoryWriterCallback // list of callbacks to invoke before every flush
+	TraceStorage         bool                       // Logs all storage access using provided Printf-style function
+	ContentLogWriter     io.Writer                  // Writer to which the content log is also written
+	TimeNowFunc          func() time.Time           // Time provider
+	DisableRepositoryLog bool                       // Disable repository log manager
+	UpgradeOwnerID       string                     // Owner-ID of any upgrade in progress, when this is not set the access may be restricted
+	DoNotWaitForUpgrade  bool                       // Disable the exponential forever backoff on an upgrade lock.
+	BeforeFlush          []RepositoryWriterCallback // list of callbacks to invoke before every flush
 
 	OnFatalError func(err error) // function to invoke when repository encounters a fatal error, usually invokes os.Exit
 
@@ -86,7 +91,7 @@ var ErrAlreadyInitialized = format.ErrAlreadyInitialized
 
 // ErrRepositoryUnavailableDueToUpgradeInProgress is returned when repository
 // is undergoing upgrade that requires exclusive access.
-var ErrRepositoryUnavailableDueToUpgradeInProgress = errors.Errorf("repository upgrade in progress")
+var ErrRepositoryUnavailableDueToUpgradeInProgress = errors.New("repository upgrade in progress")
 
 // Open opens a Repository specified in the configuration file.
 func Open(ctx context.Context, configFile, password string, options *Options) (rep Repository, err error) {
@@ -131,7 +136,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	return openDirect(ctx, configFile, lc, password, options)
 }
 
-func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
+func getContentCacheOrNil(ctx context.Context, si *APIServerInfo, opt *content.CachingOptions, password string, mr *metrics.Registry, timeNow func() time.Time) (*cache.PersistentCache, error) {
 	opt = opt.CloneOrDefault()
 
 	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.ContentCacheSizeBytes, "server-contents")
@@ -140,11 +145,17 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 		return nil, errors.Wrap(err, "error opening storage")
 	}
 
-	// derive content cache key from the password & HMAC secret using scrypt.
-	salt := append([]byte("content-cache-protection"), opt.HMACSecret...)
+	// derive content cache key from the password & HMAC secret
+	saltWithPurpose := append([]byte("content-cache-protection"), opt.HMACSecret...)
 
-	//nolint:gomnd
-	cacheEncryptionKey, err := scrypt.Key([]byte(password), salt, 65536, 8, 1, 32)
+	const cacheEncryptionKeySize = 32
+
+	keyAlgo := si.LocalCacheKeyDerivationAlgorithm
+	if keyAlgo == "" {
+		keyAlgo = DefaultServerRepoCacheKeyDerivationAlgorithm
+	}
+
+	cacheEncryptionKey, err := crypto.DeriveKeyFromPassword(password, saltWithPurpose, cacheEncryptionKeySize, keyAlgo)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
 	}
@@ -172,7 +183,7 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 
 	mr := metrics.NewRegistry()
 
-	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password, mr, options.TimeNowFunc)
+	contentCache, err := getContentCacheOrNil(ctx, si, cachingOptions, password, mr, options.TimeNowFunc)
 	if err != nil {
 		return nil, errors.Wrap(err, "error opening content cache")
 	}
@@ -196,26 +207,18 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 		beforeFlush:      options.BeforeFlush,
 	}
 
-	if si.DisableGRPC {
-		return openRestAPIRepository(ctx, si, password, par)
-	}
-
 	return openGRPCAPIRepository(ctx, si, password, par)
 }
 
 // openDirect opens the repository that directly manipulates blob storage..
 func openDirect(ctx context.Context, configFile string, lc *LocalConfig, password string, options *Options) (rep Repository, err error) {
 	if lc.Storage == nil {
-		return nil, errors.Errorf("storage not set in the configuration file")
+		return nil, errors.New("storage not set in the configuration file")
 	}
 
 	st, err := blob.NewStorage(ctx, *lc.Storage, false)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot open storage")
-	}
-
-	if options.TraceStorage {
-		st = loggingwrapper.NewWrapper(st, log(ctx), "[STORAGE] ")
 	}
 
 	if lc.ReadOnly {
@@ -240,7 +243,6 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	cacheOpts = cacheOpts.CloneOrDefault()
 	cmOpts := &content.ManagerOptions{
 		TimeNow:                defaultTime(options.TimeNowFunc),
-		DisableInternalLog:     options.DisableInternalLog,
 		PermissiveCacheLoading: cliOpts.PermissiveCacheLoading,
 	}
 
@@ -257,11 +259,9 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		return nil, err
 	}
 
-	if fmgr.SupportsPasswordChange() {
-		cacheOpts.HMACSecret = crypto.DeriveKeyFromMasterKey(fmgr.GetHmacSecret(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
-	} else {
-		// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters will change when we change the password
-		cacheOpts.HMACSecret = crypto.DeriveKeyFromMasterKey(fmgr.FormatEncryptionKey(), fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+	cacheOpts.HMACSecret, ferr = deriveHMACSecret(fmgr)
+	if ferr != nil {
+		return nil, ferr
 	}
 
 	limits := throttlingLimitsFromConnectionInfo(ctx, st.ConnectionInfo())
@@ -285,7 +285,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		return lc2.writeToFile(configFile)
 	})
 
-	blobcfg, err := fmgr.BlobCfgBlob()
+	blobcfg, err := fmgr.BlobCfgBlob(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "blob configuration")
 	}
@@ -294,9 +294,8 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		st = wrapLockingStorage(st, blobcfg)
 	}
 
-	_, err = retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (interface{}, error) {
-		//nolint:govet
-		uli, err := fmgr.UpgradeLockIntent()
+	_, err = retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (any, error) {
+		uli, err := fmgr.UpgradeLockIntent(ctx)
 		if err != nil {
 			//nolint:wrapcheck
 			return nil, err
@@ -322,7 +321,17 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 		st = upgradeLockMonitor(fmgr, options.UpgradeOwnerID, st, cmOpts.TimeNow, options.OnFatalError, options.TestOnlyIgnoreMissingRequiredFeatures)
 	}
 
-	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts, mr)
+	dw := repodiag.NewWriter(st, fmgr)
+
+	logManager := repodiag.NewLogManager(ctx, dw, options.DisableRepositoryLog, options.ContentLogWriter,
+		logparam.String("span:client", contentlog.HashSpanID(cliOpts.UsernameAtHost())),
+		logparam.String("span:repo", contentlog.RandomSpanID()))
+
+	if options.TraceStorage {
+		st = loggingwrapper.NewWrapper(st, log(ctx), logManager.NewLogger("storage"), "[STORAGE] ")
+	}
+
+	scm, ferr := content.NewSharedManager(ctx, st, fmgr, cacheOpts, cmOpts, logManager, mr)
 	if ferr != nil {
 		return nil, errors.Wrap(ferr, "unable to create shared content manager")
 	}
@@ -344,7 +353,9 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 
 	closer := newRefCountedCloser(
 		scm.CloseShared,
+		dw.Wait,
 		mr.Close,
+		st.Close,
 	)
 
 	dr := &directRepository{
@@ -359,19 +370,36 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 			timeNow:          cmOpts.TimeNow,
 			cliOpts:          cliOpts,
 			configFile:       configFile,
-			nextWriterID:     new(int32),
+			nextWriterID:     &atomic.Int32{},
 			throttler:        throttler,
 			metricsRegistry:  mr,
 			refCountedCloser: closer,
 			beforeFlush:      options.BeforeFlush,
+			logManager:       logManager,
 		},
 	}
 
 	return dr, nil
 }
 
+func deriveHMACSecret(fmgr *format.Manager) ([]byte, error) {
+	primaryHMACKey := fmgr.GetHmacSecret()
+
+	if !fmgr.SupportsPasswordChange() {
+		// deriving from ufb.FormatEncryptionKey was actually a bug, that only matters when we changing repo password
+		primaryHMACKey = fmgr.FormatEncryptionKey()
+	}
+
+	k, err := crypto.DeriveKeyFromMasterKey(primaryHMACKey, fmgr.UniqueID(), localCacheIntegrityPurpose, localCacheIntegrityHMACSecretLength)
+	if err != nil {
+		return nil, errors.Wrap(err, "cannot derive cache HMAC secret")
+	}
+
+	return k, nil
+}
+
 func handleMissingRequiredFeatures(ctx context.Context, fmgr *format.Manager, ignoreErrors bool) error {
-	required, err := fmgr.RequiredFeatures()
+	required, err := fmgr.RequiredFeatures(ctx)
 	if err != nil {
 		return errors.Wrap(err, "required features")
 	}
@@ -396,14 +424,16 @@ func wrapLockingStorage(st blob.Storage, r format.BlobStorageConfiguration) blob
 	// collect prefixes that need to be locked on put
 	prefixes := GetLockingStoragePrefixes()
 
-	return beforeop.NewWrapper(st, nil, nil, nil, func(ctx context.Context, id blob.ID, opts *blob.PutOptions) error {
+	return beforeop.NewWrapper(st, nil, nil, nil, func(_ context.Context, id blob.ID, opts *blob.PutOptions) error {
 		for _, prefix := range prefixes {
-			if strings.HasPrefix(string(id), prefix) {
+			if strings.HasPrefix(string(id), string(prefix)) {
 				opts.RetentionMode = r.RetentionMode
 				opts.RetentionPeriod = r.RetentionPeriod
+
 				break
 			}
 		}
+
 		return nil
 	})
 }
@@ -437,6 +467,7 @@ func upgradeLockMonitor(
 			m.RUnlock()
 			return nil
 		}
+
 		m.RUnlock()
 
 		// upgrade the lock and verify again in-case someone else won the race to refresh
@@ -449,7 +480,7 @@ func upgradeLockMonitor(
 			return nil
 		}
 
-		uli, err := fmgr.UpgradeLockIntent()
+		uli, err := fmgr.UpgradeLockIntent(ctx)
 		if err != nil {
 			return errors.Wrap(err, "upgrade lock intent")
 		}

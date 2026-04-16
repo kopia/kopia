@@ -3,10 +3,10 @@ package acl
 
 import (
 	"context"
+	"maps"
 	"strings"
 
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
@@ -26,7 +26,7 @@ func matchOrWildcard(rule, actual string) bool {
 
 func userMatches(rule, username, hostname string) bool {
 	ruleParts := strings.Split(rule, "@")
-	if len(ruleParts) != 2 { //nolint:gomnd
+	if len(ruleParts) != 2 { //nolint:mnd
 		return false
 	}
 

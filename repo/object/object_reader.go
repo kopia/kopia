@@ -65,6 +65,7 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 			if toCopy == 0 {
 				// EOF on current chunk
 				r.closeCurrentChunk()
+
 				r.currentChunkIndex++
 
 				continue
@@ -132,7 +133,7 @@ func (r *objectReader) findChunkIndexForOffset(offset int64) (int, error) {
 	right := len(r.seekTable) - 1
 
 	for left <= right {
-		middle := (left + right) / 2 //nolint:gomnd
+		middle := (left + right) / 2 //nolint:mnd
 
 		if offset < r.seekTable[middle].Start {
 			right = middle - 1

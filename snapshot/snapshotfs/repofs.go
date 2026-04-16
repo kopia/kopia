@@ -12,9 +12,12 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 )
+
+var repoFSLog = logging.Module("repofs")
 
 // Well-known object ID prefixes.
 const (
@@ -33,11 +36,11 @@ func (e *repositoryEntry) IsDir() bool {
 func (e *repositoryEntry) Mode() os.FileMode {
 	switch e.metadata.Type {
 	case snapshot.EntryTypeDirectory:
-		return os.ModeDir | os.FileMode(e.metadata.Permissions)
+		return os.ModeDir | os.FileMode(e.metadata.Permissions) //nolint:gosec
 	case snapshot.EntryTypeSymlink:
-		return os.ModeSymlink | os.FileMode(e.metadata.Permissions)
+		return os.ModeSymlink | os.FileMode(e.metadata.Permissions) //nolint:gosec
 	case snapshot.EntryTypeFile:
-		return os.FileMode(e.metadata.Permissions)
+		return os.FileMode(e.metadata.Permissions) //nolint:gosec
 	case snapshot.EntryTypeUnknown:
 		return 0
 	default:
@@ -61,7 +64,7 @@ func (e *repositoryEntry) ObjectID() object.ID {
 	return e.metadata.ObjectID
 }
 
-func (e *repositoryEntry) Sys() interface{} {
+func (e *repositoryEntry) Sys() any {
 	return nil
 }
 
@@ -230,6 +233,10 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	return string(b), nil
 }
 
+func (rsl *repositorySymlink) Resolve(_ context.Context) (fs.Entry, error) {
+	return nil, errors.New("Symlink.Resolve not implemented in Repofs")
+}
+
 func (ee *repositoryEntryError) ErrorInfo() error {
 	return ee.err
 }
@@ -274,7 +281,7 @@ func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
 func DirectoryEntry(rep repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
 	d := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        "/",
-		Permissions: 0o555, //nolint:gomnd
+		Permissions: 0o555, //nolint:mnd
 		Type:        snapshot.EntryTypeDirectory,
 		ObjectID:    objectID,
 		DirSummary:  dirSummary,
@@ -325,7 +332,7 @@ func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid o
 
 	f := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        maybeName,
-		Permissions: 0o644, //nolint:gomnd
+		Permissions: 0o644, //nolint:mnd
 		Type:        snapshot.EntryTypeFile,
 		ObjectID:    oid,
 		FileSize:    fileSize,

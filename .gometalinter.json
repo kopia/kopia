@@ -1,9 +1,0 @@
-{
-    "Disable": ["maligned","gas","gosec"],
-    "Exclude": [
-        "playground/",
-        ".+\\.pb\\.go",
-        ".+_test\\.go"
-    ],
-    "Deadline": "120s"
-}

@@ -2,6 +2,7 @@ package endtoend_test
 
 import (
 	"fmt"
+	"maps"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -81,7 +82,6 @@ func testSnapshotFailText(t *testing.T, isFailFast bool, snapshotCreateFlags []s
 	testSnapshotFail(t, isFailFast, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFromLog)
 }
 
-//nolint:thelper,cyclop
 func testSnapshotFail(
 	t *testing.T,
 	isFailFast bool,
@@ -89,6 +89,8 @@ func testSnapshotFail(
 	snapshotCreateEnv map[string]string,
 	parseSnapshotResultFn func(t *testing.T, stdOut, _ []string) parsedSnapshotResult,
 ) {
+	t.Helper()
+
 	if runtime.GOOS == windowsOSName {
 		t.Skip("this test does not work on Windows")
 	}
@@ -97,203 +99,238 @@ func testSnapshotFail(
 		t.Skip("this test does not work as root, because we're unable to remove permissions.")
 	}
 
-	const dir0Path = "dir0"
-
 	for _, ignoreFileErr := range []string{"true", "false"} {
-		for _, ignoreDirErr := range []string{"true", "false"} {
-			ignoringDirs := ignoreDirErr == "true"
-			ignoringFiles := ignoreFileErr == "true"
+		// Use "inherit" instead of "false" sometimes. Inherit defaults to false
+		if ignoreFileErr == "false" && rand.Intn(2) == 0 {
+			ignoreFileErr = "inherit"
+		}
 
-			// Use "inherit" instead of "false" sometimes. Inherit defaults to false
-			if !ignoringFiles && rand.Intn(2) == 0 {
-				ignoreFileErr = "inherit"
-			}
+		t.Run(fmt.Sprintf("failFast=%v:ignoreFileErr=%s", isFailFast, ignoreFileErr), func(t *testing.T) {
+			t.Parallel()
 
-			if !ignoringDirs && rand.Intn(2) == 0 {
-				ignoreDirErr = "inherit"
-			}
+			for _, ignoreDirErr := range []string{"true", "false"} {
+				if ignoreDirErr == "false" && rand.Intn(2) == 0 {
+					ignoreDirErr = "inherit"
+				}
 
-			var (
-				expectedSuccess           = expectedSnapshotResult{success: true}
-				expectEarlyFailure        = expectedSnapshotResult{success: false}
-				expectedWhenIgnoringFiles = expectedSnapshotResult{success: ignoringFiles, wantErrors: cond(ignoringFiles, 0, 1), wantIgnoredErrors: cond(ignoringFiles, 1, 0), wantPartial: !ignoringFiles && isFailFast}
-				expectedWhenIgnoringDirs  = expectedSnapshotResult{success: ignoringDirs, wantErrors: cond(ignoringDirs, 0, 1), wantIgnoredErrors: cond(ignoringDirs, 1, 0), wantPartial: !ignoringDirs && isFailFast}
-			)
-
-			// Test the root dir permissions
-			for ti, tt := range []struct {
-				desc          string
-				modifyEntry   string
-				snapSource    string
-				expectSuccess map[os.FileMode]expectedSnapshotResult
-			}{
-				{
-					desc:        "Modify permissions of the parent dir of the snapshot source (source is a FILE)",
-					modifyEntry: dir0Path,
-					snapSource:  filepath.Join(dir0Path, "file1"),
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectEarlyFailure, // --- permission: cannot read directory
-						0o100: expectedSuccess,    // --X permission: can enter directory and take snapshot of the file (with full permissions)
-						0o400: expectEarlyFailure, // R-- permission: can read the file name, but will be unable to snapshot it without entering directory
-					},
-				},
-				{
-					desc:        "Modify permissions of the parent dir of the snapshot source (source is a DIRECTORY)",
-					modifyEntry: dir0Path,
-					snapSource:  filepath.Join(dir0Path, "dir1"),
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectEarlyFailure,
-						0o100: expectedSuccess,
-						0o400: expectEarlyFailure,
-					},
-				},
-				{
-					desc:        "Modify permissions of the parent dir of the snapshot source (source is an EMPTY directory)",
-					modifyEntry: dir0Path,
-					snapSource:  filepath.Join(dir0Path, "emptyDir1"),
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectEarlyFailure,
-						0o100: expectedSuccess,
-						0o400: expectEarlyFailure,
-					},
-				},
-				{
-					desc:        "Modify permissions of the snapshot source itself (source is a FILE)",
-					modifyEntry: filepath.Join(dir0Path, "file1"),
-					snapSource:  filepath.Join(dir0Path, "file1"),
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectEarlyFailure,
-						0o100: expectEarlyFailure,
-						0o400: expectedSuccess,
-					},
-				},
-				{
-					desc:        "Modify permissions of the snapshot source itself (source is a DIRECTORY)",
-					modifyEntry: filepath.Join(dir0Path, "dir1"),
-					snapSource:  filepath.Join(dir0Path, "dir1"),
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectEarlyFailure,
-						0o100: expectEarlyFailure,
-						0o400: expectEarlyFailure,
-					},
-				},
-				{
-					desc:        "Modify permissions of the snapshot source itself (source is an EMPTY directory)",
-					modifyEntry: filepath.Join(dir0Path, "emptyDir1"),
-					snapSource:  filepath.Join(dir0Path, "emptyDir1"),
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectEarlyFailure,
-						0o100: expectEarlyFailure,
-						0o400: expectedSuccess,
-					},
-				},
-				{
-					desc:        "Modify permissions of a FILE in the snapshot directory",
-					modifyEntry: filepath.Join(dir0Path, "dir1", "file2"),
-					snapSource:  filepath.Join(dir0Path, "dir1"),
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectedWhenIgnoringFiles,
-						0o100: expectedWhenIgnoringFiles,
-						0o400: expectedSuccess,
-					},
-				},
-				{
-					desc:        "Modify permissions of a DIRECTORY in the snapshot directory",
-					modifyEntry: filepath.Join(dir0Path, "dir1", "dir2"),
-					snapSource:  filepath.Join(dir0Path, "dir1"),
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectedWhenIgnoringDirs,
-						0o100: expectedWhenIgnoringDirs,
-						0o400: expectedWhenIgnoringDirs,
-					},
-				},
-				{
-					desc:        "Modify permissions of an EMPTY directory in the snapshot directory",
-					modifyEntry: filepath.Join(dir0Path, "dir1", "emptyDir2"),
-					snapSource:  filepath.Join(dir0Path, "dir1"),
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectedWhenIgnoringDirs,
-						0o100: expectedWhenIgnoringDirs,
-						0o400: expectedSuccess,
-					},
-				},
-				{
-					desc:        "Modify permissions of a FILE in a subdirectory of the snapshot root directory",
-					modifyEntry: filepath.Join(dir0Path, "dir1", "file2"),
-					snapSource:  dir0Path,
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectedWhenIgnoringFiles,
-						0o100: expectedWhenIgnoringFiles,
-						0o400: expectedSuccess,
-					},
-				},
-				{
-					desc:        "Modify permissions of a DIRECTORY in a subdirectory of the snapshot root directory",
-					modifyEntry: filepath.Join(dir0Path, "dir1", "dir2"),
-					snapSource:  dir0Path,
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectedWhenIgnoringDirs,
-						0o100: expectedWhenIgnoringDirs,
-						0o400: expectedWhenIgnoringDirs,
-					},
-				},
-				{
-					desc:        "Modify permissions of an EMPTY directory in a subdirectory of the snapshot root directory",
-					modifyEntry: filepath.Join(dir0Path, "dir1", "emptyDir2"),
-					snapSource:  dir0Path,
-					expectSuccess: map[os.FileMode]expectedSnapshotResult{
-						0o000: expectedWhenIgnoringDirs,
-						0o100: expectedWhenIgnoringDirs,
-						0o400: expectedSuccess,
-					},
-				},
-			} {
-				// Reference test conditions outside of range variables to satisfy linter
-				tcIgnoreDirErr := ignoreDirErr
-				tcIgnoreFileErr := ignoreFileErr
-				tcIdx := ti
-				tc := tt
-				tname := fmt.Sprintf("%s_ignoreFileErr_%s_ignoreDirErr_%s_failFast_%v", tc.desc, ignoreDirErr, ignoreFileErr, isFailFast)
-
-				t.Run(tname, func(t *testing.T) {
+				t.Run("ignoreDirErr="+ignoreDirErr, func(t *testing.T) {
 					t.Parallel()
 
-					runner := testenv.NewInProcRunner(t)
-					e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
-
-					defer e.RunAndExpectSuccess(t, "repo", "disconnect")
-
-					e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
-
-					scratchDir := testutil.TempDirectory(t)
-
-					snapSource := filepath.Join(scratchDir, tc.snapSource)
-					modifyEntry := filepath.Join(scratchDir, tc.modifyEntry)
-
-					// Each directory tier will have a file, an empty directory, and the next tier's directory
-					// (unless at max depth). Naming scheme is [file|dir|emptyDir][tier #].
-					createSimplestFileTree(t, 3, 0, scratchDir)
-
-					restoreDirPrefix := filepath.Join(scratchDir, "target")
-
-					e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", tcIgnoreDirErr, "--ignore-file-errors", tcIgnoreFileErr)
-					restoreDir := fmt.Sprintf("%s%d_%v_%v", restoreDirPrefix, tcIdx, tcIgnoreDirErr, tcIgnoreFileErr)
-					testPermissions(t, e, snapSource, modifyEntry, restoreDir, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
-
-					e.RunAndExpectSuccess(t, "policy", "remove", snapSource)
+					testSnapshotFailCases(t, isFailFast, ignoreDirErr, ignoreFileErr,
+						snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
 				})
 			}
-		}
+		})
 	}
 }
 
-func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath string) {
+//nolint:cyclop
+func testSnapshotFailCases(
+	t *testing.T,
+	isFailFast bool,
+	ignoreDirErr string,
+	ignoreFileErr string,
+	snapshotCreateFlags []string,
+	snapshotCreateEnv map[string]string,
+	parseSnapshotResultFn func(t *testing.T, stdOut, stderr []string) parsedSnapshotResult,
+) {
+	t.Helper()
+
+	const dir0Path = "dir0"
+
+	var (
+		ignoringDirs       = ignoreDirErr == "true"
+		ignoringFiles      = ignoreFileErr == "true"
+		expectedSuccess    = expectedSnapshotResult{success: true}
+		expectEarlyFailure = expectedSnapshotResult{success: false}
+
+		expectedWhenIgnoringFiles = expectedSnapshotResult{
+			success:           ignoringFiles,
+			wantErrors:        cond(ignoringFiles, 0, 1),
+			wantIgnoredErrors: cond(ignoringFiles, 1, 0),
+			wantPartial:       !ignoringFiles && isFailFast,
+		}
+
+		expectedWhenIgnoringDirs = expectedSnapshotResult{
+			success:           ignoringDirs,
+			wantErrors:        cond(ignoringDirs, 0, 1),
+			wantIgnoredErrors: cond(ignoringDirs, 1, 0),
+			wantPartial:       !ignoringDirs && isFailFast,
+		}
+
+		expectedWhenUnreadableDirEntries = expectedSnapshotResult{
+			success:           ignoringFiles && ignoringDirs,
+			wantErrors:        fatalErrorCount(ignoringDirs, ignoringFiles),
+			wantIgnoredErrors: ignoredErrorCount(ignoringDirs, ignoringFiles),
+			wantPartial:       !(ignoringFiles && ignoringDirs) && isFailFast, //nolint:staticcheck
+		}
+	)
+
+	// Test the root dir permissions
+	cases := []struct {
+		desc          string
+		modifyEntry   string
+		snapSource    string
+		expectSuccess map[os.FileMode]expectedSnapshotResult
+	}{
+		{
+			desc:        "Modify permissions of the parent dir of the snapshot source (source is a FILE)",
+			modifyEntry: dir0Path,
+			snapSource:  filepath.Join(dir0Path, "file1"),
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectEarlyFailure, // --- permission: cannot read directory
+				0o100: expectedSuccess,    // --X permission: can enter directory and take snapshot of the file (with full permissions)
+				0o400: expectEarlyFailure, // R-- permission: can read the file name, but will be unable to snapshot it without entering directory
+			},
+		},
+		{
+			desc:        "Modify permissions of the parent dir of the snapshot source (source is a DIRECTORY)",
+			modifyEntry: dir0Path,
+			snapSource:  filepath.Join(dir0Path, "dir1"),
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectEarlyFailure,
+				0o100: expectedSuccess,
+				0o400: expectEarlyFailure,
+			},
+		},
+		{
+			desc:        "Modify permissions of the parent dir of the snapshot source (source is an EMPTY directory)",
+			modifyEntry: dir0Path,
+			snapSource:  filepath.Join(dir0Path, "emptyDir1"),
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectEarlyFailure,
+				0o100: expectedSuccess,
+				0o400: expectEarlyFailure,
+			},
+		},
+		{
+			desc:        "Modify permissions of the snapshot source itself (source is a FILE)",
+			modifyEntry: filepath.Join(dir0Path, "file1"),
+			snapSource:  filepath.Join(dir0Path, "file1"),
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectEarlyFailure,
+				0o100: expectEarlyFailure,
+				0o400: expectedSuccess,
+			},
+		},
+		{
+			desc:        "Modify permissions of the snapshot source itself (source is a DIRECTORY)",
+			modifyEntry: filepath.Join(dir0Path, "dir1"),
+			snapSource:  filepath.Join(dir0Path, "dir1"),
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectEarlyFailure,
+				0o100: expectEarlyFailure,
+				0o400: expectedWhenUnreadableDirEntries,
+			},
+		},
+		{
+			desc:        "Modify permissions of the snapshot source itself (source is an EMPTY directory)",
+			modifyEntry: filepath.Join(dir0Path, "emptyDir1"),
+			snapSource:  filepath.Join(dir0Path, "emptyDir1"),
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectEarlyFailure,
+				0o100: expectEarlyFailure,
+				0o400: expectedSuccess,
+			},
+		},
+		{
+			desc:        "Modify permissions of a FILE in the snapshot directory",
+			modifyEntry: filepath.Join(dir0Path, "dir1", "file2"),
+			snapSource:  filepath.Join(dir0Path, "dir1"),
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectedWhenIgnoringFiles,
+				0o100: expectedWhenIgnoringFiles,
+				0o400: expectedSuccess,
+			},
+		},
+		{
+			desc:        "Modify permissions of a DIRECTORY in the snapshot directory",
+			modifyEntry: filepath.Join(dir0Path, "dir1", "dir2"),
+			snapSource:  filepath.Join(dir0Path, "dir1"),
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectedWhenIgnoringDirs,
+				0o100: expectedWhenIgnoringDirs,
+				0o400: expectedWhenUnreadableDirEntries,
+			},
+		},
+		{
+			desc:        "Modify permissions of an EMPTY directory in the snapshot directory",
+			modifyEntry: filepath.Join(dir0Path, "dir1", "emptyDir2"),
+			snapSource:  filepath.Join(dir0Path, "dir1"),
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectedWhenIgnoringDirs,
+				0o100: expectedWhenIgnoringDirs,
+				0o400: expectedSuccess,
+			},
+		},
+		{
+			desc:        "Modify permissions of a FILE in a subdirectory of the snapshot root directory",
+			modifyEntry: filepath.Join(dir0Path, "dir1", "file2"),
+			snapSource:  dir0Path,
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectedWhenIgnoringFiles,
+				0o100: expectedWhenIgnoringFiles,
+				0o400: expectedSuccess,
+			},
+		},
+		{
+			desc:        "Modify permissions of a DIRECTORY in a subdirectory of the snapshot root directory",
+			modifyEntry: filepath.Join(dir0Path, "dir1", "dir2"),
+			snapSource:  dir0Path,
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectedWhenIgnoringDirs,
+				0o100: expectedWhenIgnoringDirs,
+				0o400: expectedWhenUnreadableDirEntries,
+			},
+		},
+		{
+			desc:        "Modify permissions of an EMPTY directory in a subdirectory of the snapshot root directory",
+			modifyEntry: filepath.Join(dir0Path, "dir1", "emptyDir2"),
+			snapSource:  dir0Path,
+			expectSuccess: map[os.FileMode]expectedSnapshotResult{
+				0o000: expectedWhenIgnoringDirs,
+				0o100: expectedWhenIgnoringDirs,
+				0o400: expectedSuccess,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			testPermissions(t, tc.snapSource, tc.modifyEntry, ignoreDirErr, ignoreFileErr, tc.expectSuccess, snapshotCreateFlags, snapshotCreateEnv, parseSnapshotResultFn)
+		})
+	}
+}
+
+func ignoredErrorCount(ignoringDirErrs, ignoringFileErrs bool) int {
+	var errCount int
+
+	if ignoringDirErrs {
+		errCount += 2
+	}
+
+	if ignoringFileErrs {
+		errCount += 1
+	}
+
+	return errCount
+}
+
+func fatalErrorCount(ignoringDirErrs, ignoringFileErrs bool) int {
+	return 3 - ignoredErrorCount(ignoringDirErrs, ignoringFileErrs)
+}
+
+func createSimplestFileTree(t *testing.T, maxDirDepth, currDepth int, currPath string) {
 	t.Helper()
 
 	dirname := fmt.Sprintf("dir%d", currDepth)
 	dirPath := filepath.Join(currPath, dirname)
 	err := os.MkdirAll(dirPath, 0o700)
 	require.NoError(t, err)
+
+	if currDepth >= maxDirDepth {
+		return
+	}
 
 	// Put an empty directory in the new directory
 	emptyDirName := fmt.Sprintf("emptyDir%v", currDepth+1)
@@ -305,95 +342,98 @@ func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath stri
 	fileName := fmt.Sprintf("file%d", currDepth+1)
 	filePath := filepath.Join(dirPath, fileName)
 
-	testdirtree.MustCreateRandomFile(t, filePath, testdirtree.DirectoryTreeOptions{}, nil)
+	testdirtree.MustCreateRandomFile(t, filePath, testdirtree.DirectoryTreeOptions{MaxFileSize: 8}, nil)
 
-	if dirDepth > currDepth+1 {
-		createSimplestFileTree(t, dirDepth, currDepth+1, dirPath)
-	}
+	createSimplestFileTree(t, maxDirDepth, currDepth+1, dirPath)
 }
 
-// testPermissions iterates over readable and executable permission states, testing
-// files and directories (if present). It issues the kopia snapshot command
-// against "source" and will test permissions against all entries in "parentDir".
-// It returns the number of successful snapshot operations.
-//
-//nolint:thelper
+// testPermissions verifies that a kopia snapshot command returns
+// the expected result when the access permissions of modifyEntry
+// are set according to the expect map.
+// It iterates over the permissions (keys in the expect map), changes
+// the permissions for modifyEntry, then issues a kopia snapshot command
+// against the modified source and verifies that the command returns
+// the corresponding expectedSnapshotResult (value in the expect map).
 func testPermissions(
 	t *testing.T,
-	e *testenv.CLITest,
-	source, modifyEntry, restoreDir string,
+	tcSnapSource, tcModifyEntry, ignoreDirErr, ignoreFileErr string,
 	expect map[os.FileMode]expectedSnapshotResult,
 	snapshotCreateFlags []string,
 	snapshotCreateEnv map[string]string,
 	parseSnapshotResultFn func(_ *testing.T, _, _ []string) parsedSnapshotResult,
-) int {
-	var numSuccessfulSnapshots int
+) {
+	t.Helper()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	scratchDir := testutil.TempDirectory(t)
+	source := filepath.Join(scratchDir, tcSnapSource)
+
+	// Each directory tier will have a file, an empty directory, and the next tier's directory
+	// (unless at max depth). Naming scheme is [file|dir|emptyDir][tier #].
+	createSimplestFileTree(t, 3, 0, scratchDir)
+
+	e.RunAndExpectSuccess(t, "policy", "set", source, "--ignore-dir-errors", ignoreDirErr, "--ignore-file-errors", ignoreFileErr)
+	defer e.RunAndExpectSuccess(t, "policy", "remove", source)
+
+	modifyEntry := filepath.Join(scratchDir, tcModifyEntry)
 
 	changeFile, err := os.Stat(modifyEntry)
 	require.NoError(t, err)
 
+	prevPerms := changeFile.Mode().Perm()
+
+	// save environment so it can be restored after each subtest modifies it
+	oldEnv := e.Environment
+	defer func() { e.Environment = oldEnv }()
+
 	// Iterate over all permission bit configurations
-	for chmod, expected := range expect {
-		// run in nested function go be able to do defer
-		func() {
-			mode := changeFile.Mode()
+	for permissions, expected := range expect {
+		t.Run("mode:"+permissions.String(), func(t *testing.T) {
+			t.Cleanup(func() {
+				// restore permissions even if we fail to avoid leaving non-deletable files behind.
+				require.NoErrorf(t, os.Chmod(modifyEntry, prevPerms), "restoring file mode on %s to %v", modifyEntry, prevPerms)
+			})
 
-			// restore permissions even if we fail to avoid leaving non-deletable files behind.
-			defer func() {
-				t.Logf("restoring file mode on %s to %v", modifyEntry, mode)
-				require.NoError(t, os.Chmod(modifyEntry, mode.Perm()))
-			}()
+			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), prevPerms, permissions)
 
-			t.Logf("Chmod: path: %s, isDir: %v, prevMode: %v, newMode: %v", modifyEntry, changeFile.IsDir(), mode, chmod)
-
-			err := os.Chmod(modifyEntry, chmod)
+			err := os.Chmod(modifyEntry, permissions)
 			require.NoError(t, err)
 
 			// set up environment for the child process.
-			oldEnv := e.Environment
-
-			e.Environment = map[string]string{}
-			for k, v := range oldEnv {
-				e.Environment[k] = v
-			}
-
-			for k, v := range snapshotCreateEnv {
-				e.Environment[k] = v
-			}
-
-			defer func() { e.Environment = oldEnv }()
+			e.Environment = maps.Clone(oldEnv)
+			maps.Copy(e.Environment, snapshotCreateEnv)
 
 			snapshotCreateWithArgs := append([]string{"snapshot", "create", source}, snapshotCreateFlags...)
 
 			stdOut, stdErr, runErr := e.Run(t, !expected.success, snapshotCreateWithArgs...)
 
-			if got, want := (runErr == nil), expected.success; got != want {
-				t.Fatalf("unexpected success %v, want %v", got, want)
-			}
+			require.Equalf(t, expected.success, (runErr == nil), "expected success: %t", expected.success)
 
 			parsed := parseSnapshotResultFn(t, stdOut, stdErr)
 
 			if expected.success {
-				numSuccessfulSnapshots++
+				target := filepath.Join(t.TempDir(), "target")
 
-				e.RunAndExpectSuccess(t, "snapshot", "restore", parsed.manifestID, restoreDir)
+				e.RunAndExpectSuccess(t, "snapshot", "restore", parsed.manifestID, target)
 			}
 
-			if got, want := parsed.errorCount, expected.wantErrors; got != want {
-				t.Fatalf("unexpected number of errors: %v, want %v", got, want)
-			}
+			require.Equal(t, expected.wantPartial, parsed.partial, "unexpected partial")
 
-			if got, want := parsed.ignoredErrorCount, expected.wantIgnoredErrors; got != want {
-				t.Fatalf("unexpected number of ignored errors: %v, want %v", got, want)
+			if expected.wantPartial {
+				// for partial snapshots, only check that at least one fatal error was recorded
+				require.Positive(t, parsed.errorCount, "expected at least one fatal error")
+			} else {
+				// the total number of errors can only be validated for non-partial snapshots
+				require.Equal(t, expected.wantErrors, parsed.errorCount, "unexpected number of errors")
+				require.Equal(t, expected.wantIgnoredErrors, parsed.ignoredErrorCount, "unexpected number of ignored errors")
 			}
-
-			if got, want := parsed.partial, expected.wantPartial; got != want {
-				t.Fatalf("unexpected partial %v, want %v (%s)", got, want, stdErr)
-			}
-		}()
+		})
 	}
-
-	return numSuccessfulSnapshots
 }
 
 var (
@@ -427,16 +467,12 @@ func parseSnapshotResultFromLog(t *testing.T, _, stdErr []string) parsedSnapshot
 
 		if match := fatalErrorsPattern.FindStringSubmatch(l); match != nil {
 			res.errorCount, err = strconv.Atoi(match[1])
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 		}
 
 		if match := ignoredErrorsPattern.FindStringSubmatch(l); match != nil {
 			res.ignoredErrorCount, err = strconv.Atoi(match[1])
-			if err != nil {
-				t.Fatal(err)
-			}
+			require.NoError(t, err)
 		}
 	}
 

@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-type token interface{}
+type token any
 
 // Represents a '?' in a pattern.
 type tokenAnyChar struct{}

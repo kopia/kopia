@@ -5,8 +5,10 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -24,7 +26,7 @@ var interestingLengths = []int{10, 50, 100, 240, 250, 260, 270}
 
 // GetInterestingTempDirectoryName returns interesting directory name used for testing.
 func GetInterestingTempDirectoryName() (string, error) {
-	td, err := os.MkdirTemp("", "kopia-test")
+	td, err := os.MkdirTemp("", "kopia-test-"+time.Now().UTC().Format("20060102-150405")) //nolint:forbidigo
 	if err != nil {
 		return "", errors.Wrap(err, "unable to create temp directory")
 	}
@@ -38,7 +40,7 @@ func GetInterestingTempDirectoryName() (string, error) {
 			td = filepath.Join(td, strings.Repeat("f", targetLen-n))
 		}
 
-		//nolint:gomnd
+		//nolint:mnd
 		if err := os.MkdirAll(td, 0o700); err != nil {
 			return "", errors.Wrap(err, "unable to create temp directory")
 		}
@@ -73,7 +75,7 @@ func TempDirectory(tb testing.TB) string {
 func TempDirectoryShort(tb testing.TB) string {
 	tb.Helper()
 
-	d, err := os.MkdirTemp("", "kopia-test")
+	d, err := os.MkdirTemp("", "kopia-test-"+time.Now().UTC().Format("20060102-150405")) //nolint:forbidigo
 	if err != nil {
 		tb.Fatal(errors.Wrap(err, "unable to create temp directory"))
 	}
@@ -89,14 +91,20 @@ func TempDirectoryShort(tb testing.TB) string {
 	return d
 }
 
+func getEnvVarBool(name string) bool {
+	s, err := strconv.ParseBool(os.Getenv(name))
+
+	return err == nil && s
+}
+
 // TempLogDirectory returns a temporary directory used for storing logs.
 // If KOPIA_LOGS_DIR is provided.
-func TempLogDirectory(t *testing.T) string {
-	t.Helper()
+func TempLogDirectory(tb testing.TB) string {
+	tb.Helper()
 
-	cleanName := strings.NewReplacer("/", "_", "\\", "_", ":", "_").Replace(t.Name())
+	cleanName := strings.NewReplacer("/", "_", "\\", "_", ":", "_").Replace(tb.Name())
 
-	t.Helper()
+	tb.Helper()
 
 	logsBaseDir := os.Getenv("KOPIA_LOGS_DIR")
 	if logsBaseDir == "" {
@@ -105,16 +113,16 @@ func TempLogDirectory(t *testing.T) string {
 
 	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.Now().Local().Format("20060102150405"))
 
-	require.NoError(t, os.MkdirAll(logsDir, logsDirPermissions))
+	require.NoError(tb, os.MkdirAll(logsDir, logsDirPermissions))
 
-	t.Cleanup(func() {
-		if os.Getenv("KOPIA_KEEP_LOGS") != "" {
-			t.Logf("logs preserved in %v", logsDir)
+	tb.Cleanup(func() {
+		if getEnvVarBool("KOPIA_KEEP_LOGS") {
+			tb.Logf("logs preserved in %v", logsDir)
 			return
 		}
 
-		if t.Failed() && os.Getenv("KOPIA_DISABLE_LOG_DUMP_ON_FAILURE") == "" {
-			dumpLogs(t, logsDir)
+		if tb.Failed() && !getEnvVarBool("KOPIA_DISABLE_LOG_DUMP_ON_FAILURE") {
+			dumpLogs(tb, logsDir)
 		}
 
 		os.RemoveAll(logsDir) //nolint:errcheck
@@ -123,36 +131,36 @@ func TempLogDirectory(t *testing.T) string {
 	return logsDir
 }
 
-func dumpLogs(t *testing.T, dirname string) {
-	t.Helper()
+func dumpLogs(tb testing.TB, dirname string) {
+	tb.Helper()
 
 	entries, err := os.ReadDir(dirname)
 	if err != nil {
-		t.Errorf("unable to read %v: %v", dirname, err)
+		tb.Errorf("unable to read %v: %v", dirname, err)
 
 		return
 	}
 
 	for _, e := range entries {
 		if e.IsDir() {
-			dumpLogs(t, filepath.Join(dirname, e.Name()))
+			dumpLogs(tb, filepath.Join(dirname, e.Name()))
 			continue
 		}
 
-		dumpLogFile(t, filepath.Join(dirname, e.Name()))
+		dumpLogFile(tb, filepath.Join(dirname, e.Name()))
 	}
 }
 
-func dumpLogFile(t *testing.T, fname string) {
-	t.Helper()
+func dumpLogFile(tb testing.TB, fname string) {
+	tb.Helper()
 
 	data, err := os.ReadFile(fname) //nolint:gosec
 	if err != nil {
-		t.Error(err)
+		tb.Error(err)
 		return
 	}
 
-	t.Logf("LOG FILE: %v %v", fname, trimOutput(string(data)))
+	tb.Logf("LOG FILE: %v %v", fname, trimOutput(string(data)))
 }
 
 func trimOutput(s string) string {
@@ -161,9 +169,9 @@ func trimOutput(s string) string {
 		return s
 	}
 
-	lines2 := append([]string(nil), lines[0:(maxOutputLinesToLog/2)]...) //nolint:gomnd
+	lines2 := append([]string(nil), lines[0:(maxOutputLinesToLog/2)]...) //nolint:mnd
 	lines2 = append(lines2, fmt.Sprintf("/* %v lines removed */", len(lines)-maxOutputLinesToLog))
-	lines2 = append(lines2, lines[len(lines)-(maxOutputLinesToLog/2):]...) //nolint:gomnd
+	lines2 = append(lines2, lines[len(lines)-(maxOutputLinesToLog/2):]...) //nolint:mnd
 
 	return strings.Join(lines2, "\n")
 }
@@ -175,7 +183,7 @@ func splitLines(s string) []string {
 	}
 
 	var result []string
-	for _, l := range strings.Split(s, "\n") {
+	for l := range strings.SplitSeq(s, "\n") {
 		result = append(result, strings.TrimRight(l, "\r"))
 	}
 

@@ -51,7 +51,6 @@ func TestMatchWithBaseDir(t *testing.T) {
 		}
 
 		matcher, err := NewWildcardMatcher(tc.pattern, BaseDir(tc.baseDir))
-
 		if err != nil {
 			t.Errorf("(%v) unexpected error returned for pattern %#v: %v", i, tc.pattern, err)
 		} else {

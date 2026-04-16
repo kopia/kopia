@@ -1,156 +1,166 @@
-const fs = require('fs');
-const path = require('path');
-const Electron = require('electron');
-const log = require("electron-log");
+const fs = await import("fs");
+const path = await import("path");
+const Electron = await import("electron");
+const log = await import("electron-log");
 
 let configs = {};
 const configFileSuffix = ".config";
 
-let configDir = "";
+let myConfigDir = "";
 let isPortable = false;
 let firstRun = false;
 
 // returns the list of directories to be checked for portable configurations
 function portableConfigDirs() {
-    let result = [];
+  let result = [];
 
-    if (process.env.KOPIA_UI_PORTABLE_CONFIG_DIR) {
-        result.push(process.env.KOPIA_UI_PORTABLE_CONFIG_DIR);
-    }
+  if (process.env.KOPIA_UI_PORTABLE_CONFIG_DIR) {
+    result.push(process.env.KOPIA_UI_PORTABLE_CONFIG_DIR);
+  }
 
-    if (process.platform == "darwin") {
-        // on Mac support 'repositories' directory next to the KopiaUI.app
-        result.push(path.join(path.dirname(Electron.app.getPath("exe")), "..", "..", "..", "repositories"));
-    } else {
-        // on other platforms support 'repositories' directory next to directory
-        // containing executable or 'repositories' subdirectory.
-        result.push(path.join(path.dirname(Electron.app.getPath("exe")), "repositories"));
-        result.push(path.join(path.dirname(Electron.app.getPath("exe")), "..", "repositories"));
-    }
+  if (process.platform == "darwin") {
+    // on Mac support 'repositories' directory next to the KopiaUI.app
+    result.push(
+      path.join(
+        path.dirname(Electron.app.getPath("exe")),
+        "..",
+        "..",
+        "..",
+        "repositories",
+      ),
+    );
+  } else {
+    // on other platforms support 'repositories' directory next to directory
+    // containing executable or 'repositories' subdirectory.
+    result.push(
+      path.join(path.dirname(Electron.app.getPath("exe")), "repositories"),
+    );
+    result.push(
+      path.join(
+        path.dirname(Electron.app.getPath("exe")),
+        "..",
+        "repositories",
+      ),
+    );
+  }
 
-    return result;
+  return result;
 }
 
 function globalConfigDir() {
-    if (!configDir) {
-        // try portable config dirs in order.
-        portableConfigDirs().forEach(d => {
-            if (configDir) {
-                return;
-            }
-            
-            d = path.normalize(d)
+  if (!myConfigDir) {
+    // try portable config dirs in order.
+    portableConfigDirs().forEach((d) => {
+      if (myConfigDir) {
+        return;
+      }
 
-            if (!fs.existsSync(d)) {
-                return;
-            }
+      d = path.normalize(d);
 
-            configDir = d;
-            isPortable = true;
-        });
+      if (!fs.existsSync(d)) {
+        return;
+      }
 
-        // still not set, fall back to per-user config dir.
-        // we use the same directory that is used by Kopia CLI.
-        if (!configDir) {
-            configDir = path.join(Electron.app.getPath("appData"), "kopia");
-        }
+      myConfigDir = d;
+      isPortable = true;
+    });
+
+    // still not set, fall back to per-user config dir.
+    // we use the same directory that is used by Kopia CLI.
+    if (!myConfigDir) {
+      myConfigDir = path.join(Electron.app.getPath("appData"), "kopia");
     }
+  }
 
-    return configDir;
+  return myConfigDir;
 }
 
-function allConfigs() {
-    let result = [];
+export function allConfigs() {
+  let result = [];
 
-    for (let k in configs) {
-        result.push(k);
-    }
+  for (let k in configs) {
+    result.push(k);
+  }
 
-    return result;
+  return result;
 }
 
-function addNewConfig() {
-    let id;
+export function addNewConfig() {
+  let id;
 
-    if (!configs) {
-        // first repository is always named "repository" to match Kopia CLI.
-        id = "repository";
-    } else {
-        id = "repository-" + new Date().valueOf();
-    }
+  if (!configs) {
+    // first repository is always named "repository" to match Kopia CLI.
+    id = "repository";
+  } else {
+    id = "repository-" + new Date().valueOf();
+  }
 
-    configs[id] = true;
-    return id;
+  configs[id] = true;
+  return id;
 }
 
-Electron.ipcMain.on('config-list-fetch', (event, arg) => {
-    emitConfigListUpdated();
+Electron.ipcMain.on("config-list-fetch", (event, arg) => {
+  emitConfigListUpdated();
 });
 
 function emitConfigListUpdated() {
-    Electron.ipcMain.emit('config-list-updated-event', allConfigs());
-};
-
-function deleteConfigIfDisconnected(repoID) {
-    if (repoID === "repository") {
-        // never delete default repository config
-        return false;
-    }
-
-    if (!fs.existsSync(path.join(globalConfigDir(), repoID + configFileSuffix))) {
-        delete (configs[repoID]);
-        emitConfigListUpdated();
-        return true;
-    }
-
-    return false;
+  Electron.ipcMain.emit("config-list-updated-event", allConfigs());
 }
 
-module.exports = {
-    loadConfigs() {
-        fs.mkdirSync(globalConfigDir(), { recursive: true, mode: 0700 });
-        let entries = fs.readdirSync(globalConfigDir());
+export function deleteConfigIfDisconnected(repoID) {
+  if (repoID === "repository") {
+    // never delete default repository config
+    return false;
+  }
 
-        let count = 0;
-        entries.filter(e => path.extname(e) == configFileSuffix).forEach(v => {
-            const repoID = v.replace(configFileSuffix, "");
-            configs[repoID] = true;
-            count++;
-        });
+  if (!fs.existsSync(path.join(globalConfigDir(), repoID + configFileSuffix))) {
+    delete configs[repoID];
+    emitConfigListUpdated();
+    return true;
+  }
 
-        if (!configs["repository"]) {
-            configs["repository"] = true;
-            firstRun = true;
-        }
-    },
+  return false;
+}
 
-    isPortableConfig() {
-        globalConfigDir();
-        return isPortable;
-    },
+export function loadConfigs() {
+  fs.mkdirSync(globalConfigDir(), { recursive: true, mode: 0o700 });
+  let entries = fs.readdirSync(globalConfigDir());
 
-    isFirstRun() {
-        return firstRun;
-    },
+  let count = 0;
+  entries
+    .filter((e) => path.extname(e) == configFileSuffix)
+    .forEach((v) => {
+      const repoID = v.replace(configFileSuffix, "");
+      configs[repoID] = true;
+      count++;
+    });
 
-    configDir() {
-        return globalConfigDir();
-    },
+  if (count === 0) {
+    configs["repository"] = true;
+    firstRun = true;
+  }
+}
 
-    deleteConfigIfDisconnected,
+export function isPortableConfig() {
+  globalConfigDir();
+  return isPortable;
+}
 
-    addNewConfig,
+export function isFirstRun() {
+  return firstRun;
+}
 
-    allConfigs,
+export function configDir() {
+  return globalConfigDir();
+}
 
-    configForRepo(repoID) {
-        let c = configs[repoID];
-        if (c) {
-            return c;
-        }
+export function configForRepo(repoID) {
+  let c = configs[repoID];
+  if (c) {
+    return c;
+  }
 
-        configs[repoID] = true;
-        emitConfigListUpdated();
-        return c;
-    }
+  configs[repoID] = true;
+  emitConfigListUpdated();
+  return c;
 }

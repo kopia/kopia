@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"maps"
 	"sync"
 	"time"
 
@@ -121,7 +122,7 @@ func (t *runningTaskInfo) ReportCounters(c map[string]CounterValue) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	t.Counters = cloneCounters(c)
+	t.Counters = maps.Clone(c)
 }
 
 // info returns a copy of task information while holding a lock.
@@ -130,7 +131,7 @@ func (t *runningTaskInfo) info() Info {
 	defer t.mu.Unlock()
 
 	i := t.Info
-	i.Counters = cloneCounters(i.Counters)
+	i.Counters = maps.Clone(i.Counters)
 
 	return i
 }

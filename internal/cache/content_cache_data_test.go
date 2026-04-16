@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -19,7 +20,7 @@ func TestContentCacheForData(t *testing.T) {
 	underlying := blobtesting.NewMapStorage(underlyingData, nil, nil)
 
 	cacheData := blobtesting.DataMap{}
-	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil).(cache.Storage)
+	cacheStorage := testutil.EnsureType[cache.Storage](t, blobtesting.NewMapStorage(cacheData, nil, nil))
 
 	dataCache, err := cache.NewContentCache(ctx, underlying, cache.Options{
 		Storage:    cacheStorage,

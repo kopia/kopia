@@ -78,8 +78,6 @@ func TestValidateCSRFToken(t *testing.T) {
 	ctx := context.Background()
 
 	for i, tc := range cases {
-		tc := tc
-
 		t.Run(fmt.Sprintf("case-%v", i), func(t *testing.T) {
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "/somepath", http.NoBody)
 			require.NoError(t, err)

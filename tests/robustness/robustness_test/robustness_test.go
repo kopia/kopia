@@ -1,11 +1,9 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 package robustness
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -72,7 +70,7 @@ func TestOneLargeFile(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
+func TestManySmallFilesAcrossDirectoryTree(t *testing.T) {
 	// TODO: Test takes too long - need to address performance issues with fio writes
 	const (
 		fileSize      = 4096
@@ -116,7 +114,7 @@ func TestRandomizedSmall(t *testing.T) {
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(1),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
-			fiofilewriter.IOLimitPerWriteAction:    fmt.Sprintf("%d", 512*1024*1024),
+			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(512 * 1024 * 1024),
 			fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(100),
 			fiofilewriter.MaxFileSizeField:         strconv.Itoa(64 * 1024 * 1024),
 			fiofilewriter.MaxDirDepthField:         strconv.Itoa(3),

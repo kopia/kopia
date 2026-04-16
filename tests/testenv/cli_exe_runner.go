@@ -1,6 +1,7 @@
 package testenv
 
 import (
+	"context"
 	"io"
 	"os"
 	"os/exec"
@@ -20,10 +21,10 @@ type CLIExeRunner struct {
 }
 
 // Start implements CLIRunner.
-func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, kill func()) {
-	t.Helper()
+func (e *CLIExeRunner) Start(tb testing.TB, ctx context.Context, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
+	tb.Helper()
 
-	c := exec.Command(e.Exe, append([]string{
+	c := exec.CommandContext(ctx, e.Exe, append([]string{
 		"--log-dir", e.LogsDir,
 	}, args...)...)
 
@@ -35,12 +36,12 @@ func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string)
 
 	stdoutPipe, err := c.StdoutPipe()
 	if err != nil {
-		t.Fatalf("can't set up stdout pipe reader: %v", err)
+		tb.Fatalf("can't set up stdout pipe reader: %v", err)
 	}
 
 	stderrPipe, err := c.StderrPipe()
 	if err != nil {
-		t.Fatalf("can't set up stderr pipe reader: %v", err)
+		tb.Fatalf("can't set up stderr pipe reader: %v", err)
 	}
 
 	c.Stdin = e.NextCommandStdin
@@ -48,11 +49,17 @@ func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string)
 	c.ExtraFiles = e.ExtraFiles
 
 	if err := c.Start(); err != nil {
-		t.Fatalf("unable to start: %v", err)
+		tb.Fatalf("unable to start: %v", err)
 	}
 
-	return stdoutPipe, stderrPipe, c.Wait, func() {
-		c.Process.Kill()
+	return stdoutPipe, stderrPipe, c.Wait, func(sig os.Signal) {
+		if sig == os.Kill {
+			c.Process.Kill()
+
+			return
+		}
+
+		c.Process.Signal(sig)
 	}
 }
 
@@ -60,8 +67,8 @@ func (e *CLIExeRunner) Start(t *testing.T, args []string, env map[string]string)
 // for each. The kopia executable must be passed via KOPIA_EXE environment variable. The test
 // will be skipped if it's not provided (unless running inside an IDE in which case system-wide
 // `kopia` will be used by default).
-func NewExeRunner(t *testing.T) *CLIExeRunner {
-	t.Helper()
+func NewExeRunner(tb testing.TB) *CLIExeRunner {
+	tb.Helper()
 
 	exe := os.Getenv("KOPIA_EXE")
 	if exe == "" {
@@ -69,22 +76,22 @@ func NewExeRunner(t *testing.T) *CLIExeRunner {
 			// we're launched from VSCode, use system-installed kopia executable.
 			exe = "kopia"
 		} else {
-			t.Skip()
+			tb.Skip()
 		}
 	}
 
-	return NewExeRunnerWithBinary(t, exe)
+	return NewExeRunnerWithBinary(tb, exe)
 }
 
 // NewExeRunnerWithBinary returns a CLIRunner that will execute kopia commands by launching subprocesses
 // for each.
-func NewExeRunnerWithBinary(t *testing.T, exe string) *CLIExeRunner {
-	t.Helper()
+func NewExeRunnerWithBinary(tb testing.TB, exe string) *CLIExeRunner {
+	tb.Helper()
 
 	// unset environment variables that disrupt tests when passed to subprocesses.
 	os.Unsetenv("KOPIA_PASSWORD")
 
-	logsDir := testutil.TempLogDirectory(t)
+	logsDir := testutil.TempLogDirectory(tb)
 
 	return &CLIExeRunner{
 		Exe:     filepath.FromSlash(exe),

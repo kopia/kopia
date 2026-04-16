@@ -20,7 +20,7 @@ type commandBlobGC struct {
 }
 
 func (c *commandBlobGC) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("gc", "Garbage-collect unused blobs")
+	cmd := parent.Command("gc", "Garbage-collect unused blobs").Hidden()
 	cmd.Flag("delete", "Whether to delete unused blobs").StringVar(&c.delete)
 	cmd.Flag("parallel", "Number of parallel blob scans").Default("16").IntVar(&c.parallel)
 	cmd.Flag("prefix", "Only GC blobs with given prefix").StringVar(&c.prefix)
@@ -31,21 +31,21 @@ func (c *commandBlobGC) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandBlobGC) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	c.svc.advancedCommand(ctx)
+	c.svc.dangerousCommand()
 
-	opts := maintenance.DeleteUnreferencedBlobsOptions{
+	opts := maintenance.DeleteUnreferencedPacksOptions{
 		DryRun:   c.delete != "yes",
 		Parallel: c.parallel,
 		Prefix:   blob.ID(c.prefix),
 	}
 
-	n, err := maintenance.DeleteUnreferencedBlobs(ctx, rep, opts, c.safety)
+	stats, err := maintenance.DeleteUnreferencedPacks(ctx, rep, opts, c.safety)
 	if err != nil {
 		return errors.Wrap(err, "error deleting unreferenced blobs")
 	}
 
-	if opts.DryRun && n > 0 {
-		log(ctx).Infof("Pass --delete=yes to delete.")
+	if opts.DryRun && stats.UnreferencedPackCount > 0 {
+		log(ctx).Info("Pass --delete=yes to delete.")
 	}
 
 	return nil

@@ -58,6 +58,15 @@ func (w *TreeWalker) ReportError(ctx context.Context, entryPath string, err erro
 	w.numErrors++
 }
 
+// GetErrors returns a copy of the list of errors found during the tree walk, as well
+// as the total count of errors encountered.
+func (w *TreeWalker) GetErrors() (errs []error, numErrors int) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return append([]error{}, w.errors...), w.numErrors
+}
+
 // Err returns the error encountered when walking the tree.
 func (w *TreeWalker) Err() error {
 	w.mu.Lock()
@@ -131,7 +140,7 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 			childPath := path.Join(entryPath, ent2.Name())
 
 			if ag.CanShareWork(w.wp) {
-				ag.RunAsync(w.wp, func(c *workshare.Pool[any], request any) {
+				ag.RunAsync(w.wp, func(_ *workshare.Pool[any], _ any) {
 					w.processEntry(ctx, ent2, childPath)
 				}, nil)
 			} else {
@@ -150,7 +159,7 @@ func (w *TreeWalker) processDirEntry(ctx context.Context, dir fs.Directory, entr
 // Process processes the snapshot tree entry.
 func (w *TreeWalker) Process(ctx context.Context, e fs.Entry, entryPath string) error {
 	if oidOf(e) == object.EmptyID {
-		return errors.Errorf("entry does not have ObjectID")
+		return errors.New("entry does not have ObjectID")
 	}
 
 	if w.alreadyProcessed(ctx, e) {

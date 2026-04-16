@@ -68,7 +68,8 @@ type objectWriter struct {
 
 	om *Manager
 
-	compressor compression.Compressor
+	compressor         compression.Compressor
+	metadataCompressor compression.Compressor
 
 	prefix      content.IDPrefix
 	buffer      gather.WriteBuffer
@@ -127,7 +128,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 		// found a split point after `n` bytes, write first n bytes then flush and repeat with the remainder.
 		w.buffer.Append(data[0:n])
 
-		if err := w.flushBuffer(); err != nil {
+		if err := w.flushBufferLocked(); err != nil {
 			return 0, err
 		}
 
@@ -137,7 +138,8 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 	return dataLen, nil
 }
 
-func (w *objectWriter) flushBuffer() error {
+// +checklocks:w.mu
+func (w *objectWriter) flushBufferLocked() error {
 	length := w.buffer.Length()
 
 	// hold a lock as we may grow the index
@@ -157,6 +159,7 @@ func (w *objectWriter) flushBuffer() error {
 
 	// acquire write semaphore
 	w.asyncWritesSemaphore <- struct{}{}
+
 	w.asyncWritesWG.Add(1)
 
 	asyncBuf := gather.NewWriteBuffer()
@@ -188,14 +191,19 @@ func (w *objectWriter) prepareAndWriteContentChunk(chunkID int, data gather.Byte
 	comp := content.NoCompression
 	objectComp := w.compressor
 
-	scc, err := w.om.contentMgr.SupportsContentCompression()
-	if err != nil {
-		return errors.Wrap(err, "supports content compression")
-	}
+	// in super rare cases this may be stale, but if it is it will be false which is always safe.
+	supportsContentCompression := w.om.contentMgr.SupportsContentCompression()
 
 	// do not compress in this layer, instead pass comp to the content manager.
-	if scc && w.compressor != nil {
+	if supportsContentCompression && w.compressor != nil {
 		comp = w.compressor.HeaderID()
+		objectComp = nil
+	}
+
+	// metadata objects are ALWAYS compressed at the content layer, irrespective of the index version (1 or 1+).
+	// even if a compressor for metadata objects is set by the caller, do not compress the objects at this layer;
+	// instead, let it be handled at the content layer.
+	if w.prefix != "" {
 		objectComp = nil
 	}
 
@@ -233,7 +241,7 @@ func maybeCompressedObjectID(contentID content.ID, isCompressed bool) ID {
 	oid := DirectObjectID(contentID)
 
 	if isCompressed {
-		oid = Compressed(oid)
+		oid = compressed(oid)
 	}
 
 	return oid
@@ -260,7 +268,7 @@ func (w *objectWriter) Result() (ID, error) {
 	// no need to hold a lock on w.indirectIndexGrowMutex, since growing index only happens synchronously
 	// and never in parallel with calling Result()
 	if w.buffer.Length() > 0 || len(w.indirectIndex) == 0 {
-		if err := w.flushBuffer(); err != nil {
+		if err := w.flushBufferLocked(); err != nil {
 			return EmptyID, err
 		}
 	}
@@ -277,6 +285,7 @@ func (w *objectWriter) Checkpoint() (ID, error) {
 	return w.checkpointLocked()
 }
 
+// +checklocks:w.mu
 func (w *objectWriter) checkpointLocked() (ID, error) {
 	// wait for any in-flight asynchronous writes to finish
 	w.asyncWritesWG.Wait()
@@ -294,12 +303,13 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 	}
 
 	iw := &objectWriter{
-		ctx:         w.ctx,
-		om:          w.om,
-		compressor:  nil,
-		description: "LIST(" + w.description + ")",
-		splitter:    w.om.newSplitter(),
-		prefix:      w.prefix,
+		ctx:                w.ctx,
+		om:                 w.om,
+		compressor:         w.metadataCompressor,
+		metadataCompressor: w.metadataCompressor,
+		description:        "LIST(" + w.description + ")",
+		splitter:           w.om.newDefaultSplitter(),
+		prefix:             w.prefix,
 	}
 
 	if iw.prefix == "" {
@@ -318,7 +328,7 @@ func (w *objectWriter) checkpointLocked() (ID, error) {
 		return EmptyID, err
 	}
 
-	return IndirectObjectID(oid), nil
+	return indirectObjectID(oid), nil
 }
 
 func writeIndirectObject(w io.Writer, entries []IndirectObjectEntry) error {
@@ -336,8 +346,10 @@ func writeIndirectObject(w io.Writer, entries []IndirectObjectEntry) error {
 
 // WriterOptions can be passed to Repository.NewWriter().
 type WriterOptions struct {
-	Description string
-	Prefix      content.IDPrefix // empty string or a single-character ('g'..'z')
-	Compressor  compression.Name
-	AsyncWrites int // allow up to N content writes to be asynchronous
+	Description        string
+	Prefix             content.IDPrefix // empty string or a single-character ('g'..'z')
+	Compressor         compression.Name
+	MetadataCompressor compression.Name
+	Splitter           string // use particular splitter instead of default
+	AsyncWrites        int    // allow up to N content writes to be asynchronous
 }

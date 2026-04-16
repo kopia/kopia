@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"path"
+	"slices"
 
 	"github.com/pkg/errors"
 
@@ -27,13 +28,11 @@ func (c *commandSnapshotFixRemoveFiles) setup(svc appServices, parent commandPar
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
-func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, dirRelativePath string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
-	for _, id := range c.removeObjectIDs {
-		if ent.ObjectID.String() == id {
-			log(ctx).Infof("will remove file %v", path.Join(dirRelativePath, ent.Name))
+func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, pathFromRoot string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
+	if slices.Contains(c.removeObjectIDs, ent.ObjectID.String()) {
+		log(ctx).Infof("will remove file %v", pathFromRoot)
 
-			return nil, nil
-		}
+		return nil, nil
 	}
 
 	for _, n := range c.removeFilesByName {
@@ -43,7 +42,7 @@ func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, dirRel
 		}
 
 		if matched {
-			log(ctx).Infof("will remove file %v", path.Join(dirRelativePath, ent.Name))
+			log(ctx).Infof("will remove file %v", pathFromRoot)
 
 			return nil, nil
 		}
@@ -54,7 +53,7 @@ func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, dirRel
 
 func (c *commandSnapshotFixRemoveFiles) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	if len(c.removeObjectIDs)+len(c.removeFilesByName) == 0 {
-		return errors.Errorf("must specify files to remove")
+		return errors.New("must specify files to remove")
 	}
 
 	return c.common.rewriteMatchingSnapshots(ctx, rep, c.rewriteEntry)

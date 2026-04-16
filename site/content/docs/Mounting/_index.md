@@ -106,3 +106,15 @@ PS> kopia mount all Z:  # mount successful
 Mounted 'all' on Z:
 Press Ctrl-C to unmount.
 ```
+
+## macOS
+
+On macOS, the recommended option is `kopia mount --webdav` for a WebDAV-based mount. This does not require any
+additional software to be installed.
+
+As an alternative, FUSE-based mounts with `kopia mount` can be achieved using [macFUSE](https://macfuse.github.io/) and
+its kernel backend. Refer to the [macFUSE getting started guide](https://github.com/macfuse/macfuse/wiki/Getting-Started#kernel-backend) for the current installation requirements
+for your macOS version and architecture.
+
+>NOTE: KopiaUI "Mount as Local Filesystem" button currently uses FUSE-based mount paths on macOS, thus it requires
+>macFUSE to be installed.

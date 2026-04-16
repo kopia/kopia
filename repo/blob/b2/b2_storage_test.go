@@ -81,8 +81,12 @@ func TestB2Storage(t *testing.T) {
 	cancel()
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
-	defer blobtesting.CleanupOldData(ctx, t, st, 0)
+	t.Cleanup(func() {
+		ctx := testlogging.ContextForCleanup(t)
+
+		blobtesting.CleanupOldData(ctx, t, st, 0)
+		st.Close(ctx)
+	})
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)

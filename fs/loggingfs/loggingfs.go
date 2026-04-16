@@ -9,7 +9,7 @@ import (
 )
 
 type loggingOptions struct {
-	printf func(fmt string, args ...interface{})
+	printf func(fmt string, args ...any)
 	prefix string
 }
 
@@ -66,7 +66,7 @@ type loggingSymlink struct {
 type Option func(o *loggingOptions)
 
 // Wrap returns an Entry that wraps another Entry and logs all method calls.
-func Wrap(e fs.Entry, printf func(msg string, args ...interface{}), options ...Option) fs.Entry {
+func Wrap(e fs.Entry, printf func(msg string, args ...any), options ...Option) fs.Entry {
 	return wrapWithOptions(e, applyOptions(printf, options), ".")
 }
 
@@ -86,7 +86,7 @@ func wrapWithOptions(e fs.Entry, opts *loggingOptions, relativePath string) fs.E
 	}
 }
 
-func applyOptions(printf func(msg string, args ...interface{}), opts []Option) *loggingOptions {
+func applyOptions(printf func(msg string, args ...any), opts []Option) *loggingOptions {
 	o := &loggingOptions{
 		printf: printf,
 	}
@@ -99,7 +99,7 @@ func applyOptions(printf func(msg string, args ...interface{}), opts []Option) *
 }
 
 // Output is an option that causes all output to be sent to a given function instead of log.Printf().
-func Output(outputFunc func(fmt string, args ...interface{})) Option {
+func Output(outputFunc func(fmt string, args ...any)) Option {
 	return func(o *loggingOptions) {
 		o.printf = outputFunc
 	}

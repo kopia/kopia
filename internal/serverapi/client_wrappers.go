@@ -174,14 +174,14 @@ func ListPolicies(ctx context.Context, c *apiclient.KopiaAPIClient, match *snaps
 	return resp, nil
 }
 
-func policyTargetURLParamters(si snapshot.SourceInfo) string {
+func policyTargetURLParameters(si snapshot.SourceInfo) string {
 	return fmt.Sprintf("userName=%v&host=%v&path=%v", si.UserName, si.Host, si.Path)
 }
 
 // SetPolicy sets the policy.
 func SetPolicy(ctx context.Context, c *apiclient.KopiaAPIClient, si snapshot.SourceInfo, pol *policy.Policy) error {
 	resp := &Empty{}
-	if err := c.Put(ctx, "policy?"+policyTargetURLParamters(si), pol, resp); err != nil {
+	if err := c.Put(ctx, "policy?"+policyTargetURLParameters(si), pol, resp); err != nil {
 		return errors.Wrap(err, "SetPolicy")
 	}
 
@@ -192,7 +192,7 @@ func SetPolicy(ctx context.Context, c *apiclient.KopiaAPIClient, si snapshot.Sou
 func ResolvePolicy(ctx context.Context, c *apiclient.KopiaAPIClient, si snapshot.SourceInfo, req *ResolvePolicyRequest) (*ResolvePolicyResponse, error) {
 	resp := &ResolvePolicyResponse{}
 
-	if err := c.Post(ctx, "policy/resolve?"+policyTargetURLParamters(si), req, resp); err != nil {
+	if err := c.Post(ctx, "policy/resolve?"+policyTargetURLParameters(si), req, resp); err != nil {
 		return nil, errors.Wrap(err, "ResolvePolicy")
 	}
 

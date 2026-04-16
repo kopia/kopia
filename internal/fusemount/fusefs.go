@@ -1,5 +1,4 @@
 //go:build !windows && !openbsd && !freebsd
-// +build !windows,!openbsd,!freebsd
 
 // Package fusemount implements FUSE filesystem nodes for mounting contents of filesystem stored in repository.
 //
@@ -7,6 +6,7 @@
 package fusemount
 
 import (
+	"context"
 	"io"
 	"os"
 	"sync"
@@ -15,7 +15,6 @@ import (
 	gofusefs "github.com/hanwen/go-fuse/v2/fs"
 	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/pkg/errors"
-	"golang.org/x/net/context"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo/logging"
@@ -50,8 +49,8 @@ func goModeToUnixMode(mode os.FileMode) uint32 {
 
 func populateAttributes(a *fuse.Attr, e fs.Entry) {
 	a.Mode = goModeToUnixMode(e.Mode())
-	a.Size = uint64(e.Size())
-	a.Mtime = uint64(e.ModTime().Unix())
+	a.Size = uint64(e.Size())            //nolint:gosec
+	a.Mtime = uint64(e.ModTime().Unix()) //nolint:gosec
 	a.Ctime = a.Mtime
 	a.Atime = a.Mtime
 	a.Nlink = 1
@@ -60,7 +59,7 @@ func populateAttributes(a *fuse.Attr, e fs.Entry) {
 	a.Blocks = (a.Size + fakeBlockSize - 1) / fakeBlockSize
 }
 
-func (n *fuseNode) Getattr(ctx context.Context, _ gofusefs.FileHandle, a *fuse.AttrOut) syscall.Errno {
+func (n *fuseNode) Getattr(_ context.Context, _ gofusefs.FileHandle, a *fuse.AttrOut) syscall.Errno {
 	populateAttributes(&a.Attr, n.entry)
 
 	a.Ino = n.StableAttr().Ino
@@ -73,7 +72,7 @@ type fuseFileNode struct {
 }
 
 func (f *fuseFileNode) Open(ctx context.Context, _ uint32) (gofusefs.FileHandle, uint32, syscall.Errno) {
-	reader, err := f.entry.(fs.File).Open(ctx)
+	reader, err := f.entry.(fs.File).Open(ctx) //nolint:forcetypeassert
 	if err != nil {
 		log(ctx).Errorf("error opening %v: %v", f.entry.Name(), err)
 
@@ -114,7 +113,7 @@ func (f *fuseFileHandle) Read(ctx context.Context, dest []byte, off int64) (fuse
 	return fuse.ReadResultData(dest[0:n]), gofusefs.OK
 }
 
-func (f *fuseFileHandle) Release(ctx context.Context) syscall.Errno {
+func (f *fuseFileHandle) Release(_ context.Context) syscall.Errno {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -198,7 +197,7 @@ type fuseSymlinkNode struct {
 }
 
 func (sl *fuseSymlinkNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
-	v, err := sl.entry.(fs.Symlink).Readlink(ctx)
+	v, err := sl.entry.(fs.Symlink).Readlink(ctx) //nolint:forcetypeassert
 	if err != nil {
 		log(ctx).Errorf("error reading symlink %v: %v", sl.entry.Name(), err)
 		return nil, syscall.EIO

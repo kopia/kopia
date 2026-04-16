@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content/indexblob"
 )
@@ -18,7 +20,7 @@ type commandIndexOptimize struct {
 }
 
 func (c *commandIndexOptimize) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("optimize", "Optimize indexes blobs.")
+	cmd := parent.Command("optimize", "Optimize indexes blobs.").Hidden()
 	cmd.Flag("max-small-blobs", "Maximum number of small index blobs that can be left after compaction.").Default("1").IntVar(&c.optimizeMaxSmallBlobs)
 	cmd.Flag("drop-deleted-older-than", "Drop deleted contents above given age").DurationVar(&c.optimizeDropDeletedOlderThan)
 	cmd.Flag("drop-contents", "Drop contents with given IDs").StringsVar(&c.optimizeDropContents)
@@ -29,7 +31,7 @@ func (c *commandIndexOptimize) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	c.svc.advancedCommand(ctx)
+	c.svc.dangerousCommand()
 
 	contentIDs, err := toContentIDs(c.optimizeDropContents)
 	if err != nil {
@@ -46,6 +48,7 @@ func (c *commandIndexOptimize) runOptimizeCommand(ctx context.Context, rep repo.
 		opt.DropDeletedBefore = rep.Time().Add(-age)
 	}
 
-	//nolint:wrapcheck
-	return rep.ContentManager().CompactIndexes(ctx, opt)
+	_, err = rep.ContentManager().CompactIndexes(ctx, opt)
+
+	return errors.Wrap(err, "error optimizing indexes")
 }

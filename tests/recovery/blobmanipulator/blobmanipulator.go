@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package blobmanipulator provides the framework for snapshot fix testing.
 package blobmanipulator
@@ -30,7 +29,7 @@ var (
 // BlobManipulator provides a way to run a kopia command.
 type BlobManipulator struct {
 	KopiaCommandRunner *kopiarunner.KopiaSnapshotter
-	DirCreater         *snapmeta.KopiaSnapshotter
+	DirCreator         *snapmeta.KopiaSnapshotter
 	fileWriter         *fiofilewriter.FileWriter
 
 	DataRepoPath       string
@@ -52,7 +51,7 @@ func NewBlobManipulator(baseDirPath, dataRepoPath string) (*BlobManipulator, err
 
 	return &BlobManipulator{
 		KopiaCommandRunner: runner,
-		DirCreater:         ks,
+		DirCreator:         ks,
 	}, nil
 }
 
@@ -84,7 +83,7 @@ func (bm *BlobManipulator) ConnectOrCreateRepo(dataRepoPath string) error {
 		return errKopiaRepoNotFound
 	}
 
-	return bm.DirCreater.ConnectOrCreateRepo(bm.DataRepoPath)
+	return bm.DirCreator.ConnectOrCreateRepo(bm.DataRepoPath)
 }
 
 // DeleteBlob deletes the provided blob or a random blob, in kopia repo.
@@ -100,7 +99,7 @@ func (bm *BlobManipulator) DeleteBlob(blobID string) error {
 
 	log.Printf("Deleting BLOB %s", blobID)
 
-	_, _, err := bm.KopiaCommandRunner.Run("blob", "delete", blobID, "--advanced-commands=enabled")
+	_, _, err := bm.KopiaCommandRunner.Run("blob", "delete", blobID, "--dangerous-commands=enabled")
 	if err != nil {
 		return err
 	}
@@ -192,7 +191,7 @@ func (bm *BlobManipulator) RestoreGivenOrRandomSnapshot(snapID, restoreDir strin
 	}
 
 	if snapID == "" {
-		// list available snaphsots
+		// list available snapshots
 		stdout, _, snapshotListErr := bm.KopiaCommandRunner.Run("snapshot", "list", "--json")
 		if snapshotListErr != nil {
 			return stdout, snapshotListErr

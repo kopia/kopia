@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/edsrzf/mmap-go"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/cache"
+	"github.com/kopia/kopia/internal/blobparam"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 const (
@@ -25,7 +25,7 @@ type diskCommittedContentIndexCache struct {
 	dirname              string
 	timeNow              func() time.Time
 	v1PerContentOverhead func() int
-	log                  logging.Logger
+	log                  *contentlog.Logger
 	minSweepAge          time.Duration
 }
 
@@ -36,7 +36,7 @@ func (c *diskCommittedContentIndexCache) indexBlobPath(indexBlobID blob.ID) stri
 func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (index.Index, error) {
 	fullpath := c.indexBlobPath(indexBlobID)
 
-	f, closeMmap, err := c.mmapOpenWithRetry(fullpath)
+	f, closeMmap, err := c.mmapFile(ctx, fullpath)
 	if err != nil {
 		return nil, err
 	}
@@ -44,59 +44,13 @@ func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlo
 	ndx, err := index.Open(f, closeMmap, c.v1PerContentOverhead)
 	if err != nil {
 		closeMmap() //nolint:errcheck
-		return nil, errors.Wrapf(err, "error openind index from %v", indexBlobID)
+		return nil, errors.Wrapf(err, "error opening index from %v", indexBlobID)
 	}
 
 	return ndx, nil
 }
 
-// mmapOpenWithRetry attempts mmap.Open() with exponential back-off to work around rare issue specific to Windows where
-// we can't open the file right after it has been written.
-func (c *diskCommittedContentIndexCache) mmapOpenWithRetry(path string) (mmap.MMap, func() error, error) {
-	const (
-		maxRetries    = 8
-		startingDelay = 10 * time.Millisecond
-	)
-
-	// retry milliseconds: 10, 20, 40, 80, 160, 320, 640, 1280, total ~2.5s
-	f, err := os.Open(path) //nolint:gosec
-	nextDelay := startingDelay
-
-	retryCount := 0
-	for err != nil && retryCount < maxRetries {
-		retryCount++
-		c.log.Debugf("retry #%v unable to mmap.Open(): %v", retryCount, err)
-		time.Sleep(nextDelay)
-		nextDelay *= 2
-
-		f, err = os.Open(path) //nolint:gosec
-	}
-
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to open file despite retries")
-	}
-
-	mm, err := mmap.Map(f, mmap.RDONLY, 0)
-	if err != nil {
-		f.Close() //nolint:errcheck
-
-		return nil, nil, errors.Wrap(err, "mmap error")
-	}
-
-	return mm, func() error {
-		if err2 := mm.Unmap(); err2 != nil {
-			return errors.Wrapf(err2, "error unmapping index %v", path)
-		}
-
-		if err2 := f.Close(); err2 != nil {
-			return errors.Wrapf(err2, "error closing index %v", path)
-		}
-
-		return nil
-	}, errors.Wrap(err, "mmap() error")
-}
-
-func (c *diskCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {
+func (c *diskCommittedContentIndexCache) hasIndexBlobID(_ context.Context, indexBlobID blob.ID) (bool, error) {
 	_, err := os.Stat(c.indexBlobPath(indexBlobID))
 	if err == nil {
 		return true, nil
@@ -140,35 +94,10 @@ func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, 
 	return nil
 }
 
-func writeTempFileAtomic(dirname string, data []byte) (string, error) {
-	// write to a temp file to avoid race where two processes are writing at the same time.
-	tf, err := os.CreateTemp(dirname, "tmp")
-	if err != nil {
-		if os.IsNotExist(err) {
-			os.MkdirAll(dirname, cache.DirMode) //nolint:errcheck
-			tf, err = os.CreateTemp(dirname, "tmp")
-		}
-	}
-
-	if err != nil {
-		return "", errors.Wrap(err, "can't create tmp file")
-	}
-
-	if _, err := tf.Write(data); err != nil {
-		return "", errors.Wrap(err, "can't write to temp file")
-	}
-
-	if err := tf.Close(); err != nil {
-		return "", errors.Errorf("can't close tmp file")
-	}
-
-	return tf.Name(), nil
-}
-
 func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
-	c.log.Debugw("expireUnused",
-		"except", used,
-		"minSweepAge", c.minSweepAge)
+	contentlog.Log2(ctx, c.log, "expireUnused",
+		blobparam.BlobIDList("except", used),
+		logparam.Duration("minSweepAge", c.minSweepAge))
 
 	entries, err := os.ReadDir(c.dirname)
 	if err != nil {
@@ -188,8 +117,7 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 			return errors.Wrap(err, "failed to read file info")
 		}
 
-		if strings.HasSuffix(ent.Name(), simpleIndexSuffix) {
-			n := strings.TrimSuffix(ent.Name(), simpleIndexSuffix)
+		if n, ok := strings.CutSuffix(ent.Name(), simpleIndexSuffix); ok {
 			remaining[blob.ID(n)] = fi
 		}
 	}
@@ -200,18 +128,20 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 
 	for _, rem := range remaining {
 		if c.timeNow().Sub(rem.ModTime()) > c.minSweepAge {
-			c.log.Debugw("removing unused",
-				"name", rem.Name(),
-				"mtime", rem.ModTime())
+			contentlog.Log2(ctx, c.log, "removing unused",
+				logparam.String("name", rem.Name()),
+				logparam.Time("mtime", rem.ModTime()))
 
 			if err := os.Remove(filepath.Join(c.dirname, rem.Name())); err != nil {
-				c.log.Errorf("unable to remove unused index file: %v", err)
+				contentlog.Log1(ctx, c.log,
+					"unable to remove unused index file",
+					logparam.Error("err", err))
 			}
 		} else {
-			c.log.Debugw("keeping unused index because it's too new",
-				"name", rem.Name(),
-				"mtime", rem.ModTime(),
-				"threshold", c.minSweepAge)
+			contentlog.Log3(ctx, c.log, "keeping unused index because it's too new",
+				logparam.String("name", rem.Name()),
+				logparam.Time("mtime", rem.ModTime()),
+				logparam.Duration("threshold", c.minSweepAge))
 		}
 	}
 

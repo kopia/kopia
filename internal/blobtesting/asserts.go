@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"reflect"
-	"sort"
+	"slices"
 	"testing"
 	"time"
 
@@ -199,9 +199,7 @@ func AssertListResultsIDs(ctx context.Context, t *testing.T, s blob.Storage, pre
 
 func sorted(s []blob.ID) []blob.ID {
 	x := append([]blob.ID(nil), s...)
-	sort.Slice(x, func(i, j int) bool {
-		return x[i] < x[j]
-	})
+	slices.Sort(x)
 
 	return x
 }

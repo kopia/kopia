@@ -2,7 +2,7 @@ package policy
 
 import "github.com/kopia/kopia/snapshot"
 
-// ErrorHandlingPolicy controls error hadnling behavior when taking snapshots.
+// ErrorHandlingPolicy controls error handling behavior when taking snapshots.
 type ErrorHandlingPolicy struct {
 	// IgnoreFileErrors controls whether or not snapshot operation should fail when a file throws an error on being read
 	IgnoreFileErrors *OptionalBool `json:"ignoreFileErrors,omitempty"`

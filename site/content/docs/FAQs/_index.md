@@ -1,7 +1,7 @@
 ---
 title: "Frequently Asked Questions"
 linkTitle: "Frequently Asked Questions"
-weight: 40
+weight: 55
 ---
 
 ### Questions
@@ -20,6 +20,7 @@ weight: 40
 * [How Do I Decrease Kopia's Memory (RAM) Usage?](#how-do-i-decrease-kopias-memory-ram-usage)
 * [What are Incomplete Snapshots?](#what-are-incomplete-snapshots)
 * [What is a Kopia Repository Server?](#what-is-a-kopia-repository-server)
+* [How does the KopiaUI handle multiple repositories?](#kopiaui-and-multiple-repositories)
 
 **Is your question not answered here? Please ask in the [Kopia discussion forums](https://kopia.discourse.group/) for help!**
 
@@ -31,7 +32,7 @@ A `snapshot` is a [point-in-time backup](../features#backup-files-and-directorie
 
 #### What is a Repository?
 
-A `repository` is the storage location where your snapshots are saved; Kopia supports [cloud/remote, network, and local storage locations](../features#save-snapshots-to-cloud-network-or-local-storage) and all repositories are [encrypted](../features/#end-to-end-zero-knowledge-encryption) with a password that you designate.
+A `repository` is the storage location where your snapshots are saved; Kopia supports [cloud/remote, network, and local storage locations](../features#save-snapshots-to-cloud-network-or-local-storage) and all repositories are [encrypted](../features/#user-controlled-end-to-end-encryption) with a password that you designate.
 
 See the [repository help docs](../repositories) for more information.
 
@@ -53,7 +54,7 @@ The [Getting Started Guide](../getting-started/) provides directions on how to r
 
 #### How Do I Define Files And Folders To Be Ignored By Kopia?
 
-Files and directories can be ignored from snapshots by adding `ignore rules` to the `policy` or creating `.kopiagignore` files. For more information, please refer to our [guide on creating ignore rules](../advanced/kopiaignore/).
+Files and directories can be ignored from snapshots by adding `ignore rules` to the `policy` or creating `.kopiaignore` files. For more information, please refer to our [guide on creating ignore rules](../advanced/kopiaignore/).
 
 #### How Do I Enable Encryption?
 
@@ -80,7 +81,7 @@ kopia policy set </path/to/source/directory/> --compression=<none|deflate-best-c
 ```shell
 kopia policy set --global --compression=<none|deflate-best-compression|deflate-best-speed|deflate-default|gzip|gzip-best-compression|gzip-best-speed|pgzip|pgzip-best-compression|pgzip-best-speed|s2-better|s2-default|s2-parallel-4|s2-parallel-8|zstd|zstd-better-compression|zstd-fastest>
 ```
-If you enable or disable compression or change the compression algorithm, the new setting is applied going forward and not reteroactively. In other words, Kopia will not modify the compression for files/directories already uploaded to your repository.
+If you enable or disable compression or change the compression algorithm, the new setting is applied going forward and not retroactively. In other words, Kopia will not modify the compression for files/directories already uploaded to your repository.
 
 If you are unclear about what compression algorithm to use, `zstd` is considered one of the top algorithms currently.
 
@@ -94,7 +95,7 @@ You must use Kopia CLI if you want to change your `repository` password; changin
 
 Before changing your password, you must be [connected to your `repository`](../getting-started/#connecting-to-repository). This means that you **can** reset your password if you forget your password AND you are still connected to your `repository`. But this also means that you **cannot** reset your password if you forget your password and you are NOT still connected to your `repository`, because you will need your current password to connect to the `repository`.
 
-Remember to select a secure _repository password_. The password is used to [decrypt](../features/#end-to-end-zero-knowledge-encryption) and access the data in your snapshots.
+Remember to select a secure _repository password_. The password is used to [decrypt](../features/#user-controlled-end-to-end-encryption) and access the data in your snapshots.
 
 #### Does Kopia Support Storage Classes, Like Amazon Glacier?
 
@@ -129,3 +130,11 @@ For more information on the `checkpoint interval`, please refer to the [command-
 #### What is a Kopia Repository Server?
 
 See the [Kopia Repository Server help docs](../repository-server) for more information.
+
+#### KopiaUI and Multiple Repositories
+
+When KopiaUI starts up, it will look for configuration files in Kopia's configuration directory (`%APPDATA%\kopia` on Windows; `$HOME/.config/kopia` on linux; `$HOME/Library/Application Support/kopia` on macOS).  KopiaUI will look for all files ending in `*.config` and use these configurations to determine the set of repositories to connect to.
+
+KopiaUI will always look for a `repository.config` file,  even if that file does not exist, in which case it will try to start up a connection which will never succeed.
+
+Be aware that if you create multiple config files for testing purposes, eg, `repository.orig.config`, `repository.test1.config`, `repository.test2.config`, etc., KopiaUI will try to connect to ALL of them at startup, even if they are not intended to be valid.  Thus, if you don't want KopiaUI to use a config file, make sure it ends in something other than `.config`.

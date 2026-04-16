@@ -452,7 +452,6 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			expChangeCount: 0,
 		},
 	} {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			changeCount := 0
 

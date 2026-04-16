@@ -389,11 +389,7 @@ func doMatch(tokens []token, text []rune, ignoreCase bool) matchResult {
 				break
 			}
 
-			for {
-				if t.eos() {
-					break
-				}
-
+			for !t.eos() {
 				matchResult := doMatch(tokens[pi+1:], text[t.pos:], ignoreCase)
 				if matchResult != wcNoMatch {
 					if !token.doubleStar || matchResult != wcAbortToDoubleStar {

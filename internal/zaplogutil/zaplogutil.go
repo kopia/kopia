@@ -52,7 +52,7 @@ func NewStdConsoleEncoder(ec StdConsoleEncoderConfig) zapcore.Encoder {
 	}), ec}
 }
 
-// StdConsoleEncoderConfig provides configurationfor NewStdConsoleEncoder.
+// StdConsoleEncoderConfig provides configuration for NewStdConsoleEncoder.
 type StdConsoleEncoderConfig struct {
 	TimeLayout         string
 	LocalTime          bool
@@ -128,7 +128,7 @@ func (c *stdConsoleEncoder) EncodeEntry(ent zapcore.Entry, fields []zapcore.Fiel
 	line.AppendString(ent.Message)
 
 	if line2, err := c.Encoder.EncodeEntry(ent, fields); err == nil {
-		if line2.Len() > 2 { //nolint:gomnd
+		if line2.Len() > 2 { //nolint:mnd
 			line.AppendString("\t")
 			line.AppendString(line2.String())
 		}

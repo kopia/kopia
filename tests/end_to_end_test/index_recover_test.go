@@ -44,7 +44,7 @@ func (s *formatSpecificTestSuite) TestIndexRecover(t *testing.T) {
 	e.RunAndVerifyOutputLineCount(t, 0, "cache", "clear")
 
 	// there should be no index files at this point
-	e.RunAndVerifyOutputLineCount(t, 0, "index", "ls", "--no-list-caching")
+	e.RunAndVerifyOutputLineCount(t, 0, "index", "ls")
 
 	// there should be no contents, since there are no indexes to find them
 	e.RunAndVerifyOutputLineCount(t, 0, "content", "ls")

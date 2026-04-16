@@ -73,7 +73,7 @@ func (s *Set) VerifyAllFaultsExercised(t *testing.T) {
 }
 
 // GetNextFault returns the error message to return on next fault.
-func (s *Set) GetNextFault(ctx context.Context, method Method, args ...interface{}) (bool, error) {
+func (s *Set) GetNextFault(ctx context.Context, method Method, args ...any) (bool, error) {
 	// Lock set for map accesses.  Call counters will be updated for the fault-set, and the fault for the fault-set method
 	// will be gotten.
 	s.mu.Lock()

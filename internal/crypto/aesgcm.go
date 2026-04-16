@@ -11,14 +11,21 @@ import (
 )
 
 //nolint:gochecknoglobals
-var (
-	purposeAESKey   = []byte("AES")
-	purposeAuthData = []byte("CHECKSUM")
+const (
+	purposeAESKey   = "AES"
+	purposeAuthData = "CHECKSUM"
 )
 
 func initCrypto(masterKey, salt []byte) (cipher.AEAD, []byte, error) {
-	aesKey := DeriveKeyFromMasterKey(masterKey, salt, purposeAESKey, 32)     //nolint:gomnd
-	authData := DeriveKeyFromMasterKey(masterKey, salt, purposeAuthData, 32) //nolint:gomnd
+	aesKey, err := DeriveKeyFromMasterKey(masterKey, salt, purposeAESKey, 32) //nolint:mnd
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "cannot derive AES key")
+	}
+
+	authData, err := DeriveKeyFromMasterKey(masterKey, salt, purposeAuthData, 32) //nolint:mnd
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "cannot derive auth data")
+	}
 
 	blk, err := aes.NewCipher(aesKey)
 	if err != nil {
@@ -33,6 +40,8 @@ func initCrypto(masterKey, salt []byte) (cipher.AEAD, []byte, error) {
 	return aead, authData, nil
 }
 
+var errPlaintextTooLarge = errors.New("plaintext data is too large to be encrypted")
+
 // EncryptAes256Gcm encrypts data with AES 256 GCM.
 func EncryptAes256Gcm(data, masterKey, salt []byte) ([]byte, error) {
 	aead, authData, err := initCrypto(masterKey, salt)
@@ -41,8 +50,14 @@ func EncryptAes256Gcm(data, masterKey, salt []byte) ([]byte, error) {
 	}
 
 	nonceLength := aead.NonceSize()
-	noncePlusContentLength := nonceLength + len(data)
-	cipherText := make([]byte, noncePlusContentLength+aead.Overhead())
+	noncePlusOverhead := nonceLength + aead.Overhead()
+
+	const maxInt = int(^uint(0) >> 1)
+	if len(data) > maxInt-noncePlusOverhead {
+		return nil, errPlaintextTooLarge
+	}
+
+	cipherText := make([]byte, len(data)+noncePlusOverhead)
 
 	// Store nonce at the beginning of ciphertext.
 	nonce := cipherText[0:nonceLength]
@@ -63,17 +78,18 @@ func DecryptAes256Gcm(data, masterKey, salt []byte) ([]byte, error) {
 		return nil, errors.Wrap(err, "cannot initialize cipher")
 	}
 
-	data = append([]byte(nil), data...)
 	if len(data) < aead.NonceSize() {
-		return nil, errors.Errorf("invalid encrypted payload, too short")
+		return nil, errors.New("invalid encrypted payload, too short")
 	}
+
+	data = append([]byte(nil), data...)
 
 	nonce := data[0:aead.NonceSize()]
 	payload := data[aead.NonceSize():]
 
 	plainText, err := aead.Open(payload[:0], nonce, payload, authData)
 	if err != nil {
-		return nil, errors.Errorf("unable to decrypt repository blob, invalid credentials?")
+		return nil, errors.New("unable to decrypt repository blob, invalid credentials?")
 	}
 
 	return plainText, nil

@@ -146,7 +146,7 @@ func TestStreamingDirectory(t *testing.T) {
 	assert.Len(t, entries, 1)
 
 	e := entries[0]
-	require.Equal(t, e.Name(), testFileName)
+	require.Equal(t, testFileName, e.Name())
 
 	// Read and compare data
 	reader, err := f.GetReader(testlogging.Context(t))
@@ -178,7 +178,7 @@ func TestStreamingDirectory_MultipleIterationsFails(t *testing.T) {
 	assert.Len(t, entries, 1)
 
 	_, err = fs.GetAllEntries(testlogging.Context(t), rootDir)
-	assert.Error(t, err)
+	require.Error(t, err)
 }
 
 var errCallback = errors.New("callback error")
@@ -198,5 +198,5 @@ func TestStreamingDirectory_ReturnsCallbackError(t *testing.T) {
 	err := fs.IterateEntries(testlogging.Context(t), rootDir, func(context.Context, fs.Entry) error {
 		return errCallback
 	})
-	assert.ErrorIs(t, err, errCallback)
+	require.ErrorIs(t, err, errCallback)
 }

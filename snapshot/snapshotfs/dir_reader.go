@@ -21,7 +21,7 @@ func readDirEntries(r io.Reader) ([]*snapshot.DirEntry, *fs.DirectorySummary, er
 	}
 
 	if dir.StreamType != directoryStreamType {
-		return nil, nil, errors.Errorf("invalid directory stream type")
+		return nil, nil, errors.New("invalid directory stream type")
 	}
 
 	return dir.Entries, dir.Summary, nil

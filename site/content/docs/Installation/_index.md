@@ -1,7 +1,7 @@
 ---
 title: "Download & Installation"
 linkTitle: "Installation Guide"
-weight: 35
+weight: 20
 ---
 
 ## Two Variants of Kopia
@@ -48,11 +48,11 @@ The following options are available if you like to test the beta and unreleased 
 
 CLI and GUI packages are available for:
 
-* Windows 7 or later, 64-bit (CLI binary, GUI installer {`KopiaUI`}, and Scoop package)
+* Windows 10 or later, 64-bit (CLI binary, GUI installer {`KopiaUI`}, and Scoop package)
 * macOS 10.11 or later, 64-bit (CLI binary, GUI installer {`KopiaUI`}, and Homebrew package)
 * Linux - `amd64`, `armhf` or `arm64` (CLI binary and `KopiaUI` available via RPM and DEB repositories)
 
-### Windows CLI installation using Scoop
+### Windows CLI installation
 
 On Windows, Kopia CLI is available as a [Scoop](https://scoop.sh) package, which automates installation and upgrades.
 
@@ -71,9 +71,21 @@ Alternatively, to install the latest unreleased version of Kopia use the followi
 > scoop bucket add kopia https://github.com/kopia/scoop-test-builds.git
 ```
 
+You can also install Kopia CLI with `winget`. `winget` comes preinstalled with Windows 11 (21H2 and later), and is also available on Windows 10 via [the Microsoft Store](https://apps.microsoft.com/detail/9nblggh4nns1).
+
+```shell
+> winget install Kopia.KopiaCLI
+```
+
 ### Windows GUI installation
 
 The installer of `KopiaUI` is available on the [releases page](https://github.com/kopia/kopia/releases/latest). Simply download the file named `KopiaUI-Setup-X.Y.Z.exe` (where `X.Y.Z` is the version number), double click the file, and follow on-screen prompts.
+
+You can also install `KopiaUI` with `winget`. See the CLI installation above for `winget`.
+
+```shell
+> winget install Kopia.KopiaUI
+```
 
 ### macOS CLI using Homebrew
 
@@ -209,7 +221,7 @@ yay -S kopia-bin
 
 ### OpenBSD installation via ports
 
-OpenBSD now has kopia in -current ports, which means it gets built as packages in snapshots for several platforms (amd64, arm64, mips64 and i386) and will appear as a package for OpenBSD 7.1 and later releases.
+OpenBSD has kopia in ports, which means it gets built as packages in snapshots for several platforms (amd64, arm64, mips64 and i386).
 
 To install the kopia package, run:
 
@@ -310,7 +322,7 @@ services:
             - /path/to/data/dir:/data:ro
             # Mount repository location
             - /path/to/repository/dir:/repository
-            # Mount path for browsing mounted snaphots
+            # Mount path for browsing mounted snapshots
             - /path/to/tmp/dir:/tmp:shared
 ```
 

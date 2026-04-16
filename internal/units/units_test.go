@@ -1,12 +1,14 @@
 package units
 
 import (
-	"os"
+	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 var base10Cases = []struct {
-	value    int64
+	value    uint64
 	expected string
 }{
 	{0, "0 B"},
@@ -28,10 +30,19 @@ var base10Cases = []struct {
 	{99900000000, "99.9 GB"},
 	{1000000000000, "1 TB"},
 	{99000000000000, "99 TB"},
+	{900000000000000 - 1, "900 TB"},
+	{900000000000000, "0.9 PB"},
+	{990000000000000, "1 PB"},
+	{1000000000000000, "1 PB"},
+	{800000000000000000, "800 PB"},
+	{900000000000000000, "0.9 EB"},
+	{990000000000000000, "1 EB"},
+	{1000000000000000000, "1 EB"},
+	{10000000000000000000, "10 EB"},
 }
 
 var base2Cases = []struct {
-	value    int64
+	value    uint64
 	expected string
 }{
 	{0, "0 B"},
@@ -52,45 +63,61 @@ var base2Cases = []struct {
 	{10 << 30, "10 GiB"},
 	{99900000000, "93 GiB"},
 	{1000000000000, "0.9 TiB"},
+	{1000000000000, "0.9 TiB"},
+	{1 << 40, "1 TiB"},
+	{10 << 40, "10 TiB"},
 	{99000000000000, "90 TiB"},
+	{900 << 40, "900 TiB"},
+	{(950 << 40), "0.9 PiB"},
+	{990 << 40, "1 PiB"},
+
+	{1 << 50, "1 PiB"},
+	{10 << 50, "10 PiB"},
+	{90 << 50, "90 PiB"},
+	{900 << 50, "900 PiB"},
+	{(950 << 50), "0.9 EiB"},
+	{990 << 50, "1 EiB"},
+	{1 << 60, "1 EiB"},
+	{10 << 60, "10 EiB"},
+	{15 << 60, "15 EiB"},
 }
 
 func TestBytesStringBase10(t *testing.T) {
 	for i, c := range base10Cases {
-		actual := BytesStringBase10(c.value)
-		if actual != c.expected {
-			t.Errorf("case #%v failed for %v, expected: '%v', got '%v'", i, c.value, c.expected, actual)
-		}
+		t.Run(fmt.Sprint(i, "-", c.value), func(t *testing.T) {
+			actual := BytesStringBase10(c.value)
+			require.Equal(t, c.expected, actual)
+		})
 	}
 }
 
 func TestBytesStringBase2(t *testing.T) {
 	for i, c := range base2Cases {
-		actual := BytesStringBase2(c.value)
-		if actual != c.expected {
-			t.Errorf("case #%v failed for %v, expected: '%v', got '%v'", i, c.value, c.expected, actual)
-		}
+		t.Run(fmt.Sprint(i, "-", c.value), func(t *testing.T) {
+			actual := BytesStringBase2(c.value)
+			require.Equal(t, c.expected, actual)
+		})
 	}
 }
 
-func TestBytesString(t *testing.T) {
-	defer os.Unsetenv(bytesStringBase2Envar)
-
+func TestBytesString_base2EnvFalse(t *testing.T) {
 	t.Setenv(bytesStringBase2Envar, "false")
 
 	for i, c := range base10Cases {
-		actual := BytesString(c.value)
-		if actual != c.expected {
-			t.Errorf("case #%v failed for %v, expected: '%v', got '%v'", i, c.value, c.expected, actual)
-		}
+		t.Run(fmt.Sprint(i, "-", c.value), func(t *testing.T) {
+			actual := BytesString(c.value)
+			require.Equal(t, c.expected, actual)
+		})
 	}
+}
 
+func TestBytesString_base2EnvTrue(t *testing.T) {
 	t.Setenv(bytesStringBase2Envar, "true")
 
 	for i, c := range base2Cases {
-		actual := BytesString(c.value)
-		if actual != c.expected {
-			t.Errorf("case #%v failed for %v, expected: '%v', got '%v'", i, c.value, c.expected, actual)
-		}
+		t.Run(fmt.Sprint(i, "-", c.value), func(t *testing.T) {
+			actual := BytesString(c.value)
+			require.Equal(t, c.expected, actual)
+		})
 	}
 }

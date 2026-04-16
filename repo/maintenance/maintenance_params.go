@@ -25,6 +25,8 @@ type Params struct {
 	LogRetention LogRetentionOptions `json:"logRetention"`
 
 	ExtendObjectLocks bool `json:"extendObjectLocks"`
+
+	ListParallelism int `json:"listParallelism"`
 }
 
 // isOwnedByByThisUser determines whether current user is the maintenance owner.
@@ -37,7 +39,7 @@ func DefaultParams() Params {
 	return Params{
 		FullCycle: CycleParams{
 			Enabled:  true,
-			Interval: 24 * time.Hour, //nolint:gomnd
+			Interval: 24 * time.Hour, //nolint:mnd
 		},
 		QuickCycle: CycleParams{
 			Enabled:  true,
@@ -91,7 +93,7 @@ func GetParams(ctx context.Context, rep repo.Repository) (*Params, error) {
 		return &p, nil
 	}
 
-	// arbitrality pick first pick ID to return in case there's more than one
+	// arbitrarily pick first pick ID to return in case there's more than one
 	// this is possible when two repository clients independently create manifests at approximately the same time
 	// so it should not really matter which one we pick.
 	// see https://github.com/kopia/kopia/issues/391

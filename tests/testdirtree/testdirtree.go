@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"unicode"
@@ -43,7 +44,7 @@ func generateHexString(l int) string {
 
 func generateUnicodeString(rangeMin, rangeMax, l int) string {
 	// generate a random unicode string within a defined range
-	s := ""
+	var s strings.Builder
 
 	for i := 0; i < l; {
 		c := rand.Intn(rangeMax-rangeMin+1) + rangeMin
@@ -51,12 +52,13 @@ func generateUnicodeString(rangeMin, rangeMax, l int) string {
 		// IsLetter & IsDigit function as a sanity check to prevent writing punctuation/control characters
 		// ValidRune is a sanity check for macOS since APFS can't handle invalid utf-8 and will error out
 		if (unicode.IsLetter(r) || unicode.IsDigit(r)) && utf8.ValidRune(r) {
-			s += string(r)
+			s.WriteRune(r)
+
 			i++
 		}
 	}
 
-	return s
+	return s.String()
 }
 
 func randomUnicodeName(l int) string {
@@ -206,7 +208,7 @@ func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, c
 		childOptions.Depth--
 
 		numSubDirs := rand.Intn(options.MaxSubdirsPerDirectory) + 1
-		for i := 0; i < numSubDirs; i++ {
+		for range numSubDirs {
 			subdirName := randomName(options)
 
 			if err := createDirectoryTreeInternal(filepath.Join(dirname, subdirName), childOptions, counters); err != nil {
@@ -219,7 +221,7 @@ func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, c
 
 	if options.MaxFilesPerDirectory > 0 {
 		numFiles := rand.Intn(options.MaxFilesPerDirectory) + 1
-		for i := 0; i < numFiles; i++ {
+		for range numFiles {
 			fileName := randomName(options)
 
 			if err := createRandomFile(filepath.Join(dirname, fileName), options, counters); err != nil {
@@ -232,7 +234,7 @@ func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, c
 
 	if options.MaxSymlinksPerDirectory > 0 {
 		numSymlinks := rand.Intn(options.MaxSymlinksPerDirectory) + 1
-		for i := 0; i < numSymlinks; i++ {
+		for range numSymlinks {
 			fileName := randomName(options)
 
 			if err := createRandomSymlink(filepath.Join(dirname, fileName), fileNames, options, counters); err != nil {

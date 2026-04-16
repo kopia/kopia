@@ -337,5 +337,5 @@ func TestUpgradeLockIntentClone(t *testing.T) {
 		Message:                "upgrading from format version 2 -> 3",
 		MaxPermittedClockDrift: 5 * time.Second,
 	}
-	require.EqualValues(t, l, l.Clone())
+	require.Equal(t, l, l.Clone())
 }

@@ -6,6 +6,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kopia/kopia/internal/blobparam"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/contentparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -39,7 +43,7 @@ func (o *prefetchOptions) shouldPrefetchEntireBlob(infos []Info) bool {
 
 	var total int64
 	for _, i := range infos {
-		total += int64(i.GetPackedLength())
+		total += int64(i.PackedLength)
 	}
 
 	return total >= o.fullBlobPrefetchBytesThreshold
@@ -68,11 +72,11 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 
 	for _, ci := range contentIDs {
 		_, bi, _ := bm.getContentInfoReadLocked(ctx, ci)
-		if bi == nil {
+		if bi == (Info{}) {
 			continue
 		}
 
-		contentsByBlob[bi.GetPackBlobID()] = append(contentsByBlob[bi.GetPackBlobID()], bi)
+		contentsByBlob[bi.PackBlobID] = append(contentsByBlob[bi.PackBlobID], bi)
 		prefetched = append(prefetched, ci)
 	}
 
@@ -97,18 +101,14 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 				workCh <- work{blobID: b}
 			} else {
 				for _, bi := range infos {
-					workCh <- work{contentID: bi.GetContentID()}
+					workCh <- work{contentID: bi.ContentID}
 				}
 			}
 		}
 	}()
 
-	for i := 0; i < parallelFetches; i++ {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
+	for range parallelFetches {
+		wg.Go(func() {
 			var tmp gather.WriteBuffer
 			defer tmp.Close()
 
@@ -116,21 +116,30 @@ func (bm *WriteManager) PrefetchContents(ctx context.Context, contentIDs []ID, h
 				switch {
 				case strings.HasPrefix(string(w.blobID), string(PackBlobIDPrefixRegular)):
 					if err := bm.contentCache.PrefetchBlob(ctx, w.blobID); err != nil {
-						bm.log.Debugw("error prefetching data blob", "blobID", w.blobID, "err", err)
+						contentlog.Log2(ctx, bm.log,
+							"error prefetching data blob",
+							blobparam.BlobID("blobID", w.blobID),
+							logparam.Error("err", err))
 					}
 				case strings.HasPrefix(string(w.blobID), string(PackBlobIDPrefixSpecial)):
 					if err := bm.metadataCache.PrefetchBlob(ctx, w.blobID); err != nil {
-						bm.log.Debugw("error prefetching metadata blob", "blobID", w.blobID, "err", err)
+						contentlog.Log2(ctx, bm.log,
+							"error prefetching metadata blob",
+							blobparam.BlobID("blobID", w.blobID),
+							logparam.Error("err", err))
 					}
 				case w.contentID != EmptyID:
 					tmp.Reset()
 
 					if _, err := bm.getContentDataAndInfo(ctx, w.contentID, &tmp); err != nil {
-						bm.log.Debugw("error prefetching content", "contentID", w.contentID, "err", err)
+						contentlog.Log2(ctx, bm.log,
+							"error prefetching content",
+							contentparam.ContentID("contentID", w.contentID),
+							logparam.Error("err", err))
 					}
 				}
 			}
-		}()
+		})
 	}
 
 	wg.Wait()

@@ -4,16 +4,26 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/servertesting"
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/notification"
+	"github.com/kopia/kopia/notification/notifydata"
+	"github.com/kopia/kopia/notification/notifyprofile"
+	"github.com/kopia/kopia/notification/notifytemplate"
+	"github.com/kopia/kopia/notification/sender"
+	"github.com/kopia/kopia/notification/sender/webhook"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
@@ -27,20 +37,9 @@ const (
 	maxCacheSizeBytes = 1e6
 )
 
-func TestServer_REST(t *testing.T) {
-	testServer(t, true)
-}
-
-func TestServer_GRPC(t *testing.T) {
-	testServer(t, false)
-}
-
-//nolint:thelper
-func testServer(t *testing.T, disableGRPC bool) {
+func TestServer(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	apiServerInfo := servertesting.StartServer(t, env, true)
-
-	apiServerInfo.DisableGRPC = disableGRPC
 
 	ctx2, cancel := context.WithCancel(ctx)
 
@@ -61,6 +60,7 @@ func testServer(t *testing.T, disableGRPC bool) {
 	defer rep.Close(ctx)
 
 	remoteRepositoryTest(ctx, t, rep)
+	remoteRepositoryNotificationTest(t, ctx, rep, env.RepositoryWriter)
 }
 
 func TestGRPCServer_AuthenticationError(t *testing.T) {
@@ -121,9 +121,6 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 	}
 
 	for urlSuffix, wantStatus := range getUrls {
-		urlSuffix := urlSuffix
-		wantStatus := wantStatus
-
 		t.Run(urlSuffix, func(t *testing.T) {
 			var hsr apiclient.HTTPStatusError
 
@@ -204,7 +201,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		require.NoError(t, w.Flush(ctx))
 
 		if uploaded == 0 {
-			return errors.Errorf("did not report uploaded bytes")
+			return errors.New("did not report uploaded bytes")
 		}
 
 		uploaded = 0
@@ -212,7 +209,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		require.NoError(t, w.Flush(ctx))
 
 		if uploaded != 0 {
-			return errors.Errorf("unexpected upload when writing duplicate object")
+			return errors.New("unexpected upload when writing duplicate object")
 		}
 
 		if result != result2 {
@@ -232,7 +229,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 
 		_, err = ow.Result()
 		if err == nil {
-			return errors.Errorf("unexpected success writing object with 'm' prefix")
+			return errors.New("unexpected success writing object with 'm' prefix")
 		}
 
 		manifestID, err = snapshot.SaveSnapshot(ctx, w, &snapshot.Manifest{
@@ -269,10 +266,63 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 	mustPrefetchObjects(ctx, t, rep, result)
 }
 
+//nolint:thelper
+func remoteRepositoryNotificationTest(t *testing.T, ctx context.Context, rep repo.Repository, rw repo.RepositoryWriter) {
+	require.Implements(t, (*repo.RemoteNotifications)(nil), rep)
+
+	mux := http.NewServeMux()
+
+	var numRequestsReceived atomic.Int32
+
+	mux.HandleFunc("/some-path", func(w http.ResponseWriter, r *http.Request) {
+		numRequestsReceived.Add(1)
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	require.NoError(t, notifyprofile.SaveProfile(ctx, rw, notifyprofile.Config{
+		ProfileName: "my-profile",
+		MethodConfig: sender.MethodConfig{
+			Type: "webhook",
+			Config: &webhook.Options{
+				Endpoint: server.URL + "/some-path",
+				Method:   "POST",
+			},
+		},
+	}))
+	require.NoError(t, rw.Flush(ctx))
+
+	notification.Send(ctx, rep, notifytemplate.TestNotification, notifydata.EmptyEventData{}, notification.SeverityError, notifytemplate.DefaultOptions)
+	require.Equal(t, int32(1), numRequestsReceived.Load())
+
+	// another webhook which fails
+
+	require.NoError(t, notifyprofile.SaveProfile(ctx, rw, notifyprofile.Config{
+		ProfileName: "my-profile",
+		MethodConfig: sender.MethodConfig{
+			Type: "webhook",
+			Config: &webhook.Options{
+				Endpoint: server.URL + "/some-nonexistent-path",
+				Method:   "POST",
+			},
+		},
+	}))
+
+	require.NoError(t, rw.Flush(ctx))
+
+	t0 := clock.Now()
+	t1 := clock.Now().Add(10 * time.Second)
+
+	notification.Send(ctx, rep, "generic-error",
+		notifydata.NewErrorInfo("op", "some error occurred", t0, t1, errors.New("some error")), notification.SeverityError, notifytemplate.DefaultOptions)
+	require.Equal(t, int32(1), numRequestsReceived.Load())
+}
+
 func mustWriteObject(ctx context.Context, t *testing.T, w repo.RepositoryWriter, data []byte) object.ID {
 	t.Helper()
 
-	ow := w.NewObjectWriter(ctx, object.WriterOptions{})
+	ow := w.NewObjectWriter(ctx, object.WriterOptions{MetadataCompressor: "zstd-fastest"})
 
 	_, err := ow.Write(data)
 	require.NoError(t, err)

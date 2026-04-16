@@ -2,9 +2,11 @@ package filesystem
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -24,7 +26,7 @@ func TestFileStorage(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	// Test varioush shard configurations.
+	// Test various shard configurations.
 	for _, shardSpec := range [][]int{
 		{0},
 		{1},
@@ -55,6 +57,74 @@ func TestFileStorage(t *testing.T) {
 
 		require.NoError(t, r.Close(ctx))
 	}
+}
+
+func TestFileStorageLongPath(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	// Create a base temp directory and extend it to exceed Windows MAX_PATH (260 chars).
+	base := testutil.TempDirectoryShort(t)
+
+	// Ensure the resulting path exceeds this length (slightly above 260).
+	const minLongPathLen = 270
+
+	longBase := base
+	if len(longBase) < minLongPathLen {
+		const maxSegmentLen = 60
+
+		// Append multiple reasonably sized subdirectories until the total path length
+		// exceeds minLongPathLen, avoiding a single over-long path component and
+		// guarding against negative repeat counts.
+		for len(longBase) < minLongPathLen {
+			remaining := minLongPathLen - len(longBase)
+
+			// Leave room for a path separator added by filepath.Join.
+			segLen := maxSegmentLen
+			if remaining <= maxSegmentLen+1 {
+				segLen = remaining - 1
+			}
+
+			if segLen <= 0 {
+				break
+			}
+
+			segment := strings.Repeat("x", segLen)
+			longBase = filepath.Join(longBase, segment)
+		}
+	}
+
+	r, err := New(ctx, &Options{
+		Path: longBase,
+		Options: sharded.Options{
+			DirectoryShards: []int{2, 2},
+		},
+	}, true)
+	require.NoError(t, err)
+	require.NotNil(t, r)
+
+	t.Cleanup(func() {
+		require.NoError(t, r.Close(testlogging.ContextForCleanup(t)))
+	})
+
+	blobID := blob.ID("testbloblongpath12345678")
+	data := []byte{1, 2, 3, 4, 5}
+
+	require.NoError(t, r.PutBlob(ctx, blobID, gather.FromSlice(data), blob.PutOptions{}))
+
+	var buf gather.WriteBuffer
+	defer buf.Close()
+
+	require.NoError(t, r.GetBlob(ctx, blobID, 0, -1, &buf))
+	require.Equal(t, data, buf.ToByteSlice())
+
+	blobs, err := blob.ListAllBlobs(ctx, r, "")
+	require.NoError(t, err)
+	require.Len(t, blobs, 1)
+	require.Equal(t, blobID, blobs[0].BlobID)
+
+	require.NoError(t, r.DeleteBlob(ctx, blobID))
 }
 
 func TestFileStorageValidate(t *testing.T) {
@@ -92,43 +162,41 @@ func TestFileStorageTouch(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	path := testutil.TempDirectory(t)
-
 	r, err := New(ctx, &Options{
-		Path: path,
+		Path: testutil.TempDirectory(t),
 	}, true)
 
-	if r == nil || err != nil {
-		t.Errorf("unexpected result: %v %v", r, err)
-	}
+	require.NoError(t, err)
+	require.NotNil(t, r)
 
-	fs := r.(*fsStorage)
-	assertNoError(t, fs.PutBlob(ctx, t1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	fs := testutil.EnsureType[*fsStorage](t, r)
+
+	require.NoError(t, fs.PutBlob(ctx, t1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
-	assertNoError(t, fs.PutBlob(ctx, t2, gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	require.NoError(t, fs.PutBlob(ctx, t2, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second)
-	assertNoError(t, fs.PutBlob(ctx, t3, gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	require.NoError(t, fs.PutBlob(ctx, t3, gather.FromSlice([]byte{1}), blob.PutOptions{}))
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	verifyBlobTimestampOrder(t, fs, t1, t2, t3)
 
 	_, err = fs.TouchBlob(ctx, t2, 1*time.Hour)
-	assertNoError(t, err) // has no effect, all timestamps are very new
+	require.NoError(t, err) // has no effect, all timestamps are very new
 	verifyBlobTimestampOrder(t, fs, t1, t2, t3)
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	_, err = fs.TouchBlob(ctx, t1, 0)
-	assertNoError(t, err) // moves t1 to the top of the pile
+	require.NoError(t, err) // moves t1 to the top of the pile
 	verifyBlobTimestampOrder(t, fs, t2, t3, t1)
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	_, err = fs.TouchBlob(ctx, t2, 0)
-	assertNoError(t, err) // moves t2 to the top of the pile
+	require.NoError(t, err) // moves t2 to the top of the pile
 	verifyBlobTimestampOrder(t, fs, t3, t1, t2)
 	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	_, err = fs.TouchBlob(ctx, t1, 0)
-	assertNoError(t, err) // moves t1 to the top of the pile
+	require.NoError(t, err) // moves t1 to the top of the pile
 	verifyBlobTimestampOrder(t, fs, t3, t2, t1)
 }
 
@@ -136,12 +204,10 @@ func TestFileStorageConcurrency(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
-	path := testutil.TempDirectory(t)
-
 	ctx := testlogging.Context(t)
 
 	st, err := New(ctx, &Options{
-		Path: path,
+		Path: testutil.TempDirectory(t),
 	}, true)
 	require.NoError(t, err)
 
@@ -182,15 +248,12 @@ func TestFileStorage_GetBlob_RetriesOnReadError(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 
 	osi.readFileRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
@@ -213,18 +276,14 @@ func TestFileStorage_GetMetadata_RetriesOnError(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 
-	osi.statRemainingErrors.Store(1)
-
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
+		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
 
@@ -232,10 +291,18 @@ func TestFileStorage_GetMetadata_RetriesOnError(t *testing.T) {
 
 	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
 
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
+	osi.statRemainingErrors.Store(1)
 
 	_, err = st.GetMetadata(ctx, "someblob1234567812345678")
 	require.NoError(t, err)
+}
+
+func asFsImpl(t *testing.T, st blob.Storage) *fsImpl {
+	t.Helper()
+
+	fsSt := testutil.EnsureType[*fsStorage](t, st)
+
+	return testutil.EnsureType[*fsImpl](t, fsSt.Impl)
 }
 
 func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
@@ -243,53 +310,179 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	dataDir := testutil.TempDirectory(t)
-
-	osi := newMockOS()
-
-	osi.createNewFileRemainingErrors.Store(3)
-	osi.mkdirAllRemainingErrors.Store(2)
-	osi.writeFileRemainingErrors.Store(3)
-	osi.writeFileCloseRemainingErrors.Store(2)
-	osi.renameRemainingErrors.Store(1)
-	osi.removeRemainingRetriableErrors.Store(3)
-	osi.chownRemainingErrors.Store(3)
-	osi.chtimesRemainingErrors.Store(3)
+	cases := []struct {
+		desc        string
+		injectError func(*mockOS)
+	}{
+		{
+			desc:        "CreateNewFile",
+			injectError: func(osi *mockOS) { osi.createNewFileRemainingErrors.Store(1) },
+		},
+		{
+			desc:        "Mkdir",
+			injectError: func(osi *mockOS) { osi.mkdirRemainingErrors.Store(1) },
+		},
+		{
+			desc:        "Write",
+			injectError: func(osi *mockOS) { osi.writeFileRemainingErrors.Store(1) },
+		},
+		{
+			desc:        "Close",
+			injectError: func(osi *mockOS) { osi.writeFileCloseRemainingErrors.Store(1) },
+		},
+		{
+			desc:        "Rename",
+			injectError: func(osi *mockOS) { osi.renameRemainingErrors.Store(1) },
+		},
+		{
+			desc:        "Chown",
+			injectError: func(osi *mockOS) { osi.chownRemainingErrors.Store(2) }, // these are ignored
+		},
+		{
+			desc:        "Chtimes",
+			injectError: func(osi *mockOS) { osi.chtimesRemainingErrors.Store(1) },
+		},
+	}
 
 	fileUID := 3
 	fileGID := 4
 
-	st, err := New(ctx, &Options{
-		Path:    dataDir,
-		FileUID: &fileUID,
-		FileGID: &fileGID,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			osi := newMockOS()
+
+			st, err := New(ctx, &Options{
+				Path:    testutil.TempDirectory(t),
+				FileUID: &fileUID,
+				FileGID: &fileGID,
+				Options: sharded.Options{
+					DirectoryShards: []int{5, 2},
+				},
+				osInterfaceOverride: osi,
+			}, true)
+			require.NoError(t, err)
+
+			defer st.Close(ctx)
+
+			// create dummy blob to force creating .shards file, so it does not interfere with error injection
+			require.NoError(t, st.PutBlob(ctx, "dummy", gather.FromSlice([]byte{0}), blob.PutOptions{}))
+
+			tc.injectError(osi) // inject error
+
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC), // exercise chtimes code path
+			}))
+
+			var buf gather.WriteBuffer
+			defer buf.Close()
+
+			require.NoError(t, st.GetBlob(ctx, "someblob1234567812345678", 1, 2, &buf))
+			require.Equal(t, []byte{2, 3}, buf.ToByteSlice())
+
+			var mt time.Time
+
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				GetModTime: &mt,
+			}))
+
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
+			}))
+		})
+	}
+}
+
+func TestFileStorage_PutBlob_DoesNotExceedRetriesOnErrors(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	cases := []struct {
+		desc                 string
+		injectError          func(*mockOS)
+		expectGetBlobSucceed bool
+	}{
+		{
+			desc:        "CreateNewFile",
+			injectError: func(osi *mockOS) { osi.createNewFileRemainingErrors.Store(2) },
 		},
-	}, true)
-	require.NoError(t, err)
+		{
+			desc:        "Mkdir",
+			injectError: func(osi *mockOS) { osi.mkdirRemainingErrors.Store(2) },
+		},
 
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
+		{
+			desc:        "Write",
+			injectError: func(osi *mockOS) { osi.writeFileRemainingErrors.Store(2) },
+		},
 
-	defer st.Close(ctx)
+		{
+			desc:        "Close",
+			injectError: func(osi *mockOS) { osi.writeFileCloseRemainingErrors.Store(2) },
+		},
 
-	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+		{
+			desc:        "Rename",
+			injectError: func(osi *mockOS) { osi.renameRemainingErrors.Store(2) },
+		},
+		{
+			desc:                 "Chtimes",
+			injectError:          func(osi *mockOS) { osi.chtimesRemainingErrors.Store(2) },
+			expectGetBlobSucceed: true,
+		},
+	}
 
-	var buf gather.WriteBuffer
-	defer buf.Close()
+	fileUID := 3
+	fileGID := 4
 
-	require.NoError(t, st.GetBlob(ctx, "someblob1234567812345678", 1, 2, &buf))
-	require.Equal(t, []byte{2, 3}, buf.ToByteSlice())
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			osi := newMockOS()
 
-	var mt time.Time
+			st, err := New(ctx, &Options{
+				Path:    testutil.TempDirectory(t),
+				FileUID: &fileUID,
+				FileGID: &fileGID,
+				Options: sharded.Options{
+					DirectoryShards: []int{5, 2},
+				},
+				osInterfaceOverride: osi,
+			}, true)
+			require.NoError(t, err)
 
-	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
-		GetModTime: &mt,
-	}))
+			defer st.Close(ctx)
 
-	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
-		SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
-	}))
+			// create dummy blob to force creating .shards file, so it does not interfere with error injection
+			require.NoError(t, st.PutBlob(ctx, "dummy", gather.FromSlice([]byte{0}), blob.PutOptions{}))
+
+			tc.injectError(osi)
+
+			require.Error(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
+			}))
+
+			var buf gather.WriteBuffer
+			defer buf.Close()
+
+			if err := st.GetBlob(ctx, "someblob1234567812345678", 1, 2, &buf); tc.expectGetBlobSucceed {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+				require.Zero(t, buf.Length())
+			}
+
+			var mt time.Time
+
+			// these PutBlob calls should succeed since the injected errors are exhausted
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				GetModTime: &mt,
+			}))
+
+			require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{
+				SetModTime: time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
+			}))
+		})
+	}
 }
 
 func TestFileStorage_DeleteBlob_ErrorHandling(t *testing.T) {
@@ -297,20 +490,17 @@ func TestFileStorage_DeleteBlob_ErrorHandling(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 	osi.removeRemainingNonRetriableErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
+		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
-
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
 
 	defer st.Close(ctx)
 
@@ -321,14 +511,11 @@ func TestFileStorage_New_MkdirAllFailureIsIgnored(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 	osi.mkdirAllRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
@@ -336,22 +523,19 @@ func TestFileStorage_New_MkdirAllFailureIsIgnored(t *testing.T) {
 	}, true)
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
+	st.Close(ctx)
 }
 
 func TestFileStorage_New_ChecksDirectoryExistence(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 
 	osi.statRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
@@ -365,23 +549,19 @@ func TestFileStorage_ListBlobs_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 
 	osi.readDirRemainingErrors.Store(3)
 	osi.readDirRemainingFileDeletedDirEntry.Store(3)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
+		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
-
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
 
 	defer st.Close(ctx)
 
@@ -406,20 +586,16 @@ func TestFileStorage_TouchBlob_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
 	ctx := testlogging.Context(t)
-
-	dataDir := testutil.TempDirectory(t)
-
 	osi := newMockOS()
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
+		Path: testutil.TempDirectory(t),
 		Options: sharded.Options{
 			DirectoryShards: []int{5, 2},
 		},
+		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
-
-	st.(*fsStorage).Impl.(*fsImpl).osi = osi
 
 	defer st.Close(ctx)
 
@@ -427,7 +603,7 @@ func TestFileStorage_TouchBlob_ErrorHandling(t *testing.T) {
 
 	osi.statRemainingErrors.Store(1)
 
-	_, err = st.(*fsStorage).TouchBlob(ctx, "someblob1234567812345678", 0)
+	_, err = testutil.EnsureType[*fsStorage](t, st).TouchBlob(ctx, "someblob1234567812345678", 0)
 	require.NoError(t, err)
 }
 
@@ -475,16 +651,155 @@ func verifyBlobTimestampOrder(t *testing.T, st blob.Storage, want ...blob.ID) {
 	}
 }
 
-func assertNoError(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Errorf("err: %v", err)
-	}
-}
-
 func newMockOS() *mockOS {
 	return &mockOS{
 		osInterface: realOS{},
 	}
+}
+
+func TestFileStorage_CreateTempFileWithData_Success(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	dataDir := testutil.TempDirectory(t)
+
+	st, err := New(ctx, &Options{
+		Path: dataDir,
+		Options: sharded.Options{
+			DirectoryShards: []int{5, 2},
+		},
+	}, true)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, st.Close(ctx))
+	})
+
+	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
+	testPath := filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f")
+	tempFile, err := asFsImpl(t, st).createTempFileWithData(testPath, data)
+
+	require.NoError(t, err)
+	require.NotEmpty(t, tempFile)
+
+	t.Cleanup(func() {
+		require.NoError(t, os.Remove(tempFile))
+	})
+
+	require.Contains(t, tempFile, ".tmp.")
+
+	// Verify temp file exists and has correct content
+	content, err := os.ReadFile(tempFile)
+	require.NoError(t, err)
+	require.Equal(t, []byte{1, 2, 3, 4, 5}, content)
+}
+
+func TestFileStorage_CreateTempFileWithData_WriteError(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	dataDir := testutil.TempDirectory(t)
+
+	osi := newMockOS()
+	osi.writeFileRemainingErrors.Store(1)
+
+	st, err := New(ctx, &Options{
+		Path: dataDir,
+		Options: sharded.Options{
+			DirectoryShards: []int{5, 2},
+		},
+		osInterfaceOverride: osi,
+	}, true)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, st.Close(ctx))
+	})
+
+	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
+	testPath := filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f")
+	tempFile, err := asFsImpl(t, st).createTempFileWithData(testPath, data)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "can't write temporary file")
+	require.Empty(t, tempFile)
+
+	// Verify temp file was removed (doesn't exist). There should be no other
+	// blobs with the same prefix, so listing blobs should return 0 entries.
+	verifyEmptyDir(t, filepath.Join(dataDir, "someb", "lo"))
+}
+
+func TestFileStorage_CreateTempFileWithData_SyncError(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	dataDir := testutil.TempDirectory(t)
+
+	osi := newMockOS()
+	osi.writeFileSyncRemainingErrors.Store(1)
+
+	st, err := New(ctx, &Options{
+		Path: dataDir,
+		Options: sharded.Options{
+			DirectoryShards: []int{5, 2},
+		},
+		osInterfaceOverride: osi,
+	}, true)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, st.Close(ctx))
+	})
+
+	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
+	testPath := filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f")
+	tempFile, err := asFsImpl(t, st).createTempFileWithData(testPath, data)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "can't sync temporary file data")
+	require.Empty(t, tempFile)
+
+	verifyEmptyDir(t, filepath.Join(dataDir, "someb", "lo"))
+}
+
+func TestFileStorage_CreateTempFileWithData_CloseError(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	dataDir := testutil.TempDirectory(t)
+
+	osi := newMockOS()
+	osi.writeFileCloseRemainingErrors.Store(1)
+
+	st, err := New(ctx, &Options{
+		Path: dataDir,
+		Options: sharded.Options{
+			DirectoryShards: []int{5, 2},
+		},
+		osInterfaceOverride: osi,
+	}, true)
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		require.NoError(t, st.Close(ctx))
+	})
+
+	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
+	testPath := filepath.Join(dataDir, "someb", "lo", "b1234567812345678.f")
+	tempFile, err := asFsImpl(t, st).createTempFileWithData(testPath, data)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, "can't close temporary file")
+	require.Empty(t, tempFile)
+	verifyEmptyDir(t, filepath.Join(dataDir, "someb", "lo"))
+}
+
+func verifyEmptyDir(t *testing.T, dir string) {
+	t.Helper()
+
+	entries, err := os.ReadDir(dir)
+
+	require.NoError(t, err)
+	require.Empty(t, entries)
 }

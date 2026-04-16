@@ -125,6 +125,7 @@ func TestSchedulerRefresh(t *testing.T) {
 
 	s := scheduler.Start(ctx, func(ctx context.Context, now time.Time) []scheduler.Item {
 		t.Logf("now=%v", now)
+
 		switch cnt.Add(1) {
 		case 1:
 			return []scheduler.Item{{

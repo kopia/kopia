@@ -15,7 +15,7 @@ type commandManifestDelete struct {
 }
 
 func (c *commandManifestDelete) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("delete", "Remove manifest items").Alias("remove").Alias("rm")
+	cmd := parent.Command("delete", "Remove manifest items").Alias("remove").Alias("rm").Hidden()
 	cmd.Arg("item", "Items to remove").Required().StringsVar(&c.manifestRemoveItems)
 	cmd.Action(svc.repositoryWriterAction(c.run))
 
@@ -23,7 +23,7 @@ func (c *commandManifestDelete) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandManifestDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {
-	c.svc.advancedCommand(ctx)
+	c.svc.dangerousCommand()
 
 	for _, it := range toManifestIDs(c.manifestRemoveItems) {
 		if err := rep.DeleteManifest(ctx, it); err != nil {

@@ -2,6 +2,7 @@ package logfile_test
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/cachedir"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/internal/testutil"
@@ -20,9 +22,8 @@ import (
 )
 
 var (
-	cliLogFormat              = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z (DEBUG|INFO) [a-z/]+ .*$`)
-	contentLogFormat          = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z .*$`)
-	cliLogFormatLocalTimezone = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}[^Z][^ ]+ (DEBUG|INFO) [a-z/]+ .*$`)
+	cliLogFormat              = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}Z (DEBUG|INFO|WARN) [a-z/]+ .*$`)
+	cliLogFormatLocalTimezone = regexp.MustCompile(`^\d{4}-\d\d\-\d\dT\d\d:\d\d:\d\d\.\d{6}[^Z][^ ]+ (DEBUG|INFO|WARN) [a-z/]+ .*$`)
 )
 
 func TestLoggingFlags(t *testing.T) {
@@ -55,7 +56,7 @@ func TestLoggingFlags(t *testing.T) {
 	}
 
 	verifyFileLogFormat(t, filepath.Join(tmpLogDir, "cli-logs", "latest.log"), cliLogFormat)
-	verifyFileLogFormat(t, filepath.Join(tmpLogDir, "content-logs", "latest.log"), contentLogFormat)
+	verifyJSONLogFormat(t, filepath.Join(tmpLogDir, "content-logs", "latest.log"))
 
 	_, stderr, err = env.Run(t, false, "snap", "create", dir1,
 		"--file-log-local-tz", "--no-progress", "--log-level=debug", "--disable-color",
@@ -68,7 +69,7 @@ func TestLoggingFlags(t *testing.T) {
 		verifyFileLogFormat(t, filepath.Join(tmpLogDir, "cli-logs", "latest.log"), cliLogFormatLocalTimezone)
 	}
 
-	verifyFileLogFormat(t, filepath.Join(tmpLogDir, "content-logs", "latest.log"), contentLogFormat)
+	verifyJSONLogFormat(t, filepath.Join(tmpLogDir, "content-logs", "latest.log"))
 
 	for _, l := range stderr {
 		require.NotContains(t, l, "INFO") // INFO is omitted
@@ -81,7 +82,7 @@ func TestLoggingFlags(t *testing.T) {
 		}
 	}
 
-	require.Greater(t, len(stderr), 0)
+	require.NotEmpty(t, stderr)
 
 	// run command with --log-level=warning so no log error is produced on the console
 	_, stderr, err = env.Run(t, false, "snap", "create", dir1,
@@ -121,7 +122,6 @@ func TestLogFileRotation(t *testing.T) {
 
 	for subdir, wantEntryCount := range subdirs {
 		logSubdir := filepath.Join(tmpLogDir, subdir)
-		wantEntryCount := wantEntryCount
 
 		t.Run(subdir, func(t *testing.T) {
 			entries, err := os.ReadDir(logSubdir)
@@ -134,7 +134,8 @@ func TestLogFileRotation(t *testing.T) {
 				require.NoError(t, err)
 
 				t.Logf("%v %v", info.Name(), info.Size())
-				if info.Mode().IsRegular() {
+
+				if info.Mode().IsRegular() && info.Name() != cachedir.CacheDirMarkerFile {
 					gotEntryCount++
 				}
 
@@ -177,7 +178,6 @@ func TestLogFileMaxTotalSize(t *testing.T) {
 
 	for subdir, flag := range subdirFlags {
 		logSubdir := filepath.Join(tmpLogDir, subdir)
-		flag := flag
 
 		t.Run(subdir, func(t *testing.T) {
 			size0 := getTotalDirSize(t, logSubdir)
@@ -196,6 +196,20 @@ func TestLogFileMaxTotalSize(t *testing.T) {
 	}
 }
 
+func TestCacheFileExists(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	runner.CustomizeApp = logfile.Attach
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+	tmpLogDir := testutil.TempDirectory(t)
+
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir, "--log-dir", tmpLogDir)
+
+	require.FileExists(t, filepath.Join(tmpLogDir, "cli-logs", cachedir.CacheDirMarkerFile))
+	require.FileExists(t, filepath.Join(tmpLogDir, "content-logs", cachedir.CacheDirMarkerFile))
+}
+
 func verifyFileLogFormat(t *testing.T, fname string, re *regexp.Regexp) {
 	t.Helper()
 
@@ -207,7 +221,7 @@ func verifyFileLogFormat(t *testing.T, fname string, re *regexp.Regexp) {
 	s := bufio.NewScanner(f)
 
 	for s.Scan() {
-		require.True(t, re.MatchString(s.Text()), "log line does not match the format: %v (re %v)", s.Text(), re.String())
+		require.True(t, re.MatchString(s.Text()), "log line does not match the format: %q (re %q)", s.Text(), re.String())
 	}
 }
 
@@ -226,6 +240,10 @@ func getTotalDirSize(t *testing.T, dir string) int {
 	var totalSize int
 
 	for _, ent := range entries {
+		if ent.Name() == cachedir.CacheDirMarkerFile {
+			continue
+		}
+
 		info, err := ent.Info()
 		require.NoError(t, err)
 
@@ -237,4 +255,19 @@ func getTotalDirSize(t *testing.T, dir string) int {
 	}
 
 	return totalSize
+}
+
+func verifyJSONLogFormat(t *testing.T, fname string) {
+	t.Helper()
+
+	f, err := os.Open(fname)
+	require.NoError(t, err)
+
+	defer f.Close()
+
+	s := bufio.NewScanner(f)
+
+	for s.Scan() {
+		require.True(t, json.Valid(s.Bytes()), "log line is not valid JSON: %q", s.Text())
+	}
 }

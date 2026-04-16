@@ -64,16 +64,16 @@ func parseShardSpec(shards string) ([]int, error) {
 		return result, nil
 	}
 
-	parts := strings.Split(shards, ",")
+	parts := strings.SplitSeq(shards, ",")
 
-	for _, p := range parts {
+	for p := range parts {
 		if p == "" {
 			continue
 		}
 
 		v, err := strconv.Atoi(p)
 		if err != nil || v < 0 {
-			return nil, errors.Errorf("invalid shard specification")
+			return nil, errors.New("invalid shard specification")
 		}
 
 		result = append(result, v)
@@ -98,7 +98,7 @@ func (c *commandBlobShardsModify) applyParameterChangesFromFlags(p *sharded.Para
 	if c.defaultShardSpec != "" {
 		v, err := parseShardSpec(c.defaultShardSpec)
 		if err != nil {
-			return errors.Errorf("invalid --default-shards")
+			return errors.New("invalid --default-shards")
 		}
 
 		p.DefaultShards = v
@@ -139,7 +139,7 @@ func (c *commandBlobShardsModify) run(ctx context.Context) error {
 
 	dotShardsFile := filepath.Join(c.rootPath, sharded.ParametersFile)
 
-	log(ctx).Infof("Reading .shards file.")
+	log(ctx).Info("Reading .shards file.")
 
 	srcPar, err := c.getParameters(dotShardsFile)
 	if err != nil {
@@ -152,7 +152,7 @@ func (c *commandBlobShardsModify) run(ctx context.Context) error {
 		return err2
 	}
 
-	log(ctx).Infof("Moving files...")
+	log(ctx).Info("Moving files...")
 
 	if err2 := c.renameBlobs(ctx, c.rootPath, "", dstPar, &numMoved, &numUnchanged); err2 != nil {
 		return errors.Wrap(err2, "error processing directory")
@@ -165,14 +165,14 @@ func (c *commandBlobShardsModify) run(ctx context.Context) error {
 	}
 
 	log(ctx).Infof("Moved %v files, %v unchanged.", numMoved, numUnchanged)
-	log(ctx).Infof("Removing empty directories...")
+	log(ctx).Info("Removing empty directories...")
 
 	if _, err2 := c.removeEmptyDirs(ctx, c.rootPath, &numRemoved); err2 != nil {
 		return errors.Wrap(err2, "error removing empty directories")
 	}
 
 	log(ctx).Infof("Removed %v empty directories...", numRemoved)
-	log(ctx).Infof("Writing new .shards file.")
+	log(ctx).Info("Writing new .shards file.")
 
 	of, err := os.Create(dotShardsFile) //nolint:gosec
 	if err != nil {
@@ -236,8 +236,8 @@ func (c *commandBlobShardsModify) renameBlobs(ctx context.Context, dir, prefix s
 			if err := c.renameBlobs(ctx, path.Join(dir, ent.Name()), prefix+ent.Name(), params, numMoved, numUnchanged); err != nil {
 				return err
 			}
-		} else if strings.HasSuffix(ent.Name(), sharded.CompleteBlobSuffix) {
-			blobID := prefix + strings.TrimSuffix(ent.Name(), sharded.CompleteBlobSuffix)
+		} else if name, ok := strings.CutSuffix(ent.Name(), sharded.CompleteBlobSuffix); ok {
+			blobID := prefix + name
 
 			destDir, destBlobID := params.GetShardDirectoryAndBlob(c.rootPath, blob.ID(blobID))
 			srcFile := path.Join(dir, ent.Name())
@@ -253,7 +253,7 @@ func (c *commandBlobShardsModify) renameBlobs(ctx context.Context, dir, prefix s
 				if !c.dryRun {
 					err := os.Rename(srcFile, destFile)
 					if os.IsNotExist(err) {
-						//nolint:gomnd
+						//nolint:mnd
 						if err2 := os.MkdirAll(destDir, 0o700); err2 != nil {
 							return errors.Wrap(err2, "error creating directory")
 						}

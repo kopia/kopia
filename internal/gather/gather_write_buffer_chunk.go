@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -22,21 +21,21 @@ var (
 
 	defaultAllocator = &chunkAllocator{
 		name:            "default",
-		chunkSize:       1 << 16, //nolint:gomnd
-		maxFreeListSize: 2048,    //nolint:gomnd
+		chunkSize:       1 << 16, //nolint:mnd
+		maxFreeListSize: 2048,    //nolint:mnd
 	}
 
 	// typicalContiguousAllocator is used for short-term buffers for encryption.
 	typicalContiguousAllocator = &chunkAllocator{
 		name:            "mid-size contiguous",
-		chunkSize:       8<<20 + 128, //nolint:gomnd
+		chunkSize:       8<<20 + 128, //nolint:mnd
 		maxFreeListSize: runtime.NumCPU(),
 	}
 
 	// maxContiguousAllocator is used for short-term buffers for encryption.
 	maxContiguousAllocator = &chunkAllocator{
 		name:            "contiguous",
-		chunkSize:       16<<20 + 128, //nolint:gomnd
+		chunkSize:       16<<20 + 128, //nolint:mnd
 		maxFreeListSize: runtime.NumCPU(),
 	}
 )
@@ -85,13 +84,13 @@ func (a *chunkAllocator) trackAlloc(v []byte) []byte {
 			}
 		}
 
-		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&v)) //nolint:gosec
+		ptr := uintptr(unsafe.Pointer(unsafe.SliceData(v))) //nolint:gosec
 
 		if a.activeChunks == nil {
 			a.activeChunks = map[uintptr]string{}
 		}
 
-		a.activeChunks[hdr.Data] = strings.Join(callerFrames, "\n")
+		a.activeChunks[ptr] = strings.Join(callerFrames, "\n")
 	}
 
 	return v
@@ -128,8 +127,8 @@ func (a *chunkAllocator) releaseChunk(s []byte) {
 	defer a.mu.Unlock()
 
 	if a.activeChunks != nil {
-		hdr := (*reflect.SliceHeader)(unsafe.Pointer(&s)) //nolint:gosec
-		delete(a.activeChunks, hdr.Data)
+		ptr := uintptr(unsafe.Pointer(unsafe.SliceData(s))) //nolint:gosec
+		delete(a.activeChunks, ptr)
 	}
 
 	a.freed++

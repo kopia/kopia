@@ -1,7 +1,5 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
-// Package engine provides the framework for a snapshot repository testing engine
 package engine
 
 import (
@@ -50,7 +48,7 @@ var (
 	s3DataRepoPath     = filepath.Join(s3RepoBaseDirPath, dataRepoPath)
 )
 
-func TestEngineWritefilesBasicFS(t *testing.T) {
+func TestEngineWriteFilesBasicFS(t *testing.T) {
 	t.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
 	t.Setenv(snapmeta.S3BucketNameEnvKey, "")
 
@@ -152,7 +150,7 @@ func makeTempS3Bucket(t *testing.T) (bucketName string, cleanupCB func()) {
 
 		var err error
 
-		for retry := 0; retry < retries; retry++ {
+		for range retries {
 			time.Sleep(retryPeriod)
 
 			err = cli.RemoveBucket(ctx, bucketName)
@@ -160,6 +158,7 @@ func makeTempS3Bucket(t *testing.T) (bucketName string, cleanupCB func()) {
 				break
 			}
 		}
+
 		require.NoError(t, err)
 	}
 }
@@ -485,7 +484,7 @@ func TestPickActionWeighted(t *testing.T) {
 		numTestLoops := 100000
 
 		results := make(map[ActionKey]int, len(tc.inputCtrlWeights))
-		for loop := 0; loop < numTestLoops; loop++ {
+		for range numTestLoops {
 			results[pickActionWeighted(inputCtrlOpts, tc.inputActionList)]++
 		}
 
@@ -539,9 +538,9 @@ func TestActionsFilesystem(t *testing.T) {
 	}
 
 	numActions := 10
-	for loop := 0; loop < numActions; loop++ {
+	for range numActions {
 		err := eng.RandomAction(ctx, actionOpts)
-		if !(err == nil || errors.Is(err, robustness.ErrNoOp)) {
+		if err != nil && !errors.Is(err, robustness.ErrNoOp) {
 			t.Error("Hit error", err)
 		}
 	}
@@ -586,9 +585,9 @@ func TestActionsS3(t *testing.T) {
 	}
 
 	numActions := 10
-	for loop := 0; loop < numActions; loop++ {
+	for range numActions {
 		err := eng.RandomAction(ctx, actionOpts)
-		if !(err == nil || errors.Is(err, robustness.ErrNoOp)) {
+		if err != nil && !errors.Is(err, robustness.ErrNoOp) {
 			t.Error("Hit error", err)
 		}
 	}

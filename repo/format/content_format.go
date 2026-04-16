@@ -1,6 +1,8 @@
 package format
 
 import (
+	"context"
+
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/epoch"
@@ -44,8 +46,13 @@ func (f *ContentFormat) ResolveFormatVersion() error {
 }
 
 // GetMutableParameters implements FormattingOptionsProvider.
-func (f *ContentFormat) GetMutableParameters() (MutableParameters, error) {
+func (f *ContentFormat) GetMutableParameters(_ context.Context) (MutableParameters, error) {
 	return f.MutableParameters, nil
+}
+
+// GetCachedMutableParameters implements FormattingOptionsProvider.
+func (f *ContentFormat) GetCachedMutableParameters() MutableParameters {
+	return f.MutableParameters
 }
 
 // SupportsPasswordChange implements FormattingOptionsProvider.
@@ -56,10 +63,10 @@ func (f *ContentFormat) SupportsPasswordChange() bool {
 // MutableParameters represents parameters of the content manager that can be mutated after the repository
 // is created.
 type MutableParameters struct {
-	Version         Version          `json:"version,omitempty"`         // version number, must be "1", "2" or "3"
-	MaxPackSize     int              `json:"maxPackSize,omitempty"`     // maximum size of a pack object
-	IndexVersion    int              `json:"indexVersion,omitempty"`    // force particular index format version (1,2,..)
-	EpochParameters epoch.Parameters `json:"epochParameters,omitempty"` // epoch manager parameters
+	Version         Version          `json:"version,omitempty"`      // version number, must be "1", "2" or "3"
+	MaxPackSize     int              `json:"maxPackSize,omitempty"`  // maximum size of a pack object
+	IndexVersion    int              `json:"indexVersion,omitempty"` // force particular index format version (1,2,..)
+	EpochParameters epoch.Parameters `json:"epochParameters"`        // epoch manager parameters
 }
 
 // Validate validates the parameters.
@@ -73,7 +80,7 @@ func (v *MutableParameters) Validate() error {
 	}
 
 	if v.IndexVersion < 0 || v.IndexVersion > index.Version2 {
-		return errors.Errorf("invalid index version, supported versions are 1 & 2")
+		return errors.New("invalid index version, supported versions are 1 & 2")
 	}
 
 	if err := v.EpochParameters.Validate(); err != nil {

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"math/rand"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -38,28 +36,13 @@ func (c *commandContentVerify) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepository) error {
-	blobMap := map[blob.ID]blob.Metadata{}
-	downloadPercent := c.contentVerifyPercent
-
-	if c.contentVerifyFull {
-		downloadPercent = 100.0
-	}
-
-	blobMap, err := blob.ReadBlobMap(ctx, rep.BlobReader())
-	if err != nil {
-		return errors.Wrap(err, "unable to read blob map")
-	}
-
 	var (
-		verifiedCount atomic.Int32
-		successCount  atomic.Int32
-		errorCount    atomic.Int32
-		totalCount    atomic.Int32
+		totalCount atomic.Int32
+
+		wg sync.WaitGroup
 	)
 
 	subctx, cancel := context.WithCancel(ctx)
-
-	var wg sync.WaitGroup
 
 	// ensure we cancel estimation goroutine and wait for it before returning
 	defer func() {
@@ -68,63 +51,56 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 	}()
 
 	// start a goroutine that will populate totalCount
-	wg.Add(1)
 
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		c.getTotalContentCount(subctx, rep, &totalCount)
-	}()
-
-	log(ctx).Infof("Verifying all contents...")
+	})
 
 	rep.DisableIndexRefresh()
 
-	throttle := new(timetrack.Throttle)
+	var throttle timetrack.Throttle
+
 	est := timetrack.Start()
 
-	if err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{
-		Range:          c.contentRange.contentIDRange(),
-		Parallel:       c.contentVerifyParallel,
-		IncludeDeleted: c.contentVerifyIncludeDeleted,
-	}, func(ci content.Info) error {
-		if err := c.contentVerify(ctx, rep.ContentReader(), ci, blobMap, downloadPercent); err != nil {
-			log(ctx).Errorf("error %v", err)
-			errorCount.Add(1)
-		} else {
-			successCount.Add(1)
-		}
+	if c.contentVerifyFull {
+		c.contentVerifyPercent = 100.0
+	}
 
-		verifiedCount.Add(1)
+	opts := content.VerifyOptions{
+		ContentIDRange:            c.contentRange.contentIDRange(),
+		ContentReadPercentage:     c.contentVerifyPercent,
+		IncludeDeletedContents:    c.contentVerifyIncludeDeleted,
+		ContentIterateParallelism: c.contentVerifyParallel,
+		ProgressCallbackInterval:  1,
 
-		if throttle.ShouldOutput(c.progressInterval) {
-			timings, ok := est.Estimate(float64(verifiedCount.Load()), float64(totalCount.Load()))
+		ProgressCallback: func(vps content.VerifyProgressStats) {
+			if !throttle.ShouldOutput(c.progressInterval) {
+				return
+			}
+
+			verifiedCount := vps.SuccessCount + vps.ErrorCount
+
+			timings, ok := est.Estimate(float64(verifiedCount), float64(totalCount.Load()))
 			if ok {
 				log(ctx).Infof("  Verified %v of %v contents (%.1f%%), %v errors, remaining %v, ETA %v",
-					verifiedCount.Load(),
+					verifiedCount,
 					totalCount.Load(),
 					timings.PercentComplete,
-					errorCount.Load(),
+					vps.ErrorCount,
 					timings.Remaining,
 					formatTimestamp(timings.EstimatedEndTime),
 				)
 			} else {
-				log(ctx).Infof("  Verified %v contents, %v errors, estimating...", verifiedCount.Load(), errorCount.Load())
+				log(ctx).Infof("  Verified %v contents, %v errors, estimating...", verifiedCount, vps.ErrorCount)
 			}
-		}
-
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "iterate contents")
+		},
 	}
 
-	log(ctx).Infof("Finished verifying %v contents, found %v errors.", verifiedCount.Load(), errorCount.Load())
-
-	ec := errorCount.Load()
-	if ec == 0 {
-		return nil
+	if err := rep.ContentReader().VerifyContents(ctx, opts); err != nil {
+		return errors.Wrap(err, "verify contents")
 	}
 
-	return errors.Errorf("encountered %v errors", ec)
+	return nil
 }
 
 func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep repo.DirectRepository, totalCount *atomic.Int32) {
@@ -133,7 +109,7 @@ func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep rep
 	if err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{
 		Range:          c.contentRange.contentIDRange(),
 		IncludeDeleted: c.contentVerifyIncludeDeleted,
-	}, func(ci content.Info) error {
+	}, func(_ content.Info) error {
 		if err := ctx.Err(); err != nil {
 			return errors.Wrap(err, "context error")
 		}
@@ -146,26 +122,4 @@ func (c *commandContentVerify) getTotalContentCount(ctx context.Context, rep rep
 	}
 
 	totalCount.Store(tc)
-}
-
-func (c *commandContentVerify) contentVerify(ctx context.Context, r content.Reader, ci content.Info, blobMap map[blob.ID]blob.Metadata, downloadPercent float64) error {
-	bi, ok := blobMap[ci.GetPackBlobID()]
-	if !ok {
-		return errors.Errorf("content %v depends on missing blob %v", ci.GetContentID(), ci.GetPackBlobID())
-	}
-
-	if int64(ci.GetPackOffset()+ci.GetPackedLength()) > bi.Length {
-		return errors.Errorf("content %v out of bounds of its pack blob %v", ci.GetContentID(), ci.GetPackBlobID())
-	}
-
-	//nolint:gosec
-	if 100*rand.Float64() < downloadPercent {
-		if _, err := r.GetContent(ctx, ci.GetContentID()); err != nil {
-			return errors.Wrapf(err, "content %v is invalid", ci.GetContentID())
-		}
-
-		return nil
-	}
-
-	return nil
 }

@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package reporter wraps calls to the fswalker Reporter
 package reporter

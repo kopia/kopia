@@ -156,8 +156,6 @@ func TestShardedFileStorageShardingMap(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.desc, func(t *testing.T) {
 			ctx := testlogging.Context(t)
 
@@ -183,7 +181,7 @@ func TestShardedFileStorageShardingMap(t *testing.T) {
 			}
 
 			for _, blobID := range allBlobIDs {
-				for i := 0; i < len(blobID); i++ {
+				for i := range len(blobID) {
 					prefix := blobID[0:i]
 
 					var wantMatches []blob.ID

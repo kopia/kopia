@@ -28,7 +28,7 @@ func TestNewStorageOrNil(t *testing.T) {
 	_, err = NewStorageOrNil(ctx, "relative/path/to/cache/dir", 1000, "subdir")
 	require.Error(t, err)
 
-	someError := errors.Errorf("some error")
+	someError := errors.New("some error")
 
 	oldMkdirAll := mkdirAll
 

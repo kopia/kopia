@@ -18,7 +18,7 @@ import (
 
 // ConcurrentAccessOptions encapsulates parameters for VerifyConcurrentAccess.
 type ConcurrentAccessOptions struct {
-	NumBlobs int // number of shared blos in the pool
+	NumBlobs int // number of shared blobs in the pool
 
 	Getters  int
 	Putters  int
@@ -40,7 +40,7 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 	// generate random blob IDs for the pool
 	var blobs []blob.ID
 
-	for i := 0; i < options.NumBlobs; i++ {
+	for range options.NumBlobs {
 		blobIDBytes := make([]byte, 32)
 		cryptorand.Read(blobIDBytes)
 		blobs = append(blobs, blob.ID(hex.EncodeToString(blobIDBytes)))
@@ -53,12 +53,12 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 	eg, ctx := errgroup.WithContext(testlogging.Context(t))
 
 	// start readers that will be reading random blob out of the pool
-	for i := 0; i < options.Getters; i++ {
+	for range options.Getters {
 		eg.Go(func() error {
 			var data gather.WriteBuffer
 			defer data.Close()
 
-			for i := 0; i < options.Iterations; i++ {
+			for range options.Iterations {
 				blobID := randomBlobID()
 				offset := int64(0)
 				length := int64(-1)
@@ -69,6 +69,7 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 				}
 
 				err := st.GetBlob(ctx, blobID, offset, length, &data)
+
 				switch {
 				case err == nil:
 					if got, want := string(data.ToByteSlice()), string(blobID); !strings.HasPrefix(got, want) {
@@ -88,11 +89,12 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 	}
 
 	// start putters that will be writing random blob out of the pool
-	for i := 0; i < options.Putters; i++ {
+	for range options.Putters {
 		eg.Go(func() error {
-			for i := 0; i < options.Iterations; i++ {
+			for range options.Iterations {
 				blobID := randomBlobID()
 				data := fmt.Sprintf("%v-%v", blobID, rand.Int63())
+
 				err := st.PutBlob(ctx, blobID, gather.FromSlice([]byte(data)), blob.PutOptions{})
 				if err != nil {
 					return errors.Wrapf(err, "PutBlob %v returned unexpected error", blobID)
@@ -104,11 +106,12 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 	}
 
 	// start deleters that will be deleting random blob out of the pool
-	for i := 0; i < options.Deleters; i++ {
+	for range options.Deleters {
 		eg.Go(func() error {
-			for i := 0; i < options.Iterations; i++ {
+			for range options.Iterations {
 				blobID := randomBlobID()
 				err := st.DeleteBlob(ctx, blobID)
+
 				switch {
 				case err == nil:
 					// clean success
@@ -126,10 +129,11 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 	}
 
 	// start listers that will be listing blobs by random prefixes of existing objects.
-	for i := 0; i < options.Listers; i++ {
+	for range options.Listers {
 		eg.Go(func() error {
-			for i := 0; i < options.Iterations; i++ {
+			for range options.Iterations {
 				blobID := randomBlobID()
+
 				prefix := blobID[0:rand.Intn(len(blobID))]
 				if rand.Intn(100) < options.NonExistentListPrefixPercentage {
 					prefix = "zzz"

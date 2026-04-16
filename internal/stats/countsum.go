@@ -1,7 +1,9 @@
 // Package stats provides helpers for simple stats
 package stats
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 // CountSum holds sum and count values.
 type CountSum struct {

@@ -14,12 +14,13 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 func TestSnapshotVerifier(t *testing.T) {
 	ctx, te := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
-	u := snapshotfs.NewUploader(te.RepositoryWriter)
+	u := upload.NewUploader(te.RepositoryWriter)
 	dir1 := mockfs.NewDirectory()
 
 	si1 := te.LocalPathSourceInfo("/dummy/path")
@@ -33,7 +34,9 @@ func TestSnapshotVerifier(t *testing.T) {
 	require.NoError(t, repo.WriteSession(ctx, te.Repository, repo.WriteSessionOptions{}, func(ctx context.Context, w repo.RepositoryWriter) error {
 		snap1, err := u.Upload(ctx, dir1, nil, si1)
 		require.NoError(t, err)
+
 		obj1 = snap1.RootObjectID()
+
 		return nil
 	}))
 
@@ -56,24 +59,50 @@ func TestSnapshotVerifier(t *testing.T) {
 
 		v := snapshotfs.NewVerifier(ctx, te2, opts)
 
-		someErr := errors.Errorf("some error")
+		someErr := errors.New("some error")
 
-		require.ErrorIs(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+		result, err := v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			return someErr
-		}), someErr)
+		})
+		require.ErrorIs(t, err, someErr)
+		require.Equal(t, 1, result.ErrorCount)
+		require.Len(t, result.Errors, 1)
+		require.ErrorIs(t, result.Errors[0], someErr)
+		require.Zero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 
-		require.ErrorIs(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			return someErr
-		}), someErr)
+		})
+		require.ErrorIs(t, err, someErr)
+		require.Equal(t, 1, result.ErrorCount)
+		require.Len(t, result.Errors, 1)
+		require.ErrorIs(t, result.Errors[0], someErr)
+		require.Zero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 
-		require.NoError(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			return nil
-		}))
+		})
+		require.NoError(t, err)
+		require.Equal(t, 0, result.ErrorCount)
+		require.Empty(t, result.Errors)
+		require.Zero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 
-		require.NoError(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			tw.Process(ctx, snapshotfs.DirectoryEntry(te.Repository, obj1, nil), ".")
 			return nil
-		}))
+		})
+		require.NoError(t, err)
+		require.Equal(t, 0, result.ErrorCount)
+		require.Empty(t, result.Errors)
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 	})
 
 	t.Run("FullFileReadsAndBlobMap", func(t *testing.T) {
@@ -90,10 +119,16 @@ func TestSnapshotVerifier(t *testing.T) {
 
 		v := snapshotfs.NewVerifier(ctx, te2, opts)
 
-		require.NoError(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+		result, err := v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			tw.Process(ctx, snapshotfs.DirectoryEntry(te.Repository, obj1, nil), ".")
 			return nil
-		}))
+		})
+		require.NoError(t, err)
+		require.Equal(t, 0, result.ErrorCount)
+		require.Empty(t, result.Errors)
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.NotZero(t, result.Stats.ReadFileCount)
+		require.NotZero(t, result.Stats.ReadBytes)
 
 		// now remove all 'p' blobs from the blob map
 		for k := range opts.BlobMap {
@@ -102,10 +137,21 @@ func TestSnapshotVerifier(t *testing.T) {
 			}
 		}
 
-		require.ErrorContains(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			tw.Process(ctx, snapshotfs.DirectoryEntry(te.Repository, obj1, nil), ".")
 			return nil
-		}), "encountered 3 errors")
+		})
+		require.ErrorContains(t, err, "encountered 3 errors")
+		require.Equal(t, 3, result.ErrorCount)
+		require.Len(t, result.Errors, 3)
+
+		for _, err := range result.Errors {
+			require.ErrorContains(t, err, "is backed by missing blob")
+		}
+
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.NotZero(t, result.Stats.ReadFileCount)
+		require.NotZero(t, result.Stats.ReadBytes)
 	})
 
 	t.Run("MaxErrors", func(t *testing.T) {
@@ -122,10 +168,18 @@ func TestSnapshotVerifier(t *testing.T) {
 
 		v := snapshotfs.NewVerifier(ctx, te2, opts)
 
-		require.NoError(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+		var result snapshotfs.VerifierResult
+
+		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			tw.Process(ctx, snapshotfs.DirectoryEntry(te.Repository, obj1, nil), ".")
 			return nil
-		}))
+		})
+		require.NoError(t, err)
+		require.Equal(t, 0, result.ErrorCount)
+		require.Empty(t, result.Errors)
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 
 		// now remove all 'p' blobs from the blob map
 		for k := range opts.BlobMap {
@@ -135,10 +189,17 @@ func TestSnapshotVerifier(t *testing.T) {
 		}
 
 		// we have 3 errors but max==1
-		require.ErrorContains(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			tw.Process(ctx, snapshotfs.DirectoryEntry(te.Repository, obj1, nil), ".")
 			return nil
-		}), "is backed by missing blob")
+		})
+		require.ErrorContains(t, err, "is backed by missing blob")
+		require.Equal(t, 1, result.ErrorCount)
+		require.Len(t, result.Errors, 1)
+		require.ErrorContains(t, result.Errors[0], "is backed by missing blob")
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.Zero(t, result.Stats.ReadFileCount)
+		require.Zero(t, result.Stats.ReadBytes)
 	})
 
 	t.Run("FullFileReadsNoBlobMap", func(t *testing.T) {
@@ -148,10 +209,16 @@ func TestSnapshotVerifier(t *testing.T) {
 		}
 		v := snapshotfs.NewVerifier(ctx, te2, opts)
 
-		require.NoError(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+		result, err := v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			tw.Process(ctx, snapshotfs.DirectoryEntry(te.Repository, obj1, nil), ".")
 			return nil
-		}))
+		})
+		require.NoError(t, err)
+		require.Equal(t, 0, result.ErrorCount)
+		require.Empty(t, result.Errors)
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.NotZero(t, result.Stats.ReadFileCount)
+		require.NotZero(t, result.Stats.ReadBytes)
 
 		blobs, err := blob.ListAllBlobs(ctx, te.RepositoryWriter.BlobReader(), "p")
 		require.NoError(t, err)
@@ -160,9 +227,21 @@ func TestSnapshotVerifier(t *testing.T) {
 			require.NoError(t, te.RepositoryWriter.BlobStorage().DeleteBlob(ctx, bm.BlobID))
 		}
 
-		require.ErrorContains(t, v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
+		result, err = v.InParallel(ctx, func(tw *snapshotfs.TreeWalker) error {
 			tw.Process(ctx, snapshotfs.DirectoryEntry(te.Repository, obj1, nil), ".")
 			return nil
-		}), "encountered 3 errors")
+		})
+
+		require.ErrorContains(t, err, "encountered 3 errors")
+		require.Equal(t, 3, result.ErrorCount)
+		require.Len(t, result.Errors, 3)
+
+		for _, err := range result.Errors {
+			require.ErrorContains(t, err, "BLOB not found")
+		}
+
+		require.NotZero(t, result.Stats.ProcessedObjectCount)
+		require.NotZero(t, result.Stats.ReadFileCount)
+		require.NotZero(t, result.Stats.ReadBytes)
 	})
 }

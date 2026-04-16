@@ -1,0 +1,64 @@
+style: github
+template: CHANGELOG_HTMLUI.tpl.md
+info:
+  title: CHANGELOG
+  repository_url: https://github.com/kopia/htmlui
+options:
+  commits:
+    filters:
+      Scope:
+      - cli
+      - kopiaui
+      - general
+      - repository
+      - server
+      - providers
+      - snapshots
+      - testing
+      - lint
+      - infra
+      - ci
+      - notifications
+      - ui
+  commit_groups:
+    sort_by: Custom
+    group_by: "Scope"
+    title_maps:
+      # must match .github/workflows/check-pr-title.yml
+      # app|cli|ui|repository|server|providers|deps|deps-dev|site|ci|infra|general
+      kopiaui: KopiaUI App
+      cli: Command-Line Interface
+      ui: Graphical User Interface
+      lint: Linter
+      deps: Dependencies
+      snapshots: Snapshots
+      deps-dev: Development Dependencies
+      infra: Infrastructure
+      general: General Improvements
+      providers: Storage Providers
+      notifications: Notifications
+      ci: CI/CD
+    title_order:
+      - cli
+      - kopiaui
+      - general
+      - repository
+      - server
+      - snapshots
+      - providers
+      - notifications
+      - deps
+      - testing
+      - lint
+      - deps-dev
+      - infra
+      - ci
+  header:
+    pattern: "^(\\w*)(?:\\(([\\w\\$\\.\\-\\*\\s]*)\\))?\\:\\s(.*)$"
+    pattern_maps:
+      - Type
+      - Scope
+      - Subject
+  notes:
+    keywords:
+      - BREAKING CHANGE

@@ -1,7 +1,9 @@
+// Package restore manages restoring filesystem snapshots.
 package restore
 
 import (
 	"context"
+	"os"
 	"path"
 	"runtime"
 	"sync/atomic"
@@ -17,13 +19,16 @@ import (
 
 var log = logging.Module("restore")
 
+// FileWriteProgress is a callback used to report amount of data sent to the output.
+type FileWriteProgress func(chunkSize int64)
+
 // Output encapsulates output for restore operation.
 type Output interface {
 	Parallelizable() bool
 	BeginDirectory(ctx context.Context, relativePath string, e fs.Directory) error
 	WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error
 	FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error
-	WriteFile(ctx context.Context, relativePath string, e fs.File) error
+	WriteFile(ctx context.Context, relativePath string, e fs.File, progressCb FileWriteProgress) error
 	FileExists(ctx context.Context, relativePath string, e fs.File) bool
 	CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error
 	SymlinkExists(ctx context.Context, relativePath string, e fs.Symlink) bool
@@ -43,6 +48,9 @@ type Stats struct {
 	EnqueuedDirCount     int32
 	EnqueuedSymlinkCount int32
 	SkippedCount         int32
+	DeletedFilesCount    int32
+	DeletedSymlinkCount  int32
+	DeletedDirCount      int32
 	IgnoredErrorCount    int32
 }
 
@@ -59,6 +67,9 @@ type statsInternal struct {
 	EnqueuedDirCount     atomic.Int32
 	EnqueuedSymlinkCount atomic.Int32
 	SkippedCount         atomic.Int32
+	DeletedFilesCount    atomic.Int32
+	DeletedSymlinkCount  atomic.Int32
+	DeletedDirCount      atomic.Int32
 	IgnoredErrorCount    atomic.Int32
 }
 
@@ -74,9 +85,15 @@ func (s *statsInternal) clone() Stats {
 		EnqueuedDirCount:      s.EnqueuedDirCount.Load(),
 		EnqueuedSymlinkCount:  s.EnqueuedSymlinkCount.Load(),
 		SkippedCount:          s.SkippedCount.Load(),
+		DeletedFilesCount:     s.DeletedFilesCount.Load(),
+		DeletedSymlinkCount:   s.DeletedSymlinkCount.Load(),
+		DeletedDirCount:       s.DeletedDirCount.Load(),
 		IgnoredErrorCount:     s.IgnoredErrorCount.Load(),
 	}
 }
+
+// ProgressCallback is a callback used to report progress of snapshot restore.
+type ProgressCallback func(ctx context.Context, s Stats)
 
 // Options provides optional restore parameters.
 type Options struct {
@@ -84,12 +101,13 @@ type Options struct {
 	// required bindings in the UI.
 	Parallel               int   `json:"parallel"`
 	Incremental            bool  `json:"incremental"`
+	DeleteExtra            bool  `json:"deleteExtra"`
 	IgnoreErrors           bool  `json:"ignoreErrors"`
 	RestoreDirEntryAtDepth int32 `json:"restoreDirEntryAtDepth"`
 	MinSizeForPlaceholder  int32 `json:"minSizeForPlaceholder"`
 
-	ProgressCallback func(ctx context.Context, s Stats) `json:"-"`
-	Cancel           chan struct{}                      `json:"-"` // channel that can be externally closed to signal cancellation
+	ProgressCallback ProgressCallback `json:"-"`
+	Cancel           chan struct{}    `json:"-"` // channel that can be externally closed to signal cancellation
 }
 
 // Entry walks a snapshot root with given root entry and restores it to the provided output.
@@ -97,18 +115,18 @@ type Options struct {
 //nolint:revive
 func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs.Entry, options Options) (Stats, error) {
 	c := copier{
-		output:        output,
-		shallowoutput: makeShallowFilesystemOutput(output, options),
-		q:             parallelwork.NewQueue(),
-		incremental:   options.Incremental,
-		ignoreErrors:  options.IgnoreErrors,
-		cancel:        options.Cancel,
+		output:           output,
+		shallowoutput:    makeShallowFilesystemOutput(output, options),
+		q:                parallelwork.NewQueue(),
+		incremental:      options.Incremental,
+		deleteExtra:      options.DeleteExtra,
+		ignoreErrors:     options.IgnoreErrors,
+		cancel:           options.Cancel,
+		progressCallback: options.ProgressCallback,
 	}
 
 	c.q.ProgressCallback = func(ctx context.Context, enqueued, active, completed int64) {
-		if options.ProgressCallback != nil {
-			options.ProgressCallback(ctx, c.stats.clone())
-		}
+		c.reportProgress(ctx)
 	}
 
 	// Control the depth of a restore. Default (options.MaxDepth = 0) is to restore to full depth.
@@ -144,8 +162,17 @@ type copier struct {
 	shallowoutput Output
 	q             *parallelwork.Queue
 	incremental   bool
+	deleteExtra   bool
 	ignoreErrors  bool
 	cancel        chan struct{}
+
+	progressCallback ProgressCallback
+}
+
+func (c *copier) reportProgress(ctx context.Context) {
+	if c.progressCallback != nil {
+		c.progressCallback(ctx, c.stats.clone())
+	}
 }
 
 func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int32, onCompletion func() error) error {
@@ -203,18 +230,26 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 	case fs.File:
 		log(ctx).Debugf("file: '%v'", targetPath)
 
-		c.stats.RestoredFileCount.Add(1)
-		c.stats.RestoredTotalFileSize.Add(e.Size())
+		bytesExpected := e.Size()
+		bytesWritten := int64(0)
+		progressCallback := func(chunkSize int64) {
+			bytesWritten += chunkSize
+			c.stats.RestoredTotalFileSize.Add(chunkSize)
+			c.reportProgress(ctx)
+		}
 
 		if currentdepth > maxdepth {
-			if err := c.shallowoutput.WriteFile(ctx, targetPath, e); err != nil {
+			if err := c.shallowoutput.WriteFile(ctx, targetPath, e, progressCallback); err != nil {
 				return errors.Wrap(err, "copy file")
 			}
 		} else {
-			if err := c.output.WriteFile(ctx, targetPath, e); err != nil {
+			if err := c.output.WriteFile(ctx, targetPath, e, progressCallback); err != nil {
 				return errors.Wrap(err, "copy file")
 			}
 		}
+
+		c.stats.RestoredFileCount.Add(1)
+		c.stats.RestoredTotalFileSize.Add(bytesExpected - bytesWritten)
 
 		return onCompletion()
 
@@ -239,7 +274,7 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 	if SafelySuffixablePath(targetPath) && currentdepth > maxdepth {
 		de, ok := d.(snapshot.HasDirEntry)
 		if !ok {
-			return errors.Errorf("fs.Directory object is not HasDirEntry?")
+			return errors.Errorf("fs.Directory '%s' object is not HasDirEntry?", d.Name())
 		}
 
 		if err := c.shallowoutput.WriteDirEntry(ctx, targetPath, de.DirEntry(), d); err != nil {
@@ -253,6 +288,15 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 		return errors.Wrap(err, "create directory")
 	}
 
+	if c.deleteExtra {
+		// deleting existing files only makes sense in the context of an actual filesystem (compared to a tar or zip)
+		if fsOutput, isFileSystem := c.output.(*FilesystemOutput); isFileSystem {
+			if err := c.deleteExtraFilesInDir(ctx, fsOutput, d, targetPath); err != nil {
+				return errors.Wrap(err, "delete extra")
+			}
+		}
+	}
+
 	return errors.Wrap(c.copyDirectoryContent(ctx, d, targetPath, currentdepth+1, maxdepth, func() error {
 		if err := c.output.FinishDirectory(ctx, targetPath, d); err != nil {
 			return errors.Wrap(err, "finish directory")
@@ -260,6 +304,77 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 
 		return onCompletion()
 	}), "copy directory contents")
+}
+
+func (c *copier) deleteExtraFilesInDir(ctx context.Context, o *FilesystemOutput, d fs.Directory, targetPath string) error {
+	existingEntries, err := os.ReadDir(path.Join(o.TargetPath, targetPath))
+	if os.IsNotExist(err) {
+		return nil
+	}
+
+	if err != nil {
+		return errors.Wrapf(err, "read existing dir entries (%q)", path.Join(o.TargetPath, targetPath))
+	}
+
+	snapshotEntries, err := fs.GetAllEntries(ctx, d)
+	if err != nil {
+		return errors.Wrap(err, "error reading directory")
+	}
+
+	// first classify snapshot entries to help with deletion (treat symlinks like normal files)
+	snapshotDirectories := map[string]struct{}{}
+	snapshotFiles := map[string]struct{}{}
+
+	for _, snapshotEntry := range snapshotEntries {
+		if snapshotEntry.IsDir() {
+			snapshotDirectories[snapshotEntry.Name()] = struct{}{}
+			continue
+		}
+
+		snapshotFiles[snapshotEntry.Name()] = struct{}{}
+	}
+
+	// Delete entries that exist in the target path and are not in the snapshot.
+	// Also, delete entries with a mismatching directory / file type, that is:
+	// - delete existing directories that are files in the snapshot; and
+	// - delete existing files that are directories in the snapshot.
+	// This allows "overwriting" existing entries with when their (directory vs. file) types do not match.
+	for _, existingEntry := range existingEntries {
+		if existingEntry.IsDir() {
+			if _, ok := snapshotDirectories[existingEntry.Name()]; !ok {
+				entryPath := path.Join(o.TargetPath, targetPath, existingEntry.Name())
+
+				log(ctx).Debugf("deleting directory %v since it does not exist in snapshot", entryPath)
+
+				if err := os.RemoveAll(entryPath); err != nil {
+					return errors.Wrapf(err, "delete directory %q", entryPath)
+				}
+
+				c.stats.DeletedDirCount.Add(1)
+			}
+
+			continue
+		}
+
+		if _, ok := snapshotFiles[existingEntry.Name()]; !ok {
+			entryPath := path.Join(o.TargetPath, targetPath, existingEntry.Name())
+
+			log(ctx).Debugf("deleting file %v since it does not exist in snapshot", entryPath)
+
+			if err := os.Remove(entryPath); err != nil {
+				return errors.Wrapf(err, "delete file %q", entryPath)
+			}
+
+			if existingEntry.Type() == os.ModeSymlink {
+				c.stats.DeletedSymlinkCount.Add(1)
+			} else {
+				// if it's not a symlink, we are not classifying file types further.
+				c.stats.DeletedFilesCount.Add(1)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc) error {
@@ -275,8 +390,6 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 	onItemCompletion := parallelwork.OnNthCompletion(len(entries), onCompletion)
 
 	for _, e := range entries {
-		e := e
-
 		if e.IsDir() {
 			c.stats.EnqueuedDirCount.Add(1)
 			// enqueue directories first, so that we quickly determine the total number and size of items.

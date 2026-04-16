@@ -8,6 +8,8 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/impossible"
 )
 
 const compressionHeaderSize = 4
@@ -80,9 +82,7 @@ func DecompressByHeader(output io.Writer, input io.Reader) error {
 }
 
 func mustSucceed(err error) {
-	if err != nil {
-		panic("unexpected error: " + err.Error())
-	}
+	impossible.PanicOnError(err)
 }
 
 func verifyCompressionHeader(reader io.Reader, want []byte) error {

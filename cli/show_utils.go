@@ -7,10 +7,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/exp/constraints"
 
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/units"
@@ -52,20 +54,20 @@ func showContentWithFlags(w io.Writer, rd io.Reader, unzip, indentJSON bool) err
 	return nil
 }
 
-func maybeHumanReadableBytes(enable bool, value int64) string {
+func maybeHumanReadableBytes[I constraints.Integer](enable bool, value I) string {
 	if enable {
 		return units.BytesString(value)
 	}
 
-	return fmt.Sprintf("%v", value)
+	return strconv.FormatInt(int64(value), 10)
 }
 
-func maybeHumanReadableCount(enable bool, value int64) string {
+func maybeHumanReadableCount[I constraints.Integer](enable bool, value I) string {
 	if enable {
 		return units.Count(value)
 	}
 
-	return fmt.Sprintf("%v", value)
+	return strconv.FormatInt(int64(value), 10)
 }
 
 func formatTimestamp(ts time.Time) string {

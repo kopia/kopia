@@ -1,6 +1,6 @@
 ---
-title: "Command Line"
-linkTitle: "Command Line"
+title: "Command-Line Reference"
+linkTitle: "Command-Line Reference"
 weight: 10
 ---
 
@@ -15,6 +15,16 @@ The following environment variables can be used to configure how Kopia runs:
 | Variable Name               | Default | Description                                                                                              |
 | --------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
 | `KOPIA_BYTES_STRING_BASE_2` | `false` | If set to `true`, Kopia will output storage values in binary (base-2). The default is decimal (base-10). |
+
+### Global Flags
+
+The following flags apply to all Kopia commands:
+
+| Flag                | Description                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| `--[no-]progress`   | Enable or disable progress output (default: enabled).                                        |
+| `--log-level`       | Set console log level: `debug`, `info`, `warning`, or `error` (default: `info`).            |
+| `--config-file`     | Override the default configuration file location.                                            |
 
 ### Connecting to Repository
 

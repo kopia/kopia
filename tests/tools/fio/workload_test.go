@@ -276,7 +276,7 @@ func TestDeleteContentsAtDepth(t *testing.T) {
 				// Broad check: just make sure a 50% probability deleted something.
 				// Extremely improbable that this causes a false failure;
 				// akin to 100 coin flips all landing on the same side.
-				if !(fileCount > 0 && fileCount < 100) {
+				if fileCount <= 0 || fileCount >= 100 {
 					t.Error("expected some but not all files to be deleted")
 				}
 			},

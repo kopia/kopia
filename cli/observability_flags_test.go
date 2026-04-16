@@ -97,7 +97,7 @@ func TestMetricsSaveToOutputDirFlags(t *testing.T) {
 
 	tmp2 := testutil.TempDirectory(t)
 
-	env.RunAndExpectSuccess(t, "repo", "status", "--metrics-directory", tmp2)
+	env.RunAndExpectSuccess(t, "repo", "status", "--diagnostics-output-directory", tmp2, "--metrics-store-on-exit")
 
 	entries, err := os.ReadDir(tmp2)
 	require.NoError(t, err)

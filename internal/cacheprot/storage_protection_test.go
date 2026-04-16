@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 )
 
-func TestNoStorageProection(t *testing.T) {
+func TestNoStorageProtection(t *testing.T) {
 	testStorageProtection(t, cacheprot.NoProtection(), false)
 }
 

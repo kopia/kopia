@@ -57,7 +57,7 @@ type commandPolicyEdit struct {
 }
 
 func (c *commandPolicyEdit) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("edit", "Set snapshot policy for a single directory, user@host or a global policy.")
+	cmd := parent.Command("edit", "Edit policy.")
 	c.policyTargetFlags.setup(cmd)
 	cmd.Action(svc.repositoryWriterAction(c.run))
 	c.out.setup(svc)
@@ -84,11 +84,11 @@ func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) 
 
 		var updated *policy.Policy
 
-		if err := editor.EditLoop(ctx, "policy.conf", s, func(edited string) error {
+		if err := editor.EditLoop(ctx, "policy.conf", s, true, func(edited string) error {
 			updated = &policy.Policy{}
 			d := json.NewDecoder(bytes.NewBufferString(edited))
 			d.DisallowUnknownFields()
-			//nolint:wrapcheck
+
 			return d.Decode(updated)
 		}); err != nil {
 			return errors.Wrap(err, "unable to launch editor")
@@ -105,7 +105,7 @@ func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) 
 
 		var shouldSave string
 
-		fmt.Scanf("%v", &shouldSave)
+		fmt.Scanf("%v", &shouldSave) //nolint:errcheck
 
 		if strings.HasPrefix(strings.ToLower(shouldSave), "y") {
 			if err := policy.SetPolicy(ctx, rep, target, updated); err != nil {
@@ -119,6 +119,7 @@ func (c *commandPolicyEdit) run(ctx context.Context, rep repo.RepositoryWriter) 
 
 func prettyJSON(v *policy.Policy) string {
 	var b bytes.Buffer
+
 	e := json.NewEncoder(&b)
 	e.SetIndent("", "  ")
 	e.Encode(v) //nolint:errcheck,errchkjson

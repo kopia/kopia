@@ -5,7 +5,7 @@ include ../tools/tools.mk
 deps: node_modules/.up-to-date
 
 node_modules/.up-to-date: $(npm) package.json package-lock.json
-	$(retry) $(npm) $(npm_flags) install --no-audit
+	$(retry) $(npm) $(npm_flags) $(npm_install_or_ci) --no-audit
 	$(npm) $(npm_flags) audit --omit=dev
 	echo updated > node_modules/.up-to-date
 
@@ -86,3 +86,9 @@ build-electron: ../dist/kopia-ui/.up-to-date
 ../dist/kopia-ui/.up-to-date: package.json ../dist/kopia_*/kopia* node_modules/.up-to-date public/* resources/*/*/*
 	$(retry) $(npm) $(npm_flags) run build-electron -- $(electron_builder_flags) -p $(electron_publish_flag)
 	echo updated > ../dist/kopia-ui/.up-to-date
+
+check-prettier: node_modules/.up-to-date
+	$(npm) run prettier:check
+
+prettier: node_modules/.up-to-date
+	$(npm) run prettier

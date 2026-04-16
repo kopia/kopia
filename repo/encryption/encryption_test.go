@@ -36,7 +36,6 @@ func TestRoundTrip(t *testing.T) {
 	rand.Read(contentID2)
 
 	for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
-		encryptionAlgo := encryptionAlgo
 		t.Run(encryptionAlgo, func(t *testing.T) {
 			e, err := encryption.CreateEncryptor(parameters{encryptionAlgo, masterKey})
 			if err != nil {
@@ -145,6 +144,7 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 			func() {
 				var v gather.WriteBuffer
 				defer v.Close()
+
 				require.NoError(t, enc.Encrypt(gather.FromSlice(payload), contentID, &v))
 
 				t.Errorf("missing ciphertext sample for %q: %q,", encryptionAlgo, hex.EncodeToString(payload))
@@ -187,9 +187,7 @@ func BenchmarkEncryption(b *testing.B) {
 	require.NoError(b, enc.Encrypt(plainText, iv, &warmupOut))
 	warmupOut.Close()
 
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		var out gather.WriteBuffer
 
 		enc.Encrypt(plainText, iv, &out)

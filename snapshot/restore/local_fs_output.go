@@ -1,8 +1,8 @@
-// Package restore manages restoring filesystem snapshots.
 package restore
 
 import (
 	"context"
+	stderrors "errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/sparsefile"
 	"github.com/kopia/kopia/internal/stat"
 	"github.com/kopia/kopia/snapshot"
@@ -41,17 +42,34 @@ func getStreamCopier(ctx context.Context, targetpath string, sparse bool) (strea
 			}
 
 			return func(w io.WriteSeeker, r io.Reader) (int64, error) {
-				return sparsefile.Copy(w, r, s) //nolint:wrapcheck
+				return sparsefile.Copy(w, r, s)
 			}, nil
 		}
 
-		log(ctx).Debugf("sparse copying is not supported on Windows, falling back to regular copying")
+		log(ctx).Debug("sparse copying is not supported on Windows, falling back to regular copying")
 	}
 
 	// Wrap iocopy.Copy to conform to StreamCopier type.
 	return func(w io.WriteSeeker, r io.Reader) (int64, error) {
-		return iocopy.Copy(w, r) //nolint:wrapcheck
+		return iocopy.Copy(w, r)
 	}, nil
+}
+
+// progressReportingReader wraps fs.Reader Read function to capture the and pass
+// the number of bytes read to the callback cb.
+type progressReportingReader struct {
+	fs.Reader
+
+	cb FileWriteProgress
+}
+
+func (r *progressReportingReader) Read(p []byte) (int, error) {
+	bytesRead, err := r.Reader.Read(p)
+	if err == nil && r.cb != nil {
+		r.cb(int64(bytesRead))
+	}
+
+	return bytesRead, err //nolint:wrapcheck
 }
 
 // FilesystemOutput contains the options for outputting a file system tree.
@@ -93,6 +111,12 @@ type FilesystemOutput struct {
 	// copier is the StreamCopier to use for copying the actual bit stream to output.
 	// It is assigned at runtime based on the target filesystem and restore options.
 	copier streamCopier `json:"-"`
+
+	// Indicate whether or not flush files after restore.
+	// Varying from OS, the copier may write the file data to the system cache,
+	// so the data may not be written to disk when the restore to the file completes.
+	// This flag guarantees the file data is flushed to disk.
+	FlushFiles bool `json:"flushFiles"`
 }
 
 // Init initializes the internal members of the filesystem writer output.
@@ -125,7 +149,7 @@ func (o *FilesystemOutput) BeginDirectory(ctx context.Context, relativePath stri
 }
 
 // FinishDirectory implements restore.Output interface.
-func (o *FilesystemOutput) FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
+func (o *FilesystemOutput) FinishDirectory(_ context.Context, relativePath string, e fs.Directory) error {
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 	if err := o.setAttributes(path, e, os.FileMode(0)); err != nil {
 		return errors.Wrap(err, "error setting attributes")
@@ -142,16 +166,16 @@ func (o *FilesystemOutput) WriteDirEntry(ctx context.Context, relativePath strin
 }
 
 // Close implements restore.Output interface.
-func (o *FilesystemOutput) Close(ctx context.Context) error {
+func (o *FilesystemOutput) Close(_ context.Context) error {
 	return nil
 }
 
 // WriteFile implements restore.Output interface.
-func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
+func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File, progressCb FileWriteProgress) error {
 	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
-	if err := o.copyFileContent(ctx, path, f); err != nil {
+	if err := o.copyFileContent(ctx, path, f, progressCb); err != nil {
 		return errors.Wrap(err, "error creating file")
 	}
 
@@ -163,7 +187,7 @@ func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f
 }
 
 // FileExists implements restore.Output interface.
-func (o *FilesystemOutput) FileExists(ctx context.Context, relativePath string, e fs.File) bool {
+func (o *FilesystemOutput) FileExists(_ context.Context, relativePath string, e fs.File) bool {
 	st, err := os.Lstat(filepath.Join(o.TargetPath, relativePath))
 	if err != nil {
 		return false
@@ -205,7 +229,7 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 	case fileIsSymlink(st):
 		// Throw error if we are not overwriting symlinks
 		if !o.OverwriteSymlinks {
-			return errors.Errorf("will not overwrite existing symlink")
+			return errors.New("will not overwrite existing symlink")
 		}
 
 		// Remove the existing symlink before symlink creation
@@ -357,34 +381,35 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 	}
 }
 
-func write(targetPath string, r fs.Reader, size int64, c streamCopier) error {
-	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,gomnd
+func write(targetPath string, r fs.Reader, size int64, flush bool, c streamCopier) (err error) {
+	f, err := os.OpenFile(targetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec,mnd
 	if err != nil {
 		return err //nolint:wrapcheck
 	}
+
+	defer func() {
+		// always close f and report close error
+		err = stderrors.Join(err, f.Close())
+	}()
 
 	if err := f.Truncate(size); err != nil {
 		return err //nolint:wrapcheck
 	}
 
-	// ensure we always close f. Note that this does not conflict with the
-	// close below, as close is idempotent.
-	defer f.Close() //nolint:errcheck
-
-	name := f.Name()
-
 	if _, err := c(f, r); err != nil {
-		return errors.Wrap(err, "cannot write data to file %q "+name)
+		return errors.Wrapf(err, "cannot write data to file %q", f.Name())
 	}
 
-	if err := f.Close(); err != nil {
-		return err //nolint:wrapcheck
+	if flush {
+		if err := f.Sync(); err != nil {
+			return errors.Wrapf(err, "cannot flush file %q", f.Name())
+		}
 	}
 
 	return nil
 }
 
-func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
+func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File, progressCb FileWriteProgress) error {
 	switch _, err := os.Stat(targetPath); {
 	case os.IsNotExist(err): // copy file below
 	case err == nil:
@@ -403,15 +428,20 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 	}
 	defer r.Close() //nolint:errcheck
 
+	rr := &progressReportingReader{
+		Reader: r,
+		cb:     progressCb,
+	}
+
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
-	targetPath = atomicfile.MaybePrefixLongFilenameOnWindows(targetPath)
+	targetPath = ospath.SafeLongFilename(targetPath)
 
 	if o.WriteFilesAtomically {
 		//nolint:wrapcheck
-		return atomicfile.Write(targetPath, r)
+		return atomicfile.Write(targetPath, rr)
 	}
 
-	return write(targetPath, r, f.Size(), o.copier)
+	return write(targetPath, rr, f.Size(), o.FlushFiles, o.copier)
 }
 
 func isEmptyDirectory(name string) (bool, error) {

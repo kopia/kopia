@@ -1,6 +1,7 @@
 package testenv
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -11,7 +12,6 @@ import (
 	"github.com/alecthomas/kingpin/v2"
 
 	"github.com/kopia/kopia/cli"
-	"github.com/kopia/kopia/internal/testlogging"
 )
 
 var envPrefixCounter = new(int32)
@@ -27,13 +27,11 @@ type CLIInProcRunner struct {
 }
 
 // Start implements CLIRunner.
-func (e *CLIInProcRunner) Start(t *testing.T, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, kill func()) {
-	t.Helper()
-
-	ctx := testlogging.Context(t)
+func (e *CLIInProcRunner) Start(tb testing.TB, ctx context.Context, args []string, env map[string]string) (stdout, stderr io.Reader, wait func() error, interrupt func(os.Signal)) {
+	tb.Helper()
 
 	a := cli.NewApp()
-	a.AdvancedCommands = "enabled"
+	a.DangerousCommands = "enabled"
 
 	envPrefix := fmt.Sprintf("T%v_", atomic.AddInt32(envPrefixCounter, 1))
 	a.SetEnvNamePrefixForTesting(envPrefix)

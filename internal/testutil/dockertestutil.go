@@ -2,28 +2,40 @@ package testutil
 
 import (
 	"bytes"
+	"context"
 	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/kopia/kopia/internal/testlogging"
 )
 
 // RunDockerAndGetOutputOrSkip runs Docker and returns the output as a string.
 func RunDockerAndGetOutputOrSkip(tb testing.TB, args ...string) string {
 	tb.Helper()
-	tb.Logf("running docker %v", args)
 
-	c := exec.Command("docker", args...)
+	return runDockerAndGetOutputOrSkip(testlogging.Context(tb), tb, args...)
+}
+
+func runDockerAndGetOutputOrSkip(ctx context.Context, tb testing.TB, args ...string) string {
+	tb.Helper()
+	tb.Logf("running docker %v", args)
 
 	var stderr bytes.Buffer
 
+	c := exec.CommandContext(ctx, "docker", args...)
 	c.Stderr = &stderr
 
 	out, err := c.Output()
 	if err != nil {
 		// skip or fail hard when running in CI environment.
-		TestSkipUnlessCI(tb, "unable to run docker: %v %s (stderr %v)", err, out, stderr.String())
+		if os.Getenv("CI") == "" {
+			tb.Skipf("unable to run docker: %v %s (stderr %s)", err, out, stderr.String())
+		} else {
+			tb.Fatalf("unable to run docker: %v %s (stderr %s)", err, out, stderr.String())
+		}
 	}
 
 	return strings.TrimSpace(string(out))
@@ -37,7 +49,8 @@ func RunContainerAndKillOnCloseOrSkip(t *testing.T, args ...string) string {
 	containerID := RunDockerAndGetOutputOrSkip(t, args...)
 
 	t.Cleanup(func() {
-		RunDockerAndGetOutputOrSkip(t, "kill", containerID)
+		// t.Context() is canceled by the time cleanup executes, so it cannot be used here
+		runDockerAndGetOutputOrSkip(context.WithoutCancel(t.Context()), t, "kill", containerID)
 	})
 
 	return containerID

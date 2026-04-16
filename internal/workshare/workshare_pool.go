@@ -1,4 +1,3 @@
-// Package workshare implements work sharing worker pool.
 package workshare
 
 import (
@@ -48,12 +47,8 @@ func NewPool[T any](numWorkers int) *Pool[T] {
 		semaphore: make(chan struct{}, numWorkers),
 	}
 
-	for i := 0; i < numWorkers; i++ {
-		w.wg.Add(1)
-
-		go func() {
-			defer w.wg.Done()
-
+	for range numWorkers {
+		w.wg.Go(func() {
 			for {
 				select {
 				case it := <-w.work:
@@ -67,7 +62,7 @@ func NewPool[T any](numWorkers int) *Pool[T] {
 					return
 				}
 			}
-		}()
+		})
 	}
 
 	return w

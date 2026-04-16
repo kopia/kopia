@@ -1,5 +1,4 @@
 //go:build darwin || (linux && amd64)
-// +build darwin linux,amd64
 
 // Package checker defines the framework for creating and restoring snapshots
 // with a data integrity check
@@ -179,6 +178,7 @@ func (chk *Checker) VerifySnapshotMetadata(ctx context.Context) error {
 		if chk.RecoveryMode {
 			if liveSnapsDeleted >= chk.DeleteLimit {
 				log.Printf("delete limit (%v) reached", chk.DeleteLimit)
+
 				errCount++
 			}
 
@@ -188,6 +188,7 @@ func (chk *Checker) VerifySnapshotMetadata(ctx context.Context) error {
 			err = chk.snapshotIssuer.DeleteSnapshot(ctx, liveSnapID, map[string]string{})
 			if err != nil {
 				log.Printf("error deleting snapshot: %s", err)
+
 				errCount++
 			}
 

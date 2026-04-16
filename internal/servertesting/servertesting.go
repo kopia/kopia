@@ -36,7 +36,12 @@ const (
 func StartServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
 	t.Helper()
 
-	ctx := testlogging.Context(t)
+	return StartServerContext(testlogging.Context(t), t, env, tls)
+}
+
+// StartServerContext starts a test server with a given root context and returns APIServerInfo.
+func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
+	t.Helper()
 
 	s, err := server.New(ctx, &server.Options{
 		ConfigFile:      env.ConfigFile(),
@@ -64,7 +69,6 @@ func StartServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.API
 
 	m := mux.NewRouter()
 	s.SetupHTMLUIAPIHandlers(m)
-	s.SetupRepositoryAPIHandlers(m)
 	s.SetupControlAPIHandlers(m)
 	s.ServeStaticFiles(m, server.AssetFile())
 

@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
@@ -90,12 +91,19 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 	for _, mg := range snapshot.GroupBySource(manifests) {
 		log(ctx).Infof("Processing snapshot %v", mg[0].Source)
 
+		policyTree, err := policy.TreeForSource(ctx, rep, mg[0].Source)
+		if err != nil {
+			return errors.Wrap(err, "unable to get policy tree")
+		}
+
+		metadataComp := policyTree.EffectivePolicy().MetadataCompressionPolicy.MetadataCompressor()
+
 		for _, man := range snapshot.SortByTime(mg, false) {
 			log(ctx).Debugf("  %v (%v)", formatTimestamp(man.StartTime.ToTime()), man.ID)
 
 			old := man.Clone()
 
-			changed, err := rw.RewriteSnapshotManifest(ctx, man)
+			changed, err := rw.RewriteSnapshotManifest(ctx, man, metadataComp)
 			if err != nil {
 				return errors.Wrap(err, "error rewriting manifest")
 			}
@@ -132,7 +140,7 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 	}
 
 	if updatedSnapshots == 0 {
-		log(ctx).Infof("No changes.")
+		log(ctx).Info("No changes.")
 	}
 
 	return nil
@@ -183,7 +191,7 @@ func (c *commonRewriteSnapshots) listManifestIDs(ctx context.Context, rep repo.R
 	}
 
 	if len(manifests) == 0 {
-		log(ctx).Infof("Listing all snapshots...")
+		log(ctx).Info("Listing all snapshots...")
 
 		m, err := snapshot.ListSnapshotManifests(ctx, rep, nil, nil)
 		if err != nil {

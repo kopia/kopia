@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 func TestCalculateStorageStats(t *testing.T) {
@@ -29,7 +30,7 @@ func TestCalculateStorageStats(t *testing.T) {
 		Path:     "/dummy",
 	}
 
-	u := snapshotfs.NewUploader(env.RepositoryWriter)
+	u := upload.NewUploader(env.RepositoryWriter)
 	man1, err := u.Upload(ctx, sourceRoot, nil, src)
 	require.NoError(t, err)
 	require.NoError(t, env.RepositoryWriter.Flush(ctx))

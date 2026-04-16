@@ -54,6 +54,7 @@ func (b *DirManifestBuilder) AddEntry(de *snapshot.DirEntry) {
 			b.summary.TotalFileCount += childSummary.TotalFileCount
 			b.summary.TotalFileSize += childSummary.TotalFileSize
 			b.summary.TotalDirCount += childSummary.TotalDirCount
+			b.summary.TotalSymlinkCount += childSummary.TotalSymlinkCount
 			b.summary.FatalErrorCount += childSummary.FatalErrorCount
 			b.summary.IgnoredErrorCount += childSummary.IgnoredErrorCount
 			b.summary.FailedEntries = append(b.summary.FailedEntries, childSummary.FailedEntries...)
@@ -65,7 +66,7 @@ func (b *DirManifestBuilder) AddEntry(de *snapshot.DirEntry) {
 	}
 }
 
-// AddFailedEntry adds a failed directory entry to the builder and increments enither ignored or fatal error count.
+// AddFailedEntry adds a failed directory entry to the builder and increments either ignored or fatal error count.
 func (b *DirManifestBuilder) AddFailedEntry(relPath string, isIgnoredError bool, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -115,6 +116,10 @@ func (b *DirManifestBuilder) Build(dirModTime fs.UTCTimestamp, incompleteReason 
 		Summary:    &s,
 		Entries:    entries,
 	}
+}
+
+func isDir(e *snapshot.DirEntry) bool {
+	return e.Type == snapshot.EntryTypeDirectory
 }
 
 func sortedTopFailures(entries []*fs.EntryWithError) []*fs.EntryWithError {

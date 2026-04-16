@@ -17,7 +17,11 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var log = logging.Module("ignorefs")
+var (
+	log                = logging.Module("ignorefs")
+	errSymlinkNotAFile = errors.New("Symlink does not link to a file")
+	errTooManySymlinks = errors.New("too many levels of symbolic links")
+)
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.
 type IgnoreCallback func(ctx context.Context, path string, metadata fs.Entry, pol *policy.Tree)
@@ -85,7 +89,7 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) error {
 	)
 
 	if f.Size() < int64(validSignatureLen) {
-		return errors.Errorf("cache dir marker file too short")
+		return errors.New("cache dir marker file too short")
 	}
 
 	r, err := f.Open(ctx)
@@ -102,7 +106,7 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) error {
 	}
 
 	if string(sig) != validSignature {
-		return errors.Errorf("invalid cache dir marker file signature")
+		return errors.New("invalid cache dir marker file signature")
 	}
 
 	return nil
@@ -190,7 +194,7 @@ func (d *ignoreDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, er
 
 	inner, err := d.Directory.Iterate(ctx)
 	if err != nil {
-		return nil, err //nolint:wrapcheck
+		return nil, errors.Wrap(err, "cannot create iterator")
 	}
 
 	it := ignoreDirIteratorPool.Get().(*ignoreDirIterator) //nolint:forcetypeassert
@@ -271,6 +275,30 @@ func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, err
 	return nil, fs.ErrEntryNotFound
 }
 
+func resolveSymlink(ctx context.Context, entry fs.Symlink) (fs.File, error) {
+	const maxSymlinkFollow = 30
+
+	for range maxSymlinkFollow {
+		target, err := entry.Resolve(ctx)
+		if err != nil {
+			link, _ := entry.Readlink(ctx)
+			return nil, errors.Wrapf(err, "when resolving symlink %s of type %T, which points to %s", entry.Name(), entry, link)
+		}
+
+		switch t := target.(type) {
+		case fs.File:
+			return t, nil
+		case fs.Symlink:
+			entry = t
+			continue
+		default:
+			return nil, errors.Wrapf(errSymlinkNotAFile, "%s does not eventually link to a file", entry.Name())
+		}
+	}
+
+	return nil, errors.Wrapf(errTooManySymlinks, "cannot resolve '%q'", entry.Name())
+}
+
 func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, error) {
 	effectiveDotIgnoreFiles := d.parentContext.dotIgnoreFiles
 
@@ -283,8 +311,17 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 
 	for _, dotfile := range effectiveDotIgnoreFiles {
 		if e, err := d.Directory.Child(ctx, dotfile); err == nil {
-			if f, ok := e.(fs.File); ok {
-				dotIgnoreFiles = append(dotIgnoreFiles, f)
+			switch entry := e.(type) {
+			case fs.File:
+				dotIgnoreFiles = append(dotIgnoreFiles, entry)
+
+			case fs.Symlink:
+				target, err := resolveSymlink(ctx, entry)
+				if err != nil {
+					return nil, err
+				}
+
+				dotIgnoreFiles = append(dotIgnoreFiles, target)
 			}
 		}
 	}

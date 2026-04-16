@@ -55,7 +55,7 @@ func PeriodicallyNoValue(ctx context.Context, interval time.Duration, count int,
 // internalRetry runs the provided attempt until it succeeds, retrying on all errors that are
 // deemed retriable by the provided function. The delay between retries grows exponentially up to
 // a certain limit.
-func internalRetry[T any](ctx context.Context, desc string, attempt func() (T, error), isRetriableError IsRetriableFunc, initial, max time.Duration, count int, factor float64) (T, error) {
+func internalRetry[T any](ctx context.Context, desc string, attempt func() (T, error), isRetriableError IsRetriableFunc, initial, maxSleep time.Duration, count int, factor float64) (T, error) {
 	sleepAmount := initial
 
 	var (
@@ -84,11 +84,7 @@ func internalRetry[T any](ctx context.Context, desc string, attempt func() (T, e
 
 		log(ctx).Debugf("got error %v when %v (#%v), sleeping for %v before retrying", err, desc, i, sleepAmount)
 		time.Sleep(sleepAmount)
-		sleepAmount = time.Duration(float64(sleepAmount) * factor)
-
-		if sleepAmount > max {
-			sleepAmount = max
-		}
+		sleepAmount = min(time.Duration(float64(sleepAmount)*factor), maxSleep)
 	}
 
 	return defaultT, errors.Wrapf(lastError, "unable to complete %v despite %v retries", desc, i)
@@ -97,11 +93,18 @@ func internalRetry[T any](ctx context.Context, desc string, attempt func() (T, e
 // WithExponentialBackoffNoValue is a shorthand for WithExponentialBackoff except the
 // attempt function does not return any value.
 func WithExponentialBackoffNoValue(ctx context.Context, desc string, attempt func() error, isRetriableError IsRetriableFunc) error {
-	_, err := WithExponentialBackoff(ctx, desc, func() (interface{}, error) {
+	_, err := WithExponentialBackoff(ctx, desc, func() (any, error) {
 		return nil, attempt()
 	}, isRetriableError)
 
 	return err
+}
+
+// NoValueFn is an adapter from func() error to func() (any, error).
+func NoValueFn(f func() error) func() (any, error) {
+	return func() (any, error) {
+		return nil, f()
+	}
 }
 
 // Always is a retry function that retries all errors.

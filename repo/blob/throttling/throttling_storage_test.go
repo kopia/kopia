@@ -45,7 +45,7 @@ func (m *mockThrottler) ReturnUnusedDownloadBytes(ctx context.Context, numBytes 
 	m.activity = append(m.activity, fmt.Sprintf("ReturnUnusedDownloadBytes(%v)", numBytes))
 }
 
-func (m *mockThrottler) Printf(msg string, args ...interface{}) {
+func (m *mockThrottler) Printf(msg string, args ...any) {
 	msg = fmt.Sprintf(msg, args...)
 	msg = strings.Split(msg, "\t")[0] // ignore parameters
 	m.activity = append(m.activity, msg)
@@ -55,7 +55,7 @@ func TestThrottling(t *testing.T) {
 	ctx := testlogging.Context(t)
 	m := &mockThrottler{}
 	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, nil)
-	l := bloblogging.NewWrapper(st, testlogging.Printf(m.Printf, ""), "inner.")
+	l := bloblogging.NewWrapper(st, testlogging.Printf(m.Printf, ""), nil, "inner.")
 	wrapped := throttling.NewWrapper(l, m)
 
 	var tmp gather.WriteBuffer
@@ -123,7 +123,7 @@ func TestThrottling(t *testing.T) {
 	m.Reset()
 
 	_, err := wrapped.GetMetadata(ctx, "blob1")
-	require.NoError(t, err, blob.ErrBlobNotFound)
+	require.NoError(t, err)
 	require.Equal(t, []string{
 		"BeforeOperation(GetMetadata)",
 		"inner.GetMetadata",

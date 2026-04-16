@@ -13,11 +13,13 @@ import (
 )
 
 type commandPolicy struct {
-	edit   commandPolicyEdit
-	list   commandPolicyList
-	delete commandPolicyDelete
-	set    commandPolicySet
-	show   commandPolicyShow
+	edit    commandPolicyEdit
+	list    commandPolicyList
+	delete  commandPolicyDelete
+	set     commandPolicySet
+	show    commandPolicyShow
+	export  commandPolicyExport
+	pImport commandPolicyImport
 }
 
 func (c *commandPolicy) setup(svc appServices, parent commandParent) {
@@ -28,6 +30,8 @@ func (c *commandPolicy) setup(svc appServices, parent commandParent) {
 	c.delete.setup(svc, cmd)
 	c.set.setup(svc, cmd)
 	c.show.setup(svc, cmd)
+	c.export.setup(svc, cmd)
+	c.pImport.setup(svc, cmd)
 }
 
 type policyTargetFlags struct {
@@ -36,7 +40,7 @@ type policyTargetFlags struct {
 }
 
 func (c *policyTargetFlags) setup(cmd *kingpin.CmdClause) {
-	cmd.Arg("target", "Select a particular policy ('user@host','@host','user@host:path' or a local path). Use --global to target the global policy.").StringsVar(&c.targets)
+	cmd.Arg("target", "Select a particular policy (a per-host policy `@host`, a per-user policy `user@host`, a per-path policy `user@host:path` or a local path). Use --global to target the global policy.").StringsVar(&c.targets)
 	cmd.Flag("global", "Select the global policy.").BoolVar(&c.global)
 }
 

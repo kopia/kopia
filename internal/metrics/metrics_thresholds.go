@@ -2,12 +2,10 @@ package metrics
 
 import (
 	"time"
-
-	"golang.org/x/exp/constraints"
 )
 
 // Thresholds encapsulates a set of bucket thresholds used in Summary[T].
-type Thresholds[T constraints.Float | constraints.Integer] struct {
+type Thresholds[T realNumber] struct {
 	values           []T
 	promScale        float64
 	prometheusSuffix string
@@ -108,7 +106,7 @@ var CPULatencyThresholds = &Thresholds[time.Duration]{
 	"_ns",
 }
 
-func bucketForThresholds[T constraints.Integer | constraints.Float](thresholds []T, d T) int {
+func bucketForThresholds[T realNumber](thresholds []T, d T) int {
 	l, r := 0, len(thresholds)-1
 
 	for l <= r {

@@ -1,10 +1,11 @@
 package policy
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +17,8 @@ import (
 )
 
 // TimeOfDay represents the time of day (hh:mm) using 24-hour time format.
+//
+//nolint:recvcheck
 type TimeOfDay struct {
 	Hour   int `json:"hour"`
 	Minute int `json:"min"`
@@ -45,14 +48,17 @@ func (t TimeOfDay) String() string {
 
 // SortAndDedupeTimesOfDay sorts the slice of times of day and removes duplicates.
 func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
-	sort.Slice(tod, func(i, j int) bool {
-		if a, b := tod[i].Hour, tod[j].Hour; a != b {
-			return a < b
+	slices.SortFunc(tod, func(a, b TimeOfDay) int {
+		if n := cmp.Compare(a.Hour, b.Hour); n != 0 {
+			return n
 		}
-		return tod[i].Minute < tod[j].Minute
+
+		// If hours are equal sort by minute
+		return cmp.Compare(a.Minute, b.Minute)
 	})
 
-	return tod
+	// Remove subsequent duplicates
+	return slices.Compact(tod)
 }
 
 // SchedulingPolicy describes policy for scheduling snapshots.
@@ -198,7 +204,7 @@ func (p *SchedulingPolicy) checkMissedSnapshot(now, previousSnapshotTime, nextSn
 	}
 
 	nextSnapshot := nextSnapshotTime
-	// We add a second to ensure that the next possible snapshot is > the last snaphot
+	// We add a second to ensure that the next possible snapshot is > the last snapshot
 	todSnapshot, todOk := p.getNextTimeOfDaySnapshot(momentAfterSnapshot)
 	cronSnapshot, cronOk := p.getNextCronSnapshot(momentAfterSnapshot)
 
@@ -284,5 +290,5 @@ func ValidateSchedulingPolicy(p SchedulingPolicy) error {
 }
 
 func stripCronComment(s string) string {
-	return strings.TrimSpace(strings.SplitN(s, "#", 2)[0]) //nolint:gomnd
+	return strings.TrimSpace(strings.SplitN(s, "#", 2)[0]) //nolint:mnd
 }

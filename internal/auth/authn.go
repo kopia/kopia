@@ -25,12 +25,12 @@ type singleUserAuthenticator struct {
 	expectedPasswordBytes []byte
 }
 
-func (a *singleUserAuthenticator) IsValid(ctx context.Context, _ repo.Repository, username, password string) bool {
+func (a *singleUserAuthenticator) IsValid(_ context.Context, _ repo.Repository, username, password string) bool {
 	return subtle.ConstantTimeCompare([]byte(username), a.expectedUsernameBytes)*
 		subtle.ConstantTimeCompare([]byte(password), a.expectedPasswordBytes) == 1
 }
 
-func (a *singleUserAuthenticator) Refresh(ctx context.Context) error {
+func (a *singleUserAuthenticator) Refresh(_ context.Context) error {
 	return nil
 }
 
@@ -75,11 +75,11 @@ type htpasswdAuthenticator struct {
 	f *htpasswd.File
 }
 
-func (a htpasswdAuthenticator) IsValid(ctx context.Context, _ repo.Repository, username, password string) bool {
+func (a htpasswdAuthenticator) IsValid(_ context.Context, _ repo.Repository, username, password string) bool {
 	return a.f.Match(username, password)
 }
 
-func (a htpasswdAuthenticator) Refresh(ctx context.Context) error {
+func (a htpasswdAuthenticator) Refresh(_ context.Context) error {
 	return errors.Wrap(a.f.Reload(nil), "error reloading password file")
 }
 

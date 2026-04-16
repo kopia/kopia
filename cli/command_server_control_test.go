@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"runtime"
+	"slices"
 	"testing"
 	"time"
 
@@ -59,6 +60,7 @@ func TestServerControl(t *testing.T) {
 	require.Eventually(t, func() bool {
 		lines := env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 		t.Logf("lines: %v", lines)
+
 		return hasLine(lines, "IDLE: test-user@test-host:"+dir1) && hasLine(lines, "IDLE: test-user@test-host:"+dir2)
 	}, waitTimeout, pollFrequency)
 
@@ -75,6 +77,7 @@ func TestServerControl(t *testing.T) {
 	require.Eventually(t, func() bool {
 		lines := env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote")
 		t.Logf("lines: %v", lines)
+
 		return hasLine(lines, "IDLE: test-user@test-host:"+dir3)
 	}, waitTimeout, pollFrequency)
 
@@ -219,11 +222,5 @@ func TestServerControlUDS(t *testing.T) {
 }
 
 func hasLine(lines []string, lookFor string) bool {
-	for _, l := range lines {
-		if l == lookFor {
-			return true
-		}
-	}
-
-	return false
+	return slices.Contains(lines, lookFor)
 }

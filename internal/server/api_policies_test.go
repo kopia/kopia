@@ -172,6 +172,7 @@ func TestPolicies(t *testing.T) {
 
 			for j, ust := range res.UpcomingSnapshotTimes {
 				require.Equal(t, ust.Truncate(60*time.Second), ust)
+
 				if j > 0 {
 					require.Equal(t, 60*time.Second, ust.Sub(res.UpcomingSnapshotTimes[j-1]))
 				}

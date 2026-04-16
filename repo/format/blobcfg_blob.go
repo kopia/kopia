@@ -31,11 +31,11 @@ func (r *BlobStorageConfiguration) IsRetentionEnabled() bool {
 // Validate validates the blob config parameters.
 func (r *BlobStorageConfiguration) Validate() error {
 	if (r.RetentionMode == "") != (r.RetentionPeriod == 0) {
-		return errors.Errorf("both retention mode and period must be provided when setting blob retention properties")
+		return errors.New("both retention mode and period must be provided when setting blob retention properties")
 	}
 
 	if r.RetentionPeriod != 0 && r.RetentionPeriod < 24*time.Hour {
-		return errors.Errorf("invalid retention-period, the minimum required is 1-day and there is no maximum limit")
+		return errors.New("invalid retention-period, the minimum required is 1-day and there is no maximum limit")
 	}
 
 	return nil
@@ -78,7 +78,7 @@ func deserializeBlobCfgBytes(j *KopiaRepositoryJSON, encryptedBlobCfgBytes, form
 	case aes256GcmEncryption:
 		plainText, err = decryptRepositoryBlobBytesAes256Gcm(encryptedBlobCfgBytes, formatEncryptionKey, j.UniqueID)
 		if err != nil {
-			return BlobStorageConfiguration{}, errors.Errorf("unable to decrypt repository blobcfg blob")
+			return BlobStorageConfiguration{}, errors.New("unable to decrypt repository blobcfg blob")
 		}
 
 	default:

@@ -131,6 +131,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 		if err != nil {
 			return errors.Wrapf(err, "unrecognized error when opening SFTP file %v", fullPath)
 		}
+
 		defer r.Close() //nolint:errcheck
 
 		if length < 0 {
@@ -202,7 +203,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 	defer contig.Close()
 
 	if _, err := data.WriteTo(contig); err != nil {
-		return errors.Wrap(err, "can't write to comtiguous buffer")
+		return errors.Wrap(err, "can't write to contiguous buffer")
 	}
 
 	//nolint:wrapcheck
@@ -323,7 +324,6 @@ func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, fullPath strin
 
 func (s *sftpImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
 	return connection.UsingConnection(ctx, s.rec, "ReadDir", func(conn connection.Connection) ([]os.FileInfo, error) {
-		//nolint:wrapcheck
 		return sftpClientFromConnection(conn).ReadDir(dirname)
 	})
 }
@@ -379,7 +379,7 @@ func getHostKeyCallback(opt *Options) (ssh.HostKeyCallback, error) {
 	}
 
 	if f := opt.knownHostsFile(); !ospath.IsAbs(f) {
-		return nil, errors.Errorf("known hosts path must be absolute")
+		return nil, errors.New("known hosts path must be absolute")
 	}
 
 	//nolint:wrapcheck
@@ -400,7 +400,7 @@ func getSigner(opt *Options) (ssh.Signer, error) {
 		var err error
 
 		if f := opt.Keyfile; !ospath.IsAbs(f) {
-			return nil, errors.Errorf("key file path must be absolute")
+			return nil, errors.New("key file path must be absolute")
 		}
 
 		privateKeyData, err = os.ReadFile(opt.Keyfile)
@@ -418,7 +418,7 @@ func getSigner(opt *Options) (ssh.Signer, error) {
 }
 
 func createSSHConfig(ctx context.Context, opt *Options) (*ssh.ClientConfig, error) {
-	log(ctx).Debugf("using internal SSH client")
+	log(ctx).Debug("using internal SSH client")
 
 	hostKeyCallback, err := getHostKeyCallback(opt)
 	if err != nil {
@@ -465,7 +465,7 @@ func getSFTPClientExternal(ctx context.Context, opt *Options) (*sftpConnection, 
 
 	log(ctx).Debugf("launching external SSH process %v %v", sshCommand, strings.Join(cmdArgs, " "))
 
-	cmd := exec.Command(sshCommand, cmdArgs...) //nolint:gosec
+	cmd := exec.CommandContext(ctx, sshCommand, cmdArgs...) //nolint:gosec
 
 	// send errors from ssh to stderr
 	cmd.Stderr = os.Stderr
@@ -553,7 +553,9 @@ func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error
 
 	impl.rec = connection.NewReconnector(impl)
 
-	conn, err := impl.rec.GetOrOpenConnection(ctx)
+	// removing cancelation from ctx since ctx is likely to be canceled after
+	// New returns, causing the initial connection to be closed and not reused
+	conn, err := impl.rec.GetOrOpenConnection(context.WithoutCancel(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open SFTP storage")
 	}

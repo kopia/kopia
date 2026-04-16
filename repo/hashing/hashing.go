@@ -55,7 +55,7 @@ const DefaultAlgorithm = "BLAKE2B-256-128"
 func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFactory {
 	return func(p Parameters) (HashFunc, error) {
 		pool := sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return hmac.New(hf, p.GetHmacSecret())
 			},
 		}
@@ -83,7 +83,7 @@ func truncatedKeyedHashFuncFactory(hf func(key []byte) (hash.Hash, error), trunc
 		}
 
 		pool := sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				h, _ := hf(secret)
 				return h
 			},

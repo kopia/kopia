@@ -58,8 +58,10 @@ func (s *contentManagerSuite) TestContentIndexRecovery(t *testing.T) {
 			if err != nil {
 				return err
 			}
+
 			totalRecovered += len(infos)
 			t.Logf("recovered %v contents", len(infos))
+
 			return nil
 		})
 		if err != nil {
@@ -85,8 +87,10 @@ func (s *contentManagerSuite) TestContentIndexRecovery(t *testing.T) {
 			if rerr != nil {
 				return rerr
 			}
+
 			totalRecovered += len(infos)
 			t.Logf("recovered %v contents", len(infos))
+
 			return nil
 		})
 		if err != nil {

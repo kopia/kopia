@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"slices"
 
 	"github.com/pkg/errors"
 
@@ -38,18 +39,12 @@ func (c *commandLogsShow) run(ctx context.Context, rep repo.DirectRepository) er
 
 	if len(c.logSessionIDs) > 0 {
 		sessions = filterLogSessions(sessions, func(l *logSessionInfo) bool {
-			for _, sid := range c.logSessionIDs {
-				if l.id == sid {
-					return true
-				}
-			}
-
-			return false
+			return slices.Contains(c.logSessionIDs, l.id)
 		})
 	}
 
 	if len(sessions) == 0 {
-		return errors.Errorf("no logs found")
+		return errors.New("no logs found")
 	}
 
 	// by default show latest one

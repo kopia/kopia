@@ -2,6 +2,7 @@ package gcs
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/kopia/kopia/repo/blob/throttling"
 )
@@ -24,4 +25,7 @@ type Options struct {
 	ReadOnly bool `json:"readOnly,omitempty"`
 
 	throttling.Limits
+
+	// PointInTime specifies a view of the (versioned) store at that time
+	PointInTime *time.Time `json:"pointInTime,omitempty"`
 }

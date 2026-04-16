@@ -6,6 +6,8 @@
 #
 # you will need to have git and golang too in the PATH.
 
+.PHONY: all-tools install-checklocks install-gotestsum install-linter
+
 # windows,linux,darwin
 GOOS:=$(shell go env GOOS)
 # amd64,arm64,arm
@@ -71,7 +73,7 @@ export REPO_OWNER=$(GITHUB_REPOSITORY:%/kopia=%)
 endif
 
 # e.g. 2021-02-19 06:56:21 -0800
-git_commit_date:=$(shell git show -s --format=%ci HEAD)
+git_commit_date:=$(shell TZ=UTC git show -s --date=iso-local --format=%cd HEAD)
 
 # compute build date and time from the current commit as yyyyMMdd
 commit_date_ymd:=$(subst -,,$(word 1, $(git_commit_date)))
@@ -102,13 +104,13 @@ retry:=
 endif
 
 # tool versions
-GOLANGCI_LINT_VERSION=1.54.0
-CHECKLOCKS_VERSION=e8c1fff214d0ecf02cfe5aa9c62d11174130c339
-NODE_VERSION=18.16.0
+GOLANGCI_LINT_VERSION=2.6.1
+CHECKLOCKS_VERSION=release-20241104.0
+NODE_VERSION=22.15.1
 HUGO_VERSION=0.113.0
-GOTESTSUM_VERSION=1.10.0
+GOTESTSUM_VERSION=1.13.0
 GORELEASER_VERSION=v0.176.0
-RCLONE_VERSION=1.63.1
+RCLONE_VERSION=1.68.2
 GITCHGLOG_VERSION=0.15.1
 
 # nodejs / npm
@@ -120,6 +122,11 @@ node_dir=$(node_base_dir)$(slash)bin
 endif
 npm=$(node_dir)$(slash)npm$(cmd_suffix)
 npm_flags=--scripts-prepend-node-path=auto
+
+npm_install_or_ci:=install
+ifneq ($(CI),)
+npm_install_or_ci:=ci
+endif
 
 # put NPM in the path
 PATH:=$(node_dir)$(path_separator)$(PATH)
@@ -150,6 +157,8 @@ endif
 $(linter):
 	go run github.com/kopia/kopia/tools/gettool --tool linter:$(GOLANGCI_LINT_VERSION) --output-dir $(linter_dir)
 
+install-linter: $(linter)
+
 # checklocks
 checklocks_dir=$(TOOLS_DIR)$(slash)checklocks-$(CHECKLOCKS_VERSION)
 checklocks=$(checklocks_dir)$(slash)bin$(slash)checklocks$(exe_suffix)
@@ -158,6 +167,8 @@ $(checklocks): export GOPATH=$(checklocks_dir)
 $(checklocks):
 	go install gvisor.dev/gvisor/tools/checklocks/cmd/checklocks@$(CHECKLOCKS_VERSION)
 	go clean -modcache
+
+install-checklocks: $(checklocks)
 
 # cli2md
 cli2mdbin=$(TOOLS_DIR)$(slash)cli2md-current$(exe_suffix)
@@ -193,6 +204,8 @@ gotestsum=$(gotestsum_dir)$(slash)gotestsum$(exe_suffix)
 $(gotestsum):
 	go run github.com/kopia/kopia/tools/gettool --tool gotestsum:$(GOTESTSUM_VERSION) --output-dir $(gotestsum_dir)
 
+install-gotestsum: $(gotestsum)
+
 # kopia 0.8 for backwards compat testing
 kopia08_version=0.8.4
 kopia08_dir=$(TOOLS_DIR)$(slash)kopia-$(kopia08_version)
@@ -200,6 +213,13 @@ kopia08=$(kopia08_dir)$(slash)kopia$(exe_suffix)
 
 $(kopia08):
 	go run github.com/kopia/kopia/tools/gettool --tool kopia:$(kopia08_version) --output-dir $(kopia08_dir)
+
+kopia017_version=0.17.0
+kopia017_dir=$(TOOLS_DIR)$(slash)kopia-$(kopia017_version)
+kopia017=$(kopia017_dir)$(slash)kopia$(exe_suffix)
+
+$(kopia017):
+	go run github.com/kopia/kopia/tools/gettool --tool kopia:$(kopia017_version) --output-dir $(kopia017_dir)
 
 MINIO_MC_PATH=$(TOOLS_DIR)/bin/mc$(exe_suffix)
 
@@ -242,9 +262,6 @@ export KOPIA_VERSION_NO_PREFIX=$(KOPIA_VERSION:v%=%)
 # embedded in the HTML pages
 export REACT_APP_SHORT_VERSION_INFO:=$(KOPIA_VERSION)
 export REACT_APP_FULL_VERSION_INFO:=$(KOPIA_VERSION) built on $(date_full) $(hostname)
-
-KOPIA_BUILD_TAGS=
-KOPIA_BUILD_FLAGS=-ldflags "-s -w -X github.com/kopia/kopia/repo.BuildVersion=$(KOPIA_VERSION_NO_PREFIX) -X github.com/kopia/kopia/repo.BuildInfo=$(shell git rev-parse HEAD) -X github.com/kopia/kopia/repo.BuildGitHubRepo=$(GITHUB_REPOSITORY)"
 
 clean-tools:
 	rm -rf $(TOOLS_DIR)
@@ -295,7 +312,7 @@ else
 maybehugo=
 endif
 
-ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION),kopia:0.8.4,gitchglog:$(GITCHGLOG_VERSION)
+ALL_TOOL_VERSIONS=node:$(NODE_VERSION),linter:$(GOLANGCI_LINT_VERSION),hugo:$(HUGO_VERSION),rclone:$(RCLONE_VERSION),gotestsum:$(GOTESTSUM_VERSION),goreleaser:$(GORELEASER_VERSION),kopia:0.8.4,kopia:0.17.0,gitchglog:$(GITCHGLOG_VERSION)
 
 verify-all-tool-checksums:
 	go run github.com/kopia/kopia/tools/gettool --test-all \
@@ -303,9 +320,8 @@ verify-all-tool-checksums:
 	  --tool $(ALL_TOOL_VERSIONS)
 
 regenerate-checksums:
-	go run github.com/kopia/kopia/tools/gettool --regenerate-checksums \
+	go run github.com/kopia/kopia/tools/gettool --regenerate-checksums $(CURDIR)/tools/gettool/checksums.txt \
 	  --output-dir /tmp/all-tools \
 	  --tool $(ALL_TOOL_VERSIONS)
 
-all-tools: $(gotestsum) $(npm) $(linter) $(maybehugo)
-
+all-tools: install-gotestsum install-linter $(maybehugo) $(npm)

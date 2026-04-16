@@ -54,6 +54,7 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 	}, func(m blob.Metadata) error {
 		mu.Lock()
 		defer mu.Unlock()
+
 		got = append(got, m.BlobID)
 
 		return nil
@@ -68,6 +69,7 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 	}, func(m blob.Metadata) error {
 		mu.Lock()
 		defer mu.Unlock()
+
 		got = append(got, m.BlobID)
 
 		return nil
@@ -83,6 +85,7 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 	}, func(m blob.Metadata) error {
 		mu.Lock()
 		defer mu.Unlock()
+
 		got = append(got, m.BlobID)
 
 		return nil
@@ -90,7 +93,7 @@ func TestIterateAllPrefixesInParallel(t *testing.T) {
 
 	require.ElementsMatch(t, []blob.ID{"foo", "bar", "boo"}, got)
 
-	errDummy := errors.Errorf("dummy")
+	errDummy := errors.New("dummy")
 
 	require.ErrorIs(t, errDummy, blob.IterateAllPrefixesInParallel(ctx, 10, st, []blob.ID{
 		"b",
@@ -176,14 +179,14 @@ func TestDeleteMultiple(t *testing.T) {
 	}, data)
 }
 
-func TestMetataJSONString(t *testing.T) {
+func TestMetadataJSONString(t *testing.T) {
 	bm := blob.Metadata{
 		BlobID:    "foo",
 		Length:    12345,
 		Timestamp: time.Date(2000, 1, 2, 3, 4, 5, 6, time.UTC),
 	}
 
-	require.Equal(t, `{"id":"foo","length":12345,"timestamp":"2000-01-02T03:04:05.000000006Z"}`, bm.String())
+	require.JSONEq(t, `{"id":"foo","length":12345,"timestamp":"2000-01-02T03:04:05.000000006Z"}`, bm.String())
 }
 
 func TestPutBlobAndGetMetadata(t *testing.T) {

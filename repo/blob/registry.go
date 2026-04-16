@@ -11,8 +11,8 @@ var factories = map[string]*storageFactory{}
 
 // StorageFactory allows creation of repositories in a generic way.
 type storageFactory struct {
-	defaultConfigFunc func() interface{}
-	createStorageFunc func(ctx context.Context, options interface{}, isCreate bool) (Storage, error)
+	defaultConfigFunc func() any
+	createStorageFunc func(ctx context.Context, options any, isCreate bool) (Storage, error)
 }
 
 // AddSupportedStorage registers factory function to create storage with a given type name.
@@ -22,11 +22,11 @@ func AddSupportedStorage[T any](
 	createStorageFunc func(ctx context.Context, options *T, isCreate bool) (Storage, error),
 ) {
 	f := &storageFactory{
-		defaultConfigFunc: func() interface{} {
+		defaultConfigFunc: func() any {
 			c := defaultConfig
 			return &c
 		},
-		createStorageFunc: func(ctx context.Context, options interface{}, isCreate bool) (Storage, error) {
+		createStorageFunc: func(ctx context.Context, options any, isCreate bool) (Storage, error) {
 			//nolint:forcetypeassert
 			return createStorageFunc(ctx, options.(*T), isCreate)
 		},

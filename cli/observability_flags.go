@@ -22,8 +22,10 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+	oteltrace "go.opentelemetry.io/otel/trace"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -32,16 +34,19 @@ const DirMode = 0o700
 
 //nolint:gochecknoglobals
 var metricsPushFormats = map[string]expfmt.Format{
-	"text":               expfmt.FmtText,
-	"proto-text":         expfmt.FmtProtoText,
-	"proto-delim":        expfmt.FmtProtoDelim,
-	"proto-compact":      expfmt.FmtProtoCompact,
-	"open-metrics":       expfmt.FmtOpenMetrics_1_0_0,
-	"open-metrics-0.0.1": expfmt.FmtOpenMetrics_0_0_1,
+	"text":               expfmt.NewFormat(expfmt.TypeTextPlain),
+	"proto-text":         expfmt.NewFormat(expfmt.TypeProtoText),
+	"proto-delim":        expfmt.NewFormat(expfmt.TypeProtoDelim),
+	"proto-compact":      expfmt.NewFormat(expfmt.TypeProtoCompact),
+	"open-metrics":       expfmt.NewFormat(expfmt.TypeOpenMetrics),
+	"open-metrics-0.0.1": "application/openmetrics-text; version=0.0.1; charset=utf-8",
 }
 
 type observabilityFlags struct {
-	enablePProf         bool
+	outputDirectory string
+
+	dumpAllocatorStats  bool
+	enablePProfEndpoint bool
 	metricsListenAddr   string
 	metricsPushAddr     string
 	metricsJob          string
@@ -50,11 +55,11 @@ type observabilityFlags struct {
 	metricsPushUsername string
 	metricsPushPassword string
 	metricsPushFormat   string
-	metricsOutputDir    string
-	outputFilePrefix    string
+	otlpTrace           bool
+	saveMetrics         bool
+	pf                  profileFlags
 
-	enableJaeger bool
-	otlpTrace    bool
+	outputSubdirectoryName string
 
 	stopPusher chan struct{}
 	pusherWG   sync.WaitGroup
@@ -63,8 +68,9 @@ type observabilityFlags struct {
 }
 
 func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
+	app.Flag("dump-allocator-stats", "Dump allocator stats at the end of execution.").Hidden().Envar(svc.EnvName("KOPIA_DUMP_ALLOCATOR_STATS")).BoolVar(&c.dumpAllocatorStats)
 	app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().StringVar(&c.metricsListenAddr)
-	app.Flag("enable-pprof", "Expose pprof handlers").Hidden().BoolVar(&c.enablePProf)
+	app.Flag("enable-pprof", "Expose pprof handlers").Hidden().BoolVar(&c.enablePProfEndpoint)
 
 	// push gateway parameters
 	app.Flag("metrics-push-addr", "Address of push gateway").Envar(svc.EnvName("KOPIA_METRICS_PUSH_ADDR")).Hidden().StringVar(&c.metricsPushAddr)
@@ -75,7 +81,6 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 	app.Flag("metrics-push-password", "Password for push gateway").Envar(svc.EnvName("KOPIA_METRICS_PUSH_PASSWORD")).Hidden().StringVar(&c.metricsPushPassword)
 
 	// tracing (OTLP) parameters
-	app.Flag("enable-jaeger-collector", "(DEPRECATED) Emit OpenTelemetry traces to Jaeger collector").Hidden().Envar(svc.EnvName("KOPIA_ENABLE_JAEGER_COLLECTOR")).BoolVar(&c.enableJaeger)
 	app.Flag("otlp-trace", "Send OpenTelemetry traces to OTLP collector using gRPC").Hidden().Envar(svc.EnvName("KOPIA_ENABLE_OTLP_TRACE")).BoolVar(&c.otlpTrace)
 
 	var formats []string
@@ -88,16 +93,17 @@ func (c *observabilityFlags) setup(svc appServices, app *kingpin.Application) {
 
 	app.Flag("metrics-push-format", "Format to use for push gateway").Envar(svc.EnvName("KOPIA_METRICS_FORMAT")).Hidden().EnumVar(&c.metricsPushFormat, formats...)
 
-	app.Flag("metrics-directory", "Directory where the metrics should be saved when kopia exits. A file per process execution will be created in this directory").Hidden().StringVar(&c.metricsOutputDir)
+	//nolint:lll
+	app.Flag("diagnostics-output-directory", "Directory where the diagnostics output should be stored saved when kopia exits. Diagnostics data includes among others: metrics, traces, profiles. The output files are stored in a sub-directory for each kopia (process) execution").Hidden().Default(filepath.Join(os.TempDir(), "kopia-diagnostics")).StringVar(&c.outputDirectory)
+
+	app.Flag("metrics-store-on-exit", "Writes metrics to a file in a sub-directory of the directory specified with the --diagnostics-output-directory").Hidden().BoolVar(&c.saveMetrics)
+
+	c.pf.setup(app)
 
 	app.PreAction(c.initialize)
 }
 
 func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
-	if c.metricsOutputDir == "" {
-		return nil
-	}
-
 	// write to a separate file per command and process execution to avoid
 	// conflicts with previously created files
 	command := "unknown"
@@ -105,28 +111,65 @@ func (c *observabilityFlags) initialize(ctx *kingpin.ParseContext) error {
 		command = strings.ReplaceAll(cmd.FullCommand(), " ", "-")
 	}
 
-	c.outputFilePrefix = clock.Now().Format("20060102-150405-") + command
+	c.outputSubdirectoryName = clock.Now().Format("20060102-150405-") + command
+
+	if (c.saveMetrics || c.pf.saveProfiles || c.pf.profileCPU) && c.outputDirectory == "" {
+		return errors.New("writing diagnostics output requires a non-empty directory name (specified with the '--diagnostics-output-directory' flag)")
+	}
 
 	return nil
 }
 
-func (c *observabilityFlags) startMetrics(ctx context.Context) error {
+// spanName specifies the name of the span at the start of a trace. A tracer is
+// started only when spanName is not empty.
+func (c *observabilityFlags) run(ctx context.Context, spanName string, f func(context.Context) error) error {
+	if err := c.start(ctx); err != nil {
+		return errors.Wrap(err, "unable to start observability facilities")
+	}
+
+	defer c.stop(ctx)
+
+	if err := c.pf.start(ctx, filepath.Join(c.outputDirectory, c.outputSubdirectoryName)); err != nil {
+		return errors.Wrap(err, "failed to start profiling")
+	}
+
+	defer c.pf.stop(ctx)
+
+	if spanName != "" {
+		tctx, span := tracer.Start(ctx, spanName, oteltrace.WithSpanKind(oteltrace.SpanKindClient))
+		ctx = tctx
+
+		defer span.End()
+	}
+
+	return f(ctx)
+}
+
+func (c *observabilityFlags) start(ctx context.Context) error {
 	c.maybeStartListener(ctx)
 
 	if err := c.maybeStartMetricsPusher(ctx); err != nil {
 		return err
 	}
 
-	if c.metricsOutputDir != "" {
-		c.metricsOutputDir = filepath.Clean(c.metricsOutputDir)
-
+	if c.saveMetrics {
 		// ensure the metrics output dir can be created
-		if err := os.MkdirAll(c.metricsOutputDir, DirMode); err != nil {
-			return errors.Wrapf(err, "could not create metrics output directory: %s", c.metricsOutputDir)
+		if _, err := mkSubdirectories(c.outputDirectory, c.outputSubdirectoryName); err != nil {
+			return err
 		}
 	}
 
 	return c.maybeStartTraceExporter(ctx)
+}
+
+func mkSubdirectories(directoryNames ...string) (dirName string, err error) {
+	dirName = filepath.Join(directoryNames...)
+
+	if err := os.MkdirAll(dirName, DirMode); err != nil {
+		return "", errors.Wrapf(err, "could not create '%q' subdirectory to save diagnostics output", dirName)
+	}
+
+	return dirName, nil
 }
 
 // Starts observability listener when a listener address is specified.
@@ -138,7 +181,7 @@ func (c *observabilityFlags) maybeStartListener(ctx context.Context) {
 	m := mux.NewRouter()
 	initPrometheus(m)
 
-	if c.enablePProf {
+	if c.enablePProfEndpoint {
 		m.HandleFunc("/debug/pprof/", pprof.Index)
 		m.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
 		m.HandleFunc("/debug/pprof/profile", pprof.Profile)
@@ -169,7 +212,7 @@ func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error 
 
 		parts := strings.SplitN(g, ":", nParts)
 		if len(parts) != nParts {
-			return errors.Errorf("grouping must be name:value")
+			return errors.New("grouping must be name:value")
 		}
 
 		name := parts[0]
@@ -195,10 +238,6 @@ func (c *observabilityFlags) maybeStartMetricsPusher(ctx context.Context) error 
 }
 
 func (c *observabilityFlags) maybeStartTraceExporter(ctx context.Context) error {
-	if c.enableJaeger {
-		return errors.Errorf("Flag '--enable-jaeger-collector' is no longer supported, use '--otlp' instead. See https://github.com/kopia/kopia/pull/3264 for more information")
-	}
-
 	if !c.otlpTrace {
 		return nil
 	}
@@ -228,7 +267,11 @@ func (c *observabilityFlags) maybeStartTraceExporter(ctx context.Context) error 
 	return nil
 }
 
-func (c *observabilityFlags) stopMetrics(ctx context.Context) {
+func (c *observabilityFlags) stop(ctx context.Context) {
+	if c.dumpAllocatorStats {
+		gather.DumpStats(ctx)
+	}
+
 	if c.stopPusher != nil {
 		close(c.stopPusher)
 
@@ -241,11 +284,13 @@ func (c *observabilityFlags) stopMetrics(ctx context.Context) {
 		}
 	}
 
-	if c.metricsOutputDir != "" {
-		filename := filepath.Join(c.metricsOutputDir, c.outputFilePrefix+".prom")
-
-		if err := prometheus.WriteToTextfile(filename, prometheus.DefaultGatherer); err != nil {
-			log(ctx).Warnf("unable to write metrics file '%s': %v", filename, err)
+	if c.saveMetrics {
+		if metricsDir, err := mkSubdirectories(c.outputDirectory, c.outputSubdirectoryName); err != nil {
+			log(ctx).Warnf("unable to create metrics output directory '%s': %v", metricsDir, err)
+		} else {
+			if err := prometheus.WriteToTextfile(filepath.Join(metricsDir, "kopia-metrics.prom"), prometheus.DefaultGatherer); err != nil {
+				log(ctx).Warnf("unable to write metrics to file: %v", err)
+			}
 		}
 	}
 }

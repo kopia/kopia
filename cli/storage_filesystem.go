@@ -46,16 +46,16 @@ func (c *storageFilesystemFlags) Connect(ctx context.Context, isCreate bool, for
 	fso.Path = ospath.ResolveUserFriendlyPath(fso.Path, false)
 
 	if !ospath.IsAbs(fso.Path) {
-		return nil, errors.Errorf("filesystem repository path must be absolute")
+		return nil, errors.New("filesystem repository path must be absolute")
 	}
 
 	if v := c.connectOwnerUID; v != "" {
-		//nolint:gomnd
+		//nolint:mnd
 		fso.FileUID = getIntPtrValue(v, 10)
 	}
 
 	if v := c.connectOwnerGID; v != "" {
-		//nolint:gomnd
+		//nolint:mnd
 		fso.FileGID = getIntPtrValue(v, 10)
 	}
 

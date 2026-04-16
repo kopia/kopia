@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -84,6 +85,7 @@ func (s *contentManagerSuite) TestContentManagerEmptyFlush(t *testing.T) {
 	bm := s.newTestContentManager(t, st)
 
 	defer bm.CloseShared(ctx)
+
 	bm.Flush(ctx)
 
 	if got, want := len(data), 0; got != want {
@@ -98,6 +100,7 @@ func (s *contentManagerSuite) TestContentZeroBytes1(t *testing.T) {
 	bm := s.newTestContentManager(t, st)
 
 	defer bm.CloseShared(ctx)
+
 	contentID := writeContentAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
 
@@ -140,7 +143,7 @@ func (s *contentManagerSuite) TestContentManagerSmallContentWrites(t *testing.T)
 	defer bm.CloseShared(ctx)
 
 	itemCount := maxPackCapacity / (10 + encryptionOverhead)
-	for i := 0; i < itemCount; i++ {
+	for i := range itemCount {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 10))
 	}
 
@@ -162,7 +165,7 @@ func (s *contentManagerSuite) TestContentManagerDedupesPendingContents(t *testin
 
 	defer bm.CloseShared(ctx)
 
-	for i := 0; i < 100; i++ {
+	for range 100 {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(0, maxPackCapacity/2))
 	}
 
@@ -263,7 +266,7 @@ func (s *contentManagerSuite) TestContentManagerInternalFlush(t *testing.T) {
 	defer bm.CloseShared(ctx)
 
 	itemsToOverflow := (maxPackCapacity)/(25+encryptionOverhead) + 2
-	for i := 0; i < itemsToOverflow; i++ {
+	for range itemsToOverflow {
 		b := make([]byte, 25)
 		cryptorand.Read(b)
 		writeContentAndVerify(ctx, t, bm, b)
@@ -273,7 +276,7 @@ func (s *contentManagerSuite) TestContentManagerInternalFlush(t *testing.T) {
 	verifyBlobCount(t, data, map[blob.ID]int{"s": 1, "p": 1})
 
 	// do it again - should be 2 blobs + some bytes pending.
-	for i := 0; i < itemsToOverflow; i++ {
+	for range itemsToOverflow {
 		b := make([]byte, 25)
 		cryptorand.Read(b)
 		writeContentAndVerify(ctx, t, bm, b)
@@ -309,7 +312,7 @@ func (s *contentManagerSuite) TestContentManagerWriteMultiple(t *testing.T) {
 		repeatCount = 500
 	}
 
-	for i := 0; i < repeatCount; i++ {
+	for i := range repeatCount {
 		b := seededRandomData(i, i%113)
 
 		blkID, err := bm.WriteContent(ctx, gather.FromSlice(b), "", NoCompression)
@@ -338,8 +341,6 @@ func (s *contentManagerSuite) TestContentManagerWriteMultiple(t *testing.T) {
 		if _, err := bm.GetContent(ctx, contentIDs[pos]); err != nil {
 			dumpContentManagerData(t, data)
 			t.Fatalf("can't read content %q: %v", contentIDs[pos], err)
-
-			continue
 		}
 	}
 }
@@ -354,7 +355,7 @@ func (s *contentManagerSuite) TestContentManagerFailedToWritePack(t *testing.T) 
 	faulty := blobtesting.NewFaultyStorage(st)
 	st = faulty
 
-	ta := faketime.NewTimeAdvance(fakeTime, 0)
+	ta := faketime.NewTimeAdvance(fakeTime)
 
 	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
 		Hash:              "HMAC-SHA256-128",
@@ -443,10 +444,12 @@ func (s *contentManagerSuite) TestIndexCompactionDropsContent(t *testing.T) {
 
 	bm = s.newTestContentManagerWithCustomTime(t, st, timeFunc)
 	// this drops deleted entries, including from index #1
-	require.NoError(t, bm.CompactIndexes(ctx, indexblob.CompactOptions{
+	_, err := bm.CompactIndexes(ctx, indexblob.CompactOptions{
 		DropDeletedBefore: deleteThreshold,
 		AllIndexes:        true,
-	}))
+	})
+	require.NoError(t, err)
+
 	require.NoError(t, bm.Flush(ctx))
 	require.NoError(t, bm.CloseShared(ctx))
 
@@ -523,7 +526,7 @@ func (s *contentManagerSuite) TestContentManagerConcurrency(t *testing.T) {
 
 	validateIndexCount(t, data, 4, 0)
 
-	if err := bm4.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := bm4.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 
@@ -541,7 +544,7 @@ func (s *contentManagerSuite) TestContentManagerConcurrency(t *testing.T) {
 	verifyContent(ctx, t, bm5, bm2content, seededRandomData(32, 100))
 	verifyContent(ctx, t, bm5, bm3content, seededRandomData(33, 100))
 
-	if err := bm5.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := bm5.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 }
@@ -739,15 +742,15 @@ func (s *contentManagerSuite) TestUndeleteContentSimple(t *testing.T) {
 
 		got, want := getContentInfo(t, bm, tc.cid), tc.info
 
-		if got.GetDeleted() {
+		if got.Deleted {
 			t.Error("Content marked as deleted:", got)
 		}
 
-		if got.GetPackBlobID() == "" {
+		if got.PackBlobID == "" {
 			t.Error("Empty pack id for undeleted content:", tc.cid)
 		}
 
-		if got.GetPackOffset() == 0 {
+		if got.PackOffset == 0 {
 			t.Error("0 offset for undeleted content:", tc.cid)
 		}
 
@@ -787,15 +790,15 @@ func (s *contentManagerSuite) TestUndeleteContentSimple(t *testing.T) {
 		t.Log("case name:", tc.name)
 		got := getContentInfo(t, bm, tc.cid)
 
-		if got.GetDeleted() {
+		if got.Deleted {
 			t.Error("Content marked as deleted:", got)
 		}
 
-		if got.GetPackBlobID() == "" {
+		if got.PackBlobID == "" {
 			t.Error("Empty pack id for undeleted content:", tc.cid)
 		}
 
-		if got.GetPackOffset() == 0 {
+		if got.PackOffset == 0 {
 			t.Error("0 offset for undeleted content:", tc.cid)
 		}
 
@@ -889,7 +892,7 @@ func (s *contentManagerSuite) TestUndeleteContent(t *testing.T) {
 			t.Fatalf("unable to get content info for %v: %v", id, err)
 		}
 
-		if got, want := ci.GetDeleted(), false; got != want {
+		if got, want := ci.Deleted, false; got != want {
 			t.Fatalf("content %v was not undeleted: %v", id, ci)
 		}
 	}
@@ -905,7 +908,7 @@ func (s *contentManagerSuite) TestUndeleteContent(t *testing.T) {
 			t.Fatalf("unable to get content info for %v: %v", id, err)
 		}
 
-		if got, want := ci.GetDeleted(), false; got != want {
+		if got, want := ci.Deleted, false; got != want {
 			t.Fatalf("content %v was not undeleted: %v", id, ci)
 		}
 	}
@@ -920,7 +923,7 @@ func (s *contentManagerSuite) TestUndeleteContent(t *testing.T) {
 			t.Fatalf("unable to get content info for %v: %v", id, err)
 		}
 
-		if got, want := ci.GetDeleted(), false; got != want {
+		if got, want := ci.Deleted, false; got != want {
 			t.Fatalf("content %v was not undeleted: %v", id, ci)
 		}
 	}
@@ -970,7 +973,7 @@ func (s *contentManagerSuite) TestDeleteAfterUndelete(t *testing.T) {
 		t.Fatal("error while flushing:", err)
 	}
 
-	c2Want = withDeleted{c2Want, true}
+	c2Want = withDeleted(c2Want)
 	deleteContentAfterUndeleteAndCheck(ctx, t, bm, content2, c2Want)
 }
 
@@ -979,11 +982,11 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 	deleteContent(ctx, t, bm, id)
 
 	got := getContentInfo(t, bm, id)
-	if !got.GetDeleted() {
+	if !got.Deleted {
 		t.Fatalf("Expected content %q to be deleted, got: %#v", id, got)
 	}
 
-	if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds"); len(diff) != 0 {
+	if diff := indextest.InfoDiff(want, got, "GetTimestampSeconds", "Timestamp"); len(diff) != 0 {
 		t.Fatalf("Content %q info does not match\ndiff: %v", id, diff)
 	}
 
@@ -993,7 +996,7 @@ func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *W
 
 	// check c1 again
 	got = getContentInfo(t, bm, id)
-	if !got.GetDeleted() {
+	if !got.Deleted {
 		t.Fatal("Expected content to be deleted, got: ", got)
 	}
 
@@ -1028,87 +1031,70 @@ func (s *contentManagerSuite) TestParallelWrites(t *testing.T) {
 	defer bm.CloseShared(ctx)
 
 	numWorkers := 8
-	closeWorkers := make(chan bool)
 
 	// workerLock allows workers to append to their own list of IDs (when R-locked) in parallel.
 	// W-lock allows flusher to capture the state without any worker being able to modify it.
 	workerWritten := make([][]ID, numWorkers)
 
+	var stopWorker atomic.Bool
+
+	// ensure the worker routines are stopped even if the test fails early
+	t.Cleanup(func() {
+		stopWorker.Store(true)
+	})
+
 	// start numWorkers, each writing random block and recording it
-	for workerID := 0; workerID < numWorkers; workerID++ {
-		workerID := workerID
+	for workerID := range numWorkers {
+		workersWG.Go(func() {
+			for !stopWorker.Load() {
+				id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100))
 
-		workersWG.Add(1)
+				workerLock.RLock()
 
-		go func() {
-			defer workersWG.Done()
+				workerWritten[workerID] = append(workerWritten[workerID], id)
 
-			for {
-				select {
-				case <-closeWorkers:
-					return
-				case <-time.After(1 * time.Nanosecond):
-					id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100))
-
-					workerLock.RLock()
-					workerWritten[workerID] = append(workerWritten[workerID], id)
-					workerLock.RUnlock()
-				}
+				workerLock.RUnlock()
 			}
-		}()
+		})
 	}
 
-	closeFlusher := make(chan bool)
+	flush := func() {
+		t.Logf("about to flush")
 
-	var flusherWG sync.WaitGroup
+		// capture snapshot of all content IDs while holding a writer lock
+		allWritten := map[ID]bool{}
 
-	flusherWG.Add(1)
+		workerLock.Lock()
 
-	go func() {
-		defer flusherWG.Done()
-
-		for {
-			select {
-			case <-closeFlusher:
-				t.Logf("closing flusher goroutine")
-				return
-			case <-time.After(2 * time.Second):
-				t.Logf("about to flush")
-
-				// capture snapshot of all content IDs while holding a writer lock
-				allWritten := map[ID]bool{}
-
-				workerLock.Lock()
-
-				for _, ww := range workerWritten {
-					for _, id := range ww {
-						allWritten[id] = true
-					}
-				}
-
-				workerLock.Unlock()
-
-				t.Logf("captured %v contents", len(allWritten))
-
-				if err := bm.Flush(ctx); err != nil {
-					t.Errorf("flush error: %v", err)
-				}
-
-				// open new content manager and verify all contents are visible there.
-				s.verifyAllDataPresent(ctx, t, st, allWritten)
+		for _, ww := range workerWritten {
+			for _, id := range ww {
+				allWritten[id] = true
 			}
 		}
-	}()
 
-	// run workers and flushers for some time, enough for 2 flushes to complete
-	time.Sleep(5 * time.Second)
+		workerLock.Unlock()
+
+		t.Logf("captured %v contents", len(allWritten))
+
+		err := bm.Flush(ctx)
+
+		require.NoError(t, err, "flush error")
+		// open new content manager and verify all contents are visible there.
+		s.verifyAllDataPresent(ctx, t, st, allWritten)
+	}
+
+	// flush a couple of times
+	for range 2 {
+		time.Sleep(2 * time.Second)
+		flush()
+	}
 
 	// shut down workers and wait for them
-	close(closeWorkers)
+	stopWorker.Store(true)
 	workersWG.Wait()
 
-	close(closeFlusher)
-	flusherWG.Wait()
+	// flush and check once more
+	flush()
 }
 
 func (s *contentManagerSuite) TestFlushResumesWriters(t *testing.T) {
@@ -1131,17 +1117,14 @@ func (s *contentManagerSuite) TestFlushResumesWriters(t *testing.T) {
 
 	bm := s.newTestContentManagerWithTweaks(t, fs, nil)
 	defer bm.CloseShared(ctx)
+
 	first := writeContentAndVerify(ctx, t, bm, []byte{1, 2, 3})
 
 	var second ID
 
 	var writeWG sync.WaitGroup
 
-	writeWG.Add(1)
-
-	go func() {
-		defer writeWG.Done()
-
+	writeWG.Go(func() {
 		// start a write while flush is ongoing, the write will block on the condition variable
 		<-resumeWrites
 		t.Logf("write started")
@@ -1149,7 +1132,7 @@ func (s *contentManagerSuite) TestFlushResumesWriters(t *testing.T) {
 		second = writeContentAndVerify(ctx, t, bm, []byte{3, 4, 5})
 
 		t.Logf("write finished")
-	}()
+	})
 
 	// flush will take 5 seconds, 1 second into that we will start a write
 	bm.Flush(ctx)
@@ -1227,8 +1210,9 @@ func (s *contentManagerSuite) verifyAllDataPresent(ctx context.Context, t *testi
 
 	bm := s.newTestContentManagerWithCustomTime(t, st, nil)
 	defer bm.CloseShared(ctx)
+
 	_ = bm.IterateContents(ctx, IterateOptions{}, func(ci Info) error {
-		delete(contentIDs, ci.GetContentID())
+		delete(contentIDs, ci.ContentID)
 		return nil
 	})
 
@@ -1250,7 +1234,7 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 				}
 			} else {
 				if cnt > 0 {
-					result = append(result, fault.New().Repeat(cnt-1).ErrorInstead(errors.Errorf("some write error")))
+					result = append(result, fault.New().Repeat(cnt-1).ErrorInstead(errors.New("some write error")))
 				}
 			}
 		}
@@ -1262,7 +1246,7 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 	// count how many times we retried writes/flushes
 	// also, verify that all the data is durable
 	cases := []struct {
-		faults               []*fault.Fault // failures to similuate
+		faults               []*fault.Fault // failures to simulate
 		contentSizes         []int          // sizes of contents to write
 		expectedWriteRetries []int
 		expectedFlushRetries int
@@ -1285,8 +1269,6 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 	}
 
 	for n, tc := range cases {
-		tc := tc
-
 		t.Run(fmt.Sprintf("case-%v", n), func(t *testing.T) {
 			ctx := testlogging.Context(t)
 			data := blobtesting.DataMap{}
@@ -1301,16 +1283,20 @@ func (s *contentManagerSuite) TestHandleWriteErrors(t *testing.T) {
 			defer bm.CloseShared(ctx)
 
 			var writeRetries []int
+
 			var cids []ID
+
 			for i, size := range tc.contentSizes {
 				t.Logf(">>>> writing %v", i)
 				cid, retries := writeContentWithRetriesAndVerify(ctx, t, bm, seededRandomData(i, size))
 				writeRetries = append(writeRetries, retries)
 				cids = append(cids, cid)
 			}
+
 			if got, want := flushWithRetries(ctx, t, bm), tc.expectedFlushRetries; got != want {
 				t.Fatalf("invalid # of flush retries %v, wanted %v", got, want)
 			}
+
 			if diff := cmp.Diff(writeRetries, tc.expectedWriteRetries); diff != "" {
 				t.Fatalf("invalid # of write retries (-got,+want): %v", diff)
 			}
@@ -1332,11 +1318,8 @@ func (s *contentManagerSuite) TestRewriteNonDeleted(t *testing.T) {
 
 	// perform a sequence WriteContent() <action1> RewriteContent() <action2> GetContent()
 	// where actionX can be (0=flush and reopen, 1=flush, 2=nothing)
-	for action1 := 0; action1 < stepBehaviors; action1++ {
-		for action2 := 0; action2 < stepBehaviors; action2++ {
-			action1 := action1
-			action2 := action2
-
+	for action1 := range stepBehaviors {
+		for action2 := range stepBehaviors {
 			t.Run(fmt.Sprintf("case-%v-%v", action1, action2), func(t *testing.T) {
 				ctx := testlogging.Context(t)
 				data := blobtesting.DataMap{}
@@ -1352,6 +1335,7 @@ func (s *contentManagerSuite) TestRewriteNonDeleted(t *testing.T) {
 					case 0:
 						t.Logf("flushing and reopening")
 						bm.Flush(ctx)
+
 						bm = s.newTestContentManagerWithCustomTime(t, st, fakeNow)
 						defer bm.CloseShared(ctx)
 					case 1:
@@ -1363,6 +1347,7 @@ func (s *contentManagerSuite) TestRewriteNonDeleted(t *testing.T) {
 				}
 
 				content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+
 				applyStep(action1)
 				require.NoError(t, bm.RewriteContent(ctx, content1))
 				applyStep(action2)
@@ -1382,9 +1367,10 @@ func (s *contentManagerSuite) TestDisableFlush(t *testing.T) {
 	bm.DisableIndexFlush(ctx)
 	bm.DisableIndexFlush(ctx)
 
-	for i := 0; i < 500; i++ {
+	for i := range 500 {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 100))
 	}
+
 	bm.Flush(ctx) // flush will not have effect
 	bm.EnableIndexFlush(ctx)
 	bm.Flush(ctx) // flush will not have effect
@@ -1402,18 +1388,16 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 
 	// perform a sequence WriteContent() <action1> Delete() <action2> RewriteContent() <action3> GetContent()
 	// where actionX can be (0=flush and reopen, 1=flush, 2=nothing)
-	for action1 := 0; action1 < stepBehaviors; action1++ {
-		for action2 := 0; action2 < stepBehaviors; action2++ {
-			for action3 := 0; action3 < stepBehaviors; action3++ {
-				action1 := action1
-				action2 := action2
-				action3 := action3
+	for action1 := range stepBehaviors {
+		for action2 := range stepBehaviors {
+			for action3 := range stepBehaviors {
 				t.Run(fmt.Sprintf("case-%v-%v-%v", action1, action2, action3), func(t *testing.T) {
 					ctx := testlogging.Context(t)
 					data := blobtesting.DataMap{}
 					keyTime := map[blob.ID]time.Time{}
 					fakeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
 					st := blobtesting.NewMapStorage(data, keyTime, fakeNow)
+
 					bm := s.newTestContentManagerWithCustomTime(t, st, fakeNow)
 					defer bm.CloseShared(ctx)
 
@@ -1422,6 +1406,7 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 						case 0:
 							t.Logf("flushing and reopening")
 							bm.Flush(ctx)
+
 							bm = s.newTestContentManagerWithCustomTime(t, st, fakeNow)
 							defer bm.CloseShared(ctx)
 						case 1:
@@ -1434,6 +1419,7 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 
 					c1Bytes := seededRandomData(10, 100)
 					content1 := writeContentAndVerify(ctx, t, bm, c1Bytes)
+
 					applyStep(action1)
 					require.NoError(t, bm.DeleteContent(ctx, content1))
 					applyStep(action2)
@@ -1441,12 +1427,15 @@ func (s *contentManagerSuite) TestRewriteDeleted(t *testing.T) {
 					if got, want := bm.RewriteContent(ctx, content1), ErrContentNotFound; !errors.Is(got, want) && got != nil {
 						t.Errorf("unexpected error %v, wanted %v", got, want)
 					}
+
 					applyStep(action3)
+
 					if action1 == 2 { // no flush
 						verifyContentNotFound(ctx, t, bm, content1)
 					} else {
 						verifyDeletedContentRead(ctx, t, bm, content1, c1Bytes)
 					}
+
 					dumpContentManagerData(t, data)
 				})
 			}
@@ -1468,7 +1457,6 @@ func (s *contentManagerSuite) TestDeleteAndRecreate(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			// write a content
 			data := blobtesting.DataMap{}
@@ -1514,6 +1502,7 @@ func (s *contentManagerSuite) TestDeleteAndRecreate(t *testing.T) {
 			defer bm3.CloseShared(ctx)
 
 			dumpContentManagerData(t, data)
+
 			if tc.isVisible {
 				verifyContent(ctx, t, bm3, content1, seededRandomData(10, 100))
 			} else {
@@ -1633,9 +1622,9 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			var mu sync.Mutex
+
 			got := map[ID]bool{}
 
 			err := bm.IterateContents(ctx, tc.options, func(ci Info) error {
@@ -1648,8 +1637,11 @@ func (s *contentManagerSuite) TestIterateContents(t *testing.T) {
 				}
 
 				mu.Lock()
-				got[ci.GetContentID()] = true
+
+				got[ci.ContentID] = true
+
 				mu.Unlock()
+
 				return nil
 			})
 
@@ -1770,7 +1762,7 @@ func verifyUnreferencedBlobsCount(ctx context.Context, t *testing.T, bm *WriteMa
 
 	var unrefCount int32
 
-	err := bm.IterateUnreferencedBlobs(ctx, nil, 1, func(_ blob.Metadata) error {
+	err := bm.IterateUnreferencedPacks(ctx, nil, 1, func(_ blob.Metadata) error {
 		atomic.AddInt32(&unrefCount, 1)
 		return nil
 	})
@@ -1814,7 +1806,7 @@ func (s *contentManagerSuite) TestContentWriteAliasing(t *testing.T) {
 	verifyContent(ctx, t, bm, id4, []byte{103, 0, 0})
 }
 
-func (s *contentManagerSuite) TestAutoCompressionOfMetadata(t *testing.T) {
+func (s *contentManagerSuite) TestDisableCompressionOfMetadata(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -1822,18 +1814,63 @@ func (s *contentManagerSuite) TestAutoCompressionOfMetadata(t *testing.T) {
 
 	//nolint:lll
 	contentID, err := bm.WriteContent(ctx,
-		gather.FromSlice([]byte(`{"stream":"kopia:directory","entries":[{"name":".chglog","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.159239913-07:00","uid":501,"gid":20,"obj":"k18c2fa7d9108a2bf0d9d5b8e7993c48d","summ":{"size":1897,"files":2,"symlinks":0,"dirs":1,"maxTime":"2022-03-22T22:45:22.159499411-07:00","numFailed":0}},{"name":".git","type":"d","mode":"0755","mtime":"2022-04-03T17:47:38.340226306-07:00","uid":501,"gid":20,"obj":"k0ad4214eb961aa78cf06611ec4563086","summ":{"size":88602907,"files":7336,"symlinks":0,"dirs":450,"maxTime":"2022-04-03T17:28:54.030135198-07:00","numFailed":0}},{"name":".github","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.160470238-07:00","uid":501,"gid":20,"obj":"k76bee329054d5574d89a4e87c3f24088","summ":{"size":20043,"files":13,"symlinks":0,"dirs":2,"maxTime":"2022-03-22T22:45:22.162580934-07:00","numFailed":0}},{"name":".logs","type":"d","mode":"0750","mtime":"2021-11-06T13:43:35.082115457-07:00","uid":501,"gid":20,"obj":"k1e7d5bda28d6b684bb180cac16775c1c","summ":{"size":382943352,"files":1823,"symlinks":0,"dirs":122,"maxTime":"2021-11-06T13:43:45.111270118-07:00","numFailed":0}},{"name":".release","type":"d","mode":"0755","mtime":"2021-04-16T06:26:47-07:00","uid":501,"gid":20,"obj":"k0eb539316600015bf2861e593f68e18d","summ":{"size":159711446,"files":19,"symlinks":0,"dirs":1,"maxTime":"2021-04-16T06:26:47-07:00","numFailed":0}},{"name":".screenshots","type":"d","mode":"0755","mtime":"2022-01-29T00:12:29.023594487-08:00","uid":501,"gid":20,"obj":"k97f6dbc82e84c97c955364d12ddc44bd","summ":{"size":6770746,"files":53,"symlinks":0,"dirs":7,"maxTime":"2022-03-19T18:59:51.559099257-07:00","numFailed":0}},{"name":"app","type":"d","mode":"0755","mtime":"2022-03-26T22:28:51.863826565-07:00","uid":501,"gid":20,"obj":"k656b41b8679c2537392b3997648cf43e","summ":{"size":565633611,"files":44812,"symlinks":0,"dirs":7576,"maxTime":"2022-03-26T22:28:51.863946606-07:00","numFailed":0}},{"name":"cli","type":"d","mode":"0755","mtime":"2022-04-03T12:24:52.84319224-07:00","uid":501,"gid":20,"obj":"k04ab4f2a1da96c47f62a51f119dba14d","summ":{"size":468233,"files":164,"symlinks":0,"dirs":1,"maxTime":"2022-04-03T12:24:52.843267824-07:00","numFailed":0}},{"name":"dist","type":"d","mode":"0755","mtime":"2022-03-19T22:46:00.12834831-07:00","uid":501,"gid":20,"obj":"k19fc65da8a47b7702bf6b501b7f3e1b5","summ":{"size":3420732994,"files":315,"symlinks":0,"dirs":321,"maxTime":"2022-03-27T12:10:08.019195221-07:00","numFailed":0}},{"name":"fs","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.194955195-07:00","uid":501,"gid":20,"obj":"k1f0be83e34826450e651f16ba63c5b9c","summ":{"size":80421,"files":21,"symlinks":0,"dirs":6,"maxTime":"2022-03-22T22:45:22.195085778-07:00","numFailed":0}},{"name":"icons","type":"d","mode":"0755","mtime":"2022-01-23T12:06:14.739575928-08:00","uid":501,"gid":20,"obj":"k9e76c283312bdc6e562f66c7d6526396","summ":{"size":361744,"files":13,"symlinks":0,"dirs":1,"maxTime":"2021-03-12T19:28:45-08:00","numFailed":0}},{"name":"internal","type":"d","mode":"0755","mtime":"2022-04-02T18:14:02.459772332-07:00","uid":501,"gid":20,"obj":"k181db968f69045159753f8d6f3f3454f","summ":{"size":778467,"files":198,"symlinks":0,"dirs":56,"maxTime":"2022-04-03T12:24:52.844331708-07:00","numFailed":0}},{"name":"node_modules","type":"d","mode":"0755","mtime":"2021-05-16T15:45:19-07:00","uid":501,"gid":20,"obj":"kf2b636c57a7cc412739d2c10ca7ab0a3","summ":{"size":5061213,"files":361,"symlinks":0,"dirs":69,"maxTime":"2021-05-16T15:45:19-07:00","numFailed":0}},{"name":"repo","type":"d","mode":"0755","mtime":"2022-04-03T12:24:52.844407167-07:00","uid":501,"gid":20,"obj":"kb839dcd04d94a1b568f7f5e8fc809fab","summ":{"size":992877,"files":193,"symlinks":0,"dirs":27,"maxTime":"2022-04-03T17:47:31.211316848-07:00","numFailed":0}},{"name":"site","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.250939688-07:00","uid":501,"gid":20,"obj":"k5d8ce70ca4337c17219502963f0fe6d3","summ":{"size":58225583,"files":11387,"symlinks":0,"dirs":557,"maxTime":"2022-03-22T22:45:22.258280685-07:00","numFailed":0}},{"name":"snapshot","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.265723348-07:00","uid":501,"gid":20,"obj":"k6201166bd99c8fe85d53d742e92c81a6","summ":{"size":316009,"files":66,"symlinks":0,"dirs":6,"maxTime":"2022-03-26T23:04:24.313115653-07:00","numFailed":0}},{"name":"tests","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.2749515-07:00","uid":501,"gid":20,"obj":"k1e20890089f6cbad3c6fe79cbae71e09","summ":{"size":657360,"files":183,"symlinks":0,"dirs":30,"maxTime":"2022-04-02T18:41:02.232496031-07:00","numFailed":0}},{"name":"tools","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.279094142-07:00","uid":501,"gid":20,"obj":"k6464e940fea5ef916ab86eafdb68b1cd","summ":{"size":889231805,"files":12412,"symlinks":0,"dirs":3405,"maxTime":"2022-03-22T22:45:22.279144141-07:00","numFailed":0}},{"name":".DS_Store","type":"f","mode":"0644","size":14340,"mtime":"2022-02-12T20:06:35.60110891-08:00","uid":501,"gid":20,"obj":"d9295958410ae3b73f68033274cd7a8f"},{"name":".codecov.yml","type":"f","mode":"0644","size":620,"mtime":"2022-03-22T22:45:22.159772743-07:00","uid":501,"gid":20,"obj":"6f81038ca8d7b81804f42031142731ed"},{"name":".gitattributes","type":"f","mode":"0644","size":340,"mtime":"2022-03-22T22:45:22.159870909-07:00","uid":501,"gid":20,"obj":"5608c2d289164627e8bdb468bbee2643"},{"name":".gitignore","type":"f","mode":"0644","size":321,"mtime":"2022-03-22T22:45:22.162843932-07:00","uid":501,"gid":20,"obj":"c43ce513c6371e0838fc553b77f5cdb2"},{"name":".golangci.yml","type":"f","mode":"0644","size":3071,"mtime":"2022-03-22T22:45:22.163100014-07:00","uid":501,"gid":20,"obj":"4289f49e43fba6800fa75462bd2ad43e"},{"name":".gometalinter.json","type":"f","mode":"0644","size":163,"mtime":"2019-05-09T22:33:06-07:00","uid":501,"gid":20,"obj":"fe4fc9d77cfb5f1b062414fdfd121713"},{"name":".goreleaser.yml","type":"f","mode":"0644","size":1736,"mtime":"2022-03-22T22:45:22.163354888-07:00","uid":501,"gid":20,"obj":"91093a462f4f72c619fb9f144702c1bf"},{"name":".linterr.txt","type":"f","mode":"0644","size":425,"mtime":"2021-11-08T22:14:29.315279172-08:00","uid":501,"gid":20,"obj":"f6c165387b84c7fb0ebc26fdc812775d"},{"name":".tmp.integration-tests.json","type":"f","mode":"0644","size":5306553,"mtime":"2022-03-27T12:10:55.035217892-07:00","uid":501,"gid":20,"obj":"Ixbc27b9a704275d05a6505e794ce63e66"},{"name":".tmp.provider-tests.json","type":"f","mode":"0644","size":617740,"mtime":"2022-02-15T21:30:28.579546866-08:00","uid":501,"gid":20,"obj":"e7f69fc0222763628d5b294faf37a6d7"},{"name":".tmp.unit-tests.json","type":"f","mode":"0644","size":200525943,"mtime":"2022-04-03T10:08:51.453180251-07:00","uid":501,"gid":20,"obj":"Ixf5da1bbcdbc267fa123d93aaf90cbd75"},{"name":".wwhrd.yml","type":"f","mode":"0644","size":244,"mtime":"2022-03-22T22:45:22.163564803-07:00","uid":501,"gid":20,"obj":"cea0cac6d19d59dcf2818b08521f46b8"},{"name":"BUILD.md","type":"f","mode":"0644","size":4873,"mtime":"2022-03-22T22:45:22.163818593-07:00","uid":501,"gid":20,"obj":"bcd47eca7b520b3ea88e4799cc0c9fea"},{"name":"CODE_OF_CONDUCT.md","type":"f","mode":"0644","size":5226,"mtime":"2021-03-12T19:28:45-08:00","uid":501,"gid":20,"obj":"270e55b022ec0c7588b2dbb501791b3e"},{"name":"GOVERNANCE.md","type":"f","mode":"0644","size":12477,"mtime":"2020-03-15T23:40:35-07:00","uid":501,"gid":20,"obj":"96674fad8fcf2bdfb96b0583917bb617"},{"name":"LICENSE","type":"f","mode":"0644","size":10763,"mtime":"2019-05-27T15:50:18-07:00","uid":501,"gid":20,"obj":"e751b8a146e1dd5494564e9a8c26dd6a"},{"name":"Makefile","type":"f","mode":"0644","size":17602,"mtime":"2022-03-22T22:45:22.1639718-07:00","uid":501,"gid":20,"obj":"aa9cc80d567e94087ea9be8fef718c1a"},{"name":"README.md","type":"f","mode":"0644","size":3874,"mtime":"2022-03-22T22:45:22.164109925-07:00","uid":501,"gid":20,"obj":"d227c763b9cf476426da5d99e9fff694"},{"name":"a.log","type":"f","mode":"0644","size":3776,"mtime":"2022-03-08T19:19:40.196874627-08:00","uid":501,"gid":20,"obj":"6337190196e804297f92a17805600be7"},{"name":"build_architecture.svg","type":"f","mode":"0644","size":143884,"mtime":"2021-03-12T19:28:45-08:00","uid":501,"gid":20,"obj":"72c0aef8c43498b056236b2d46d7e44a"},{"name":"coverage.txt","type":"f","mode":"0644","size":194996,"mtime":"2022-03-26T07:09:37.533649628-07:00","uid":501,"gid":20,"obj":"fdf1a20cea21d4daf053b99711735d0e"},{"name":"go.mod","type":"f","mode":"0644","size":5447,"mtime":"2022-03-27T09:40:59.78753556-07:00","uid":501,"gid":20,"obj":"71eefc767aeea467b1d1f7ff0ee5c21b"},{"name":"go.sum","type":"f","mode":"0644","size":114899,"mtime":"2022-03-27T09:40:59.788485485-07:00","uid":501,"gid":20,"obj":"2e801e525d9e58208dff3c25bd30f296"},{"name":"main.go","type":"f","mode":"0644","size":2057,"mtime":"2022-03-22T22:45:22.22380977-07:00","uid":501,"gid":20,"obj":"73411f7e340e5cddc43faaa1d1fe5743"}],"summary":{"size":5787582078,"files":79395,"symlinks":0,"dirs":12639,"maxTime":"2022-04-03T17:47:38.340226306-07:00","numFailed":0}}`)),
+		dirMetadataContent(),
 		"k",
 		NoCompression)
 	require.NoError(t, err)
 
 	info, err := bm.ContentInfo(ctx, contentID)
 	require.NoError(t, err)
+	require.Equal(t, NoCompression, info.CompressionHeaderID)
 
-	if scc, _ := bm.SupportsContentCompression(); scc {
-		require.Equal(t, compression.HeaderZstdFastest, info.GetCompressionHeaderID())
+	contentID1, err1 := bm.WriteContent(ctx,
+		indirectMetadataContent(),
+		"x",
+		NoCompression)
+	require.NoError(t, err1)
+
+	info1, err1 := bm.ContentInfo(ctx, contentID1)
+	require.NoError(t, err1)
+	require.Equal(t, NoCompression, info1.CompressionHeaderID)
+}
+
+func (s *contentManagerSuite) TestCompressionOfMetadata(t *testing.T) {
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
+		indexVersion: index.Version2,
+	})
+
+	//nolint:lll
+	contentID, err := bm.WriteContent(ctx,
+		dirMetadataContent(),
+		"k",
+		compression.HeaderZstdFastest)
+	require.NoError(t, err)
+
+	info, err := bm.ContentInfo(ctx, contentID)
+	require.NoError(t, err)
+
+	if bm.SupportsContentCompression() {
+		require.Equal(t, compression.HeaderZstdFastest, info.CompressionHeaderID)
 	} else {
-		require.Equal(t, NoCompression, info.GetCompressionHeaderID())
+		require.Equal(t, NoCompression, info.CompressionHeaderID)
+	}
+
+	contentID1, err1 := bm.WriteContent(ctx,
+		indirectMetadataContent(),
+		"x",
+		compression.HeaderZstdFastest)
+	require.NoError(t, err1)
+
+	info1, err1 := bm.ContentInfo(ctx, contentID1)
+	require.NoError(t, err1)
+
+	if bm.SupportsContentCompression() {
+		require.Equal(t, compression.HeaderZstdFastest, info1.CompressionHeaderID)
+	} else {
+		require.Equal(t, NoCompression, info1.CompressionHeaderID)
 	}
 }
 
@@ -1863,7 +1900,6 @@ func (s *contentManagerSuite) TestContentReadAliasing(t *testing.T) {
 
 func (s *contentManagerSuite) TestVersionCompatibility(t *testing.T) {
 	for writeVer := format.MinSupportedReadVersion; writeVer <= format.CurrentWriteVersion; writeVer++ {
-		writeVer := writeVer
 		t.Run(fmt.Sprintf("version-%v", writeVer), func(t *testing.T) {
 			s.verifyVersionCompat(t, writeVer)
 		})
@@ -1897,6 +1933,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 
 		dataSet[cid] = data
 	}
+
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 
 	// delete random 3 items (map iteration order is random)
@@ -1906,6 +1943,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 		t.Logf("deleting %v", blobID)
 		require.NoError(t, mgr.DeleteContent(ctx, blobID))
 		delete(dataSet, blobID)
+
 		cnt++
 
 		if cnt >= 3 {
@@ -1924,7 +1962,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 	// make sure we can read everything
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 
-	if err := mgr.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
+	if _, err := mgr.CompactIndexes(ctx, indexblob.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Fatalf("unable to compact indexes: %v", err)
 	}
 
@@ -1937,6 +1975,7 @@ func (s *contentManagerSuite) verifyVersionCompat(t *testing.T, writeVersion for
 	// now open one more manager
 	mgr = s.newTestContentManager(t, st)
 	defer mgr.CloseShared(ctx)
+
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 }
 
@@ -1948,7 +1987,7 @@ func (s *contentManagerSuite) TestReadsOwnWritesWithEventualConsistencyPersisten
 	cacheKeyTime := map[blob.ID]time.Time{}
 	cacheSt := blobtesting.NewMapStorage(cacheData, cacheKeyTime, timeNow)
 	ecst := blobtesting.NewEventuallyConsistentStorage(
-		logging.NewWrapper(st, testlogging.NewTestLogger(t), "[STORAGE] "),
+		logging.NewWrapper(st, testlogging.NewTestLogger(t), nil, "[STORAGE] "),
 		3*time.Second,
 		timeNow)
 
@@ -1982,10 +2021,10 @@ func (s *contentManagerSuite) verifyReadsOwnWrites(t *testing.T, st blob.Storage
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) { //nolint:intrange
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
-		for j := 0; j < i; j++ {
+		for j := range i {
 			// verify all contents written so far
 			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
 		}
@@ -2003,7 +2042,7 @@ func (s *contentManagerSuite) verifyReadsOwnWrites(t *testing.T, st blob.Storage
 	require.NoError(t, bm.CloseShared(ctx))
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) { //nolint:intrange
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }
@@ -2015,7 +2054,6 @@ func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *WriteMa
 		v, err := mgr.GetContent(ctx, contentID)
 		if err != nil {
 			t.Fatalf("unable to read content %q: %v", contentID, err)
-			continue
 		}
 
 		if !bytes.Equal(v, originalPayload) {
@@ -2057,9 +2095,9 @@ func (s *contentManagerSuite) TestCompression_CompressibleData(t *testing.T) {
 	require.NoError(t, err)
 
 	// gzip-compressed length
-	require.Equal(t, uint32(79), ci.GetPackedLength())
-	require.Equal(t, uint32(len(compressibleData)), ci.GetOriginalLength())
-	require.Equal(t, headerID, ci.GetCompressionHeaderID())
+	require.Equal(t, uint32(79), ci.PackedLength)
+	require.Equal(t, uint32(len(compressibleData)), ci.OriginalLength)
+	require.Equal(t, headerID, ci.CompressionHeaderID)
 
 	verifyContent(ctx, t, bm, cid, compressibleData)
 
@@ -2083,7 +2121,7 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	nonCompressibleData := make([]byte, 65000)
 	headerID := compression.ByName["pgzip"].HeaderID()
 
-	randRead(nonCompressibleData)
+	randRead(t, nonCompressibleData)
 
 	cid, err := bm.WriteContent(ctx, gather.FromSlice(nonCompressibleData), "", headerID)
 	require.NoError(t, err)
@@ -2094,9 +2132,9 @@ func (s *contentManagerSuite) TestCompression_NonCompressibleData(t *testing.T) 
 	require.NoError(t, err)
 
 	// verify compression did not occur
-	require.True(t, ci.GetPackedLength() > ci.GetOriginalLength())
-	require.Equal(t, uint32(len(nonCompressibleData)), ci.GetOriginalLength())
-	require.Equal(t, NoCompression, ci.GetCompressionHeaderID())
+	require.Greater(t, ci.PackedLength, ci.OriginalLength)
+	require.Equal(t, uint32(len(nonCompressibleData)), ci.OriginalLength)
+	require.Equal(t, NoCompression, ci.CompressionHeaderID)
 
 	require.NoError(t, bm.Flush(ctx))
 	verifyContent(ctx, t, bm, cid, nonCompressibleData)
@@ -2172,6 +2210,7 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	})
 
 	defer bm.CloseShared(ctx)
+
 	bm.Flush(ctx)
 
 	// write 6 x 6 MB content in 2 blobs.
@@ -2184,12 +2223,12 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	id6 := writeContentAndVerify(ctx, t, bm, bytes.Repeat([]byte{6, 7, 8, 9, 10, 11}, 1e6))
 	require.NoError(t, bm.Flush(ctx))
 
-	blob1 := getContentInfo(t, bm, id1).GetPackBlobID()
-	require.Equal(t, blob1, getContentInfo(t, bm, id2).GetPackBlobID())
-	require.Equal(t, blob1, getContentInfo(t, bm, id3).GetPackBlobID())
-	blob2 := getContentInfo(t, bm, id4).GetPackBlobID()
-	require.Equal(t, blob2, getContentInfo(t, bm, id5).GetPackBlobID())
-	require.Equal(t, blob2, getContentInfo(t, bm, id6).GetPackBlobID())
+	blob1 := getContentInfo(t, bm, id1).PackBlobID
+	require.Equal(t, blob1, getContentInfo(t, bm, id2).PackBlobID)
+	require.Equal(t, blob1, getContentInfo(t, bm, id3).PackBlobID)
+	blob2 := getContentInfo(t, bm, id4).PackBlobID
+	require.Equal(t, blob2, getContentInfo(t, bm, id5).PackBlobID)
+	require.Equal(t, blob2, getContentInfo(t, bm, id6).PackBlobID)
 
 	ccd := bm.contentCache
 	ccm := bm.metadataCache
@@ -2255,12 +2294,8 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	}
 
 	for _, hint := range hints {
-		hint := hint
-
 		t.Run("hint:"+hint, func(t *testing.T) {
 			for _, tc := range cases {
-				tc := tc
-
 				t.Run(tc.name, func(t *testing.T) {
 					wipeCache(t, ccd.CacheStorage())
 					wipeCache(t, ccm.CacheStorage())
@@ -2300,10 +2335,10 @@ func (s *contentManagerSuite) TestContentPermissiveCacheLoading(t *testing.T) {
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := 0; i < len(ids); i++ {
+	for i := range ids {
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
-		for j := 0; j < i; j++ {
+		for j := range i {
 			// verify all contents written so far
 			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
 		}
@@ -2329,7 +2364,7 @@ func (s *contentManagerSuite) TestContentPermissiveCacheLoading(t *testing.T) {
 
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := 0; i < len(ids); i++ {
+	for i := range ids {
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }
@@ -2351,10 +2386,10 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
 
 	ids := make([]ID, 100)
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) { //nolint:intrange
 		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
 
-		for j := 0; j < i; j++ {
+		for j := range i {
 			// verify all contents written so far
 			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
 		}
@@ -2382,7 +2417,7 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
 
-	for i := 0; i < len(ids); i++ {
+	for i := range len(ids) { //nolint:intrange
 		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
 	}
 }
@@ -2504,7 +2539,7 @@ func verifyDeletedContentRead(ctx context.Context, t *testing.T, bm *WriteManage
 		return
 	}
 
-	if !ci.GetDeleted() {
+	if !ci.Deleted {
 		t.Errorf("Expected content to be deleted, but it is not: %#v", ci)
 	}
 }
@@ -2514,7 +2549,8 @@ func verifyContent(ctx context.Context, t *testing.T, bm *WriteManager, contentI
 
 	b2, err := bm.GetContent(ctx, contentID)
 	if err != nil {
-		t.Fatalf("unable to read content %q: %v", contentID, err)
+		t.Errorf("unable to read content %q: %v", contentID, err)
+
 		return
 	}
 
@@ -2533,6 +2569,8 @@ func writeContentAndVerify(ctx context.Context, t *testing.T, bm *WriteManager, 
 	contentID, err := bm.WriteContent(ctx, gather.FromSlice(b), "", NoCompression)
 	if err != nil {
 		t.Errorf("err: %v", err)
+
+		return contentID
 	}
 
 	if got, want := contentID, hashValue(t, b); got != want {
@@ -2556,9 +2594,7 @@ func flushWithRetries(ctx context.Context, t *testing.T, bm *WriteManager) int {
 		retryCount++
 	}
 
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	require.NoError(t, err)
 
 	return retryCount
 }
@@ -2606,7 +2642,7 @@ func hashValue(t *testing.T, b []byte) ID {
 	h.Write(b)
 
 	id, err := IDFromHash("", h.Sum(nil))
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	return id
 }
@@ -2630,9 +2666,7 @@ func makeRandomHexID(t *testing.T, length int) index.ID {
 	t.Helper()
 
 	b := make([]byte, length/2)
-	if _, err := randRead(b); err != nil {
-		t.Fatal("Could not read random bytes", err)
-	}
+	randRead(t, b)
 
 	id, err := IDFromHash("", b)
 	require.NoError(t, err)
@@ -2643,18 +2677,15 @@ func makeRandomHexID(t *testing.T, length int) index.ID {
 func deleteContent(ctx context.Context, t *testing.T, bm *WriteManager, c ID) {
 	t.Helper()
 
-	if err := bm.DeleteContent(ctx, c); err != nil {
-		t.Fatalf("Unable to delete content %v: %v", c, err)
-	}
+	err := bm.DeleteContent(ctx, c)
+	require.NoErrorf(t, err, "Unable to delete content %v", c)
 }
 
 func getContentInfo(t *testing.T, bm *WriteManager, c ID) Info {
 	t.Helper()
 
 	i, err := bm.ContentInfo(testlogging.Context(t), c)
-	if err != nil {
-		t.Fatalf("Unable to get content info for %q: %v", c, err)
-	}
+	require.NoErrorf(t, err, "Unable to get content info for %q", c)
 
 	return i
 }
@@ -2673,13 +2704,10 @@ func verifyBlobCount(t *testing.T, data blobtesting.DataMap, want map[blob.ID]in
 	}
 }
 
-type withDeleted struct {
-	index.Info
-	deleted bool
-}
+func withDeleted(i Info) Info {
+	i.Deleted = true
 
-func (o withDeleted) GetDeleted() bool {
-	return o.deleted
+	return i
 }
 
 var (
@@ -2688,10 +2716,22 @@ var (
 	rMu sync.Mutex
 )
 
-func randRead(b []byte) (n int, err error) {
-	rMu.Lock()
-	n, err = r.Read(b)
-	rMu.Unlock()
+func randRead(t *testing.T, b []byte) {
+	t.Helper()
 
-	return
+	rMu.Lock()
+	defer rMu.Unlock()
+
+	n, err := r.Read(b)
+
+	require.NoError(t, err, "unable to read random bytes")
+	require.Equal(t, len(b), n)
+}
+
+func dirMetadataContent() gather.Bytes {
+	return gather.FromSlice([]byte(`{"stream":"kopia:directory","entries":[{"name":".chglog","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.159239913-07:00","uid":501,"gid":20,"obj":"k18c2fa7d9108a2bf0d9d5b8e7993c48d","summ":{"size":1897,"files":2,"symlinks":0,"dirs":1,"maxTime":"2022-03-22T22:45:22.159499411-07:00","numFailed":0}},{"name":".git","type":"d","mode":"0755","mtime":"2022-04-03T17:47:38.340226306-07:00","uid":501,"gid":20,"obj":"k0ad4214eb961aa78cf06611ec4563086","summ":{"size":88602907,"files":7336,"symlinks":0,"dirs":450,"maxTime":"2022-04-03T17:28:54.030135198-07:00","numFailed":0}},{"name":".github","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.160470238-07:00","uid":501,"gid":20,"obj":"k76bee329054d5574d89a4e87c3f24088","summ":{"size":20043,"files":13,"symlinks":0,"dirs":2,"maxTime":"2022-03-22T22:45:22.162580934-07:00","numFailed":0}},{"name":".logs","type":"d","mode":"0750","mtime":"2021-11-06T13:43:35.082115457-07:00","uid":501,"gid":20,"obj":"k1e7d5bda28d6b684bb180cac16775c1c","summ":{"size":382943352,"files":1823,"symlinks":0,"dirs":122,"maxTime":"2021-11-06T13:43:45.111270118-07:00","numFailed":0}},{"name":".release","type":"d","mode":"0755","mtime":"2021-04-16T06:26:47-07:00","uid":501,"gid":20,"obj":"k0eb539316600015bf2861e593f68e18d","summ":{"size":159711446,"files":19,"symlinks":0,"dirs":1,"maxTime":"2021-04-16T06:26:47-07:00","numFailed":0}},{"name":".screenshots","type":"d","mode":"0755","mtime":"2022-01-29T00:12:29.023594487-08:00","uid":501,"gid":20,"obj":"k97f6dbc82e84c97c955364d12ddc44bd","summ":{"size":6770746,"files":53,"symlinks":0,"dirs":7,"maxTime":"2022-03-19T18:59:51.559099257-07:00","numFailed":0}},{"name":"app","type":"d","mode":"0755","mtime":"2022-03-26T22:28:51.863826565-07:00","uid":501,"gid":20,"obj":"k656b41b8679c2537392b3997648cf43e","summ":{"size":565633611,"files":44812,"symlinks":0,"dirs":7576,"maxTime":"2022-03-26T22:28:51.863946606-07:00","numFailed":0}},{"name":"cli","type":"d","mode":"0755","mtime":"2022-04-03T12:24:52.84319224-07:00","uid":501,"gid":20,"obj":"k04ab4f2a1da96c47f62a51f119dba14d","summ":{"size":468233,"files":164,"symlinks":0,"dirs":1,"maxTime":"2022-04-03T12:24:52.843267824-07:00","numFailed":0}},{"name":"dist","type":"d","mode":"0755","mtime":"2022-03-19T22:46:00.12834831-07:00","uid":501,"gid":20,"obj":"k19fc65da8a47b7702bf6b501b7f3e1b5","summ":{"size":3420732994,"files":315,"symlinks":0,"dirs":321,"maxTime":"2022-03-27T12:10:08.019195221-07:00","numFailed":0}},{"name":"fs","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.194955195-07:00","uid":501,"gid":20,"obj":"k1f0be83e34826450e651f16ba63c5b9c","summ":{"size":80421,"files":21,"symlinks":0,"dirs":6,"maxTime":"2022-03-22T22:45:22.195085778-07:00","numFailed":0}},{"name":"icons","type":"d","mode":"0755","mtime":"2022-01-23T12:06:14.739575928-08:00","uid":501,"gid":20,"obj":"k9e76c283312bdc6e562f66c7d6526396","summ":{"size":361744,"files":13,"symlinks":0,"dirs":1,"maxTime":"2021-03-12T19:28:45-08:00","numFailed":0}},{"name":"internal","type":"d","mode":"0755","mtime":"2022-04-02T18:14:02.459772332-07:00","uid":501,"gid":20,"obj":"k181db968f69045159753f8d6f3f3454f","summ":{"size":778467,"files":198,"symlinks":0,"dirs":56,"maxTime":"2022-04-03T12:24:52.844331708-07:00","numFailed":0}},{"name":"node_modules","type":"d","mode":"0755","mtime":"2021-05-16T15:45:19-07:00","uid":501,"gid":20,"obj":"kf2b636c57a7cc412739d2c10ca7ab0a3","summ":{"size":5061213,"files":361,"symlinks":0,"dirs":69,"maxTime":"2021-05-16T15:45:19-07:00","numFailed":0}},{"name":"repo","type":"d","mode":"0755","mtime":"2022-04-03T12:24:52.844407167-07:00","uid":501,"gid":20,"obj":"kb839dcd04d94a1b568f7f5e8fc809fab","summ":{"size":992877,"files":193,"symlinks":0,"dirs":27,"maxTime":"2022-04-03T17:47:31.211316848-07:00","numFailed":0}},{"name":"site","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.250939688-07:00","uid":501,"gid":20,"obj":"k5d8ce70ca4337c17219502963f0fe6d3","summ":{"size":58225583,"files":11387,"symlinks":0,"dirs":557,"maxTime":"2022-03-22T22:45:22.258280685-07:00","numFailed":0}},{"name":"snapshot","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.265723348-07:00","uid":501,"gid":20,"obj":"k6201166bd99c8fe85d53d742e92c81a6","summ":{"size":316009,"files":66,"symlinks":0,"dirs":6,"maxTime":"2022-03-26T23:04:24.313115653-07:00","numFailed":0}},{"name":"tests","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.2749515-07:00","uid":501,"gid":20,"obj":"k1e20890089f6cbad3c6fe79cbae71e09","summ":{"size":657360,"files":183,"symlinks":0,"dirs":30,"maxTime":"2022-04-02T18:41:02.232496031-07:00","numFailed":0}},{"name":"tools","type":"d","mode":"0755","mtime":"2022-03-22T22:45:22.279094142-07:00","uid":501,"gid":20,"obj":"k6464e940fea5ef916ab86eafdb68b1cd","summ":{"size":889231805,"files":12412,"symlinks":0,"dirs":3405,"maxTime":"2022-03-22T22:45:22.279144141-07:00","numFailed":0}},{"name":".DS_Store","type":"f","mode":"0644","size":14340,"mtime":"2022-02-12T20:06:35.60110891-08:00","uid":501,"gid":20,"obj":"d9295958410ae3b73f68033274cd7a8f"},{"name":".codecov.yml","type":"f","mode":"0644","size":620,"mtime":"2022-03-22T22:45:22.159772743-07:00","uid":501,"gid":20,"obj":"6f81038ca8d7b81804f42031142731ed"},{"name":".gitattributes","type":"f","mode":"0644","size":340,"mtime":"2022-03-22T22:45:22.159870909-07:00","uid":501,"gid":20,"obj":"5608c2d289164627e8bdb468bbee2643"},{"name":".gitignore","type":"f","mode":"0644","size":321,"mtime":"2022-03-22T22:45:22.162843932-07:00","uid":501,"gid":20,"obj":"c43ce513c6371e0838fc553b77f5cdb2"},{"name":".golangci.yml","type":"f","mode":"0644","size":3071,"mtime":"2022-03-22T22:45:22.163100014-07:00","uid":501,"gid":20,"obj":"4289f49e43fba6800fa75462bd2ad43e"},{"name":".gometalinter.json","type":"f","mode":"0644","size":163,"mtime":"2019-05-09T22:33:06-07:00","uid":501,"gid":20,"obj":"fe4fc9d77cfb5f1b062414fdfd121713"},{"name":".goreleaser.yml","type":"f","mode":"0644","size":1736,"mtime":"2022-03-22T22:45:22.163354888-07:00","uid":501,"gid":20,"obj":"91093a462f4f72c619fb9f144702c1bf"},{"name":".linterr.txt","type":"f","mode":"0644","size":425,"mtime":"2021-11-08T22:14:29.315279172-08:00","uid":501,"gid":20,"obj":"f6c165387b84c7fb0ebc26fdc812775d"},{"name":".tmp.integration-tests.json","type":"f","mode":"0644","size":5306553,"mtime":"2022-03-27T12:10:55.035217892-07:00","uid":501,"gid":20,"obj":"Ixbc27b9a704275d05a6505e794ce63e66"},{"name":".tmp.provider-tests.json","type":"f","mode":"0644","size":617740,"mtime":"2022-02-15T21:30:28.579546866-08:00","uid":501,"gid":20,"obj":"e7f69fc0222763628d5b294faf37a6d7"},{"name":".tmp.unit-tests.json","type":"f","mode":"0644","size":200525943,"mtime":"2022-04-03T10:08:51.453180251-07:00","uid":501,"gid":20,"obj":"Ixf5da1bbcdbc267fa123d93aaf90cbd75"},{"name":".wwhrd.yml","type":"f","mode":"0644","size":244,"mtime":"2022-03-22T22:45:22.163564803-07:00","uid":501,"gid":20,"obj":"cea0cac6d19d59dcf2818b08521f46b8"},{"name":"BUILD.md","type":"f","mode":"0644","size":4873,"mtime":"2022-03-22T22:45:22.163818593-07:00","uid":501,"gid":20,"obj":"bcd47eca7b520b3ea88e4799cc0c9fea"},{"name":"CODE_OF_CONDUCT.md","type":"f","mode":"0644","size":5226,"mtime":"2021-03-12T19:28:45-08:00","uid":501,"gid":20,"obj":"270e55b022ec0c7588b2dbb501791b3e"},{"name":"GOVERNANCE.md","type":"f","mode":"0644","size":12477,"mtime":"2020-03-15T23:40:35-07:00","uid":501,"gid":20,"obj":"96674fad8fcf2bdfb96b0583917bb617"},{"name":"LICENSE","type":"f","mode":"0644","size":10763,"mtime":"2019-05-27T15:50:18-07:00","uid":501,"gid":20,"obj":"e751b8a146e1dd5494564e9a8c26dd6a"},{"name":"Makefile","type":"f","mode":"0644","size":17602,"mtime":"2022-03-22T22:45:22.1639718-07:00","uid":501,"gid":20,"obj":"aa9cc80d567e94087ea9be8fef718c1a"},{"name":"README.md","type":"f","mode":"0644","size":3874,"mtime":"2022-03-22T22:45:22.164109925-07:00","uid":501,"gid":20,"obj":"d227c763b9cf476426da5d99e9fff694"},{"name":"a.log","type":"f","mode":"0644","size":3776,"mtime":"2022-03-08T19:19:40.196874627-08:00","uid":501,"gid":20,"obj":"6337190196e804297f92a17805600be7"},{"name":"build_architecture.svg","type":"f","mode":"0644","size":143884,"mtime":"2021-03-12T19:28:45-08:00","uid":501,"gid":20,"obj":"72c0aef8c43498b056236b2d46d7e44a"},{"name":"coverage.txt","type":"f","mode":"0644","size":194996,"mtime":"2022-03-26T07:09:37.533649628-07:00","uid":501,"gid":20,"obj":"fdf1a20cea21d4daf053b99711735d0e"},{"name":"go.mod","type":"f","mode":"0644","size":5447,"mtime":"2022-03-27T09:40:59.78753556-07:00","uid":501,"gid":20,"obj":"71eefc767aeea467b1d1f7ff0ee5c21b"},{"name":"go.sum","type":"f","mode":"0644","size":114899,"mtime":"2022-03-27T09:40:59.788485485-07:00","uid":501,"gid":20,"obj":"2e801e525d9e58208dff3c25bd30f296"},{"name":"main.go","type":"f","mode":"0644","size":2057,"mtime":"2022-03-22T22:45:22.22380977-07:00","uid":501,"gid":20,"obj":"73411f7e340e5cddc43faaa1d1fe5743"}],"summary":{"size":5787582078,"files":79395,"symlinks":0,"dirs":12639,"maxTime":"2022-04-03T17:47:38.340226306-07:00","numFailed":0}}`)) //nolint:lll
+}
+
+func indirectMetadataContent() gather.Bytes {
+	return gather.FromSlice([]byte(`{"stream":"kopia:indirect","entries":[{"l":7616808,"o":"a6d555a7070f7e6c1e0c9cf90e8a6cc7"},{"s":7616808,"l":8388608,"o":"7ba10912378095851cff7da5f8083fc0"},{"s":16005416,"l":2642326,"o":"de41b93c1c1ba1f030d32e2cefffa0e9"},{"s":18647742,"l":2556388,"o":"25f391d185c3101006a45553efb67742"},{"s":21204130,"l":3156843,"o":"3b281271f7c0e17f533fe5edc0f79b31"},{"s":24360973,"l":8388608,"o":"4fb9395a4790fb0b6c5f0b91f102e9ab"},{"s":32749581,"l":8388608,"o":"bf0cfa2796354f0c74ee725af7a6824b"},{"s":41138189,"l":5788370,"o":"ecb6672792bfb433886b6e57d055ecd7"},{"s":46926559,"l":3828331,"o":"ac49ad086654c624f1e86a3d46ebdf04"},{"s":50754890,"l":6544699,"o":"951b34fddcc2cc679b23b074dabc7e4e"},{"s":57299589,"l":2523488,"o":"47965162d4ebc46b25a965854d4921d3"},{"s":59823077,"l":3510947,"o":"83d6c1f3ab9695075b93eeab6cc0761c"},{"s":63334024,"l":3239328,"o":"a8aa9f5ed5357520f0c0b04cb65293ec"},{"s":66573352,"l":8388608,"o":"9ca2f0ff2e50219759b4c07971ea4e84"},{"s":74961960,"l":3737528,"o":"5eaddb02c217c1d455078c858ae3ff96"},{"s":78699488,"l":2382189,"o":"513adbee65ed3f13fc6a6a27c1b683d1"},{"s":81081677,"l":3145876,"o":"a5968eb3ad727f4a6b263541a7847c7e"},{"s":84227553,"l":4302790,"o":"58929275a937192f01b1af8526c25cad"},{"s":88530343,"l":3795820,"o":"d2adf1e91029b37450ef988ff88bd861"},{"s":92326163,"l":8388608,"o":"9a14d257b93a9011a8d133ee3cd0c5bc"},{"s":100714771,"l":3885115,"o":"3ce2122c512d00744ab065ef8d782fe6"},{"s":104599886,"l":2109875,"o":"501a69a59ee5f3dd1b2c8add2fdc5cf8"},{"s":106709761,"l":6656155,"o":"6ba38db7fb389339b41dde4e8097e4ab"},{"s":113365916,"l":3789867,"o":"7b594f73ab9e3ad736aede2d1964e4e9"},{"s":117155783,"l":4156979,"o":"7215d07ec33b442aee52bd50234bf03d"},{"s":121312762,"l":4089475,"o":"d1ef2d9e330b11eec9365fefdc5434eb"},{"s":125402237,"l":8388608,"o":"38969b3114caf31a3501b34109063c25"},{"s":133790845,"l":8388608,"o":"cb1cf30e75d0fbbe058db1b8394e6e03"},{"s":142179453,"l":3645601,"o":"975e2cdb9ccbf36e3012a715c2a596de"},{"s":145825054,"l":2546129,"o":"2e2b6b2e98fbfcdc1855f5f36d8c2fb7"},{"s":148371183,"l":2830247,"o":"535dffb5b1df8f5f6f8d9787d961f81e"},{"s":151201430,"l":7158506,"o":"f953277da0845c6fe42d0e115219e6d6"},{"s":158359936,"l":2705426,"o":"83130d0e230071c5a94d38e3e94cf326"},{"s":161065362,"l":7085401,"o":"6b75fb5f5ab5728282bb043cf6d96cd3"},{"s":168150763,"l":5357359,"o":"431c63e39c20b879e517861acf12091f"},{"s":173508122,"l":5426372,"o":"0f329762d79c6948261dcde8fa26b3b8"},{"s":178934494,"l":6322719,"o":"dc8c1d8c09c0ce783e932ae2279c3db5"},{"s":185257213,"l":8388608,"o":"b5cb9fc5464c30f7bacfda0e5381ae91"},{"s":193645821,"l":3711229,"o":"494f1e15cfea3ab09523a391df0fbebc"},{"s":197357050,"l":6853193,"o":"a0c91d2654cfd2b4ca34542bb4b5d926"},{"s":204210243,"l":2645205,"o":"1cfcab6023b83e32c284c8eb1310f34c"},{"s":206855448,"l":5775640,"o":"84baf20ed2f84ba09f317028a366532d"},{"s":212631088,"l":2698898,"o":"7a6746a097f4506956f5e8d56eee6873"},{"s":215329986,"l":3444532,"o":"b11be0bf84341a0cbcd46ca14b6fed6d"},{"s":218774518,"l":5042437,"o":"3bc63ab43d9b7c19b42d51508f449b8b"},{"s":223816955,"l":4407710,"o":"f4cb0dcb6ad0d1d17c52ef7f5654d7b9"},{"s":228224665,"l":3288967,"o":"0a9254bb39e95e9a93c30b10f03e2f2a"},{"s":231513632,"l":6818881,"o":"fa22cfbe6caebb301dc4eae4d8d13a9b"},{"s":238332513,"l":4224104,"o":"29a1316a5157b0a3359b2760cbd0895c"},{"s":242556617,"l":4427385,"o":"0efe5d26d520d4ab114fcddb8d1a1931"},{"s":246984002,"l":3625567,"o":"8e6b4a4e1acc6100a271a9100518ff77"},{"s":250609569,"l":5412145,"o":"d3988a71021a70c0ff69eb0d80dca0c8"},{"s":256021714,"l":8388608,"o":"0b5c245c16e8fb845358f75a2f984585"},{"s":264410322,"l":8388608,"o":"70d149b1ec039dc716ae3b524f1ef0f8"},{"s":272798930,"l":5295221,"o":"a081eb5227d37e8d00343c450bc12117"},{"s":278094151,"l":3320852,"o":"7394c656b6278445ad39189dec6896f8"},{"s":281415003,"l":4569639,"o":"9e80f48dc5aa9378d1c4206d17dc3116"},{"s":285984642,"l":3227911,"o":"bd486cf43401ef78ae1199c6c18cb424"},{"s":289212553,"l":4408113,"o":"f73c366a16745ca5fe823c4074e026b4"},{"s":293620666,"l":5806890,"o":"fba0357b2a79b20ba3b942c0f22d545b"},{"s":299427556,"l":8388608,"o":"6e805d1757fa230794ab8445d377c832"},{"s":307816164,"l":5026069,"o":"88e75d7ba957fbe150e5c49a501540a6"},{"s":312842233,"l":8388608,"o":"17e65917f54e4e0b454c93eb08a8c342"},{"s":321230841,"l":2416356,"o":"e65ce9c2efe34ea01d015c737abc060a"},{"s":323647197,"l":2129020,"o":"b89cb59bb69a32e865d9afbf454d080e"},{"s":325776217,"l":6264283,"o":"6a80f62763f33d2946844ef3a8755517"},{"s":332040500,"l":7998871,"o":"59bce9d16094aef2e07f98098039bd91"},{"s":340039371,"l":3760705,"o":"53b191c6dfb41134b3430343438bf4ae"},{"s":343800076,"l":8388608,"o":"8d8945a17b9a819d03f414a337c2e47d"},{"s":352188684,"l":4370796,"o":"d216de504cdbc7a598c067e49f26c69b"},{"s":356559480,"l":8388608,"o":"e6f7e4cce390627c7030a9774ed885b1"},{"s":364948088,"l":4673010,"o":"32865f3c19fcf194e7fde39ef2e6aa28"},{"s":369621098,"l":8388608,"o":"26139bd21b4581d4b97be682f13005c9"},{"s":378009706,"l":3305716,"o":"5fe7a3d8d80e4dc367021ece1130b203"},{"s":381315422,"l":8388608,"o":"00a029bd5a9a63cde2ba9d25ebea11f7"},{"s":389704030,"l":8388608,"o":"67c10d19567b60a4193ab73bfc77ae99"},{"s":398092638,"l":5533146,"o":"045bcfb7416579d060c10f82946eae1b"},{"s":403625784,"l":8388608,"o":"72cda208c56f5c7bbfc99b65889bfc80"},{"s":412014392,"l":3760763,"o":"6cb3f59c8823c049e222b58c8c155d1e"},{"s":415775155,"l":3552185,"o":"d71b9f954d280b03f54c90db61168fc2"},{"s":419327340,"l":8388608,"o":"66df8620bdd389b079cc0334c4fb0f04"},{"s":427715948,"l":3653017,"o":"796520ac43adcaec6117760fc2699b78"},{"s":431368965,"l":2935638,"o":"01fea89a93279431a0a7f5188ceefed1"},{"s":434304603,"l":2820579,"o":"c9b3a1868f00f55d90cf02aa3c877b05"},{"s":437125182,"l":8388608,"o":"d77d35d2ead1595aedc25a65069e8d88"},{"s":445513790,"l":7407288,"o":"2297b4fb6ca3959a7fb0220e358a9778"},{"s":452921078,"l":7891558,"o":"a2cd30afaafcb844405eb6f048323bbc"},{"s":460812636,"l":3191130,"o":"ba6b77fc177cf223b1d50bf330ebf8ce"},{"s":464003766,"l":7565430,"o":"ea273aa565f457e94beca5e1d20ec068"},{"s":471569196,"l":3419794,"o":"eedd34de4ae36993f04f75ebc3c9a165"},{"s":474988990,"l":3460292,"o":"2a851cea2d84ca661b3eebf72cf0de55"},{"s":478449282,"l":8032042,"o":"b402c287796218ddf5d3fff2e70eb2c7"},{"s":486481324,"l":6320993,"o":"6fec73dd933316685cc3de99b6c0be66"},{"s":492802317,"l":2960958,"o":"386bfb6cf878efc2881aacfef8c8c22d"},{"s":495763275,"l":4043015,"o":"eaa10fc56a85813899e15e87ba458c90"},{"s":499806290,"l":2220895,"o":"94e8e439c139f120d514d248cb1d37b7"},{"s":502027185,"l":2318042,"o":"ccd572f48087ee0dce5af0d1823279cf"},{"s":504345227,"l":3396237,"o":"c1080ad8f97a38eaa3754023d0ff616c"},{"s":507741464,"l":3761426,"o":"abd1cc7cb7332535f1672e1fd0b48967"},{"s":511502890,"l":3313883,"o":"030705ce77d9eb02d3e91fa7a2f5ee16"},{"s":514816773,"l":4643444,"o":"56c1e4ca5e2bc64d1744e6645f16fec2"},{"s":519460217,"l":4877742,"o":"83f88295b8539647b759aab1e7588a5f"},{"s":524337959,"l":2731173,"o":"d3fc29a18a49f05f5320592f043b3898"},{"s":527069132,"l":4388381,"o":"0d206d6e7240945ccc2900814604e55d"},{"s":531457513,"l":4198048,"o":"87c54dab1f99b6b44e4193e4e7cbf6b1"},{"s":535655561,"l":8300001,"o":"d1d2be80c5e1942e8742481df1acc022"},{"s":543955562,"l":2103894,"o":"213b91aeb37f106cd97e29d23306d492"},{"s":546059456,"l":3464612,"o":"0cec1bb256cb1f37b65339ee4df7eaa4"},{"s":549524068,"l":6456134,"o":"5b21a9c34210b23e0d1711ffb467e694"},{"s":555980202,"l":4180529,"o":"f77ebea3c198350bb255bdfc0fdf6a36"},{"s":560160731,"l":8388608,"o":"9893ebd1ef51a280861b1168f9e838af"},{"s":568549339,"l":3672532,"o":"40f3c47adb19bec122d9647e1b7986ad"},{"s":572221871,"l":4686009,"o":"ffa5697af8444e22bdf05cd7f7b4e211"},{"s":576907880,"l":8388608,"o":"3ee328d1cb9f862a928198ecb28ae7b6"},{"s":585296488,"l":3117981,"o":"cbdb5e9e2390e031571567ffaf81ba08"},{"s":588414469,"l":8388608,"o":"9212fbcd5b2c5b09475f387b7a54d25c"},{"s":596803077,"l":8388608,"o":"5f06b16231dd3038abe59ddf17789e89"},{"s":605191685,"l":5345215,"o":"b22a5da98d6a3909d5e171998abfdc13"},{"s":610536900,"l":8388608,"o":"93db1f2b3e5272fffc3d644ec00f1463"},{"s":618925508,"l":7526887,"o":"d2b612202fa49f2fd059f76057183fd9"},{"s":626452395,"l":6650357,"o":"5863fec408b1aa89ccf1c77a1e29061e"},{"s":633102752,"l":8388608,"o":"4295a43614c097a8a4f72bb1f8d3cf3a"},{"s":641491360,"l":2281701,"o":"13e34075d962bcfdb89dcbd5b766aee6"},{"s":643773061,"l":4494718,"o":"b6cc56aba7510b753a3dae94428b62ff"},{"s":648267779,"l":6378335,"o":"9a8a3c3fe94e205523e40b2ed7eb902b"},{"s":654646114,"l":8388608,"o":"2636ee206c0a3c3b099b3f9f2e36eec6"},{"s":663034722,"l":8388608,"o":"e6323f8542eb34ad197099074b08ff55"},{"s":671423330,"l":8388608,"o":"66f6a6485ac08085328996b28ced7452"},{"s":679811938,"l":7119415,"o":"170721a5d1a9728df40deedcb5bde060"},{"s":686931353,"l":2960051,"o":"f52f94fbaf8d101e633c545b5b0cdf24"},{"s":689891404,"l":4571243,"o":"cc47bfaa5b6d54dd863bc714cc607f82"},{"s":694462647,"l":7146332,"o":"331722c804700da0c4fa4c43d04aa56a"},{"s":701608979,"l":5152399,"o":"f4668768e6c15d00b8d02c1d20faecca"},{"s":706761378,"l":8388608,"o":"593addeedf8da213289758348e05567c"},{"s":715149986,"l":8388608,"o":"388715dd8b32f2088572c7703302b596"},{"s":723538594,"l":4120402,"o":"0947e4864bd26230e26406f117b18d4c"},{"s":727658996,"l":8103740,"o":"ae3062a4e74d4a407b944c895dfe1f95"},{"s":735762736,"l":4037896,"o":"2fb24ad127cbe65fc704cfdd15d3e4c2"},{"s":739800632,"l":6316726,"o":"6f21491d81b688d5efbe0ff22e35e05b"},{"s":746117358,"l":3007919,"o":"eaa42376365bad6707f4c11c204d65eb"},{"s":749125277,"l":5262875,"o":"321847ff2d9c62f7f2c6db3914327756"},{"s":754388152,"l":4462123,"o":"c565fa31ef90fc2c196d9cde44095597"},{"s":758850275,"l":5294675,"o":"c6baec6e22d1c604a04d887aeed1fd82"},{"s":764144950,"l":2912994,"o":"1327ac0489a8e76c1fbebe5b561ca6b4"},{"s":767057944,"l":2962702,"o":"97fc763b782a57f9fd542f4ab7657a85"},{"s":770020646,"l":8388608,"o":"1ca3bce935b5d306be767a9c89cf0026"},{"s":778409254,"l":365274,"o":"484b0358354388fdd16d9ea2cfe9260d"}]}`)) //nolint:lll
 }

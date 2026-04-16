@@ -24,9 +24,9 @@ func TestGenerateServerCertificate(t *testing.T) {
 	require.NotNil(t, cert, "expected non-nil certificate")
 	require.NotNil(t, priv, "expected non-nil private key")
 	require.Len(t, cert.IPAddresses, 1)
-	require.Equal(t, cert.IPAddresses[0].String(), "127.0.0.1")
+	require.Equal(t, "127.0.0.1", cert.IPAddresses[0].String())
 	require.Len(t, cert.DNSNames, 1)
-	require.Equal(t, cert.DNSNames[0], "localhost")
+	require.Equal(t, "localhost", cert.DNSNames[0])
 	require.False(t, cert.NotBefore.After(clock.Now()), "certificate NotBefore is in the future")
 	require.False(t, cert.NotAfter.Before(clock.Now().Add(certValid-time.Minute)), "certificate NotAfter is too early")
 }

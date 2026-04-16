@@ -29,7 +29,7 @@ func TestUIPreferences(t *testing.T) {
 	var p, p2 serverapi.UIPreferences
 
 	require.NoError(t, cli.Get(ctx, "ui-preferences", nil, &p))
-	require.Equal(t, "", p.Theme)
+	require.Empty(t, p.Theme)
 	p.Theme = "dark"
 
 	require.NoError(t, cli.Put(ctx, "ui-preferences", &p, &serverapi.Empty{}))

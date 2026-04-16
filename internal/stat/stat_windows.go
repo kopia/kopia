@@ -1,5 +1,4 @@
 //go:build windows
-// +build windows
 
 // Package stat provides a cross-platform abstraction for
 // common stat commands.

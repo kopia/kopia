@@ -39,7 +39,7 @@ func TestPickLatestID(t *testing.T) {
 			want: "id3",
 		},
 		{
-			// pick lexicographically latests ID if all times are the same.
+			// pick lexicographically latest ID if all times are the same.
 			input: []*manifest.EntryMetadata{
 				{ID: "idx", ModTime: t0},
 				{ID: "ida", ModTime: t0},

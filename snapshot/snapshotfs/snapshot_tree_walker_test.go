@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 func TestSnapshotTreeWalker(t *testing.T) {
@@ -46,7 +47,7 @@ func TestSnapshotTreeWalker(t *testing.T) {
 	// root directory, 2 subdirectories + 2 unique files (dir1/file11 === dir2/file22)
 	const numUniqueObjects = 5
 
-	u := snapshotfs.NewUploader(env.RepositoryWriter)
+	u := upload.NewUploader(env.RepositoryWriter)
 	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
@@ -80,7 +81,7 @@ func TestSnapshotTreeWalker(t *testing.T) {
 }
 
 func TestSnapshotTreeWalker_Errors(t *testing.T) {
-	someErr1 := errors.Errorf("some error")
+	someErr1 := errors.New("some error")
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
@@ -110,7 +111,7 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 	dir2.AddFile("file21", []byte{1, 2, 3, 4}, 0o644)
 	dir2.AddFile("file22", []byte{1, 2, 3}, 0o644) // same content as dir11/file11
 
-	u := snapshotfs.NewUploader(env.RepositoryWriter)
+	u := upload.NewUploader(env.RepositoryWriter)
 	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
@@ -122,7 +123,7 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 }
 
 func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
-	someErr1 := errors.Errorf("some error")
+	someErr1 := errors.New("some error")
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
@@ -157,7 +158,7 @@ func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 	dir2.AddFile("file21", []byte{1, 2, 3, 4}, 0o644)
 	dir2.AddFile("file22", []byte{1, 2, 3, 4, 5}, 0o644)
 
-	u := snapshotfs.NewUploader(env.RepositoryWriter)
+	u := upload.NewUploader(env.RepositoryWriter)
 	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 
@@ -172,7 +173,7 @@ func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 }
 
 func TestSnapshotTreeWalker_MultipleErrorsSameOID(t *testing.T) {
-	someErr1 := errors.Errorf("some error")
+	someErr1 := errors.New("some error")
 
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
@@ -207,7 +208,7 @@ func TestSnapshotTreeWalker_MultipleErrorsSameOID(t *testing.T) {
 	dir2.AddFile("file21", []byte{1, 2, 3, 4}, 0o644)
 	dir2.AddFile("file22", []byte{1, 2, 3}, 0o644) // same content as dir11/file11
 
-	u := snapshotfs.NewUploader(env.RepositoryWriter)
+	u := upload.NewUploader(env.RepositoryWriter)
 	man, err := u.Upload(ctx, sourceRoot, nil, snapshot.SourceInfo{})
 	require.NoError(t, err)
 

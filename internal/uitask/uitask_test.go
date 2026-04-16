@@ -30,7 +30,7 @@ func TestUITask_withoutPersistentLogging(t *testing.T) {
 
 	m := uitask.NewManager(false)
 	testUITaskInternal(t, ctx, m)
-	require.Equal(t, "", logBuf.String())
+	require.Empty(t, logBuf.String())
 }
 
 func TestUITask_withPersistentLogging(t *testing.T) {
@@ -75,15 +75,15 @@ func testUITaskInternal(t *testing.T, ctx context.Context, m *uitask.Manager) {
 		})
 
 		verifyTaskLog(t, m, tid1a, nil)
-		log(ctx).Debugf("first")
-		ignoredLog(ctx).Debugf("this is ignored")
-		log(ctx).Infof("iii")
+		log(ctx).Debug("first")
+		ignoredLog(ctx).Debug("this is ignored")
+		log(ctx).Info("iii")
 		verifyTaskLog(t, m, tid1a, []string{
 			"first",
 			"iii",
 		})
-		log(ctx).Infof("www")
-		log(ctx).Errorf("eee")
+		log(ctx).Info("www")
+		log(ctx).Error("eee")
 
 		// 'first' has aged out
 		verifyTaskLog(t, m, tid1a, []string{
@@ -103,6 +103,7 @@ func testUITaskInternal(t *testing.T, ctx context.Context, m *uitask.Manager) {
 			"foo-notice": uitask.NoticeCounter(7),
 			"bar-notice": uitask.NoticeBytesCounter(8),
 		})
+
 		tsk, _ = m.GetTask(tid1a)
 		if diff := cmp.Diff(tsk.Counters, map[string]uitask.CounterValue{
 			"foo":        {1, "", ""},
@@ -185,7 +186,7 @@ func testUITaskInternal(t *testing.T, ctx context.Context, m *uitask.Manager) {
 			t.Fatalf("unexpected summary: %v", diff)
 		}
 
-		return errors.Errorf("some error")
+		return errors.New("some error")
 	})
 
 	verifyTaskList(t, m, map[string]uitask.Status{
@@ -273,6 +274,7 @@ func TestUITaskCancel_AfterOnCancel(t *testing.T) {
 
 		// send my task ID to the goroutine which will cancel our task
 		ch <- tid
+
 		canceled := make(chan struct{})
 
 		ctrl.OnCancel(func() {
@@ -312,8 +314,11 @@ func TestUITaskCancel_BeforeOnCancel(t *testing.T) {
 		// send my task ID to the goroutine which will cancel our task
 		tid = ctrl.CurrentTaskID()
 		ch <- tid
+
 		time.Sleep(1 * time.Second)
+
 		canceled := make(chan struct{})
+
 		ctrl.OnCancel(func() {
 			verifyTaskList(t, m, map[string]uitask.Status{
 				tid: uitask.StatusCanceling,

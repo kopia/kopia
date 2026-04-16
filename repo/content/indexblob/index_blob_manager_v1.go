@@ -9,11 +9,13 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobcrypto"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content/index"
-	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/repo/maintenancestats"
 )
 
 // ManagerV1 is the append-only implementation of indexblob.Manager
@@ -23,20 +25,22 @@ type ManagerV1 struct {
 	enc               *EncryptionManager
 	timeNow           func() time.Time
 	formattingOptions IndexFormattingOptions
-	log               logging.Logger
+	log               *contentlog.Logger
 
-	EpochMgr *epoch.Manager
+	epochMgr *epoch.Manager
 }
 
-// ListIndexBlobInfos list active blob info structs.  Also returns time of latest content deletion commit.
-func (m *ManagerV1) ListIndexBlobInfos(ctx context.Context) ([]Metadata, time.Time, error) {
-	return m.ListActiveIndexBlobs(ctx)
+// ListIndexBlobInfos lists active blob info structs.
+func (m *ManagerV1) ListIndexBlobInfos(ctx context.Context) ([]Metadata, error) {
+	blobs, _, err := m.ListActiveIndexBlobs(ctx)
+
+	return blobs, err
 }
 
 // ListActiveIndexBlobs lists the metadata for active index blobs and returns the cut-off time
 // before which all deleted index entries should be treated as non-existent.
 func (m *ManagerV1) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.Time, error) {
-	active, deletionWatermark, err := m.EpochMgr.GetCompleteIndexSet(ctx, epoch.LatestEpoch)
+	active, deletionWatermark, err := m.epochMgr.GetCompleteIndexSet(ctx, epoch.LatestEpoch)
 	if err != nil {
 		return nil, time.Time{}, errors.Wrap(err, "error getting index set")
 	}
@@ -47,36 +51,47 @@ func (m *ManagerV1) ListActiveIndexBlobs(ctx context.Context) ([]Metadata, time.
 		result = append(result, Metadata{Metadata: bm})
 	}
 
-	m.log.Errorf("active indexes %v deletion watermark %v", blob.IDsFromMetadata(active), deletionWatermark)
+	contentlog.Log2(ctx, m.log, "total active indexes", logparam.Int("len", len(active)), logparam.Time("deletionWatermark", deletionWatermark))
 
 	return result, deletionWatermark, nil
 }
 
 // Invalidate clears any read caches.
 func (m *ManagerV1) Invalidate() {
-	m.EpochMgr.Invalidate()
+	m.epochMgr.Invalidate()
 }
 
 // Compact advances the deletion watermark.
-func (m *ManagerV1) Compact(ctx context.Context, opt CompactOptions) error {
+func (m *ManagerV1) Compact(ctx context.Context, opt CompactOptions) (*maintenancestats.CompactIndexesStats, error) {
 	if opt.DropDeletedBefore.IsZero() {
-		return nil
+		return nil, nil
 	}
 
-	return errors.Wrap(m.EpochMgr.AdvanceDeletionWatermark(ctx, opt.DropDeletedBefore), "error advancing deletion watermark")
+	advanced, err := m.epochMgr.AdvanceDeletionWatermark(ctx, opt.DropDeletedBefore)
+	if err != nil {
+		return nil, errors.Wrap(err, "error advancing deletion watermark")
+	}
+
+	if !advanced {
+		return nil, nil
+	}
+
+	return &maintenancestats.CompactIndexesStats{
+		DroppedContentsDeletedBefore: opt.DropDeletedBefore,
+	}, nil
 }
 
 // CompactEpoch compacts the provided index blobs and writes a new set of blobs.
 func (m *ManagerV1) CompactEpoch(ctx context.Context, blobIDs []blob.ID, outputPrefix blob.ID) error {
-	tmpbld := make(index.Builder)
+	tmpbld := index.NewOneUseBuilder()
 
 	for _, indexBlob := range blobIDs {
-		if err := addIndexBlobsToBuilder(ctx, m.enc, tmpbld, indexBlob); err != nil {
+		if err := addIndexBlobsToBuilder(ctx, m.enc, tmpbld.Add, indexBlob); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 	}
 
-	mp, mperr := m.formattingOptions.GetMutableParameters()
+	mp, mperr := m.formattingOptions.GetMutableParameters(ctx)
 	if mperr != nil {
 		return errors.Wrap(mperr, "mutable parameters")
 	}
@@ -115,7 +130,7 @@ func (m *ManagerV1) CompactEpoch(ctx context.Context, blobIDs []blob.ID, outputP
 	return nil
 }
 
-// WriteIndexBlobs writes the provided data shards into new index blobs oprionally appending the provided suffix.
+// WriteIndexBlobs writes dataShards into new index blobs with an optional blob name suffix.
 // The writes are atomic in the sense that if any of them fails, the reader will
 // ignore all of the indexes that share the same suffix.
 func (m *ManagerV1) WriteIndexBlobs(ctx context.Context, dataShards []gather.Bytes, suffix blob.ID) ([]blob.Metadata, error) {
@@ -138,12 +153,12 @@ func (m *ManagerV1) WriteIndexBlobs(ctx context.Context, dataShards []gather.Byt
 	}
 
 	//nolint:wrapcheck
-	return m.EpochMgr.WriteIndex(ctx, shards)
+	return m.epochMgr.WriteIndex(ctx, shards)
 }
 
 // EpochManager returns the epoch manager.
 func (m *ManagerV1) EpochManager() *epoch.Manager {
-	return m.EpochMgr
+	return m.epochMgr
 }
 
 // PrepareUpgradeToIndexBlobManagerV1 prepares the repository for migrating to IndexBlobManagerV1.
@@ -173,7 +188,7 @@ func NewManagerV1(
 	epochMgr *epoch.Manager,
 	timeNow func() time.Time,
 	formattingOptions IndexFormattingOptions,
-	log logging.Logger,
+	log *contentlog.Logger,
 ) *ManagerV1 {
 	return &ManagerV1{
 		st:                st,
@@ -182,7 +197,7 @@ func NewManagerV1(
 		log:               log,
 		formattingOptions: formattingOptions,
 
-		EpochMgr: epochMgr,
+		epochMgr: epochMgr,
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 	"github.com/kopia/kopia/repo/hashing"
 )
 
-// Crypter ecapsulates hashing and encryption.
+// Crypter encapsulates hashing and encryption.
 type Crypter interface {
 	HashFunc() hashing.HashFunc
 	Encryptor() encryption.Encryptor
@@ -31,7 +31,7 @@ func getIndexBlobIV(s blob.ID) ([]byte, error) {
 		return nil, errors.Errorf("blob id too short: %v", s)
 	}
 
-	v, err := hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):])) //nolint:gomnd
+	v, err := hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):])) //nolint:mnd
 	if err != nil {
 		return nil, errors.Errorf("invalid blob ID: %v", s)
 	}

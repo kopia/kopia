@@ -16,7 +16,7 @@ type commandBlobDelete struct {
 }
 
 func (c *commandBlobDelete) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("delete", "Delete blobs by ID").Alias("remove").Alias("rm")
+	cmd := parent.Command("delete", "Delete blobs by ID").Alias("remove").Alias("rm").Hidden()
 	cmd.Arg("blobIDs", "Blob IDs").Required().StringsVar(&c.blobIDs)
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
 
@@ -24,7 +24,7 @@ func (c *commandBlobDelete) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandBlobDelete) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
-	c.svc.advancedCommand(ctx)
+	c.svc.dangerousCommand()
 
 	for _, b := range c.blobIDs {
 		err := rep.BlobStorage().DeleteBlob(ctx, blob.ID(b))

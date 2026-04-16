@@ -2,6 +2,7 @@ package fio
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"strconv"
 )
@@ -35,13 +36,8 @@ const (
 func (o Options) Merge(other Options) Options {
 	out := make(map[string]string, len(o)+len(other))
 
-	for k, v := range o {
-		out[k] = v
-	}
-
-	for k, v := range other {
-		out[k] = v
-	}
+	maps.Copy(out, o)
+	maps.Copy(out, other)
 
 	return out
 }
@@ -132,12 +128,12 @@ func boolOpt(key string, val bool) Options {
 	return Options{key: strconv.Itoa(0)}
 }
 
-func rangeOpt(key string, min, max int) Options {
-	if min > max {
-		min, max = max, min
+func rangeOpt(key string, minValue, maxValue int) Options {
+	if minValue > maxValue {
+		minValue, maxValue = maxValue, minValue
 	}
 
 	return Options{
-		key: fmt.Sprintf("%d%s%d", min, RangeDelimFio, max),
+		key: fmt.Sprintf("%d%s%d", minValue, RangeDelimFio, maxValue),
 	}
 }

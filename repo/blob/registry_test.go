@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -35,9 +36,11 @@ func TestRegistry(t *testing.T) {
 	}, true)
 
 	require.NoError(t, err)
-	require.IsType(t, (*myStorage)(nil), st)
-	require.Equal(t, 4, st.(*myStorage).cfg.Field)
-	require.True(t, st.(*myStorage).create)
+
+	mySt := testutil.EnsureType[*myStorage](t, st)
+
+	require.Equal(t, 4, mySt.cfg.Field)
+	require.True(t, mySt.create)
 
 	_, err = blob.NewStorage(context.Background(), blob.ConnectionInfo{
 		Type: "unknownstorage",

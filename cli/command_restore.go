@@ -21,7 +21,6 @@ import (
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/restore"
@@ -97,6 +96,12 @@ followed by the path of the directory for the contents to be restored.
 	unlimitedDepth = math.MaxInt32
 )
 
+// RestoreProgress is invoked to report progress during a restore.
+type RestoreProgress interface {
+	SetCounters(s restore.Stats)
+	Flush()
+}
+
 type restoreSourceTarget struct {
 	source        string
 	target        string
@@ -118,16 +123,21 @@ type commandRestore struct {
 	restoreSkipOwners             bool
 	restoreSkipPermissions        bool
 	restoreIncremental            bool
+	restoreDeleteExtra            bool
 	restoreIgnoreErrors           bool
+	flushFiles                    bool
 	restoreShallowAtDepth         int32
 	minSizeForPlaceholder         int32
 	snapshotTime                  string
 
 	restores []restoreSourceTarget
+
+	svc appServices
 }
 
 func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	c.restoreShallowAtDepth = unlimitedDepth
+	c.svc = svc
 
 	cmd := parent.Command("restore", restoreCommandHelp)
 	cmd.Arg("sources", restoreCommandSourcePathHelp).Required().StringsVar(&c.restoreTargetPaths)
@@ -145,9 +155,11 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("write-files-atomically", "Write files atomically to disk, ensuring they are either fully committed, or not written at all, preventing partially written files").Default("false").BoolVar(&c.restoreWriteFilesAtomically)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
+	cmd.Flag("delete-extra", "Delete additional files, directories and symlinks that exist in the restore path but do not exist in the snapshot").BoolVar(&c.restoreDeleteExtra)
 	cmd.Flag("shallow", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Int32Var(&c.restoreShallowAtDepth)
 	cmd.Flag("shallow-minsize", "When doing a shallow restore, write actual files instead of placeholders smaller than this size.").Int32Var(&c.minSizeForPlaceholder)
-	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").StringVar(&c.snapshotTime)
+	cmd.Flag("snapshot-time", "When using a path as the source, use the latest snapshot available before this date. Default is latest").Default("latest").StringVar(&c.snapshotTime)
+	cmd.Flag("flush-files", "Specifies whether or not to flush files after restore completes").Default("false").BoolVar(&c.flushFiles)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -234,7 +246,7 @@ func (c *commandRestore) constructTargetPairs(rep repo.Repository) error {
 	}
 
 	// Some undefined mixture of placeholders and other arguments.
-	return errors.Errorf("restore requires a source and targetpath or placeholders")
+	return errors.New("restore requires a source and targetpath or placeholders")
 }
 
 func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository) (restore.Output, error) {
@@ -259,6 +271,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository)
 			SkipPermissions:        c.restoreSkipPermissions,
 			SkipTimes:              c.restoreSkipTimes,
 			WriteSparseFiles:       c.restoreWriteSparseFiles,
+			FlushFiles:             c.flushFiles,
 		}
 
 		if err := o.Init(ctx); err != nil {
@@ -326,22 +339,34 @@ func (c *commandRestore) detectRestoreMode(ctx context.Context, m, targetpath st
 }
 
 func printRestoreStats(ctx context.Context, st *restore.Stats) {
-	var maybeSkipped, maybeErrors string
+	var maybeSkipped, maybeDeletedDirs, maybeDeletedFiles, maybeDeletedSymlinks, maybeErrors string
 
 	if st.SkippedCount > 0 {
 		maybeSkipped = fmt.Sprintf(", skipped %v (%v)", st.SkippedCount, units.BytesString(st.SkippedTotalFileSize))
+	}
+
+	if st.DeletedDirCount > 0 {
+		maybeDeletedDirs = fmt.Sprintf(", deleted directories %v", st.DeletedDirCount)
+	}
+
+	if st.DeletedFilesCount > 0 {
+		maybeDeletedFiles = fmt.Sprintf(", deleted files %v", st.DeletedFilesCount)
+	}
+
+	if st.DeletedSymlinkCount > 0 {
+		maybeDeletedSymlinks = fmt.Sprintf(", deleted symbolic links %v", st.DeletedSymlinkCount)
 	}
 
 	if st.IgnoredErrorCount > 0 {
 		maybeErrors = fmt.Sprintf(", ignored %v errors", st.IgnoredErrorCount)
 	}
 
-	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)%v%v.\n",
+	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)%v%v%v%v%v.\n",
 		st.RestoredFileCount,
 		st.RestoredDirCount,
 		st.RestoredSymlinkCount,
 		units.BytesString(st.RestoredTotalFileSize),
-		maybeSkipped, maybeErrors)
+		maybeSkipped, maybeDeletedDirs, maybeDeletedFiles, maybeDeletedSymlinks, maybeErrors)
 }
 
 func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo.Repository, rstp restoreSourceTarget, output restore.Output) (fs.Entry, error) {
@@ -363,6 +388,21 @@ func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo
 	}
 
 	return rootEntry, nil
+}
+
+func (c *commandRestore) getRestoreProgress() RestoreProgress {
+	if rp := c.svc.getRestoreProgress(); rp != nil {
+		return rp
+	}
+
+	pf := c.svc.getProgress().progressFlags
+
+	return &cliRestoreProgress{
+		enableProgress:         pf.enableProgress,
+		out:                    pf.out,
+		progressUpdateInterval: pf.progressUpdateInterval,
+		eta:                    timetrack.Start(),
+	}
 }
 
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
@@ -395,51 +435,26 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 			rootEntry = re
 		}
 
-		eta := timetrack.Start()
+		restoreProgress := c.getRestoreProgress()
+		progressCallback := func(_ context.Context, stats restore.Stats) {
+			restoreProgress.SetCounters(stats)
+		}
 
 		st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
 			Parallel:               c.restoreParallel,
 			Incremental:            c.restoreIncremental,
+			DeleteExtra:            c.restoreDeleteExtra,
 			IgnoreErrors:           c.restoreIgnoreErrors,
 			RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
 			MinSizeForPlaceholder:  c.minSizeForPlaceholder,
-			ProgressCallback: func(ctx context.Context, stats restore.Stats) {
-				restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
-				enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount
-
-				if restoredCount == 0 {
-					return
-				}
-
-				var maybeRemaining, maybeSkipped, maybeErrors string
-
-				if est, ok := eta.Estimate(float64(stats.RestoredTotalFileSize), float64(stats.EnqueuedTotalFileSize)); ok {
-					maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v",
-						units.BytesPerSecondsString(est.SpeedPerSecond),
-						est.PercentComplete,
-						est.Remaining)
-				}
-
-				if stats.SkippedCount > 0 {
-					maybeSkipped = fmt.Sprintf(", skipped %v (%v)", stats.SkippedCount, units.BytesString(stats.SkippedTotalFileSize))
-				}
-
-				if stats.IgnoredErrorCount > 0 {
-					maybeErrors = fmt.Sprintf(", ignored %v errors", stats.IgnoredErrorCount)
-				}
-
-				log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v%v.",
-					restoredCount, units.BytesString(stats.RestoredTotalFileSize),
-					enqueuedCount, units.BytesString(stats.EnqueuedTotalFileSize),
-					maybeSkipped,
-					maybeErrors,
-					maybeRemaining)
-			},
+			ProgressCallback:       progressCallback,
 		})
 		if err != nil {
 			return errors.Wrap(err, "error restoring")
 		}
 
+		progressCallback(ctx, st)
+		restoreProgress.Flush() // Force last progress values to be printed
 		printRestoreStats(ctx, &st)
 	}
 
@@ -452,7 +467,7 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 	pathElements := strings.Split(filepath.ToSlash(source), "/")
 
 	if pathElements[0] != "" {
-		_, err := index.ParseID(pathElements[0])
+		_, err := object.ParseID(pathElements[0])
 		if err == nil {
 			// source is an ID
 			return source, nil
@@ -476,7 +491,7 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 	}
 
 	if si.Path == "" {
-		return "", errors.Errorf("the source must contain a path element")
+		return "", errors.New("the source must contain a path element")
 	}
 
 	manifestIDs, err := findSnapshotsForSource(ctx, rep, si, map[string]string{})
@@ -509,13 +524,13 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 
 func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, int) bool, error) {
 	if timespec == "" || timespec == "latest" {
-		return func(m *snapshot.Manifest, i, total int) bool {
+		return func(_ *snapshot.Manifest, i, _ int) bool {
 			return i == 0
 		}, nil
 	}
 
 	if timespec == "oldest" {
-		return func(m *snapshot.Manifest, i, total int) bool {
+		return func(_ *snapshot.Manifest, i, total int) bool {
 			return i == total-1
 		}, nil
 	}
@@ -525,7 +540,7 @@ func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, in
 		return nil, err
 	}
 
-	return func(m *snapshot.Manifest, i, total int) bool {
+	return func(m *snapshot.Manifest, _, _ int) bool {
 		return m.StartTime.ToTime().Before(t)
 	}, nil
 }
@@ -563,9 +578,9 @@ func computeMaxTime(timespec string) (time.Time, error) {
 	}
 
 	// Just used as markers, the value does not really matter
-	day := 24 * time.Hour //nolint:gomnd
-	month := 30 * day     //nolint:gomnd
-	year := 12 * month    //nolint:gomnd
+	day := 24 * time.Hour //nolint:mnd
+	month := 30 * day     //nolint:mnd
+	year := 12 * month    //nolint:mnd
 
 	formats := []struct {
 		format    string

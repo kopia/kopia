@@ -59,6 +59,29 @@ func TestUserManager(t *testing.T) {
 	}
 }
 
+func TestGetNewProfile(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	p, err := user.GetNewProfile(ctx, env.RepositoryWriter, "alice@somehost")
+
+	require.NoError(t, err)
+	require.NotNil(t, p)
+
+	err = p.SetPassword("badpassword")
+	require.NoError(t, err)
+
+	err = user.SetUserProfile(ctx, env.RepositoryWriter, p)
+	require.NoError(t, err)
+
+	p, err = user.GetNewProfile(ctx, env.RepositoryWriter, p.Username)
+	require.ErrorIs(t, err, user.ErrUserAlreadyExists)
+	require.Nil(t, p)
+
+	p, err = user.GetNewProfile(ctx, env.RepositoryWriter, "nonexisting@somehost")
+	require.NoError(t, err)
+	require.NotNil(t, p)
+}
+
 func TestValidateUsername_Valid(t *testing.T) {
 	cases := []string{
 		"foo@bar",

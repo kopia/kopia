@@ -25,7 +25,7 @@ func TestUTCTimestamp(t *testing.T) {
 
 	v, err := json.Marshal(x)
 	require.NoError(t, err)
-	require.Equal(t, "{\"myts\":\"2022-01-02T03:04:05.000000006Z\"}", string(v))
+	require.JSONEq(t, "{\"myts\":\"2022-01-02T03:04:05.000000006Z\"}", string(v))
 
 	require.NoError(t, json.Unmarshal(v, &y))
 	require.Equal(t, x, y)
@@ -34,7 +34,7 @@ func TestUTCTimestamp(t *testing.T) {
 	require.Equal(t, fs.UTCTimestamp(1657476922656077568), y.TS)
 	require.Equal(t, "2022-07-10T18:15:22.656077568Z", y.TS.Format(time.RFC3339Nano))
 
-	require.True(t, fs.UTCTimestampFromTime(t0) < fs.UTCTimestampFromTime(t1))
+	require.Less(t, fs.UTCTimestampFromTime(t0), fs.UTCTimestampFromTime(t1))
 	require.True(t, fs.UTCTimestampFromTime(t0).Equal(fs.UTCTimestampFromTime(t0)))
 	require.False(t, fs.UTCTimestampFromTime(t0).Equal(fs.UTCTimestampFromTime(t1)))
 	require.True(t, fs.UTCTimestampFromTime(t0).Before(fs.UTCTimestampFromTime(t1)))

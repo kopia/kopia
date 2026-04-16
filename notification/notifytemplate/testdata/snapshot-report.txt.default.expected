@@ -1,0 +1,57 @@
+Subject: Failed to create 1 of 4 snapshots on some-host
+
+Path: /some/other/path
+
+  Status:      fatal
+  Start:       Thu, 01 Jan 1970 00:00:00 +0000
+  Duration:    0s
+  Size:        0 B
+  Files:       0
+  Directories: 0
+  Error:       some top-level error
+
+Path: /some/path
+
+  Status:      success
+  Start:       Thu, 02 Jan 2020 03:04:05 +0000
+  Duration:    1.1s
+  Size:        456 B (+56 B)
+  Files:       123 (+23)
+  Directories: 33 (+3)
+
+  Failed Entries:
+
+  - /some/path: some error
+  - /some/path2: some error
+
+Path: /some/path
+
+  Status:      success
+  Start:       Thu, 02 Jan 2020 03:04:05 +0000
+  Duration:    1.1s
+  Size:        456 B (-44 B)
+  Files:       123 (-77)
+  Directories: 33 (-7)
+
+  Failed Entries:
+
+  - /some/path: some error
+  - /some/path2: some error
+
+Path: /some/path2
+
+  Status:      success
+  Start:       Thu, 02 Jan 2020 03:04:05 +0000
+  Duration:    1.1s
+  Size:        456 B
+  Files:       123
+  Directories: 33
+
+  Failed Entries:
+
+  - /some/path: some error
+  - /some/path2: some error
+
+Generated at Thu, 02 Jan 2020 03:04:05 +0000 by Kopia v0-unofficial.
+
+https://kopia.io/

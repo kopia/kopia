@@ -69,8 +69,6 @@ func TestShouldDeleteOrphanedBlobs(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
 			require.Equal(t, tc.want, shouldDeleteOrphanedPacks(now, &Schedule{
 				Runs: tc.runs,
@@ -235,8 +233,7 @@ func TestFindSafeDropTime(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if got, want := findSafeDropTime(tc.runs, SafetyFull), tc.wantTime; !got.Equal(want) {
-			t.Errorf("invalid safe drop time for %v: %v, want %v", tc.runs, got, want)
-		}
+		got := findSafeDropTime(tc.runs, SafetyFull)
+		require.Equalf(t, tc.wantTime, got, "invalid safe drop time for %v", tc.runs)
 	}
 }

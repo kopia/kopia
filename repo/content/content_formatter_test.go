@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -27,10 +28,8 @@ func TestFormatters(t *testing.T) {
 	h0 := sha1.Sum(data)
 
 	for _, hashAlgo := range hashing.SupportedAlgorithms() {
-		hashAlgo := hashAlgo
 		t.Run(hashAlgo, func(t *testing.T) {
 			for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
-				encryptionAlgo := encryptionAlgo
 				t.Run(encryptionAlgo, func(t *testing.T) {
 					ctx := testlogging.Context(t)
 
@@ -60,10 +59,7 @@ func TestFormatters(t *testing.T) {
 					require.NoError(t, enc.Decrypt(cipherText.Bytes(), contentID, &plainText))
 
 					h1 := sha1.Sum(plainText.ToByteSlice())
-
-					if !bytes.Equal(h0[:], h1[:]) {
-						t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", h0, h1)
-					}
+					assert.Equal(t, h0[:], h1[:], "Encrypt()/Decrypt() does not round-trip")
 
 					verifyEndToEndFormatter(ctx, t, hashAlgo, encryptionAlgo)
 				})
@@ -88,10 +84,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 		},
 		MasterKey: make([]byte, 32), // zero key, does not matter
 	}), nil, nil)
-	if err != nil {
-		t.Errorf("can't create content manager with hash %v and encryption %v: %v", hashAlgo, encryptionAlgo, err.Error())
-		return
-	}
+	require.NoErrorf(t, err, "can't create content manager with hash %v and encryption %v", hashAlgo, encryptionAlgo)
 
 	defer bm.CloseShared(ctx)
 
@@ -104,37 +97,22 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 
 	for _, b := range cases {
 		contentID, err := bm.WriteContent(ctx, b, "", NoCompression)
-		if err != nil {
-			t.Errorf("err: %v", err)
-		}
+		require.NoError(t, err)
 
 		t.Logf("contentID %v", contentID)
 
 		b2, err := bm.GetContent(ctx, contentID)
-		if err != nil {
-			t.Fatalf("unable to read content %q: %v", contentID, err)
-			return
-		}
 
-		if got, want := b2, b.ToByteSlice(); !bytes.Equal(got, want) {
-			t.Errorf("content %q data mismatch: got %x, wanted %x", contentID, got, want)
-			return
-		}
+		require.NoErrorf(t, err, "unable to read content %q", contentID)
+		require.Equalf(t, b.ToByteSlice(), b2, "content %q data mismatch", contentID)
 
-		if err = bm.Flush(ctx); err != nil {
-			t.Errorf("flush error: %v", err)
-		}
+		err = bm.Flush(ctx)
+		require.NoError(t, err, "flush error")
 
 		b3, err := bm.GetContent(ctx, contentID)
-		if err != nil {
-			t.Fatalf("unable to read content after flush %q: %v", contentID, err)
-			return
-		}
 
-		if got, want := b3, b.ToByteSlice(); !bytes.Equal(got, want) {
-			t.Errorf("content %q data mismatch: got %x, wanted %x", contentID, got, want)
-			return
-		}
+		require.NoErrorf(t, err, "unable to read content after flush %q", contentID)
+		require.Equalf(t, b.ToByteSlice(), b3, "content %q data mismatch", contentID)
 	}
 }
 

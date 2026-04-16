@@ -66,7 +66,7 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 
 	rnd := rand.New(rand.NewSource(c.randSeed)) //nolint:gosec
 
-	for i := 0; i < c.blockCount; i++ {
+	for range c.blockCount {
 		b := make([]byte, c.blockSize)
 		if _, err := rnd.Read(b); err != nil {
 			return errors.Wrap(err, "error generating random data")
@@ -80,15 +80,14 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 	for _, sp := range splitter.SupportedAlgorithms() {
 		tt := timetrack.Start()
 
-		segmentLengths := runInParallel(c.parallel, func() []int {
+		segmentLengths := runInParallelNoInput(c.parallel, func() []int {
 			fact := splitter.GetFactory(sp)
 
 			var segmentLengths []int
 
-			for _, data := range dataBlocks {
+			for _, d := range dataBlocks {
 				s := fact()
 
-				d := data
 				for len(d) > 0 {
 					n := s.NextSplitPoint(d)
 					if n < 0 {
@@ -124,9 +123,9 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 			int64(bytesPerSecond),
 		}
 
-		c.out.printStdout("%-25v %12v count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
+		c.out.printStdout("%-25v %12v/s count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
 			r.splitter,
-			units.BytesString(r.bytesPerSecond)+"/s",
+			units.BytesString(r.bytesPerSecond),
 			r.segmentCount,
 			r.min, r.p10, r.p25, r.p50, r.p75, r.p90, r.max,
 		)
@@ -140,10 +139,10 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 	c.out.printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3v. %-25v %-12v count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
+		c.out.printStdout("%3v. %-25v %-12v/s count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
 			ndx,
 			r.splitter,
-			units.BytesString(r.bytesPerSecond)+"/s",
+			units.BytesString(r.bytesPerSecond),
 			r.segmentCount,
 			r.min, r.p10, r.p25, r.p50, r.p75, r.p90, r.max)
 

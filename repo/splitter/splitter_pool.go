@@ -10,13 +10,13 @@ type recyclableSplitter struct {
 }
 
 func (s recyclableSplitter) Close() {
-	s.Splitter.Reset()
+	s.Reset()
 	s.Splitter.Close()
 	s.pool.Put(s.Splitter)
 }
 
-// Pooled returns a factory that recycles the splitters on Close().
-func Pooled(f Factory) Factory {
+// pooled returns a factory that recycles the splitters on Close().
+func pooled(f Factory) Factory {
 	pool := &sync.Pool{}
 
 	return func() Splitter {

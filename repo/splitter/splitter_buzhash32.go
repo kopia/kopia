@@ -28,17 +28,8 @@ func (rs *buzhash32Splitter) NextSplitPoint(b []byte) int {
 
 	// until minSize, only hash the last splitterSlidingWindowSize bytes
 	if left := rs.minSize - rs.count - 1; left > 0 {
-		fastPathBytes = left
-		if fastPathBytes > len(b) {
-			fastPathBytes = len(b)
-		}
-
-		var i int
-
-		i = fastPathBytes - splitterSlidingWindowSize
-		if i < 0 {
-			i = 0
-		}
+		fastPathBytes = min(left, len(b))
+		i := max(fastPathBytes-splitterSlidingWindowSize, 0)
 
 		for ; i < fastPathBytes; i++ {
 			rs.rh.Roll(b[i])
@@ -50,13 +41,11 @@ func (rs *buzhash32Splitter) NextSplitPoint(b []byte) int {
 
 	// until the max size, check if we have any splitting point
 	if left := rs.maxSize - rs.count; left > 0 {
-		fp := left
-		if fp >= len(b) {
-			fp = len(b)
-		}
+		fp := min(left, len(b))
 
 		for i, b := range b[0:fp] {
 			rs.rh.Roll(b)
+
 			rs.count++
 
 			if rs.rh.Sum32()&rs.mask == 0 {
@@ -84,9 +73,9 @@ func (rs *buzhash32Splitter) MaxSegmentSize() int {
 func newBuzHash32SplitterFactory(avgSize int) Factory {
 	// avgSize must be a power of two, so 0b000001000...0000
 	// it just so happens that mask is avgSize-1 :)
-	mask := uint32(avgSize - 1)
-	maxSize := avgSize * 2 //nolint:gomnd
-	minSize := avgSize / 2 //nolint:gomnd
+	mask := uint32(avgSize - 1) //nolint:gosec
+	maxSize := avgSize * 2      //nolint:mnd
+	minSize := avgSize / 2      //nolint:mnd
 
 	return func() Splitter {
 		s := buzhash32.New()

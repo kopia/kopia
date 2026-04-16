@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/atomicfile"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -26,7 +27,7 @@ func placeholderPath(path string, et snapshot.EntryType) (string, error) {
 		return path + ShallowEntrySuffix, nil
 	case snapshot.EntryTypeDirectory: // Directories and regular files
 		dirpath := path + ShallowEntrySuffix
-		if err := os.MkdirAll(atomicfile.MaybePrefixLongFilenameOnWindows(dirpath), os.FileMode(dirMode)); err != nil {
+		if err := os.MkdirAll(ospath.SafeLongFilename(dirpath), os.FileMode(dirMode)); err != nil {
 			return "", errors.Wrap(err, "placeholderPath dir creation")
 		}
 
@@ -64,7 +65,7 @@ func WriteShallowPlaceholder(path string, de *snapshot.DirEntry) (string, error)
 }
 
 func dirEntryFromPlaceholder(path string) (*snapshot.DirEntry, error) {
-	b, err := os.ReadFile(atomicfile.MaybePrefixLongFilenameOnWindows(path))
+	b, err := os.ReadFile(ospath.SafeLongFilename(path))
 	if err != nil {
 		return nil, errors.Wrap(err, "dirEntryFromPlaceholder reading placeholder")
 	}
@@ -89,28 +90,28 @@ type shallowFilesystemDirectory struct {
 }
 
 func checkedDirEntryFromPlaceholder(path, php string) (*snapshot.DirEntry, error) {
-	if _, err := os.Lstat(atomicfile.MaybePrefixLongFilenameOnWindows(path)); err == nil {
+	if _, err := os.Lstat(ospath.SafeLongFilename(path)); err == nil {
 		return nil, errors.Errorf("%q, %q exist: shallowrestore tree is corrupt probably because a previous restore into a shallow tree was interrupted", path, php)
 	}
 
 	return dirEntryFromPlaceholder(php)
 }
 
-func (fsf *shallowFilesystemFile) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
+func (fsf *shallowFilesystemFile) DirEntryOrNil(_ context.Context) (*snapshot.DirEntry, error) {
 	path := fsf.fullPath()
 	php := path + ShallowEntrySuffix
 
 	return checkedDirEntryFromPlaceholder(path, php)
 }
 
-func (fsd *shallowFilesystemDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
+func (fsd *shallowFilesystemDirectory) DirEntryOrNil(_ context.Context) (*snapshot.DirEntry, error) {
 	path := fsd.fullPath()
 	php := filepath.Join(path+ShallowEntrySuffix, ShallowEntrySuffix)
 
 	return checkedDirEntryFromPlaceholder(path, php)
 }
 
-func (fsf *shallowFilesystemFile) Open(ctx context.Context) (fs.Reader, error) {
+func (fsf *shallowFilesystemFile) Open(_ context.Context) (fs.Reader, error) {
 	// TODO(rjk): Conceivably, we could implement all of these in terms of the repository.
 	return nil, errors.New("shallowFilesystemFile.Open not supported")
 }
@@ -124,7 +125,7 @@ func (fsd *shallowFilesystemDirectory) Child(ctx context.Context, name string) (
 	return nil, errors.New("shallowFilesystemDirectory.Child not supported")
 }
 
-func (fsd *shallowFilesystemDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+func (fsd *shallowFilesystemDirectory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	return nil, errors.New("shallowFilesystemDirectory.IterateEntries not supported")
 }
 

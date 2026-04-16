@@ -4,14 +4,14 @@
   "repository": "github:kopia/kopia",
   "dependencies": {
     "auto-launch": "^5.0.6",
-    "electron-is-dev": "^2.0.0",
-    "electron-log": "^4.4.8",
-    "electron-updater": "^6.1.4",
-    "electron-store": "^8.1.0",
+    "electron-log": "^5.4.3",
+    "electron-store": "^11.0.2",
+    "electron-updater": "^6.8.3",
     "minimist": "^1.2.8",
-    "semver": "^7.5.4",
-    "uuid": "^9.0.1"
+    "semver": "^7.7.2",
+    "uuid": "^13.0.0"
   },
+  "type": "module",
   "author": {
     "email": "kopia-pmc@googlegroups.com",
     "name": "Kopia Authors"
@@ -71,10 +71,12 @@
           ]
         }
       ],
-      "sign": "./sign.js",
-      "signingHashAlgorithms": [
-        "sha256"
-      ]
+      "signtoolOptions": {
+        "sign": "./sign.mjs",
+        "signingHashAlgorithms": [
+          "sha256"
+        ]
+      }
     },
     "mac": {
       "hardenedRuntime": true,
@@ -108,19 +110,28 @@
         }
       ]
     },
-    "afterSign": "notarize.js"
+    "afterSign": "notarize.mjs"
+  },
+  "deb": {
+    "appArmorProfile": "kopia-ui.apparmor"
+  },
+  "rpm": {
+    "appArmorProfile": "kopia-ui.apparmor"
+  },
+  "AppImage": {
+    "appArmorProfile": "kopia-ui.apparmor"
   },
   "devDependencies": {
-    "@electron/notarize": "^2.1.0",
-    "@playwright/test": "^1.38.1",
+    "@electron/notarize": "^3.1.1",
+    "@playwright/test": "^1.59.1",
     "asar": "^3.2.0",
-    "concurrently": "^8.2.1",
-    "dotenv": "^16.3.1",
-    "electron": "^26.2.4",
-    "electron-store": "^8.1.0",
-    "electron-builder": "^24.6.4",
+    "concurrently": "^9.2.1",
+    "dotenv": "^17.4.0",
+    "electron": "^41.1.1",
+    "electron-builder": "^26.8.1",
     "playwright": "^1.37.1",
-    "playwright-core": "^1.35.1"
+    "playwright-core": "^1.35.1",
+    "prettier": "^3.8.1"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",
@@ -137,6 +148,8 @@
     "build-electron-linux": "electron-builder -l",
     "build-electron-dir": "electron-builder --dir",
     "start-electron-prebuilt": "ELECTRON_IS_DEV=0 electron .",
+    "prettier": "prettier --write .",
+    "prettier:check": "prettier --check .",
     "dev": "electron ."
   },
   "eslintConfig": {

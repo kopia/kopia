@@ -20,14 +20,14 @@ type memoryCommittedContentIndexCache struct {
 	v1PerContentOverhead func() int // +checklocksignore
 }
 
-func (m *memoryCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {
+func (m *memoryCommittedContentIndexCache) hasIndexBlobID(_ context.Context, indexBlobID blob.ID) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	return m.contents[indexBlobID] != nil, nil
 }
 
-func (m *memoryCommittedContentIndexCache) addContentToCache(ctx context.Context, indexBlobID blob.ID, data gather.Bytes) error {
+func (m *memoryCommittedContentIndexCache) addContentToCache(_ context.Context, indexBlobID blob.ID, data gather.Bytes) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -41,7 +41,7 @@ func (m *memoryCommittedContentIndexCache) addContentToCache(ctx context.Context
 	return nil
 }
 
-func (m *memoryCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (index.Index, error) {
+func (m *memoryCommittedContentIndexCache) openIndex(_ context.Context, indexBlobID blob.ID) (index.Index, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -53,7 +53,7 @@ func (m *memoryCommittedContentIndexCache) openIndex(ctx context.Context, indexB
 	return v, nil
 }
 
-func (m *memoryCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
+func (m *memoryCommittedContentIndexCache) expireUnused(_ context.Context, used []blob.ID) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

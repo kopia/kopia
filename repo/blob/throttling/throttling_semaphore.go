@@ -46,7 +46,7 @@ func (s *semaphore) SetLimit(limit int) error {
 	defer s.mu.Unlock()
 
 	if limit < 0 {
-		return errors.Errorf("invalid limit")
+		return errors.New("invalid limit")
 	}
 
 	if limit > 0 {

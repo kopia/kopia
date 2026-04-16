@@ -131,13 +131,12 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
-
 		t.Run(tc.sourceInfo.String(), func(t *testing.T) {
 			pol, def, src, err := GetEffectivePolicy(ctx, env.RepositoryWriter, tc.sourceInfo)
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
+
 			if diff := cmp.Diff(pol, tc.wantEffective); diff != "" {
 				t.Errorf("got: %v", pol)
 				t.Errorf("want: %v", tc.wantEffective)
@@ -430,7 +429,6 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.si.String(), func(t *testing.T) {
 			res, err := applicablePoliciesForSource(ctx, env.RepositoryWriter, tc.si, nil)
 			if err != nil {

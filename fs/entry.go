@@ -13,7 +13,7 @@ import (
 const ModBits = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 
 // ErrUnknown is returned by ErrorEntry.ErrorInfo() to indicate that type of an entry is unknown.
-var ErrUnknown = errors.Errorf("unknown or unsupported entry type")
+var ErrUnknown = errors.New("unknown or unsupported entry type")
 
 // Entry represents a filesystem entry, which can be Directory, File, or Symlink.
 type Entry interface {
@@ -72,16 +72,15 @@ type Directory interface {
 func IterateEntries(ctx context.Context, dir Directory, cb func(context.Context, Entry) error) error {
 	iter, err := dir.Iterate(ctx)
 	if err != nil {
-		return err //nolint:wrapcheck
+		return errors.Wrapf(err, "cannot iterate directory '%q'", dir.Name())
 	}
 
 	defer iter.Close()
 
 	cur, err := iter.Next(ctx)
-
 	for cur != nil {
 		if err2 := cb(ctx, cur); err2 != nil {
-			return err2
+			return errors.Wrapf(err2, "callback failed on '%q'", cur.Name())
 		}
 
 		cur, err = iter.Next(ctx)
@@ -133,7 +132,7 @@ func GetAllEntries(ctx context.Context, d Directory) ([]Entry, error) {
 	defer iter.Close()
 
 	cur, err := iter.Next(ctx)
-	for cur != nil {
+	for err == nil && cur != nil {
 		entries = append(entries, cur)
 		cur, err = iter.Next(ctx)
 	}
@@ -209,6 +208,7 @@ func (s *DirectorySummary) Clone() DirectorySummary {
 type Symlink interface {
 	Entry
 	Readlink(ctx context.Context) (string, error)
+	Resolve(ctx context.Context) (Entry, error)
 }
 
 // FindByName returns an entry with a given name, or nil if not found. Assumes

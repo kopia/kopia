@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 )
 
@@ -62,7 +64,7 @@ func (e *entry) Size() int64 {
 	return e.size
 }
 
-func (e *entry) Sys() interface{} {
+func (e *entry) Sys() any {
 	return nil
 }
 
@@ -85,6 +87,7 @@ func (e *entry) Close() {
 type Directory struct {
 	entry
 
+	parent       *Directory
 	children     []fs.Entry
 	readdirError error
 	onReaddir    func()
@@ -134,6 +137,15 @@ func (imd *Directory) AddFileWithSource(name string, permissions os.FileMode, so
 	return file
 }
 
+func (imd *Directory) getRoot() *Directory {
+	root := imd
+	for root.parent != nil {
+		root = root.parent
+	}
+
+	return root
+}
+
 // AddSymlink adds a mock symlink with the specified name, target and permissions.
 func (imd *Directory) AddSymlink(name, target string, permissions os.FileMode) *Symlink {
 	imd, name = imd.resolveSubdir(name)
@@ -144,6 +156,7 @@ func (imd *Directory) AddSymlink(name, target string, permissions os.FileMode) *
 			size:    int64(len(target)),
 			modTime: DefaultModTime,
 		},
+		parent: imd,
 		target: target,
 	}
 
@@ -183,6 +196,7 @@ func (imd *Directory) AddDir(name string, permissions os.FileMode) *Directory {
 			mode:    permissions | os.ModeDir,
 			modTime: DefaultModTime,
 		},
+		parent: imd,
 	}
 
 	imd.addChild(subdir)
@@ -190,14 +204,28 @@ func (imd *Directory) AddDir(name string, permissions os.FileMode) *Directory {
 	return subdir
 }
 
-// AddErrorEntry adds a fake directory with a given name and permissions.
-func (imd *Directory) AddErrorEntry(name string, permissions os.FileMode, err error) *ErrorEntry {
+// AddErrorEntryDir adds a fake directory-typed error entry with a given name and permissions.
+func (imd *Directory) AddErrorEntryDir(name string, permissions os.FileMode, err error) *ErrorEntry {
+	return imd.addErrorEntry(name, permissions|os.ModeDir, err)
+}
+
+// AddErrorEntryFile adds a fake file-typed error entry with a given name and permissions.
+func (imd *Directory) AddErrorEntryFile(name string, permissions os.FileMode, err error) *ErrorEntry {
+	return imd.addErrorEntry(name, permissions&^os.ModeDir, err)
+}
+
+// AddErrorEntryIrregular adds a fake irregular-typed error entry with a given name and permissions.
+func (imd *Directory) AddErrorEntryIrregular(name string, permissions os.FileMode, err error) *ErrorEntry {
+	return imd.addErrorEntry(name, permissions|os.ModeIrregular, err)
+}
+
+func (imd *Directory) addErrorEntry(name string, permissions os.FileMode, err error) *ErrorEntry {
 	imd, name = imd.resolveSubdir(name)
 
 	ee := &ErrorEntry{
 		entry: entry{
 			name:    name,
-			mode:    permissions | os.ModeDir,
+			mode:    permissions,
 			modTime: DefaultModTime,
 		},
 		err: err,
@@ -238,7 +266,14 @@ func (imd *Directory) addChild(e fs.Entry) {
 func (imd *Directory) resolveSubdir(name string) (parent *Directory, leaf string) {
 	parts := strings.Split(name, "/")
 	for _, n := range parts[0 : len(parts)-1] {
-		imd = imd.Subdir(n)
+		switch n {
+		case ".", "":
+			continue
+		case "..":
+			imd = imd.parent
+		default:
+			imd = imd.Subdir(n)
+		}
 	}
 
 	return imd, parts[len(parts)-1]
@@ -294,7 +329,7 @@ func (imd *Directory) SupportsMultipleIterations() bool {
 }
 
 // Child gets the named child of a directory.
-func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
+func (imd *Directory) Child(_ context.Context, name string) (fs.Entry, error) {
 	e := fs.FindByName(imd.children, name)
 	if e != nil {
 		return e, nil
@@ -304,9 +339,9 @@ func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) 
 }
 
 // Iterate returns directory iterator.
-func (imd *Directory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
+func (imd *Directory) Iterate(_ context.Context) (fs.DirectoryIterator, error) {
 	if imd.readdirError != nil {
-		return nil, imd.readdirError
+		return nil, errors.Wrapf(imd.readdirError, "in mockfs Directory.Iterate on directory %s", imd.name)
 	}
 
 	if imd.onReaddir != nil {
@@ -340,7 +375,7 @@ func (ifr *fileReader) Entry() (fs.Entry, error) {
 }
 
 // Open opens the file for reading, optionally simulating error.
-func (imf *File) Open(ctx context.Context) (fs.Reader, error) {
+func (imf *File) Open(_ context.Context) (fs.Reader, error) {
 	r, err := imf.source()
 	if err != nil {
 		return nil, err
@@ -356,11 +391,28 @@ func (imf *File) Open(ctx context.Context) (fs.Reader, error) {
 type Symlink struct {
 	entry
 
+	parent *Directory
 	target string
 }
 
+// Resolve implements fs.Symlink interface.
+func (imsl *Symlink) Resolve(ctx context.Context) (fs.Entry, error) {
+	dir := imsl.parent
+
+	// Mockfs uses Unix path separators
+	if imsl.target[0] == '/' {
+		// Absolute link
+		dir = dir.getRoot()
+	}
+
+	dir, name := dir.resolveSubdir(imsl.target)
+	target, err := dir.Child(ctx, name)
+
+	return target, err
+}
+
 // Readlink implements fs.Symlink interface.
-func (imsl *Symlink) Readlink(ctx context.Context) (string, error) {
+func (imsl *Symlink) Readlink(_ context.Context) (string, error) {
 	return imsl.target, nil
 }
 
@@ -369,7 +421,7 @@ func NewDirectory() *Directory {
 	return &Directory{
 		entry: entry{
 			name:    "<root>",
-			mode:    0o777 | os.ModeDir, //nolint:gomnd
+			mode:    0o777 | os.ModeDir, //nolint:mnd
 			modTime: DefaultModTime,
 		},
 	}
@@ -396,7 +448,7 @@ type ErrorEntry struct {
 	err error
 }
 
-// ErrorInfo implements fs.ErrorErntry.
+// ErrorInfo implements fs.ErrorEntry.
 func (e *ErrorEntry) ErrorInfo() error {
 	return e.err
 }

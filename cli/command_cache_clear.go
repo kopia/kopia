@@ -53,7 +53,6 @@ func clearCacheDirectory(ctx context.Context, d string) error {
 	log(ctx).Infof("Clearing cache directory: %v.", d)
 
 	err := retry.WithExponentialBackoffNoValue(ctx, "delete cache", func() error {
-		//nolint:wrapcheck
 		return os.RemoveAll(d)
 	}, retry.Always)
 	if err != nil {

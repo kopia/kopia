@@ -16,7 +16,7 @@ func (s *formatSpecificTestSuite) TestFullMaintenance(t *testing.T) {
 	runner := testenv.NewInProcRunner(t)
 	e := testenv.NewCLITest(t, s.formatFlags, runner)
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--disable-internal-log")
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--disable-repository-log")
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	var (
@@ -35,11 +35,11 @@ func (s *formatSpecificTestSuite) TestFullMaintenance(t *testing.T) {
 	beforeSnapshotBlobs := e.RunAndExpectSuccess(t, "blob", "list", "--data-only")
 	_ = beforeSnapshotBlobs
 
-	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--json", "--disable-internal-log"), &snap)
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1, "--json", "--disable-repository-log"), &snap)
 
 	// avoid create and delete in the same second.
 	time.Sleep(2 * time.Second)
-	e.RunAndExpectSuccess(t, "snapshot", "delete", string(snap.ID), "--delete", "--disable-internal-log")
+	e.RunAndExpectSuccess(t, "snapshot", "delete", string(snap.ID), "--delete", "--disable-repository-log")
 
 	e.RunAndVerifyOutputLineCount(t, 0, "snapshot", "list")
 
@@ -47,7 +47,7 @@ func (s *formatSpecificTestSuite) TestFullMaintenance(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "maintenance", "info")
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
-	e.RunAndVerifyOutputLineCount(t, 0, "maintenance", "run", "--full", "--disable-internal-log")
+	e.RunAndVerifyOutputLineCount(t, 0, "maintenance", "run", "--full", "--disable-repository-log")
 	e.RunAndExpectSuccess(t, "maintenance", "info")
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 
@@ -56,7 +56,7 @@ func (s *formatSpecificTestSuite) TestFullMaintenance(t *testing.T) {
 	}
 
 	// now rerun with --safety=none
-	e.RunAndExpectSuccess(t, "maintenance", "run", "--full", "--safety=none", "--disable-internal-log")
+	e.RunAndExpectSuccess(t, "maintenance", "run", "--full", "--safety=none", "--disable-repository-log")
 	e.RunAndExpectSuccess(t, "maintenance", "info")
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
 

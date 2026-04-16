@@ -17,26 +17,26 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 type estimateTaskProgress struct {
 	ctrl uitask.Controller
 }
 
-func (p estimateTaskProgress) Processing(ctx context.Context, dirname string) {
+func (p estimateTaskProgress) Processing(_ context.Context, dirname string) {
 	p.ctrl.ReportProgressInfo(dirname)
 }
 
 func (p estimateTaskProgress) Error(ctx context.Context, dirname string, err error, isIgnored bool) {
 	if isIgnored {
-		log(ctx).Errorf("ignored error in %v: %v", dirname, err)
+		userLog(ctx).Errorf("ignored error in %v: %v", dirname, err)
 	} else {
-		log(ctx).Errorf("error in %v: %v", dirname, err)
+		userLog(ctx).Errorf("error in %v: %v", dirname, err)
 	}
 }
 
-func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded snapshotfs.SampleBuckets, excludedDirs []string, final bool) {
+func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded upload.SampleBuckets, excludedDirs []string, final bool) {
 	_ = excludedDirs
 	_ = final
 
@@ -57,7 +57,7 @@ func (p estimateTaskProgress) Stats(ctx context.Context, st *snapshot.Stats, inc
 	}
 }
 
-func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, prefix string, showExamples bool) {
+func logBucketSamples(ctx context.Context, buckets upload.SampleBuckets, prefix string, showExamples bool) {
 	hasAny := false
 
 	for i, bucket := range buckets {
@@ -76,7 +76,7 @@ func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, pre
 				units.BytesString(buckets[i-1].MinSize))
 		}
 
-		log(ctx).Infof("%v files %v: %7v files, total size %v\n",
+		userLog(ctx).Infof("%v files %v: %7v files, total size %v\n",
 			prefix,
 			sizeRange,
 			bucket.Count, units.BytesString(bucket.TotalSize))
@@ -84,22 +84,22 @@ func logBucketSamples(ctx context.Context, buckets snapshotfs.SampleBuckets, pre
 		hasAny = true
 
 		if showExamples && len(bucket.Examples) > 0 {
-			log(ctx).Infof("Examples:")
+			userLog(ctx).Info("Examples:")
 
 			for _, sample := range bucket.Examples {
-				log(ctx).Infof(" - %v\n", sample)
+				userLog(ctx).Infof(" - %v\n", sample)
 			}
 		}
 	}
 
 	if !hasAny {
-		log(ctx).Infof("%v files: None", prefix)
+		userLog(ctx).Infof("%v files: None", prefix)
 	}
 }
 
-var _ snapshotfs.EstimateProgress = estimateTaskProgress{}
+var _ upload.EstimateProgress = estimateTaskProgress{}
 
-func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleEstimate(ctx context.Context, rc requestContext) (any, *apiError) {
 	var req serverapi.EstimateRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
@@ -115,7 +115,7 @@ func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiEr
 
 	dir, ok := e.(fs.Directory)
 	if !ok {
-		return nil, internalServerError(errors.Wrap(err, "estimation is only supported on directories"))
+		return nil, internalServerError(errors.New("estimation is only supported on directories"))
 	}
 
 	taskIDChan := make(chan string)
@@ -140,15 +140,14 @@ func handleEstimate(ctx context.Context, rc requestContext) (interface{}, *apiEr
 
 		ctrl.OnCancel(cancel)
 
-		//nolint:wrapcheck
-		return snapshotfs.Estimate(estimatectx, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
+		return upload.Estimate(estimatectx, dir, policyTree, estimateTaskProgress{ctrl}, req.MaxExamplesPerBucket)
 	})
 
 	taskID := <-taskIDChan
 
 	task, ok := rc.srv.taskManager().GetTask(taskID)
 	if !ok {
-		return nil, internalServerError(errors.Errorf("task not found"))
+		return nil, internalServerError(errors.New("task not found"))
 	}
 
 	return task, nil

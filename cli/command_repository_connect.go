@@ -31,14 +31,12 @@ func (c *commandRepositoryConnect) setup(svc advancedAppServices, parent command
 		cc := cmd.Command(prov.Name, "Connect to repository in "+prov.Description)
 		f.Setup(svc, cc)
 		cc.Action(func(kpc *kingpin.ParseContext) error {
-			//nolint:wrapcheck
 			return svc.runAppWithContext(kpc.SelectedCommand, func(ctx context.Context) error {
 				st, err := f.Connect(ctx, false, 0)
 				if err != nil {
 					return errors.Wrap(err, "can't connect to storage")
 				}
 
-				//nolint:wrapcheck
 				return svc.runConnectCommandWithStorage(ctx, &c.co, st)
 			})
 		})
@@ -67,7 +65,7 @@ func (c *connectOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
 	// we must use *Var() methods, otherwise one of the commands would always get default flag values.
 	cmd.Flag("cache-directory", "Cache directory").PlaceHolder("PATH").Envar(svc.EnvName("KOPIA_CACHE_DIRECTORY")).StringVar(&c.connectCacheDirectory)
 
-	c.maxListCacheDuration = 30 * time.Second //nolint:gomnd
+	c.maxListCacheDuration = 30 * time.Second //nolint:mnd
 	c.contentCacheSizeMB = 5000
 	c.metadataCacheSizeMB = 5000
 	c.cacheSizeFlags.setup(cmd)
@@ -95,10 +93,10 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 	return &repo.ConnectOptions{
 		CachingOptions: content.CachingOptions{
 			CacheDirectory:              c.connectCacheDirectory,
-			ContentCacheSizeBytes:       c.contentCacheSizeMB << 20,       //nolint:gomnd
-			ContentCacheSizeLimitBytes:  c.contentCacheSizeLimitMB << 20,  //nolint:gomnd
-			MetadataCacheSizeBytes:      c.metadataCacheSizeMB << 20,      //nolint:gomnd
-			MetadataCacheSizeLimitBytes: c.metadataCacheSizeLimitMB << 20, //nolint:gomnd
+			ContentCacheSizeBytes:       c.contentCacheSizeMB << 20,       //nolint:mnd
+			ContentCacheSizeLimitBytes:  c.contentCacheSizeLimitMB << 20,  //nolint:mnd
+			MetadataCacheSizeBytes:      c.metadataCacheSizeMB << 20,      //nolint:mnd
+			MetadataCacheSizeLimitBytes: c.metadataCacheSizeLimitMB << 20, //nolint:mnd
 			MaxListCacheDuration:        content.DurationSeconds(c.maxListCacheDuration.Seconds()),
 			MinContentSweepAge:          content.DurationSeconds(c.contentMinSweepAge.Seconds()),
 			MinMetadataSweepAge:         content.DurationSeconds(c.metadataMinSweepAge.Seconds()),
@@ -133,7 +131,7 @@ func (c *App) runConnectCommandWithStorageAndPassword(ctx context.Context, co *c
 		return errors.Wrap(err, "error connecting to repository")
 	}
 
-	log(ctx).Infof("Connected to repository.")
+	log(ctx).Info("Connected to repository.")
 	c.maybeInitializeUpdateCheck(ctx, co)
 
 	return nil

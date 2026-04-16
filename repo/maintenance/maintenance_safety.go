@@ -26,7 +26,7 @@ type SafetyParameters struct {
 	DropContentFromIndexExtraMargin time.Duration
 
 	// Blob GC: Delete unused blobs above this age.
-	BlobDeleteMinAge time.Duration
+	PackDeleteMinAge time.Duration
 
 	// Blob GC: Drop incomplete session blobs above this age.
 	SessionExpirationAge time.Duration
@@ -43,7 +43,7 @@ var (
 	// delays, but it is safe only if no other kopia clients are running and storage backend is
 	// strongly consistent.
 	SafetyNone = SafetyParameters{
-		BlobDeleteMinAge:                 0,
+		PackDeleteMinAge:                 0,
 		DropContentFromIndexExtraMargin:  0,
 		MarginBetweenSnapshotGC:          0,
 		MinContentAgeSubjectToGC:         0,
@@ -56,12 +56,12 @@ var (
 	// SafetyFull has default safety parameters which allow safe GC concurrent with snapshotting
 	// by other Kopia clients.
 	SafetyFull = SafetyParameters{
-		BlobDeleteMinAge:                24 * time.Hour, //nolint:gomnd
+		PackDeleteMinAge:                24 * time.Hour, //nolint:mnd
 		DropContentFromIndexExtraMargin: time.Hour,
-		MarginBetweenSnapshotGC:         4 * time.Hour,  //nolint:gomnd
-		MinContentAgeSubjectToGC:        24 * time.Hour, //nolint:gomnd
-		RewriteMinAge:                   2 * time.Hour,  //nolint:gomnd
-		SessionExpirationAge:            96 * time.Hour, //nolint:gomnd
+		MarginBetweenSnapshotGC:         4 * time.Hour,  //nolint:mnd
+		MinContentAgeSubjectToGC:        24 * time.Hour, //nolint:mnd
+		RewriteMinAge:                   2 * time.Hour,  //nolint:mnd
+		SessionExpirationAge:            96 * time.Hour, //nolint:mnd
 		RequireTwoGCCycles:              true,
 		MinRewriteToOrphanDeletionDelay: time.Hour,
 	}

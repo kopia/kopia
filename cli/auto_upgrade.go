@@ -25,7 +25,7 @@ func maybeAutoUpgradeRepository(ctx context.Context, r repo.Repository) error {
 		return nil
 	}
 
-	log(ctx).Debugf("Setting default maintenance parameters...")
+	log(ctx).Debug("Setting default maintenance parameters...")
 
 	//nolint:wrapcheck
 	return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
@@ -38,18 +38,6 @@ func maybeAutoUpgradeRepository(ctx context.Context, r repo.Repository) error {
 func setDefaultMaintenanceParameters(ctx context.Context, rep repo.RepositoryWriter) error {
 	p := maintenance.DefaultParams()
 	p.Owner = rep.ClientOptions().UsernameAtHost()
-
-	if dw, ok := rep.(repo.DirectRepositoryWriter); ok {
-		_, ok, err := dw.ContentReader().EpochManager()
-		if err != nil {
-			return errors.Wrap(err, "epoch manager")
-		}
-
-		if ok {
-			// disable quick maintenance cycle
-			p.QuickCycle.Enabled = false
-		}
-	}
 
 	if err := maintenance.SetParams(ctx, rep, &p); err != nil {
 		return errors.Wrap(err, "unable to set maintenance params")

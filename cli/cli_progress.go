@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -9,10 +11,11 @@ import (
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/fatih/color"
+	"golang.org/x/term"
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/upload"
 )
 
 const (
@@ -20,19 +23,30 @@ const (
 )
 
 type progressFlags struct {
-	enableProgress         bool
-	progressUpdateInterval time.Duration
-	out                    textOutput
+	enableProgress              bool
+	progressEstimationType      string
+	adaptiveEstimationThreshold int64
+	progressUpdateInterval      time.Duration
+	out                         textOutput
 }
 
 func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
-	app.Flag("progress", "Enable progress bar").Hidden().Default("true").BoolVar(&p.enableProgress)
+	progressDefault := "false"
+
+	if fd, err := intFd(os.Stdout); err == nil && term.IsTerminal(fd) {
+		progressDefault = "true"
+	}
+
+	app.Flag("progress", "Enable progress output").Default(progressDefault).BoolVar(&p.enableProgress)
+	app.Flag("progress-estimation-type", "Set type of estimation of the data to be snapshotted").Hidden().Default(upload.EstimationTypeClassic).
+		EnumVar(&p.progressEstimationType, upload.EstimationTypeClassic, upload.EstimationTypeRough, upload.EstimationTypeAdaptive)
 	app.Flag("progress-update-interval", "How often to update progress information").Hidden().Default("300ms").DurationVar(&p.progressUpdateInterval)
+	app.Flag("adaptive-estimation-threshold", "Sets the threshold below which the classic estimation method will be used").Hidden().Default(strconv.FormatInt(upload.AdaptiveEstimationThreshold, 10)).Int64Var(&p.adaptiveEstimationThreshold)
 	p.out.setup(svc)
 }
 
 type cliProgress struct {
-	snapshotfs.NullUploadProgress
+	upload.NullUploadProgress
 
 	// all int64 must precede all int32 due to alignment requirements on ARM
 	uploadedBytes     atomic.Int64
@@ -57,13 +71,18 @@ type cliProgress struct {
 
 	uploadStartTime timetrack.Estimator // +checklocksignore
 
-	estimatedFileCount  int   // +checklocksignore
+	estimatedFileCount  int64 // +checklocksignore
 	estimatedTotalBytes int64 // +checklocksignore
 
 	// indicates shared instance that does not reset counters at the beginning of upload.
 	shared bool
 
 	progressFlags
+}
+
+// Enabled returns true when progress is enabled.
+func (p *cliProgress) Enabled() bool {
+	return p.enableProgress
 }
 
 func (p *cliProgress) HashingFile(_ string) {
@@ -94,7 +113,7 @@ func (p *cliProgress) Error(path string, err error, isIgnored bool) {
 		p.output(warningColor, fmt.Sprintf("Ignored error when processing \"%v\": %v\n", path, err))
 	} else {
 		p.fatalErrorCount.Add(1)
-		p.output(warningColor, fmt.Sprintf("Error when processing \"%v\": %v\n", path, err))
+		p.output(errorColor, fmt.Sprintf("Error when processing \"%v\": %v\n", path, err))
 	}
 }
 
@@ -195,7 +214,6 @@ func (p *cliProgress) spinnerCharacter() string {
 	return s
 }
 
-// +checklocksignore.
 func (p *cliProgress) StartShared() {
 	*p = cliProgress{
 		uploadStartTime: timetrack.Start(),
@@ -211,7 +229,6 @@ func (p *cliProgress) FinishShared() {
 	p.output(defaultColor, "")
 }
 
-// +checklocksignore.
 func (p *cliProgress) UploadStarted() {
 	if p.shared {
 		// do nothing
@@ -226,7 +243,7 @@ func (p *cliProgress) UploadStarted() {
 	p.uploading.Store(true)
 }
 
-func (p *cliProgress) EstimatedDataSize(fileCount int, totalBytes int64) {
+func (p *cliProgress) EstimatedDataSize(fileCount, totalBytes int64) {
 	if p.shared {
 		// do nothing
 		return
@@ -259,4 +276,11 @@ func (p *cliProgress) Finish() {
 	}
 }
 
-var _ snapshotfs.UploadProgress = (*cliProgress)(nil)
+func (p *cliProgress) EstimationParameters() upload.EstimationParameters {
+	return upload.EstimationParameters{
+		Type:              p.progressEstimationType,
+		AdaptiveThreshold: p.adaptiveEstimationThreshold,
+	}
+}
+
+var _ upload.Progress = (*cliProgress)(nil)

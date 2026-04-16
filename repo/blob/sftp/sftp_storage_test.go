@@ -58,7 +58,8 @@ func runAndGetOutput(t *testing.T, cmd string, args ...string) ([]byte, error) {
 
 	var stderr bytes.Buffer
 
-	c := exec.Command(cmd, args...)
+	ctx := testlogging.Context(t)
+	c := exec.CommandContext(ctx, cmd, args...)
 	c.Stderr = &stderr
 
 	o, err := c.Output()
@@ -102,12 +103,14 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 		sftpUsernameWithPasswordAuth+":"+sftpUserPassword+":::upload2")
 	sftpEndpoint := testutil.GetContainerMappedPortAddress(t, shortContainerID, "22")
 
+	ctx := testlogging.Context(t)
+
 	// wait for SFTP server to come up.
 	deadline := clock.Now().Add(dialTimeout)
 	for clock.Now().Before(deadline) {
 		t.Logf("waiting for SFTP server to come up on '%v'...", sftpEndpoint)
 
-		conn, err := net.DialTimeout("tcp", sftpEndpoint, time.Second)
+		conn, err := (&net.Dialer{Timeout: time.Second}).DialContext(ctx, "tcp", sftpEndpoint)
 		if err != nil {
 			t.Logf("err: %v", err)
 			time.Sleep(time.Second)
@@ -151,19 +154,18 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 
 		t.Logf("SFTP server OK on host:%q port:%v. Known hosts file: %v", host, port, knownHostsFile)
 
-		//nolint:nakedret
-		return
+		return host, port, knownHostsFile
 	}
 
 	t.Skipf("SFTP server did not start!")
 
-	return //nolint:nakedret
+	return "", -1, ""
 }
 
 func TestSFTPStorageValid(t *testing.T) {
 	t.Parallel()
 
-	testutil.TestSkipOnCIUnlessLinuxAMD64(t)
+	testutil.SkipTestOnCIUnlessLinuxAMD64(t)
 
 	tmpDir := mustGetLocalTmpDir(t)
 	idRSA := filepath.Join(tmpDir, "id_rsa")
@@ -173,12 +175,12 @@ func TestSFTPStorageValid(t *testing.T) {
 	host, port, knownHostsFile := startDockerSFTPServerOrSkip(t, idRSA)
 
 	for _, embedCreds := range []bool{false, true} {
-		embedCreds := embedCreds
 		t.Run(fmt.Sprintf("Embed=%v", embedCreds), func(t *testing.T) {
 			ctx := testlogging.Context(t)
 
 			// use context that gets canceled after opening storage to ensure it's not used beyond New().
 			newctx, cancel := context.WithCancel(ctx)
+
 			st, err := createSFTPStorage(newctx, t, sftp.Options{
 				Path:           "/upload",
 				Host:           host,
@@ -210,8 +212,9 @@ func TestSFTPStorageValid(t *testing.T) {
 
 	t.Run("PasswordCreds", func(t *testing.T) {
 		ctx := testlogging.Context(t)
+		newctx, cancel := context.WithCancel(ctx)
 
-		st, err := createSFTPStorage(ctx, t, sftp.Options{
+		st, err := createSFTPStorage(newctx, t, sftp.Options{
 			Path:           "/upload2",
 			Host:           host,
 			Username:       sftpUsernameWithPasswordAuth,
@@ -223,6 +226,8 @@ func TestSFTPStorageValid(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unable to connect to SSH: %v", err)
 		}
+
+		cancel()
 
 		deleteBlobs(ctx, t, st)
 

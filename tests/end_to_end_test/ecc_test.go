@@ -40,7 +40,7 @@ func (s *formatSpecificTestSuite) TestNoECC(t *testing.T) {
 	repoSize, err := dirSize(e.RepoDir)
 	require.NoError(t, err)
 
-	require.True(t, repoSize < int64(math.Round(1.1*mb)))
+	require.Less(t, repoSize, int64(math.Round(1.1*mb)))
 }
 
 func (s *formatSpecificTestSuite) TestECC(t *testing.T) {
@@ -73,11 +73,11 @@ func (s *formatSpecificTestSuite) TestECC(t *testing.T) {
 
 	// ECC is not supported in version 1
 	if s.formatVersion == 1 {
-		require.True(t, repoSize < int64(math.Round(1.1*mb)))
+		require.Less(t, repoSize, int64(math.Round(1.1*mb)))
 		return
 	}
 
-	require.True(t, repoSize >= int64(math.Round(1.5*mb)))
+	require.GreaterOrEqual(t, repoSize, int64(math.Round(1.5*mb)))
 
 	err = s.flipOneByteFromEachFile(e)
 	require.NoError(t, err)
@@ -100,9 +100,11 @@ func (s *formatSpecificTestSuite) flipOneByteFromEachFile(e *testenv.CLITest) er
 		if err != nil {
 			return err
 		}
+
 		if info.IsDir() {
 			return nil
 		}
+
 		if info.Name() == "kopia.repository.f" || info.Name() == ".shards" {
 			return nil
 		}
@@ -135,9 +137,11 @@ func dirSize(path string) (int64, error) {
 		if err != nil {
 			return err
 		}
+
 		if !info.IsDir() {
 			size += info.Size()
 		}
+
 		return nil
 	})
 

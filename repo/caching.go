@@ -13,7 +13,7 @@ import (
 )
 
 // GetCachingOptions reads caching configuration for a given repository.
-func GetCachingOptions(ctx context.Context, configFile string) (*content.CachingOptions, error) {
+func GetCachingOptions(_ context.Context, configFile string) (*content.CachingOptions, error) {
 	lc, err := LoadConfigFromFile(configFile)
 	if err != nil {
 		return nil, err

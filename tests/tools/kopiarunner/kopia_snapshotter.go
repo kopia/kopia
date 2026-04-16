@@ -1,12 +1,14 @@
 package kopiarunner
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +28,7 @@ const (
 	noCheckForUpdatesFlag   = "--no-check-for-updates"
 	noProgressFlag          = "--no-progress"
 	parallelFlag            = "--parallel"
-	retryCount              = 180
+	retryCount              = 900
 	retryInterval           = 1 * time.Second
 	waitingForServerString  = "waiting for server to start"
 	serverControlPassword   = "abcdef"
@@ -315,13 +317,13 @@ func parseSnapID(lines []string) (string, error) {
 func parseSnapshotListForSnapshotIDs(output string) []string {
 	var ret []string
 
-	lines := strings.Split(output, "\n")
-	for _, l := range lines {
-		fields := strings.Fields(l)
+	lines := strings.SplitSeq(output, "\n")
+	for l := range lines {
+		fields := strings.FieldsSeq(l)
 
-		for _, f := range fields {
+		for f := range fields {
 			spl := strings.Split(f, "manifest:")
-			if len(spl) == 2 { //nolint:gomnd
+			if len(spl) == 2 { //nolint:mnd
 				ret = append(ret, spl[1])
 			}
 		}
@@ -333,8 +335,8 @@ func parseSnapshotListForSnapshotIDs(output string) []string {
 func parseManifestListForSnapshotIDs(output string) []string {
 	var ret []string
 
-	lines := strings.Split(output, "\n")
-	for _, l := range lines {
+	lines := strings.SplitSeq(output, "\n")
+	for l := range lines {
 		fields := strings.Fields(l)
 
 		typeFieldIdx := 5
@@ -393,10 +395,17 @@ func (ks *KopiaSnapshotter) ConnectOrCreateRepoWithServer(serverAddr string, arg
 	var cmdErr error
 
 	if cmd, cmdErr = ks.CreateServer(serverAddr, serverArgs...); cmdErr != nil {
-		return nil, "", cmdErr
+		return nil, "", errors.Wrap(cmdErr, "CreateServer failed")
 	}
 
 	if err := certKeyExist(context.TODO(), tlsCertFile, tlsKeyFile); err != nil {
+		if buf, ok := cmd.Stderr.(*bytes.Buffer); ok {
+			// If the STDERR buffer does not contain any obvious error output,
+			// it is possible the async server creation above is taking a long time
+			// to open the repository, and we timed out waiting for it to write the TLS certs.
+			log.Print("failure in certificate generation:", buf.String())
+		}
+
 		return nil, "", err
 	}
 

@@ -22,7 +22,7 @@ type ConnectOptions struct {
 
 // ErrRepositoryNotInitialized is returned when attempting to connect to repository that has not
 // been initialized.
-var ErrRepositoryNotInitialized = errors.Errorf("repository not initialized in the provided storage")
+var ErrRepositoryNotInitialized = errors.New("repository not initialized in the provided storage")
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
 func Connect(ctx context.Context, configFile string, st blob.Storage, password string, opt *ConnectOptions) error {
@@ -51,7 +51,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 
 	ci := st.ConnectionInfo()
 	lc.Storage = &ci
-	lc.ClientOptions = opt.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName())
+	lc.ClientOptions = opt.ApplyDefaults(ctx, "Repository in "+st.DisplayName())
 
 	if err = setupCachingOptionsWithDefaults(ctx, configFile, &lc, &opt.CachingOptions, f.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to set up caching")
@@ -89,7 +89,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 
 	if cfg.Caching != nil && cfg.Caching.CacheDirectory != "" {
 		if !ospath.IsAbs(cfg.Caching.CacheDirectory) {
-			return errors.Errorf("cache directory was not absolute, refusing to delete")
+			return errors.New("cache directory was not absolute, refusing to delete")
 		}
 
 		if err = os.RemoveAll(cfg.Caching.CacheDirectory); err != nil {
@@ -99,7 +99,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 
 	maintenanceLock := configFile + ".mlock"
 	if err := os.RemoveAll(maintenanceLock); err != nil {
-		log(ctx).Errorf("unable to remove maintenance lock file", maintenanceLock)
+		log(ctx).Error("unable to remove maintenance lock file", maintenanceLock)
 	}
 
 	//nolint:wrapcheck
@@ -107,7 +107,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 }
 
 // SetClientOptions updates client options stored in the provided configuration file.
-func SetClientOptions(ctx context.Context, configFile string, cliOpt ClientOptions) error {
+func SetClientOptions(_ context.Context, configFile string, cliOpt ClientOptions) error {
 	lc, err := LoadConfigFromFile(configFile)
 	if err != nil {
 		return err

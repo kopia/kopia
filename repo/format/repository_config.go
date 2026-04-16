@@ -29,7 +29,7 @@ func (f *KopiaRepositoryJSON) decryptRepositoryConfig(masterKey []byte) (*Reposi
 	case aes256GcmEncryption:
 		plainText, err := decryptRepositoryBlobBytesAes256Gcm(f.EncryptedFormatBytes, masterKey, f.UniqueID)
 		if err != nil {
-			return nil, errors.Errorf("unable to decrypt repository format")
+			return nil, errors.New("unable to decrypt repository format")
 		}
 
 		var erc EncryptedRepositoryConfig

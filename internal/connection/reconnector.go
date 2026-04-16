@@ -42,7 +42,7 @@ func (r *Reconnector) GetOrOpenConnection(ctx context.Context) (Connection, erro
 	defer r.mu.Unlock()
 
 	if r.activeConnection == nil {
-		log(ctx).Debugf("establishing new connection...")
+		log(ctx).Debug("establishing new connection...")
 
 		conn, err := r.connector.NewConnection(ctx)
 		if err != nil {
@@ -102,7 +102,7 @@ func (r *Reconnector) CloseActiveConnection(ctx context.Context) {
 	r.activeConnection = nil
 
 	if c != nil {
-		log(ctx).Debugf("closing active connection.")
+		log(ctx).Debug("closing active connection.")
 
 		if err := c.Close(); err != nil {
 			log(ctx).Errorf("error closing active connection: %v", err)

@@ -12,6 +12,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
 )
@@ -47,6 +48,14 @@ func (s *testServer) refreshScheduler(reason string) {
 	s.refreshSchedulerCount.Add(1)
 }
 
+func (s *testServer) enableErrorNotifications() bool {
+	return false
+}
+
+func (s *testServer) notificationTemplateOptions() notifytemplate.Options {
+	return notifytemplate.DefaultOptions
+}
+
 func TestServerMaintenance(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
@@ -66,7 +75,7 @@ func TestServerMaintenance(t *testing.T) {
 
 	ts := &testServer{log: t.Logf}
 
-	mm := startMaintenanceManager(ctx, env.RepositoryWriter, ts, time.Minute)
+	mm := maybeStartMaintenanceManager(ctx, env.RepositoryWriter, ts, time.Minute)
 	require.Equal(t, time.Time{}, mm.nextMaintenanceNoEarlierThan)
 
 	defer mm.stop(ctx)
@@ -78,7 +87,7 @@ func TestServerMaintenance(t *testing.T) {
 	}, 3*time.Second, 10*time.Millisecond)
 
 	ts.mu.Lock()
-	ts.err = errors.Errorf("some error")
+	ts.err = errors.New("some error")
 	ts.mu.Unlock()
 
 	mm.trigger()
@@ -92,4 +101,40 @@ func TestServerMaintenance(t *testing.T) {
 
 	// after a failure next maintenance time should be deferred by a minute.
 	require.Greater(t, mm.nextMaintenanceTime().Sub(clock.Now()), 50*time.Second)
+}
+
+func TestServerMaintenanceReadOnlyRepoConnection(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	require.NoError(t, repo.DirectWriteSession(ctx, env.RepositoryWriter, repo.WriteSessionOptions{}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error {
+		return maintenance.SetParams(ctx, dw, &maintenance.Params{
+			Owner: env.Repository.ClientOptions().UsernameAtHost(),
+			QuickCycle: maintenance.CycleParams{
+				Enabled:  true,
+				Interval: 5 * time.Second,
+			},
+			FullCycle: maintenance.CycleParams{
+				Enabled:  true,
+				Interval: 10 * time.Second,
+			},
+		})
+	}))
+
+	dr, ok := env.Repository.(repo.DirectRepository)
+	require.True(t, ok, "not a direct repository connection")
+
+	dr.Refresh(ctx)
+
+	// make repo read-only
+	co := env.Repository.ClientOptions()
+	co.ReadOnly = true
+
+	repo.SetClientOptions(ctx, env.ConfigFile(), co)
+
+	env.MustReopen(t)
+
+	ts := &testServer{log: t.Logf}
+	mm := maybeStartMaintenanceManager(ctx, env.RepositoryWriter, ts, time.Minute)
+
+	require.Nil(t, mm, "maintenance task should not be created on read-only repo")
 }

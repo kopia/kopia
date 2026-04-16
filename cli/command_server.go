@@ -42,7 +42,7 @@ type serverClientFlags struct {
 }
 
 func (c *serverClientFlags) setup(svc appServices, cmd *kingpin.CmdClause) {
-	c.serverUsername = "server-control"
+	c.serverUsername = defaultServerControlUsername
 
 	cmd.Flag("address", "Address of the server to connect to").Envar(svc.EnvName("KOPIA_SERVER_ADDRESS")).Default("http://127.0.0.1:51515").StringVar(&c.serverAddress)
 	cmd.Flag("server-control-username", "Server control username").Envar(svc.EnvName("KOPIA_SERVER_USERNAME")).StringVar(&c.serverUsername)
@@ -76,7 +76,7 @@ func (c *commandServer) setup(svc advancedAppServices, parent commandParent) {
 
 func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) {
 	if c.serverAddress == "" {
-		return apiclient.Options{}, errors.Errorf("missing server address")
+		return apiclient.Options{}, errors.New("missing server address")
 	}
 
 	return apiclient.Options{

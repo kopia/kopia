@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/gather"
@@ -29,19 +30,19 @@ func TestFormatBlobRecovery(t *testing.T) {
 		t.Errorf("unexpected checksummed length: %v, want %v", got, want)
 	}
 
-	assertNoError(t, st.PutBlob(ctx, "some-blob-by-itself", gather.FromSlice(checksummed), blob.PutOptions{}))
-	assertNoError(t, st.PutBlob(ctx, "some-blob-suffix", gather.FromSlice(append(append([]byte(nil), 1, 2, 3), checksummed...)), blob.PutOptions{}))
-	assertNoError(t, st.PutBlob(ctx, "some-blob-prefix", gather.FromSlice(append(append([]byte(nil), checksummed...), 1, 2, 3)), blob.PutOptions{}))
+	assert.NoError(t, st.PutBlob(ctx, "some-blob-by-itself", gather.FromSlice(checksummed), blob.PutOptions{}))
+	assert.NoError(t, st.PutBlob(ctx, "some-blob-suffix", gather.FromSlice(append(append([]byte(nil), 1, 2, 3), checksummed...)), blob.PutOptions{}))
+	assert.NoError(t, st.PutBlob(ctx, "some-blob-prefix", gather.FromSlice(append(append([]byte(nil), checksummed...), 1, 2, 3)), blob.PutOptions{}))
 
 	// mess up checksum
 	checksummed[len(checksummed)-3] ^= 1
-	assertNoError(t, st.PutBlob(ctx, "bad-checksum", gather.FromSlice(checksummed), blob.PutOptions{}))
-	assertNoError(t, st.PutBlob(ctx, "zero-len", gather.FromSlice([]byte{}), blob.PutOptions{}))
-	assertNoError(t, st.PutBlob(ctx, "one-len", gather.FromSlice([]byte{1}), blob.PutOptions{}))
-	assertNoError(t, st.PutBlob(ctx, "two-len", gather.FromSlice([]byte{1, 2}), blob.PutOptions{}))
-	assertNoError(t, st.PutBlob(ctx, "three-len", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
-	assertNoError(t, st.PutBlob(ctx, "four-len", gather.FromSlice([]byte{1, 2, 3, 4}), blob.PutOptions{}))
-	assertNoError(t, st.PutBlob(ctx, "five-len", gather.FromSlice([]byte{1, 2, 3, 4, 5}), blob.PutOptions{}))
+	assert.NoError(t, st.PutBlob(ctx, "bad-checksum", gather.FromSlice(checksummed), blob.PutOptions{}))
+	assert.NoError(t, st.PutBlob(ctx, "zero-len", gather.FromSlice([]byte{}), blob.PutOptions{}))
+	assert.NoError(t, st.PutBlob(ctx, "one-len", gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	assert.NoError(t, st.PutBlob(ctx, "two-len", gather.FromSlice([]byte{1, 2}), blob.PutOptions{}))
+	assert.NoError(t, st.PutBlob(ctx, "three-len", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+	assert.NoError(t, st.PutBlob(ctx, "four-len", gather.FromSlice([]byte{1, 2, 3, 4}), blob.PutOptions{}))
+	assert.NoError(t, st.PutBlob(ctx, "five-len", gather.FromSlice([]byte{1, 2, 3, 4, 5}), blob.PutOptions{}))
 
 	cases := []struct {
 		blobID blob.ID
@@ -61,7 +62,6 @@ func TestFormatBlobRecovery(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(string(tc.blobID), func(t *testing.T) {
 			v, err := RecoverFormatBlob(ctx, st, tc.blobID, -1)
 			if tc.err == nil {
@@ -74,13 +74,5 @@ func TestFormatBlobRecovery(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func assertNoError(t *testing.T, err error) {
-	t.Helper()
-
-	if err != nil {
-		t.Errorf("err: %v", err)
 	}
 }

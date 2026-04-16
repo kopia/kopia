@@ -45,7 +45,7 @@ func (c *commandBenchmarkCrypto) run(ctx context.Context) error {
 	c.out.printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3d. %-20v %-30v %v / second", ndx, r.hash, r.encryption, units.BytesString(int64(r.throughput)))
+		c.out.printStdout("%3d. %-20v %-30v %v / second", ndx, r.hash, r.encryption, units.BytesString(r.throughput))
 
 		if c.optionPrint {
 			c.out.printStdout(",   --block-hash=%s --encryption=%s", r.hash, r.encryption)
@@ -70,8 +70,8 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 			fo := &format.ContentFormat{
 				Encryption: ea,
 				Hash:       ha,
-				MasterKey:  make([]byte, 32), //nolint:gomnd
-				HMACSecret: make([]byte, 32), //nolint:gomnd
+				MasterKey:  make([]byte, 32), //nolint:mnd
+				HMACSecret: make([]byte, 32), //nolint:mnd
 			}
 
 			hf, err := hashing.CreateHashFunc(fo)
@@ -91,13 +91,15 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 
 			hashCount := c.repeat
 
-			runInParallelNoResult(c.parallel, func() {
+			runInParallelNoInputNoResult(c.parallel, func() {
 				var hashOutput [hashing.MaxHashSize]byte
 
 				var encryptOutput gather.WriteBuffer
 				defer encryptOutput.Close()
 
-				for i := 0; i < hashCount; i++ {
+				for range hashCount {
+					encryptOutput.Reset()
+
 					contentID := hf(hashOutput[:0], input)
 
 					if encerr := enc.Encrypt(input, contentID, &encryptOutput); encerr != nil {

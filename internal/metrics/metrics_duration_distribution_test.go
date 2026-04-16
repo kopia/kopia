@@ -12,6 +12,7 @@ import (
 
 func TestDurationDistribution_Nil(t *testing.T) {
 	var e *metrics.Registry
+
 	dist := e.DurationDistribution("aaa", "bbb", metrics.IOLatencyThresholds, nil)
 	require.Nil(t, dist)
 	dist.Observe(time.Second)
@@ -20,6 +21,7 @@ func TestDurationDistribution_Nil(t *testing.T) {
 
 func TestSizeDistribution_Nil(t *testing.T) {
 	var e *metrics.Registry
+
 	cnt := e.SizeDistribution("aaa", "bbb", metrics.ISOBytesThresholds, nil)
 	require.Nil(t, cnt)
 	cnt.Observe(333)

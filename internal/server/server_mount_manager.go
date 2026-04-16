@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"maps"
 
 	"github.com/pkg/errors"
 
@@ -24,7 +25,7 @@ func (s *Server) getMountController(ctx context.Context, rep repo.Repository, oi
 		return nil, nil
 	}
 
-	log(ctx).Debugf("mount controller for %v not found, starting", oid)
+	userLog(ctx).Debugf("mount controller for %v not found, starting", oid)
 
 	c, err := mount.Directory(ctx, snapshotfs.DirectoryEntry(rep, oid, nil), "*", mount.Options{})
 	if err != nil {
@@ -40,13 +41,7 @@ func (s *Server) listMounts() map[object.ID]mount.Controller {
 	s.serverMutex.RLock()
 	defer s.serverMutex.RUnlock()
 
-	result := map[object.ID]mount.Controller{}
-
-	for oid, c := range s.mounts {
-		result[oid] = c
-	}
-
-	return result
+	return maps.Clone(s.mounts)
 }
 
 func (s *Server) deleteMount(oid object.ID) {
@@ -60,7 +55,7 @@ func (s *Server) deleteMount(oid object.ID) {
 func (s *Server) unmountAllLocked(ctx context.Context) {
 	for oid, c := range s.mounts {
 		if err := c.Unmount(ctx); err != nil {
-			log(ctx).Errorf("unable to unmount %v", oid)
+			userLog(ctx).Errorf("unable to unmount %v", oid)
 		}
 
 		delete(s.mounts, oid)

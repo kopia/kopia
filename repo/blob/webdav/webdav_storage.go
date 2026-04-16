@@ -45,7 +45,7 @@ type davStorageImpl struct {
 	cli *gowebdav.Client
 }
 
-func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64, output blob.OutputBuffer) error {
+func (d *davStorageImpl) GetBlobFromPath(_ context.Context, dirPath, path string, offset, length int64, output blob.OutputBuffer) error {
 	_ = dirPath
 
 	output.Reset()
@@ -86,7 +86,7 @@ func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path stri
 	return blob.EnsureLengthExactly(output.Length(), length)
 }
 
-func (d *davStorageImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {
+func (d *davStorageImpl) GetMetadataFromPath(_ context.Context, dirPath, path string) (blob.Metadata, error) {
 	_ = dirPath
 
 	fi, err := d.cli.Stat(path)
@@ -129,7 +129,7 @@ func (d *davStorageImpl) translateError(err error) error {
 	return err
 }
 
-func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo, error) {
+func (d *davStorageImpl) ReadDir(_ context.Context, dir string) ([]os.FileInfo, error) {
 	entries, err := d.cli.ReadDir(gowebdav.FixSlash(dir))
 	if err == nil {
 		return entries, nil
@@ -152,7 +152,7 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 	var writePath string
 
-	if d.Options.AtomicWrites {
+	if d.AtomicWrites {
 		writePath = filePath
 	} else {
 		writePath = fmt.Sprintf("%v-%v", filePath, rand.Int63()) //nolint:gosec
@@ -164,19 +164,17 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 
 	b := buf.Bytes()
 
-	//nolint:wrapcheck
 	if err := retry.WithExponentialBackoffNoValue(ctx, "WriteTemporaryFileAndCreateParentDirs", func() error {
 		mkdirAttempted := false
 
 		for {
-			//nolint:wrapcheck
+
 			err := d.translateError(d.cli.Write(writePath, b, defaultFilePerm))
 			if err == nil {
-				if d.Options.AtomicWrites {
+				if d.AtomicWrites {
 					return nil
 				}
 
-				//nolint:wrapcheck
 				return d.cli.Rename(writePath, filePath, true)
 			}
 
@@ -216,7 +214,6 @@ func (d *davStorageImpl) DeleteBlobInPath(ctx context.Context, dirPath, filePath
 	_ = dirPath
 
 	err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "DeleteBlobInPath", func() error {
-		//nolint:wrapcheck
 		return d.cli.Remove(filePath)
 	}, isRetriable))
 	if errors.Is(err, blob.ErrBlobNotFound) {
@@ -247,7 +244,13 @@ func isRetriable(err error) bool {
 
 	case errors.As(err, &pe):
 		httpCode := httpErrorCode(pe)
-		return httpCode == 429 || httpCode >= 500
+		switch httpCode {
+		case http.StatusLocked, http.StatusConflict, http.StatusTooManyRequests:
+			return true
+
+		default:
+			return httpCode >= http.StatusInternalServerError
+		}
 
 	default:
 		return true
@@ -255,7 +258,7 @@ func isRetriable(err error) bool {
 }
 
 // New creates new WebDAV-backed storage in a specified URL.
-func New(ctx context.Context, opts *Options, isCreate bool) (blob.Storage, error) {
+func New(_ context.Context, opts *Options, isCreate bool) (blob.Storage, error) {
 	cli := gowebdav.NewClient(opts.URL, opts.Username, opts.Password)
 
 	// Since we're handling encrypted data, there's no point compressing it server-side.

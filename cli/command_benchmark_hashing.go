@@ -25,7 +25,7 @@ type commandBenchmarkHashing struct {
 func (c *commandBenchmarkHashing) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("hashing", "Run hashing function benchmarks").Alias("hash")
 	cmd.Flag("block-size", "Size of a block to hash").Default("1MB").BytesVar(&c.blockSize)
-	cmd.Flag("repeat", "Number of repetitions").Default("100").IntVar(&c.repeat)
+	cmd.Flag("repeat", "Number of repetitions").Default("10").IntVar(&c.repeat)
 	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").IntVar(&c.parallel)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
 	cmd.Action(svc.noRepositoryAction(c.run))
@@ -42,7 +42,7 @@ func (c *commandBenchmarkHashing) run(ctx context.Context) error {
 	c.out.printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		c.out.printStdout("%3d. %-20v %v / second", ndx, r.hash, units.BytesString(int64(r.throughput)))
+		c.out.printStdout("%3d. %-20v %v / second", ndx, r.hash, units.BytesString(r.throughput))
 
 		if c.optionPrint {
 			c.out.printStdout(",   --block-hash=%s", r.hash)
@@ -65,7 +65,7 @@ func (c *commandBenchmarkHashing) runBenchmark(ctx context.Context) []cryptoBenc
 	for _, ha := range hashing.SupportedAlgorithms() {
 		hf, err := hashing.CreateHashFunc(&format.ContentFormat{
 			Hash:       ha,
-			HMACSecret: make([]byte, 32), //nolint:gomnd
+			HMACSecret: make([]byte, 32), //nolint:mnd
 		})
 		if err != nil {
 			continue
@@ -78,11 +78,13 @@ func (c *commandBenchmarkHashing) runBenchmark(ctx context.Context) []cryptoBenc
 
 		hashCount := c.repeat
 
-		runInParallelNoResult(c.parallel, func() {
+		runInParallelNoInputNoResult(c.parallel, func() {
 			var hashOutput [hashing.MaxHashSize]byte
 
-			for i := 0; i < hashCount; i++ {
-				hf(hashOutput[:0], input)
+			for range hashCount {
+				for range hashOutput {
+					hf(hashOutput[:0], input)
+				}
 			}
 		})
 

@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func handleSourcesList(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleSourcesList(_ context.Context, rc requestContext) (any, *apiError) {
 	_, multiUser := rc.rep.(repo.DirectRepository)
 
 	resp := &serverapi.SourcesResponse{
@@ -38,7 +38,7 @@ func handleSourcesList(ctx context.Context, rc requestContext) (interface{}, *ap
 	return resp, nil
 }
 
-func handleSourcesCreate(ctx context.Context, rc requestContext) (interface{}, *apiError) {
+func handleSourcesCreate(ctx context.Context, rc requestContext) (any, *apiError) {
 	var req serverapi.CreateSnapshotSourceRequest
 
 	if err := json.Unmarshal(rc.body, &req); err != nil {
@@ -75,7 +75,6 @@ func handleSourcesCreate(ctx context.Context, rc requestContext) (interface{}, *
 	if err = repo.WriteSession(ctx, rc.rep, repo.WriteSessionOptions{
 		Purpose: "handleSourcesCreate",
 	}, func(ctx context.Context, w repo.RepositoryWriter) error {
-		//nolint:wrapcheck
 		return policy.SetPolicy(ctx, w, sourceInfo, req.Policy)
 	}); err != nil {
 		return nil, internalServerError(errors.Wrap(err, "unable to set initial policy"))
@@ -86,7 +85,7 @@ func handleSourcesCreate(ctx context.Context, rc requestContext) (interface{}, *
 	if req.CreateSnapshot {
 		resp.SnapshotStarted = true
 
-		log(ctx).Debugf("scheduling snapshot of %v immediately...", sourceInfo)
+		userLog(ctx).Debugf("scheduling snapshot of %v immediately...", sourceInfo)
 		manager.scheduleSnapshotNow()
 	}
 
