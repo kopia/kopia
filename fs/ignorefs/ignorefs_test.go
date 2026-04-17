@@ -3,6 +3,8 @@ package ignorefs_test
 import (
 	"bytes"
 	"context"
+	"os"
+	"path/filepath"
 	"sort"
 	"testing"
 
@@ -11,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -573,6 +576,224 @@ func TestIgnoreFS(t *testing.T) {
 			verifyDirectoryTree(t, ifs, expectedFiles)
 		})
 	}
+}
+
+func TestExternalIgnoreFileWithPolicyIgnoreRules(t *testing.T) {
+	ctx := t.Context()
+	sourceDir := t.TempDir()
+	externalDir := t.TempDir()
+
+	// create files in sourceDir
+	createFile(t, sourceDir, "ignored.tmp", "ignored by external ignore file")
+	createFile(t, sourceDir, "file1.txt", "content1")
+	createFile(t, sourceDir, "file2.log", "ignored by external ignore file")
+	createFile(t, sourceDir, "file3.txt", "content3")
+	createFile(t, sourceDir, "file4.db", "ignored by policy ignore rule")
+
+	// create ignore file in externalDir
+	ignoreFilePath := filepath.Join(externalDir, "ignorefile")
+	createFile(t, externalDir, "ignorefile", "*.tmp\n*.log\n")
+
+	// get ignore matchers from the external ignore file
+	entry, err := localfs.NewEntry(ignoreFilePath)
+	require.NoError(t, err)
+
+	ignoreFile, ok := entry.(fs.File)
+	require.True(t, ok)
+
+	matchers, err := ignorefs.ParseIgnoreFile(ctx, "", ignoreFile)
+	require.NoError(t, err)
+
+	srcDirPolicy := policy.Policy{
+		FilesPolicy: policy.FilesPolicy{
+			IgnoreRules: []string{"*.db"},
+		},
+	}
+
+	definedPolicyMap := map[string]*policy.Policy{
+		".": &srcDirPolicy,
+	}
+
+	// build policy tree for the sourceDir
+	sourcDirPolicyTree := policy.BuildTree(definedPolicyMap, policy.DefaultPolicy)
+
+	sourceDirEntry, err := localfs.NewEntry(sourceDir)
+	require.NoError(t, err)
+
+	// check entry is a directory
+	srcDirEntry, ok := sourceDirEntry.(fs.Directory)
+	require.True(t, ok, "sourceDirEntry is not a directory")
+
+	wrappedFS := ignorefs.New(srcDirEntry, sourcDirPolicyTree, ignorefs.WithExternalEnforcedMatchers(matchers))
+
+	dirContents, err := fs.GetAllEntries(t.Context(), wrappedFS)
+	require.NoError(t, err)
+
+	fsEntries := make([]string, 0, len(dirContents))
+	for _, e := range dirContents {
+		fsEntries = append(fsEntries, e.Name())
+	}
+
+	require.Contains(t, fsEntries, "file1.txt")
+	require.Contains(t, fsEntries, "file3.txt")
+	require.NotContains(t, fsEntries, "file2.log", "file2.log should be ignored by external ignore file")
+	require.NotContains(t, fsEntries, "ignored.tmp", "ignored.tmp should be ignored by external ignore file")
+	require.NotContains(t, fsEntries, "file4.db", "file4.db should be ignored by policy ignore rule")
+}
+
+func TestExternalIgnoreFileWithPolicyIgnoreFile(t *testing.T) {
+	ctx := t.Context()
+	sourceDir := t.TempDir()
+	externalDir := t.TempDir()
+
+	// create files in sourceDir
+	createFile(t, sourceDir, "file1.txt", "content1")
+	createFile(t, sourceDir, "file2.log", "ignored by external ignore file")
+	createFile(t, sourceDir, "file3.go", "ignored by .kopiaignore file")
+	createFile(t, sourceDir, "ignored.tmp", "ignored by external ignore file")
+	createFile(t, sourceDir, ".kopiaignore", "*.go\n")
+
+	// create ignore file in externalDir
+	ignoreFilePath := filepath.Join(externalDir, "ignorefile")
+	createFile(t, externalDir, "ignorefile", "*.tmp\n*.log\n")
+
+	// get matchers from external ignore file
+	f, err := localfs.NewEntry(ignoreFilePath)
+	require.NoError(t, err)
+
+	ignoreFile, ok := f.(fs.File)
+	require.True(t, ok)
+
+	matchers, err := ignorefs.ParseIgnoreFile(ctx, "", ignoreFile)
+	require.NoError(t, err)
+
+	// create ignorefs policy that references the external ignore file
+	srcDirPolicy := policy.Policy{
+		FilesPolicy: policy.FilesPolicy{
+			DotIgnoreFiles: []string{".kopiaignore"},
+		},
+	}
+
+	definedPolicyMap := map[string]*policy.Policy{
+		".": &srcDirPolicy,
+	}
+
+	// build policy tree for sourceDir
+	sourcDirPolicyTree := policy.BuildTree(definedPolicyMap, policy.DefaultPolicy)
+
+	sourceDirEntry, err := localfs.NewEntry(sourceDir)
+	require.NoError(t, err)
+
+	srcDirEntry, ok := sourceDirEntry.(fs.Directory)
+	require.True(t, ok, "sourceDirEntry is not a directory")
+
+	wrappedFS := ignorefs.New(srcDirEntry, sourcDirPolicyTree, ignorefs.WithExternalEnforcedMatchers(matchers))
+
+	dirContents, err := fs.GetAllEntries(t.Context(), wrappedFS)
+	require.NoError(t, err)
+
+	fsEntries := make([]string, 0, len(dirContents))
+	for _, e := range dirContents {
+		fsEntries = append(fsEntries, e.Name())
+	}
+
+	require.Contains(t, fsEntries, "file1.txt")
+	require.Contains(t, fsEntries, ".kopiaignore")
+	require.NotContains(t, fsEntries, "file2.log", "*.log should be ignored by external ignore file")
+	require.NotContains(t, fsEntries, "file3.go", "*.go should be ignored by the .kopiaignore file")
+	require.NotContains(t, fsEntries, "ignored.tmp", "*.tmp should be ignored by external ignore file")
+}
+
+func TestGlobalMatchersWithSubdirectoryPolicy(t *testing.T) {
+	ctx := t.Context()
+	sourceDir := t.TempDir()
+	externalDir := t.TempDir()
+
+	// Source tree:
+	// sourceDir/
+	// ├── file1.txt
+	// ├── file2.log        should be ignored by external *.log ignore rule
+	// └── src/             separate defined policy
+	//     ├── main.go
+	//     ├── debug.log    should be ignored by external *.log ignore rule
+	//     └── test.tmp     should be ignored by src's policy *.tmp ignore rule
+
+	createFile(t, sourceDir, "file1.txt", "content1")
+	createFile(t, sourceDir, "file2.log", "content2")
+
+	srcDir := filepath.Join(sourceDir, "src")
+	require.NoError(t, os.MkdirAll(srcDir, 0o755))
+	createFile(t, srcDir, "main.go", "package main")
+	createFile(t, srcDir, "debug.log", "debug info")
+	createFile(t, srcDir, "test.tmp", "temp data")
+
+	// External ignore file with *.log
+	ignoreFilePath := filepath.Join(externalDir, "ignorefile")
+	createFile(t, externalDir, "ignorefile", "*.log\n")
+
+	// get matchers from external ignore file
+	f, err := localfs.NewEntry(ignoreFilePath)
+	require.NoError(t, err)
+
+	ignoreFile, ok := f.(fs.File)
+	require.True(t, ok)
+
+	externalEnforcedGlobalMatchers, err := ignorefs.ParseIgnoreFile(ctx, "", ignoreFile)
+	require.NoError(t, err)
+
+	// src/ has its own defined policy, to check that global *.log rules are still applied to src/ even though it has its own policy
+	policyTree := policy.BuildTree(map[string]*policy.Policy{
+		".": {},
+		"./src": {
+			FilesPolicy: policy.FilesPolicy{
+				IgnoreRules: []string{"*.tmp"},
+			},
+		},
+	}, policy.DefaultPolicy)
+
+	sourceDirEntry, err := localfs.NewEntry(sourceDir)
+	require.NoError(t, err)
+
+	srcDirEntry, ok := sourceDirEntry.(fs.Directory)
+	require.True(t, ok)
+
+	wrappedFS := ignorefs.New(srcDirEntry, policyTree, ignorefs.WithExternalEnforcedMatchers(externalEnforcedGlobalMatchers))
+
+	dirContents, err := fs.GetAllEntries(t.Context(), wrappedFS)
+	require.NoError(t, err)
+
+	// Check root level
+	rootEntries := make(map[string]fs.Entry)
+	for _, e := range dirContents {
+		rootEntries[e.Name()] = e
+	}
+
+	require.Contains(t, rootEntries, "file1.txt")
+	require.Contains(t, rootEntries, "src")
+	require.NotContains(t, rootEntries, "file2.log", "file2.log should be ignored by global *.log")
+
+	// Check src/ level
+	srcEntry, ok := rootEntries["src"].(fs.Directory)
+	require.True(t, ok, "src entry should be a directory")
+
+	srcContents, err := fs.GetAllEntries(t.Context(), srcEntry)
+	require.NoError(t, err)
+
+	srcEntries := make([]string, 0, len(srcContents))
+	for _, e := range srcContents {
+		srcEntries = append(srcEntries, e.Name())
+	}
+
+	require.Contains(t, srcEntries, "main.go")
+	require.NotContains(t, srcEntries, "debug.log", "debug.log should be ignored by global *.log even though src/ has its own policy")
+	require.NotContains(t, srcEntries, "test.tmp", "test.tmp should be ignored by src's policy *.tmp rule")
+}
+
+func createFile(t *testing.T, dir, name, content string) {
+	t.Helper()
+
+	path := filepath.Join(dir, name)
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }
 
 func addAndSubtractFiles(original, added, removed []string) []string {
