@@ -15,7 +15,7 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20250724212937-08a3db8b4327
 	github.com/chromedp/chromedp v0.14.2
 	github.com/coreos/go-systemd/v22 v22.7.0
-	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
+	github.com/dustinkirkland/golang-petname v0.0.0-20260215035315-f0c533e9ce9b
 	github.com/edsrzf/mmap-go v1.2.0
 	github.com/fatih/color v1.19.0
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
