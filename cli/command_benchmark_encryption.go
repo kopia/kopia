@@ -16,10 +16,10 @@ import (
 
 type commandBenchmarkEncryption struct {
 	blockSize            atunits.Base2Bytes
-	repeat               int
+	repeat               uint
 	deprecatedAlgorithms bool
 	optionPrint          bool
-	parallel             int
+	parallel             uint
 
 	out textOutput
 }
@@ -27,9 +27,9 @@ type commandBenchmarkEncryption struct {
 func (c *commandBenchmarkEncryption) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("encryption", "Run encryption benchmarks")
 	cmd.Flag("block-size", "Size of a block to encrypt").Default("1MB").BytesVar(&c.blockSize)
-	cmd.Flag("repeat", "Number of repetitions").Default("1000").IntVar(&c.repeat)
+	cmd.Flag("repeat", "Number of repetitions").Default("1000").UintVar(&c.repeat)
 	cmd.Flag("deprecated", "Include deprecated algorithms").BoolVar(&c.deprecatedAlgorithms)
-	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").IntVar(&c.parallel)
+	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").UintVar(&c.parallel)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
 	cmd.Action(svc.noRepositoryAction(c.run))
 	c.out.setup(svc)

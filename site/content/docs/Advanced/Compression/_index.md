@@ -80,13 +80,13 @@ Repeating 100 times per compression method (total 12.5 MiB).
  16. zstd-best-compression      25.1 KiB     19.3 MiB/s   882    99.3 MiB
 ```
 
-While s2 uses significantly less memory in this case, pgzip's numbers seem indifferent to the input size. [Turns out](https://github.com/klauspost/pgzip/issues/44), pgzip has different memory usage logic. It would quickly allocate necessary memory and plateau, which s2 is more on a linear fashion. Here is rough graph is demonstrate the difference:
+While s2 uses significantly less memory in this case, pgzip's numbers seem indifferent to the input size. [Turns out](https://github.com/klauspost/pgzip/issues/44), pgzip has different memory usage logic. It would quickly allocate necessary memory and plateau, which s2 exhibits more of a linear growth. The graph below illustrates the difference.
 
 ![s2 vs pgzip](s2_vs_pgzip.svg)
 
 Therefore, if your backup target is small, and memory is extremely restricted, s2 might be necessary. Otherwise, all algorithms are valid candidates.
 
- Note: Newer Kopia versions no longer support reading contents that were compressed with the deprecated LZ4 algorithm. If your repository contains data written with LZ4, you must migrate it first using a Kopia version that still supports LZ4—for example by restoring the affected snapshots and/or repacking the repository with one of the currently supported compression algorithms—before upgrading.
+Note: Newer Kopia versions no longer support reading contents that were compressed with the deprecated LZ4 algorithm. If your repository contains data written with LZ4, you must migrate it first using a Kopia version that still supports LZ4—for example by restoring the affected snapshots and/or repacking the repository with one of the currently supported compression algorithms—before upgrading.
 
 
 ### Minimum file size and extensions to compress
