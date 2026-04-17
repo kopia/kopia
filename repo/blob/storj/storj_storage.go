@@ -111,7 +111,7 @@ func (storj *storjStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Byt
 		return errors.Wrap(err, "PubBlob Commit")
 	}
 
-	// TODO(rjk): I am not certain that I am correctly handling modifcation times.
+	// TODO(rjk): I am not certain that I am correctly handling modification times.
 	if opts.GetModTime != nil {
 		info := upfd.Info()
 		*opts.GetModTime = info.System.Created

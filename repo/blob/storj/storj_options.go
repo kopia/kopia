@@ -13,8 +13,8 @@ type Options struct {
 	Prefix string `json:"prefix,omitempty"`
 
 	// Access Grant is the access grant generated on the satellite. Use 'uplink access export' to export a
-	// valiad access grant string that needs to be set here.
-	AccessGrant string `json:"accessgrant"`
+	// valid access grant string that needs to be set here.
+	AccessGrant string `json:"accessgrant" kopia:"sensitive"`
 
 	throttling.Limits
 }
