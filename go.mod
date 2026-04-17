@@ -20,7 +20,7 @@ require (
 	github.com/fatih/color v1.19.0
 	github.com/foomo/htpasswd v0.0.0-20200116085101-e3a90e78da9c
 	github.com/gofrs/flock v0.13.0
-	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/fswalker v0.3.3
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
