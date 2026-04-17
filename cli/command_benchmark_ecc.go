@@ -16,9 +16,9 @@ import (
 
 type commandBenchmarkEcc struct {
 	blockSize   atunits.Base2Bytes
-	repeat      int
+	repeat      uint
 	optionPrint bool
-	parallel    int
+	parallel    uint
 
 	out textOutput
 }
@@ -26,8 +26,8 @@ type commandBenchmarkEcc struct {
 func (c *commandBenchmarkEcc) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("ecc", "Run ECC benchmarks")
 	cmd.Flag("block-size", "Size of a block to encrypt").Default("10MB").BytesVar(&c.blockSize)
-	cmd.Flag("repeat", "Number of repetitions").Default("100").IntVar(&c.repeat)
-	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").IntVar(&c.parallel)
+	cmd.Flag("repeat", "Number of repetitions").Default("100").UintVar(&c.repeat)
+	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").UintVar(&c.parallel)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
 	cmd.Action(svc.noRepositoryAction(c.run))
 	c.out.setup(svc)

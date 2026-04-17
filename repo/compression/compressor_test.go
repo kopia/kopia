@@ -14,6 +14,10 @@ func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 func TestCompressor(t *testing.T) {
 	for id, comp := range ByHeaderID {
+		if isUnsupported[id] {
+			continue
+		}
+
 		t.Run(fmt.Sprintf("compressible-data-%x", id), func(t *testing.T) {
 			// make sure all-zero data is compressed
 			data := make([]byte, 10000)
@@ -95,6 +99,10 @@ func BenchmarkCompressor(b *testing.B) {
 
 	var sortedNames []Name
 	for id := range ByName {
+		if !IsSupported(id) {
+			continue
+		}
+
 		sortedNames = append(sortedNames, id)
 	}
 

@@ -20,10 +20,6 @@ type Client struct {
 	ID string
 }
 
-func init() {
-	petname.NonDeterministicMode()
-}
-
 func newClient() *Client {
 	return &Client{
 		ID: petname.Generate(nameLen, "-") + "-" + uuid.NewString(),
