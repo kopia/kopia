@@ -160,7 +160,7 @@ func TestPutOpts(t *testing.T) {
 
 	// Put the same blob again. I did not expect this to fail but
 	// apparently there is some kind of propagation delay that
-	// must be accomodated when over-writing an existing blob.
+	// must be accommodated when over-writing an existing blob.
 	if err := storj.PutBlob(ctx, blob.ID(blobname), gather.FromSlice([]byte(blobcontents)), blob.PutOptions{}); err != nil {
 		t.Errorf("expected an error free write: %#v", err)
 	}
