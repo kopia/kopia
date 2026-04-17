@@ -5,6 +5,8 @@ updates:
     open-pull-requests-limit: 5
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 4
     ignore:
       # htmluibuild is explicitly updated by us
       - dependency-name: "github.com/kopia/htmluibuild"
@@ -29,6 +31,8 @@ updates:
     open-pull-requests-limit: 5
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 4
     groups:
       github-actions:
         patterns:
@@ -41,6 +45,8 @@ updates:
     directory: "/app"
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     groups:
       # create once-per-week PR for all KopiaUI dependency bumps, that usually includes
       # electron, electron-builder, etc.
