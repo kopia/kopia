@@ -80,22 +80,6 @@ func main() {
 	t0 := clock.Now()
 
 	for i := range 300_000_000 {
-		if i%1_000_000 == 0 && i > 0 {
-			var ms runtime.MemStats
-
-			runtime.ReadMemStats(&ms)
-
-			alloc := ms.HeapAlloc - ms0.HeapAlloc
-			dur := clock.Now().Sub(t0).Truncate(time.Second)
-
-			fmt.Printf("elapsed %v count: %v M bytes: %v MB bytes/item: %v Mitems/sec: %.1f\n",
-				dur,
-				float64(i)/1e6,
-				alloc/1e6,
-				alloc/uint64(i),
-				float64(i)/dur.Seconds()/1e6)
-		}
-
 		// generate key=sha256(i) without allocations.
 		h.Reset()
 		binary.LittleEndian.PutUint64(num[:], uint64(i)) //nolint:gosec
@@ -109,6 +93,24 @@ func main() {
 			bm.PutIfAbsent(ctx, keyBuf[:], nil)
 		case implMapWithValues:
 			bm.PutIfAbsent(ctx, keyBuf[:], keyBuf[:])
+		}
+
+		count := uint64(i + 1) //nolint:gosec
+
+		if count%1_000_000 == 0 {
+			var ms runtime.MemStats
+
+			runtime.ReadMemStats(&ms)
+
+			alloc := ms.HeapAlloc - ms0.HeapAlloc
+			dur := clock.Now().Sub(t0)
+
+			fmt.Printf("elapsed %v, count: %v M, bytes: %v MB, bytes/item: %v, Mitems/sec: %.1f\n",
+				dur.Truncate(time.Second),
+				float64(count)/1e6,
+				alloc/1e6,
+				alloc/count,
+				float64(count)/dur.Seconds()/1e6)
 		}
 	}
 }
