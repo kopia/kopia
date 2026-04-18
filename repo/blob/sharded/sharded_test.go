@@ -2,6 +2,7 @@ package sharded_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -266,4 +267,188 @@ func TestClone(t *testing.T) {
 	require.NoError(t, p2.Save(&buf2after))
 
 	require.Equal(t, buf2.String(), buf2after.String())
+}
+
+func mustSweep(t *testing.T, st blob.Storage, ctx context.Context) {
+	t.Helper()
+
+	type sweeper interface {
+		SweepEmptyDirectories(ctx context.Context) error
+	}
+
+	s, ok := st.(sweeper)
+	require.True(t, ok, "storage does not implement SweepEmptyDirectories")
+	require.NoError(t, s.SweepEmptyDirectories(ctx))
+}
+
+func TestSweepEmptyDirectoriesRemovesEmptyShardDirs(t *testing.T) {
+	t.Parallel()
+	ctx := testlogging.Context(t)
+	dir := testutil.TempDirectory(t)
+
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path: dir,
+		Options: sharded.Options{
+			DirectoryShards: []int{3, 3},
+		},
+	}, true)
+	require.NoError(t, err)
+
+	defer st.Close(ctx)
+
+	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.
+	blobID := blob.ID("abcdef1234567890abcde")
+
+	require.NoError(t, st.PutBlob(ctx, blobID, gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+
+	// Verify shard dirs exist
+	require.DirExists(t, filepath.Join(dir, "abc"))
+	require.DirExists(t, filepath.Join(dir, "abc", "def"))
+
+	require.NoError(t, st.DeleteBlob(ctx, blobID))
+
+	// DeleteBlob alone does not remove shard dirs
+	require.DirExists(t, filepath.Join(dir, "abc", "def"))
+
+	mustSweep(t, st, ctx)
+
+	// Now shard dirs should be removed
+	require.NoDirExists(t, filepath.Join(dir, "abc", "def"))
+	require.NoDirExists(t, filepath.Join(dir, "abc"))
+
+	// Root and .shards file should still exist
+	require.DirExists(t, dir)
+	require.FileExists(t, filepath.Join(dir, ".shards"))
+}
+
+func TestSweepEmptyDirectoriesPreservesNonEmptyShardDirs(t *testing.T) {
+	t.Parallel()
+	ctx := testlogging.Context(t)
+	dir := testutil.TempDirectory(t)
+
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path: dir,
+		Options: sharded.Options{
+			DirectoryShards: []int{3, 3},
+		},
+	}, true)
+	require.NoError(t, err)
+
+	defer st.Close(ctx)
+
+	// Two blobs sharing the same top-level shard "abc" but different sub-shards.
+	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.
+	blob1 := blob.ID("abcdef1234567890abcde")
+	blob2 := blob.ID("abcghi9876543210abcde")
+
+	require.NoError(t, st.PutBlob(ctx, blob1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	require.NoError(t, st.PutBlob(ctx, blob2, gather.FromSlice([]byte{2}), blob.PutOptions{}))
+
+	// Delete only the first blob, then sweep
+	require.NoError(t, st.DeleteBlob(ctx, blob1))
+
+	mustSweep(t, st, ctx)
+
+	// Sub-shard "def" should be removed, but "abc" should remain (still has "ghi")
+	require.NoDirExists(t, filepath.Join(dir, "abc", "def"))
+	require.DirExists(t, filepath.Join(dir, "abc"))
+	require.DirExists(t, filepath.Join(dir, "abc", "ghi"))
+}
+
+func TestSweepEmptyDirectoriesPartialChainCleanup(t *testing.T) {
+	t.Parallel()
+	ctx := testlogging.Context(t)
+	dir := testutil.TempDirectory(t)
+
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path: dir,
+		Options: sharded.Options{
+			DirectoryShards: []int{3, 3},
+		},
+	}, true)
+	require.NoError(t, err)
+
+	defer st.Close(ctx)
+
+	// Two blobs sharing the same top-level shard but different sub-shards.
+	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.
+	blob1 := blob.ID("abcdef1234567890abcde")
+	blob2 := blob.ID("abcxyz0000000000abcde")
+
+	require.NoError(t, st.PutBlob(ctx, blob1, gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	require.NoError(t, st.PutBlob(ctx, blob2, gather.FromSlice([]byte{2}), blob.PutOptions{}))
+
+	require.NoError(t, st.DeleteBlob(ctx, blob1))
+
+	mustSweep(t, st, ctx)
+
+	// "def" sub-shard removed, but "abc" stays because "xyz" still lives there
+	require.NoDirExists(t, filepath.Join(dir, "abc", "def"))
+	require.DirExists(t, filepath.Join(dir, "abc"))
+
+	// Now delete the second blob and sweep - everything should be cleaned up
+	require.NoError(t, st.DeleteBlob(ctx, blob2))
+
+	mustSweep(t, st, ctx)
+
+	require.NoDirExists(t, filepath.Join(dir, "abc", "xyz"))
+	require.NoDirExists(t, filepath.Join(dir, "abc"))
+}
+
+func TestSweepEmptyDirectoriesPreservesShardsFile(t *testing.T) {
+	t.Parallel()
+	ctx := testlogging.Context(t)
+	dir := testutil.TempDirectory(t)
+
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path: dir,
+		Options: sharded.Options{
+			DirectoryShards: []int{3, 3},
+		},
+	}, true)
+	require.NoError(t, err)
+
+	defer st.Close(ctx)
+
+	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.
+	blobID := blob.ID("abcdef1234567890abcde")
+	require.NoError(t, st.PutBlob(ctx, blobID, gather.FromSlice([]byte{1}), blob.PutOptions{}))
+	require.NoError(t, st.DeleteBlob(ctx, blobID))
+
+	mustSweep(t, st, ctx)
+
+	// .shards file must survive
+	require.FileExists(t, filepath.Join(dir, ".shards"))
+	require.DirExists(t, dir)
+}
+
+func TestSweepEmptyDirectoriesWithFlatShards(t *testing.T) {
+	t.Parallel()
+	ctx := testlogging.Context(t)
+	dir := testutil.TempDirectory(t)
+
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path: dir,
+		Options: sharded.Options{
+			DirectoryShards: []int{0},
+		},
+	}, true)
+	require.NoError(t, err)
+
+	defer st.Close(ctx)
+
+	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.
+	blobID := blob.ID("abcdef1234567890abcde")
+	require.NoError(t, st.PutBlob(ctx, blobID, gather.FromSlice([]byte{1}), blob.PutOptions{}))
+
+	// With [0] shards, blob is stored directly in root - no subdirs
+	require.FileExists(t, filepath.Join(dir, "abcdef1234567890abcde.f"))
+
+	require.NoError(t, st.DeleteBlob(ctx, blobID))
+
+	mustSweep(t, st, ctx)
+
+	// Root should still exist, .shards should still exist
+	require.DirExists(t, dir)
+	require.FileExists(t, filepath.Join(dir, ".shards"))
 }
