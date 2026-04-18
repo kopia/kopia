@@ -1,0 +1,3 @@
+*                       @kopia/kopia-maintainers
+/.github/CODEOWNERS     @kopia/kopia-maintainers
+/.github/               @kopia/kopia-maintainers
