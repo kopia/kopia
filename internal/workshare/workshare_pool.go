@@ -1,6 +1,9 @@
 package workshare
 
 import (
+	"fmt"
+	"os"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 )
@@ -52,11 +55,7 @@ func NewPool[T any](numWorkers int) *Pool[T] {
 			for {
 				select {
 				case it := <-w.work:
-					w.activeWorkers.Add(1)
-					it.process(w, it.request)
-					w.activeWorkers.Add(-1)
-					<-w.semaphore
-					it.wg.Done()
+					w.processWorkItem(it)
 
 				case <-w.closed:
 					return
@@ -66,6 +65,24 @@ func NewPool[T any](numWorkers int) *Pool[T] {
 	}
 
 	return w
+}
+
+// processWorkItem executes a single work item with guaranteed cleanup.
+// Defers ensure that activeWorkers, semaphore, and WaitGroup are always
+// updated even if the process function panics, preventing pool deadlock.
+func (w *Pool[T]) processWorkItem(it workItem[T]) {
+	defer it.wg.Done()
+	defer func() { <-w.semaphore }()
+	defer w.activeWorkers.Add(-1)
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "workshare: panic in worker: %v\n%s\n", r, debug.Stack())
+		}
+	}()
+
+	w.activeWorkers.Add(1)
+	it.process(w, it.request)
 }
 
 // Close closes the worker pool.

@@ -4,6 +4,8 @@ package parallelwork
 import (
 	"container/list"
 	"context"
+	"fmt"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -78,7 +80,7 @@ func (v *Queue) Process(ctx context.Context, workers int) error {
 						return nil
 					}
 
-					err := callback()
+					err := v.safeCallback(callback)
 
 					v.completed(ctx)
 
@@ -92,6 +94,20 @@ func (v *Queue) Process(ctx context.Context, workers int) error {
 
 	//nolint:wrapcheck
 	return eg.Wait()
+}
+
+// safeCallback executes a callback with panic recovery. If the callback panics,
+// the panic is caught and returned as an error instead of crashing the process.
+// This ensures completed() is always called by the caller, preventing deadlock
+// when activeWorkerCount would otherwise remain permanently incremented.
+func (v *Queue) safeCallback(callback CallbackFunc) (retErr error) {
+	defer func() {
+		if r := recover(); r != nil {
+			retErr = fmt.Errorf("panic in parallel work callback: %v\n%s", r, debug.Stack())
+		}
+	}()
+
+	return callback()
 }
 
 func (v *Queue) dequeue(ctx context.Context) CallbackFunc {
