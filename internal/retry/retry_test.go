@@ -73,3 +73,33 @@ func TestRetryContextCancel(t *testing.T) {
 		return errRetriable
 	}, isRetriable))
 }
+
+func TestRetryContextCancelDuringBackoff(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	cctx, cancel := context.WithCancel(ctx)
+
+	var attempts int
+
+	done := make(chan error, 1)
+
+	go func() {
+		_, err := internalRetry(cctx, "cancel-during-backoff", func() (int, error) {
+			attempts++
+			cancel()
+
+			return 0, errRetriable
+		}, isRetriable, 5*time.Second, 5*time.Second, -1, 1)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		require.ErrorIs(t, err, context.Canceled)
+		require.Equal(t, 1, attempts)
+
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("retry did not stop promptly after context cancellation")
+	}
+}
