@@ -172,6 +172,13 @@ func (s *Server) SetupHTMLUIAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/notificationProfiles", s.handleUI(handleNotificationProfileList)).Methods(http.MethodGet)
 
 	m.HandleFunc("/api/v1/testNotificationProfile", s.handleUI(handleNotificationProfileTest)).Methods(http.MethodPost)
+
+	// Users
+	m.HandleFunc("/api/v1/users", s.handleUI(handleListUsers)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/users", s.handleUI(handleAddUser)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/users/{username}", s.handleUI(handleGetUser)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/users/{username}", s.handleUI(handleDeleteUser)).Methods(http.MethodDelete)
+	m.HandleFunc("/api/v1/users/{username}", s.handleUI(handleUpdatePasswordUser)).Methods(http.MethodPut)
 }
 
 // SetupControlAPIHandlers registers control API handlers.
