@@ -4,6 +4,8 @@ package maintenance
 import (
 	"context"
 	"sort"
+	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -18,6 +20,7 @@ import (
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenancestats"
+	"github.com/kopia/kopia/internal/storagereserve"
 )
 
 // User-visible log output.
@@ -138,6 +141,9 @@ type RunParameters struct {
 
 	// timestamp of the last update of maintenance schedule blob
 	MaintenanceStartTime time.Time
+
+	// LowSpace is true if the maintenance is running in a low-space condition
+	LowSpace bool
 }
 
 // NotOwnedError is returned when maintenance cannot run because it is owned by another user.
@@ -197,20 +203,52 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 
 	defer l.Unlock() //nolint:errcheck
 
-	runParams := RunParameters{rep, mode, p, time.Time{}}
+	runParams := RunParameters{rep, mode, p, time.Time{}, false}
+
+	// Ensure storage reserve is present before starting maintenance.
+	if err := storagereserve.Ensure(ctx, rep.BlobStorage(), storagereserve.DefaultReserveSize); err != nil {
+		if isNoSpaceError(err) || errors.Is(err, storagereserve.ErrInsufficientSpace) {
+			userLog(ctx).Warnf("Could not ensure storage reserve due to low space, entering emergency mode: %v", err)
+			runParams.LowSpace = true
+			if err := storagereserve.Delete(ctx, rep.BlobStorage()); err != nil {
+				return errors.Wrap(err, "emergency cleanup failed: could not sacrifice storage reserve")
+			}
+		} else {
+			return errors.Wrap(err, "error ensuring storage reserve")
+		}
+	}
 
 	// update schedule so that we don't run the maintenance again immediately if
 	// this process crashes.
 	if err = updateSchedule(ctx, runParams); err != nil {
-		return errors.Wrap(err, "error updating maintenance schedule")
+		if isNoSpaceError(err) {
+			userLog(ctx).Warnf("Maintenance schedule update failed due to low space, proceeding in emergency mode: %v", err)
+			
+			// If we haven't already entered emergency mode from the Ensure step,
+			// trigger the reserve sacrifice now.
+			if !runParams.LowSpace {
+				runParams.LowSpace = true
+				if err := storagereserve.Delete(ctx, rep.BlobStorage()); err != nil {
+					return errors.Wrap(err, "emergency cleanup failed: could not sacrifice storage reserve")
+				}
+			}
+		} else {
+			return errors.Wrap(err, "error updating maintenance schedule")
+		}
 	}
 
 	bm, err := runParams.rep.BlobReader().GetMetadata(ctx, maintenanceScheduleBlobID)
 	if err != nil {
-		return errors.Wrap(err, "error getting maintenance blob time")
+		if runParams.LowSpace {
+			// If we are in low space mode, the blob might not exist or we might not be able to read it.
+			// Use current time as a fallback.
+			runParams.MaintenanceStartTime = rep.Time()
+		} else {
+			return errors.Wrap(err, "error getting maintenance blob time")
+		}
+	} else {
+		runParams.MaintenanceStartTime = bm.Timestamp
 	}
-
-	runParams.MaintenanceStartTime = bm.Timestamp
 
 	if err = checkClockSkewBounds(runParams); err != nil {
 		return errors.Wrap(err, "error checking for clock skew")
@@ -223,7 +261,48 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 		return errors.Wrap(err, "error refreshing indexes before maintenance")
 	}
 
-	return cb(ctx, runParams)
+	err = cb(ctx, runParams)
+
+	// Recreate reserve only if maintenance succeeded and we were in emergency mode.
+	if err == nil && runParams.LowSpace {
+		if ensureErr := storagereserve.Ensure(ctx, rep.BlobStorage(), storagereserve.DefaultReserveSize); ensureErr != nil {
+			userLog(ctx).Warnf("Could not recreate storage reserve after successful maintenance: %v", ensureErr)
+		} else {
+			userLog(ctx).Infof("Successfully recreated storage reserve after emergency maintenance.")
+		}
+	}
+
+	return err
+}
+
+func isNoSpaceError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	// Prefer structured errno check when available.
+	if errors.Is(err, syscall.ENOSPC) {
+		return true
+	}
+
+	// Fallback to matching common cross-platform "out of space" phrases.
+	msg := strings.ToLower(err.Error())
+
+	noSpacePhrases := []string{
+		"no space left on device",
+		"no space left on disk",
+		"not enough space",
+		"insufficient space",
+		"disk is full",
+	}
+
+	for _, phrase := range noSpacePhrases {
+		if strings.Contains(msg, phrase) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func checkClockSkewBounds(rp RunParameters) error {
@@ -244,6 +323,23 @@ func checkClockSkewBounds(rp RunParameters) error {
 
 // Run performs maintenance activities for a repository.
 func Run(ctx context.Context, runParams RunParameters, safety SafetyParameters) error {
+	if runParams.LowSpace {
+		userLog(ctx).Infof("Running maintenance in emergency mode (LowSpace=true): forcing safety=none to reclaim space immediately")
+
+		// In emergency mode, we prioritize freeing space and skip optimizations that might consume space.
+		//
+		// NOTE: We intentionally pass a nil Schedule here so that the orphaned-pack deletion task does not
+		// update any maintenance scheduling state or write schedule manifests. This avoids additional writes
+		// while the repository is in a low-space / emergency condition. As a consequence, this run is not
+		// reflected in maintenance schedule tracking, which is acceptable because this path is only used
+		// for best-effort space recovery rather than regular, scheduled maintenance.
+		if runParams.Mode == ModeFull {
+			return runTaskDeleteOrphanedPacksFull(ctx, runParams, nil, SafetyNone)
+		}
+
+		return runTaskDeleteOrphanedPacksQuick(ctx, runParams, nil, SafetyNone)
+	}
+
 	switch runParams.Mode {
 	case ModeQuick:
 		return runQuickMaintenance(ctx, runParams, safety)
