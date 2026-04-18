@@ -79,7 +79,7 @@ func ParseIndexBlob(blobID blob.ID, encrypted gather.Bytes, crypter blobcrypto.C
 		return nil, errors.Wrap(err, "unable to decrypt index blob")
 	}
 
-	ndx, err := index.Open(data.Bytes().ToByteSlice(), nil, crypter.Encryptor().Overhead)
+	ndx, err := index.Open(index.SliceIndexSource(data.Bytes().ToByteSlice()), nil, crypter.Encryptor().Overhead)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to open index blob")
 	}
