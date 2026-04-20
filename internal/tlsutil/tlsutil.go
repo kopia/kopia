@@ -137,6 +137,9 @@ func TLSConfigTrustingSingleCertificate(sha256Fingerprint string) *tls.Config {
 			VerifyPeerCertificate: func(_ [][]byte, _ [][]*x509.Certificate) error {
 				return errors.Errorf("invalid SHA256 fingerprint %q", sha256Fingerprint)
 			},
+			VerifyConnection: func(tls.ConnectionState) error {
+				return errors.Errorf("invalid SHA256 fingerprint %q", sha256Fingerprint)
+			},
 		}
 	}
 
