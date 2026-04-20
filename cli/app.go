@@ -330,7 +330,7 @@ func NewApp() *App {
 			{"from-config", "the provided configuration file", func() StorageFlags { return &storageFromConfigFlags{} }},
 
 			{"azure", "an Azure blob storage", func() StorageFlags { return &storageAzureFlags{} }},
-			{"b2", "a B2 bucket", func() StorageFlags { return &storageB2Flags{} }},
+			{"b2", "a B2 bucket [DEPRECATED]", func() StorageFlags { return &storageB2Flags{} }},
 			{"filesystem", "a filesystem", func() StorageFlags { return &storageFilesystemFlags{} }},
 			{"gcs", "a Google Cloud Storage bucket", func() StorageFlags { return &storageGCSFlags{} }},
 			{"gdrive", "a Google Drive folder", func() StorageFlags { return &storageGDriveFlags{} }},
