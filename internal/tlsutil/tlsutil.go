@@ -2,6 +2,7 @@
 package tlsutil
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -16,7 +17,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -130,9 +130,20 @@ func WriteCertificateToFile(fname string, cert *x509.Certificate) (err error) {
 // TLSConfigTrustingSingleCertificate return tls.Config which trusts exactly one TLS certificate with
 // provided SHA256 fingerprint.
 func TLSConfigTrustingSingleCertificate(sha256Fingerprint string) *tls.Config {
+	sha256FingerprintBytes, err := hex.DecodeString(sha256Fingerprint)
+	if err != nil {
+		return &tls.Config{
+			MinVersion: tls.VersionTLS12,
+			VerifyPeerCertificate: func(_ [][]byte, _ [][]*x509.Certificate) error {
+				return errors.Errorf("invalid SHA256 fingerprint %q", sha256Fingerprint)
+			},
+		}
+	}
+
 	return &tls.Config{
 		InsecureSkipVerify:    true, //nolint:gosec
-		VerifyPeerCertificate: verifyPeerCertificate(sha256Fingerprint),
+		VerifyPeerCertificate: verifyPeerCertificateFunction(sha256FingerprintBytes),
+		VerifyConnection:      verifyConnectionFunction(sha256FingerprintBytes),
 	}
 }
 
@@ -145,25 +156,48 @@ func TransportTrustingSingleCertificate(sha256Fingerprint string) http.RoundTrip
 	return t2
 }
 
-func verifyPeerCertificate(sha256Fingerprint string) func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-	sha256Fingerprint = strings.ToLower(sha256Fingerprint)
-
+func verifyPeerCertificateFunction(sha256FingerprintBytes []byte) func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
 		_ = verifiedChains
 
-		var serverCerts []string
+		return verifyPeerCertificate(sha256FingerprintBytes, rawCerts)
+	}
+}
 
-		for _, c := range rawCerts {
-			h := sha256.Sum256(c)
-			serverCert := hex.EncodeToString(h[:])
+func verifyPeerCertificate(sha256FingerprintBytes []byte, rawCerts [][]byte) error {
+	var serverCerts [][]byte
 
-			if serverCert == sha256Fingerprint {
-				return nil
-			}
+	for _, c := range rawCerts {
+		serverCertFingerPrint := sha256.Sum256(c)
 
-			serverCerts = append(serverCerts, serverCert)
+		if bytes.Equal(serverCertFingerPrint[:], sha256FingerprintBytes) {
+			return nil
 		}
 
-		return errors.Errorf("can't find certificate matching SHA256 fingerprint %q (server had %v)", sha256Fingerprint, serverCerts)
+		serverCerts = append(serverCerts, serverCertFingerPrint[:])
 	}
+
+	return errors.Errorf("can't find certificate matching SHA256 fingerprint %x (server had %x)", sha256FingerprintBytes, serverCerts)
+}
+
+func verifyConnectionFunction(sha256FingerprintBytes []byte) func(s tls.ConnectionState) error {
+	return func(s tls.ConnectionState) error {
+		return verifyConnection(sha256FingerprintBytes, &s)
+	}
+}
+
+func verifyConnection(sha256FingerprintBytes []byte, s *tls.ConnectionState) error {
+	var serverCerts [][]byte
+
+	for _, c := range s.PeerCertificates {
+		serverCertFingerPrint := sha256.Sum256(c.Raw)
+
+		if bytes.Equal(serverCertFingerPrint[:], sha256FingerprintBytes) {
+			return nil
+		}
+
+		serverCerts = append(serverCerts, serverCertFingerPrint[:])
+	}
+
+	return errors.Errorf("can't find certificate matching SHA256 fingerprint %x (server had %x)", sha256FingerprintBytes, serverCerts)
 }
