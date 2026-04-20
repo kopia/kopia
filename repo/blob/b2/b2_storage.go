@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/timestampmeta"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 const (
@@ -23,6 +24,8 @@ const (
 
 	timeMapKey = "kopia-mtime" // case is important, must be all-lowercase
 )
+
+var log = logging.Module("b2")
 
 type b2Storage struct {
 	Options
@@ -247,7 +250,9 @@ func (s *b2Storage) String() string {
 }
 
 // New creates new B2-backed storage with specified options.
-func New(_ context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+	log(ctx).Warn("The B2 storage provider is deprecated and will be removed in the future, use the S3-compatible storage provider instead")
+
 	_ = isCreate
 
 	if opt.BucketName == "" {

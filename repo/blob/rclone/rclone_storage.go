@@ -248,6 +248,8 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 //
 //nolint:funlen
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
+	log(ctx).Warn("The rclone storage provider is not actively tested, it may cause data loss, use at your own risk")
+
 	// generate directory for all temp files.
 	td, err := os.MkdirTemp("", "kopia-rclone")
 	if err != nil {
