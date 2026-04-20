@@ -251,7 +251,7 @@ func (s *b2Storage) String() string {
 
 // New creates new B2-backed storage with specified options.
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
-	log(ctx).Warn("The B2 storage provider is deprecated and will be removed soon, use the S3-compatible storage provider instead")
+	log(ctx).Warn("The B2 storage provider is deprecated and will be removed in the future, use the S3-compatible storage provider instead")
 
 	_ = isCreate
 

@@ -335,10 +335,10 @@ func NewApp() *App {
 			{"gcs", "a Google Cloud Storage bucket", func() StorageFlags { return &storageGCSFlags{} }},
 			{"gdrive", "a Google Drive folder [Not maintained]", func() StorageFlags { return &storageGDriveFlags{} }},
 
-			{"rclone", "a rclone-based provided [Not maintained]", func() StorageFlags { return &storageRcloneFlags{} }},
+			{"rclone", "a rclone-based provider [Not maintained]", func() StorageFlags { return &storageRcloneFlags{} }},
 			{"s3", "an S3 bucket", func() StorageFlags { return &storageS3Flags{} }},
 			{"sftp", "an SFTP storage", func() StorageFlags { return &storageSFTPFlags{} }},
-			{"webdav", "a WebDAV storage [Not maintained]", func() StorageFlags { return &storageWebDAVFlags{} }},
+			{"webdav", "a WebDAV storage", func() StorageFlags { return &storageWebDAVFlags{} }},
 		},
 
 		// testability hooks
