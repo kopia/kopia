@@ -1,3 +1,5 @@
+//go:build !no_extra_providers
+
 // Package b2 implements Storage based on an Backblaze B2 bucket.
 package b2
 
