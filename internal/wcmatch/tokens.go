@@ -55,7 +55,7 @@ func (t tokenSeq) String() string {
 	}
 
 	for _, token := range t.items {
-		b.WriteString(fmt.Sprintf("%v", token))
+		fmt.Fprintf(&b, "%v", token)
 	}
 
 	b.WriteRune(']')
