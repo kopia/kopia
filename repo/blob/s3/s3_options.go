@@ -31,6 +31,8 @@ type Options struct {
 	RoleEndpoint string                `json:"roleEndpoint"`
 	RoleRegion   string                `json:"roleRegion"`
 
+	VirtualHostedStyleRequests bool `json:"virtualHostedStyleRequests,omitempty"`
+
 	// Region is an optional region to pass in authorization header.
 	Region string `json:"region,omitempty"`
 
