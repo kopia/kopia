@@ -26,6 +26,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timetrack"
+	"github.com/kopia/kopia/internal/wcmatch"
 	"github.com/kopia/kopia/internal/workshare"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/compression"
@@ -102,6 +103,11 @@ type Uploader struct {
 
 	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
 	stats *snapshot.Stats
+
+	// ExternalEnforcedMatchers are matchers from an ignore rules file external to the source being backed up
+	// They are applied unconditionally to the entire directory tree and are not overridden by sub-directory policies or
+	// NoParentIgnoreRules settings.
+	ExternalEnforcedMatchers []wcmatch.WildcardMatcher
 
 	isCanceled atomic.Bool
 
@@ -1390,27 +1396,35 @@ func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, polic
 		return entry
 	}
 
-	return ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(_ context.Context, fname string, md fs.Entry, policyTree *policy.Tree) {
-		if md.IsDir() {
-			maybeLogEntryProcessed(
-				logger,
-				policyTree.EffectivePolicy().LoggingPolicy.Directories.Ignored.OrDefault(policy.LogDetailNone),
-				"ignored directory", fname, nil, nil, timetrack.StartTimer())
+	opts := []ignorefs.Option{
+		ignorefs.ReportIgnoredFiles(func(_ context.Context, fname string, md fs.Entry, policyTree *policy.Tree) {
+			if md.IsDir() {
+				maybeLogEntryProcessed(
+					logger,
+					policyTree.EffectivePolicy().LoggingPolicy.Directories.Ignored.OrDefault(policy.LogDetailNone),
+					"ignored directory", fname, nil, nil, timetrack.StartTimer())
 
-			if reportIgnoreStats {
-				u.Progress.ExcludedDir(fname)
+				if reportIgnoreStats {
+					u.Progress.ExcludedDir(fname)
+				}
+			} else {
+				maybeLogEntryProcessed(
+					logger,
+					policyTree.EffectivePolicy().LoggingPolicy.Entries.Ignored.OrDefault(policy.LogDetailNone),
+					"ignored", fname, nil, nil, timetrack.StartTimer())
+
+				if reportIgnoreStats {
+					u.Progress.ExcludedFile(fname, md.Size())
+				}
 			}
-		} else {
-			maybeLogEntryProcessed(
-				logger,
-				policyTree.EffectivePolicy().LoggingPolicy.Entries.Ignored.OrDefault(policy.LogDetailNone),
-				"ignored", fname, nil, nil, timetrack.StartTimer())
 
-			if reportIgnoreStats {
-				u.Progress.ExcludedFile(fname, md.Size())
-			}
-		}
+			u.stats.AddExcluded(md)
+		}),
+	}
 
-		u.stats.AddExcluded(md)
-	}))
+	if len(u.ExternalEnforcedMatchers) > 0 {
+		opts = append(opts, ignorefs.WithExternalEnforcedMatchers(u.ExternalEnforcedMatchers))
+	}
+
+	return ignorefs.New(entry, policyTree, opts...)
 }

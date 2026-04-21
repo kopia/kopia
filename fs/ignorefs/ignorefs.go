@@ -35,6 +35,11 @@ type ignoreContext struct {
 	matchers       []wcmatch.WildcardMatcher // current set of rules to ignore files
 	maxFileSize    int64                     // maximum size of file allowed
 
+	// externalEnforcedMatchers are ignore rules from an external file (--ignore-rules-file).
+	// Unlike regular matchers, these are NOT cleared by NoParentIgnoreRules and are
+	// unconditionally inherited by all subdirectories.
+	externalEnforcedMatchers []wcmatch.WildcardMatcher
+
 	oneFileSystem bool // should we enter other mounted filesystems
 }
 
@@ -50,6 +55,13 @@ func (c *ignoreContext) shouldIncludeByName(ctx context.Context, path string, e 
 	for _, m := range c.matchers {
 		// If we already matched a pattern and concluded that the path should be ignored, we only check
 		// negated patterns (and vice versa)
+		if !shouldIgnore && !m.Negated() || shouldIgnore && m.Negated() {
+			shouldIgnore = m.Match(trimLeadingCurrentDir(path), e.IsDir())
+		}
+	}
+
+	// externalEnforcedMatchers are applied last and override any policy-level decisions.
+	for _, m := range c.externalEnforcedMatchers {
 		if !shouldIgnore && !m.Negated() || shouldIgnore && m.Negated() {
 			shouldIgnore = m.Match(trimLeadingCurrentDir(path), e.IsDir())
 		}
@@ -310,7 +322,8 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 	var dotIgnoreFiles []fs.File
 
 	for _, dotfile := range effectiveDotIgnoreFiles {
-		if e, err := d.Directory.Child(ctx, dotfile); err == nil {
+		e, err := d.Directory.Child(ctx, dotfile)
+		if err == nil {
 			switch entry := e.(type) {
 			case fs.File:
 				dotIgnoreFiles = append(dotIgnoreFiles, entry)
@@ -332,11 +345,12 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 	}
 
 	newic := &ignoreContext{
-		parent:         d.parentContext,
-		onIgnore:       d.parentContext.onIgnore,
-		dotIgnoreFiles: effectiveDotIgnoreFiles,
-		maxFileSize:    d.parentContext.maxFileSize,
-		oneFileSystem:  d.parentContext.oneFileSystem,
+		parent:                   d.parentContext,
+		onIgnore:                 d.parentContext.onIgnore,
+		dotIgnoreFiles:           effectiveDotIgnoreFiles,
+		maxFileSize:              d.parentContext.maxFileSize,
+		oneFileSystem:            d.parentContext.oneFileSystem,
+		externalEnforcedMatchers: d.parentContext.externalEnforcedMatchers,
 	}
 
 	if pol != nil {
@@ -353,6 +367,8 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 }
 
 func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath string) error {
+	// Only policy-level matchers are cleared. externalEnforcedMatchers are intentionally preserved here as
+	// they will be applied unconditionally across all directories regardless of policy configuration.
 	if fp.NoParentDotIgnoreFiles {
 		c.dotIgnoreFiles = nil
 	}
@@ -383,7 +399,7 @@ func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath strin
 
 func (c *ignoreContext) loadDotIgnoreFiles(ctx context.Context, dirPath string, dotIgnoreFiles []fs.File) error {
 	for _, f := range dotIgnoreFiles {
-		matchers, err := parseIgnoreFile(ctx, dirPath, f)
+		matchers, err := ParseIgnoreFile(ctx, dirPath, f)
 		if err != nil {
 			return errors.Wrapf(err, "unable to parse ignore file %v", f.Name())
 		}
@@ -414,7 +430,8 @@ func combineAndDedupe(slices ...[]string) []string {
 	return result
 }
 
-func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]wcmatch.WildcardMatcher, error) {
+// ParseIgnoreFile parses an ignore file from the given base directory and returns a list of wildcard matchers.
+func ParseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]wcmatch.WildcardMatcher, error) {
 	f, err := file.Open(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open ignore file")
@@ -485,5 +502,14 @@ func ReportIgnoredFiles(f IgnoreCallback) Option {
 		if f != nil {
 			ic.onIgnore = append(ic.onIgnore, f)
 		}
+	}
+}
+
+// WithExternalEnforcedMatchers returns an Option that sets global ignore rule matchers.
+// These matchers are applied unconditionally to all directories in the tree and are
+// not affected by NoParentIgnoreRules or any sub-directory policy overrides.
+func WithExternalEnforcedMatchers(matchers []wcmatch.WildcardMatcher) Option {
+	return func(ic *ignoreContext) {
+		ic.externalEnforcedMatchers = matchers
 	}
 }
