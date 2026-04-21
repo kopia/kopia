@@ -92,7 +92,9 @@ func RecoverFormatBlob(ctx context.Context, st blob.Storage, blobID blob.ID, opt
 		if foundMetadata.BlobID != "" {
 			return errors.Errorf("found multiple blocks with a given prefix: %v", blobID)
 		}
+
 		foundMetadata = bm
+
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "error")

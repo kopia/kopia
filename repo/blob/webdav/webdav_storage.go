@@ -168,7 +168,6 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 		mkdirAttempted := false
 
 		for {
-
 			err := d.translateError(d.cli.Write(writePath, b, defaultFilePerm))
 			if err == nil {
 				if d.AtomicWrites {

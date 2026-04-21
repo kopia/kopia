@@ -1748,6 +1748,7 @@ func dumpContents(ctx context.Context, t *testing.T, bm *WriteManager, caption s
 		func(ci Info) error {
 			t.Logf(" ci[%v]=%#v", count, ci)
 			count++
+
 			return nil
 		}); err != nil {
 		t.Errorf("error listing contents: %v", err)

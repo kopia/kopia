@@ -206,11 +206,14 @@ func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOpt
 				pi = &PackInfo{PackID: ci.PackBlobID}
 				packUsage[ci.PackBlobID] = pi
 			}
+
 			pi.ContentCount++
+
 			pi.TotalSize += int64(ci.PackedLength)
 			if options.IncludeContentInfos {
 				pi.ContentInfos = append(pi.ContentInfos, ci)
 			}
+
 			return nil
 		}); err != nil {
 		return errors.Wrap(err, "error iterating contents")
@@ -246,6 +249,7 @@ func (bm *WriteManager) IterateUnreferencedPacks(ctx context.Context, blobPrefix
 			if pi.ContentCount > 0 {
 				usedPacks.Put(ctx, []byte(pi.PackID))
 			}
+
 			return nil
 		}); err != nil {
 		return errors.Wrap(err, "error iterating packs")
