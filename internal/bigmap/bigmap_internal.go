@@ -246,7 +246,7 @@ func (m *internalMap) growLocked(newSize uint64) {
 			}
 
 			slot := m.findSlotInSlice(key, newSlots, newH2Prime)
-			newSlots[slot] = entry{segment: uint32(segNum) + 1, offset: uint32(koff)} //nolint:gosec
+			newSlots[slot] = entry{segment: uint32(segNum) + 1, offset: uint32(koff)}
 		}
 	}
 
