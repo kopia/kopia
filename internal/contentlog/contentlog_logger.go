@@ -152,7 +152,7 @@ func NewLogger(out OutputFunc, params ...ParamWriter) *Logger {
 func RandomSpanID() string {
 	var runID [5]byte
 
-	rand.Read(runID[:]) //nolint:errcheck
+	rand.Read(runID[:])
 
 	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(runID[:]))
 }

@@ -146,6 +146,7 @@ func (m *Manager) RollbackUpgrade(ctx context.Context) error {
 				// delete the current candidate because we have found an even older one
 				delID = oldestBackup.BlobID
 			}
+
 			oldestBackup = &bm
 		} else {
 			delID = bm.BlobID

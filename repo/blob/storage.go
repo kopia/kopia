@@ -412,6 +412,7 @@ func ReadBlobMap(ctx context.Context, bl Lister) (map[ID]Metadata, error) {
 		if len(blobMap)%10000 == 0 {
 			log(ctx).Infof("  %v blobs...", len(blobMap))
 		}
+
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "unable to list blobs")

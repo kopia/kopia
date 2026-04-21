@@ -487,9 +487,11 @@ func certKeyExist(ctx context.Context, tlsCertFile, tlsKeyFile string) error {
 		if _, err := os.Stat(tlsCertFile); os.IsNotExist(err) {
 			return err
 		}
+
 		if _, err := os.Stat(tlsKeyFile); os.IsNotExist(err) {
 			return err
 		}
+
 		return nil
 	}, retry.Always); err != nil {
 		return errors.New("unable to find TLS Certs")
