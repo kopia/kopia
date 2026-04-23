@@ -727,6 +727,7 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 	// stop source manager for sources no longer in the repo.
 	for _, sm := range oldSourceManagers {
 		sm.stop(ctx)
+		sm.removeMetrics() // Remove metrics for the source manager
 	}
 
 	for src, sm := range oldSourceManagers {
@@ -1059,11 +1060,17 @@ func (s *Server) getSchedulerItems(ctx context.Context, now time.Time) []schedul
 	s.nextRefreshTimeLock.Unlock()
 
 	// add a scheduled item to refresh all sources and policies
-	result = append(result, scheduler.Item{
-		Description: "refresh",
-		Trigger:     s.refreshAsync,
-		NextTime:    nrt,
-	})
+	result = append(result,
+		scheduler.Item{
+			Description: "refresh",
+			Trigger:     s.refreshAsync,
+			NextTime:    nrt,
+		},
+		scheduler.Item{
+			Description: "refresh metrics",
+			Trigger:     s.refreshMetrics,
+			NextTime:    now.Add(1 * time.Minute), // Refresh metrics every minute
+		})
 
 	if s.maint != nil {
 		// If we have a direct repository, add an item to run maintenance.
@@ -1101,6 +1108,15 @@ func (s *Server) refreshScheduler(reason string) {
 	select {
 	case s.schedulerRefresh <- reason:
 	default:
+	}
+}
+
+func (s *Server) refreshMetrics() {
+	s.serverMutex.RLock()
+	defer s.serverMutex.RUnlock()
+
+	for _, sm := range s.sourceManagers {
+		sm.refreshStatus(s.rootctx)
 	}
 }
 
