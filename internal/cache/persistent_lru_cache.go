@@ -322,16 +322,39 @@ func (c *PersistentCache) sweepLocked(ctx context.Context) []blob.Metadata {
 
 // performSweepDeletes deletes cache blobs outside the lock. Failed deletes are
 // pushed back into the heap so they can be retried on the next sweep.
+//
+// On successful delete (or ErrBlobNotFound), also clears any stale heap entry
+// that may have been re-added by AddOrUpdate between sweepLocked popping the
+// item and this delete completing — without this, the heap and storage could
+// diverge: storage no longer has the blob, but the heap thinks we still do.
 func (c *PersistentCache) performSweepDeletes(ctx context.Context, toDelete []blob.Metadata) {
 	for _, item := range toDelete {
-		if delerr := c.cacheStorage.DeleteBlob(ctx, item.BlobID); delerr != nil {
-			log(ctx).Warnw("unable to remove cache item", "cache", c.description, "item", item.BlobID, "err", delerr)
-
-			// push failed deletes back into the heap
+		delerr := c.cacheStorage.DeleteBlob(ctx, item.BlobID)
+		if delerr == nil || errors.Is(delerr, blob.ErrBlobNotFound) {
 			c.listCacheMutex.Lock()
-			heap.Push(&c.listCache, item)
+			c.removeMatchingListCacheEntryLocked(item.BlobID)
 			c.listCacheMutex.Unlock()
+
+			continue
 		}
+
+		log(ctx).Warnw("unable to remove cache item", "cache", c.description, "item", item.BlobID, "err", delerr)
+
+		// push failed deletes back into the heap
+		c.listCacheMutex.Lock()
+		heap.Push(&c.listCache, item)
+		c.listCacheMutex.Unlock()
+	}
+}
+
+// removeMatchingListCacheEntryLocked removes a heap entry with the given blob
+// ID if one exists. Used by performSweepDeletes after a successful storage
+// delete to keep the heap consistent if the blob was re-added concurrently.
+//
+// +checklocks:c.listCacheMutex
+func (c *PersistentCache) removeMatchingListCacheEntryLocked(blobID blob.ID) {
+	if i, ok := c.listCache.index[blobID]; ok {
+		heap.Remove(&c.listCache, i) // +checklocksignore
 	}
 }
 

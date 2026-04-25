@@ -158,9 +158,12 @@ func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions
 		return err
 	}
 
-	retErr = cleanup()
-
-	return
+	// cleanup() is invoked exactly once via the deferred wrapper above, which
+	// captures its result into retErr only when no other error was returned.
+	// Calling it explicitly here as well would double-invoke and could leave
+	// the cleanup machinery in an inconsistent state if it ever stops being
+	// idempotent.
+	return nil
 }
 
 // IteratePackOptions are the options used to iterate over packs.
