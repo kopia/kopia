@@ -210,21 +210,31 @@ func TestWorkerRecoversPanic_PoolRemainsOperational(t *testing.T) {
 	ag1.Wait()
 
 	// Second batch: normal work — pool must still function after panics.
+	// Track each request explicitly so we can assert results from BOTH the
+	// async-pool path AND the inline fallback path (the latter exercises the
+	// CanShareWork == false branch when the pool is full).
 	var ag2 workshare.AsyncGroup[*req]
 
-	for i := range 3 {
+	var batch2 []*req
+
+	for range 3 {
+		r := &req{}
+		batch2 = append(batch2, r)
+
 		if ag2.CanShareWork(w) {
 			ag2.RunAsync(w, func(_ *workshare.Pool[*req], r *req) {
 				r.result = 100
-			}, &req{})
+			}, r)
 		} else {
-			// If pool is full, do inline (expected for i >= 2 with 2 workers).
-			_ = i
+			// Inline fallback when the pool is full — typical caller pattern.
+			r.result = 100
 		}
 	}
 
-	for _, r := range ag2.Wait() {
-		require.Equal(t, 100, r.result)
+	ag2.Wait()
+
+	for _, r := range batch2 {
+		require.Equal(t, 100, r.result, "every request must complete after panic batch")
 	}
 }
 

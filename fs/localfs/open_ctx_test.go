@@ -49,7 +49,11 @@ func TestOpenWithContext_CancelledContext(t *testing.T) {
 	}
 }
 
-func TestOpenWithContext_Timeout(t *testing.T) {
+// TestOpenWithContext_TimeoutOnNonBlockingFile verifies that a normal file
+// opens promptly when there's a 5s deadline — the deadline should never fire.
+// This guards against a regression where openWithContext mistakenly enforces
+// the timeout even on fast paths.
+func TestOpenWithContext_TimeoutOnNonBlockingFile(t *testing.T) {
 	tmp := testutil.TempDirectory(t)
 	fn := filepath.Join(tmp, "testfile")
 	require.NoError(t, os.WriteFile(fn, []byte("hello"), 0o644))

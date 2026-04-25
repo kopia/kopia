@@ -269,6 +269,12 @@ func TestProcessRecoversPanic(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "panic in parallel work callback")
 	require.Contains(t, err.Error(), "test panic in callback")
+	// And the second callback ran — proving a panic doesn't strand the
+	// queue. Without the panic recovery in dequeue, completed() would
+	// never be called for the panicking item and Process would deadlock,
+	// so this assertion is what actually validates the no-deadlock claim.
+	require.Equal(t, int32(1), completed.Load(),
+		"non-panicking callback must execute despite earlier panic")
 }
 
 func TestProcessRecoversPanicWithEnqueuedWork(t *testing.T) {
