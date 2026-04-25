@@ -453,7 +453,7 @@ func (c *concurrencyTest) listBlobWorker(ctx context.Context, worker int) func()
 
 			var count int
 
-			err := c.st.pickOne().ListBlobs(ctx, c.prefix, func(bm blob.Metadata) error {
+			err := c.st.pickOne().ListBlobs(ctx, c.prefix, func(_ blob.Metadata) error {
 				count++
 				return nil
 			})

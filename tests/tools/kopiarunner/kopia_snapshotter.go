@@ -390,7 +390,12 @@ func (ks *KopiaSnapshotter) ConnectOrCreateRepoWithServer(serverAddr string, arg
 
 	serverArgs := []string{"--tls-generate-cert", "--tls-cert-file", tlsCertFile, "--tls-key-file", tlsKeyFile}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	// Cover the full retry window of certKeyExist / waitUntilServerStarted
+	// (retryCount × retryInterval = 15 min today) plus a small slack for
+	// command startup. A shorter timeout would silently truncate the retry
+	// loop on slow CI and surface as flaky timeouts that look unrelated to
+	// the actual cause.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(retryCount)*retryInterval+30*time.Second)
 	defer cancel()
 
 	var cmd *exec.Cmd
