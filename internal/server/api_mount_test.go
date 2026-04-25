@@ -36,7 +36,7 @@ func newTestServer() *Server {
 	}
 }
 
-func TestDeleteMountRemovesEntryOnSuccess(t *testing.T) {
+func TestUnmountAndDeleteMountRemovesEntryOnSuccess(t *testing.T) {
 	s := newTestServer()
 	oid, err := object.ParseID("aabb001122334455")
 	require.NoError(t, err)
@@ -44,19 +44,16 @@ func TestDeleteMountRemovesEntryOnSuccess(t *testing.T) {
 	ctrl := &mockController{mountPath: "Z:", done: make(chan struct{})}
 	s.mounts[oid] = ctrl
 
-	// Verify mount exists.
-	require.NotNil(t, s.mounts[oid])
+	// Drives the same code path as handleMountDelete — a regression that
+	// reordered the call (skipped deleteMount on success) would fail here.
+	unmountErr := s.unmountAndDeleteMount(context.Background(), oid, ctrl)
 
-	// Simulate successful unmount + delete.
-	require.NoError(t, ctrl.Unmount(context.Background()))
-	s.deleteMount(oid)
-
-	// Mount should be removed.
+	require.NoError(t, unmountErr)
 	require.Nil(t, s.mounts[oid])
 	require.True(t, ctrl.unmounted)
 }
 
-func TestDeleteMountRemovesEntryEvenOnUnmountFailure(t *testing.T) {
+func TestUnmountAndDeleteMountRemovesEntryEvenOnUnmountFailure(t *testing.T) {
 	s := newTestServer()
 	oid, err := object.ParseID("aabb001122334455")
 	require.NoError(t, err)
@@ -68,16 +65,13 @@ func TestDeleteMountRemovesEntryEvenOnUnmountFailure(t *testing.T) {
 	}
 	s.mounts[oid] = ctrl
 
-	// Simulate the fixed handleMountDelete behavior:
-	// always call deleteMount, even when Unmount fails.
-	unmountErr := ctrl.Unmount(context.Background())
-	s.deleteMount(oid)
+	// If a future change ever returns early on Unmount error (the original
+	// bug), this test fails on the s.mounts[oid] == nil assertion below
+	// because deleteMount would be skipped.
+	unmountErr := s.unmountAndDeleteMount(context.Background(), oid, ctrl)
 
-	// Unmount should have been attempted.
 	require.True(t, ctrl.unmounted)
-	// Error should have been returned.
 	require.Error(t, unmountErr)
-	// But mount should still be removed from the map.
 	require.Nil(t, s.mounts[oid])
 }
 

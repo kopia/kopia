@@ -28,6 +28,7 @@ type serverInterface interface {
 	Refresh()
 	getMountController(ctx context.Context, rep repo.Repository, oid object.ID, createIfNotFound bool) (mount.Controller, error)
 	deleteMount(oid object.ID)
+	unmountAndDeleteMount(ctx context.Context, oid object.ID, c mount.Controller) error
 	listMounts() map[object.ID]mount.Controller
 	disconnect(ctx context.Context) error
 	requestShutdown(ctx context.Context)
