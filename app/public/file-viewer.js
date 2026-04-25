@@ -18,8 +18,17 @@ export function ensureTempDir() {
 
 export function cleanupTempDir() {
   const dir = getTempDir();
-  if (fs.existsSync(dir)) {
+  if (!fs.existsSync(dir)) {
+    return;
+  }
+  // Best-effort: a file inside `dir` may still be open in another process
+  // (Explorer preview, antivirus scanner, the OS viewer that just consumed
+  // it). On Windows that surfaces as EBUSY/EPERM and would otherwise crash
+  // the main Electron process during ready/will-quit.
+  try {
     fs.rmSync(dir, { recursive: true, force: true });
+  } catch (err) {
+    log.warn("file-viewer: failed to clean up temp directory", { dir, err });
   }
 }
 
@@ -35,14 +44,20 @@ export function downloadObject(
   password,
 ) {
   return new Promise((resolve, reject) => {
+    // Sanitize once and use the safe form for both the on-disk temp path
+    // and the `fname` query param. The server uses `fname` to build a
+    // Content-Disposition header, so an unsanitized value containing CR/LF
+    // or quotes could enable header injection / response splitting on the
+    // server end.
+    const safeName = sanitizeFilename(filename);
+
     const url = new URL(
       `/api/v1/objects/${encodeURIComponent(objectID)}`,
       serverAddress,
     );
-    url.searchParams.set("fname", filename);
+    url.searchParams.set("fname", safeName);
 
     const tempDir = ensureTempDir();
-    const safeName = sanitizeFilename(filename);
     const tempPath = path.join(tempDir, `${Date.now()}-${safeName}`);
 
     const options = {
