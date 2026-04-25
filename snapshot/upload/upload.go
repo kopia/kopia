@@ -913,6 +913,17 @@ func (u *Uploader) processSingle(
 			"snapshotted symlink", t0)
 
 	case fs.File:
+		// Pre-flight accessibility check — catch locked files before
+		// assigning a workshare worker to avoid pipeline stalls.
+		if pf, ok := entry.(fs.Preflightable); ok {
+			if err := pf.Preflight(ctx); err != nil {
+				isIgnored := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false)
+				u.reportErrorAndMaybeCancel(err, isIgnored, parentDirBuilder, entryRelativePath)
+
+				return nil
+			}
+		}
+
 		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
 
 		de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())

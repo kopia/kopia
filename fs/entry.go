@@ -50,6 +50,15 @@ type File interface {
 	Open(ctx context.Context) (Reader, error)
 }
 
+// Preflightable is optionally implemented by File entries that support
+// a quick accessibility check before upload. This allows detecting locked
+// or inaccessible files early, before a workshare worker is assigned.
+type Preflightable interface {
+	// Preflight performs a quick accessibility check (e.g. open + close).
+	// Returns nil if the file is accessible, or an error if it cannot be read.
+	Preflight(ctx context.Context) error
+}
+
 // StreamingFile represents an entry that is a stream.
 type StreamingFile interface {
 	Entry

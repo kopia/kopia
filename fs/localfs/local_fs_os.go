@@ -184,6 +184,7 @@ func entryFromDirEntry(basename string, fi os.FileInfo, prefix string) fs.Entry 
 }
 
 var _ os.FileInfo = (*filesystemEntry)(nil)
+var _ fs.Preflightable = (*filesystemFile)(nil)
 
 func newEntry(basename string, fi os.FileInfo, prefix string) filesystemEntry {
 	return filesystemEntry{
