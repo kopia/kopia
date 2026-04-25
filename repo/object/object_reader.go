@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"math"
 
 	"github.com/pkg/errors"
 
@@ -113,6 +114,13 @@ func (r *objectReader) openCurrentChunk() error {
 	}
 
 	defer rd.Close() //nolint:errcheck
+
+	// Validate before the int conversion: on 32-bit platforms int(st.Length)
+	// truncates int64 → int32, which a corrupt seek-table entry could exploit
+	// to produce a negative slice length and panic in make([]byte, stLen).
+	if st.Length < 0 || st.Length > math.MaxInt {
+		return errors.Errorf("invalid chunk length %d", st.Length)
+	}
 
 	stLen := int(st.Length)
 

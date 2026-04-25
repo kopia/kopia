@@ -190,16 +190,35 @@ func (i ID) comparePrefix(p IDPrefix) int {
 		return 0
 
 	default:
-		// for longer prefixes, compare byte-by-byte without string allocation
+		// for longer prefixes, compare byte-by-byte without converting p to []byte
+		// (which would allocate). String indexing returns a byte directly, so we
+		// can do the comparison entirely against the stack-allocated `s` and `p`.
 		var buf [128]byte
 		s := i.Append(buf[:0])
-		pb := []byte(p)
 
-		if c := bytes.Compare(s, pb); c != 0 {
-			return c
+		n := len(s)
+		if len(p) < n {
+			n = len(p)
 		}
 
-		return 0
+		for idx := 0; idx < n; idx++ {
+			if s[idx] > p[idx] {
+				return 1
+			}
+
+			if s[idx] < p[idx] {
+				return -1
+			}
+		}
+
+		switch {
+		case len(s) > len(p):
+			return 1
+		case len(s) < len(p):
+			return -1
+		default:
+			return 0
+		}
 	}
 }
 

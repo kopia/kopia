@@ -155,7 +155,10 @@ func (b Builder) shard(maxShardSize int) []Builder {
 	for k, v := range b {
 		h := fnv.New32a()
 
-		var buf [64]byte
+		// 1 prefix byte + up to 2*hashing.MaxHashSize hex chars = 65 bytes for
+		// today's max hash. 128 leaves headroom for a future larger MaxHashSize
+		// without forcing Append to spill to the heap.
+		var buf [128]byte
 
 		h.Write(k.Append(buf[:0])) //nolint:errcheck
 

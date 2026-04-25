@@ -109,6 +109,18 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 		return "", errors.Wrap(err, "can't create tmp file")
 	}
 
+	name := tf.Name()
+	// On any failure path, close the descriptor and remove the partial file
+	// so we don't leak FDs (Windows: also blocks subsequent rename/remove)
+	// or accumulate junk in the cache directory.
+	keep := false
+	defer func() {
+		if !keep {
+			tf.Close()       //nolint:errcheck
+			os.Remove(name) //nolint:errcheck
+		}
+	}()
+
 	if _, err := tf.Write(data); err != nil {
 		return "", errors.Wrap(err, "can't write to temp file")
 	}
@@ -118,10 +130,12 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 	}
 
 	if err := tf.Close(); err != nil {
-		return "", errors.New("can't close tmp file")
+		return "", errors.Wrap(err, "can't close tmp file")
 	}
 
-	return tf.Name(), nil
+	keep = true
+
+	return name, nil
 }
 
 func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
