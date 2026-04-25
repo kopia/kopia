@@ -1,4 +1,4 @@
-//go:build windows && winfsp
+//go:build windows && winfsp && cgo
 
 package mount
 
@@ -20,6 +20,10 @@ import (
 func Directory(ctx context.Context, entry fs.Directory, mountPoint string, mountOptions Options) (Controller, error) {
 	if mountOptions.PreferWebDAV {
 		return directoryWebDAVNetUse(ctx, entry, mountPoint)
+	}
+
+	if !isValidWindowsDriveOrAsterisk(mountPoint) {
+		return nil, errors.Errorf("invalid mount point %q: expected a Windows drive (e.g. \"X:\") or \"*\" for auto-assignment", mountPoint)
 	}
 
 	if mountPoint == "*" {

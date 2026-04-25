@@ -1,4 +1,4 @@
-//go:build windows
+//go:build windows && winfsp && cgo
 
 // Package winfsp implements a read-only FUSE filesystem for Kopia snapshots using WinFsp via cgofuse.
 package winfsp
@@ -129,8 +129,16 @@ func (k *KopiaFS) Getattr(path string, stat *cgofuse.Stat_t, _ uint64) int {
 	return 0
 }
 
-// Open opens a file for reading.
+// Open opens a file for reading. The filesystem is read-only — any open
+// requesting write access (O_WRONLY, O_RDWR, O_APPEND, O_TRUNC, O_CREAT)
+// is rejected with EROFS so Windows clients that probe writability fail
+// fast at open time rather than discovering it on a later write.
 func (k *KopiaFS) Open(path string, flags int) (int, uint64) {
+	const writeMask = os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_TRUNC | os.O_CREATE
+	if flags&writeMask != 0 {
+		return -cgofuse.EROFS, ^uint64(0)
+	}
+
 	entry, err := k.lookup(path)
 	if err != nil {
 		return -cgofuse.ENOENT, ^uint64(0)
