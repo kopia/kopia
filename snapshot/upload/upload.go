@@ -446,8 +446,30 @@ func newDirEntryWithSummary(d fs.Entry, oid object.ID, summ *fs.DirectorySummary
 	return de, nil
 }
 
-// newDirEntry makes DirEntry objects for any type of Entry.
-func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, error) {
+// setBirthTime sets the birth time on a DirEntry from a filesystem entry if available.
+func setBirthTime(de *snapshot.DirEntry, md fs.Entry) {
+	if ewb, ok := md.(fs.EntryWithBirthTime); ok {
+		if btime := ewb.BirthTime(); !btime.IsZero() {
+			btimeVal := fs.UTCTimestampFromTime(btime)
+			de.BirthTime = &btimeVal
+		}
+	}
+}
+
+// getBirthTime returns the birthtime from an entry if available, or nil.
+func getBirthTime(e fs.Entry) *fs.UTCTimestamp {
+	if ewb, ok := e.(fs.EntryWithBirthTime); ok {
+		if btime := ewb.BirthTime(); !btime.IsZero() {
+			btimeVal := fs.UTCTimestampFromTime(btime)
+			return &btimeVal
+		}
+	}
+
+	return nil
+}
+
+// newDirEntryBase creates a DirEntry without setting birthtime.
+func newDirEntryBase(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, error) {
 	var entryType snapshot.EntryType
 
 	switch md := md.(type) {
@@ -473,20 +495,62 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 	}, nil
 }
 
+// newDirEntry makes DirEntry objects for any type of Entry.
+func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, error) {
+	de, err := newDirEntryBase(md, fname, oid)
+	if err != nil {
+		return nil, err
+	}
+
+	setBirthTime(de, md)
+
+	return de, nil
+}
+
 // newCachedDirEntry makes DirEntry objects for entries that are also in
 // previous snapshots. It ensures file sizes are populated correctly for
-// StreamingFiles.
+// StreamingFiles and handles birthtime intelligently to preserve cached
+// birthtime when current filesystem lacks btime support.
 func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, error) {
 	hoid, ok := cached.(object.HasObjectID)
 	if !ok {
 		return nil, errors.New("cached entry does not implement HasObjectID")
 	}
 
+	var de *snapshot.DirEntry
+	var err error
+
 	if _, ok := md.(fs.StreamingFile); ok {
-		return newDirEntry(cached, fname, hoid.ObjectID())
+		// For StreamingFiles, use cached entry for size/type
+		de, err = newDirEntryBase(cached, fname, hoid.ObjectID())
+		if err != nil {
+			return nil, err
+		}
+
+		cachedBtime := getBirthTime(cached)
+		currentBtime := getBirthTime(md)
+
+		// Use current btime if available and it's new information (upgrade or change)
+		if currentBtime != nil && (cachedBtime == nil || *cachedBtime != *currentBtime) {
+			de.BirthTime = currentBtime
+		} else if cachedBtime != nil {
+			// Preserve cached btime (either same as current, or current unavailable)
+			de.BirthTime = cachedBtime
+		}
+	} else {
+		// For other types, use current metadata directly (birthtime set from filesystem in newDirEntry)
+		de, err = newDirEntry(md, fname, hoid.ObjectID())
+		if err != nil {
+			return nil, err
+		}
+
+		// If current filesystem lacks btime support, preserve cached btime from previous snapshot.
+		if de.BirthTime == nil {
+			de.BirthTime = getBirthTime(cached)
+		}
 	}
 
-	return newDirEntry(md, fname, hoid.ObjectID())
+	return de, nil
 }
 
 // uploadFileWithCheckpointing uploads the specified File to the repository.
