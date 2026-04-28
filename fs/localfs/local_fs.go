@@ -14,13 +14,13 @@ import (
 const numEntriesToRead = 100 // number of directory entries to read in one shot
 
 type filesystemEntry struct {
-	name        string
-	size        int64
-	mtimeNanos  int64
-	btimeNanos  int64
-	mode        os.FileMode
-	owner       fs.OwnerInfo
-	device      fs.DeviceInfo
+	name       string
+	size       int64
+	mtimeNanos int64
+	btimeNanos int64
+	mode       os.FileMode
+	owner      fs.OwnerInfo
+	device     fs.DeviceInfo
 
 	prefix string
 }

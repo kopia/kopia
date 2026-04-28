@@ -17,6 +17,7 @@ import (
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/kopia/snapshot/upload"
@@ -383,7 +384,10 @@ func createSnapshot(t *testing.T, ctx context.Context, rep repo.RepositoryWriter
 	require.NoError(t, err)
 
 	u := upload.NewUploader(rep)
-	man, err := u.Upload(ctx, source, nil, snapshot.SourceInfo{
+	policyTree := policy.BuildTree(nil, &policy.Policy{
+		UploadPolicy: policy.UploadPolicy{PreserveBirthTime: policy.NewOptionalBool(true)},
+	})
+	man, err := u.Upload(ctx, source, policyTree, snapshot.SourceInfo{
 		Path:     sourceDir,
 		Host:     "test-host",
 		UserName: "test-user",

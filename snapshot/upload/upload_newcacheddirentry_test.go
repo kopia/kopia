@@ -78,6 +78,11 @@ var (
 	_ object.HasObjectID    = &mockCachedFileNoBtime{}
 )
 
+// btimeUploader returns a minimal Uploader with birth time preservation enabled for testing.
+func btimeUploader() *Uploader {
+	return &Uploader{PreserveBirthTime: true}
+}
+
 // TestNewCachedDirEntry_PreservesCachedBtime_WhenCurrentLacksBtime simulates a scenario where
 // a previous snapshot captured btime (e.g., on macOS/Windows or Linux ext4/btrfs), but the
 // current filesystem doesn't report btime (e.g., tmpfs, NFS, or older kernel). The cached
@@ -100,7 +105,7 @@ func TestNewCachedDirEntry_PreservesCachedBtime_WhenCurrentLacksBtime(t *testing
 		mockFileBase: mockFileBase{name: "file.txt", mode: 0o644, size: 100, modTime: mtime},
 	}
 
-	de, err := newCachedDirEntry(current, cached, "file.txt")
+	de, err := btimeUploader().newCachedDirEntry(current, cached, "file.txt")
 	require.NoError(t, err)
 	require.NotNil(t, de.BirthTime, "cached btime should be preserved when current FS lacks btime")
 	require.Equal(t, cachedBtime, de.BirthTime.ToTime().UTC(),
@@ -130,7 +135,7 @@ func TestNewCachedDirEntry_UsesCurrentBtime_WhenAvailable(t *testing.T) {
 		birthTime:    currentBtime,
 	}
 
-	de, err := newCachedDirEntry(current, cached, "file.txt")
+	de, err := btimeUploader().newCachedDirEntry(current, cached, "file.txt")
 	require.NoError(t, err)
 	require.NotNil(t, de.BirthTime, "btime should be set")
 	require.Equal(t, currentBtime, de.BirthTime.ToTime().UTC(),
@@ -154,7 +159,7 @@ func TestNewCachedDirEntry_NoBtime_WhenNeitherHasBtime(t *testing.T) {
 		mockFileBase: mockFileBase{name: "file.txt", mode: 0o644, size: 100, modTime: mtime},
 	}
 
-	de, err := newCachedDirEntry(current, cached, "file.txt")
+	de, err := btimeUploader().newCachedDirEntry(current, cached, "file.txt")
 	require.NoError(t, err)
 	require.Nil(t, de.BirthTime, "btime should remain nil when neither entry has it")
 }

@@ -1857,7 +1857,9 @@ func TestUpload_BirthTime_RegularFile(t *testing.T) {
 	f.SetBirthTime(validBtime)
 
 	u := NewUploader(th.repo)
-	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+	policyTree := policy.BuildTree(nil, &policy.Policy{
+		UploadPolicy: policy.UploadPolicy{PreserveBirthTime: policy.NewOptionalBool(true)},
+	})
 
 	// First upload (no previous) - birthtime should be captured.
 	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
@@ -1899,7 +1901,9 @@ func TestUpload_BirthTime_StreamingFile(t *testing.T) {
 
 	u := NewUploader(th.repo)
 	u.ForceHashPercentage = 0
-	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+	policyTree := policy.BuildTree(nil, &policy.Policy{
+		UploadPolicy: policy.UploadPolicy{PreserveBirthTime: policy.NewOptionalBool(true)},
+	})
 
 	// First upload - birthtime should be captured.
 	staticRoot := virtualfs.NewStaticDirectory("rootdir", []fs.Entry{
@@ -1922,6 +1926,31 @@ func TestUpload_BirthTime_StreamingFile(t *testing.T) {
 
 	btime2 := findChildBirthTime(t, ctx, th.repo, s2.RootEntry, "stream.txt")
 	require.Equal(t, validBtime.Unix(), btime2.Unix(), "cached upload should preserve birthtime")
+}
+
+func TestUpload_BirthTime_DisabledByPolicy(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
+
+	validBtime := time.Date(2020, 1, 15, 10, 30, 0, 0, time.UTC)
+
+	sourceDir := mockfs.NewDirectory()
+	f := sourceDir.AddFile("test.txt", []byte("content"), defaultPermissions)
+	f.SetBirthTime(validBtime)
+
+	u := NewUploader(th.repo)
+	// Default policy: PreserveBirthTime is not set, defaults to false.
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	btime := findChildBirthTime(t, ctx, th.repo, s1.RootEntry, "test.txt")
+	require.True(t, btime.IsZero(), "birth time should not be stored when policy does not enable it")
 }
 
 func TestUpload_BirthTime_NoBirthTime(t *testing.T) {

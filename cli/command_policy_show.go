@@ -277,6 +277,7 @@ func appendUploadPolicyRows(rows []policyTableRow, p *policy.Policy, def *policy
 		policyTableRow{"  Max parallel snapshots (server/UI):", valueOrNotSet(p.UploadPolicy.MaxParallelSnapshots), definitionPointToString(p.Target(), def.UploadPolicy.MaxParallelSnapshots)},
 		policyTableRow{"  Max parallel file reads:", valueOrNotSet(p.UploadPolicy.MaxParallelFileReads), definitionPointToString(p.Target(), def.UploadPolicy.MaxParallelFileReads)},
 		policyTableRow{"  Parallel upload above size:", valueOrNotSetOptionalInt64Bytes(p.UploadPolicy.ParallelUploadAboveSize), definitionPointToString(p.Target(), def.UploadPolicy.ParallelUploadAboveSize)},
+		policyTableRow{"  Preserve birth time:", boolToString(p.UploadPolicy.PreserveBirthTime.OrDefault(false)), definitionPointToString(p.Target(), def.UploadPolicy.PreserveBirthTime)},
 	)
 }
 
