@@ -13,6 +13,7 @@ func Test_convertKnownError(t *testing.T) {
 	type args struct {
 		uplinkErr error
 	}
+
 	tests := []struct {
 		name    string
 		args    args

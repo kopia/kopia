@@ -19,43 +19,47 @@ import (
 	"storj.io/uplink"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
+var (
+	errExpected           = errors.New("expected error")
+	errPuttingBlob        = errors.New("error putting blob")
+	errUnexpectedRead     = errors.New("unexpected error when reading partial blob")
+	errUnexpectedReadData = errors.New("unexpected data after reading partial blob")
+)
+
 func randBlobID(_ *testing.T) string {
-	seededRnd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	const charset = "0123456789abcdef"
-	const length = 36
+	seededRnd := rand.New(rand.NewSource(clock.Now().UnixNano()))
+
+	const (
+		charset = "0123456789abcdef"
+		length  = 36
+	)
+
 	rs := make([]byte, length)
 	for i := range length {
 		rs[i] = charset[seededRnd.Intn(len(charset)-1)]
 	}
+
 	return string(rs)
 }
 
 func randBytes(t *testing.T, length int) []byte {
+	t.Helper()
+
 	rndcont := make([]byte, length)
 	_, err := crand.Read(rndcont)
 	require.NoError(t, err)
+
 	return rndcont
 }
 
-// utilities to directly access buckets without instantiating StorjStorage
+// utility to directly delete a bucket without instantiating StorjStorage.
 func deleteBucket(ctx context.Context, opt *Options, bucket string) error {
 	return UlDeleteBucket(ctx, bucket, opt.KeyOrGrant)
-}
-
-func deleteBucketWithObjects(ctx context.Context, opt *Options, bucket string) error {
-	return UlDeleteBucketWithObjects(ctx, bucket, opt.KeyOrGrant)
-}
-
-func ensureBucket(ctx context.Context, opt *Options, bucket string) (*uplink.Bucket, error) {
-	return UlEnsureBucket(ctx, bucket, opt.KeyOrGrant)
-}
-
-func createBucket(ctx context.Context, opt *Options, bucket string) (*uplink.Bucket, error) {
-	return UlCreateBucket(ctx, bucket, opt.KeyOrGrant)
 }
 
 // The (most) important tests we need to actually verify correct functioning of PutBlob and GetBlob
@@ -63,8 +67,12 @@ func createBucket(ctx context.Context, opt *Options, bucket string) (*uplink.Buc
 // I.e. we should emulate the file <-> buffer interaction in the test, and directly execute GetBlob and PutBlob and compare the outcome separately with independent file(=blob) comparison
 // This is actually already provided by blobtesting/verify.go, or in other words we should just craft tests similar to how it's done in the s3 backend
 
-// This is a modification of blobtesting.VerifyStorage that allows us to select specific tests
+// This is a modification of blobtesting.VerifyStorage that allows us to select specific tests.
+//
+//nolint:gocyclo,maintidx
 func VerifyStorjage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.PutOptions, selectTests []string) {
+	t.Helper()
+
 	blocks := []struct {
 		blk      blob.ID
 		contents []byte
@@ -88,6 +96,7 @@ func VerifyStorjage(ctx context.Context, t *testing.T, r blob.Storage, opts blob
 				})
 			}
 		})
+
 		if err := r.DeleteBlob(ctx, "no-such-blob"); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 			t.Errorf("invalid error when deleting non-existent blob: %v", err)
 		}
@@ -111,18 +120,16 @@ func VerifyStorjage(ctx context.Context, t *testing.T, r blob.Storage, opts blob
 	if doit {
 		t.Run("AddBlobs", func(t *testing.T) {
 			for _, b := range blocks {
-				for i := 0; i < initialAddConcurrency; i++ {
+				for i := range initialAddConcurrency {
 					b := b
 
 					t.Run(fmt.Sprintf("%v-%v", b.blk, i), func(t *testing.T) {
 						// t.Parallel()
-
 						if err := r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), opts); err != nil {
 							t.Fatalf("can't put blob: %v", err)
 						}
 					})
 				}
-				// time.Sleep(100 * time.Millisecond)
 			}
 		})
 	}
@@ -132,18 +139,14 @@ func VerifyStorjage(ctx context.Context, t *testing.T, r blob.Storage, opts blob
 			for _, b := range blocks {
 				t.Run(string(b.blk), func(t *testing.T) {
 					// t.Parallel()
-
 					blobtesting.AssertGetBlob(ctx, t, r, b.blk, b.contents)
 				})
-				// time.Sleep(100 * time.Millisecond)
 			}
 		})
 	}
 
 	if slices.Contains(selectTests, "ListBlobs") {
 		t.Run("ListBlobs", func(t *testing.T) {
-			errExpected := errors.New("expected error")
-
 			t.Run("ListErrorNoPrefix", func(t *testing.T) {
 				t.Parallel()
 				require.ErrorIs(t, r.ListBlobs(ctx, "", func(bm blob.Metadata) error {
@@ -174,6 +177,7 @@ func VerifyStorjage(ctx context.Context, t *testing.T, r blob.Storage, opts blob
 			for _, b := range blocks {
 				t.Run(string(b.blk), func(t *testing.T) {
 					t.Parallel()
+
 					err := r.PutBlob(ctx, b.blk, gather.FromSlice(newContents), opts)
 					if opts.DoNotRecreate {
 						require.ErrorIsf(t, err, blob.ErrBlobAlreadyExists, "overwrote blob: %v", b)
@@ -273,14 +277,10 @@ func VerifyStorjage(ctx context.Context, t *testing.T, r blob.Storage, opts blob
 }
 
 func TestStorjage(t *testing.T) {
-	// t.Parallel() // not parallel, because for this function test the tests actually depend on eachother
 	const testName string = "TestStorjage"
-	// NOTE: now use specific bucket made for (CI) tests, with public access hard-coded and permissions limited to bucket
-	// const bucketName string = "validatestorjblob"
 
 	ctx := context.Background()
 	repoOpt := GetUplinkCreds()
-	// repoOpt.BucketName = bucketName
 
 	// cleanup in case of aborted/failed previous runs
 	err := ULDeleteAllObjects(ctx, repoOpt.BucketName, repoOpt.KeyOrGrant)
@@ -292,6 +292,7 @@ func TestStorjage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%s: %s", testName, err.Error())
 	}
+
 	defer func() { _ = storage.Close(ctx) }()
 
 	putOptions := blob.PutOptions{}
@@ -317,14 +318,10 @@ func TestStorjage(t *testing.T) {
 }
 
 func TestStorjStorage(t *testing.T) {
-	// t.Parallel() // not parallel, because for this function test the tests actually depend on eachother
 	const testName string = "TestStorjStorage"
-	// NOTE: now use specific bucket made for (CI) tests, with public access hard-coded and permissions limited to bucket
-	// const bucketName string = "validateblob"
 
 	ctx := context.Background()
 	repoOpt := GetUplinkCreds()
-	// repoOpt.BucketName = bucketName
 
 	// cleanup in case of aborted/failed previous runs
 	err := ULDeleteAllObjects(ctx, repoOpt.BucketName, repoOpt.KeyOrGrant)
@@ -336,6 +333,7 @@ func TestStorjStorage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("%s: %s", testName, err.Error())
 	}
+
 	defer func() { _ = storage.Close(ctx) }()
 
 	putOptions := blob.PutOptions{}
@@ -344,7 +342,7 @@ func TestStorjStorage(t *testing.T) {
 	blobtesting.VerifyStorage(ctx, t, storage, putOptions)
 
 	err = deleteBucket(ctx, repoOpt, repoOpt.BucketName)
-	assert.ErrorIsf(t, err, uplink.ErrBucketNotEmpty, "%s", err.Error())
+	require.ErrorIsf(t, err, uplink.ErrBucketNotEmpty, "%s", err.Error())
 
 	err = ULDeleteAllObjects(ctx, repoOpt.BucketName, repoOpt.KeyOrGrant)
 	if err != nil {
@@ -352,7 +350,7 @@ func TestStorjStorage(t *testing.T) {
 	}
 }
 
-// for development of PutBlob and GetBlob, later covered by TestStorjStorage
+// for development of PutBlob and GetBlob, later covered by TestStorjStorage.
 func TestBasicPutGetBlob(t *testing.T) {
 	const testName string = "TestBasicPutGetBlob"
 
@@ -364,36 +362,40 @@ func TestBasicPutGetBlob(t *testing.T) {
 		t.Fatalf("%s: %s", testName, err.Error())
 	}
 
-	// since a "blob" is just a remote file object, we might as well just upload a recognisable file,
+	// since a "blob" is just a remote file object, we might as well just upload a recognizable file,
 	// so we can also manually check
 	oname := "storj_storage_test.go"
+
 	buf, err := os.ReadFile(oname)
 	if err != nil {
 		t.Fatalf("%s: %s", testName, err.Error())
 	}
 
 	putOptions := blob.PutOptions{}
+
 	err = storage.PutBlob(ctx, blob.ID(oname), gather.FromSlice(buf), putOptions)
 	if err != nil {
 		t.Errorf("%s: %s", testName, err.Error())
 	}
-	// dtmp := testutil.TempDirectory(t)
-	// dtmp := "/tmp"
+
 	rbuf := gather.NewWriteBuffer()
+
 	err = storage.GetBlob(ctx, blob.ID(oname), 0, -1, rbuf)
 	if err != nil {
 		t.Errorf("%s: %s", testName, err.Error())
 	}
+
 	assert.Equal(t, rbuf.Bytes().ToByteSlice(), buf) // compare written with read object
 
 	md, err := storage.GetMetadata(ctx, blob.ID(oname))
 	if err != nil {
 		t.Errorf("%s: %s", testName, err.Error())
 	}
+
 	t.Logf("got metadata for %q: %#v", oname, md)
 	assert.Equal(t, blob.ID(oname), md.BlobID)
 	assert.Equal(t, int64(len(buf)), md.Length)
-	assert.Less(t, time.Now().UTC().Sub(md.Timestamp.UTC()), time.Duration(1*time.Minute)) // object create timestamp is within one minute from this test execution
+	assert.Less(t, clock.Now().UTC().Sub(md.Timestamp.UTC()), time.Minute) // object create timestamp is within one minute from this test execution
 
 	// cleanup
 	err = storage.DeleteBlob(ctx, blob.ID(oname))
@@ -408,8 +410,6 @@ func TestMultiPutGetBlob(t *testing.T) {
 		contents []byte
 	}
 
-	const testName string = "TestMultiPutGetBlob"
-
 	ctx := context.Background()
 
 	repoOpt := GetUplinkCreds()
@@ -418,9 +418,11 @@ func TestMultiPutGetBlob(t *testing.T) {
 
 	blocks := make([]block, 0, 6)
 	defer func(t *testing.T) {
+		t.Helper()
+
 		// cleanup
 		for _, b := range blocks {
-			err = storage.DeleteBlob(ctx, blob.ID(b.blk))
+			err = storage.DeleteBlob(ctx, b.blk)
 			assert.NoError(t, err)
 		}
 	}(t)
@@ -438,41 +440,45 @@ func TestMultiPutGetBlob(t *testing.T) {
 
 	// put all blocks
 	for _, b := range blocks {
-		err = storage.PutBlob(ctx, blob.ID(b.blk), gather.FromSlice(b.contents), putOptions)
+		err = storage.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), putOptions)
 		require.NoError(t, err)
 	}
 
 	// get and compare all blocks
 	for _, b := range blocks {
 		rbuf := gather.NewWriteBuffer()
-		err = storage.GetBlob(ctx, blob.ID(b.blk), 0, -1, rbuf)
-		assert.NoError(t, err)
+		err = storage.GetBlob(ctx, b.blk, 0, -1, rbuf)
+		require.NoError(t, err)
 		assert.Equal(t, rbuf.Bytes().ToByteSlice(), b.contents) // compare written with read object
 		// additionally check the metadata:
-		md, err := storage.GetMetadata(ctx, blob.ID(b.blk))
-		assert.NoError(t, err)
-		// t.Logf("got metadata for %q: %#v", b.blk, md)
-		if assert.Equalf(t, blob.ID(b.blk), md.BlobID, "source object blobID %q and metadata blobID %q do not match", b.blk, md.BlobID) {
+		md, err := storage.GetMetadata(ctx, b.blk)
+		require.NoError(t, err)
+
+		if assert.Equalf(t, b.blk, md.BlobID, "source object blobID %q and metadata blobID %q do not match", b.blk, md.BlobID) {
 			t.Logf("OK: source object blobID %q and metadata blobID match", b.blk)
 		}
+
 		if assert.Equalf(t, int64(len(b.contents)), md.Length, "source object content length %8d and metadata content length %8d bytes do not match", len(b.contents), md.Length) {
 			t.Logf("OK: source object content length %8d and metadata content length match", len(b.contents))
 		}
-		if assert.Lessf(t, time.Now().UTC().Sub(md.Timestamp.UTC()), time.Duration(1*time.Minute), "current timestamp %v and metadata timestamp %v deviation too large (> 1 min)", time.Now().UTC(), md.Timestamp.UTC()) {
+
+		if assert.Lessf(t, clock.Now().UTC().Sub(md.Timestamp.UTC()), time.Minute, "current timestamp %v and metadata timestamp %v deviation too large (> 1 min)", clock.Now().UTC(), md.Timestamp.UTC()) {
 			t.Logf("OK: metadata timestamp (%s) and current time are near enough (less than 1 min)", md.Timestamp.UTC())
 		}
 	}
 }
 
-// interface
+// interface.
 func TestNew(t *testing.T) {
 	const testName = "TestNew"
+
 	ctx := context.Background()
 
 	repoOpt := GetUplinkCreds()
+
 	_, err := New(ctx, repoOpt, true)
 	if err != nil {
-		t.Errorf(testName)
+		t.Error(testName)
 	}
 }
 
@@ -515,18 +521,20 @@ func TestPutBlob(t *testing.T) {
 	ctx := context.Background()
 
 	repoOpt := GetUplinkCreds()
+
 	err := ULDeleteAllObjects(ctx, repoOpt.BucketName, repoOpt.KeyOrGrant)
 	if err != nil {
 		t.Errorf("%s: %s", testName, err.Error())
 	}
+
 	storjStorage, err := New(ctx, repoOpt, false) // true: create bucket if not exists
 	if err != nil {
 		t.Fatalf("%s: %s", testName, err.Error())
 	}
 
 	putOptions := blob.PutOptions{}
-
 	buf := make([]byte, 128)
+
 	err = storjStorage.PutBlob(ctx, blob.ID(testId), gather.FromSlice(buf), putOptions)
 	if err != nil {
 		t.Errorf("%s: %s", testName, err.Error())
@@ -535,6 +543,7 @@ func TestPutBlob(t *testing.T) {
 
 func TestPutKopiaBlobs(t *testing.T) {
 	const testName = "TestPutBlob"
+
 	kbs := []struct {
 		blk      blob.ID
 		contents []byte
@@ -543,7 +552,6 @@ func TestPutKopiaBlobs(t *testing.T) {
 		{blk: "kopia.repository-1", contents: bytes.Repeat([]byte{4}, 100)},
 		{blk: "kopia.repository-2", contents: bytes.Repeat([]byte{6}, 100)},
 	}
-	const kbId = "kopia.repository-0"
 	ctx := context.Background()
 
 	repoOpt := GetUplinkCreds()
@@ -561,11 +569,12 @@ func TestPutKopiaBlobs(t *testing.T) {
 	putOptions := blob.PutOptions{}
 
 	for _, b := range kbs {
-		err = storjStorage.PutBlob(ctx, blob.ID(b.blk), gather.FromSlice(b.contents), putOptions)
+		err = storjStorage.PutBlob(ctx, b.blk, gather.FromSlice(b.contents), putOptions)
 		if err != nil {
-			err = errors.Join(err, fmt.Errorf("error putting blob %q", b.blk))
+			err = errors.Join(err, fmt.Errorf("%q: %w", b.blk, errPuttingBlob))
 		}
 	}
+
 	if err != nil {
 		t.Errorf("%s: %s", testName, err.Error())
 	}
@@ -576,10 +585,12 @@ func TestBlobPartialRead(t *testing.T) {
 	ctx := context.Background()
 
 	repoOpt := GetUplinkCreds()
+
 	err := ULDeleteAllObjects(ctx, repoOpt.BucketName, repoOpt.KeyOrGrant)
 	if err != nil {
 		t.Errorf("%s: %s", testName, err.Error())
 	}
+
 	storjStorage, err := New(ctx, repoOpt, false)
 	if err != nil {
 		t.Fatalf("%s: %s", testName, err.Error())
@@ -588,6 +599,7 @@ func TestBlobPartialRead(t *testing.T) {
 	putOptions := blob.PutOptions{}
 
 	buf := randBytes(t, 1e6)
+
 	err = storjStorage.PutBlob(ctx, blob.ID(testId), gather.FromSlice(buf), putOptions)
 	if err != nil {
 		t.Errorf("%s: %s", testName, err.Error())
@@ -612,15 +624,18 @@ func TestBlobPartialRead(t *testing.T) {
 	for _, tc := range partialBlobCases {
 		err1 = storjStorage.GetBlob(ctx, blob.ID(testId), tc.offset, tc.length, &out)
 		if err != nil {
-			err2 = errors.Join(err1, fmt.Errorf("got unexpected error when reading partial blob @%v+%v", tc.offset, tc.length))
+			err2 = errors.Join(err1, fmt.Errorf("@%v+%v: %w", tc.offset, tc.length, errUnexpectedRead))
 		}
-		assert.ErrorIs(t, err2, nil)
+
+		require.NoError(t, err2)
 
 		if got, want := out.ToByteSlice(), buf[tc.offset:tc.offset+tc.length]; !bytes.Equal(got, want) {
-			err3 = errors.Join(err, fmt.Errorf(`got unexpected data after reading partial blob @%v+%v: got "%x", wanted "%x"`, tc.offset, tc.length, got, want))
+			err3 = errors.Join(err, fmt.Errorf(`@%v+%v: got "%x", wanted "%x": %w`, tc.offset, tc.length, got, want, errUnexpectedReadData))
 		}
-		assert.ErrorIs(t, err3, nil)
+
+		require.NoError(t, err3)
 	}
+
 	err = ULDeleteAllObjects(ctx, repoOpt.BucketName, repoOpt.KeyOrGrant)
 	if err != nil {
 		t.Errorf("%s: %s", testName, err.Error())

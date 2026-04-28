@@ -1,3 +1,4 @@
+// Package storj implements blob storage backend for Storj decentralized cloud storage.
 package storj
 
 import (
@@ -20,25 +21,25 @@ type Options struct {
 	// only relevant when apikey is used
 	SatelliteAddr         string
 	Passphrase            string `json:"passphrase" kopia:"sensitive"` // TODO: isn't this the encryption passphrase, so not _only_ for API key mode?
-	unencryptedObjectKeys bool
+	unencryptedObjectKeys bool   //nolint:unused // TODO: figure out how/whether to use this
 
 	// internal field holding the uplink external interface library instance
 	// ex ulext.External
 	// upload options
-	recursive            bool
-	pending              bool
-	expanded             bool
-	inmemoryEC           bool
-	locs                 []ulloc.Location
-	byteRange            string
-	progress             bool
-	transfers            int
-	dryrun               bool
-	expires              time.Time
-	parallelism          int // how many proccess can be done at the same time
-	parallelismChunkSize memory.Size
+	recursive            bool             //nolint:unused // TODO: figure out how/whether to use this
+	pending              bool             //nolint:unused // TODO: figure out how/whether to use this
+	expanded             bool             //nolint:unused // TODO: figure out how/whether to use this
+	inmemoryEC           bool             //nolint:unused // TODO: figure out how/whether to use this
+	locs                 []ulloc.Location //nolint:unused // TODO: figure out how/whether to use this
+	byteRange            string           //nolint:unused // TODO: figure out how/whether to use this
+	progress             bool             //nolint:unused // TODO: figure out how/whether to use this
+	transfers            int              //nolint:unused // TODO: figure out how/whether to use this
+	dryrun               bool             //nolint:unused // TODO: figure out how/whether to use this
+	expires              time.Time        //nolint:unused // TODO: figure out how/whether to use this
+	parallelism          int              // how many processes can be done at the same time //nolint:unused // TODO: figure out how/whether to use this
+	parallelismChunkSize memory.Size      //nolint:unused // TODO: figure out how/whether to use this
 
-	uploadConfig testuplink.ConcurrentSegmentUploadsConfig
-	// PointInTime specifies a view of the (versioned) store at that time
+	uploadConfig testuplink.ConcurrentSegmentUploadsConfig //nolint:unused // TODO: figure out how/whether to use this
+	// PointInTime specifies a view of the (versioned) store at that time.
 	PointInTime *time.Time `json:"pointInTime,omitempty"` // FIXME: check if supported by our backend?! If not: remove
 }

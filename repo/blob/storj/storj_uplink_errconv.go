@@ -26,7 +26,7 @@ import (
 // ErrBucketNotEmpty is returned when the bucket is not empty during deletion.
 // ErrBucketNotFound is returned when the bucket is not found.
 
-// for now we only convert errors that have/need a specific kopia type, all others are passed as-is
+// for now we only convert errors that have/need a specific kopia type, all others are passed as-is.
 func convertKnownError(uplinkErr error) (kopiaErr error) {
 	switch {
 	case errors.Is(uplinkErr, io.EOF):

@@ -10,6 +10,7 @@ import (
 
 	"storj.io/uplink"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/retrying"
 )
@@ -19,7 +20,16 @@ const (
 	storjSchemePfx   = "sj://"
 )
 
+// ErrIncompleteIO is returned when bytes read or written do not equal the buffer length.
 var ErrIncompleteIO = errors.New("bytes read/written != buffer length")
+
+var (
+	errNilProject        = errors.New("refusing to close nil project")
+	errMissingBucketName = errors.New("missing bucket name")
+	errDoNotRecreate     = errors.New("do-not-recreate")
+	errStorageIsNil      = errors.New("storage is nil after initialization")
+	errNotImplemented    = errors.New("not yet implemented")
+)
 
 // TODO: remove if unused
 // type storjPointInTimeStorage struct {
@@ -27,22 +37,25 @@ var ErrIncompleteIO = errors.New("bytes read/written != buffer length")
 // 	pointInTime time.Time
 // }
 
+// StorjStorage implements blob.Storage for Storj decentralized cloud storage.
+//
+//nolint:revive
 type StorjStorage struct {
 	blob.Storage // why does s3 not (need to) encapsulate this???
 	Options
-	// storjExt      *storjExternal // more logical to hold this instance directly here, and "connection" abstractions as singleton instances under it
 	project       *uplink.Project
-	encrypted     bool
+	encrypted     bool //nolint:unused // TODO: how to use?
 	storageConfig *StorageConfig
 }
 
-// enriched uplink.CustomMetadata for convenient conversions  to known field types
+// enriched uplink.CustomMetadata for convenient conversions to known field types.
 type customMeta uplink.CustomMetadata
 
 func newCustomMeta() (cm customMeta) {
 	cm = make(customMeta)
 	cm["ContentType"] = "application/x-kopia"
-	cm.SetLastModified(time.Now()) // assumes instantiation of customMeta is "close enough" to object creation
+	cm.SetLastModified(clock.Now()) // assumes instantiation of customMeta is "close enough" to object creation
+
 	return cm
 }
 
@@ -51,6 +64,7 @@ func (c customMeta) GetLastModified() time.Time {
 	if lastmod, ok := c["LastModified"]; ok {
 		t, _ = time.Parse(time.RFC3339, lastmod) // TODO: check whether non-nil error indeed gives the time zero value!
 	}
+
 	return t
 }
 
@@ -59,6 +73,7 @@ func (c customMeta) GetLastModifiedOrDefault(dflt time.Time) (ts time.Time) {
 	if ts.IsZero() {
 		return dflt
 	}
+
 	return ts
 }
 
@@ -66,6 +81,7 @@ func (c customMeta) SetLastModified(ts time.Time) {
 	c["LastModified"] = ts.Format(time.RFC3339)
 }
 
+// New creates a new Storj blob storage backend, optionally creating the bucket.
 func New(ctx context.Context, opt *Options, createBucket bool) (blob.Storage, error) {
 	st, err := newStorage(ctx, opt, createBucket)
 	if err != nil {
@@ -73,16 +89,13 @@ func New(ctx context.Context, opt *Options, createBucket bool) (blob.Storage, er
 	}
 
 	if st == nil {
-		return nil, fmt.Errorf("storj_storage::New: st nil while err != nil: this should never happen!")
+		return nil, errStorageIsNil
 	}
-	// s, err := maybePointInTimeStore(ctx, st, opt.PointInTime)
-	// if err != nil {
-	// 	return nil, err
-	// }
 
 	return retrying.NewWrapper(st), nil
 }
 
+// NewUnwrapped creates a new Storj blob storage without retry wrapping.
 func NewUnwrapped(ctx context.Context, opt *Options, createBucket bool) (blob.Storage, error) {
 	st, err := newStorage(ctx, opt, createBucket)
 	if err != nil {
@@ -90,31 +103,26 @@ func NewUnwrapped(ctx context.Context, opt *Options, createBucket bool) (blob.St
 	}
 
 	if st == nil {
-		return nil, fmt.Errorf("storj_storage::New: st nil while err != nil: this should never happen!")
+		return nil, errStorageIsNil
 	}
+
 	return st, nil
 }
 
-func (s *StorjStorage) Close(ctx context.Context) (err error) {
+// Close implements blob.Storage.
+func (s *StorjStorage) Close(_ context.Context) error {
 	if s.project == nil {
-		return errors.New("refusing to close nil project")
+		return errNilProject
 	}
-	return s.project.Close()
+
+	if err := s.project.Close(); err != nil {
+		return fmt.Errorf("closing project: %w", err)
+	}
+
+	return nil
 }
 
 func newStorage(ctx context.Context, opt *Options, isCreate bool) (storjStorage *StorjStorage, err error) {
-	// stext := NewStorjExternal()
-
-	// Not so clean, because mutates some fields related to access in opt,
-	// but at the same time we use opt to pass any such info via opt.
-	// So basically it is some funky optional behaviour?!
-	/*
-		err = SetupAccess(ctx, opt)
-		if err != nil {
-			return nil, err
-		}
-	*/
-
 	storjStorage = &StorjStorage{
 		Options: *opt,
 		// storjExt:      stext,
@@ -128,12 +136,13 @@ func newStorage(ctx context.Context, opt *Options, isCreate bool) (storjStorage 
 
 	// should we be interested in the bucket instance itself? (convenient to use as member of storage maybe? It only has some metadata)
 	if isCreate {
-		_, err = proj.EnsureBucket(ctx, opt.BucketName)
+		if _, err = proj.EnsureBucket(ctx, opt.BucketName); err != nil {
+			return nil, fmt.Errorf("ensuring bucket %q: %w", opt.BucketName, err)
+		}
 	} else {
-		_, err = proj.StatBucket(ctx, opt.BucketName)
-	}
-	if err != nil {
-		return nil, err
+		if _, err = proj.StatBucket(ctx, opt.BucketName); err != nil {
+			return nil, fmt.Errorf("checking bucket %q: %w", opt.BucketName, err)
+		}
 	}
 
 	return storjStorage, nil
@@ -153,39 +162,43 @@ func newStorage(ctx context.Context, opt *Options, isCreate bool) (storjStorage 
 // 	}), nil
 // }
 
+// GetProject returns the uplink Project, opening it if not already cached.
 func (s *StorjStorage) GetProject(ctx context.Context) (project *uplink.Project, err error) {
 	if s.project != nil {
 		return s.project, nil
 	}
 	// TODO: remove the API key access method from options/docs
-	access, err := uplink.ParseAccess(s.Options.KeyOrGrant)
+	access, err := uplink.ParseAccess(s.KeyOrGrant)
 	if err != nil {
 		return nil, fmt.Errorf("could not request access grant: %w", err)
 	}
+
 	project, err = uplink.OpenProject(ctx, access)
 	if err != nil {
 		return nil, fmt.Errorf("could not open project: %w", err)
 	}
+
 	s.project = project
 	// FIXME: where do we do project.Close() -> actually the Storage interface has Close()!
 	// we only don't know where/whether kopia calls it, because e.g. S3 doesn't even implement it
 	return project, nil
-	// return s.storjExt.GetProject(ctx, s.Options.KeyOrGrant)
 }
 
-// ############################ blob interface implementation
+// PutBlob implements blob.Storage.
 func (s *StorjStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) error {
 	if s.BucketName == "" {
-		return errors.Join(blob.ErrNotAVolume, errors.New("missing bucket name"))
+		return errors.Join(blob.ErrNotAVolume, errMissingBucketName)
 	}
+
 	if _, err := s.GetProject(ctx); err != nil {
 		return err
 	}
+
 	if opts.DoNotRecreate {
-		return errors.Join(blob.ErrUnsupportedPutBlobOption, errors.New("do-not-recreate"))
+		return errors.Join(blob.ErrUnsupportedPutBlobOption, errDoNotRecreate)
 	}
 
-	// Intitiate the upload of our Object to the specified bucket and key.
+	// Initiate the upload of our Object to the specified bucket and key.
 	// NOTE: UploadOptions currently only has ExpirationTime which defaults to 0 which is infinite
 	upload, err := s.project.UploadObject(ctx, s.BucketName, string(b), &uplink.UploadOptions{})
 	if err != nil {
@@ -201,7 +214,10 @@ func (s *StorjStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, 
 		*opts.GetModTime = objMeta.GetLastModified()
 	}
 
-	upload.SetCustomMetadata(ctx, uplink.CustomMetadata(objMeta))
+	if err = upload.SetCustomMetadata(ctx, uplink.CustomMetadata(objMeta)); err != nil {
+		_ = upload.Abort()
+		return fmt.Errorf("could not set metadata: %w", err)
+	}
 
 	// Copy the data to the upload.
 	_, err = io.Copy(upload, data.Reader())
@@ -209,11 +225,13 @@ func (s *StorjStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, 
 		_ = upload.Abort()
 		return fmt.Errorf("could not upload data: %w", err)
 	}
+
 	// Commit the uploaded object.
 	err = upload.Commit()
 	if err != nil {
 		return fmt.Errorf("could not commit uploaded object: %w", err)
 	}
+
 	return convertKnownError(data.Reader().Close())
 }
 
@@ -222,19 +240,23 @@ func (s *StorjStorage) DeleteBlob(ctx context.Context, b blob.ID) (err error) {
 	if _, err := s.GetProject(ctx); err != nil {
 		return convertKnownError(err)
 	}
+
 	_, err = s.project.DeleteObject(ctx, s.BucketName, string(b))
+
 	return convertKnownError(err)
 }
 
-func (s *StorjStorage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blob.ExtendOptions) error {
-	return fmt.Errorf("StorjStorage::ExtendBlobRetention() not yet implemented!")
+// ExtendBlobRetention implements blob.Storage.
+func (s *StorjStorage) ExtendBlobRetention(_ context.Context, _ blob.ID, _ blob.ExtendOptions) error {
+	return fmt.Errorf("ExtendBlobRetention: %w", errNotImplemented)
 }
 
 // FlushCaches flushes any local caches associated with storage.
-func (s *StorjStorage) FlushCaches(ctx context.Context) error {
+func (s *StorjStorage) FlushCaches(_ context.Context) error {
 	return nil
 }
 
+// ConnectionInfo implements blob.Storage.
 func (s *StorjStorage) ConnectionInfo() blob.ConnectionInfo {
 	return blob.ConnectionInfo{
 		Type:   storjStorageType,
@@ -242,10 +264,12 @@ func (s *StorjStorage) ConnectionInfo() blob.ConnectionInfo {
 	}
 }
 
+// DisplayName implements blob.Storage.
 func (s *StorjStorage) DisplayName() string {
 	return fmt.Sprintf("%s%s", storjSchemePfx, s.BucketName)
 }
 
+// GetBlob implements blob.Storage.
 func (s *StorjStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -259,25 +283,30 @@ func (s *StorjStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 	if err != nil {
 		return convertKnownError(err)
 	}
+
 	defer func() {
 		if closeErr := download.Close(); closeErr != nil {
 			err = errors.Join(err, closeErr)
 		}
 	}()
+
 	br, err := io.Copy(output, download)
 
 	if length != -1 && br != length {
 		return fmt.Errorf("%w: %d (written to output) != %d (length)", ErrIncompleteIO, br, length)
 	}
+
 	return nil
 }
 
+// GetCapacity implements blob.Storage.
 // FIXME: this doesn't seem right
-// we should somehow query the project limits and return a value
-func (s *StorjStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+// we should somehow query the project limits and return a value.
+func (s *StorjStorage) GetCapacity(_ context.Context) (blob.Capacity, error) {
 	return blob.Capacity{}, blob.ErrNotAVolume
 }
 
+// GetMetadata implements blob.Storage.
 func (s *StorjStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
 	if _, err := s.GetProject(ctx); err != nil {
 		return blob.Metadata{}, err
@@ -297,18 +326,19 @@ func (s *StorjStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadat
 	}, nil
 }
 
+// IsReadOnly implements blob.Storage.
 // TODO: check: why not implemented in e.g. s3, but leads to nil pointer if not implemented?!
 func (s *StorjStorage) IsReadOnly() bool {
 	return false
 }
 
-// In kopia prefix is *not* the bucket, but just an (arbitrary length?) start string of the blob ID
-// In uplink, prefix seems to be a "directory"(ish) (TBC)
-// The expectation of the Storage interface seems to be that ListBlobs only lists all blobs *within the opened bucket*
-// (this is the reason to have a fixed bucket within a storjStorage instance)
+// ListBlobs implements blob.Storage, listing all blobs within the bucket matching the given prefix.
+// Note: in kopia prefix is not the bucket but an arbitrary-length prefix of the blob ID.
 func (s *StorjStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) (errs error) {
-	var err error
-	var blobMeta blob.Metadata
+	var (
+		err      error
+		blobMeta blob.Metadata
+	)
 
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -318,10 +348,6 @@ func (s *StorjStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback f
 	if err != nil {
 		return err
 	}
-
-	// if prefix != "" && !strings.HasSuffix(string(prefix), "/") {
-	// 	prefix = prefix + "/"
-	// }
 
 	objsIter := project.ListObjects(
 		ctx, s.BucketName, &uplink.ListObjectsOptions{
@@ -333,7 +359,6 @@ func (s *StorjStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback f
 
 	for objsIter.Next() {
 		// For this limited metadata, we don't need s.GetMetadata (this is a new RPC request!), we already have it in the items ListObjects returned
-		// blobMeta, err = s.GetMetadata(ctx, blob.ID(objsIter.Item().Key))
 		// TODO:(?) probably more logical to extend uplink.Object with appropriate getters & setters
 		objTS := customMeta(objsIter.Item().Custom).GetLastModifiedOrDefault(objsIter.Item().System.Created)
 
@@ -345,8 +370,10 @@ func (s *StorjStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback f
 		if strings.HasPrefix(string(blobMeta.BlobID), string(prefix)) {
 			err = callback(blobMeta)
 		}
+
 		errs = errors.Join(errs, err)
 	}
+
 	return errs
 }
 

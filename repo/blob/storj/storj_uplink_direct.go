@@ -1,5 +1,3 @@
-// Convenience functions to access uplink directly (without instantiating storage)
-// e.g. to handle buckets
 package storj
 
 import (
@@ -10,9 +8,7 @@ import (
 	"storj.io/uplink"
 )
 
-// Since this direct access is only used for convenience in local dev/test,
-// but we don't want to do unnecessary network requests (mainly to avoid spamming the satellite)
-// we make a singleton map that can hold the project for each accessed access grant
+// projAccess is a singleton map caching uplink projects per access grant to avoid repeated network requests.
 var (
 	projAccess = make(map[string]*uplink.Project)
 )
@@ -21,6 +17,7 @@ func getProject(ctx context.Context, accessGrant string) (project *uplink.Projec
 	if project, ok := projAccess[accessGrant]; ok {
 		return project, nil
 	}
+
 	access, err := uplink.ParseAccess(accessGrant)
 	if err != nil {
 		return nil, fmt.Errorf("could not request access grant: %w", err)
@@ -30,10 +27,13 @@ func getProject(ctx context.Context, accessGrant string) (project *uplink.Projec
 	if err != nil {
 		return nil, fmt.Errorf("could not open project: %w", err)
 	}
+
 	projAccess[accessGrant] = project
+
 	return project, nil
 }
 
+// UlDeleteBucket deletes the named bucket using the given access grant.
 func UlDeleteBucket(ctx context.Context, bucketName, accessGrant string) (err error) {
 	proj, err := getProject(ctx, accessGrant)
 	defer func() {
@@ -45,11 +45,16 @@ func UlDeleteBucket(ctx context.Context, bucketName, accessGrant string) (err er
 	if err != nil {
 		return err
 	}
-	_, err = proj.DeleteBucket(ctx, bucketName)
 
-	return err
+	_, err = proj.DeleteBucket(ctx, bucketName)
+	if err != nil {
+		return fmt.Errorf("deleting bucket %q: %w", bucketName, err)
+	}
+
+	return nil
 }
 
+// UlDeleteBucketWithObjects deletes the named bucket and all its objects using the given access grant.
 func UlDeleteBucketWithObjects(ctx context.Context, bucketName, accessGrant string) (err error) {
 	proj, err := getProject(ctx, accessGrant)
 	defer func() {
@@ -61,11 +66,16 @@ func UlDeleteBucketWithObjects(ctx context.Context, bucketName, accessGrant stri
 	if err != nil {
 		return err
 	}
-	_, err = proj.DeleteBucketWithObjects(ctx, bucketName)
 
-	return err
+	_, err = proj.DeleteBucketWithObjects(ctx, bucketName)
+	if err != nil {
+		return fmt.Errorf("deleting bucket with objects %q: %w", bucketName, err)
+	}
+
+	return nil
 }
 
+// UlEnsureBucket ensures the named bucket exists, creating it if necessary.
 func UlEnsureBucket(ctx context.Context, bucketName, accessGrant string) (bucket *uplink.Bucket, err error) {
 	proj, err := getProject(ctx, accessGrant)
 	defer func() {
@@ -77,9 +87,16 @@ func UlEnsureBucket(ctx context.Context, bucketName, accessGrant string) (bucket
 	if err != nil {
 		return nil, err
 	}
-	return proj.EnsureBucket(ctx, bucketName)
+
+	bucket, err = proj.EnsureBucket(ctx, bucketName)
+	if err != nil {
+		return nil, fmt.Errorf("ensuring bucket %q: %w", bucketName, err)
+	}
+
+	return bucket, nil
 }
 
+// UlCreateBucket creates the named bucket using the given access grant.
 func UlCreateBucket(ctx context.Context, bucketName, accessGrant string) (bucket *uplink.Bucket, err error) {
 	proj, err := getProject(ctx, accessGrant)
 	defer func() {
@@ -87,12 +104,20 @@ func UlCreateBucket(ctx context.Context, bucketName, accessGrant string) (bucket
 			err = errors.Join(err, closeErr)
 		}
 	}()
+
 	if err != nil {
 		return nil, err
 	}
-	return proj.CreateBucket(ctx, bucketName)
+
+	bucket, err = proj.CreateBucket(ctx, bucketName)
+	if err != nil {
+		return nil, fmt.Errorf("creating bucket %q: %w", bucketName, err)
+	}
+
+	return bucket, nil
 }
 
+// ULDeleteAllObjects deletes all objects in the named bucket using the given access grant.
 func ULDeleteAllObjects(ctx context.Context, bucketName, accessGrant string) error {
 	proj, err := getProject(ctx, accessGrant)
 	defer func() {
@@ -100,9 +125,11 @@ func ULDeleteAllObjects(ctx context.Context, bucketName, accessGrant string) err
 			err = errors.Join(err, closeErr)
 		}
 	}()
+
 	if err != nil {
 		return err
 	}
+
 	objects := proj.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{Recursive: true})
 
 	var errs []error
@@ -112,6 +139,7 @@ func ULDeleteAllObjects(ctx context.Context, bucketName, accessGrant string) err
 			errs = append(errs, fmt.Errorf("deleting object %q: %w", key, err))
 		}
 	}
+
 	if err := objects.Err(); err != nil {
 		errs = append(errs, fmt.Errorf("listing objects: %w", err))
 	}
