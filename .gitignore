@@ -30,3 +30,19 @@ coverage.txt
 .screenshots/
 .idea/
 /.vs
+
+# Devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
+# other non-upstream stuff
+devenv.*
+.envrc
+.testenv/
