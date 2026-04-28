@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -277,6 +278,8 @@ func VerifyStorjage(ctx context.Context, t *testing.T, r blob.Storage, opts blob
 }
 
 func TestStorjage(t *testing.T) {
+	testutil.ProviderTest(t)
+
 	const testName string = "TestStorjage"
 
 	ctx := context.Background()
@@ -318,6 +321,8 @@ func TestStorjage(t *testing.T) {
 }
 
 func TestStorjStorage(t *testing.T) {
+	testutil.ProviderTest(t)
+
 	const testName string = "TestStorjStorage"
 
 	ctx := context.Background()
