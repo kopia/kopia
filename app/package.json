@@ -126,12 +126,12 @@
     "@playwright/test": "^1.59.1",
     "asar": "^3.2.0",
     "concurrently": "^9.2.1",
-    "dotenv": "^17.4.1",
-    "electron": "^41.2.0",
+    "dotenv": "^17.4.2",
+    "electron": "^41.2.2",
     "electron-builder": "^26.8.1",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1",
-    "prettier": "^3.8.2"
+    "prettier": "^3.8.3"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",
