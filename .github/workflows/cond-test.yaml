@@ -20,5 +20,6 @@ jobs:
     - name: Event name
       run: |
         echo event = '${{ github.event_name }}'
-        echo cond 1 = '${{ github.event_name != 'pull_request' && 'foo' }}'
-        echo cond 1 = '${{ github.event_name != 'pull_request' && 'foo' || 'bar' }}'
+        echo cond 1: '${{ github.event_name != 'pull_request' && 'foo' }}'
+        echo cond 2: '${{ github.event_name != 'pull_request' && 'foo' || '' }}'
+        echo cond 1: '${{ github.event_name != 'pull_request' && 'foo' || 'bar' }}'
