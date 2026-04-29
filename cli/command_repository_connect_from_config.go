@@ -101,3 +101,11 @@ func (c *storageFromConfigFlags) connectToStorageFromStorageConfigStdin(ctx cont
 
 	return c.connectToStorageFromConfigToken(ctx, string(tokenData))
 }
+
+func init() {
+	mustRegisterStorageProvider(
+		"from-config",
+		"the provided configuration file",
+		func() StorageFlags { return &storageFromConfigFlags{} },
+	)
+}
