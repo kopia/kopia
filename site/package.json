@@ -7,7 +7,7 @@
   "license": "ISC",
   "devDependencies": {
     "autoprefixer": "^10.4.14",
-    "postcss": "^8.4.24",
+    "postcss": "^8.5.12",
     "postcss-cli": "^10.1.0"
   }
 }
