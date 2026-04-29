@@ -6,12 +6,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    strategy:
-      fail-fast: true
-      matrix:
-        os: [macos-latest]
     name: Make
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     steps:
     - name: Is this a PR on macOS
       if: ${{ contains(matrix.os, 'macos') && github.event_name != 'pull_request' }}
