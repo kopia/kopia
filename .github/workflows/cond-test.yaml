@@ -1,0 +1,24 @@
+name: Cond test
+on:
+  pull_request:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [macos-latest]
+    name: Make
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Is this a PR on macOS
+      if: ${{ contains(matrix.os, 'macos') && github.event_name != 'pull_request' }}
+      # if: github.event.pull_request.draft == false
+      run: echo 'Yes'
+    - name: Event name
+      run: |
+        echo event = '${{ github.event_name }}'
+        echo cond 1 = '${{ github.event_name != 'pull_request' && 'foo' }}'
+        echo cond 1 = '${{ github.event_name != 'pull_request' && 'foo' || 'bar' }}'
