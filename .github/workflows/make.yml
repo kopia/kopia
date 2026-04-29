@@ -62,7 +62,7 @@ jobs:
         CSC_KEYCHAIN: ${{ secrets.CSC_KEYCHAIN }}
         CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
-      if: ${{ contains(matrix.os, 'macos') }}
+      if: ${{ contains(matrix.os, 'macos') && github.event_name != 'pull_request' }}
     - name: Install Windows signing tools
       # install signing tools and credentials for macOS and Windows outside of main
       # build process.
@@ -90,7 +90,7 @@ jobs:
         WINDOWS_SIGN_TOOL: ${{ secrets.WINDOWS_SIGN_TOOL }}
 
         # macOS signing certificate (base64-encoded), used by Electron Builder
-        MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        MACOS_SIGNING_IDENTITY: ${{ github.event_name != 'pull_request' && secrets.MACOS_SIGNING_IDENTITY || '' }}
     - name: Upload Kopia Artifacts
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
