@@ -306,8 +306,10 @@ provider-tests: $(gotestsum) $(rclone) $(MINIO_MC_PATH)
 
 ALLOWED_LICENSES=Apache-2.0;MIT;BSD-2-Clause;BSD-3-Clause;CC0-1.0;ISC;MPL-2.0;CC-BY-3.0;CC-BY-4.0;ODC-By-1.0;WTFPL;0BSD;Python-2.0;BSD;Unlicense
 
-license-check: $(wwhrd) app-node-modules
+license-check-go: $(wwhrd)
 	$(wwhrd) check
+
+license-check: license-check-go app-node-modules
 	(cd app && npx license-checker --summary --production --onlyAllow "$(ALLOWED_LICENSES)")
 
 vtest: $(gotestsum)
