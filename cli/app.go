@@ -339,6 +339,7 @@ func NewApp() *App {
 			{"s3", "an S3 bucket", func() StorageFlags { return &storageS3Flags{} }},
 			{"sftp", "an SFTP storage", func() StorageFlags { return &storageSFTPFlags{} }},
 			{"webdav", "a WebDAV storage", func() StorageFlags { return &storageWebDAVFlags{} }},
+			{"storj", "a Storj bucket", func() StorageFlags { return &storageStorjFlags{} }},
 		},
 
 		// testability hooks
