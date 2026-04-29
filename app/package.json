@@ -9,7 +9,7 @@
     "electron-updater": "^6.8.3",
     "minimist": "^1.2.8",
     "semver": "^7.7.2",
-    "uuid": "^13.0.0"
+    "uuid": "^14.0.0"
   },
   "type": "module",
   "author": {
