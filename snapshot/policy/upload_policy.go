@@ -11,6 +11,7 @@ type UploadPolicy struct {
 	MaxParallelSnapshots    *OptionalInt   `json:"maxParallelSnapshots,omitempty"`
 	MaxParallelFileReads    *OptionalInt   `json:"maxParallelFileReads,omitempty"`
 	ParallelUploadAboveSize *OptionalInt64 `json:"parallelUploadAboveSize,omitempty"`
+	PreserveBirthTime       *OptionalBool  `json:"preserveBirthTime,omitempty"`
 }
 
 // UploadPolicyDefinition specifies which policy definition provided the value of a particular field.
@@ -18,6 +19,7 @@ type UploadPolicyDefinition struct {
 	MaxParallelSnapshots    snapshot.SourceInfo `json:"maxParallelSnapshots,omitempty"`
 	MaxParallelFileReads    snapshot.SourceInfo `json:"maxParallelFileReads,omitempty"`
 	ParallelUploadAboveSize snapshot.SourceInfo `json:"parallelUploadAboveSize,omitempty"`
+	PreserveBirthTime       snapshot.SourceInfo `json:"preserveBirthTime,omitempty"`
 }
 
 // Merge applies default values from the provided policy.
@@ -25,6 +27,7 @@ func (p *UploadPolicy) Merge(src UploadPolicy, def *UploadPolicyDefinition, si s
 	mergeOptionalInt(&p.MaxParallelSnapshots, src.MaxParallelSnapshots, &def.MaxParallelSnapshots, si)
 	mergeOptionalInt(&p.MaxParallelFileReads, src.MaxParallelFileReads, &def.MaxParallelFileReads, si)
 	mergeOptionalInt64(&p.ParallelUploadAboveSize, src.ParallelUploadAboveSize, &def.ParallelUploadAboveSize, si)
+	mergeOptionalBool(&p.PreserveBirthTime, src.PreserveBirthTime, &def.PreserveBirthTime, si)
 }
 
 // ValidateUploadPolicy returns an error if manual field is set along with Upload fields.
