@@ -92,10 +92,17 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 		}
 
 		for _, e := range entries {
+			name := e.Name()
+
+			if strings.HasPrefix(name, "._") {
+				// skip AppleDouble files created by macOS on non-Apple filesystems
+				continue
+			}
+
 			if e.IsDir() {
 				var match bool
 
-				newPrefix := currentPrefix + e.Name()
+				newPrefix := currentPrefix + name
 				if len(prefix) > len(newPrefix) {
 					match = strings.HasPrefix(string(prefix), newPrefix)
 				} else {
@@ -103,8 +110,8 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 				}
 
 				if match {
-					subdir := directory + "/" + e.Name()
-					subprefix := currentPrefix + e.Name()
+					subdir := directory + "/" + name
+					subprefix := currentPrefix + name
 
 					pw.EnqueueFront(ctx, func() error {
 						return walkDir(subdir, subprefix)
@@ -114,7 +121,7 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 				continue
 			}
 
-			fullID, ok := s.getBlobIDFromFileName(currentPrefix + e.Name())
+			fullID, ok := s.getBlobIDFromFileName(currentPrefix + name)
 			if !ok {
 				continue
 			}
