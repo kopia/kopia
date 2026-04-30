@@ -6,6 +6,7 @@ import (
 
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/maintenancestats"
@@ -16,7 +17,7 @@ func dropDeletedContents(ctx context.Context, rep repo.DirectRepositoryWriter, d
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:drop-deleted-contents", contentlog.RandomSpanID()))
 
-	log := rep.LogManager().NewLogger("maintenance-drop-deleted-contents")
+	log := repodiag.NewContentLogger(rep, "maintenance-drop-deleted-contents")
 
 	contentlog.Log1(ctx, log, "Dropping deleted contents", logparam.Time("dropDeletedBefore", dropDeletedBefore))
 
