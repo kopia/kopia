@@ -58,3 +58,11 @@ func (c *storageAzureFlags) Connect(ctx context.Context, isCreate bool, formatVe
 	//nolint:wrapcheck
 	return azure.New(ctx, &c.azOptions, isCreate)
 }
+
+func init() {
+	mustRegisterStorageProvider(
+		"azure",
+		"an Azure blob storage",
+		func() StorageFlags { return &storageAzureFlags{} },
+	)
+}

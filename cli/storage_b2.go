@@ -27,3 +27,11 @@ func (c *storageB2Flags) Connect(ctx context.Context, isCreate bool, formatVersi
 	//nolint:wrapcheck
 	return b2.New(ctx, &c.b2options, isCreate)
 }
+
+func init() {
+	mustRegisterStorageProvider(
+		"b2",
+		"a B2 bucket [DEPRECATED]",
+		func() StorageFlags { return &storageB2Flags{} },
+	)
+}
