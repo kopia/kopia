@@ -1283,6 +1283,124 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 	require.Len(t, cs.LongestRangeCheckpointSets, 1)
 }
 
+func TestCleanupSupersededIndexes_DeletesXSBlobsCoveredByXR(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	epochsToWrite := p.FullCheckpointFrequency + 3
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+
+	// Drive `epochsToWrite` advance-and-compact iterations: write idxCount
+	// blobs per epoch with the timestamp span needed to advance, then compact.
+	var k int
+	for range epochsToWrite {
+		for i := range idxCount {
+			if i == idxCount-1 {
+				te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+			}
+
+			k++
+
+			te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(k))
+		}
+
+		_, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
+		require.NoError(t, err)
+		require.NoError(t, te.mgr.Refresh(ctx))
+	}
+
+	// Compact each settled epoch → xs0..xs<lastSettled>.
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+
+	for range cs.lastSettledEpochNumber() + 1 {
+		_, err := te.mgr.MaybeCompactSingleEpoch(ctx)
+		require.NoError(t, err)
+		require.NoError(t, te.mgr.Refresh(ctx))
+	}
+
+	// Generate range checkpoint covering [0..lastSettled].
+	rcStats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, rcStats)
+
+	xrMaxEpoch := int(rcStats.RangeMaxEpoch)
+
+	// Sanity-check pre-cleanup state: xs blobs exist for epochs covered by xr.
+	xsBefore, err := blob.ListAllBlobs(ctx, te.st, SingleEpochCompactionBlobPrefix)
+	require.NoError(t, err)
+
+	var xsCoveredBefore int
+	for _, bm := range xsBefore {
+		if ep, ok := epochNumberFromBlobID(bm.BlobID); ok && ep <= xrMaxEpoch {
+			xsCoveredBefore++
+		}
+	}
+
+	require.Positive(t, xsCoveredBefore, "expected xs blobs covered by xr before cleanup")
+
+	// Advance past safety margin and write one more index blob so the storage
+	// clock (max xn timestamp, used by maxCleanupTime) moves forward — without
+	// this, blobSetWrittenEarlyEnough would consider the xr "too recent."
+	te.ft.Advance(2 * p.CleanupSafetyMargin)
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(k+1))
+	require.NoError(t, te.mgr.Refresh(ctx))
+
+	stats, err := te.mgr.CleanupSupersededIndexes(ctx)
+	require.NoError(t, err)
+	require.NotNil(t, stats)
+
+	// All xs blobs for epochs ≤ xrMaxEpoch must be gone; any xs for an epoch
+	// not covered by an xr range must remain.
+	xsAfter, err := blob.ListAllBlobs(ctx, te.st, SingleEpochCompactionBlobPrefix)
+	require.NoError(t, err)
+
+	for _, bm := range xsAfter {
+		ep, ok := epochNumberFromBlobID(bm.BlobID)
+		require.True(t, ok, "unparseable xs blob id %v", bm.BlobID)
+		require.Greater(t, ep, xrMaxEpoch,
+			"xs blob for epoch %d should have been deleted (covered by xr [0..%d])",
+			ep, xrMaxEpoch)
+	}
+
+	// xn cleanup must still work — none of the original xn blobs for covered
+	// epochs should remain either.
+	xnAfter, err := blob.ListAllBlobs(ctx, te.st, UncompactedIndexBlobPrefix)
+	require.NoError(t, err)
+
+	for _, bm := range xnAfter {
+		if ep, ok := epochNumberFromBlobID(bm.BlobID); ok {
+			require.Greater(t, ep, xrMaxEpoch,
+				"xn blob for epoch %d should have been deleted", ep)
+		}
+	}
+}
+
+func TestRangeCoversEpochAndOldEnough(t *testing.T) {
+	t.Parallel()
+
+	now := clock.Now()
+	old := now.Add(-1 * time.Hour)
+	recent := now
+
+	ranges := []*RangeMetadata{
+		{MinEpoch: 0, MaxEpoch: 4, Blobs: []blob.Metadata{{Timestamp: old}}},
+		{MinEpoch: 7, MaxEpoch: 9, Blobs: []blob.Metadata{{Timestamp: recent}}},
+	}
+	maxReplacementTime := now.Add(-30 * time.Minute)
+
+	require.True(t, rangeCoversEpochAndOldEnough(ranges, 0, maxReplacementTime))
+	require.True(t, rangeCoversEpochAndOldEnough(ranges, 4, maxReplacementTime))
+	require.False(t, rangeCoversEpochAndOldEnough(ranges, 5, maxReplacementTime), "epoch 5 not covered by any range")
+	require.False(t, rangeCoversEpochAndOldEnough(ranges, 7, maxReplacementTime), "covering range too recent")
+	require.False(t, rangeCoversEpochAndOldEnough(nil, 0, maxReplacementTime))
+}
+
 func TestValidateParameters(t *testing.T) {
 	cases := []struct {
 		p       Parameters
