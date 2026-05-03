@@ -325,21 +325,8 @@ type commandParent interface {
 // NewApp creates a new instance of App.
 func NewApp() *App {
 	return &App{
-		progress: &cliProgress{},
-		cliStorageProviders: []StorageProvider{
-			{"from-config", "the provided configuration file", func() StorageFlags { return &storageFromConfigFlags{} }},
-
-			{"azure", "an Azure blob storage", func() StorageFlags { return &storageAzureFlags{} }},
-			{"b2", "a B2 bucket [DEPRECATED]", func() StorageFlags { return &storageB2Flags{} }},
-			{"filesystem", "a filesystem", func() StorageFlags { return &storageFilesystemFlags{} }},
-			{"gcs", "a Google Cloud Storage bucket", func() StorageFlags { return &storageGCSFlags{} }},
-			{"gdrive", "a Google Drive folder [Not maintained]", func() StorageFlags { return &storageGDriveFlags{} }},
-
-			{"rclone", "a rclone-based provider [Not maintained]", func() StorageFlags { return &storageRcloneFlags{} }},
-			{"s3", "an S3 bucket", func() StorageFlags { return &storageS3Flags{} }},
-			{"sftp", "an SFTP storage", func() StorageFlags { return &storageSFTPFlags{} }},
-			{"webdav", "a WebDAV storage", func() StorageFlags { return &storageWebDAVFlags{} }},
-		},
+		progress:            &cliProgress{},
+		cliStorageProviders: getRegisteredStorageProviders(),
 
 		// testability hooks
 		exitWithError: func(err error) {
