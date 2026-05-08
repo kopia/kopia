@@ -41,9 +41,9 @@ jobs:
       name: govulncheck
       # generate report and then fail if issues are found
       run: |
-        go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
-        govulncheck -format sarif > govulncheck.sarif
-        govulncheck
+        go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
+        govulncheck -format sarif ./... > govulncheck.sarif
+        govulncheck ./...
     - id: govulncheck-results
       if: ${{ always() }}
       name: "Upload govulncheck results to dashboard"
