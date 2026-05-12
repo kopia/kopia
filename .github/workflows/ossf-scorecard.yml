@@ -39,13 +39,13 @@ jobs:
       -
         # Upload the results to GitHub's code scanning dashboard.
         name: "Upload to results to dashboard"
-        uses: github/codeql-action/upload-sarif@6bc82e05fd0ea64601dd4b465378bbcf57de0314 # v3.29.5
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v3.29.5
         with:
           sarif_file: results.sarif
           category: ossf
       -
         name: "Upload analysis results as 'Job Artifact'"
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: SARIF file
           path: results.sarif

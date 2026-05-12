@@ -28,11 +28,13 @@ func (p IDPrefix) ValidateSingle() error {
 	return errors.New("invalid prefix, must be empty or a single letter between 'g' and 'z'")
 }
 
+const maxIDLength = hashing.MaxHashSize
+
 // ID is an identifier of content in content-addressable storage.
 //
 //nolint:recvcheck
 type ID struct {
-	data [hashing.MaxHashSize]byte
+	data [maxIDLength]byte
 
 	// those 2 could be packed into one byte, but that seems like overkill
 	prefix byte
@@ -183,7 +185,7 @@ func IDFromHash(prefix IDPrefix, hash []byte) (ID, error) {
 		id.prefix = prefix[0]
 	}
 
-	id.idLen = byte(len(hash))
+	id.idLen = uint8(len(hash)) //nolint:gosec // len(hash) is checked above
 	copy(id.data[:], hash)
 
 	return id, nil

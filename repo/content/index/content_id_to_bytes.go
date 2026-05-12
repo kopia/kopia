@@ -2,6 +2,7 @@ package index
 
 import (
 	"bytes"
+	"fmt"
 )
 
 func bytesToContentID(b []byte) ID {
@@ -9,10 +10,14 @@ func bytesToContentID(b []byte) ID {
 		return ID{}
 	}
 
+	if len(b) > maxIDLength+1 {
+		panic(fmt.Sprintf("Content ID byte slice is longer than the maximum supported ID: %d", len(b)))
+	}
+
 	var id ID
 
 	id.prefix = b[0]
-	id.idLen = byte(len(b) - 1)
+	id.idLen = uint8(len(b) - 1) //nolint:gosec // len(b) is checked above
 	copy(id.data[0:len(b)-1], b[1:])
 
 	return id

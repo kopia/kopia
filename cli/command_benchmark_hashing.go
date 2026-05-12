@@ -15,9 +15,9 @@ import (
 
 type commandBenchmarkHashing struct {
 	blockSize   atunits.Base2Bytes
-	repeat      int
+	repeat      uint
 	optionPrint bool
-	parallel    int
+	parallel    uint
 
 	out textOutput
 }
@@ -25,8 +25,8 @@ type commandBenchmarkHashing struct {
 func (c *commandBenchmarkHashing) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("hashing", "Run hashing function benchmarks").Alias("hash")
 	cmd.Flag("block-size", "Size of a block to hash").Default("1MB").BytesVar(&c.blockSize)
-	cmd.Flag("repeat", "Number of repetitions").Default("10").IntVar(&c.repeat)
-	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").IntVar(&c.parallel)
+	cmd.Flag("repeat", "Number of repetitions").Default("100").UintVar(&c.repeat)
+	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").UintVar(&c.parallel)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
 	cmd.Action(svc.noRepositoryAction(c.run))
 	c.out.setup(svc)
@@ -82,9 +82,7 @@ func (c *commandBenchmarkHashing) runBenchmark(ctx context.Context) []cryptoBenc
 			var hashOutput [hashing.MaxHashSize]byte
 
 			for range hashCount {
-				for range hashOutput {
-					hf(hashOutput[:0], input)
-				}
+				hf(hashOutput[:0], input)
 			}
 		})
 

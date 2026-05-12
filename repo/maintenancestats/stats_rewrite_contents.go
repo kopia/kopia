@@ -11,23 +11,23 @@ const rewriteContentsStatsKind = "rewriteContentsStats"
 
 // RewriteContentsStats are the stats for rewriting contents.
 type RewriteContentsStats struct {
-	ToRewriteContentCount int   `json:"toRewriteContentCount"`
-	ToRewriteContentSize  int64 `json:"toRewriteContentSize"`
-	RewrittenContentCount int   `json:"rewrittenContentCount"`
-	RewrittenContentSize  int64 `json:"rewrittenContentSize"`
-	RetainedContentCount  int   `json:"retainedContentCount"`
-	RetainedContentSize   int64 `json:"retainedContentSize"`
+	ToRewriteContentCount uint64 `json:"toRewriteContentCount"`
+	ToRewriteContentSize  uint64 `json:"toRewriteContentSize"`
+	RewrittenContentCount uint64 `json:"rewrittenContentCount"`
+	RewrittenContentSize  uint64 `json:"rewrittenContentSize"`
+	RetainedContentCount  uint64 `json:"retainedContentCount"`
+	RetainedContentSize   uint64 `json:"retainedContentSize"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
 func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(rs.Kind())
-	jw.IntField("toRewriteContentCount", rs.ToRewriteContentCount)
-	jw.Int64Field("toRewriteContentSize", rs.ToRewriteContentSize)
-	jw.IntField("rewrittenContentCount", rs.RewrittenContentCount)
-	jw.Int64Field("rewrittenContentSize", rs.RewrittenContentSize)
-	jw.IntField("retainedContentCount", rs.RetainedContentCount)
-	jw.Int64Field("retainedContentSize", rs.RetainedContentSize)
+	jw.UInt64Field("toRewriteContentCount", rs.ToRewriteContentCount)
+	jw.UInt64Field("toRewriteContentSize", rs.ToRewriteContentSize)
+	jw.UInt64Field("rewrittenContentCount", rs.RewrittenContentCount)
+	jw.UInt64Field("rewrittenContentSize", rs.RewrittenContentSize)
+	jw.UInt64Field("retainedContentCount", rs.RetainedContentCount)
+	jw.UInt64Field("retainedContentSize", rs.RetainedContentSize)
 	jw.EndObject()
 }
 

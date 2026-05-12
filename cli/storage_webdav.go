@@ -43,3 +43,11 @@ func (c *storageWebDAVFlags) Connect(ctx context.Context, isCreate bool, formatV
 	//nolint:wrapcheck
 	return webdav.New(ctx, &wo, isCreate)
 }
+
+func init() {
+	mustRegisterStorageProvider(
+		"webdav",
+		"a WebDAV storage",
+		func() StorageFlags { return &storageWebDAVFlags{} },
+	)
+}

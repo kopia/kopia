@@ -547,6 +547,8 @@ func CreateDriveService(ctx context.Context, opt *Options) (*drive.Service, erro
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	_ = isCreate
 
+	log(ctx).Warn("The GDrive storage provider is not actively tested, it may cause data loss, use at your own risk")
+
 	if opt.FolderID == "" {
 		return nil, errors.New("folder-id must be specified")
 	}
