@@ -3,6 +3,7 @@ package epoch
 import (
 	"cmp"
 	"iter"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -191,18 +192,9 @@ func oldestUncompactedEpoch(cs CurrentSnapshot) (int, error) {
 		oldestUncompacted = rangeCompacted.hi + 1
 	}
 
-	singleCompacted := getCompactedEpochRange(cs)
+	oldestUncompacted = getOldestUncompactedAfterEpoch(maps.Keys(cs.SingleEpochCompactionSets), oldestUncompacted)
 
-	if singleCompacted.isEmpty() || oldestUncompacted < singleCompacted.lo {
-		return oldestUncompacted, nil
-	}
-
-	// singleCompacted is not empty
-	if oldestUncompacted > singleCompacted.hi {
-		return oldestUncompacted, nil
-	}
-
-	return singleCompacted.hi + 1, nil
+	return oldestUncompacted, nil
 }
 
 // filterLowerThan returns a sequence with the elements from s that are greater
