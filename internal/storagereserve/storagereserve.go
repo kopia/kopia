@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"math"
+	"strings"
+	"syscall"
 
 	"github.com/pkg/errors"
 
@@ -77,6 +79,33 @@ func Exists(ctx context.Context, st blob.Storage) (bool, error) {
 
 // ErrInsufficientSpace is returned when the storage reserve cannot be created or maintained.
 var ErrInsufficientSpace = errors.New("insufficient space for storage reserve")
+
+// IsNoSpaceError reports whether err indicates an out-of-space condition.
+func IsNoSpaceError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	if errors.Is(err, syscall.ENOSPC) {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+
+	for _, phrase := range []string{
+		"no space left on device",
+		"no space left on disk",
+		"not enough space",
+		"insufficient space",
+		"disk is full",
+	} {
+		if strings.Contains(msg, phrase) {
+			return true
+		}
+	}
+
+	return false
+}
 
 // Ensure ensures that the reserve blob exists in the provided storage.
 // If it doesn't exist, it attempts to create it only if there is sufficient space

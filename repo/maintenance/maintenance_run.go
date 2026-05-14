@@ -4,8 +4,6 @@ package maintenance
 import (
 	"context"
 	"sort"
-	"strings"
-	"syscall"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -207,7 +205,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 
 	// Ensure storage reserve is present before starting maintenance.
 	if err := storagereserve.Ensure(ctx, rep.BlobStorage(), storagereserve.DefaultReserveSize); err != nil {
-		if isNoSpaceError(err) || errors.Is(err, storagereserve.ErrInsufficientSpace) {
+		if storagereserve.IsNoSpaceError(err) || errors.Is(err, storagereserve.ErrInsufficientSpace) {
 			userLog(ctx).Warnf("Could not ensure storage reserve due to low space, entering emergency mode: %v", err)
 			runParams.LowSpace = true
 			if err := storagereserve.Delete(ctx, rep.BlobStorage()); err != nil {
@@ -221,7 +219,7 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	// update schedule so that we don't run the maintenance again immediately if
 	// this process crashes.
 	if err = updateSchedule(ctx, runParams); err != nil {
-		if isNoSpaceError(err) {
+		if storagereserve.IsNoSpaceError(err) {
 			userLog(ctx).Warnf("Maintenance schedule update failed due to low space, proceeding in emergency mode: %v", err)
 			
 			// If we haven't already entered emergency mode from the Ensure step,
@@ -275,35 +273,6 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 	return err
 }
 
-func isNoSpaceError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	// Prefer structured errno check when available.
-	if errors.Is(err, syscall.ENOSPC) {
-		return true
-	}
-
-	// Fallback to matching common cross-platform "out of space" phrases.
-	msg := strings.ToLower(err.Error())
-
-	noSpacePhrases := []string{
-		"no space left on device",
-		"no space left on disk",
-		"not enough space",
-		"insufficient space",
-		"disk is full",
-	}
-
-	for _, phrase := range noSpacePhrases {
-		if strings.Contains(msg, phrase) {
-			return true
-		}
-	}
-
-	return false
-}
 
 func checkClockSkewBounds(rp RunParameters) error {
 	localTime := rp.rep.Time()
