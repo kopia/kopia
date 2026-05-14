@@ -12,7 +12,7 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotgc"
 )
 
-var userLog = logging.Module("maintenance")
+var userLog = logging.Module("snapshot-maintenance")
 
 // ErrReadonly indicates a failure when attempting to run maintenance on a read-only repository.
 var ErrReadonly = errors.New("not running maintenance on read-only repository connection")

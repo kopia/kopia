@@ -13,12 +13,13 @@ import (
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/epoch"
+	"github.com/kopia/kopia/internal/storagereserve"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/content/index"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenancestats"
-	"github.com/kopia/kopia/internal/storagereserve"
 )
 
 // User-visible log output.
@@ -201,7 +202,11 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 
 	defer l.Unlock() //nolint:errcheck
 
-	runParams := RunParameters{rep, mode, p, time.Time{}, false}
+	runParams := RunParameters{
+		rep:    rep,
+		Mode:   mode,
+		Params: p,
+	}
 
 	// Ensure storage reserve is present before starting maintenance.
 	if err := storagereserve.Ensure(ctx, rep.BlobStorage(), storagereserve.DefaultReserveSize); err != nil {
@@ -237,13 +242,18 @@ func RunExclusive(ctx context.Context, rep repo.DirectRepositoryWriter, mode Mod
 
 	bm, err := runParams.rep.BlobReader().GetMetadata(ctx, maintenanceScheduleBlobID)
 	if err != nil {
-		if runParams.LowSpace {
-			// If we are in low space mode, the blob might not exist or we might not be able to read it.
-			// Use current time as a fallback.
-			runParams.MaintenanceStartTime = rep.Time()
-		} else {
+		isMissing := errors.Is(err, blob.ErrBlobNotFound)
+		if !isMissing && !runParams.LowSpace {
 			return errors.Wrap(err, "error getting maintenance blob time")
 		}
+
+		if !isMissing {
+			// In LowSpace mode a non-missing read error is logged but not fatal;
+			// we fall back to the current time to allow recovery to proceed.
+			userLog(ctx).Warnf("Could not read maintenance schedule, using current time as fallback: %v", err)
+		}
+
+		runParams.MaintenanceStartTime = rep.Time()
 	} else {
 		runParams.MaintenanceStartTime = bm.Timestamp
 	}

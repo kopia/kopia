@@ -42,25 +42,19 @@ func Create(ctx context.Context, st blob.Storage, size int64) error {
 	return nil
 }
 
-// Delete removes the reserve blob from the provided storage if it exists.
+// Delete removes the reserve blob from storage. It is a no-op if the blob is missing.
 func Delete(ctx context.Context, st blob.Storage) error {
-	exists, err := Exists(ctx, st)
-	if err != nil {
-		return err
+	if err := st.DeleteBlob(ctx, ReserveBlobID); err != nil {
+		if errors.Is(err, blob.ErrBlobNotFound) {
+			return nil
+		}
+
+		return errors.Wrap(err, "error deleting reserve blob")
 	}
 
-	if !exists {
-		return nil
-	}
+	log(ctx).Infof("Deleted storage reserve.")
 
-	log(ctx).Infof("Deleting storage reserve...")
-
-	err = st.DeleteBlob(ctx, ReserveBlobID)
-	if errors.Is(err, blob.ErrBlobNotFound) {
-		return nil
-	}
-
-	return errors.Wrap(err, "error deleting reserve blob")
+	return nil
 }
 
 // Exists checks if the reserve blob exists in the provided storage.
@@ -108,48 +102,44 @@ func IsNoSpaceError(err error) bool {
 }
 
 // Ensure ensures that the reserve blob exists in the provided storage.
-// If it doesn't exist, it attempts to create it only if there is sufficient space
-// (reserve size + 10% of total volume capacity). This "headspace" prevents
-// starting operations that would likely fail and leave "ghost files" (partial,
-// orphaned temporary files that consume space but aren't cleaned up by standard GC).
-// If it exists but free space is critically low, it returns an error to trigger emergency deletion.
+// If the reserve exists, it checks whether free space is critically low and returns
+// ErrInsufficientSpace to prompt the caller to sacrifice the reserve. If the reserve
+// does not exist, it attempts to create it only when there is sufficient headspace
+// (reserve size + 10% of total volume capacity), to prevent ghost files from partial writes.
 func Ensure(ctx context.Context, st blob.Storage, size int64) error {
 	exists, err := Exists(ctx, st)
 	if err != nil {
 		return err
 	}
 
-	cap, capErr := st.GetCapacity(ctx)
-	
-	// Emergency fallback: If disk is extremely full, we "fail" the ensure check
-	// to trigger deletion of the reserve in the caller.
-	if capErr == nil && exists && cap.FreeB < MinSpaceToSacrificeReserve {
-		return errors.Wrap(ErrInsufficientSpace, "critical low space")
-	}
-
 	if exists {
+		// Emergency check: if free space is critically low the caller should sacrifice
+		// the reserve to reclaim working space.
+		if cap, capErr := st.GetCapacity(ctx); capErr == nil && cap.FreeB < MinSpaceToSacrificeReserve {
+			return errors.Wrap(ErrInsufficientSpace, "critical low space")
+		}
+
 		return nil
 	}
 
-	// Dynamic Headspace rule for creation: reserve_size + 10% of total capacity
+	// Reserve is missing — attempt to (re)create it with a headspace check.
+	cap, capErr := st.GetCapacity(ctx)
+
 	if capErr == nil {
 		base := uint64(size)
-		headspace := cap.SizeB / 10 // 10% of total size
-		
+		headspace := cap.SizeB / 10 // 10% of total volume size
+
 		// Guard against overflow when computing required = base + headspace.
-		var required uint64
+		required := base + headspace
 		if headspace > math.MaxUint64-base {
 			required = math.MaxUint64
-		} else {
-			required = base + headspace
 		}
-		
+
 		if cap.FreeB < required {
 			log(ctx).Warnf("Insufficient space for storage reserve (%v required, %v free). Skipping.", units.BytesString(required), units.BytesString(cap.FreeB))
 			return ErrInsufficientSpace
 		}
 	} else if !errors.Is(capErr, blob.ErrNotAVolume) {
-		// Unexpected error checking capacity - fail fast as per PR review
 		return errors.Wrap(capErr, "error checking storage capacity")
 	}
 
