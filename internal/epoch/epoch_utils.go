@@ -127,42 +127,6 @@ const (
 	minInt = -1 << (intSize - 1)
 )
 
-func getFirstContiguousKeyRange[E any](m map[int]E) closedIntRange {
-	if len(m) == 0 {
-		return closedIntRange{lo: 0, hi: -1}
-	}
-
-	keys := make([]int, 0, len(m))
-
-	for k := range m {
-		keys = append(keys, k)
-	}
-
-	slices.Sort(keys)
-
-	lo := keys[0]
-	if hi := keys[len(keys)-1]; hi-lo+1 == len(m) {
-		// the difference between the largest and smallest key is the same as
-		// the length of the key set, then the range is contiguous
-		return closedIntRange{lo: lo, hi: hi}
-	}
-
-	hi := lo
-	for _, v := range keys[1:] {
-		if v != hi+1 {
-			break
-		}
-
-		hi = v
-	}
-
-	return closedIntRange{lo: lo, hi: hi}
-}
-
-func getCompactedEpochRange(cs CurrentSnapshot) closedIntRange {
-	return getFirstContiguousKeyRange(cs.SingleEpochCompactionSets)
-}
-
 var errInvalidCompactedRange = errors.New("invalid compacted epoch range")
 
 func getRangeCompactedRange(cs CurrentSnapshot) closedIntRange {
