@@ -250,6 +250,36 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 		{
 			input: CurrentSnapshot{
 				LongestRangeCheckpointSets: makeLongestRange(0, 7),
+				// non-contiguous single epoch compaction set, the first contiguous sequence fully overlaps with the compacted range
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 2, 4, 6, 7, 9}),
+			},
+			expectedEpoch: 8,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: makeLongestRange(0, 7),
+				// non-contiguous single epoch compaction set, but most of the
+				// set overlaps with the compacted range except for the last
+				// epoch in the range (7), and the next epoch (8) is in the
+				// single compaction set already
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 2, 4, 6, 8, 9}),
+			},
+			expectedEpoch: 10,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: makeLongestRange(0, 7),
+				// non-contiguous single epoch compaction set, but most of the
+				// set overlaps with the compacted range except for the last
+				// epoch in the range (7), and the next epoch (8) is in the
+				// single compaction set already
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 2, 4, 6, 8, 10}),
+			},
+			expectedEpoch: 9,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: makeLongestRange(0, 7),
 				SingleEpochCompactionSets:  makeSingleCompactionEpochSets([]int{9, 10}),
 			},
 			expectedEpoch: 8,
