@@ -1,6 +1,8 @@
 package epoch
 
 import (
+	"cmp"
+	"iter"
 	"slices"
 	"strconv"
 	"strings"
@@ -201,4 +203,53 @@ func oldestUncompactedEpoch(cs CurrentSnapshot) (int, error) {
 	}
 
 	return singleCompacted.hi + 1, nil
+}
+
+// filterLowerThan returns a sequence with the elements from s that are greater
+// or equal than threshold, that is it omits the elements that are strictly less
+// than threshold.
+// For example, if s = {0, 3, 5} and threshold is 3, then the resulting sequence
+// yields {3, 5}.
+func filterLowerThan[V cmp.Ordered](threshold V, s iter.Seq[V]) iter.Seq[V] {
+	return func(yield func(V) bool) {
+		s(func(v V) bool { // this is the filtering function
+			if v >= threshold {
+				return yield(v) // only yield values >= threshold
+			}
+
+			return true
+		})
+	}
+}
+
+// getOldestUncompactedAfterEpoch finds the oldest uncompacted epoch given a
+// sequence of known (single-epoch) compacted epochs. The returned epoch is
+// greater or equal than the uncompactedCandidateEpoch. For example, suppose
+// that compacted epochs has { 3, 5, 6, 8 } then the following are the returned
+// values for uncompactedCandidateEpoch
+// uncompactedCandidateEpoch < 3 => uncompactedCandidateEpoch
+// uncompactedCandidateEpoch == 3 => 4
+// uncompactedCandidateEpoch == 4 => 4
+// uncompactedCandidateEpoch == 5 or 6 => 7
+// uncompactedCandidateEpoch == 7 => 7
+// uncompactedCandidateEpoch == 8 => 9
+// uncompactedCandidateEpoch > 8 => uncompactedCandidateEpoch.
+//
+//nolint:dupword
+func getOldestUncompactedAfterEpoch(compactedEpochs iter.Seq[int], uncompactedCandidateEpoch int) int {
+	s := slices.Sorted(filterLowerThan(uncompactedCandidateEpoch, compactedEpochs))
+	if len(s) == 0 || uncompactedCandidateEpoch < s[0] {
+		return uncompactedCandidateEpoch
+	}
+
+	prev := s[0]
+	for _, v := range s[1:] {
+		if v != prev+1 {
+			break
+		}
+
+		prev = v
+	}
+
+	return prev + 1
 }

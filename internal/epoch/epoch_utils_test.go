@@ -3,6 +3,7 @@ package epoch
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -443,6 +444,184 @@ func TestGetFirstContiguousKeyRange(t *testing.T) {
 			require.Equal(t, tc.want, got, "input: %#v", tc.input)
 			require.Equal(t, tc.length, got.length())
 			require.Equal(t, tc.isEmpty, got.isEmpty())
+		})
+	}
+}
+
+func TestGetOldestUncompactedAfterEpoch(t *testing.T) {
+	cases := []struct {
+		in        []int
+		threshold int
+		expected  int
+	}{
+		{},
+		{
+			threshold: 5,
+			expected:  5,
+		},
+		{
+			in:        []int{},
+			threshold: 0,
+			expected:  0,
+		},
+		{
+			in:        []int{0},
+			threshold: 0,
+			expected:  1,
+		},
+
+		{
+			in:        []int{0},
+			threshold: 1,
+			expected:  1,
+		},
+		{
+			in:        []int{0, 2, 5, 3},
+			threshold: 0,
+			expected:  1,
+		},
+		{
+			in:        []int{0, 2, 5, 3},
+			threshold: 1,
+			expected:  1,
+		},
+		{
+			in:        []int{0, 2, 5, 3},
+			threshold: 2,
+			expected:  4,
+		},
+		{
+			in:        []int{0, 2, 5, 3},
+			threshold: 3,
+			expected:  4,
+		},
+		{
+			in:        []int{0, 2, 5, 3},
+			threshold: 4,
+			expected:  4,
+		},
+		{
+			in:        []int{0, 2, 5, 3},
+			threshold: 5,
+			expected:  6,
+		},
+		{
+			in:        []int{0, 2, 5, 3},
+			threshold: 6,
+			expected:  6,
+		},
+		{
+			in:        []int{0, 2, 5, 3},
+			threshold: 8,
+			expected:  8,
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 0,
+			expected:  2,
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 1,
+			expected:  2,
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 2,
+			expected:  2,
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 3,
+			expected:  3,
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 4,
+			expected:  6,
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 5,
+			expected:  6,
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 6,
+			expected:  6,
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 7,
+			expected:  7,
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run("case:"+strconv.Itoa(i), func(t *testing.T) {
+			vseq := slices.Values(tc.in)
+			got := getOldestUncompactedAfterEpoch(vseq, tc.threshold)
+
+			require.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestFilterLowerThan(t *testing.T) {
+	cases := []struct {
+		in        []int
+		threshold int
+		expected  []int
+	}{
+		{},
+		{
+			threshold: 5,
+		},
+		{
+			in:        []int{},
+			threshold: 0,
+			expected:  []int{},
+		},
+		{
+			in:        []int{0},
+			threshold: 0,
+			expected:  []int{0},
+		},
+		{
+			in:        []int{0},
+			threshold: 1,
+			expected:  []int{},
+		},
+		{
+			in:        []int{0, 2, 5, 3},
+			threshold: 6,
+			expected:  []int{},
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 0,
+			expected:  []int{1, 0, 5, 4},
+		},
+		{
+			in:        []int{1, 0, -1, 5, 4},
+			threshold: 3,
+			expected:  []int{4, 5},
+		},
+		{
+			in:        []int{1, 0, -1, 5, 4},
+			threshold: 4,
+			expected:  []int{4, 5},
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run("case:"+strconv.Itoa(i), func(t *testing.T) {
+			vseq := slices.Values(tc.in)
+			got := filterLowerThan(tc.threshold, vseq)
+			gotSlice := slices.Collect(got)
+
+			require.Subset(t, tc.in, gotSlice)
+			require.ElementsMatch(t, gotSlice, tc.expected)
 		})
 	}
 }
