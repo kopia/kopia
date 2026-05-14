@@ -841,6 +841,17 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 		te.ft.Advance(dt)
 
 		if indexNum%7 == 0 {
+			// Simulate maintenance running trying to update the write epoch and
+			// running compaction. Don't check for errors except on refresh as some
+			// tests inject errors into various functions.
+			require.NoError(t, te.mgr.Refresh(ctx))
+
+			te.mgr.MaybeCompactSingleEpoch(ctx)
+			te.mgr.MaybeAdvanceWriteEpoch(ctx)
+			te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+			te.mgr.CleanupMarkers(ctx)
+			te.mgr.CleanupSupersededIndexes(ctx)
+
 			require.NoError(t, te.mgr.Refresh(ctx))
 		}
 
