@@ -272,6 +272,104 @@ func TestLocalFilesystemPath(t *testing.T) {
 	}
 }
 
+func TestStreamingReads(t *testing.T) {
+	ctx := testlogging.Context(t)
+	tmp := testutil.TempDirectory(t)
+
+	smallFile := filepath.Join(tmp, "small") // 100 bytes
+	largeFile := filepath.Join(tmp, "large") // 1024 bytes
+
+	require.NoError(t, os.WriteFile(smallFile, make([]byte, 100), 0o644))
+	require.NoError(t, os.WriteFile(largeFile, make([]byte, 1024), 0o644))
+
+	openAndCheckStreaming := func(t *testing.T, path string, opts Options) {
+		t.Helper()
+
+		entry, err := NewEntryWithOptions(path, opts)
+		require.NoError(t, err)
+
+		fsf, ok := entry.(*filesystemFile)
+		require.True(t, ok, "expected *filesystemFile")
+
+		reader, err := fsf.Open(ctx)
+		require.NoError(t, err)
+
+		fwm, ok := reader.(*fileWithMetadata)
+		require.True(t, ok, "expected *fileWithMetadata")
+		require.Equal(t, opts, fwm.opts)
+		require.NoError(t, reader.Close())
+	}
+
+	t.Run("disabled by default", func(t *testing.T) {
+		openAndCheckStreaming(t, smallFile, Options{})
+		openAndCheckStreaming(t, largeFile, Options{})
+	})
+
+	t.Run("enabled for all files regardless of size", func(t *testing.T) {
+		openAndCheckStreaming(t, smallFile, Options{StreamingReads: true})
+		openAndCheckStreaming(t, largeFile, Options{StreamingReads: true})
+	})
+
+	t.Run("propagates to children via Iterate and Child", func(t *testing.T) {
+		dir, err := DirectoryWithOptions(tmp, Options{StreamingReads: true})
+		require.NoError(t, err)
+
+		fsd, ok := dir.(*filesystemDirectory)
+		require.True(t, ok, "expected *filesystemDirectory")
+		require.True(t, fsd.opts.StreamingReads)
+
+		it, err := fsd.Iterate(ctx)
+		require.NoError(t, err)
+
+		defer it.Close()
+
+		var seen int
+
+		for {
+			child, err := it.Next(ctx)
+			require.NoError(t, err)
+
+			if child == nil {
+				break
+			}
+
+			seen++
+
+			f, ok := child.(*filesystemFile)
+			require.True(t, ok, "expected iterator child to be *filesystemFile, got %T", child)
+			require.True(t, f.opts.StreamingReads, "iterator child %q lost StreamingReads", f.Name())
+		}
+
+		require.Equal(t, 2, seen, "expected to iterate over both files")
+
+		smallChild, err := fsd.Child(ctx, "small")
+		require.NoError(t, err)
+
+		f, ok := smallChild.(*filesystemFile)
+		require.True(t, ok, "expected Child() to return *filesystemFile, got %T", smallChild)
+		require.True(t, f.opts.StreamingReads, "Child() lost StreamingReads")
+	})
+
+	t.Run("propagates through symlink Resolve", func(t *testing.T) {
+		linkPath := filepath.Join(tmp, "link-to-small")
+		require.NoError(t, os.Symlink(smallFile, linkPath))
+
+		entry, err := NewEntryWithOptions(linkPath, Options{StreamingReads: true})
+		require.NoError(t, err)
+
+		sym, ok := entry.(*filesystemSymlink)
+		require.True(t, ok, "expected *filesystemSymlink, got %T", entry)
+		require.True(t, sym.opts.StreamingReads)
+
+		resolved, err := sym.Resolve(ctx)
+		require.NoError(t, err)
+
+		f, ok := resolved.(*filesystemFile)
+		require.True(t, ok, "expected resolved entry to be *filesystemFile, got %T", resolved)
+		require.True(t, f.opts.StreamingReads, "resolved symlink target lost StreamingReads")
+	})
+}
+
 func TestSplitDirPrefix(t *testing.T) {
 	type pair struct {
 		prefix   string
