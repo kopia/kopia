@@ -8,7 +8,7 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
-var isWindows = runtime.GOOS == "windows"
+const isWindows = runtime.GOOS == "windows"
 
 func platformSpecificOwnerInfo(_ os.FileInfo) fs.OwnerInfo {
 	return fs.OwnerInfo{}
@@ -25,7 +25,6 @@ func trailingSeparator(fsd *filesystemDirectory) string {
 		fsd.prefix == `\\?\GLOBALROOT\Device\` &&
 		strings.HasPrefix(fsd.Name(), "HarddiskVolumeShadowCopy") &&
 		!strings.HasSuffix(fsd.Name(), separatorStr) {
-
 		return separatorStr
 	}
 

@@ -1,3 +1,5 @@
+//go:build !no_extra_providers
+
 package cli
 
 import (
@@ -117,4 +119,12 @@ func (c *storageSFTPFlags) Connect(ctx context.Context, isCreate bool, formatVer
 
 	//nolint:wrapcheck
 	return sftp.New(ctx, opt, isCreate)
+}
+
+func init() {
+	mustRegisterStorageProvider(
+		"sftp",
+		"an SFTP storage",
+		func() StorageFlags { return &storageSFTPFlags{} },
+	)
 }

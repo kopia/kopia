@@ -29,8 +29,8 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-// DirMode is the directory mode for output directories.
-const DirMode = 0o700
+// dirMode is the directory mode for output directories.
+const dirMode = 0o700
 
 //nolint:gochecknoglobals
 var metricsPushFormats = map[string]expfmt.Format{
@@ -165,7 +165,7 @@ func (c *observabilityFlags) start(ctx context.Context) error {
 func mkSubdirectories(directoryNames ...string) (dirName string, err error) {
 	dirName = filepath.Join(directoryNames...)
 
-	if err := os.MkdirAll(dirName, DirMode); err != nil {
+	if err := os.MkdirAll(dirName, dirMode); err != nil {
 		return "", errors.Wrapf(err, "could not create '%q' subdirectory to save diagnostics output", dirName)
 	}
 

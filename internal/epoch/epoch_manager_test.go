@@ -624,7 +624,7 @@ func TestMaybeAdvanceEpoch_Empty(t *testing.T) {
 	stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.CurrentEpoch)
+	require.EqualValues(t, 0, stats.CurrentEpoch)
 	require.False(t, stats.WasAdvanced)
 
 	// check current epoch again
@@ -674,7 +674,7 @@ func TestMaybeAdvanceEpoch(t *testing.T) {
 	stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 
 	require.NoError(t, err)
-	require.Equal(t, 1, stats.CurrentEpoch)
+	require.EqualValues(t, 1, stats.CurrentEpoch)
 	require.True(t, stats.WasAdvanced)
 
 	err = te.mgr.Refresh(ctx) // force state refresh
@@ -841,6 +841,17 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 		te.ft.Advance(dt)
 
 		if indexNum%7 == 0 {
+			// Simulate maintenance running trying to update the write epoch and
+			// running compaction. Don't check for errors except on refresh as some
+			// tests inject errors into various functions.
+			require.NoError(t, te.mgr.Refresh(ctx))
+
+			te.mgr.MaybeCompactSingleEpoch(ctx)
+			te.mgr.MaybeAdvanceWriteEpoch(ctx)
+			te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+			te.mgr.CleanupMarkers(ctx)
+			te.mgr.CleanupSupersededIndexes(ctx)
+
 			require.NoError(t, te.mgr.Refresh(ctx))
 		}
 
@@ -947,7 +958,7 @@ func TestMaybeCompactSingleEpoch_CompactionError(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
@@ -1000,7 +1011,7 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
@@ -1024,8 +1035,8 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 	for j := range newestEpochToCompact {
 		stats, err := te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, idxCount, stats.SupersededIndexBlobCount)
-		require.Equal(t, j, stats.Epoch)
+		require.EqualValues(t, idxCount, stats.SupersededIndexBlobCount)
+		require.EqualValues(t, j, stats.Epoch)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
 		require.NoError(t, err)
@@ -1127,7 +1138,7 @@ func TestMaybeGenerateRangeCheckpoint_CompactionError(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx)
@@ -1178,7 +1189,7 @@ func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx)
@@ -1193,8 +1204,8 @@ func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
 
 	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.RangeMinEpoch)
-	require.Equal(t, 8, stats.RangeMaxEpoch)
+	require.EqualValues(t, 0, stats.RangeMinEpoch)
+	require.EqualValues(t, 8, stats.RangeMaxEpoch)
 
 	err = te.mgr.Refresh(ctx)
 	require.NoError(t, err)
@@ -1233,7 +1244,7 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx)
@@ -1250,8 +1261,8 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 	for j := range newestEpochToCompact {
 		stats, err := te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, idxCount, stats.SupersededIndexBlobCount)
-		require.Equal(t, j, stats.Epoch)
+		require.EqualValues(t, idxCount, stats.SupersededIndexBlobCount)
+		require.EqualValues(t, j, stats.Epoch)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
 		require.NoError(t, err)
@@ -1270,8 +1281,8 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 
 	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.RangeMinEpoch)
-	require.Equal(t, 8, stats.RangeMaxEpoch)
+	require.EqualValues(t, 0, stats.RangeMinEpoch)
+	require.EqualValues(t, 8, stats.RangeMaxEpoch)
 
 	err = te.mgr.Refresh(ctx)
 	require.NoError(t, err)
@@ -1313,7 +1324,7 @@ func TestValidateParameters(t *testing.T) {
 				MinEpochDuration:        1 * time.Hour,
 				EpochRefreshFrequency:   10 * time.Minute,
 				FullCheckpointFrequency: -1,
-			}, "invalid epoch checkpoint frequency",
+			}, "invalid epoch range compaction period",
 		},
 		{
 			Parameters{

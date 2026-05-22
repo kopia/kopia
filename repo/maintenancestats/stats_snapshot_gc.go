@@ -10,35 +10,35 @@ const snapshotGCStatsKind = "snapshotGCStats"
 
 // SnapshotGCStats delivers are the stats for snapshot GC.
 type SnapshotGCStats struct {
-	UnreferencedContentCount       uint32 `json:"unreferencedContentCount"`
-	UnreferencedContentSize        int64  `json:"unreferencedContentSize"`
-	DeletedContentCount            uint32 `json:"deletedContentCount"`
-	DeletedContentSize             int64  `json:"deletedContentSize"`
-	UnreferencedRecentContentCount uint32 `json:"unreferencedRecentContentCount"`
-	UnreferencedRecentContentSize  int64  `json:"unreferencedRecentContentSize"`
-	InUseContentCount              uint32 `json:"inUseContentCount"`
-	InUseContentSize               int64  `json:"inUseContentSize"`
-	InUseSystemContentCount        uint32 `json:"inUseSystemContentCount"`
-	InUseSystemContentSize         int64  `json:"inUseSystemContentSize"`
-	RecoveredContentCount          uint32 `json:"recoveredContentCount"`
-	RecoveredContentSize           int64  `json:"recoveredContentSize"`
+	UnreferencedContentCount       uint64 `json:"unreferencedContentCount"`
+	UnreferencedContentSize        uint64 `json:"unreferencedContentSize"`
+	DeletedContentCount            uint64 `json:"deletedContentCount"`
+	DeletedContentSize             uint64 `json:"deletedContentSize"`
+	UnreferencedRecentContentCount uint64 `json:"unreferencedRecentContentCount"`
+	UnreferencedRecentContentSize  uint64 `json:"unreferencedRecentContentSize"`
+	InUseContentCount              uint64 `json:"inUseContentCount"`
+	InUseContentSize               uint64 `json:"inUseContentSize"`
+	InUseSystemContentCount        uint64 `json:"inUseSystemContentCount"`
+	InUseSystemContentSize         uint64 `json:"inUseSystemContentSize"`
+	RecoveredContentCount          uint64 `json:"recoveredContentCount"`
+	RecoveredContentSize           uint64 `json:"recoveredContentSize"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
 func (ss *SnapshotGCStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(ss.Kind())
-	jw.UInt32Field("unreferencedContentCount", ss.UnreferencedContentCount)
-	jw.Int64Field("unreferencedContentSize", ss.UnreferencedContentSize)
-	jw.UInt32Field("deletedContentCount", ss.DeletedContentCount)
-	jw.Int64Field("deletedContentSize", ss.DeletedContentSize)
-	jw.UInt32Field("unreferencedRecentContentCount", ss.UnreferencedRecentContentCount)
-	jw.Int64Field("unreferencedRecentContentSize", ss.UnreferencedRecentContentSize)
-	jw.UInt32Field("inUseContentCount", ss.InUseContentCount)
-	jw.Int64Field("inUseContentSize", ss.InUseContentSize)
-	jw.UInt32Field("inUseSystemContentCount", ss.InUseSystemContentCount)
-	jw.Int64Field("inUseSystemContentSize", ss.InUseSystemContentSize)
-	jw.UInt32Field("recoveredContentCount", ss.RecoveredContentCount)
-	jw.Int64Field("recoveredContentSize", ss.RecoveredContentSize)
+	jw.UInt64Field("unreferencedContentCount", ss.UnreferencedContentCount)
+	jw.UInt64Field("unreferencedContentSize", ss.UnreferencedContentSize)
+	jw.UInt64Field("deletedContentCount", ss.DeletedContentCount)
+	jw.UInt64Field("deletedContentSize", ss.DeletedContentSize)
+	jw.UInt64Field("unreferencedRecentContentCount", ss.UnreferencedRecentContentCount)
+	jw.UInt64Field("unreferencedRecentContentSize", ss.UnreferencedRecentContentSize)
+	jw.UInt64Field("inUseContentCount", ss.InUseContentCount)
+	jw.UInt64Field("inUseContentSize", ss.InUseContentSize)
+	jw.UInt64Field("inUseSystemContentCount", ss.InUseSystemContentCount)
+	jw.UInt64Field("inUseSystemContentSize", ss.InUseSystemContentSize)
+	jw.UInt64Field("recoveredContentCount", ss.RecoveredContentCount)
+	jw.UInt64Field("recoveredContentSize", ss.RecoveredContentSize)
 	jw.EndObject()
 }
 

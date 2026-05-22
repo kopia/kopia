@@ -38,4 +38,6 @@ type osReadFile interface {
 
 type osWriteFile interface {
 	io.WriteCloser
+
+	Sync() error
 }

@@ -253,7 +253,7 @@ kopia policy set <target_dir> --after-folder-action  "powershell -WindowStyle Hi
 
 Those are just some initial ideas, we're certain more interesting types of actions will be developed using this mechanism, including LVM snapshots, BTRFS Snapshots, notifications and more.
 
-If you have ideas for extending this mechanism, definitely [file an Issue on Github](https://github.com/kopia/kopia/issues).
+If you have ideas for extending this mechanism, please [file an Issue on Github](https://github.com/kopia/kopia/issues).
 
 If you develop a useful action script that you'd like to share with the community, we encourage you
 to do so by sending us a pull request to add to this web page or you can put them in your own repository and we'll be happy to link it from here.

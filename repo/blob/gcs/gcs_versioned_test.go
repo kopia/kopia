@@ -11,7 +11,6 @@ import (
 	gcsclient "cloud.google.com/go/storage"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/api/option"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
@@ -271,11 +270,7 @@ func putBlobs(ctx context.Context, cli blob.Storage, blobID blob.ID, blobs []str
 func createBucket(t *testing.T, opts bucketOpts) {
 	t.Helper()
 
-	ctx := context.Background()
-
-	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
-	require.NoError(t, err, "unable to create GCS client")
-
+	cli := getGcsClient(t, opts.credentialsJSON)
 	attrs := &gcsclient.BucketAttrs{}
 
 	bucketHandle := cli.Bucket(opts.bucket)
@@ -285,7 +280,7 @@ func createBucket(t *testing.T, opts bucketOpts) {
 		bucketHandle = bucketHandle.SetObjectRetention(true)
 	}
 
-	err = bucketHandle.Create(ctx, opts.projectID, attrs)
+	err := bucketHandle.Create(t.Context(), opts.projectID, attrs)
 	if err == nil {
 		return
 	}
@@ -304,12 +299,9 @@ func createBucket(t *testing.T, opts bucketOpts) {
 func validateBucket(t *testing.T, opts bucketOpts) {
 	t.Helper()
 
-	ctx := context.Background()
+	cli := getGcsClient(t, opts.credentialsJSON)
 
-	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(opts.credentialsJSON))
-	require.NoError(t, err, "unable to create GCS client")
-
-	attrs, err := cli.Bucket(opts.bucket).Attrs(ctx)
+	attrs, err := cli.Bucket(opts.bucket).Attrs(t.Context())
 	require.NoError(t, err)
 
 	if opts.isLockedBucket {
