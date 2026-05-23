@@ -29,7 +29,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest, ubuntu-24.04-arm ]
+        os: [windows-2025-vs2026, ubuntu-latest, macos-latest, ubuntu-24.04-arm ]
     name: Tests
     runs-on: ${{ matrix.os }}
     steps:
