@@ -1174,7 +1174,16 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 
 	// write one content in another goroutine
 	// 'fs' is configured so that blob write takes several seconds to complete.
-	go writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize))
+	// Use a WaitGroup so the test doesn't end early and cause failures when the
+	// context gets canceled. Waiting should not invalidate other parts of the
+	// test because the initial blob count verification checks for multiple data
+	// blobs and the input data is sized such that multiple data blobs should be
+	// created.
+	var wg sync.WaitGroup
+
+	wg.Go(func() {
+		writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize))
+	})
 
 	// wait enough time for the goroutine to start writing.
 	time.Sleep(100 * time.Millisecond)
@@ -1203,6 +1212,8 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 		PackBlobIDPrefixRegular: 2,
 		indexBlobPrefix:         1,
 	})
+
+	wg.Wait()
 }
 
 func (s *contentManagerSuite) verifyAllDataPresent(ctx context.Context, t *testing.T, st blob.Storage, contentIDs map[ID]bool) {
