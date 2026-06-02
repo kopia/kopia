@@ -175,6 +175,7 @@ func (c *commandSnapshotList) outputJSON(ctx context.Context, rep repo.Repositor
 		if err := c.iterateSnapshotsMaybeWithStorageStats(ctx, rep, snapshotGroup, func(m *snapshot.Manifest) error {
 			wm := SnapshotManifest{Manifest: m, RetentionReasons: m.RetentionReasons}
 			jl.emit(wm)
+
 			return nil
 		}); err != nil {
 			return errors.Wrap(err, "unable to iterate snapshots")
