@@ -93,6 +93,7 @@ const (
 	ErrorPathNotFound       APIErrorCode = "PATH_NOT_FOUND"
 	ErrorStorageConnection  APIErrorCode = "STORAGE_CONNECTION"
 	ErrorAccessDenied       APIErrorCode = "ACCESS_DENIED"
+	ErrorInvalidUsername    APIErrorCode = "INVALID_USERNAME"
 )
 
 // ErrorResponse represents error response.
@@ -296,4 +297,27 @@ type UIPreferences struct {
 	PageSize               int    `json:"pageSize"`               // A page size; the actual possible values will only be provided by the frontend
 	Language               string `json:"language"`               // Specifies the language used by the UI
 	Locale                 string `json:"locale"`                 // Specifies the locale used by the UI for formatting numbers and dates
+}
+
+// Profile represents a repository user.
+type Profile struct {
+	Username string `json:"username"`
+	User     string `json:"name"`
+	Hostname string `json:"host"`
+}
+
+// ProfilesResponse contains a list of repository users.
+type ProfilesResponse struct {
+	Profiles []*Profile `json:"profiles"`
+}
+
+// AddProfileRequest contains request to add a new repository user.
+type AddProfileRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// UpdateProfilePasswordRequest contains request to update a repository user's password
+type UpdateProfilePasswordRequest struct {
+	Password string `json:"password"`
 }
