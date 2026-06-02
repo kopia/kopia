@@ -12,17 +12,19 @@ import (
 )
 
 type policySchedulingFlags struct {
-	policySetInterval   []time.Duration // not a list, just optional duration
-	policySetTimesOfDay []string
-	policySetCron       string
-	policySetManual     bool
-	policySetRunMissed  string
+	policySetInterval    []time.Duration // not a list, just optional duration
+	policySetRandomDelay []time.Duration // not a list, just optional duration
+	policySetTimesOfDay  []string
+	policySetCron        string
+	policySetManual      bool
+	policySetRunMissed   string
 }
 
 func (c *policySchedulingFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("snapshot-interval", "Interval between snapshots").DurationListVar(&c.policySetInterval)
 	cmd.Flag("snapshot-time", "Comma-separated times of day when to take snapshot (HH:mm,HH:mm,...) or 'inherit' to remove override").StringsVar(&c.policySetTimesOfDay)
 	cmd.Flag("snapshot-time-crontab", "Semicolon-separated crontab-compatible expressions (or 'inherit')").StringVar(&c.policySetCron)
+	cmd.Flag("snapshot-random-delay", "Maximum random delay added to scheduled snapshot time for interval, time-of-day, and cron (e.g. 5m). 0 = disabled.").DurationListVar(&c.policySetRandomDelay)
 	cmd.Flag("run-missed", "Run missed time-of-day or cron snapshots ('true', 'false', 'inherit')").EnumVar(&c.policySetRunMissed, booleanEnumValues...)
 	cmd.Flag("manual", "Only create snapshots manually").BoolVar(&c.policySetManual)
 }
@@ -42,6 +44,16 @@ func (c *policySchedulingFlags) setScheduleFromFlags(ctx context.Context, sp *po
 
 		sp.SetInterval(interval)
 		log(ctx).Infof(" - setting snapshot interval to %v", sp.Interval())
+
+		break
+	}
+
+	// It's not really a list, just optional value.
+	for _, delay := range c.policySetRandomDelay {
+		*changeCount++
+
+		sp.SetRandomDelay(delay)
+		log(ctx).Infof(" - setting snapshot interval random delay to %v", delay)
 
 		break
 	}
