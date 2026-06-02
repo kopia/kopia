@@ -3,13 +3,17 @@ package crypto
 import (
 	"crypto/pbkdf2"
 	"crypto/sha256"
+	"fmt"
 
 	"github.com/pkg/errors"
 )
 
 const (
-	// Pbkdf2Algorithm is the key for the pbkdf algorithm.
+	// Pbkdf2Algorithm is the full algorithm name for PBKDF2.
 	Pbkdf2Algorithm = "pbkdf2-sha256-600000"
+
+	// PBKDF2 is the short name for PBKDF2, used in CLI flags.
+	PBKDF2 = "pbkdf2"
 
 	// A good rule of thumb is to use a salt that is the same size
 	// as the output of the hash function. For example, the output of SHA256
@@ -28,6 +32,25 @@ func init() {
 		iterations:    pbkdf2Sha256Iterations,
 		minSaltLength: pbkdf2Sha256MinSaltLength,
 	})
+}
+
+// NewPBKDF2KeyDeriverWithIterations creates a new PBKDF2 key deriver with the specified number of iterations.
+// The algorithm name is unique to the iteration count, allowing multiple configurations to coexist.
+// If the algorithm is already registered, returns the existing algorithm name.
+func NewPBKDF2KeyDeriverWithIterations(iterations int) string {
+	algorithmName := fmt.Sprintf("pbkdf2-sha256-%d", iterations)
+
+	// Check if already registered
+	if _, ok := keyDerivers[algorithmName]; ok {
+		return algorithmName
+	}
+
+	registerPBKeyDeriver(algorithmName, &pbkdf2KeyDeriver{
+		iterations:    iterations,
+		minSaltLength: pbkdf2Sha256MinSaltLength,
+	})
+
+	return algorithmName
 }
 
 type pbkdf2KeyDeriver struct {
