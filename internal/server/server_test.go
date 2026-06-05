@@ -63,6 +63,55 @@ func TestServer(t *testing.T) {
 	remoteRepositoryNotificationTest(t, ctx, rep, env.RepositoryWriter)
 }
 
+func TestGRPCServerKeepaliveEnforcement(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	const (
+		clientKeepaliveTime    = 200 * time.Millisecond
+		clientKeepaliveTimeout = 200 * time.Millisecond
+		serverKeepaliveMinTime = 100 * time.Millisecond
+	)
+
+	apiServerInfo := servertesting.StartServerContextWithOptions(ctx, t, env, servertesting.StartServerOptions{
+		TLS:                  true,
+		GRPCKeepaliveMinTime: serverKeepaliveMinTime,
+		GRPCKeepaliveTime:    clientKeepaliveTime,
+		GRPCKeepaliveTimeout: clientKeepaliveTimeout,
+	})
+
+	// Connect with a client that uses keepalive settings. The server should
+	// accept keepalive pings without terminating with GOAWAY because
+	// PermitWithoutStream is true on the enforcement policy.
+	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory: testutil.TempDirectory(t),
+	}, servertesting.TestPassword, &repo.Options{
+		TestOnlyGRPCKeepaliveTime:    clientKeepaliveTime,
+		TestOnlyGRPCKeepaliveTimeout: clientKeepaliveTimeout,
+	})
+	require.NoError(t, err)
+
+	defer func() { require.NoError(t, rep.Close(ctx)) }()
+
+	// Verify the connection works before idling with a real RPC.
+	mustListSnapshotCount(ctx, t, rep, 0)
+
+	// Idle for longer than the keepalive interval to trigger at least one
+	// keepalive ping cycle. Without proper keepalive enforcement on the server,
+	// the client's pings would cause the server to send GOAWAY and drop the
+	// connection.
+	idleDuration := 5 * clientKeepaliveTime
+	idleStart := time.Now()
+	require.Eventually(t, func() bool {
+		return time.Since(idleStart) >= idleDuration
+	}, 2*time.Second, 20*time.Millisecond)
+
+	// After the idle period, the connection should still be alive and serve RPCs.
+	mustListSnapshotCount(ctx, t, rep, 0)
+}
+
 func TestGRPCServer_AuthenticationError(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 	apiServerInfo := servertesting.StartServer(t, env, true)

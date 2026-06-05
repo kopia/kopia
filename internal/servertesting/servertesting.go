@@ -32,15 +32,31 @@ const (
 	TestUIPassword = "123456"
 )
 
+// StartServerOptions controls test server startup behavior.
+type StartServerOptions struct {
+	TLS bool
+
+	GRPCKeepaliveMinTime time.Duration
+	GRPCKeepaliveTime    time.Duration
+	GRPCKeepaliveTimeout time.Duration
+}
+
 // StartServer starts a test server and returns APIServerInfo.
 func StartServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
 	t.Helper()
 
-	return StartServerContext(testlogging.Context(t), t, env, tls)
+	return StartServerContextWithOptions(testlogging.Context(t), t, env, StartServerOptions{TLS: tls})
 }
 
 // StartServerContext starts a test server with a given root context and returns APIServerInfo.
 func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
+	t.Helper()
+
+	return StartServerContextWithOptions(ctx, t, env, StartServerOptions{TLS: tls})
+}
+
+// StartServerContextWithOptions starts a test server with a given root context and returns APIServerInfo.
+func StartServerContextWithOptions(ctx context.Context, t *testing.T, env *repotesting.Environment, opts StartServerOptions) *repo.APIServerInfo {
 	t.Helper()
 
 	s, err := server.New(ctx, &server.Options{
@@ -51,9 +67,12 @@ func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Envi
 			auth.AuthenticateSingleUser(TestUsername+"@"+TestHostname, TestPassword),
 			auth.AuthenticateSingleUser(TestUIUsername, TestUIPassword),
 		),
-		RefreshInterval:   1 * time.Minute,
-		UIUser:            TestUIUsername,
-		UIPreferencesFile: filepath.Join(testutil.TempDirectory(t), "ui-pref.json"),
+		RefreshInterval:      1 * time.Minute,
+		GRPCKeepaliveMinTime: opts.GRPCKeepaliveMinTime,
+		GRPCKeepaliveTime:    opts.GRPCKeepaliveTime,
+		GRPCKeepaliveTimeout: opts.GRPCKeepaliveTimeout,
+		UIUser:               TestUIUsername,
+		UIPreferencesFile:    filepath.Join(testutil.TempDirectory(t), "ui-pref.json"),
 	})
 
 	require.NoError(t, err)
@@ -73,7 +92,7 @@ func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Envi
 	s.ServeStaticFiles(m, server.AssetFile())
 
 	hs := httptest.NewUnstartedServer(s.GRPCRouterHandler(m))
-	if tls {
+	if opts.TLS {
 		hs.EnableHTTP2 = true
 		hs.StartTLS()
 		serverHash := sha256.Sum256(hs.Certificate().Raw)
