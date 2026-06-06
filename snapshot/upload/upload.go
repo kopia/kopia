@@ -95,6 +95,11 @@ type Uploader struct {
 	// When set to true, do not ignore any files, regardless of policy settings.
 	DisableIgnoreRules bool
 
+	// When set to true, birth time (file creation time) is captured during upload
+	// and restored during restore on platforms that support it.
+	// Controlled by UploadPolicy.PreserveBirthTime; default false.
+	PreserveBirthTime bool
+
 	// Labels to apply to every checkpoint made for this snapshot.
 	CheckpointLabels map[string]string
 
@@ -260,7 +265,7 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 			return nil, nil
 		}
 
-		return newDirEntry(f, fname, checkpointID)
+		return u.newDirEntry(f, fname, checkpointID)
 	})
 
 	defer parentCheckpointRegistry.removeCheckpointCallback(fname)
@@ -286,7 +291,7 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 		return nil, errors.Wrap(err, "unable to get result")
 	}
 
-	de, err := newDirEntry(f, fname, r)
+	de, err := u.newDirEntry(f, fname, r)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create dir entry")
 	}
@@ -328,7 +333,7 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 		return nil, errors.Wrap(err, "unable to get result")
 	}
 
-	de, err := newDirEntry(f, f.Name(), r)
+	de, err := u.newDirEntry(f, f.Name(), r)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create dir entry")
 	}
@@ -376,7 +381,7 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 		return nil, errors.Wrap(err, "unable to get result")
 	}
 
-	de, err := newDirEntry(f, f.Name(), r)
+	de, err := u.newDirEntry(f, f.Name(), r)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create dir entry")
 	}
@@ -435,8 +440,8 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader) (int64, error)
 }
 
 // newDirEntryWithSummary makes DirEntry objects for directory Entries that need a DirectorySummary.
-func newDirEntryWithSummary(d fs.Entry, oid object.ID, summ *fs.DirectorySummary) (*snapshot.DirEntry, error) {
-	de, err := newDirEntry(d, d.Name(), oid)
+func (u *Uploader) newDirEntryWithSummary(d fs.Entry, oid object.ID, summ *fs.DirectorySummary) (*snapshot.DirEntry, error) {
+	de, err := u.newDirEntry(d, d.Name(), oid)
 	if err != nil {
 		return nil, err
 	}
@@ -446,8 +451,30 @@ func newDirEntryWithSummary(d fs.Entry, oid object.ID, summ *fs.DirectorySummary
 	return de, nil
 }
 
-// newDirEntry makes DirEntry objects for any type of Entry.
-func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, error) {
+// setBirthTime sets the birth time on a DirEntry from a filesystem entry if available.
+func setBirthTime(de *snapshot.DirEntry, md fs.Entry) {
+	if ewb, ok := md.(fs.EntryWithBirthTime); ok {
+		if btime := ewb.BirthTime(); !btime.IsZero() {
+			btimeVal := fs.UTCTimestampFromTime(btime)
+			de.BirthTime = &btimeVal
+		}
+	}
+}
+
+// getBirthTime returns the birthtime from an entry if available, or nil.
+func getBirthTime(e fs.Entry) *fs.UTCTimestamp {
+	if ewb, ok := e.(fs.EntryWithBirthTime); ok {
+		if btime := ewb.BirthTime(); !btime.IsZero() {
+			btimeVal := fs.UTCTimestampFromTime(btime)
+			return &btimeVal
+		}
+	}
+
+	return nil
+}
+
+// newDirEntryBase creates a DirEntry without setting birthtime.
+func newDirEntryBase(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, error) {
 	var entryType snapshot.EntryType
 
 	switch md := md.(type) {
@@ -473,20 +500,61 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 	}, nil
 }
 
+// newDirEntry makes DirEntry objects for any type of Entry.
+func (u *Uploader) newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, error) {
+	de, err := newDirEntryBase(md, fname, oid)
+	if err != nil {
+		return nil, err
+	}
+
+	if u.PreserveBirthTime {
+		setBirthTime(de, md)
+	}
+
+	return de, nil
+}
+
 // newCachedDirEntry makes DirEntry objects for entries that are also in
 // previous snapshots. It ensures file sizes are populated correctly for
-// StreamingFiles.
-func newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, error) {
+// StreamingFiles and handles birthtime intelligently to preserve cached
+// birthtime when current filesystem lacks btime support.
+func (u *Uploader) newCachedDirEntry(md, cached fs.Entry, fname string) (*snapshot.DirEntry, error) {
 	hoid, ok := cached.(object.HasObjectID)
 	if !ok {
 		return nil, errors.New("cached entry does not implement HasObjectID")
 	}
 
 	if _, ok := md.(fs.StreamingFile); ok {
-		return newDirEntry(cached, fname, hoid.ObjectID())
+		de, err := newDirEntryBase(cached, fname, hoid.ObjectID())
+		if err != nil {
+			return nil, err
+		}
+
+		if u.PreserveBirthTime {
+			cachedBtime := getBirthTime(cached)
+			currentBtime := getBirthTime(md)
+
+			if currentBtime != nil && (cachedBtime == nil || *cachedBtime != *currentBtime) {
+				de.BirthTime = currentBtime
+			} else if cachedBtime != nil {
+				de.BirthTime = cachedBtime
+			}
+		}
+
+		return de, nil
 	}
 
-	return newDirEntry(md, fname, hoid.ObjectID())
+	de, err := u.newDirEntry(md, fname, hoid.ObjectID())
+	if err != nil {
+		return nil, err
+	}
+
+	// If current filesystem lacks btime support, preserve cached btime from previous snapshot.
+	if u.PreserveBirthTime && de.BirthTime == nil {
+		de.BirthTime = getBirthTime(cached)
+	}
+
+	return de, nil
 }
 
 // uploadFileWithCheckpointing uploads the specified File to the repository.
@@ -501,7 +569,7 @@ func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath
 		return nil, err
 	}
 
-	return newDirEntryWithSummary(file, res.ObjectID, &fs.DirectorySummary{
+	return u.newDirEntryWithSummary(file, res.ObjectID, &fs.DirectorySummary{
 		TotalFileCount: 1,
 		TotalFileSize:  res.FileSize,
 		MaxModTime:     res.ModTime,
@@ -854,7 +922,7 @@ func (u *Uploader) processSingle(
 			atomic.AddInt64(&u.stats.TotalFileSize, cachedEntry.Size())
 			u.Progress.CachedFile(entryRelativePath, cachedEntry.Size())
 
-			cachedDirEntry, err := newCachedDirEntry(entry, cachedEntry, entry.Name())
+			cachedDirEntry, err := u.newCachedDirEntry(entry, cachedEntry, entry.Name())
 
 			u.Progress.FinishedFile(entryRelativePath, err)
 
@@ -1192,7 +1260,7 @@ func uploadDirInternal(
 			return nil, errors.Wrap(err, "error writing dir manifest")
 		}
 
-		return newDirEntryWithSummary(directory, oid, checkpointManifest.Summary)
+		return u.newDirEntryWithSummary(directory, oid, checkpointManifest.Summary)
 	})
 	defer thisCheckpointRegistry.removeCheckpointCallback(directory.Name())
 
@@ -1207,7 +1275,7 @@ func uploadDirInternal(
 		return nil, errors.Wrapf(err, "error writing dir manifest: %v", directory.Name())
 	}
 
-	return newDirEntryWithSummary(directory, oid, dirManifest.Summary)
+	return u.newDirEntryWithSummary(directory, oid, dirManifest.Summary)
 }
 
 func (u *Uploader) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *snapshotfs.DirManifestBuilder, entryRelativePath string) {
@@ -1284,7 +1352,7 @@ func (u *Uploader) Upload(
 	}
 
 	u.traceEnabled = span.IsRecording()
-
+	u.PreserveBirthTime = policyTree.EffectivePolicy().UploadPolicy.PreserveBirthTime.OrDefault(false)
 	u.Progress.UploadStarted()
 	defer u.Progress.UploadFinished()
 

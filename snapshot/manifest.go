@@ -124,6 +124,7 @@ type DirEntry struct {
 	Permissions Permissions          `json:"mode,omitempty"`
 	FileSize    int64                `json:"size,omitempty"`
 	ModTime     fs.UTCTimestamp      `json:"mtime,omitempty"`
+	BirthTime   *fs.UTCTimestamp     `json:"btime,omitempty"`
 	UserID      uint32               `json:"uid,omitempty"`
 	GroupID     uint32               `json:"gid,omitempty"`
 	ObjectID    object.ID            `json:"obj"`
