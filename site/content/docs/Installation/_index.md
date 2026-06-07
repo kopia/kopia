@@ -288,7 +288,7 @@ $ docker run -e KOPIA_PASSWORD \
 
 In addition to creating the docker container with *docker run*, the following docker-compose provides an example for setting up a minimal container in [server mode](../features/#optional-server-mode-with-api-support-to-centrally-manage-backups-of-multiple-machines) including the web interface. You can access the interface via http://localhost:51515 or at the server's IP address after starting the container.  
 
->NOTE Kopia provides a vast of parameters to configure the container. Please check our [docker-compose](https://github.com/kopia/kopia/blob/master/tools/docker/docker-compose.yml) for more details.
+>NOTE Kopia provides a vast ammount of parameters to configure the container. Please check our [docker-compose](https://github.com/kopia/kopia/blob/master/tools/docker/docker-compose.yml) for more details.
 
 ```shell
 version: '3.7'
