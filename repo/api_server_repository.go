@@ -16,6 +16,8 @@ type APIServerInfo struct {
 	BaseURL                             string `json:"url"`
 	TrustedServerCertificateFingerprint string `json:"serverCertFingerprint"`
 	LocalCacheKeyDerivationAlgorithm    string `json:"localCacheKeyDerivationAlgorithm,omitempty"`
+	ClientCertificateFile               string `json:"clientCertificateFile,omitempty"`
+	ClientPrivateKeyFile                string `json:"clientPrivateKeyFile,omitempty"`
 }
 
 // ConnectAPIServer sets up repository connection to a particular API server.
