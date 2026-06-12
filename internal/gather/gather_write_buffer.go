@@ -86,7 +86,7 @@ func (b *WriteBuffer) Write(data []byte) (n int, err error) {
 	return len(data), nil
 }
 
-// AppendSectionTo appends the section of the buffer to the provided slice and returns it.
+// AppendSectionTo appends the section of the buffer to the provided writer.
 func (b *WriteBuffer) AppendSectionTo(w io.Writer, offset, size int) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -102,7 +102,7 @@ func (b *WriteBuffer) Length() int {
 	return b.inner.Length()
 }
 
-// ToByteSlice appends all bytes to the provided slice and returns it.
+// ToByteSlice returns contents as a newly-allocated byte slice.
 func (b *WriteBuffer) ToByteSlice() []byte {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -111,6 +111,9 @@ func (b *WriteBuffer) ToByteSlice() []byte {
 }
 
 // Bytes returns inner gather.Bytes.
+// Notice: Use with caution, the returned Bytes are not concurrency safe.
+// A routine reading from the returned Bytes may or may not observe a
+// concurrent modification in this WriteBuffer.
 func (b *WriteBuffer) Bytes() Bytes {
 	b.mu.Lock()
 	defer b.mu.Unlock()
