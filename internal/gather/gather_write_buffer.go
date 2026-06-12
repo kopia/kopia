@@ -23,7 +23,7 @@ func (b *WriteBuffer) Close() {
 	defer b.mu.Unlock()
 
 	if b.alloc != nil {
-		for _, s := range b.inner.Slices {
+		for _, s := range b.inner.slices {
 			b.alloc.releaseChunk(s)
 		}
 
@@ -57,7 +57,7 @@ func (b *WriteBuffer) MakeContiguous(length int) []byte {
 		v = make([]byte, length)
 	}
 
-	b.inner.Slices = [][]byte{v}
+	b.inner.slices = [][]byte{v}
 
 	return v
 }
@@ -68,7 +68,7 @@ func (b *WriteBuffer) Reset() {
 	defer b.mu.Unlock()
 
 	if b.alloc != nil {
-		for _, s := range b.inner.Slices {
+		for _, s := range b.inner.slices {
 			b.alloc.releaseChunk(s)
 		}
 	}
@@ -128,24 +128,24 @@ func (b *WriteBuffer) Append(data []byte) {
 
 	b.inner.assertValid()
 
-	if len(b.inner.Slices) == 0 {
+	if len(b.inner.slices) == 0 {
 		b.inner.sliceBuf[0] = b.allocChunk()
-		b.inner.Slices = b.inner.sliceBuf[0:1]
+		b.inner.slices = b.inner.sliceBuf[0:1]
 	}
 
 	for len(data) > 0 {
-		ndx := len(b.inner.Slices) - 1
-		remaining := cap(b.inner.Slices[ndx]) - len(b.inner.Slices[ndx])
+		ndx := len(b.inner.slices) - 1
+		remaining := cap(b.inner.slices[ndx]) - len(b.inner.slices[ndx])
 
 		if remaining == 0 {
-			b.inner.Slices = append(b.inner.Slices, b.allocChunk())
-			ndx = len(b.inner.Slices) - 1
-			remaining = cap(b.inner.Slices[ndx]) - len(b.inner.Slices[ndx])
+			b.inner.slices = append(b.inner.slices, b.allocChunk())
+			ndx = len(b.inner.slices) - 1
+			remaining = cap(b.inner.slices[ndx]) - len(b.inner.slices[ndx])
 		}
 
 		chunkSize := min(remaining, len(data))
 
-		b.inner.Slices[ndx] = append(b.inner.Slices[ndx], data[0:chunkSize]...)
+		b.inner.slices[ndx] = append(b.inner.slices[ndx], data[0:chunkSize]...)
 		data = data[chunkSize:]
 	}
 }
