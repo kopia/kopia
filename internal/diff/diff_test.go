@@ -38,15 +38,16 @@ type testBaseEntry struct {
 	oid     object.ID
 }
 
-func (f *testBaseEntry) IsDir() bool                 { return false }
-func (f *testBaseEntry) LocalFilesystemPath() string { return f.name }
-func (f *testBaseEntry) Close()                      {}
-func (f *testBaseEntry) Name() string                { return f.name }
-func (f *testBaseEntry) ModTime() time.Time          { return f.modtime }
-func (f *testBaseEntry) Sys() any                    { return nil }
-func (f *testBaseEntry) Owner() fs.OwnerInfo         { return f.owner }
-func (f *testBaseEntry) Device() fs.DeviceInfo       { return fs.DeviceInfo{Dev: 1} }
-func (f *testBaseEntry) ObjectID() object.ID         { return f.oid }
+func (f *testBaseEntry) IsDir() bool                   { return false }
+func (f *testBaseEntry) LocalFilesystemPath() string   { return f.name }
+func (f *testBaseEntry) Close()                        {}
+func (f *testBaseEntry) Name() string                  { return f.name }
+func (f *testBaseEntry) ModTime() time.Time            { return f.modtime }
+func (f *testBaseEntry) Sys() any                      { return nil }
+func (f *testBaseEntry) Owner() fs.OwnerInfo           { return f.owner }
+func (f *testBaseEntry) Device() fs.DeviceInfo         { return fs.DeviceInfo{Dev: 1} }
+func (f *testBaseEntry) HardLinkInfo() fs.HardLinkInfo { return fs.HardLinkInfo{UniqId: 1, NLink: 1} }
+func (f *testBaseEntry) ObjectID() object.ID           { return f.oid }
 
 func (f *testBaseEntry) Mode() os.FileMode {
 	if f.mode == 0 {

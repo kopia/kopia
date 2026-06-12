@@ -53,6 +53,10 @@ func (s *sourceDirectories) Device() fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
 
+func (s *sourceDirectories) HardLinkInfo() fs.HardLinkInfo {
+	return fs.HardLinkInfo{}
+}
+
 func (s *sourceDirectories) LocalFilesystemPath() string {
 	return ""
 }

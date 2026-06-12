@@ -36,12 +36,13 @@ func (c readerSeekerCloser) Close() error {
 }
 
 type entry struct {
-	name    string
-	mode    os.FileMode
-	size    int64
-	modTime time.Time
-	owner   fs.OwnerInfo
-	device  fs.DeviceInfo
+	name         string
+	mode         os.FileMode
+	size         int64
+	modTime      time.Time
+	owner        fs.OwnerInfo
+	device       fs.DeviceInfo
+	hardLinkInfo fs.HardLinkInfo
 }
 
 func (e *entry) Name() string {
@@ -74,6 +75,10 @@ func (e *entry) Owner() fs.OwnerInfo {
 
 func (e *entry) Device() fs.DeviceInfo {
 	return e.device
+}
+
+func (e *entry) HardLinkInfo() fs.HardLinkInfo {
+	return e.hardLinkInfo
 }
 
 func (e *entry) LocalFilesystemPath() string {
