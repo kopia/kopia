@@ -39,7 +39,7 @@ func (b *Bytes) assertValid() {
 	}
 }
 
-// AppendSectionTo writes the section of the buffer to the provided writer.
+// AppendSectionTo writes the section of the buffer to w.
 func (b *Bytes) AppendSectionTo(w io.Writer, offset, size int) error {
 	b.assertValid()
 
