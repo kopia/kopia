@@ -73,11 +73,9 @@ func (b *WriteBuffer) Reset() {
 		}
 	}
 
-	b.inner.invalidate()
-
-	b.alloc = nil
-
+	// calling b.inner.invalidate() is innefective because it is reset below
 	b.inner = Bytes{}
+	b.alloc = nil
 }
 
 // Write implements io.Writer for appending to the buffer.
