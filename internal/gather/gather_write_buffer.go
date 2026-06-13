@@ -73,10 +73,9 @@ func (b *WriteBuffer) Reset() {
 		}
 	}
 
-	b.inner.invalidate()
-
 	b.alloc = nil
 
+	// calling b.inner.invalidate() is ineffective because it is reset below
 	b.inner = Bytes{}
 }
 
