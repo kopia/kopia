@@ -40,11 +40,11 @@ func (b *WriteBuffer) MakeContiguous(length int) []byte {
 	case length <= typicalContiguousAllocator.chunkSize:
 		// most commonly used allocator for default chunk size with max 8MB
 		b.alloc = typicalContiguousAllocator
-		v = b.allocChunk()[0:length]
+		v = b.allocChunkLocked()[0:length]
 
 	case length <= maxContiguousAllocator.chunkSize:
 		b.alloc = maxContiguousAllocator
-		v = b.allocChunk()[0:length]
+		v = b.allocChunkLocked()[0:length]
 
 	default:
 		v = make([]byte, length)
@@ -125,7 +125,7 @@ func (b *WriteBuffer) Append(data []byte) {
 	b.inner.assertValid()
 
 	if len(b.inner.slices) == 0 {
-		b.inner.sliceBuf[0] = b.allocChunk()
+		b.inner.sliceBuf[0] = b.allocChunkLocked()
 		b.inner.slices = b.inner.sliceBuf[0:1]
 	}
 
@@ -134,7 +134,7 @@ func (b *WriteBuffer) Append(data []byte) {
 		remaining := cap(b.inner.slices[ndx]) - len(b.inner.slices[ndx])
 
 		if remaining == 0 {
-			b.inner.slices = append(b.inner.slices, b.allocChunk())
+			b.inner.slices = append(b.inner.slices, b.allocChunkLocked())
 			ndx = len(b.inner.slices) - 1
 			remaining = cap(b.inner.slices[ndx]) - len(b.inner.slices[ndx])
 		}
@@ -146,7 +146,7 @@ func (b *WriteBuffer) Append(data []byte) {
 	}
 }
 
-func (b *WriteBuffer) allocChunk() []byte {
+func (b *WriteBuffer) allocChunkLocked() []byte {
 	if b.alloc == nil {
 		b.alloc = defaultAllocator
 	}
