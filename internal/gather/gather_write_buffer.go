@@ -12,9 +12,10 @@ var log = logging.Module("gather") // +checklocksignore
 // WriteBuffer is a write buffer for content of unknown size that manages
 // data in a series of byte slices of uniform size.
 type WriteBuffer struct {
-	alloc *chunkAllocator
-	mu    sync.Mutex
-	inner Bytes
+	alloc  *chunkAllocator
+	mu     sync.Mutex
+	inner  Bytes
+	closed bool
 }
 
 // Close releases all memory allocated by this buffer.
@@ -22,8 +23,11 @@ func (b *WriteBuffer) Close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.checkNotClosedLocked()
 	b.releaseChunksLocked()
 	b.inner.invalidate()
+
+	b.closed = true
 }
 
 // MakeContiguous ensures the write buffer consists of exactly one contiguous single slice of the provided length
@@ -32,6 +36,7 @@ func (b *WriteBuffer) MakeContiguous(length int) []byte {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.checkNotClosedLocked()
 	b.releaseChunksLocked()
 
 	var v []byte
@@ -60,6 +65,7 @@ func (b *WriteBuffer) Reset() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.checkNotClosedLocked()
 	b.releaseChunksLocked()
 }
 
@@ -87,6 +93,8 @@ func (b *WriteBuffer) AppendSectionTo(w io.Writer, offset, size int) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.checkNotClosedLocked()
+
 	return b.inner.AppendSectionTo(w, offset, size)
 }
 
@@ -95,6 +103,8 @@ func (b *WriteBuffer) Length() int {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.checkNotClosedLocked()
+
 	return b.inner.Length()
 }
 
@@ -102,6 +112,8 @@ func (b *WriteBuffer) Length() int {
 func (b *WriteBuffer) ToByteSlice() []byte {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	b.checkNotClosedLocked()
 
 	return b.inner.ToByteSlice()
 }
@@ -114,6 +126,8 @@ func (b *WriteBuffer) Bytes() Bytes {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.checkNotClosedLocked()
+
 	return b.inner
 }
 
@@ -122,6 +136,7 @@ func (b *WriteBuffer) Append(data []byte) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.checkNotClosedLocked()
 	b.inner.assertValid()
 
 	if len(b.inner.slices) == 0 {
@@ -143,6 +158,13 @@ func (b *WriteBuffer) Append(data []byte) {
 
 		b.inner.slices[ndx] = append(b.inner.slices[ndx], data[0:chunkSize]...)
 		data = data[chunkSize:]
+	}
+}
+
+func (b *WriteBuffer) checkNotClosedLocked() {
+	if b.closed {
+		// programming error, thus panic
+		panic("WriteBuffer already closed")
 	}
 }
 
