@@ -6,9 +6,9 @@
     "auto-launch": "^5.0.6",
     "electron-log": "^5.4.4",
     "electron-store": "^11.0.2",
-    "electron-updater": "^6.8.8",
+    "electron-updater": "^6.8.9",
     "minimist": "^1.2.8",
-    "semver": "^7.8.1",
+    "semver": "^7.8.3",
     "uuid": "^14.0.0"
   },
   "type": "module",
@@ -127,8 +127,8 @@
     "asar": "^3.2.0",
     "concurrently": "^10.0.3",
     "dotenv": "^17.4.2",
-    "electron": "^42.3.0",
-    "electron-builder": "^26.14.0",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.15.2",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1",
     "prettier": "^3.8.3"
