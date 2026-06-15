@@ -5,8 +5,8 @@ go 1.25.8
 toolchain go1.25.11
 
 require (
-	cloud.google.com/go/storage v1.62.2
-	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.21.1
+	cloud.google.com/go/storage v1.62.3
+	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.22.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.13.1
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.7.0
 	github.com/alecthomas/kingpin/v2 v2.4.0
@@ -30,7 +30,7 @@ require (
 	github.com/klauspost/compress v1.18.6
 	github.com/klauspost/pgzip v1.2.6
 	github.com/klauspost/reedsolomon v1.14.0
-	github.com/kopia/htmluibuild v0.0.1-0.20260521013841-3c52622ae393
+	github.com/kopia/htmluibuild v0.0.1-0.20260608231842-7bf9fcc0831d
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.15
 	github.com/minio/minio-go/v7 v7.2.0
@@ -42,7 +42,7 @@ require (
 	github.com/pkg/sftp v1.13.10
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/client_model v0.6.2
-	github.com/prometheus/common v0.68.0
+	github.com/prometheus/common v0.68.1
 	github.com/sanity-io/litter v1.5.8
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.11.1
@@ -60,12 +60,12 @@ require (
 	golang.org/x/mod v0.36.0
 	golang.org/x/net v0.55.0
 	golang.org/x/oauth2 v0.36.0
-	golang.org/x/sync v0.20.0
-	golang.org/x/sys v0.45.0
+	golang.org/x/sync v0.21.0
+	golang.org/x/sys v0.46.0
 	golang.org/x/term v0.43.0
 	golang.org/x/text v0.37.0
 	golang.org/x/time v0.15.0
-	google.golang.org/api v0.282.0
+	google.golang.org/api v0.283.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
