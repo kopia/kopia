@@ -36,10 +36,16 @@ func (p *emailProvider) Send(_ context.Context, msg *sender.Message) error {
 		"To: " + p.opt.To,
 	}
 
-	if p.Format() == sender.FormatHTML {
+	switch p.Format() {
+	case sender.FormatHTML:
 		headers = append(headers,
 			"MIME-version: 1.0;",
 			"Content-Type: text/html; charset=\"UTF-8\";",
+		)
+	case sender.FormatJSON:
+		headers = append(headers,
+			"MIME-version: 1.0;",
+			"Content-Type: application/json; charset=\"UTF-8\";",
 		)
 	}
 

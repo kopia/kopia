@@ -41,8 +41,10 @@ func TestNotifyTemplate_generic_error(t *testing.T) {
 
 	verifyTemplate(t, "generic-error.txt", ".default", args, defaultTestOptions)
 	verifyTemplate(t, "generic-error.html", ".default", args, defaultTestOptions)
+	verifyTemplate(t, "generic-error.json", ".default", args, defaultTestOptions)
 	verifyTemplate(t, "generic-error.txt", ".alt", args, altTestOptions)
 	verifyTemplate(t, "generic-error.html", ".alt", args, altTestOptions)
+	verifyTemplate(t, "generic-error.json", ".alt", args, altTestOptions)
 }
 
 func TestNotifyTemplate_snapshot_report(t *testing.T) {
@@ -161,8 +163,10 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 
 	verifyTemplate(t, "snapshot-report.txt", ".default", args, defaultTestOptions)
 	verifyTemplate(t, "snapshot-report.html", ".default", args, defaultTestOptions)
+	verifyTemplate(t, "snapshot-report.json", ".default", args, defaultTestOptions)
 	verifyTemplate(t, "snapshot-report.txt", ".alt", args, altTestOptions)
 	verifyTemplate(t, "snapshot-report.html", ".alt", args, altTestOptions)
+	verifyTemplate(t, "snapshot-report.json", ".alt", args, altTestOptions)
 }
 
 func TestNotifyTemplate_snapshot_report_single_success(t *testing.T) {
@@ -213,6 +217,7 @@ func TestNotifyTemplate_snapshot_report_single_success(t *testing.T) {
 
 	verifyTemplate(t, "snapshot-report.txt", ".success", args, defaultTestOptions)
 	verifyTemplate(t, "snapshot-report.html", ".success", args, defaultTestOptions)
+	verifyTemplate(t, "snapshot-report.json", ".success", args, defaultTestOptions)
 }
 
 func verifyTemplate(t *testing.T, embeddedTemplateName, expectedSuffix string, args any, opt notifytemplate.Options) {

@@ -12,7 +12,7 @@ import (
 type Options struct {
 	ServerURL string `json:"serverURL"` // e.g. "nats://localhost:4222", may be a comma-separated list for a cluster
 	Subject   string `json:"subject"`   // NATS subject (topic) to publish messages to
-	Format    string `json:"format"`    // format of the message, must be "html" or "txt"
+	Format    string `json:"format"`    // format of the message, must be "html", "txt", or "json"
 
 	// optional authentication, at most one of these is typically set.
 	Username        string `json:"username,omitempty"`

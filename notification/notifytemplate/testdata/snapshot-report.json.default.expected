@@ -1,0 +1,85 @@
+Subject: Failed to create 1 of 4 snapshots on some-host
+
+{
+  "status": "Failed to create 1 of 4 snapshots",
+  "hostname": "some-host",
+  "generatedAt": "Thu, 02 Jan 2020 03:04:05 +0000",
+  "kopiaVersion": "v0-unofficial",
+  "snapshots": [
+    {
+      "id": "",
+      "path": "/some/other/path",
+      "status": "fatal",
+      "start": "Thu, 01 Jan 1970 00:00:00 +0000",
+      "duration": "0s",
+      "totalSize": 0,
+      "totalSizeDelta": 0,
+      "totalFiles": 0,
+      "totalFilesDelta": 0,
+      "totalDirs": 0,
+      "totalDirsDelta": 0,
+      "error": "some top-level error"
+    }
+,
+    {
+      "id": "",
+      "path": "/some/path",
+      "status": "success",
+      "start": "Thu, 02 Jan 2020 03:04:05 +0000",
+      "duration": "1.1s",
+      "totalSize": 456,
+      "totalSizeDelta": 56,
+      "totalFiles": 123,
+      "totalFilesDelta": 23,
+      "totalDirs": 33,
+      "totalDirsDelta": 3,
+      "failedEntries": [
+        { "path": "/some/path", "error": "some error" }
+,
+        { "path": "/some/path2", "error": "some error" }
+      ]
+
+    }
+,
+    {
+      "id": "",
+      "path": "/some/path",
+      "status": "success",
+      "start": "Thu, 02 Jan 2020 03:04:05 +0000",
+      "duration": "1.1s",
+      "totalSize": 456,
+      "totalSizeDelta": -44,
+      "totalFiles": 123,
+      "totalFilesDelta": -77,
+      "totalDirs": 33,
+      "totalDirsDelta": -7,
+      "failedEntries": [
+        { "path": "/some/path", "error": "some error" }
+,
+        { "path": "/some/path2", "error": "some error" }
+      ]
+
+    }
+,
+    {
+      "id": "",
+      "path": "/some/path2",
+      "status": "success",
+      "start": "Thu, 02 Jan 2020 03:04:05 +0000",
+      "duration": "1.1s",
+      "totalSize": 456,
+      "totalSizeDelta": 0,
+      "totalFiles": 123,
+      "totalFilesDelta": 0,
+      "totalDirs": 33,
+      "totalDirsDelta": 0,
+      "failedEntries": [
+        { "path": "/some/path", "error": "some error" }
+,
+        { "path": "/some/path2", "error": "some error" }
+      ]
+
+    }
+
+  ]
+}

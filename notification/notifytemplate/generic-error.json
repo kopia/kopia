@@ -1,0 +1,14 @@
+Subject: Kopia has encountered an error during {{ .EventArgs.Operation }} on {{.Hostname}}
+
+{
+  "operation": {{ printf "%q" .EventArgs.Operation }},
+  "operationDetails": {{ printf "%q" .EventArgs.OperationDetails }},
+  "started": {{ .EventArgs.StartTimestamp | formatTime | printf "%q" }},
+  "finished": {{ .EventArgs.EndTimestamp | formatTime | printf "%q" }},
+  "duration": {{ printf "%q" .EventArgs.Duration }},
+  "errorMessage": {{ printf "%q" .EventArgs.ErrorMessage }},
+  "errorDetails": {{ printf "%q" .EventArgs.ErrorDetails }},
+  "hostname": {{ printf "%q" .Hostname }},
+  "generatedAt": {{ .EventTime | formatTime | printf "%q" }},
+  "kopiaVersion": {{ printf "%q" .KopiaBuildVersion }}
+}

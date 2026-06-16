@@ -1,0 +1,14 @@
+Subject: Kopia has encountered an error during Some Operation on some-host
+
+{
+  "operation": "Some Operation",
+  "operationDetails": "Some Operation Details",
+  "started": "Wed, 01 Jan 2020 19:04:05 PST",
+  "finished": "Wed, 01 Jan 2020 19:04:06 PST",
+  "duration": "1s",
+  "errorMessage": "error message",
+  "errorDetails": "error details",
+  "hostname": "some-host",
+  "generatedAt": "Wed, 01 Jan 2020 19:04:05 PST",
+  "kopiaVersion": "v0-unofficial"
+}

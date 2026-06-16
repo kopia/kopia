@@ -26,7 +26,7 @@ func (c *commandNotificationConfigureNats) setup(svc appServices, parent command
 	cmd.Flag("nkey-seed-file", "Path to NATS NKey seed file").StringVar(&c.opt.NKeySeedFile)
 	cmd.Flag("insecure-skip-verify", "Skip TLS certificate verification").BoolVar(&c.opt.InsecureSkipVerify)
 
-	cmd.Flag("format", "Format of the message").EnumVar(&c.opt.Format, sender.FormatHTML, sender.FormatPlainText)
+	cmd.Flag("format", "Format of the message").EnumVar(&c.opt.Format, sender.FormatHTML, sender.FormatPlainText, sender.FormatJSON)
 
 	cmd.Action(configureNotificationAction(svc, &c.common, nats.ProviderType, &c.opt, nats.MergeOptions))
 }

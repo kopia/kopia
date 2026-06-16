@@ -12,7 +12,7 @@ import (
 type Options struct {
 	AppToken string `json:"appToken"`
 	UserKey  string `json:"userKey"`
-	Format   string `json:"format"` // format of the message, must be "html" or "md"
+	Format   string `json:"format"` // format of the message, must be "html", "txt", or "json"
 
 	Endpoint string `json:"endpoint,omitempty"` // override the default endpoint for testing
 }

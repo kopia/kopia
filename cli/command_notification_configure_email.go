@@ -25,7 +25,7 @@ func (c *commandNotificationConfigureEmail) setup(svc appServices, parent comman
 	cmd.Flag("mail-to", "To address").StringVar(&c.opt.To)
 	cmd.Flag("mail-cc", "CC address").StringVar(&c.opt.CC)
 
-	cmd.Flag("format", "Format of the message").EnumVar(&c.opt.Format, sender.FormatHTML, sender.FormatPlainText)
+	cmd.Flag("format", "Format of the message").EnumVar(&c.opt.Format, sender.FormatHTML, sender.FormatPlainText, sender.FormatJSON)
 
 	cmd.Action(configureNotificationAction(svc, &c.common, email.ProviderType, &c.opt, email.MergeOptions))
 }

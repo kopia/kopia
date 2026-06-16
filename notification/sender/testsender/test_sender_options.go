@@ -10,7 +10,7 @@ import (
 
 // Options defines email notification provider options.
 type Options struct {
-	Format  string `json:"format"`  // format of the message, must be "html" or "md"
+	Format  string `json:"format"`  // format of the message, must be "html", "txt", or "json"
 	Invalid bool   `json:"invalid"` // set to true to fail creation
 }
 
