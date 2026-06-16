@@ -7,6 +7,7 @@ import (
 
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/notification/notifyprofile"
+	"github.com/kopia/kopia/notification/sender/nats"
 	"github.com/kopia/kopia/notification/sender/webhook"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -124,6 +125,69 @@ func TestNotificationProfile_WebHook(t *testing.T) {
 	// delete existing profiles
 	e.RunAndExpectSuccess(t, "notification", "profile", "delete", "--profile-name=myotherwebhook")
 	e.RunAndExpectSuccess(t, "notification", "profile", "delete", "--profile-name=mywebhook")
+
+	// no profiles left
+	require.Empty(t, e.RunAndExpectSuccess(t, "notification", "profile", "list"))
+}
+
+func TestNotificationProfile_Nats(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	var profiles []notifyprofile.Summary
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "notification", "profile", "list", "--json"), &profiles)
+	require.Empty(t, profiles)
+
+	// setup a profile
+	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "nats", "--profile-name=mynats", "--server-url=nats://localhost:14222", "--subject=kopia.notifications")
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "notification", "profile", "list", "--json"), &profiles)
+	require.Len(t, profiles, 1)
+	require.Equal(t, "nats", profiles[0].Type)
+
+	// define another profile
+	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "nats", "--profile-name=myothernats", "--min-severity=warning",
+		"--server-url=nats://anotherhost:4222", "--subject=kopia.other", "--username=alice", "--nats-password=hunter2")
+
+	lines := e.RunAndExpectSuccess(t, "notification", "profile", "list")
+
+	require.Contains(t, lines, "Profile \"mynats\" Type \"nats\" Minimum Severity: report")
+	require.Contains(t, lines, "Profile \"myothernats\" Type \"nats\" Minimum Severity: warning")
+
+	var opt notifyprofile.Config
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "notification", "profile", "show", "--profile-name=myothernats", "--json", "--raw"), &opt)
+
+	require.Equal(t, []string{
+		"Profile \"myothernats\" Type \"nats\" Minimum Severity: warning",
+		"NATS nats://anotherhost:4222 subject \"kopia.other\" format \"txt\"",
+	}, e.RunAndExpectSuccess(t, "notification", "profile", "show", "--profile-name=myothernats"))
+
+	var opt2 nats.Options
+
+	require.NoError(t, opt.MethodConfig.Options(&opt2))
+	require.Equal(t, "alice", opt2.Username)
+	require.Equal(t, "hunter2", opt2.Password)
+
+	// partial update
+	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "nats", "--profile-name=myothernats", "--subject=kopia.changed", "--format=html")
+
+	require.Equal(t, []string{
+		"Profile \"myothernats\" Type \"nats\" Minimum Severity: warning",
+		"NATS nats://anotherhost:4222 subject \"kopia.changed\" format \"html\"",
+	}, e.RunAndExpectSuccess(t, "notification", "profile", "show", "--profile-name=myothernats"))
+
+	// delete non-existent profile does not fail
+	e.RunAndExpectSuccess(t, "notification", "profile", "delete", "--profile-name=unknown")
+
+	// delete existing profiles
+	e.RunAndExpectSuccess(t, "notification", "profile", "delete", "--profile-name=myothernats")
+	e.RunAndExpectSuccess(t, "notification", "profile", "delete", "--profile-name=mynats")
 
 	// no profiles left
 	require.Empty(t, e.RunAndExpectSuccess(t, "notification", "profile", "list"))
