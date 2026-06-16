@@ -368,6 +368,10 @@ func (c *commandSnapshotCreate) snapshotSingleSource(
 		return errors.Wrap(finalErr, "cannot save manifest")
 	}
 
+	// SaveSnapshot() assigns the manifest ID as a side effect, so we need to
+	// update mwe or notifications will report a blank snapshot ID.
+	mwe.Manifest.ID = manifest.ID
+
 	if _, finalErr = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true); finalErr != nil {
 		return errors.Wrap(finalErr, "unable to apply retention policy")
 	}

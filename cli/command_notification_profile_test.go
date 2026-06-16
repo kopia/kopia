@@ -1,6 +1,9 @@
 package cli_test
 
 import (
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,6 +12,7 @@ import (
 	"github.com/kopia/kopia/notification/notifyprofile"
 	"github.com/kopia/kopia/notification/sender/nats"
 	"github.com/kopia/kopia/notification/sender/webhook"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -191,4 +195,44 @@ func TestNotificationProfile_Nats(t *testing.T) {
 
 	// no profiles left
 	require.Empty(t, e.RunAndExpectSuccess(t, "notification", "profile", "list"))
+}
+
+// TestNotificationProfile_SnapshotReportIncludesManifestID is a regression test for a bug where
+// the manifest ID embedded in a snapshot-report notification was always blank, because the report
+// data was copied from the in-progress manifest before snapshot.SaveSnapshot() assigned its ID.
+func TestNotificationProfile_SnapshotReportIncludesManifestID(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "testsender", "--profile-name=mysender", "--format=txt")
+
+	tmplFile := filepath.Join(testutil.TempDirectory(t), "snapshot-report.txt")
+	require.NoError(t, os.WriteFile(tmplFile, []byte(
+		"Subject: report\n\n{{ range .EventArgs.Snapshots }}id={{ .Manifest.ID }}{{ end }}\n"), 0o600))
+
+	e.RunAndExpectSuccess(t, "notification", "template", "set", "snapshot-report.txt", "--from-file="+tmplFile)
+
+	srcDir := testutil.TempDirectory(t)
+	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "file1"), []byte("hello"), 0o600))
+
+	var man snapshot.Manifest
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", srcDir, "--json"), &man)
+	require.NotEmpty(t, man.ID)
+
+	var found bool
+
+	for _, m := range e.NotificationsSent() {
+		if strings.Contains(m.Body, "id="+string(man.ID)) {
+			found = true
+			break
+		}
+	}
+
+	require.True(t, found, "expected a notification body containing the snapshot manifest ID %q", man.ID)
 }
