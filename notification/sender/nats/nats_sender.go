@@ -4,31 +4,34 @@ package nats
 import (
 	"context"
 	"fmt"
-	"time"
 
 	natslib "github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/notification/sender"
 )
 
 // ProviderType defines the type of the NATS notification provider.
 const ProviderType = "nats"
 
-const (
-	connectTimeout = 10 * time.Second
-	flushTimeout   = 10 * time.Second
-)
-
 type natsProvider struct {
 	opt Options
 }
 
-func (p *natsProvider) connectOptions() ([]natslib.Option, error) {
+func (p *natsProvider) connectOptions(ctx context.Context) ([]natslib.Option, error) {
 	opts := []natslib.Option{
 		natslib.Name("kopia"),
-		natslib.Timeout(connectTimeout),
 		natslib.NoReconnect(),
+	}
+
+	if dl, ok := ctx.Deadline(); ok {
+		remaining := dl.Sub(clock.Now())
+		if remaining <= 0 {
+			return nil, errors.Wrap(context.DeadlineExceeded, "NATS server connect deadline exceeded")
+		}
+
+		opts = append(opts, natslib.Timeout(remaining))
 	}
 
 	switch {
@@ -54,18 +57,41 @@ func (p *natsProvider) connectOptions() ([]natslib.Option, error) {
 	return opts, nil
 }
 
-func (p *natsProvider) Send(_ context.Context, msg *sender.Message) error {
-	opts, err := p.connectOptions()
+// flushWithContextOptionalDeadline flushes the NATS connection, honoring ctx's
+// deadline if it has one. FlushWithContext requires a context with a deadline,
+// so when ctx has none we fall back to Flush(), which applies the NATS client's
+// own default timeout instead.
+func flushWithContextOptionalDeadline(ctx context.Context, nc *natslib.Conn) error {
+	if _, ok := ctx.Deadline(); ok {
+		return errors.Wrap(nc.FlushWithContext(ctx), "error flushing NATS connection")
+	}
+
+	return errors.Wrap(nc.Flush(), "error flushing NATS connection")
+}
+
+func (p *natsProvider) Send(ctx context.Context, msg *sender.Message) error {
+	if err := ctx.Err(); err != nil {
+		return errors.Wrap(err, "context already done before connecting to NATS server")
+	}
+
+	opts, err := p.connectOptions(ctx)
 	if err != nil {
 		return err
 	}
 
+	// natslib.Connect does not have a variant which accepts a context. A
+	// timeout is therefore configured in the connection options, and we check
+	// ctx.Err() after Connect returns.
 	nc, err := natslib.Connect(p.opt.ServerURL, opts...)
 	if err != nil {
 		return errors.Wrap(err, "error connecting to NATS server")
 	}
 
 	defer nc.Close()
+
+	if err := ctx.Err(); err != nil {
+		return errors.Wrap(err, "context done after connecting to NATS server")
+	}
 
 	m := &natslib.Msg{
 		Subject: p.opt.Subject,
@@ -83,8 +109,8 @@ func (p *natsProvider) Send(_ context.Context, msg *sender.Message) error {
 		return errors.Wrap(err, "error publishing NATS notification")
 	}
 
-	if err := nc.FlushTimeout(flushTimeout); err != nil {
-		return errors.Wrap(err, "error flushing NATS connection")
+	if err := flushWithContextOptionalDeadline(ctx, nc); err != nil {
+		return err
 	}
 
 	return nil

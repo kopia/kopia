@@ -9,6 +9,7 @@ import (
 	natslib "github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/notification/sender"
 	"github.com/kopia/kopia/notification/sender/nats"
@@ -128,6 +129,24 @@ func TestNats_ConnectFailure(t *testing.T) {
 		Subject: "Test",
 		Body:    "test",
 	}), "error connecting to NATS server")
+}
+
+func TestNats_ContextDeadlineExceeded(t *testing.T) {
+	srv := startTestServer(t, &natsserver.Options{})
+
+	ctx, cancel := context.WithDeadline(testlogging.Context(t), clock.Now().Add(-time.Second))
+	defer cancel()
+
+	p, err := sender.GetSender(ctx, "my-profile", nats.ProviderType, &nats.Options{
+		ServerURL: srv.ClientURL(),
+		Subject:   "kopia.notifications",
+	})
+	require.NoError(t, err)
+
+	require.ErrorIs(t, p.Send(ctx, &sender.Message{
+		Subject: "Test",
+		Body:    "test",
+	}), context.DeadlineExceeded)
 }
 
 func TestNats_InvalidOptions(t *testing.T) {
