@@ -7,7 +7,7 @@ Subject: Successfully created a snapshot of /some/path on some-host
   "kopiaVersion": "v0-unofficial",
   "snapshots": [
     {
-      "id": "",
+      "id": "9b7417fee914e4e4c471a3772f958515",
       "path": "/some/path",
       "status": "success",
       "start": "Thu, 02 Jan 2020 03:04:05 +0000",

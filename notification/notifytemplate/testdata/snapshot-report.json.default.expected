@@ -21,7 +21,7 @@ Subject: Failed to create 1 of 4 snapshots on some-host
       "error": "some top-level error"
     },
     {
-      "id": "",
+      "id": "9b7417fee914e4e4c471a3772f958515",
       "path": "/some/path",
       "status": "success",
       "start": "Thu, 02 Jan 2020 03:04:05 +0000",
@@ -38,7 +38,7 @@ Subject: Failed to create 1 of 4 snapshots on some-host
       ]
     },
     {
-      "id": "",
+      "id": "9b7417fee914e4e4c471a3772f958515",
       "path": "/some/path",
       "status": "success",
       "start": "Thu, 02 Jan 2020 03:04:05 +0000",
@@ -55,7 +55,7 @@ Subject: Failed to create 1 of 4 snapshots on some-host
       ]
     },
     {
-      "id": "",
+      "id": "9b7417fee914e4e4c471a3772f958515",
       "path": "/some/path2",
       "status": "success",
       "start": "Thu, 02 Jan 2020 03:04:05 +0000",
