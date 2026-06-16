@@ -1,3 +1,5 @@
+//go:build !no_extra_providers
+
 // Package gdrive implements Storage based on Google Drive.
 package gdrive
 

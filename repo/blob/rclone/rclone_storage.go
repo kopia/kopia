@@ -1,3 +1,5 @@
+//go:build !no_extra_providers
+
 // Package rclone implements blob storage provider proxied by rclone (http://rclone.org)
 package rclone
 
