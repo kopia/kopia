@@ -7,7 +7,7 @@ Subject: Failed to create 1 of 4 snapshots on some-host
   "kopiaVersion": "v0-unofficial",
   "snapshots": [
     {
-      "id": "",
+      "id": null,
       "path": "/some/other/path",
       "status": "fatal",
       "start": "Thu, 01 Jan 1970 00:00:00 +0000",

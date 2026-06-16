@@ -8,7 +8,7 @@ Subject: {{.EventArgs.OverallStatus}} on {{.Hostname}}
   "snapshots": [
 {{ range $i, $s := $snapshots }}{{ if $i }},
 {{ end }}    {
-      "id": {{ printf "%q" $s.Manifest.ID }},
+      "id": {{ if $s.Manifest.ID }}{{ printf "%q" $s.Manifest.ID }}{{ else }}null{{ end }},
       "path": {{ printf "%q" $s.Manifest.Source.Path }},
       "status": {{ printf "%q" $s.StatusCode }},
       "start": {{ $s.StartTimestamp | formatTime | printf "%q" }},
