@@ -27,8 +27,7 @@ type Options struct {
 	TLSKeyFile                  string   `json:"tlsKeyFile,omitempty"`                  // TLS private key
 	TLSCertificateAuthorityFile []string `json:"tlsCertificateAuthorityFile,omitempty"` // TLS certificate authority chain
 	TLSFirst                    bool     `json:"tlsFirst,omitempty"`                    // Perform TLS handshake before expecting the server greeting
-
-	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
+	TLSInsecureSkipVerify       bool     `json:"tlsInsecureSkipVerify,omitempty"`       // Skip TLS certificate verification
 }
 
 // ApplyDefaultsAndValidate applies default values and validates the configuration.
@@ -63,7 +62,7 @@ func MergeOptions(ctx context.Context, src, dst *Options, isUpdate bool) error {
 	copyOrMerge(&dst.Token, src.Token, isUpdate)
 	copyOrMerge(&dst.CredentialsFile, src.CredentialsFile, isUpdate)
 	copyOrMerge(&dst.NKeySeedFile, src.NKeySeedFile, isUpdate)
-	copyOrMerge(&dst.InsecureSkipVerify, src.InsecureSkipVerify, isUpdate)
+	copyOrMerge(&dst.TLSInsecureSkipVerify, src.TLSInsecureSkipVerify, isUpdate)
 
 	return dst.ApplyDefaultsAndValidate(ctx)
 }

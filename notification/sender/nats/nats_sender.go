@@ -64,7 +64,7 @@ func (p *natsProvider) connectOptions(ctx context.Context) ([]natslib.Option, er
 		opts = append(opts, natslib.TLSHandshakeFirst())
 	}
 
-	if p.opt.InsecureSkipVerify {
+	if p.opt.TLSInsecureSkipVerify {
 		opts = append(opts, natslib.Secure())
 	}
 
