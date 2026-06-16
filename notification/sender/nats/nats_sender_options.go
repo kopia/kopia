@@ -10,9 +10,10 @@ import (
 
 // Options defines NATS notification sender options.
 type Options struct {
-	ServerURL string `json:"serverURL"` // e.g. "nats://localhost:4222", may be a comma-separated list for a cluster
-	Subject   string `json:"subject"`   // NATS subject (topic) to publish messages to
-	Format    string `json:"format"`    // format of the message, must be "html", "txt", or "json"
+	ConnectionName string `json:"connectionName,omitempty"` // The name to use for the connection (defaults to "kopia")
+	ServerURL      string `json:"serverURL"`                // e.g. "nats://localhost:4222", may be a comma-separated list for a cluster
+	Subject        string `json:"subject"`                  // NATS subject (topic) to publish messages to
+	Format         string `json:"format"`                   // format of the message, must be "html", "txt", or "json"
 
 	// optional authentication, at most one of these is typically set.
 	Username        string `json:"username,omitempty"`
@@ -26,6 +27,10 @@ type Options struct {
 
 // ApplyDefaultsAndValidate applies default values and validates the configuration.
 func (o *Options) ApplyDefaultsAndValidate(_ context.Context) error {
+	if o.ConnectionName == "" {
+		o.ConnectionName = defaultConnectionName
+	}
+
 	if o.ServerURL == "" {
 		return errors.Errorf("server URL must be provided")
 	}
@@ -43,6 +48,7 @@ func (o *Options) ApplyDefaultsAndValidate(_ context.Context) error {
 
 // MergeOptions updates the destination options with the source options.
 func MergeOptions(ctx context.Context, src Options, dst *Options, isUpdate bool) error {
+	copyOrMerge(&dst.ConnectionName, src.ConnectionName, isUpdate)
 	copyOrMerge(&dst.ServerURL, src.ServerURL, isUpdate)
 	copyOrMerge(&dst.Subject, src.Subject, isUpdate)
 	copyOrMerge(&dst.Format, src.Format, isUpdate)

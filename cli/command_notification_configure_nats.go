@@ -16,6 +16,7 @@ func (c *commandNotificationConfigureNats) setup(svc appServices, parent command
 
 	c.common.setup(svc, cmd)
 
+	cmd.Flag("connection-name", "Nickname to use for the underlying NATS Connection (defaults to kopia)").StringVar(&c.opt.NKeySeedFile)
 	cmd.Flag("server-url", "NATS server URL (e.g. nats://localhost:4222)").StringVar(&c.opt.ServerURL)
 	cmd.Flag("subject", "NATS subject (topic) to publish to").StringVar(&c.opt.Subject)
 	cmd.Flag("username", "NATS username").StringVar(&c.opt.Username)

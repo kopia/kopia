@@ -15,13 +15,15 @@ import (
 // ProviderType defines the type of the NATS notification provider.
 const ProviderType = "nats"
 
+const defaultConnectionName = "kopia"
+
 type natsProvider struct {
 	opt Options
 }
 
 func (p *natsProvider) connectOptions(ctx context.Context) ([]natslib.Option, error) {
 	opts := []natslib.Option{
-		natslib.Name("kopia"),
+		natslib.Name(p.opt.ConnectionName),
 		natslib.NoReconnect(),
 	}
 
