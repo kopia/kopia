@@ -25,6 +25,10 @@ func (c *commandNotificationConfigureNats) setup(svc appServices, parent command
 	cmd.Flag("token", "NATS authentication token").StringVar(&c.opt.Token)
 	cmd.Flag("credentials-file", "Path to NATS .creds (JWT) file").StringVar(&c.opt.CredentialsFile)
 	cmd.Flag("nkey-seed-file", "Path to NATS NKey seed file").StringVar(&c.opt.NKeySeedFile)
+	cmd.Flag("tlscert", "Path to TLS public certificate file").StringVar(&c.opt.TLSCertificateFile)
+	cmd.Flag("tlskey", "Path to TLS private key file").StringVar(&c.opt.TLSKeyFile)
+	cmd.Flag("tlsca", "Path to TLS certificate authority chain").StringsVar(&c.opt.TLSCertificateAuthorityFile)
+	cmd.Flag("tlsfirst", "Perform TLS handshake before expecting the server greeting").BoolVar(&c.opt.TLSFirst)
 	cmd.Flag("insecure-skip-verify", "Skip TLS certificate verification").BoolVar(&c.opt.InsecureSkipVerify)
 
 	cmd.Flag("format", "Format of the message").EnumVar(&c.opt.Format, sender.FormatHTML, sender.FormatPlainText, sender.FormatJSON)

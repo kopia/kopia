@@ -22,6 +22,12 @@ type Options struct {
 	CredentialsFile string `json:"credentialsFile,omitempty"` // path to a NATS .creds (JWT) file
 	NKeySeedFile    string `json:"nkeySeedFile,omitempty"`    // path to an NKey seed file
 
+	// TLS options
+	TLSCertificateFile          string   `json:"tlsCertificateFile,omitempty"`          // TLS public certificate
+	TLSKeyFile                  string   `json:"tlsKeyFile,omitempty"`                  // TLS private key
+	TLSCertificateAuthorityFile []string `json:"tlsCertificateAuthorityFile,omitempty"` // TLS certificate authority chain
+	TLSFirst                    bool     `json:"tlsFirst,omitempty"`                    // Perform TLS handshake before expecting the server greeting
+
 	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
 }
 
@@ -47,7 +53,7 @@ func (o *Options) ApplyDefaultsAndValidate(_ context.Context) error {
 }
 
 // MergeOptions updates the destination options with the source options.
-func MergeOptions(ctx context.Context, src Options, dst *Options, isUpdate bool) error {
+func MergeOptions(ctx context.Context, src, dst *Options, isUpdate bool) error {
 	copyOrMerge(&dst.ConnectionName, src.ConnectionName, isUpdate)
 	copyOrMerge(&dst.ServerURL, src.ServerURL, isUpdate)
 	copyOrMerge(&dst.Subject, src.Subject, isUpdate)

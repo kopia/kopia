@@ -52,6 +52,18 @@ func (p *natsProvider) connectOptions(ctx context.Context) ([]natslib.Option, er
 		opts = append(opts, natslib.UserInfo(p.opt.Username, p.opt.Password))
 	}
 
+	if p.opt.TLSCertificateFile != "" || p.opt.TLSKeyFile != "" {
+		opts = append(opts, natslib.ClientCert(p.opt.TLSCertificateFile, p.opt.TLSKeyFile))
+	}
+
+	if len(p.opt.TLSCertificateAuthorityFile) != 0 {
+		opts = append(opts, natslib.RootCAs(p.opt.TLSCertificateAuthorityFile...))
+	}
+
+	if p.opt.TLSFirst {
+		opts = append(opts, natslib.TLSHandshakeFirst())
+	}
+
 	if p.opt.InsecureSkipVerify {
 		opts = append(opts, natslib.Secure())
 	}

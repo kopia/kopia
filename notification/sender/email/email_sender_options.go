@@ -24,7 +24,7 @@ type Options struct {
 }
 
 // MergeOptions updates the destination options with the source options.
-func MergeOptions(ctx context.Context, src Options, dst *Options, isUpdate bool) error {
+func MergeOptions(ctx context.Context, src, dst *Options, isUpdate bool) error {
 	copyOrMerge(&dst.SMTPServer, src.SMTPServer, isUpdate)
 	copyOrMerge(&dst.SMTPPort, src.SMTPPort, isUpdate)
 	copyOrMerge(&dst.SMTPIdentity, src.SMTPIdentity, isUpdate)

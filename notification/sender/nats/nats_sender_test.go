@@ -166,7 +166,7 @@ func TestNats_InvalidOptions(t *testing.T) {
 func TestMergeOptions(t *testing.T) {
 	var dst nats.Options
 
-	require.NoError(t, nats.MergeOptions(context.Background(), nats.Options{
+	require.NoError(t, nats.MergeOptions(context.Background(), &nats.Options{
 		ServerURL: "nats://localhost:4222",
 		Subject:   "kopia.notifications",
 		Format:    "txt",
@@ -176,7 +176,7 @@ func TestMergeOptions(t *testing.T) {
 	require.Equal(t, "kopia.notifications", dst.Subject)
 	require.Equal(t, "txt", dst.Format)
 
-	require.NoError(t, nats.MergeOptions(context.Background(), nats.Options{
+	require.NoError(t, nats.MergeOptions(context.Background(), &nats.Options{
 		Subject: "kopia.other",
 	}, &dst, true))
 
@@ -184,7 +184,7 @@ func TestMergeOptions(t *testing.T) {
 	require.Equal(t, "kopia.other", dst.Subject)
 	require.Equal(t, "txt", dst.Format)
 
-	require.NoError(t, nats.MergeOptions(context.Background(), nats.Options{
+	require.NoError(t, nats.MergeOptions(context.Background(), &nats.Options{
 		ServerURL: "nats://localhost:5678",
 		Subject:   "kopia.third",
 		Format:    "html",
