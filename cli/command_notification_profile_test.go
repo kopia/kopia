@@ -149,14 +149,14 @@ func TestNotificationProfile_Nats(t *testing.T) {
 	require.Empty(t, profiles)
 
 	// setup a profile
-	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "nats", "--profile-name=mynats", "--server-url=nats://localhost:14222", "--subject=kopia.notifications")
+	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "nats", "--profile-name=mynats", "--nats-server-url=nats://localhost:14222", "--nats-subject=kopia.notifications")
 	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "notification", "profile", "list", "--json"), &profiles)
 	require.Len(t, profiles, 1)
 	require.Equal(t, "nats", profiles[0].Type)
 
 	// define another profile
 	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "nats", "--profile-name=myothernats", "--min-severity=warning",
-		"--server-url=nats://anotherhost:4222", "--subject=kopia.other", "--username=alice", "--nats-password=hunter2")
+		"--nats-server-url=nats://anotherhost:4222", "--nats-subject=kopia.other", "--nats-username=alice", "--nats-password=hunter2")
 
 	lines := e.RunAndExpectSuccess(t, "notification", "profile", "list")
 
@@ -179,7 +179,7 @@ func TestNotificationProfile_Nats(t *testing.T) {
 	require.Equal(t, "hunter2", opt2.Password)
 
 	// partial update
-	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "nats", "--profile-name=myothernats", "--subject=kopia.changed", "--format=html")
+	e.RunAndExpectSuccess(t, "notification", "profile", "configure", "nats", "--profile-name=myothernats", "--nats-subject=kopia.changed", "--format=html")
 
 	require.Equal(t, []string{
 		"Profile \"myothernats\" Type \"nats\" Minimum Severity: warning",
