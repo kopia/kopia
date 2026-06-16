@@ -19,8 +19,7 @@ Subject: Failed to create 1 of 4 snapshots on some-host
       "totalDirs": 0,
       "totalDirsDelta": 0,
       "error": "some top-level error"
-    }
-,
+    },
     {
       "id": "",
       "path": "/some/path",
@@ -34,13 +33,10 @@ Subject: Failed to create 1 of 4 snapshots on some-host
       "totalDirs": 33,
       "totalDirsDelta": 3,
       "failedEntries": [
-        { "path": "/some/path", "error": "some error" }
-,
+        { "path": "/some/path", "error": "some error" },
         { "path": "/some/path2", "error": "some error" }
       ]
-
-    }
-,
+    },
     {
       "id": "",
       "path": "/some/path",
@@ -54,13 +50,10 @@ Subject: Failed to create 1 of 4 snapshots on some-host
       "totalDirs": 33,
       "totalDirsDelta": -7,
       "failedEntries": [
-        { "path": "/some/path", "error": "some error" }
-,
+        { "path": "/some/path", "error": "some error" },
         { "path": "/some/path2", "error": "some error" }
       ]
-
-    }
-,
+    },
     {
       "id": "",
       "path": "/some/path2",
@@ -74,12 +67,9 @@ Subject: Failed to create 1 of 4 snapshots on some-host
       "totalDirs": 33,
       "totalDirsDelta": 0,
       "failedEntries": [
-        { "path": "/some/path", "error": "some error" }
-,
+        { "path": "/some/path", "error": "some error" },
         { "path": "/some/path2", "error": "some error" }
       ]
-
     }
-
   ]
 }

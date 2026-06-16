@@ -19,12 +19,9 @@ Subject: Successfully created a snapshot of /some/path on some-host
       "totalDirs": 33,
       "totalDirsDelta": 3,
       "failedEntries": [
-        { "path": "/some/path", "error": "some error" }
-,
+        { "path": "/some/path", "error": "some error" },
         { "path": "/some/path2", "error": "some error" }
       ]
-
     }
-
   ]
 }
