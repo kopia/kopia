@@ -160,8 +160,8 @@ github.com/klauspost/pgzip v1.2.6 h1:8RXeL5crjEUFnR2/Sn6GJNWtSQ3Dk8pq4CL3jvdDyjU
 github.com/klauspost/pgzip v1.2.6/go.mod h1:Ch1tH69qFZu15pkjo5kYi6mth2Zzwzt50oCQKQE9RUs=
 github.com/klauspost/reedsolomon v1.14.0 h1:5YSZeclzSYg5nl349+GDG/agDtQ6MZiwUYXvVKN1Jx0=
 github.com/klauspost/reedsolomon v1.14.0/go.mod h1:yjqqjgMTQkBUHSG97/rm4zipffCNbCiZcB3kTqr++sQ=
-github.com/kopia/htmluibuild v0.0.1-0.20260608231842-7bf9fcc0831d h1:2nHZuoDenhCDeIdDnQXLaaMziiHfIjf+INorIIUVNk8=
-github.com/kopia/htmluibuild v0.0.1-0.20260608231842-7bf9fcc0831d/go.mod h1:h53A5JM3t2qiwxqxusBe+PFgGcgZdS+DWCQvG5PTlto=
+github.com/kopia/htmluibuild v0.0.1-0.20260616172341-59b7aad2587e h1:ZxjcHpsLhSrxgPsBDqJMMfpafFQ+c3Zr5OCdWiTWijI=
+github.com/kopia/htmluibuild v0.0.1-0.20260616172341-59b7aad2587e/go.mod h1:h53A5JM3t2qiwxqxusBe+PFgGcgZdS+DWCQvG5PTlto=
 github.com/kr/fs v0.1.0 h1:Jskdu9ieNAYnjxsi0LbQp1ulIKZV1LAFgK1tWhpZgl8=
 github.com/kr/fs v0.1.0/go.mod h1:FFnZGqtBN9Gxj7eW1uZ42v5BccTP0vu6NEaFoC2HwRg=
 github.com/kr/pretty v0.3.1 h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=
