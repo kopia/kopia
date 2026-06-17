@@ -25,7 +25,6 @@ func trailingSeparator(fsd *filesystemDirectory) string {
 		fsd.prefix == `\\?\GLOBALROOT\Device\` &&
 		strings.HasPrefix(fsd.Name(), "HarddiskVolumeShadowCopy") &&
 		!strings.HasSuffix(fsd.Name(), separatorStr) {
-
 		return separatorStr
 	}
 

@@ -52,6 +52,6 @@ There are few tips to try, which are generally safe to try:
 
 4. If a repository can’t be opened but was working recently and maintenance has not run yet, it may be helpful to try to remove (or stash away) the most recently-written index files whose names start with `x` in the reverse timestamp order one by one until the issue is fixed. This will effectively roll back the repository writes to a prior state. Exercise caution when removing the files.
 
-5. If the steps above do not help, report your issue on https://kopia.discourse.group or https://slack.kopia.io. Kopia has many low-level data recovery tools, but they should not be used by end users without guidance from developers.
+5. If the steps above do not help, report your issue on https://kopia.discourse.group.
 
-> NOTE: Since all data corruption cases are unique, it’s generally not recommended to attempt fixes recommended to other users even for possibly similar issues, since the particular fix method may not be applicable.
+> NOTE: While Kopia has many low-level data recovery tools, it’s generally not recommended to attempt fixes recommended to other users even for possibly similar issues, since all data corruption cases are unique and the particular fix method may not be applicable. Following those methods may damage the repository further and make the data completely unrecoverable.

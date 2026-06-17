@@ -10,16 +10,16 @@ const extendBlobRetentionStatsKind = "extendBlobRetentionStats"
 
 // ExtendBlobRetentionStats are the stats for extending blob retention time.
 type ExtendBlobRetentionStats struct {
-	ToExtendBlobCount uint32 `json:"toExtendBlobCount"`
-	ExtendedBlobCount uint32 `json:"extendedBlobCount"`
+	ToExtendBlobCount uint64 `json:"toExtendBlobCount"`
+	ExtendedBlobCount uint64 `json:"extendedBlobCount"`
 	RetentionPeriod   string `json:"retentionPeriod"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
 func (es *ExtendBlobRetentionStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(es.Kind())
-	jw.UInt32Field("toExtendBlobCount", es.ToExtendBlobCount)
-	jw.UInt32Field("extendedBlobCount", es.ExtendedBlobCount)
+	jw.UInt64Field("toExtendBlobCount", es.ToExtendBlobCount)
+	jw.UInt64Field("extendedBlobCount", es.ExtendedBlobCount)
 	jw.StringField("retentionPeriod", es.RetentionPeriod)
 	jw.EndObject()
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"slices"
 	"sort"
 	"sync/atomic"
 	"testing"
@@ -125,6 +126,267 @@ func (te *epochManagerTestEnv) another() *epochManagerTestEnv {
 	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc)
 
 	return te2
+}
+
+func makeSeq(base, start, end int) []int {
+	s := make([]int, 0, end-start+1)
+	for i := start; i <= end; i++ {
+		s = append(s, base+i)
+	}
+
+	return s
+}
+
+func makeIndexBlob(
+	ctx context.Context,
+	tb testing.TB,
+	te *epochManagerTestEnv,
+	prefix blob.ID,
+	ndx *fakeIndex,
+) {
+	tb.Helper()
+
+	blobID := blob.ID(fmt.Sprintf("%v%016x-s0-c1", prefix, rand.Int63()))
+	err := te.st.PutBlob(ctx, blobID, gather.FromSlice(ndx.Bytes()), blob.PutOptions{})
+
+	require.NoError(tb, err)
+}
+
+func makeUncompactedIndexBlobsForEpochs(
+	ctx context.Context,
+	tb testing.TB,
+	te *epochManagerTestEnv,
+	startEpoch int,
+	endEpoch int,
+	idxDataOffset int,
+) {
+	tb.Helper()
+
+	for n := startEpoch; n <= endEpoch; n++ {
+		makeIndexBlob(
+			ctx,
+			tb,
+			te,
+			UncompactedEpochBlobPrefix(n),
+			newFakeIndexWithEntries(idxDataOffset+n),
+		)
+	}
+}
+
+func makeSingleEpochCompactedIndexBlobsForEpochs(
+	ctx context.Context,
+	tb testing.TB,
+	te *epochManagerTestEnv,
+	startEpoch int,
+	endEpoch int,
+	idxDataOffset int, //nolint:unparam
+) {
+	tb.Helper()
+
+	for n := startEpoch; n <= endEpoch; n++ {
+		makeIndexBlob(
+			ctx,
+			tb,
+			te,
+			compactedEpochBlobPrefix(n),
+			newFakeIndexWithEntries(idxDataOffset+n),
+		)
+	}
+}
+
+func makeRangeCheckpointIndexBlob(
+	ctx context.Context,
+	tb testing.TB,
+	te *epochManagerTestEnv,
+	minEpoch int,
+	maxEpoch int,
+	idxDataOffset int,
+) {
+	tb.Helper()
+
+	makeIndexBlob(
+		ctx,
+		tb,
+		te,
+		rangeCheckpointBlobPrefix(minEpoch, maxEpoch),
+		newFakeIndexWithEntries(makeSeq(idxDataOffset, minEpoch, maxEpoch)...),
+	)
+}
+
+// mustMakeWriteEpoch advances the epoch marker so that after the next
+// Refresh, WriteEpoch equals epoch.
+func mustMakeWriteEpoch(
+	ctx context.Context,
+	tb testing.TB,
+	te *epochManagerTestEnv,
+	epoch int,
+) {
+	tb.Helper()
+
+	cs := CurrentSnapshot{
+		// advanceEpochMarker creates a blob for epoch N+1, so subtract 1 here to
+		// get the desired result.
+		WriteEpoch: epoch - 1,
+	}
+
+	err := te.mgr.advanceEpochMarker(ctx, cs)
+	require.NoError(tb, err, "creating write epoch marker")
+}
+
+func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
+	// Each test in the table creates a set of index blobs of different compaction
+	// levels for different epochs. The data in each index blob is represented as
+	// a list of integers. The integers are specifically chosen to allow
+	// associating an integer with the index blob and epoch it was sourced from.
+	//
+	// The following base offsets are used for the different types of index blobs:
+	//   * range checkpoint: offset 400
+	//   * single epoch compaction: offset 100
+	//   * settled uncompacted epoch: offset 200
+	//   * unsettled uncompacted epoch: offset 300
+	//
+	// For the integers within each index blob, the lower-order numbers represent
+	// the epoch the entry corresponds to. For example, a range checkpoint for
+	// epochs 2-4 would have entries 402, 403, and 404. As single epoch
+	// compactions and uncompacted blobs only represent a single epoch, epoch blob
+	// of those types will only ever contain a single number, but sets of blobs
+	// for continuous epochs may span a range of integers.
+	//
+	// As there's a strong mapping of integers to type of blob and epoch, test
+	// failures that report the missing integers can be mapped back to the type of
+	// blob(s) that's missing and the epochs covered by the missing blob(s).
+	table := []struct {
+		name        string
+		initStorage func(
+			ctx context.Context,
+			tb testing.TB,
+			te *epochManagerTestEnv,
+		)
+		wantEntries []int
+	}{
+		{
+			name: "OnlyRangeCheckpoint_CoversAllSettled",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 2, 400)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 4)
+			},
+			wantEntries: slices.Concat(
+				makeSeq(400, 0, 2),
+				makeSeq(300, 3, 4),
+			),
+		},
+		{
+			name: "OnlySingleEpochCompactions_CoverAllSettled",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 2, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 4)
+			},
+			wantEntries: slices.Concat(
+				makeSeq(100, 0, 2),
+				makeSeq(300, 3, 4),
+			),
+		},
+		{
+			name: "OnlySingleEpochCompactions_GapsFilledByUncompacted",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 0, 100)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 2, 2, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 1, 1, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 3, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 4, 5, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 5)
+			},
+			wantEntries: []int{
+				100, 102,
+				201, 203,
+				304, 305,
+			},
+		},
+		{
+			name: "RangeAndSingleEpochCompactions_NoGaps",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 2, 400)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 6, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 6)
+			},
+			wantEntries: slices.Concat(
+				makeSeq(400, 0, 2),
+				makeSeq(100, 3, 4),
+				makeSeq(300, 5, 6),
+			),
+		},
+		{
+			name: "RangeAndSingleEpochCompactions_GapsFilledByUncompacted",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 2, 400)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 3, 3, 100)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 5, 5, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 4, 4, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 6, 7, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 7)
+			},
+			wantEntries: []int{
+				400, 401, 402,
+				103, 105,
+				204,
+				306, 307,
+			},
+		},
+		{
+			name: "NoCompactions_OnlyUncompacted",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 0, 2, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 4)
+			},
+			wantEntries: slices.Concat(
+				makeSeq(200, 0, 2),
+				makeSeq(300, 3, 4),
+			),
+		},
+	}
+
+	for _, test := range table {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := testlogging.Context(t)
+			te := newTestEnv(t)
+
+			test.initStorage(ctx, t, te)
+
+			require.NoError(t, te.mgr.Refresh(ctx), "refreshing epoch manager")
+
+			blobs, _, err := te.mgr.GetCompleteIndexSet(ctx, LatestEpoch)
+			require.NoError(t, err, "getting index set")
+
+			gotIndex, err := te.getMergedIndexContents(
+				ctx,
+				blob.IDsFromMetadata(blobs),
+			)
+			require.NoError(t, err, "getting range compacted blobs")
+
+			assert.ElementsMatch(
+				t,
+				test.wantEntries,
+				gotIndex.Entries,
+				"range checkpoint entries",
+			)
+		})
+	}
 }
 
 func TestIndexEpochManager_Regular(t *testing.T) {
@@ -624,7 +886,7 @@ func TestMaybeAdvanceEpoch_Empty(t *testing.T) {
 	stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.CurrentEpoch)
+	require.EqualValues(t, 0, stats.CurrentEpoch)
 	require.False(t, stats.WasAdvanced)
 
 	// check current epoch again
@@ -674,7 +936,7 @@ func TestMaybeAdvanceEpoch(t *testing.T) {
 	stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 
 	require.NoError(t, err)
-	require.Equal(t, 1, stats.CurrentEpoch)
+	require.EqualValues(t, 1, stats.CurrentEpoch)
 	require.True(t, stats.WasAdvanced)
 
 	err = te.mgr.Refresh(ctx) // force state refresh
@@ -841,6 +1103,17 @@ func verifySequentialWrites(t *testing.T, te *epochManagerTestEnv) {
 		te.ft.Advance(dt)
 
 		if indexNum%7 == 0 {
+			// Simulate maintenance running trying to update the write epoch and
+			// running compaction. Don't check for errors except on refresh as some
+			// tests inject errors into various functions.
+			require.NoError(t, te.mgr.Refresh(ctx))
+
+			te.mgr.MaybeCompactSingleEpoch(ctx)
+			te.mgr.MaybeAdvanceWriteEpoch(ctx)
+			te.mgr.MaybeGenerateRangeCheckpoint(ctx)
+			te.mgr.CleanupMarkers(ctx)
+			te.mgr.CleanupSupersededIndexes(ctx)
+
 			require.NoError(t, te.mgr.Refresh(ctx))
 		}
 
@@ -947,7 +1220,7 @@ func TestMaybeCompactSingleEpoch_CompactionError(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
@@ -1000,7 +1273,7 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
@@ -1024,8 +1297,8 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 	for j := range newestEpochToCompact {
 		stats, err := te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, idxCount, stats.SupersededIndexBlobCount)
-		require.Equal(t, j, stats.Epoch)
+		require.EqualValues(t, idxCount, stats.SupersededIndexBlobCount)
+		require.EqualValues(t, j, stats.Epoch)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
 		require.NoError(t, err)
@@ -1127,7 +1400,7 @@ func TestMaybeGenerateRangeCheckpoint_CompactionError(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx)
@@ -1178,7 +1451,7 @@ func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx)
@@ -1193,8 +1466,8 @@ func TestMaybeGenerateRangeCheckpoint_FromUncompactedEpochs(t *testing.T) {
 
 	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.RangeMinEpoch)
-	require.Equal(t, 8, stats.RangeMaxEpoch)
+	require.EqualValues(t, 0, stats.RangeMinEpoch)
+	require.EqualValues(t, 8, stats.RangeMaxEpoch)
 
 	err = te.mgr.Refresh(ctx)
 	require.NoError(t, err)
@@ -1233,7 +1506,7 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 
 		stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, j+1, stats.CurrentEpoch)
+		require.EqualValues(t, j+1, stats.CurrentEpoch)
 		require.True(t, stats.WasAdvanced)
 
 		err = te.mgr.Refresh(ctx)
@@ -1250,8 +1523,8 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 	for j := range newestEpochToCompact {
 		stats, err := te.mgr.MaybeCompactSingleEpoch(ctx)
 		require.NoError(t, err)
-		require.Equal(t, idxCount, stats.SupersededIndexBlobCount)
-		require.Equal(t, j, stats.Epoch)
+		require.EqualValues(t, idxCount, stats.SupersededIndexBlobCount)
+		require.EqualValues(t, j, stats.Epoch)
 
 		err = te.mgr.Refresh(ctx) // force state refresh
 		require.NoError(t, err)
@@ -1270,8 +1543,8 @@ func TestMaybeGenerateRangeCheckpoint_FromCompactedEpochs(t *testing.T) {
 
 	stats, err := te.mgr.MaybeGenerateRangeCheckpoint(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 0, stats.RangeMinEpoch)
-	require.Equal(t, 8, stats.RangeMaxEpoch)
+	require.EqualValues(t, 0, stats.RangeMinEpoch)
+	require.EqualValues(t, 8, stats.RangeMaxEpoch)
 
 	err = te.mgr.Refresh(ctx)
 	require.NoError(t, err)

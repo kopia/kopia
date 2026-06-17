@@ -11,23 +11,23 @@ const cleanupLogsStatsKind = "cleanupLogsStats"
 
 // CleanupLogsStats are the stats for cleaning up logs.
 type CleanupLogsStats struct {
-	ToDeleteBlobCount int   `json:"toDeleteBlobCount"`
-	ToDeleteBlobSize  int64 `json:"toDeleteBlobSize"`
-	DeletedBlobCount  int   `json:"deletedBlobCount"`
-	DeletedBlobSize   int64 `json:"deletedBlobSize"`
-	RetainedBlobCount int   `json:"retainedBlobCount"`
-	RetainedBlobSize  int64 `json:"retainedBlobSize"`
+	ToDeleteBlobCount uint64 `json:"toDeleteBlobCount"`
+	ToDeleteBlobSize  uint64 `json:"toDeleteBlobSize"`
+	DeletedBlobCount  uint64 `json:"deletedBlobCount"`
+	DeletedBlobSize   uint64 `json:"deletedBlobSize"`
+	RetainedBlobCount uint64 `json:"retainedBlobCount"`
+	RetainedBlobSize  uint64 `json:"retainedBlobSize"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
 func (cs *CleanupLogsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(cs.Kind())
-	jw.IntField("toDeleteBlobCount", cs.ToDeleteBlobCount)
-	jw.Int64Field("toDeleteBlobSize", cs.ToDeleteBlobSize)
-	jw.IntField("deletedBlobCount", cs.DeletedBlobCount)
-	jw.Int64Field("deletedBlobSize", cs.DeletedBlobSize)
-	jw.IntField("retainedBlobCount", cs.RetainedBlobCount)
-	jw.Int64Field("retainedBlobSize", cs.RetainedBlobSize)
+	jw.UInt64Field("toDeleteBlobCount", cs.ToDeleteBlobCount)
+	jw.UInt64Field("toDeleteBlobSize", cs.ToDeleteBlobSize)
+	jw.UInt64Field("deletedBlobCount", cs.DeletedBlobCount)
+	jw.UInt64Field("deletedBlobSize", cs.DeletedBlobSize)
+	jw.UInt64Field("retainedBlobCount", cs.RetainedBlobCount)
+	jw.UInt64Field("retainedBlobSize", cs.RetainedBlobSize)
 	jw.EndObject()
 }
 

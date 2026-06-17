@@ -320,18 +320,18 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 	// may have not observed them yet.
 	maxReplacementTime := maxTime.Add(-p.CleanupSafetyMargin)
 
-	var deletedEpochMarkersCount, deletedWatermarksCount atomic.Int64
+	var deletedEpochMarkersCount, deletedWatermarksCount atomic.Uint64
 
 	eg.Go(func() error {
-		deleted, err := e.cleanupEpochMarkers(ctx, cs)
-		deletedEpochMarkersCount.Store(int64(deleted))
+		deleted, err := e.cleanupEpochMarkers(ctx, cs, p.DeleteParallelism)
+		deletedEpochMarkersCount.Store(deleted)
 
 		return err
 	})
 
 	eg.Go(func() error {
-		deleted, err := e.cleanupWatermarks(ctx, cs, p, maxReplacementTime)
-		deletedWatermarksCount.Store(int64(deleted))
+		deleted, err := e.cleanupWatermarks(ctx, cs, maxReplacementTime, p.DeleteParallelism)
+		deletedWatermarksCount.Store(deleted)
 
 		return err
 	})
@@ -341,14 +341,14 @@ func (e *Manager) cleanupInternal(ctx context.Context, cs CurrentSnapshot, p *Pa
 	}
 
 	result := &maintenancestats.CleanupMarkersStats{
-		DeletedEpochMarkerBlobCount: int(deletedEpochMarkersCount.Load()),
-		DeletedWatermarkBlobCount:   int(deletedWatermarksCount.Load()),
+		DeletedEpochMarkerBlobCount: deletedEpochMarkersCount.Load(),
+		DeletedWatermarkBlobCount:   deletedWatermarksCount.Load(),
 	}
 
 	return result, nil
 }
 
-func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) (int, error) {
+func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot, deleteParallelism int) (uint64, error) {
 	// delete epoch markers for epoch < current-1
 	var toDelete []blob.ID
 
@@ -360,15 +360,10 @@ func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot) (
 		}
 	}
 
-	p, err := e.getParameters(ctx)
-	if err != nil {
-		return 0, err
-	}
-
-	return len(toDelete), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting index blob marker")
+	return uint64(len(toDelete)), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism), "error deleting index blob marker")
 }
 
-func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *Parameters, maxReplacementTime time.Time) (int, error) {
+func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, maxReplacementTime time.Time, deleteParallelism int) (uint64, error) {
 	var toDelete []blob.ID
 
 	for _, bm := range cs.DeletionWatermarkBlobs {
@@ -386,7 +381,7 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, p *
 		}
 	}
 
-	return len(toDelete), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism), "error deleting watermark blobs")
+	return uint64(len(toDelete)), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism), "error deleting watermark blobs")
 }
 
 // CleanupSupersededIndexes cleans up the indexes which have been superseded by compacted ones.
@@ -426,13 +421,13 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*maintenancesta
 
 	var toDelete []blob.ID
 
-	var deletedTotalSize int64
+	var deletedTotalSize uint64
 
 	for _, bm := range blobs {
 		if epoch, ok := epochNumberFromBlobID(bm.BlobID); ok {
 			if blobSetWrittenEarlyEnough(cs.SingleEpochCompactionSets[epoch], maxReplacementTime) {
 				toDelete = append(toDelete, bm.BlobID)
-				deletedTotalSize += bm.Length
+				deletedTotalSize += maintenancestats.ToUint64(bm.Length)
 			}
 		}
 	}
@@ -443,7 +438,7 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*maintenancesta
 
 	return &maintenancestats.CleanupSupersededIndexesStats{
 		MaxReplacementTime: maxReplacementTime,
-		DeletedBlobCount:   len(toDelete),
+		DeletedBlobCount:   uint64(len(toDelete)),
 		DeletedTotalSize:   deletedTotalSize,
 	}, nil
 }
@@ -613,8 +608,8 @@ func (e *Manager) MaybeGenerateRangeCheckpoint(ctx context.Context) (*maintenanc
 	}
 
 	return &maintenancestats.GenerateRangeCheckpointStats{
-		RangeMinEpoch: firstNonRangeCompacted,
-		RangeMaxEpoch: latestSettled,
+		RangeMinEpoch: maintenancestats.ToUint64(firstNonRangeCompacted),
+		RangeMaxEpoch: maintenancestats.ToUint64(latestSettled),
 	}, nil
 }
 
@@ -751,7 +746,7 @@ func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (*maintenancestats
 	e.mu.Unlock()
 
 	result := &maintenancestats.AdvanceEpochStats{
-		CurrentEpoch: cs.WriteEpoch,
+		CurrentEpoch: maintenancestats.ToUint64(cs.WriteEpoch),
 	}
 
 	if shouldAdvance(cs.UncompactedEpochSets[cs.WriteEpoch], p.MinEpochDuration, p.EpochAdvanceOnCountThreshold, p.EpochAdvanceOnTotalSizeBytesThreshold) {
@@ -759,7 +754,7 @@ func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (*maintenancestats
 			return nil, errors.Wrap(err, "error advancing epoch")
 		}
 
-		result.CurrentEpoch = cs.WriteEpoch + 1
+		result.CurrentEpoch = maintenancestats.ToUint64(cs.WriteEpoch + 1)
 		result.WasAdvanced = true
 	}
 
@@ -1043,15 +1038,15 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (*maintenancestat
 		uncompactedBlobs = ue
 	}
 
-	var uncompactedSize int64
+	var uncompactedSize uint64
 	for _, b := range uncompactedBlobs {
-		uncompactedSize += b.Length
+		uncompactedSize += maintenancestats.ToUint64(b.Length)
 	}
 
 	result := &maintenancestats.CompactSingleEpochStats{
-		SupersededIndexBlobCount: len(uncompactedBlobs),
+		SupersededIndexBlobCount: uint64(len(uncompactedBlobs)),
 		SupersededIndexTotalSize: uncompactedSize,
-		Epoch:                    uncompacted,
+		Epoch:                    maintenancestats.ToUint64(uncompacted),
 	}
 
 	contentlog.Log1(ctx, e.log, "starting single-epoch compaction for epoch", result)

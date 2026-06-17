@@ -1,3 +1,5 @@
+//go:build !no_extra_providers
+
 package gdrive_test
 
 import (

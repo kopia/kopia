@@ -11,7 +11,7 @@ func bytesToContentID(b []byte) ID {
 	}
 
 	if len(b) > maxIDLength+1 {
-		panic(fmt.Sprintln("Content ID byte slice is longer than the maximum supported ID:", len(b)))
+		panic(fmt.Sprintf("Content ID byte slice is longer than the maximum supported ID: %d", len(b)))
 	}
 
 	var id ID
