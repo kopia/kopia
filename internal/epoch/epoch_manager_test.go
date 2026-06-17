@@ -254,7 +254,7 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 
 				makeRangeCheckpointBlob(ctx, te, 0, 2, 400)
 				makeUncompactedBlobsForEpochs(ctx, te, 3, 4, 300)
-				mustMakeWriteEpoch(ctx, t, te, 4)
+				mustMakeWriteEpoch(ctx, tb, te, 4)
 			},
 			wantEntries: slices.Concat(
 				makeSeq(400, 0, 2),
@@ -268,7 +268,7 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 
 				makeSingleEpochCompactedBlobsForEpochs(ctx, te, 0, 2, 100)
 				makeUncompactedBlobsForEpochs(ctx, te, 3, 4, 300)
-				mustMakeWriteEpoch(ctx, t, te, 4)
+				mustMakeWriteEpoch(ctx, tb, te, 4)
 			},
 			wantEntries: slices.Concat(
 				makeSeq(100, 0, 2),
@@ -285,7 +285,7 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 				makeUncompactedBlobsForEpochs(ctx, te, 1, 1, 200)
 				makeUncompactedBlobsForEpochs(ctx, te, 3, 3, 200)
 				makeUncompactedBlobsForEpochs(ctx, te, 4, 5, 300)
-				mustMakeWriteEpoch(ctx, t, te, 5)
+				mustMakeWriteEpoch(ctx, tb, te, 5)
 			},
 			wantEntries: []int{
 				100, 102,
@@ -301,7 +301,7 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 				makeRangeCheckpointBlob(ctx, te, 0, 2, 400)
 				makeSingleEpochCompactedBlobsForEpochs(ctx, te, 3, 4, 100)
 				makeUncompactedBlobsForEpochs(ctx, te, 5, 6, 300)
-				mustMakeWriteEpoch(ctx, t, te, 6)
+				mustMakeWriteEpoch(ctx, tb, te, 6)
 			},
 			wantEntries: slices.Concat(
 				makeSeq(400, 0, 2),
@@ -319,7 +319,7 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 				makeSingleEpochCompactedBlobsForEpochs(ctx, te, 5, 5, 100)
 				makeUncompactedBlobsForEpochs(ctx, te, 4, 4, 200)
 				makeUncompactedBlobsForEpochs(ctx, te, 6, 7, 300)
-				mustMakeWriteEpoch(ctx, t, te, 7)
+				mustMakeWriteEpoch(ctx, tb, te, 7)
 			},
 			wantEntries: []int{
 				400, 401, 402,
@@ -335,7 +335,7 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 
 				makeUncompactedBlobsForEpochs(ctx, te, 0, 2, 200)
 				makeUncompactedBlobsForEpochs(ctx, te, 3, 4, 300)
-				mustMakeWriteEpoch(ctx, t, te, 4)
+				mustMakeWriteEpoch(ctx, tb, te, 4)
 			},
 			wantEntries: slices.Concat(
 				makeSeq(200, 0, 2),
