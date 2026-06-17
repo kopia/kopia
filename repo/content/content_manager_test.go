@@ -1170,7 +1170,7 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 	fs.AddFault(blobtesting.MethodPutBlob).SleepFor(2 * time.Second)
 
 	bm := s.newTestContentManagerWithTweaks(t, fs, nil)
-	t.Cleanup(func() { bm.CloseShared(ctx) })
+	t.Cleanup(func() { bm.CloseShared(testlogging.ContextForCleanup(t)) })
 
 	// write one content in another goroutine
 	// 'fs' is configured so that blob write takes several seconds to complete.
