@@ -1170,7 +1170,7 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 	fs.AddFault(blobtesting.MethodPutBlob).SleepFor(2 * time.Second)
 
 	bm := s.newTestContentManagerWithTweaks(t, fs, nil)
-	defer bm.CloseShared(ctx)
+	t.Cleanup(func() { bm.CloseShared(ctx) })
 
 	// write one content in another goroutine
 	// 'fs' is configured so that blob write takes several seconds to complete.
@@ -1184,6 +1184,10 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 	wg.Go(func() {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize))
 	})
+
+	// wait for background writeContentAndVerify routine to finish before
+	// performing the rest of the test cleanup, such as tearing down 'bm'
+	t.Cleanup(wg.Wait)
 
 	// wait enough time for the goroutine to start writing.
 	time.Sleep(100 * time.Millisecond)
@@ -1212,8 +1216,6 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 		PackBlobIDPrefixRegular: 2,
 		indexBlobPrefix:         1,
 	})
-
-	wg.Wait()
 }
 
 func (s *contentManagerSuite) verifyAllDataPresent(ctx context.Context, t *testing.T, st blob.Storage, contentIDs map[ID]bool) {
