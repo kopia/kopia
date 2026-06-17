@@ -139,24 +139,33 @@ func makeSeq(base, start, end int) []int {
 
 func makeIndexBlob(
 	ctx context.Context,
+	tb testing.TB,
 	te *epochManagerTestEnv,
 	prefix blob.ID,
 	ndx *fakeIndex,
 ) {
+	tb.Helper()
+
 	blobID := blob.ID(fmt.Sprintf("%v%016x-s0-c1", prefix, rand.Int63()))
-	te.st.PutBlob(ctx, blobID, gather.FromSlice(ndx.Bytes()), blob.PutOptions{})
+	err := te.st.PutBlob(ctx, blobID, gather.FromSlice(ndx.Bytes()), blob.PutOptions{})
+
+	require.NoError(tb, err)
 }
 
-func makeUncompactedBlobsForEpochs(
+func makeUncompactedIndexBlobsForEpochs(
 	ctx context.Context,
+	tb testing.TB,
 	te *epochManagerTestEnv,
 	startEpoch int,
 	endEpoch int,
 	idxDataOffset int,
 ) {
+	tb.Helper()
+
 	for n := startEpoch; n <= endEpoch; n++ {
 		makeIndexBlob(
 			ctx,
+			tb,
 			te,
 			UncompactedEpochBlobPrefix(n),
 			newFakeIndexWithEntries(idxDataOffset+n),
@@ -164,16 +173,20 @@ func makeUncompactedBlobsForEpochs(
 	}
 }
 
-func makeSingleEpochCompactedBlobsForEpochs(
+func makeSingleEpochCompactedIndexBlobsForEpochs(
 	ctx context.Context,
+	tb testing.TB,
 	te *epochManagerTestEnv,
 	startEpoch int,
 	endEpoch int,
 	idxDataOffset int, //nolint:unparam
 ) {
+	tb.Helper()
+
 	for n := startEpoch; n <= endEpoch; n++ {
 		makeIndexBlob(
 			ctx,
+			tb,
 			te,
 			compactedEpochBlobPrefix(n),
 			newFakeIndexWithEntries(idxDataOffset+n),
@@ -181,15 +194,19 @@ func makeSingleEpochCompactedBlobsForEpochs(
 	}
 }
 
-func makeRangeCheckpointBlob(
+func makeRangeCheckpointIndexBlob(
 	ctx context.Context,
+	tb testing.TB,
 	te *epochManagerTestEnv,
 	minEpoch int,
 	maxEpoch int,
 	idxDataOffset int,
 ) {
+	tb.Helper()
+
 	makeIndexBlob(
 		ctx,
+		tb,
 		te,
 		rangeCheckpointBlobPrefix(minEpoch, maxEpoch),
 		newFakeIndexWithEntries(makeSeq(idxDataOffset, minEpoch, maxEpoch)...),
@@ -252,9 +269,9 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
 				tb.Helper()
 
-				makeRangeCheckpointBlob(ctx, te, 0, 2, 400)
-				makeUncompactedBlobsForEpochs(ctx, te, 3, 4, 300)
-				mustMakeWriteEpoch(ctx, t, te, 4)
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 2, 400)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 4)
 			},
 			wantEntries: slices.Concat(
 				makeSeq(400, 0, 2),
@@ -266,9 +283,9 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
 				tb.Helper()
 
-				makeSingleEpochCompactedBlobsForEpochs(ctx, te, 0, 2, 100)
-				makeUncompactedBlobsForEpochs(ctx, te, 3, 4, 300)
-				mustMakeWriteEpoch(ctx, t, te, 4)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 2, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 4)
 			},
 			wantEntries: slices.Concat(
 				makeSeq(100, 0, 2),
@@ -280,12 +297,12 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
 				tb.Helper()
 
-				makeSingleEpochCompactedBlobsForEpochs(ctx, te, 0, 0, 100)
-				makeSingleEpochCompactedBlobsForEpochs(ctx, te, 2, 2, 100)
-				makeUncompactedBlobsForEpochs(ctx, te, 1, 1, 200)
-				makeUncompactedBlobsForEpochs(ctx, te, 3, 3, 200)
-				makeUncompactedBlobsForEpochs(ctx, te, 4, 5, 300)
-				mustMakeWriteEpoch(ctx, t, te, 5)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 0, 100)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 2, 2, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 1, 1, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 3, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 4, 5, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 5)
 			},
 			wantEntries: []int{
 				100, 102,
@@ -298,10 +315,10 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
 				tb.Helper()
 
-				makeRangeCheckpointBlob(ctx, te, 0, 2, 400)
-				makeSingleEpochCompactedBlobsForEpochs(ctx, te, 3, 4, 100)
-				makeUncompactedBlobsForEpochs(ctx, te, 5, 6, 300)
-				mustMakeWriteEpoch(ctx, t, te, 6)
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 2, 400)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 6, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 6)
 			},
 			wantEntries: slices.Concat(
 				makeSeq(400, 0, 2),
@@ -314,12 +331,12 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
 				tb.Helper()
 
-				makeRangeCheckpointBlob(ctx, te, 0, 2, 400)
-				makeSingleEpochCompactedBlobsForEpochs(ctx, te, 3, 3, 100)
-				makeSingleEpochCompactedBlobsForEpochs(ctx, te, 5, 5, 100)
-				makeUncompactedBlobsForEpochs(ctx, te, 4, 4, 200)
-				makeUncompactedBlobsForEpochs(ctx, te, 6, 7, 300)
-				mustMakeWriteEpoch(ctx, t, te, 7)
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 2, 400)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 3, 3, 100)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 5, 5, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 4, 4, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 6, 7, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 7)
 			},
 			wantEntries: []int{
 				400, 401, 402,
@@ -333,9 +350,9 @@ func TestGetCompleteIndexSet_CoversAllEpochs(t *testing.T) {
 			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
 				tb.Helper()
 
-				makeUncompactedBlobsForEpochs(ctx, te, 0, 2, 200)
-				makeUncompactedBlobsForEpochs(ctx, te, 3, 4, 300)
-				mustMakeWriteEpoch(ctx, t, te, 4)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 0, 2, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 300)
+				mustMakeWriteEpoch(ctx, tb, te, 4)
 			},
 			wantEntries: slices.Concat(
 				makeSeq(200, 0, 2),
