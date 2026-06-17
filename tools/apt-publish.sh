@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 GS_PREFIX=gs://$PACKAGES_HOST/apt
 GPG_KEY_ID=7FB99DFD47809F0D5339D7D92273699AFD56A556
