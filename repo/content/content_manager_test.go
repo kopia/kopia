@@ -1170,11 +1170,24 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 	fs.AddFault(blobtesting.MethodPutBlob).SleepFor(2 * time.Second)
 
 	bm := s.newTestContentManagerWithTweaks(t, fs, nil)
-	defer bm.CloseShared(ctx)
+	t.Cleanup(func() { bm.CloseShared(testlogging.ContextForCleanup(t)) })
 
 	// write one content in another goroutine
 	// 'fs' is configured so that blob write takes several seconds to complete.
-	go writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize))
+	// Use a WaitGroup so the test doesn't end early and cause failures when the
+	// context gets canceled. Waiting should not invalidate other parts of the
+	// test because the initial blob count verification checks for multiple data
+	// blobs and the input data is sized such that multiple data blobs should be
+	// created.
+	var wg sync.WaitGroup
+
+	wg.Go(func() {
+		writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize))
+	})
+
+	// wait for background writeContentAndVerify routine to finish before
+	// performing the rest of the test cleanup, such as tearing down 'bm'
+	t.Cleanup(wg.Wait)
 
 	// wait enough time for the goroutine to start writing.
 	time.Sleep(100 * time.Millisecond)

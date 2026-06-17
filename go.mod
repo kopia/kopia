@@ -29,8 +29,8 @@ require (
 	github.com/hashicorp/cronexpr v1.1.3
 	github.com/klauspost/compress v1.18.6
 	github.com/klauspost/pgzip v1.2.6
-	github.com/klauspost/reedsolomon v1.14.0
-	github.com/kopia/htmluibuild v0.0.1-0.20260608231842-7bf9fcc0831d
+	github.com/klauspost/reedsolomon v1.14.1
+	github.com/kopia/htmluibuild v0.0.1-0.20260616172341-59b7aad2587e
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.15
 	github.com/minio/minio-go/v7 v7.2.0
@@ -49,7 +49,7 @@ require (
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.11.1
 	github.com/studio-b12/gowebdav v0.12.0
-	github.com/tg123/go-htpasswd v1.2.4
+	github.com/tg123/go-htpasswd v1.2.5
 	github.com/zalando/go-keyring v0.2.8
 	github.com/zeebo/blake3 v0.2.4
 	go.opentelemetry.io/otel v1.44.0
@@ -57,17 +57,17 @@ require (
 	go.opentelemetry.io/otel/sdk v1.44.0
 	go.opentelemetry.io/otel/trace v1.44.0
 	go.uber.org/zap v1.28.0
-	golang.org/x/crypto v0.52.0
+	golang.org/x/crypto v0.53.0
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f
-	golang.org/x/mod v0.36.0
-	golang.org/x/net v0.55.0
+	golang.org/x/mod v0.37.0
+	golang.org/x/net v0.56.0
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/sync v0.21.0
 	golang.org/x/sys v0.46.0
-	golang.org/x/term v0.43.0
-	golang.org/x/text v0.37.0
+	golang.org/x/term v0.44.0
+	golang.org/x/text v0.38.0
 	golang.org/x/time v0.15.0
-	google.golang.org/api v0.283.0
+	google.golang.org/api v0.284.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216
