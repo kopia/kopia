@@ -9,6 +9,7 @@ Subject: {{.EventArgs.OverallStatus}} on {{.Hostname}}
 {{ range $i, $s := $snapshots }}{{ if $i }},
 {{ end }}    {
       "id": {{ if $s.Manifest.ID }}{{ printf "%q" $s.Manifest.ID }}{{ else }}null{{ end }},
+      "description": {{ if $s.Manifest.Description }}{{ printf "%q" $s.Manifest.Description }}{{else}}null{{ end }},
       "path": {{ printf "%q" $s.Manifest.Source.Path }},
       "status": {{ printf "%q" $s.StatusCode }},
       "start": {{ $s.StartTimestamp | formatTime | printf "%q" }},
@@ -18,7 +19,8 @@ Subject: {{.EventArgs.OverallStatus}} on {{.Hostname}}
       "totalFiles": {{ $s.TotalFiles }},
       "totalFilesDelta": {{ $s.TotalFilesDelta }},
       "totalDirs": {{ $s.TotalDirs }},
-      "totalDirsDelta": {{ $s.TotalDirsDelta }}{{ if $s.Error }},
+      "totalDirsDelta": {{ $s.TotalDirsDelta }}{{ if $s.Manifest.Tags }},
+      "tags": { {{- $first := true }}{{ range $k, $v := $s.Manifest.Tags }}{{ if not $first }}, {{ end }}{{ printf "%q" $k }}: {{ printf "%q" $v }}{{ $first = false }}{{ end -}} }{{ end }}{{ if $s.Error }},
       "error": {{ printf "%q" $s.Error }}{{ end }}{{ if and $s.Manifest.RootEntry $s.Manifest.RootEntry.DirSummary $s.Manifest.RootEntry.DirSummary.FailedEntries }},
       "failedEntries": [
 {{ range $j, $f := $s.Manifest.RootEntry.DirSummary.FailedEntries }}{{ if $j }},

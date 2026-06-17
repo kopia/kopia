@@ -8,6 +8,7 @@ Subject: Failed to create 1 of 4 snapshots on some-host
   "snapshots": [
     {
       "id": null,
+      "description": null,
       "path": "/some/other/path",
       "status": "fatal",
       "start": "Wed, 31 Dec 1969 16:00:00 PST",
@@ -22,6 +23,7 @@ Subject: Failed to create 1 of 4 snapshots on some-host
     },
     {
       "id": "9b7417fee914e4e4c471a3772f958515",
+      "description": "some description",
       "path": "/some/path",
       "status": "success",
       "start": "Wed, 01 Jan 2020 19:04:05 PST",
@@ -32,6 +34,7 @@ Subject: Failed to create 1 of 4 snapshots on some-host
       "totalFilesDelta": 23,
       "totalDirs": 33,
       "totalDirsDelta": 3,
+      "tags": {"env": "prod", "service": "backup"},
       "failedEntries": [
         { "path": "/some/path", "error": "some error" },
         { "path": "/some/path2", "error": "some error" }
@@ -39,6 +42,7 @@ Subject: Failed to create 1 of 4 snapshots on some-host
     },
     {
       "id": "9b7417fee914e4e4c471a3772f958515",
+      "description": "some description",
       "path": "/some/path",
       "status": "success",
       "start": "Wed, 01 Jan 2020 19:04:05 PST",
@@ -56,6 +60,7 @@ Subject: Failed to create 1 of 4 snapshots on some-host
     },
     {
       "id": "9b7417fee914e4e4c471a3772f958515",
+      "description": "some description",
       "path": "/some/path2",
       "status": "success",
       "start": "Wed, 01 Jan 2020 19:04:05 PST",

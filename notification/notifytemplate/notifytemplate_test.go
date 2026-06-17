@@ -53,10 +53,12 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 			{
 				// normal snapshot with positive deltas
 				Manifest: snapshot.Manifest{
-					ID:        "9b7417fee914e4e4c471a3772f958515",
-					Source:    snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
-					StartTime: fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
-					EndTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					ID:          "9b7417fee914e4e4c471a3772f958515",
+					Source:      snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
+					Description: "some description",
+					StartTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
+					EndTime:     fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					Tags:        map[string]string{"env": "prod", "service": "backup"},
 					RootEntry: &snapshot.DirEntry{
 						DirSummary: &fs.DirectorySummary{
 							TotalFileCount: 123,
@@ -91,10 +93,11 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 			{
 				// normal snapshot with positive deltas
 				Manifest: snapshot.Manifest{
-					ID:        "9b7417fee914e4e4c471a3772f958515",
-					Source:    snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
-					StartTime: fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
-					EndTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					ID:          "9b7417fee914e4e4c471a3772f958515",
+					Source:      snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
+					Description: "some description",
+					StartTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
+					EndTime:     fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
 					RootEntry: &snapshot.DirEntry{
 						DirSummary: &fs.DirectorySummary{
 							TotalFileCount: 123,
@@ -129,10 +132,11 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 			{
 				// no previous snapshot
 				Manifest: snapshot.Manifest{
-					ID:        "9b7417fee914e4e4c471a3772f958515",
-					Source:    snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path2"},
-					StartTime: fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
-					EndTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					ID:          "9b7417fee914e4e4c471a3772f958515",
+					Source:      snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path2"},
+					Description: "some description",
+					StartTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
+					EndTime:     fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
 					RootEntry: &snapshot.DirEntry{
 						DirSummary: &fs.DirectorySummary{
 							TotalFileCount: 123,
@@ -180,10 +184,11 @@ func TestNotifyTemplate_snapshot_report_single_success(t *testing.T) {
 			{
 				// normal snapshot with positive deltas
 				Manifest: snapshot.Manifest{
-					ID:        "9b7417fee914e4e4c471a3772f958515",
-					Source:    snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
-					StartTime: fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
-					EndTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					ID:          "9b7417fee914e4e4c471a3772f958515",
+					Source:      snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
+					Description: "some description",
+					StartTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
+					EndTime:     fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
 					RootEntry: &snapshot.DirEntry{
 						DirSummary: &fs.DirectorySummary{
 							TotalFileCount: 123,
