@@ -1190,10 +1190,11 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 
 	// write second short content
 	writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize/4))
+	require.False(t, t.Failed())
 
 	// flush will wait for both writes to complete.
 	t.Logf(">>> start of flushing")
-	bm.Flush(ctx)
+	require.NoError(t, bm.Flush(ctx))
 	t.Logf("<<< end of flushing")
 
 	indexBlobPrefix := blob.ID(indexblob.V0IndexBlobPrefix)
@@ -1206,7 +1207,7 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 		indexBlobPrefix:         1,
 	})
 
-	bm.Flush(ctx)
+	require.NoError(t, bm.Flush(ctx))
 
 	verifyBlobCount(t, data, map[blob.ID]int{
 		PackBlobIDPrefixRegular: 2,
