@@ -41,8 +41,10 @@ func TestNotifyTemplate_generic_error(t *testing.T) {
 
 	verifyTemplate(t, "generic-error.txt", ".default", args, defaultTestOptions)
 	verifyTemplate(t, "generic-error.html", ".default", args, defaultTestOptions)
+	verifyTemplate(t, "generic-error.json", ".default", args, defaultTestOptions)
 	verifyTemplate(t, "generic-error.txt", ".alt", args, altTestOptions)
 	verifyTemplate(t, "generic-error.html", ".alt", args, altTestOptions)
+	verifyTemplate(t, "generic-error.json", ".alt", args, altTestOptions)
 }
 
 func TestNotifyTemplate_snapshot_report(t *testing.T) {
@@ -51,9 +53,12 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 			{
 				// normal snapshot with positive deltas
 				Manifest: snapshot.Manifest{
-					Source:    snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
-					StartTime: fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
-					EndTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					ID:          "9b7417fee914e4e4c471a3772f958515",
+					Source:      snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
+					Description: "some description",
+					StartTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
+					EndTime:     fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					Tags:        map[string]string{"env": "prod", "service": "backup"},
 					RootEntry: &snapshot.DirEntry{
 						DirSummary: &fs.DirectorySummary{
 							TotalFileCount: 123,
@@ -88,9 +93,11 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 			{
 				// normal snapshot with positive deltas
 				Manifest: snapshot.Manifest{
-					Source:    snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
-					StartTime: fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
-					EndTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					ID:          "9b7417fee914e4e4c471a3772f958515",
+					Source:      snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
+					Description: "some description",
+					StartTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
+					EndTime:     fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
 					RootEntry: &snapshot.DirEntry{
 						DirSummary: &fs.DirectorySummary{
 							TotalFileCount: 123,
@@ -125,9 +132,11 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 			{
 				// no previous snapshot
 				Manifest: snapshot.Manifest{
-					Source:    snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path2"},
-					StartTime: fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
-					EndTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					ID:          "9b7417fee914e4e4c471a3772f958515",
+					Source:      snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path2"},
+					Description: "some description",
+					StartTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
+					EndTime:     fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
 					RootEntry: &snapshot.DirEntry{
 						DirSummary: &fs.DirectorySummary{
 							TotalFileCount: 123,
@@ -148,6 +157,8 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 				},
 			},
 			{
+				// failed snapshot: no manifest was ever saved, so there's no ID, same as the real
+				// behavior of snapshotSingleSource() in cli/command_snapshot_create.go.
 				Error: "some top-level error",
 				Manifest: snapshot.Manifest{
 					Source: snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/other/path"},
@@ -161,8 +172,10 @@ func TestNotifyTemplate_snapshot_report(t *testing.T) {
 
 	verifyTemplate(t, "snapshot-report.txt", ".default", args, defaultTestOptions)
 	verifyTemplate(t, "snapshot-report.html", ".default", args, defaultTestOptions)
+	verifyTemplate(t, "snapshot-report.json", ".default", args, defaultTestOptions)
 	verifyTemplate(t, "snapshot-report.txt", ".alt", args, altTestOptions)
 	verifyTemplate(t, "snapshot-report.html", ".alt", args, altTestOptions)
+	verifyTemplate(t, "snapshot-report.json", ".alt", args, altTestOptions)
 }
 
 func TestNotifyTemplate_snapshot_report_single_success(t *testing.T) {
@@ -171,9 +184,11 @@ func TestNotifyTemplate_snapshot_report_single_success(t *testing.T) {
 			{
 				// normal snapshot with positive deltas
 				Manifest: snapshot.Manifest{
-					Source:    snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
-					StartTime: fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
-					EndTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
+					ID:          "9b7417fee914e4e4c471a3772f958515",
+					Source:      snapshot.SourceInfo{Host: "some-host", UserName: "some-user", Path: "/some/path"},
+					Description: "some description",
+					StartTime:   fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC).UnixNano()),
+					EndTime:     fs.UTCTimestamp(time.Date(2020, 1, 2, 3, 4, 6, 120000000, time.UTC).UnixNano()),
 					RootEntry: &snapshot.DirEntry{
 						DirSummary: &fs.DirectorySummary{
 							TotalFileCount: 123,
@@ -213,6 +228,7 @@ func TestNotifyTemplate_snapshot_report_single_success(t *testing.T) {
 
 	verifyTemplate(t, "snapshot-report.txt", ".success", args, defaultTestOptions)
 	verifyTemplate(t, "snapshot-report.html", ".success", args, defaultTestOptions)
+	verifyTemplate(t, "snapshot-report.json", ".success", args, defaultTestOptions)
 }
 
 func verifyTemplate(t *testing.T, embeddedTemplateName, expectedSuffix string, args any, opt notifytemplate.Options) {

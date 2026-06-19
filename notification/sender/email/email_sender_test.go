@@ -139,6 +139,48 @@ func TestEmailProvider_Text(t *testing.T) {
 		"- c\r\n", msg.MsgRequest())
 }
 
+func TestEmailProvider_JSON(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	srv := smtpmock.New(smtpmock.ConfigurationAttr{
+		LogServerActivity: true,
+		LogToStdout:       true,
+	})
+
+	require.NoError(t, srv.Start())
+	defer srv.Stop()
+
+	p, err := sender.GetSender(ctx, "my-profile", "email", &email.Options{
+		SMTPServer: "localhost",
+		SMTPPort:   srv.PortNumber(),
+		From:       "some-user@example.com",
+		To:         "another-user@example.com",
+		Format:     sender.FormatJSON,
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, "SMTP server: \"localhost\", Mail from: \"some-user@example.com\" Mail to: \"another-user@example.com\" Format: \"json\"", p.Summary())
+
+	require.NoError(t, p.Send(ctx, &sender.Message{Subject: "Test", Body: `{"key":"value"}`, Headers: map[string]string{
+		"X-ExtraHeader": "value",
+	}}))
+
+	require.Eventually(t, func() bool {
+		return len(srv.Messages()) == 1
+	}, 10*time.Second, time.Second)
+	require.Len(t, srv.Messages(), 1)
+	msg := srv.Messages()[0]
+
+	require.Equal(t, "Subject: Test\r\n"+
+		"From: some-user@example.com\r\n"+
+		"To: another-user@example.com\r\n"+
+		"MIME-version: 1.0;\r\n"+
+		"Content-Type: application/json; charset=\"UTF-8\";\r\n"+
+		"X-ExtraHeader: value\r\n"+
+		"\r\n"+
+		`{"key":"value"}`+"\r\n", msg.MsgRequest())
+}
+
 func TestEmailProvider_AUTH(t *testing.T) {
 	ctx := testlogging.Context(t)
 
@@ -187,7 +229,7 @@ func TestEmailProvider_Invalid(t *testing.T) {
 func TestMergeOptions(t *testing.T) {
 	var dst email.Options
 
-	require.NoError(t, email.MergeOptions(context.Background(), email.Options{
+	require.NoError(t, email.MergeOptions(context.Background(), &email.Options{
 		SMTPServer: "server1",
 		From:       "from1",
 		To:         "to1",
@@ -198,14 +240,14 @@ func TestMergeOptions(t *testing.T) {
 	require.Equal(t, "to1", dst.To)
 	require.Equal(t, "html", dst.Format)
 
-	require.NoError(t, email.MergeOptions(context.Background(), email.Options{
+	require.NoError(t, email.MergeOptions(context.Background(), &email.Options{
 		From: "user2",
 	}, &dst, true))
 
 	require.Equal(t, "server1", dst.SMTPServer)
 	require.Equal(t, "user2", dst.From)
 
-	require.NoError(t, email.MergeOptions(context.Background(), email.Options{
+	require.NoError(t, email.MergeOptions(context.Background(), &email.Options{
 		SMTPServer: "app2",
 		From:       "user2",
 	}, &dst, true))

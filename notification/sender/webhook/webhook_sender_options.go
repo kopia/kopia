@@ -44,7 +44,7 @@ func (o *Options) ApplyDefaultsAndValidate(_ context.Context) error {
 }
 
 // MergeOptions updates the destination options with the source options.
-func MergeOptions(ctx context.Context, src Options, dst *Options, isUpdate bool) error {
+func MergeOptions(ctx context.Context, src, dst *Options, isUpdate bool) error {
 	copyOrMerge(&dst.Endpoint, src.Endpoint, isUpdate)
 	copyOrMerge(&dst.Method, src.Method, isUpdate)
 	copyOrMerge(&dst.Headers, src.Headers, isUpdate)

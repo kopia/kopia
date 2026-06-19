@@ -10,12 +10,12 @@ import (
 
 // Options defines email notification provider options.
 type Options struct {
-	Format  string `json:"format"`  // format of the message, must be "html" or "md"
+	Format  string `json:"format"`  // format of the message, must be "html", "txt", or "json"
 	Invalid bool   `json:"invalid"` // set to true to fail creation
 }
 
 // MergeOptions updates the destination options with the source options.
-func MergeOptions(ctx context.Context, src Options, dst *Options, isUpdate bool) error {
+func MergeOptions(ctx context.Context, src, dst *Options, isUpdate bool) error {
 	copyOrMerge(&dst.Format, src.Format, isUpdate)
 
 	return dst.ApplyDefaultsAndValidate(ctx)

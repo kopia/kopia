@@ -15,7 +15,7 @@ func (c *commandNotificationConfigureTestSender) setup(svc appServices, parent c
 	cmd := parent.Command("testsender", "Testing notification.")
 
 	c.common.setup(svc, cmd)
-	cmd.Flag("format", "Format of the message").EnumVar(&c.opt.Format, sender.FormatHTML, sender.FormatPlainText)
+	cmd.Flag("format", "Format of the message").EnumVar(&c.opt.Format, sender.FormatHTML, sender.FormatPlainText, sender.FormatJSON)
 
 	cmd.Action(configureNotificationAction(svc, &c.common, testsender.ProviderType, &c.opt, testsender.MergeOptions))
 }

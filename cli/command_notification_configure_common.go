@@ -36,7 +36,7 @@ func configureNotificationAction[T any](
 	c *commonNotificationOptions,
 	senderMethod sender.Method,
 	opt *T,
-	merge func(ctx context.Context, src T, dst *T, isUpdate bool) error,
+	merge func(ctx context.Context, src, dst *T, isUpdate bool) error,
 ) func(ctx *kingpin.ParseContext) error {
 	return svc.directRepositoryWriteAction(func(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 		var (
@@ -70,7 +70,7 @@ func configureNotificationAction[T any](
 			mergedOptions = &defaultT
 		}
 
-		if err := merge(ctx, *opt, mergedOptions, exists); err != nil {
+		if err := merge(ctx, opt, mergedOptions, exists); err != nil {
 			return errors.Wrap(err, "unable to merge options")
 		}
 

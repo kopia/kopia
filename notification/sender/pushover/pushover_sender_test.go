@@ -109,7 +109,7 @@ func TestPushover_Invalid(t *testing.T) {
 func TestMergeOptions(t *testing.T) {
 	var dst pushover.Options
 
-	require.NoError(t, pushover.MergeOptions(context.Background(), pushover.Options{
+	require.NoError(t, pushover.MergeOptions(context.Background(), &pushover.Options{
 		AppToken: "app1",
 		UserKey:  "user1",
 	}, &dst, false))
@@ -117,14 +117,14 @@ func TestMergeOptions(t *testing.T) {
 	require.Equal(t, "app1", dst.AppToken)
 	require.Equal(t, "user1", dst.UserKey)
 
-	require.NoError(t, pushover.MergeOptions(context.Background(), pushover.Options{
+	require.NoError(t, pushover.MergeOptions(context.Background(), &pushover.Options{
 		UserKey: "user2",
 	}, &dst, true))
 
 	require.Equal(t, "app1", dst.AppToken)
 	require.Equal(t, "user2", dst.UserKey)
 
-	require.NoError(t, pushover.MergeOptions(context.Background(), pushover.Options{
+	require.NoError(t, pushover.MergeOptions(context.Background(), &pushover.Options{
 		AppToken: "app2",
 		UserKey:  "user2",
 	}, &dst, true))

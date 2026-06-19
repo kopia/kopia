@@ -18,6 +18,7 @@ import (
 
 //go:embed "*.html"
 //go:embed "*.txt"
+//go:embed "*.json"
 var embedded embed.FS
 
 // Template names.
