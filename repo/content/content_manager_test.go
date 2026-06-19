@@ -1185,19 +1185,16 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize))
 	})
 
-	// wait for background writeContentAndVerify routine to finish before
-	// performing the rest of the test cleanup, such as tearing down 'bm'
-	t.Cleanup(wg.Wait)
-
 	// wait enough time for the goroutine to start writing.
 	time.Sleep(100 * time.Millisecond)
 
 	// write second short content
 	writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize/4))
+	require.False(t, t.Failed())
 
 	// flush will wait for both writes to complete.
 	t.Logf(">>> start of flushing")
-	bm.Flush(ctx)
+	require.NoError(t, bm.Flush(ctx))
 	t.Logf("<<< end of flushing")
 
 	indexBlobPrefix := blob.ID(indexblob.V0IndexBlobPrefix)
@@ -1210,12 +1207,22 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 		indexBlobPrefix:         1,
 	})
 
-	bm.Flush(ctx)
+	require.NoError(t, bm.Flush(ctx))
 
 	verifyBlobCount(t, data, map[blob.ID]int{
 		PackBlobIDPrefixRegular: 2,
 		indexBlobPrefix:         1,
 	})
+
+	// Wait for background writeContentAndVerify routine to finish before
+	// returning from the test which would cancel the context and potentially
+	// cause the background verification to fail.
+	// When the test fails (for whatever reason), there's no need to wait,
+	// and instead it is desirable to cancel the background verification as
+	// soon as possible.
+	if !t.Failed() {
+		wg.Wait()
+	}
 }
 
 func (s *contentManagerSuite) verifyAllDataPresent(ctx context.Context, t *testing.T, st blob.Storage, contentIDs map[ID]bool) {
