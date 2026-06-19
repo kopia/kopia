@@ -133,6 +133,7 @@ type App struct {
 	keyRingEnabled                bool
 	persistCredentials            bool
 	disableRepositoryLog          bool
+	processIOPriority             string
 	DangerousCommands             string
 	cliStorageProviders           []StorageProvider
 	trackReleasable               []string
@@ -277,6 +278,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("password", "Repository password.").Envar(c.EnvName("KOPIA_PASSWORD")).Short('p').StringVar(&c.password)
 	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar(c.EnvName("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT")).BoolVar(&c.persistCredentials)
 	app.Flag("disable-repository-log", "Disable repository log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_REPOSITORY_LOG")).BoolVar(&c.disableRepositoryLog)
+	app.Flag("process-io-priority", "Set current process priority (CPU + I/O on Windows).").Hidden().Default("normal").EnumVar(&c.processIOPriority, "normal", "low", "very-low")
 	app.Flag("dangerous-commands", "Enable dangerous commands that could result in data loss and repository corruption.").Hidden().Envar(c.EnvName("KOPIA_DANGEROUS_COMMANDS")).StringVar(&c.DangerousCommands)
 	app.Flag("track-releasable", "Enable tracking of releasable resources.").Hidden().Envar(c.EnvName("KOPIA_TRACK_RELEASABLE")).StringsVar(&c.trackReleasable)
 	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar(c.EnvName("KOPIA_REPO_UPGRADE_OWNER_ID")).StringVar(&c.upgradeOwnerID)
@@ -467,6 +469,10 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 
 	if c.loggerFactory != nil {
 		ctx = logging.WithLogger(ctx, c.loggerFactory)
+	}
+
+	if err := c.maybeApplyProcessIOPriority(); err != nil {
+		log(ctx).Warnf("unable to set process priority %q: %v", c.processIOPriority, err)
 	}
 
 	for _, r := range c.trackReleasable {
