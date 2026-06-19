@@ -1217,7 +1217,7 @@ func (s *contentManagerSuite) TestFlushWaitsForAllPendingWriters(t *testing.T) {
 	// Wait for background writeContentAndVerify routine to finish before
 	// returning from the test which would cancel the context and potentially
 	// cause the background verification to fail.
-	// When the test fails tests (for whatever reason), there's no need to wait,
+	// When the test fails (for whatever reason), there's no need to wait,
 	// and instead it is desirable to cancel the background verification as
 	// soon as possible.
 	if !t.Failed() {
