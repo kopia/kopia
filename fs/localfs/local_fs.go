@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/pagecache"
+	"github.com/kopia/kopia/internal/iomem"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -129,7 +129,7 @@ func (f *fileWithMetadata) Close() error {
 		// HintNotNeeded is advisory and best-effort; failures don't affect
 		// correctness. The error is intentionally ignored and not logged given
 		// that Close() has no ctx to retrieve a ctx-derived logger.
-		_ = pagecache.HintNotNeeded(f.File)
+		_ = iomem.HintNotNeeded(f.File)
 	}
 
 	if err := f.File.Close(); err != nil {
@@ -148,7 +148,7 @@ func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	// In streaming-reads mode, hint the kernel for readahead at open
 	// (HintStreaming) and to drop the pages at close (HintNotNeeded).
 	if fsf.opts.StreamingReads {
-		if hintErr := pagecache.HintStreaming(f); hintErr != nil {
+		if hintErr := iomem.HintStreaming(f); hintErr != nil {
 			log(ctx).Debugf("page cache hint at open failed for %q: %v", f.Name(), hintErr)
 		}
 	}

@@ -1,8 +1,8 @@
 //go:build linux
 
-// Package pagecache provides OS-specific helpers to advise the kernel
+// Package iomem provides OS-specific helpers to advise the kernel
 // about page cache usage for accessed files.
-package pagecache
+package iomem
 
 import (
 	"os"

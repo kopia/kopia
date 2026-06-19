@@ -1,4 +1,4 @@
-package pagecache
+package iomem
 
 import (
 	"os"
@@ -9,11 +9,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPageCacheHints exercises the happy path. On Linux it issues real
+// TestIOMemHints exercises the happy path. On Linux it issues real
 // FADV_SEQUENTIAL / FADV_DONTNEED syscalls; on other OSes it confirms the
 // stubs accept a real *os.File without erroring. No build tag, so it runs
 // on every platform.
-func TestPageCacheHints(t *testing.T) {
+func TestIOMemHints(t *testing.T) {
 	p := filepath.Join(t.TempDir(), "f")
 	require.NoError(t, os.WriteFile(p, []byte("x"), 0o644))
 
