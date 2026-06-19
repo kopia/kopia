@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +19,9 @@ func TestPageCacheHints(t *testing.T) {
 
 	f, err := os.Open(p)
 	require.NoError(t, err)
-	t.Cleanup(func() { f.Close() })
+
+	// require cannot be used inside Cleanup because it calls t.Fatal()/t.FailNow()
+	t.Cleanup(func() { assert.NoError(t, f.Close()) })
 
 	require.NoError(t, HintStreaming(f))
 	require.NoError(t, HintNotNeeded(f))
