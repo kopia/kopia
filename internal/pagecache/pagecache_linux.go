@@ -15,17 +15,21 @@ import (
 // once. Call it immediately after opening a file for backup so the hint
 // lands before any reads populate the page cache.
 func HintStreaming(f *os.File) error {
-	return callWithFd(f, func(fd int) error {
+	err := callWithFd(f, func(fd int) error {
 		return unix.Fadvise(fd, 0, 0, unix.FADV_SEQUENTIAL)
 	})
+
+	return errors.Wrap(err, "FADV_SEQUENTIAL hint for streaming file reads failed")
 }
 
 // HintNotNeeded advises the kernel that cached pages for this file are no
 // longer needed and can be reclaimed. Call it after reading is done.
 func HintNotNeeded(f *os.File) error {
-	return callWithFd(f, func(fd int) error {
+	err := callWithFd(f, func(fd int) error {
 		return unix.Fadvise(fd, 0, 0, unix.FADV_DONTNEED)
 	})
+
+	return errors.Wrap(err, "FADV_DONTNEED hint for releasing file I/O memory failed")
 }
 
 // callWithFd runs op against f's underlying file descriptor.
