@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/internal/storagereserve"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/upload"
@@ -91,6 +92,19 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 
 //nolint:gocyclo
 func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWriter) error {
+	// Check storage reserve before a space-filling operation. Only block if the disk
+	// is genuinely out of space (ENOSPC); a headspace-rule miss (ErrInsufficientSpace)
+	// just means the reserve can't be grown right now, which is fine for small snapshots.
+	if dr, ok := rep.(repo.DirectRepositoryWriter); ok {
+		if err := storagereserve.Ensure(ctx, dr.BlobStorage(), storagereserve.DefaultReserveSize); err != nil {
+			if storagereserve.IsNoSpaceError(err) {
+				return errors.Wrap(err, "storage is full, cannot create snapshot")
+			}
+
+			log(ctx).Warnf("Could not ensure storage reserve: %v", err)
+		}
+	}
+
 	sources := c.snapshotCreateSources
 
 	if c.snapshotCreateAll && len(sources) > 0 {
