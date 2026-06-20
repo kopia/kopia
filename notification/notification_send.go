@@ -123,7 +123,7 @@ func Send(ctx context.Context, rep repo.Repository, templateName string, eventAr
 			return
 		}
 
-		if err := rem.SendNotification(ctx, templateName, jsonData, eventArgs.EventArgsType(), int32(sev)); err != nil {
+		if err := rem.SendNotification(ctx, templateName, jsonData, int32(eventArgs.EventArgsType()), int32(sev)); err != nil {
 			log(ctx).Warnw("unable to send notification", "err", err)
 		}
 

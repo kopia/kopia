@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/maintenancestats"
 )
@@ -11,7 +12,7 @@ import (
 // runTaskIndexCompactionQuick rewrites index blobs to reduce their count but does not drop any contents.
 func runTaskIndexCompactionQuick(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return reportRunAndMaybeCheckContentIndex(ctx, runParams.rep, TaskIndexCompaction, s, func() (maintenancestats.Kind, error) {
-		log := runParams.rep.LogManager().NewLogger("maintenance-index-compaction")
+		log := repodiag.NewContentLogger(runParams.rep, "maintenance-index-compaction")
 
 		contentlog.Log(ctx, log, "Compacting indexes...")
 
