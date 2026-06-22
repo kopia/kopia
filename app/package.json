@@ -162,5 +162,8 @@
     "development": [
       "last 1 electron version"
     ]
+  },
+  "overrides": {
+    "undici": "^7.28.0"
   }
 }
