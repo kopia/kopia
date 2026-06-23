@@ -10,14 +10,14 @@ const advanceEpochStatsKind = "advanceEpochStats"
 
 // AdvanceEpochStats are the stats for advancing write epoch.
 type AdvanceEpochStats struct {
-	CurrentEpoch int  `json:"currentEpoch"`
-	WasAdvanced  bool `json:"wasAdvanced"`
+	CurrentEpoch uint64 `json:"currentEpoch"`
+	WasAdvanced  bool   `json:"wasAdvanced"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
 func (as *AdvanceEpochStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(as.Kind())
-	jw.IntField("currentEpoch", as.CurrentEpoch)
+	jw.UInt64Field("currentEpoch", as.CurrentEpoch)
 	jw.BoolField("wasAdvanced", as.WasAdvanced)
 	jw.EndObject()
 }

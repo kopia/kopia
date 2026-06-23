@@ -1,3 +1,5 @@
+//go:build !no_extra_providers
+
 // Package sftp implements blob storage provided for SFTP/SSH.
 package sftp
 

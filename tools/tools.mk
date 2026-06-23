@@ -6,7 +6,7 @@
 #
 # you will need to have git and golang too in the PATH.
 
-.PHONY: all-tools install-linter install-gotestsum
+.PHONY: all-tools install-checklocks install-gotestsum install-linter
 
 # windows,linux,darwin
 GOOS:=$(shell go env GOOS)
@@ -106,9 +106,9 @@ endif
 # tool versions
 GOLANGCI_LINT_VERSION=2.6.1
 CHECKLOCKS_VERSION=release-20241104.0
-NODE_VERSION=22.15.1
+NODE_VERSION=24.16.0
 HUGO_VERSION=0.113.0
-GOTESTSUM_VERSION=1.11.0
+GOTESTSUM_VERSION=1.13.0
 GORELEASER_VERSION=v0.176.0
 RCLONE_VERSION=1.68.2
 GITCHGLOG_VERSION=0.15.1
@@ -121,7 +121,7 @@ else
 node_dir=$(node_base_dir)$(slash)bin
 endif
 npm=$(node_dir)$(slash)npm$(cmd_suffix)
-npm_flags=--scripts-prepend-node-path=auto
+npm_flags=--ignore-scripts --allow-git=none
 
 npm_install_or_ci:=install
 ifneq ($(CI),)
@@ -167,6 +167,8 @@ $(checklocks): export GOPATH=$(checklocks_dir)
 $(checklocks):
 	go install gvisor.dev/gvisor/tools/checklocks/cmd/checklocks@$(CHECKLOCKS_VERSION)
 	go clean -modcache
+
+install-checklocks: $(checklocks)
 
 # cli2md
 cli2mdbin=$(TOOLS_DIR)$(slash)cli2md-current$(exe_suffix)
@@ -322,4 +324,4 @@ regenerate-checksums:
 	  --output-dir /tmp/all-tools \
 	  --tool $(ALL_TOOL_VERSIONS)
 
-all-tools: install-gotestsum $(npm) install-linter $(maybehugo)
+all-tools: install-gotestsum install-linter $(maybehugo) $(npm)

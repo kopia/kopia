@@ -15,6 +15,7 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/insecureserverbind"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -543,6 +544,51 @@ func TestServerStartInsecure(t *testing.T) {
 
 	// server fails to start when TLS is not configured and `--insecure` is not specified
 	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0")
+}
+
+func TestServerStartInsecureUnauthenticatedNonLoopbackRejected(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
+
+	e.RunAndExpectFailure(t, "server", "start", "--ui",
+		"--address=http://0.0.0.0:0",
+		"--without-password",
+		"--insecure",
+	)
+}
+
+func TestServerStartInsecureUnauthenticatedEscapeHatchNonLoopback(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
+
+	var sp testutil.ServerParameters
+
+	wait, kill := e.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start",
+		"--address=http://0.0.0.0:0",
+		"--without-password",
+		"--insecure",
+		"--"+insecureserverbind.AllowDangerousUnauthenticatedNetworkFlag,
+	)
+
+	require.Eventually(t, func() bool { return sp.BaseURL != "" }, 15*time.Second, 50*time.Millisecond)
+
+	kill()
+	wait()
+
+	require.NotEmpty(t, sp.BaseURL)
 }
 
 func verifyServerConnected(t *testing.T, cli *apiclient.KopiaAPIClient, want bool) *serverapi.StatusResponse {

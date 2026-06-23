@@ -61,7 +61,7 @@ func netUseMount(ctx context.Context, driveLetter, webdavURL string) (string, er
 	// colon.
 	s := bufio.NewScanner(strings.NewReader(out))
 	for s.Scan() {
-		for _, word := range strings.Split(s.Text(), " ") {
+		for word := range strings.SplitSeq(s.Text(), " ") {
 			if isWindowsDrive(word) {
 				return word, nil
 			}

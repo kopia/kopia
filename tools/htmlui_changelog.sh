@@ -3,7 +3,7 @@ set -xe
 
 if [ -z "$CI_TAG" ]; then
     echo "CI_TAG is not set. Looking for previous tag."
-    start_commit=$(git describe --tags --abbrev=0 HEAD^)
+    start_commit=$(git describe --tags --abbrev=0 --always HEAD^)
     end_commit=HEAD
 else
     echo "CI_TAG is set to $CI_TAG. Using it as the start commit."

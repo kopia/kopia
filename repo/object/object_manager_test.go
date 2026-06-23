@@ -802,6 +802,10 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 
 	for _, compressible := range []bool{false, true} {
 		for compressorName := range compression.ByName {
+			if !compression.IsSupported(compressorName) {
+				continue
+			}
+
 			t.Run(string(compressorName), func(t *testing.T) {
 				ctx := testlogging.Context(t)
 

@@ -20,6 +20,7 @@ import (
 	"github.com/coreos/go-systemd/v22/activation"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/insecureserverbind"
 	"github.com/kopia/kopia/internal/tlsutil"
 )
 
@@ -60,6 +61,17 @@ func (c *commandServerStart) startServerWithOptionalTLS(ctx context.Context, htt
 		l = listeners[0]
 	default:
 		return errors.Errorf("Too many activated sockets found.  Expected 1, got %v", len(listeners))
+	}
+
+	if err := insecureserverbind.ValidateListenerAddrIfRestricted(
+		c.serverStartInsecure,
+		c.serverStartWithoutPassword,
+		c.serverStartAllowDangerousUnauthenticatedNetwork,
+		l.Addr(),
+	); err != nil {
+		l.Close() //nolint:errcheck
+
+		return errors.Wrap(err, "insecure server bind validation")
 	}
 
 	defer l.Close() //nolint:errcheck
