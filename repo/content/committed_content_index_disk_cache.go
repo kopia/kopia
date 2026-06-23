@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobparam"
-	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
@@ -93,31 +92,6 @@ func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, 
 	}
 
 	return nil
-}
-
-func writeTempFileAtomic(dirname string, data []byte) (string, error) {
-	// write to a temp file to avoid race where two processes are writing at the same time.
-	tf, err := os.CreateTemp(dirname, "tmp")
-	if err != nil {
-		if os.IsNotExist(err) {
-			os.MkdirAll(dirname, cache.DirMode) //nolint:errcheck
-			tf, err = os.CreateTemp(dirname, "tmp")
-		}
-	}
-
-	if err != nil {
-		return "", errors.Wrap(err, "can't create tmp file")
-	}
-
-	if _, err := tf.Write(data); err != nil {
-		return "", errors.Wrap(err, "can't write to temp file")
-	}
-
-	if err := tf.Close(); err != nil {
-		return "", errors.New("can't close tmp file")
-	}
-
-	return tf.Name(), nil
 }
 
 func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {

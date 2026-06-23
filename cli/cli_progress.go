@@ -31,9 +31,10 @@ type progressFlags struct {
 }
 
 func (p *progressFlags) setup(svc appServices, app *kingpin.Application) {
-	progressDefault := "true"
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
-		progressDefault = "false"
+	progressDefault := "false"
+
+	if fd, err := intFd(os.Stdout); err == nil && term.IsTerminal(fd) {
+		progressDefault = "true"
 	}
 
 	app.Flag("progress", "Enable progress output").Default(progressDefault).BoolVar(&p.enableProgress)

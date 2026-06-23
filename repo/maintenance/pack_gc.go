@@ -147,10 +147,10 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 	retainedCount, retainedSize := retained.Approximate()
 
 	result := &maintenancestats.DeleteUnreferencedPacksStats{
-		UnreferencedPackCount: unreferencedCount,
-		UnreferencedTotalSize: unreferencedSize,
-		RetainedPackCount:     retainedCount,
-		RetainedTotalSize:     retainedSize,
+		UnreferencedPackCount: uint64(unreferencedCount),
+		UnreferencedTotalSize: maintenancestats.ToUint64(unreferencedSize),
+		RetainedPackCount:     uint64(retainedCount),
+		RetainedTotalSize:     maintenancestats.ToUint64(retainedSize),
 		DeletedPackCount:      0,
 		DeletedTotalSize:      0,
 	}
@@ -167,8 +167,8 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 	}
 
 	deletedCount, deletedSize := deleted.Approximate()
-	result.DeletedPackCount = deletedCount
-	result.DeletedTotalSize = deletedSize
+	result.DeletedPackCount = uint64(deletedCount)
+	result.DeletedTotalSize = maintenancestats.ToUint64(deletedSize)
 
 	contentlog.Log1(ctx, log, "Completed deleting unreferenced pack blobs", result)
 

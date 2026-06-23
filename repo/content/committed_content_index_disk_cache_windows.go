@@ -31,9 +31,11 @@ func (c *diskCommittedContentIndexCache) mmapFile(ctx context.Context, filename 
 	retryCount := 0
 	for err != nil && retryCount < maxRetries {
 		retryCount++
+
 		contentlog.Log2(ctx, c.log, "retry unable to mmap.Open()",
 			logparam.Int("retryCount", retryCount),
 			logparam.Error("err", err))
+
 		time.Sleep(nextDelay)
 		nextDelay *= 2
 
@@ -54,9 +56,11 @@ func (c *diskCommittedContentIndexCache) mmapFile(ctx context.Context, filename 
 		if err2 := mm.Unmap(); err2 != nil {
 			return errors.Wrapf(err2, "error unmapping index %v", filename)
 		}
+
 		if err2 := f.Close(); err2 != nil {
 			return errors.Wrapf(err2, "error closing index %v", filename)
 		}
+
 		return nil
 	}, nil
 }

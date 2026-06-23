@@ -18,7 +18,6 @@ const separatorStr = string(filepath.Separator)
 type filesystemDirectoryIterator struct {
 	dirHandle   *os.File
 	childPrefix string
-	options     *Options
 
 	currentIndex int
 	currentBatch []os.DirEntry
@@ -46,7 +45,7 @@ func (it *filesystemDirectoryIterator) Next(_ context.Context) (fs.Entry, error)
 		n := it.currentIndex
 		it.currentIndex++
 
-		e, err := toDirEntryOrNil(it.currentBatch[n], it.childPrefix, it.options)
+		e, err := toDirEntryOrNil(it.currentBatch[n], it.childPrefix)
 		if err != nil {
 			// stop iteration
 			return nil, err
@@ -75,7 +74,7 @@ func (fsd *filesystemDirectory) Iterate(_ context.Context) (fs.DirectoryIterator
 
 	childPrefix := fullPath + separatorStr
 
-	return &filesystemDirectoryIterator{dirHandle: d, childPrefix: childPrefix, options: fsd.options}, nil
+	return &filesystemDirectoryIterator{dirHandle: d, childPrefix: childPrefix}, nil
 }
 
 func (fsd *filesystemDirectory) Child(_ context.Context, name string) (fs.Entry, error) {
@@ -90,39 +89,47 @@ func (fsd *filesystemDirectory) Child(_ context.Context, name string) (fs.Entry,
 		return nil, errors.Wrap(err, "unable to get child")
 	}
 
-	return entryFromDirEntry(name, st, fullPath+separatorStr, fsd.options), nil
+	return entryFromDirEntry(name, st, fullPath+separatorStr), nil
 }
 
-func toDirEntryOrNil(dirEntry os.DirEntry, prefix string, options *Options) (fs.Entry, error) {
+func toDirEntryOrNil(dirEntry os.DirEntry, prefix string) (fs.Entry, error) {
 	n := dirEntry.Name()
 
-	fi, err := os.Lstat(prefix + n)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, nil
+	switch fi, err := os.Lstat(prefix + n); {
+	case err == nil:
+		return entryFromDirEntry(n, fi, prefix), nil
+	case os.IsNotExist(err):
+		return nil, nil
+	case os.IsPermission(err):
+		// For permission denied errors, return an ErrorEntry instead of failing
+		// the entire directory iteration. This allows the upload process to
+		// handle the error according to the configured error handling policy
+		// and continue processing other entries in the directory.
+		//
+		// This is particularly important for inaccessible mount points such as
+		// FUSE/sshfs mounts owned by another user. If an error is returned here
+		// then a single inaccessible entry causes the entire containing directory
+		// to fail and be omitted from the snapshot, which results in omitting
+		// other accessible entries in the same directory.
+		e := filesystemEntry{
+			name:       TrimShallowSuffix(n),
+			size:       0,
+			mtimeNanos: 0,
+			mode:       dirEntry.Type(),
+			owner:      fs.OwnerInfo{},
+			device:     fs.DeviceInfo{},
+			prefix:     prefix,
 		}
 
-		if options != nil && options.IgnoreUnreadableDirEntries {
-			return nil, nil
-		}
-
+		return newFilesystemErrorEntry(e, err), nil
+	default:
 		return nil, errors.Wrap(err, "error reading directory")
 	}
-
-	return entryFromDirEntry(n, fi, prefix, options), nil
 }
 
 // NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
 // or fs.UnsupportedEntry.
-// It uses DefaultOptions for configuration.
 func NewEntry(path string) (fs.Entry, error) {
-	return NewEntryWithOptions(path, DefaultOptions)
-}
-
-// NewEntryWithOptions returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
-// or fs.UnsupportedEntry.
-// It uses the provided Options for configuration.
-func NewEntryWithOptions(path string, options *Options) (fs.Entry, error) {
 	path = filepath.Clean(path)
 
 	fi, err := os.Lstat(path)
@@ -143,42 +150,42 @@ func NewEntryWithOptions(path string, options *Options) (fs.Entry, error) {
 	}
 
 	if path == "/" {
-		return entryFromDirEntry("/", fi, "", options), nil
+		return entryFromDirEntry("/", fi, ""), nil
 	}
 
 	basename, prefix := splitDirPrefix(path)
 
-	return entryFromDirEntry(basename, fi, prefix, options), nil
+	return entryFromDirEntry(basename, fi, prefix), nil
 }
 
-func entryFromDirEntry(basename string, fi os.FileInfo, prefix string, options *Options) fs.Entry {
+func entryFromDirEntry(basename string, fi os.FileInfo, prefix string) fs.Entry {
 	isplaceholder := strings.HasSuffix(basename, ShallowEntrySuffix)
 	maskedmode := fi.Mode() & os.ModeType
 
 	switch {
 	case maskedmode == os.ModeDir && !isplaceholder:
-		return newFilesystemDirectory(newEntry(basename, fi, prefix, options))
+		return newFilesystemDirectory(newEntry(basename, fi, prefix))
 
 	case maskedmode == os.ModeDir && isplaceholder:
-		return newShallowFilesystemDirectory(newEntry(basename, fi, prefix, options))
+		return newShallowFilesystemDirectory(newEntry(basename, fi, prefix))
 
 	case maskedmode == os.ModeSymlink && !isplaceholder:
-		return newFilesystemSymlink(newEntry(basename, fi, prefix, options))
+		return newFilesystemSymlink(newEntry(basename, fi, prefix))
 
 	case maskedmode == 0 && !isplaceholder:
-		return newFilesystemFile(newEntry(basename, fi, prefix, options))
+		return newFilesystemFile(newEntry(basename, fi, prefix))
 
 	case maskedmode == 0 && isplaceholder:
-		return newShallowFilesystemFile(newEntry(basename, fi, prefix, options))
+		return newShallowFilesystemFile(newEntry(basename, fi, prefix))
 
 	default:
-		return newFilesystemErrorEntry(newEntry(basename, fi, prefix, options), fs.ErrUnknown)
+		return newFilesystemErrorEntry(newEntry(basename, fi, prefix), fs.ErrUnknown)
 	}
 }
 
 var _ os.FileInfo = (*filesystemEntry)(nil)
 
-func newEntry(basename string, fi os.FileInfo, prefix string, options *Options) filesystemEntry {
+func newEntry(basename string, fi os.FileInfo, prefix string) filesystemEntry {
 	return filesystemEntry{
 		TrimShallowSuffix(basename),
 		fi.Size(),
@@ -187,6 +194,5 @@ func newEntry(basename string, fi os.FileInfo, prefix string, options *Options) 
 		platformSpecificOwnerInfo(fi),
 		platformSpecificDeviceInfo(fi),
 		prefix,
-		options,
 	}
 }
