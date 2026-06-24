@@ -466,37 +466,37 @@ func TestPickActionWeighted(t *testing.T) {
 			},
 		},
 	} {
-		t.Log(tc.name)
+		t.Run(tc.name, func(t *testing.T) {
+			weightsSum := 0.0
+			inputCtrlOpts := make(map[string]string)
 
-		weightsSum := 0.0
-		inputCtrlOpts := make(map[string]string)
+			for k, v := range tc.inputCtrlWeights {
+				// Do not weight actions that are not expected in the results
+				if _, ok := tc.inputActionList[ActionKey(k)]; !ok {
+					continue
+				}
 
-		for k, v := range tc.inputCtrlWeights {
-			// Do not weight actions that are not expected in the results
-			if _, ok := tc.inputActionList[ActionKey(k)]; !ok {
-				continue
+				inputCtrlOpts[k] = strconv.Itoa(int(v))
+				weightsSum += v
 			}
 
-			inputCtrlOpts[k] = strconv.Itoa(int(v))
-			weightsSum += v
-		}
+			numTestLoops := 100000
 
-		numTestLoops := 100000
-
-		results := make(map[ActionKey]int, len(tc.inputCtrlWeights))
-		for range numTestLoops {
-			results[pickActionWeighted(inputCtrlOpts, tc.inputActionList)]++
-		}
-
-		for actionKey, count := range results {
-			p := tc.inputCtrlWeights[string(actionKey)] / weightsSum
-			exp := p * float64(numTestLoops)
-
-			errPcnt := math.Abs(exp-float64(count)) / exp
-			if errPcnt > 0.1 {
-				t.Errorf("Error in actual counts was above 10%% for %v (exp %v, actual %v)", actionKey, exp, count)
+			results := make(map[ActionKey]int, len(tc.inputCtrlWeights))
+			for range numTestLoops {
+				results[pickActionWeighted(inputCtrlOpts, tc.inputActionList)]++
 			}
-		}
+
+			for actionKey, count := range results {
+				p := tc.inputCtrlWeights[string(actionKey)] / weightsSum
+				exp := p * float64(numTestLoops)
+
+				errPcnt := math.Abs(exp-float64(count)) / exp
+				if errPcnt > 0.1 {
+					t.Errorf("Error in actual counts was above 10%% for %v (exp %v, actual %v)", actionKey, exp, count)
+				}
+			}
+		})
 	}
 }
 
