@@ -480,7 +480,7 @@ func TestPickActionWeighted(t *testing.T) {
 				weightsSum += v
 			}
 
-			numTestLoops := 100000
+			numTestLoops := 100_000
 
 			results := make(map[ActionKey]int, len(tc.inputCtrlWeights))
 			for range numTestLoops {
