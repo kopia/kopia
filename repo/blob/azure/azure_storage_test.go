@@ -34,6 +34,8 @@ const (
 	testStorageClientSecretEnv            = "KOPIA_AZURE_TEST_CLIENT_SECRET"
 	testStorageClientCertEnv              = "KOPIA_AZURE_TEST_CLIENT_CERTIFICATE"
 	testAzureFederatedIdentityFilePathEnv = "KOPIA_AZURE_FEDERATED_IDENTITY_FILE_PATH"
+	// Test env to trigger Azure CLI credential usage in integration tests.
+	testUseAzureCLICredEnv = "KOPIA_AZURE_USE_CLI_CREDENTIAL"
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {
@@ -286,6 +288,54 @@ func TestAzureFederatedIdentity(t *testing.T) {
 		blobtesting.CleanupOldData(ctx, t, st, 0)
 		st.Close(ctx)
 	})
+
+	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
+	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+	require.NoError(t, providervalidation.ValidateProvider(ctx, st, blobtesting.TestValidationOptions))
+}
+
+// TestAzureCLICredential verifies that Kopia can connect to Azure storage using
+// Azure CLI cached credential (the same cache filled by `az login` and `az login --identity`).
+// Notes:
+//   - Ensure the Azure principal used (CLI user or managed identity) has proper RBAC,
+//     e.g. Storage Blob Data Contributor on the target account/container.
+//   - If testing the CLI credential flow on a VM with managed identity, run:
+//     az login --identity
+//     so the Azure CLI cache is populated.
+//   - Tests perform cleanup but run them against a dedicated test container/account
+//     to avoid interfering with production data.
+func TestAzureCLICredential(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	// Skip if the specific env enabling CLI credential tests is not set.
+	if os.Getenv(testUseAzureCLICredEnv) == "" {
+		t.Skipf("%s not set", testUseAzureCLICredEnv)
+	}
+
+	container := getEnvOrSkip(t, testContainerEnv)
+	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
+
+	data := make([]byte, 8)
+	rand.Read(data)
+
+	ctx := testlogging.Context(t)
+
+	// use context that gets canceled after storage is initialize,
+	// to verify we do not depend on the original context past initialization.
+	newctx, cancel := context.WithCancel(ctx)
+	st, err := azure.New(newctx, &azure.Options{
+		Container:             container,
+		StorageAccount:        storageAccount,
+		UseAzureCLICredential: true, // force using Azure CLI cached credential in the Options
+		Prefix:                fmt.Sprintf("clicred-%v-%x/", clock.Now().Unix(), data),
+	}, false)
+
+	require.NoError(t, err)
+	cancel()
+
+	defer st.Close(ctx)
+	defer blobtesting.CleanupOldData(ctx, t, st, 0)
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
