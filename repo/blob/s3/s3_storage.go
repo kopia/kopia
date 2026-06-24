@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -362,8 +363,24 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 		},
 	)
 
+	hasWebIdentity := opt.WebIdentityToken != "" || opt.WebIdentityTokenFile != ""
+	if opt.RoleARN != "" && hasWebIdentity {
+		var err error
+
+		creds, err = credentials.NewSTSWebIdentity(
+			opt.RoleEndpoint,
+			webIdentityTokenFetcher(opt),
+			func(i *credentials.STSWebIdentity) {
+				i.RoleARN = opt.RoleARN
+			},
+		)
+		if err != nil {
+			return nil, errors.Wrap(err, "getting web identity credentials")
+		}
+	}
+
 	// If a role was specified, use the assume role credential provider
-	if opt.RoleARN != "" {
+	if opt.RoleARN != "" && !hasWebIdentity {
 		assumeRoleOpts := credentials.STSAssumeRoleOptions{
 			AccessKey:       opt.AccessKeyID,
 			SecretKey:       opt.SecretAccessKey,
@@ -386,6 +403,30 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 	}
 
 	return newStorageWithCredentials(ctx, creds, opt)
+}
+
+// webIdentityTokenFetcher returns a function that supplies the OIDC token used
+// for web-identity authentication. When WebIdentityTokenFile is set it is read
+// on each call (taking precedence over the inline WebIdentityToken) so that the
+// refreshing credential provider always sees the current token.
+func webIdentityTokenFetcher(opt *Options) func() (*credentials.WebIdentityToken, error) {
+	return func() (*credentials.WebIdentityToken, error) {
+		token := opt.WebIdentityToken
+
+		if opt.WebIdentityTokenFile != "" {
+			b, err := os.ReadFile(opt.WebIdentityTokenFile)
+			if err != nil {
+				return nil, errors.Wrap(err, "reading web identity token file")
+			}
+
+			token = string(b)
+		}
+
+		return &credentials.WebIdentityToken{
+			Token:  token,
+			Expiry: int(opt.RoleDuration.Seconds()),
+		}, nil
+	}
 }
 
 func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentials, opt *Options) (*s3Storage, error) {
