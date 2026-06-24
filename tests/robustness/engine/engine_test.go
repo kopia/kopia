@@ -492,9 +492,7 @@ func TestPickActionWeighted(t *testing.T) {
 				exp := p * float64(numTestLoops)
 
 				errPcnt := math.Abs(exp-float64(count)) / exp
-				if errPcnt > 0.1 {
-					t.Errorf("Error in actual counts was above 10%% for %v (exp %v, actual %v)", actionKey, exp, count)
-				}
+				require.LessOrEqualf(t, errPcnt, 0.1, "error in actual counts was above 10%% for '%v' (exp %0.2f, actual %v)", actionKey, exp, count)
 			}
 		})
 	}
