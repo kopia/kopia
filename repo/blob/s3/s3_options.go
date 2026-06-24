@@ -24,6 +24,11 @@ type Options struct {
 	SecretAccessKey string `json:"secretAccessKey" kopia:"sensitive"`
 	SessionToken    string `json:"sessionToken" kopia:"sensitive"`
 
+	// Used for web-identity (OIDC) authentication. When set, the role in RoleARN is
+	// assumed using a refreshing credential provider.
+	WebIdentityToken     string `json:"webIdentityToken,omitempty" kopia:"sensitive"`
+	WebIdentityTokenFile string `json:"webIdentityTokenFile,omitempty"`
+
 	// Used for assume role authentication.
 	RoleARN      string                `json:"roleARN"`
 	SessionName  string                `json:"sessionName"`
