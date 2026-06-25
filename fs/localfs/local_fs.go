@@ -18,12 +18,13 @@ var log = logging.Module("kopia/localfs")
 const numEntriesToRead = 100 // number of directory entries to read in one shot
 
 // Options configures behavior of a local filesystem entry tree created by
-// NewEntryWithOptions or DirectoryWithOptions. The zero value matches
-// upstream kopia behavior.
+// NewEntryWithOptions. The zero value means default behavior.
 type Options struct {
-	// StreamingReads, when true, hints the Linux kernel page cache for
-	// files opened through this entry tree: HintStreaming at open and
-	// HintNotNeeded at close. Advisory/best-effort; no effect on non-Linux.
+	// StreamingReads indicates whether to hint the OS regarding how to cache
+	// files opened through this entry (tree). The option is propagated to all
+	// the children in a subtree.
+	// HintStreaming is issued at Open() and HintNotNeeded at Close().
+	// These hints are advisory-only and only effective on Linux.
 	StreamingReads bool
 }
 
@@ -108,8 +109,7 @@ func (fsd *filesystemDirectory) Size() int64 {
 type fileWithMetadata struct {
 	*os.File
 
-	// opts is a snapshot of the parent entry's Options at Open() time, so
-	// Close() applies the same hint policy the file was opened with.
+	// opts may be used for operations on the file, including Close().
 	opts Options
 }
 
@@ -127,10 +127,8 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 func (f *fileWithMetadata) Close() error {
 	if f.opts.StreamingReads {
 		// HintNotNeeded is advisory and best-effort; failures don't affect
-		// correctness. The error is intentionally dropped here because
-		// fs.Reader.Close() has no ctx, and capturing a ctx-derived logger
-		// on the struct would mirror the contained-ctx anti-pattern.
-		// Open-time hint failures are still logged via the real ctx.
+		// correctness. The error is intentionally ignored and not logged given
+		// that Close() has no ctx to retrieve a ctx-derived logger.
 		_ = pagecache.HintNotNeeded(f.File)
 	}
 
@@ -149,8 +147,6 @@ func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 
 	// In streaming-reads mode, hint the kernel for readahead at open
 	// (HintStreaming) and to drop the pages at close (HintNotNeeded).
-	// Incremental drops during reads were tested and removed — they add
-	// ~15% overhead by fighting the kernel's own LRU/readahead.
 	if fsf.opts.StreamingReads {
 		if hintErr := pagecache.HintStreaming(f); hintErr != nil {
 			log(ctx).Debugf("page cache hint at open failed for %q: %v", f.Name(), hintErr)
@@ -195,8 +191,7 @@ func Directory(path string) (fs.Directory, error) {
 	return DirectoryWithOptions(path, Options{})
 }
 
-// DirectoryWithOptions behaves like Directory but configures the returned
-// directory (and its descendants) with opts.
+// DirectoryWithOptions configures the returned directory (and its descendants) with opts.
 func DirectoryWithOptions(path string, opts Options) (fs.Directory, error) {
 	e, err := NewEntryWithOptions(path, opts)
 	if err != nil {
