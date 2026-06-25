@@ -20,6 +20,7 @@ type Entry interface {
 	os.FileInfo
 	Owner() OwnerInfo
 	Device() DeviceInfo
+	HardLinkInfo() HardLinkInfo
 	LocalFilesystemPath() string // returns full local filesystem path or "" if not a local filesystem
 	Close()                      // closes or recycles any resources associated with the entry, must be idempotent
 }
@@ -34,6 +35,12 @@ type OwnerInfo struct {
 type DeviceInfo struct {
 	Dev  uint64 `json:"dev"`
 	Rdev uint64 `json:"rdev"`
+}
+
+// HardLinkInfo describes the hardlinks of a filesystem entry.
+type HardLinkInfo struct {
+	UniqId uint64 `json:"uniqid"`
+	NLink  uint64 `json:"nlink"`
 }
 
 // Reader allows reading from a file and retrieving its up-to-date file info.
