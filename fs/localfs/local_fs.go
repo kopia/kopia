@@ -188,11 +188,11 @@ func splitDirPrefix(s string) (basename, prefix string) {
 
 // Directory returns fs.Directory for the specified path with default Options.
 func Directory(path string) (fs.Directory, error) {
-	return DirectoryWithOptions(path, Options{})
+	return directoryWithOptions(path, Options{})
 }
 
-// DirectoryWithOptions configures the returned directory (and its descendants) with opts.
-func DirectoryWithOptions(path string, opts Options) (fs.Directory, error) {
+// directoryWithOptions configures the returned directory (and its descendants) with opts.
+func directoryWithOptions(path string, opts Options) (fs.Directory, error) {
 	e, err := NewEntryWithOptions(path, opts)
 	if err != nil {
 		return nil, err
