@@ -438,3 +438,65 @@ func mustWriteFileWithRepeatedData(t *testing.T, fname string, repeat int, data 
 		require.NoError(t, err)
 	}
 }
+
+func TestSnapshotFixRemoveIgnoredFiles(t *testing.T) {
+	srcDir := testutil.TempDirectory(t)
+
+	if testutil.ShouldReduceTestComplexity() {
+		return
+	}
+
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir, "keep.txt"), 1, []byte("keep"))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir, "secret.txt"), 1, []byte("secret"))
+
+	require.NoError(t, os.MkdirAll(filepath.Join(srcDir, "nested"), 0o700))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir, "nested", "secret.txt"), 1, []byte("nested-secret"))
+
+	runner := testenv.NewInProcRunner(t)
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+
+	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "snapshot", "create", srcDir, "--json"), &snapshot.Manifest{})
+
+	require.NoError(t, os.WriteFile(filepath.Join(srcDir, ".kopiaignore"), []byte("secret.txt\n"), 0o600))
+
+	env.RunAndExpectSuccess(t, "snapshot", "fix", "remove-files", "--ignored-files")
+	env.RunAndExpectSuccess(t, "snapshot", "fix", "remove-files", "--ignored-files", "--commit")
+	env.RunAndExpectSuccess(t, "snapshot", "verify")
+
+	var manifests []cli.SnapshotManifest
+
+	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &manifests)
+	require.Len(t, manifests, 1)
+
+	var remainingFiles []string
+
+	for f := range mustGetFileMap(t, env, manifests[0].RootObjectID()) {
+		remainingFiles = append(remainingFiles, f)
+	}
+
+	sort.Strings(remainingFiles)
+	require.Equal(t, []string{"keep.txt", "nested"}, remainingFiles)
+}
+
+func TestSnapshotFixRemoveIgnoredFilesRemoteSource(t *testing.T) {
+	srcDir := testutil.TempDirectory(t)
+
+	if testutil.ShouldReduceTestComplexity() {
+		return
+	}
+
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir, "file.txt"), 1, []byte("data"))
+
+	runner := testenv.NewInProcRunner(t)
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+	env.RunAndExpectSuccess(t, "snapshot", "create", "--override-source", "other@otherhost:/data", srcDir)
+
+	require.NoError(t, os.WriteFile(filepath.Join(srcDir, ".kopiaignore"), []byte("*\n"), 0o600))
+
+	env.RunAndExpectFailure(t, "snapshot", "fix", "remove-files", "--ignored-files")
+	env.RunAndExpectFailure(t, "snapshot", "fix", "remove-files", "--ignored-files", "--commit")
+}
