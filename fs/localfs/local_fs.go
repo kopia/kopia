@@ -149,7 +149,7 @@ func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	// (HintStreaming) and to drop the pages at close (HintNotNeeded).
 	if fsf.opts.StreamingReads {
 		if hintErr := iomem.HintStreaming(f); hintErr != nil {
-			log(ctx).Debugf("page cache hint at open failed for %q: %v", f.Name(), hintErr)
+			log(ctx).Debugf("streaming read hint at open failed for %q: %v", f.Name(), hintErr)
 		}
 	}
 
