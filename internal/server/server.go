@@ -843,6 +843,9 @@ type Options struct {
 	ConfigFile               string
 	ConnectOptions           *repo.ConnectOptions
 	RefreshInterval          time.Duration
+	GRPCKeepaliveMinTime     time.Duration
+	GRPCKeepaliveTime        time.Duration
+	GRPCKeepaliveTimeout     time.Duration
 	MaxConcurrency           int
 	Authenticator            auth.Authenticator
 	Authorizer               auth.Authorizer
