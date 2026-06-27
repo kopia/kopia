@@ -311,7 +311,7 @@ func TestStreamingReads(t *testing.T) {
 	})
 
 	t.Run("propagates to children via Iterate and Child", func(t *testing.T) {
-		dir, err := DirectoryWithOptions(tmp, Options{StreamingReads: true})
+		dir, err := directoryWithOptions(tmp, Options{StreamingReads: true})
 		require.NoError(t, err)
 
 		fsd, ok := dir.(*filesystemDirectory)

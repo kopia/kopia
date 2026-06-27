@@ -136,8 +136,8 @@ func NewEntry(path string) (fs.Entry, error) {
 	return NewEntryWithOptions(path, Options{})
 }
 
-// NewEntryWithOptions behaves like NewEntry but configures the returned
-// entry (and any child entries produced by iterating it) with opts.
+// NewEntryWithOptions returns fs.Entry for the specified path and configures
+// the returned entry (and any child entries produced by iterating it) with opts.
 func NewEntryWithOptions(path string, opts Options) (fs.Entry, error) {
 	path = filepath.Clean(path)
 
