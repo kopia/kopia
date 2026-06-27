@@ -9,9 +9,23 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/pagecache"
+	"github.com/kopia/kopia/repo/logging"
 )
 
+var log = logging.Module("kopia/localfs")
+
 const numEntriesToRead = 100 // number of directory entries to read in one shot
+
+// Options configures behavior of a local filesystem entry tree created by
+// NewEntryWithOptions or DirectoryWithOptions. The zero value matches
+// upstream kopia behavior.
+type Options struct {
+	// StreamingReads, when true, hints the Linux kernel page cache for
+	// files opened through this entry tree: HintStreaming at open and
+	// HintNotNeeded at close. Advisory/best-effort; no effect on non-Linux.
+	StreamingReads bool
+}
 
 type filesystemEntry struct {
 	name       string
@@ -22,6 +36,7 @@ type filesystemEntry struct {
 	device     fs.DeviceInfo
 
 	prefix string
+	opts   Options
 }
 
 func (e *filesystemEntry) Name() string {
@@ -92,6 +107,10 @@ func (fsd *filesystemDirectory) Size() int64 {
 
 type fileWithMetadata struct {
 	*os.File
+
+	// opts is a snapshot of the parent entry's Options at Open() time, so
+	// Close() applies the same hint policy the file was opened with.
+	opts Options
 }
 
 func (f *fileWithMetadata) Entry() (fs.Entry, error) {
@@ -102,16 +121,43 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 
 	basename, prefix := splitDirPrefix(f.Name())
 
-	return newFilesystemFile(newEntry(basename, fi, prefix)), nil
+	return newFilesystemFile(newEntry(basename, fi, prefix, f.opts)), nil
 }
 
-func (fsf *filesystemFile) Open(_ context.Context) (fs.Reader, error) {
+func (f *fileWithMetadata) Close() error {
+	if f.opts.StreamingReads {
+		// HintNotNeeded is advisory and best-effort; failures don't affect
+		// correctness. The error is intentionally dropped here because
+		// fs.Reader.Close() has no ctx, and capturing a ctx-derived logger
+		// on the struct would mirror the contained-ctx anti-pattern.
+		// Open-time hint failures are still logged via the real ctx.
+		_ = pagecache.HintNotNeeded(f.File)
+	}
+
+	if err := f.File.Close(); err != nil {
+		return errors.Wrap(err, "unable to close local file")
+	}
+
+	return nil
+}
+
+func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	f, err := os.Open(fsf.fullPath())
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open local file")
 	}
 
-	return &fileWithMetadata{f}, nil
+	// In streaming-reads mode, hint the kernel for readahead at open
+	// (HintStreaming) and to drop the pages at close (HintNotNeeded).
+	// Incremental drops during reads were tested and removed — they add
+	// ~15% overhead by fighting the kernel's own LRU/readahead.
+	if fsf.opts.StreamingReads {
+		if hintErr := pagecache.HintStreaming(f); hintErr != nil {
+			log(ctx).Debugf("page cache hint at open failed for %q: %v", f.Name(), hintErr)
+		}
+	}
+
+	return &fileWithMetadata{File: f, opts: fsf.opts}, nil
 }
 
 func (fsl *filesystemSymlink) Readlink(_ context.Context) (string, error) {
@@ -125,7 +171,7 @@ func (fsl *filesystemSymlink) Resolve(_ context.Context) (fs.Entry, error) {
 		return nil, errors.Wrapf(err, "cannot resolve symlink for '%q'", fsl.fullPath())
 	}
 
-	return NewEntry(target)
+	return NewEntryWithOptions(target, fsl.opts)
 }
 
 func (e *filesystemErrorEntry) ErrorInfo() error {
@@ -144,9 +190,15 @@ func splitDirPrefix(s string) (basename, prefix string) {
 	return s, ""
 }
 
-// Directory returns fs.Directory for the specified path.
+// Directory returns fs.Directory for the specified path with default Options.
 func Directory(path string) (fs.Directory, error) {
-	e, err := NewEntry(path)
+	return DirectoryWithOptions(path, Options{})
+}
+
+// DirectoryWithOptions behaves like Directory but configures the returned
+// directory (and its descendants) with opts.
+func DirectoryWithOptions(path string, opts Options) (fs.Directory, error) {
+	e, err := NewEntryWithOptions(path, opts)
 	if err != nil {
 		return nil, err
 	}
