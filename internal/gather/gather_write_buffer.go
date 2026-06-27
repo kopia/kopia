@@ -22,24 +22,17 @@ func (b *WriteBuffer) Close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if b.alloc != nil {
-		for _, s := range b.inner.slices {
-			b.alloc.releaseChunk(s)
-		}
-
-		b.alloc = nil
-	}
-
+	b.releaseChunksLocked()
 	b.inner.invalidate()
 }
 
 // MakeContiguous ensures the write buffer consists of exactly one contiguous single slice of the provided length
 // and returns the slice.
 func (b *WriteBuffer) MakeContiguous(length int) []byte {
-	b.Reset()
-
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	b.releaseChunksLocked()
 
 	var v []byte
 
@@ -67,6 +60,10 @@ func (b *WriteBuffer) Reset() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.releaseChunksLocked()
+}
+
+func (b *WriteBuffer) releaseChunksLocked() {
 	if b.alloc != nil {
 		for _, s := range b.inner.slices {
 			b.alloc.releaseChunk(s)
