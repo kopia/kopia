@@ -173,6 +173,10 @@ func (c *commandSnapshotList) outputJSON(ctx context.Context, rep repo.Repositor
 		}
 
 		if err := c.iterateSnapshotsMaybeWithStorageStats(ctx, rep, snapshotGroup, func(m *snapshot.Manifest) error {
+			if m.IncompleteReason != "" && !c.snapshotListIncludeIncomplete {
+				return nil
+			}
+
 			wm := SnapshotManifest{Manifest: m, RetentionReasons: m.RetentionReasons}
 			jl.emit(wm)
 			return nil
