@@ -9,10 +9,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.head_ref }}
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -27,7 +28,30 @@ jobs:
           cd tools/benchcompare
           go build -o ../../benchcompare .
 
+      - name: Run benchmarks on PR branch
+        run: |
+          go test ./internal/bigmap/... -bench=. -benchmem -count=10 > new.txt
+
       - name: Run benchmarks on base branch
         run: |
           git checkout ${{ github.base_ref }}
-          go test
+          go test ./internal/bigmap/... -bench=. -benchmem -count=10 > old.txt
+
+      - name: Compare
+        id: compare
+        run: |
+          ./benchcompare old.txt new.txt > result.txt 2>&1 || true
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          cat result.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Post PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '## Benchmark Results\n```\n${{ steps.compare.outputs.output }}\n```'
+            })
