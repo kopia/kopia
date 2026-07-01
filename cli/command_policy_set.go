@@ -28,6 +28,7 @@ type commandPolicySet struct {
 	policySchedulingFlags
 	policyOSSnapshotFlags
 	policyUploadFlags
+	policyMetricsFlags
 }
 
 func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
@@ -46,6 +47,7 @@ func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
 	c.policySchedulingFlags.setup(cmd)
 	c.policyOSSnapshotFlags.setup(cmd)
 	c.policyUploadFlags.setup(cmd)
+	c.policyMetricsFlags.setup(cmd)
 
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
@@ -136,6 +138,10 @@ func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Pol
 
 	if err := c.setUploadPolicyFromFlags(ctx, &p.UploadPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "upload policy")
+	}
+
+	if err := c.setMetricsPolicyFromFlags(ctx, &p.MetricsPolicy, changeCount); err != nil {
+		return errors.Wrap(err, "metrics policy")
 	}
 
 	// It's not really a list, just optional boolean, last one wins.
