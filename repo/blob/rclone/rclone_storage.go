@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -22,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/osexec"
+	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/webdav"
@@ -35,9 +37,19 @@ const (
 
 	// defaultRcloneStartupTimeout is the time we wait for rclone to print the https address it's serving at.
 	defaultRcloneStartupTimeout = 15 * time.Second
+
+	// remoteControlRequestTimeout is the overall timeout for a single remote control request,
+	// so that a wedged rclone process does not hang storage operations indefinitely.
+	remoteControlRequestTimeout = 1 * time.Minute
+
+	// maxStderrLineLength is the maximum length of a single rclone stderr line the scanner can handle.
+	maxStderrLineLength = 1 << 20
 )
 
 var log = logging.Module("rclone")
+
+// errRCloneExited is returned when the rclone child process is no longer running.
+var errRCloneExited = errors.New("rclone process has exited")
 
 type rcloneStorage struct {
 	blob.Storage // the underlying WebDAV storage used to implement all methods.
@@ -47,10 +59,43 @@ type rcloneStorage struct {
 	cmd          *exec.Cmd // running rclone
 	temporaryDir string
 
+	// exited is closed by the process watchdog when rclone exits; exitErr is set before it is closed.
+	exited  chan struct{}
+	exitErr error
+
 	remoteControlHTTPClient *http.Client
 	remoteControlAddr       string
 	remoteControlUsername   string
 	remoteControlPassword   string
+}
+
+// exitError returns an error if the rclone child process is no longer running, nil otherwise.
+func (r *rcloneStorage) exitError() error {
+	if r.exited == nil {
+		return nil
+	}
+
+	select {
+	case <-r.exited:
+		if r.exitErr != nil {
+			return errors.Wrapf(errRCloneExited, "%v", r.exitErr)
+		}
+
+		return errRCloneExited
+
+	default:
+		return nil
+	}
+}
+
+// waitForExit waits for the rclone process to be reaped after it was killed.
+func (r *rcloneStorage) waitForExit() {
+	if r.exited != nil {
+		<-r.exited
+	} else {
+		// process watchdog not running, e.g. when rclone failed to start.
+		r.cmd.Wait() //nolint:errcheck
+	}
 }
 
 func (r *rcloneStorage) ListBlobs(ctx context.Context, blobIDPrefix blob.ID, cb func(bm blob.Metadata) error) error {
@@ -94,7 +139,7 @@ func (r *rcloneStorage) Kill() {
 	// this will kill rclone process if any
 	if r.cmd != nil && r.cmd.Process != nil {
 		r.cmd.Process.Kill() //nolint:errcheck
-		r.cmd.Wait()         //nolint:errcheck
+		r.waitForExit()
 	}
 }
 
@@ -109,7 +154,7 @@ func (r *rcloneStorage) Close(ctx context.Context) error {
 	if r.cmd != nil && r.cmd.Process != nil {
 		log(ctx).Debug("killing rclone")
 		r.cmd.Process.Kill() //nolint:errcheck
-		r.cmd.Wait()         //nolint:errcheck
+		r.waitForExit()
 	}
 
 	if r.temporaryDir != "" {
@@ -125,7 +170,7 @@ func (r *rcloneStorage) DisplayName() string {
 	return "RClone " + r.RemotePath
 }
 
-func (r *rcloneStorage) processStderrStatus(ctx context.Context, s *bufio.Scanner) {
+func (r *rcloneStorage) processStderrStatus(ctx context.Context, stderr io.Reader, s *bufio.Scanner) {
 	for s.Scan() {
 		l := s.Text()
 
@@ -133,9 +178,54 @@ func (r *rcloneStorage) processStderrStatus(ctx context.Context, s *bufio.Scanne
 			log(ctx).Debugf("[RCLONE] %v", l)
 		}
 	}
+
+	// If scanning stopped because of an error (e.g. a line longer than the scanner buffer),
+	// keep draining the pipe, otherwise rclone would eventually block writing to stderr
+	// and stop responding to all requests.
+	if s.Err() != nil {
+		io.Copy(io.Discard, stderr) //nolint:errcheck
+	}
+}
+
+// remoteControlStatusError is returned when the remote control server responds with a non-200 status.
+type remoteControlStatusError struct {
+	statusCode int
+	status     string
+}
+
+func (e remoteControlStatusError) Error() string {
+	return "RC error: " + e.status
+}
+
+// isRetriableRemoteControlError determines whether a failed remote control call is worth
+// retrying. Connection-level errors (e.g. EOF when rclone closed a pooled connection) and
+// server errors are transient; client errors, cancellations, timeouts and rclone having
+// exited are permanent.
+func isRetriableRemoteControlError(err error) bool {
+	if errors.Is(err, errRCloneExited) {
+		return false
+	}
+
+	// don't retry when the caller's context was canceled or when the request was killed
+	// by the HTTP client timeout: a wedged rclone would fail every attempt the same way,
+	// multiplying the stall by the number of attempts.
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+
+	var se remoteControlStatusError
+	if errors.As(err, &se) {
+		return se.statusCode >= http.StatusInternalServerError
+	}
+
+	return true
 }
 
 func (r *rcloneStorage) remoteControl(ctx context.Context, path string, input, output any) error {
+	if err := r.exitError(); err != nil {
+		return err
+	}
+
 	var reqBuf bytes.Buffer
 
 	if err := json.NewEncoder(&reqBuf).Encode(input); err != nil {
@@ -149,6 +239,11 @@ func (r *rcloneStorage) remoteControl(ctx context.Context, path string, input, o
 
 	req.SetBasicAuth(r.remoteControlUsername, r.remoteControlPassword)
 
+	// Remote control calls are idempotent, which allows the HTTP transport to transparently
+	// retry the POST on another connection when a pooled keep-alive connection turns out to
+	// have been closed by the server (which otherwise surfaces as immediate EOF).
+	req.Header.Set("Idempotency-Key", uuid.New().String())
+
 	resp, err := r.remoteControlHTTPClient.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "RC error")
@@ -157,7 +252,7 @@ func (r *rcloneStorage) remoteControl(ctx context.Context, path string, input, o
 	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != http.StatusOK {
-		return errors.Errorf("RC error: %v", resp.Status)
+		return remoteControlStatusError{statusCode: resp.StatusCode, status: resp.Status}
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&output); err != nil {
@@ -168,8 +263,10 @@ func (r *rcloneStorage) remoteControl(ctx context.Context, path string, input, o
 }
 
 func (r *rcloneStorage) forgetVFS(ctx context.Context) error {
-	out := map[string]any{}
-	return r.remoteControl(ctx, "vfs/forget", map[string]string{}, &out)
+	return retry.WithExponentialBackoffNoValue(ctx, "ForgetVFS", func() error {
+		out := map[string]any{}
+		return r.remoteControl(ctx, "vfs/forget", map[string]string{}, &out)
+	}, isRetriableRemoteControlError)
 }
 
 type rcloneURLs struct {
@@ -197,6 +294,7 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 
 		go func() {
 			s := bufio.NewScanner(stderr)
+			s.Buffer(make([]byte, 0, bufio.MaxScanTokenSize), maxStderrLineLength)
 
 			var lastOutput string
 
@@ -221,7 +319,7 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 					// return to caller when we've detected both WebDav and remote control addresses.
 					rcloneAddressChan <- u
 
-					go r.processStderrStatus(ctx, s)
+					go r.processStderrStatus(ctx, stderr, s)
 
 					return
 				}
@@ -361,13 +459,26 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 
 	log(ctx).Debugf("detected webdav address: %v RC: %v", rcloneUrls.webdavAddr, rcloneUrls.remoteControlAddr)
 
+	// watch the rclone process so that its unexpected death produces clear errors
+	// instead of connection failures on every storage operation.
+	r.exited = make(chan struct{})
+
+	go func() {
+		r.exitErr = r.cmd.Wait()
+
+		// log before closing the channel: the close unblocks Close()/Kill() and the
+		// storage owner may tear down immediately after, invalidating ctx's logger.
+		log(ctx).Debugf("rclone process exited: %v", r.exitErr)
+
+		close(r.exited)
+	}()
+
 	fingerprintBytes := sha256.Sum256(cert.Raw)
 	fingerprintHexString := hex.EncodeToString(fingerprintBytes[:])
 
-	var cli http.Client
-
-	cli.Transport = &http.Transport{
-		TLSClientConfig: tlsutil.TLSConfigTrustingSingleCertificate(fingerprintHexString),
+	cli := http.Client{
+		Timeout:   remoteControlRequestTimeout,
+		Transport: tlsutil.TransportTrustingSingleCertificate(fingerprintHexString),
 	}
 
 	r.remoteControlHTTPClient = &cli

@@ -213,6 +213,47 @@ func TestRCloneStorageInvalidFlags(t *testing.T) {
 	}
 }
 
+func TestRCloneStorageProcessExit(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	ctx := testlogging.Context(t)
+
+	rcloneExe := mustGetRcloneExeOrSkip(t)
+	dataDir := testutil.TempDirectory(t)
+
+	st, err := rclone.New(ctx, &rclone.Options{
+		// pass local file as remote path.
+		RemotePath: dataDir,
+		RCloneExe:  rcloneExe,
+	}, true)
+	require.NoError(t, err, "unable to connect to rclone backend")
+
+	t.Cleanup(func() {
+		st.Close(testlogging.ContextForCleanup(t))
+	})
+
+	require.NoError(t, st.PutBlob(ctx, "someblob1234567812345678", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+
+	k, ok := st.(Killable)
+	require.True(t, ok, "not killable")
+
+	// kill rclone out from under the storage wrapper.
+	k.Kill()
+
+	// reads must fail quickly with a clear error instead of retrying connection
+	// failures against a dead process.
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	t0 := clock.Now()
+	err = st.GetBlob(ctx, "someblob1234567812345678", 0, -1, &tmp)
+	dur := clock.Now().Sub(t0)
+
+	require.ErrorContains(t, err, "rclone process has exited")
+	require.Less(t, dur, 30*time.Second, "GetBlob against dead rclone took too long: %v", dur)
+}
+
 func TestRCloneProviders(t *testing.T) {
 	testutil.ProviderTest(t)
 
