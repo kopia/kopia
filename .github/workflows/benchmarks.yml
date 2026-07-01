@@ -47,11 +47,14 @@ jobs:
 
       - name: Post PR comment
         uses: actions/github-script@v7
+        env:
+          BENCHMARK_REPORT: ${{ steps.compare.outputs.output }}
         with:
           script: |
+            const report = process.env.BENCHMARK_REPORT;
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: '## Benchmark Results\n```\n${{ steps.compare.outputs.output }}\n```'
+              body: '## Benchmark Results\n```\n' + report + '\n```'
             })
