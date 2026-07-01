@@ -55,6 +55,8 @@ const (
 	testSTSAccessKeyIDEnv     = "KOPIA_S3_TEST_STS_ACCESS_KEY_ID"
 	testSTSSecretAccessKeyEnv = "KOPIA_S3_TEST_STS_SECRET_ACCESS_KEY"
 	testSessionTokenEnv       = "KOPIA_S3_TEST_SESSION_TOKEN"
+	// path to an OIDC token file, needs to be set to execute TestS3StorageWebIdentity.
+	testWebIdentityTokenFileEnv = "KOPIA_S3_TEST_WEB_IDENTITY_TOKEN_FILE"
 
 	expiredBadSSL       = "https://expired.badssl.com/"
 	selfSignedBadSSL    = "https://self-signed.badssl.com/"
@@ -339,6 +341,113 @@ func TestTokenExpiration(t *testing.T) {
 	creds.Expire()
 	customProvider.forceExpired.Store(false)
 	verifyBlobNotFoundForGetBlob(ctx, t, rst)
+}
+
+func TestWebIdentityTokenFetcher(t *testing.T) {
+	t.Parallel()
+
+	const (
+		inlineToken = "inline-token-value"
+		fileToken   = "file-token-value"
+	)
+
+	dir := testutil.TempDirectory(t)
+	tokenFile := filepath.Join(dir, "token")
+	require.NoError(t, os.WriteFile(tokenFile, []byte(fileToken), 0o600))
+
+	t.Run("inline token", func(t *testing.T) {
+		fetch := webIdentityTokenFetcher(&Options{
+			WebIdentityToken: inlineToken,
+			RoleDuration:     jsonencoding.Duration{Duration: 15 * time.Minute},
+		})
+
+		tok, err := fetch()
+		require.NoError(t, err)
+		require.Equal(t, inlineToken, tok.Token)
+		require.Equal(t, int((15 * time.Minute).Seconds()), tok.Expiry)
+	})
+
+	t.Run("token file is read", func(t *testing.T) {
+		fetch := webIdentityTokenFetcher(&Options{
+			WebIdentityTokenFile: tokenFile,
+		})
+
+		tok, err := fetch()
+		require.NoError(t, err)
+		require.Equal(t, fileToken, tok.Token)
+	})
+
+	t.Run("token file takes precedence over inline token", func(t *testing.T) {
+		fetch := webIdentityTokenFetcher(&Options{
+			WebIdentityToken:     inlineToken,
+			WebIdentityTokenFile: tokenFile,
+		})
+
+		tok, err := fetch()
+		require.NoError(t, err)
+		require.Equal(t, fileToken, tok.Token)
+	})
+
+	t.Run("missing token file returns error", func(t *testing.T) {
+		fetch := webIdentityTokenFetcher(&Options{
+			WebIdentityTokenFile: filepath.Join(dir, "does-not-exist"),
+		})
+
+		_, err := fetch()
+		require.Error(t, err)
+	})
+}
+
+// TestS3StorageWebIdentity exercises the web-identity (OIDC) credential path
+// end-to-end against real AWS STS. It requires a role and a valid OIDC token
+// file; both the WebIdentityTokenFile and the inline WebIdentityToken variants
+// are covered.
+func TestS3StorageWebIdentity(t *testing.T) {
+	t.Parallel()
+
+	tokenFile := getEnvOrSkip(t, testWebIdentityTokenFileEnv)
+	roleARN := getEnvOrSkip(t, testRoleEnv)
+	bucket := getEnvOrSkip(t, testBucketEnv)
+	region := getEnvOrSkip(t, testRegionEnv)
+	endpoint := getEnv(testEndpointEnv, awsEndpoint)
+
+	// Web-identity credentials are temporary and typically lack permission to
+	// create buckets, so provision the bucket up front using static keys, the
+	// same way TestS3StorageAWSSTS does.
+	getOrCreateBucket(t, &Options{
+		Endpoint:        endpoint,
+		AccessKeyID:     getEnv(testAccessKeyIDEnv, ""),
+		SecretAccessKey: getEnv(testSecretAccessKeyEnv, ""),
+		BucketName:      bucket,
+		Region:          region,
+	})
+
+	t.Run("token file", func(t *testing.T) {
+		testStorage(t, &Options{
+			Endpoint:             endpoint,
+			BucketName:           bucket,
+			Region:               region,
+			RoleARN:              roleARN,
+			RoleEndpoint:         awsStsEndpointUSWest2,
+			WebIdentityTokenFile: tokenFile,
+			RoleDuration:         jsonencoding.Duration{Duration: 15 * time.Minute},
+		}, false, blob.PutOptions{})
+	})
+
+	t.Run("inline token", func(t *testing.T) {
+		token, err := os.ReadFile(tokenFile)
+		require.NoError(t, err)
+
+		testStorage(t, &Options{
+			Endpoint:         endpoint,
+			BucketName:       bucket,
+			Region:           region,
+			RoleARN:          roleARN,
+			RoleEndpoint:     awsStsEndpointUSWest2,
+			WebIdentityToken: string(token),
+			RoleDuration:     jsonencoding.Duration{Duration: 15 * time.Minute},
+		}, false, blob.PutOptions{})
+	})
 }
 
 func TestS3StorageMinio(t *testing.T) {
