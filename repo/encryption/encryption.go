@@ -69,7 +69,7 @@ func SupportedAlgorithms() []string {
 }
 
 // Register registers new encryption algorithm.
-func Register(name, description string, deprecated bool, newEncryptor EncryptorFactory) {
+func Register(name, description string, newEncryptor EncryptorFactory) {
 	encryptors[name] = &encryptorInfo{
 		description,
 		newEncryptor,
