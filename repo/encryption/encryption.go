@@ -59,11 +59,7 @@ const DefaultAlgorithm = "AES256-GCM-HMAC-SHA256"
 func SupportedAlgorithms(includeDeprecated bool) []string {
 	var result []string
 
-	for k, e := range encryptors {
-		if e.deprecated && !includeDeprecated {
-			continue
-		}
-
+	for k := range encryptors {
 		result = append(result, k)
 	}
 
@@ -76,14 +72,12 @@ func SupportedAlgorithms(includeDeprecated bool) []string {
 func Register(name, description string, deprecated bool, newEncryptor EncryptorFactory) {
 	encryptors[name] = &encryptorInfo{
 		description,
-		deprecated,
 		newEncryptor,
 	}
 }
 
 type encryptorInfo struct {
 	description  string
-	deprecated   bool
 	newEncryptor EncryptorFactory
 }
 
