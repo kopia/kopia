@@ -65,7 +65,7 @@ func (c *commandBenchmarkEncryption) runBenchmark(ctx context.Context) []cryptoB
 
 	data := make([]byte, c.blockSize)
 
-	for _, ea := range encryption.SupportedAlgorithms(c.deprecatedAlgorithms) {
+	for _, ea := range encryption.SupportedAlgorithms() {
 		enc, err := encryption.CreateEncryptor(&format.ContentFormat{
 			Encryption: ea,
 			Hash:       hashing.DefaultAlgorithm,

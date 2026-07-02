@@ -56,7 +56,7 @@ const DefaultAlgorithm = "AES256-GCM-HMAC-SHA256"
 
 // SupportedAlgorithms returns the names of the supported encryption
 // methods.
-func SupportedAlgorithms(includeDeprecated bool) []string {
+func SupportedAlgorithms() []string {
 	var result []string
 
 	for k := range encryptors {

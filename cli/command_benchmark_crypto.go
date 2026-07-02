@@ -66,7 +66,7 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 	data := make([]byte, c.blockSize)
 
 	for _, ha := range hashing.SupportedAlgorithms() {
-		for _, ea := range encryption.SupportedAlgorithms(c.deprecatedAlgorithms) {
+		for _, ea := range encryption.SupportedAlgorithms() {
 			fo := &format.ContentFormat{
 				Encryption: ea,
 				Hash:       ha,
