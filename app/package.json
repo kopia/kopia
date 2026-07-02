@@ -8,8 +8,8 @@
     "electron-store": "^11.0.2",
     "electron-updater": "^6.8.9",
     "minimist": "^1.2.8",
-    "semver": "^7.8.3",
-    "uuid": "^14.0.0"
+    "semver": "^7.8.5",
+    "uuid": "^14.0.1"
   },
   "type": "module",
   "author": {
@@ -123,12 +123,12 @@
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.1",
-    "@playwright/test": "^1.60.0",
+    "@playwright/test": "^1.61.1",
     "asar": "^3.2.0",
     "concurrently": "^10.0.3",
     "dotenv": "^17.4.2",
-    "electron": "^42.4.0",
-    "electron-builder": "^26.15.2",
+    "electron": "^42.5.0",
+    "electron-builder": "^26.15.3",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1",
     "prettier": "^3.8.4"
