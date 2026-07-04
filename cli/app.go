@@ -83,6 +83,7 @@ type appServices interface {
 	directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error
 	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
+	repositoryWriterActionWithMaintenance(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	repositoryHintAction(act func(ctx context.Context, rep repo.Repository) []string) func() []string
 	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
@@ -449,7 +450,26 @@ func (c *App) repositoryReaderAction(act func(ctx context.Context, rep repo.Repo
 	}, repositoryAccessMode{})
 }
 
+// repositoryWriterAction runs act in a write session. It does NOT trigger
+// automatic maintenance, so it is appropriate for control-only operations that
+// modify repository configuration (policies, ACLs, users, ...) rather than
+// snapshot data. Use repositoryWriterActionWithMaintenance for data-modifying
+// operations that may leave behind content requiring maintenance.
 func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+	return c.repositoryWriterActionWithMode(act, repositoryAccessMode{})
+}
+
+// repositoryWriterActionWithMaintenance is like repositoryWriterAction but also
+// triggers opportunistic automatic maintenance on success. It should be used
+// only for operations that modify snapshot data (e.g. snapshot create/delete),
+// per https://github.com/kopia/kopia/issues/3174.
+func (c *App) repositoryWriterActionWithMaintenance(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+	return c.repositoryWriterActionWithMode(act, repositoryAccessMode{
+		allowMaintenance: true,
+	})
+}
+
+func (c *App) repositoryWriterActionWithMode(act func(ctx context.Context, rep repo.RepositoryWriter) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return c.repositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "cli:" + c.currentActionName(),
@@ -457,9 +477,7 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 		}, func(ctx context.Context, w repo.RepositoryWriter) error {
 			return act(ctx, w)
 		})
-	}, repositoryAccessMode{
-		allowMaintenance: true,
-	})
+	}, mode)
 }
 
 func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.Context) error) error {
