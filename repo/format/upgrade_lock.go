@@ -58,7 +58,7 @@ func (m *Manager) SetUpgradeLockIntent(ctx context.Context, l UpgradeLockIntent)
 
 		// backup the current repository config from local cache to the
 		// repository when we place the lock for the first time
-		if err := m.j.WriteKopiaRepositoryBlobWithID(ctx, m.blobs, m.blobCfgBlob, BackupBlobID(l)); err != nil {
+		if err := m.j.writeKopiaRepositoryBlobWithID(ctx, m.blobs, m.blobCfgBlob, BackupBlobID(l)); err != nil {
 			return nil, errors.Wrap(err, "failed to backup the repo format blob")
 		}
 
