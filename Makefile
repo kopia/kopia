@@ -90,13 +90,23 @@ lint-and-log: $(linter)
 lint-windows: $(linter)
 	GOOS=windows GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
 
-lint-darwin: $(linter)
+lint-darwin: $(linter) lint-darwin-amd64 lint-darwin-arm64
+
+lint-darwin-amd64: $(linter)
 	GOOS=darwin GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+
+lint-darwin-arm64: $(linter)
 	GOOS=darwin GOARCH=arm64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
 
-lint-linux: $(linter)
+lint-linux: $(linter) lint-linux-amd64 lint-linux-arm64 lint-linux-arm
+
+lint-linux-amd64: $(linter)
 	GOOS=linux GOARCH=amd64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+
+lint-linux-arm64: $(linter)
 	GOOS=linux GOARCH=arm64 $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
+
+lint-linux-arm: $(linter)
 	GOOS=linux GOARCH=arm $(linter) --timeout $(LINTER_DEADLINE) run $(linter_flags)
 
 lint-all: $(linter) lint-windows lint-darwin lint-linux
