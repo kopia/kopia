@@ -246,7 +246,7 @@ func handleRepoSupportedAlgorithms(_ context.Context, _ requestContext) (any, *a
 		SupportedHashAlgorithms: toAlgorithmInfo(hashing.SupportedAlgorithms(), neverDeprecated),
 
 		DefaultEncryptionAlgorithm:    encryption.DefaultAlgorithm,
-		SupportedEncryptionAlgorithms: toAlgorithmInfo(encryption.SupportedAlgorithms(false), neverDeprecated),
+		SupportedEncryptionAlgorithms: toAlgorithmInfo(encryption.SupportedAlgorithms(), neverDeprecated),
 
 		DefaultECCAlgorithm:    ecc.DefaultAlgorithm,
 		SupportedECCAlgorithms: toAlgorithmInfo(ecc.SupportedAlgorithms(), neverDeprecated),
