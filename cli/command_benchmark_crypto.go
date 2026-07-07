@@ -28,7 +28,7 @@ func (c *commandBenchmarkCrypto) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("crypto", "Run combined hash and encryption benchmarks")
 	cmd.Flag("block-size", "Size of a block to encrypt").Default("1MB").BytesVar(&c.blockSize)
 	cmd.Flag("repeat", "Number of repetitions").Default("100").UintVar(&c.repeat)
-	cmd.Flag("deprecated", "Include deprecated algorithms").BoolVar(&c.deprecatedAlgorithms)
+	cmd.Flag("deprecated", "Include deprecated algorithms [DEPRECATED flag, it has no effect]").Hidden().BoolVar(&c.deprecatedAlgorithms)
 	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").UintVar(&c.parallel)
 	cmd.Flag("print-options", "Print out options usable for repository creation").BoolVar(&c.optionPrint)
 	cmd.Action(svc.noRepositoryAction(c.run))
@@ -66,7 +66,7 @@ func (c *commandBenchmarkCrypto) runBenchmark(ctx context.Context) []cryptoBench
 	data := make([]byte, c.blockSize)
 
 	for _, ha := range hashing.SupportedAlgorithms() {
-		for _, ea := range encryption.SupportedAlgorithms(c.deprecatedAlgorithms) {
+		for _, ea := range encryption.SupportedAlgorithms() {
 			fo := &format.ContentFormat{
 				Encryption: ea,
 				Hash:       ha,
