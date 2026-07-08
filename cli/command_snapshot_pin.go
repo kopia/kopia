@@ -22,7 +22,7 @@ func (c *commandSnapshotPin) setup(svc appServices, parent commandParent) {
 	cmd.Flag("add", "Add pins").StringsVar(&c.addPins)
 	cmd.Flag("remove", "Remove pins").StringsVar(&c.removePins)
 	cmd.Arg("id", "Snapshot ID or root object ID").Required().StringsVar(&c.snapshotIDs)
-	cmd.Action(svc.repositoryWriterActionWithMaintenance(c.run))
+	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
 func (c *commandSnapshotPin) run(ctx context.Context, rep repo.RepositoryWriter) error {

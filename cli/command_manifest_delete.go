@@ -17,7 +17,7 @@ type commandManifestDelete struct {
 func (c *commandManifestDelete) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("delete", "Remove manifest items").Alias("remove").Alias("rm").Hidden()
 	cmd.Arg("item", "Items to remove").Required().StringsVar(&c.manifestRemoveItems)
-	cmd.Action(svc.repositoryWriterActionWithMaintenance(c.run))
+	cmd.Action(svc.repositoryWriterAction(c.run))
 
 	c.svc = svc
 }
