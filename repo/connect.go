@@ -18,6 +18,8 @@ type ConnectOptions struct {
 	ClientOptions
 
 	content.CachingOptions
+
+	SkipVerifyConnect bool
 }
 
 // ErrRepositoryNotInitialized is returned when attempting to connect to repository that has not
@@ -59,6 +61,10 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 
 	if err := lc.writeToFile(configFile); err != nil {
 		return errors.Wrap(err, "unable to write config file")
+	}
+
+	if opt.SkipVerifyConnect {
+		return nil
 	}
 
 	return verifyConnect(ctx, configFile, password)

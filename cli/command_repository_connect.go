@@ -58,6 +58,7 @@ type connectOptions struct {
 
 	formatBlobCacheDuration time.Duration
 	disableFormatBlobCache  bool
+	skipVerify              bool
 }
 
 func (c *connectOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
@@ -79,6 +80,7 @@ func (c *connectOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("enable-actions", "Allow snapshot actions").BoolVar(&c.connectEnableActions)
 	cmd.Flag("repository-format-cache-duration", "Duration of kopia.repository format blob cache").Hidden().DurationVar(&c.formatBlobCacheDuration)
 	cmd.Flag("disable-repository-format-cache", "Disable caching of kopia.repository format blob").Hidden().BoolVar(&c.disableFormatBlobCache)
+	cmd.Flag("skip-verify", "Skip opening the repository to verify the connection").Hidden().BoolVar(&c.skipVerify)
 }
 
 func (c *connectOptions) getFormatBlobCacheDuration() time.Duration {
@@ -111,6 +113,7 @@ func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 			EnableActions:           c.connectEnableActions,
 			FormatBlobCacheDuration: c.getFormatBlobCacheDuration(),
 		},
+		SkipVerifyConnect: c.skipVerify,
 	}
 }
 
