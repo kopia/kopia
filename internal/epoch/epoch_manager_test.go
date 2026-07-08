@@ -1325,6 +1325,33 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 	require.Len(t, cs.SingleEpochCompactionSets, newestEpochToCompact)
 }
 
+// TestMaybeCompactSingleEpoch_NoUncompactedBlobs covers the guard that bails
+// out when the chosen epoch has no uncompacted blobs in storage:
+// MaybeCompactSingleEpoch should return (nil, nil) and not invoke the
+// compaction function.
+func TestMaybeCompactSingleEpoch_NoUncompactedBlobs(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	// Advance the write epoch so that epoch 0 is settled, but never write
+	// uncompacted index blobs for any epoch. The oldest uncompacted epoch is 0
+	// (nothing is compacted) and the storage lookup returns an empty list.
+	mustMakeWriteEpoch(ctx, t, te, 3)
+
+	compactionCalls := 0
+	te.mgr.compact = func(context.Context, []blob.ID, blob.ID) error {
+		compactionCalls++
+		return nil
+	}
+
+	stats, err := te.mgr.MaybeCompactSingleEpoch(ctx)
+	require.NoError(t, err)
+	require.Nil(t, stats)
+	require.Zero(t, compactionCalls, "compact should not be invoked when the chosen epoch has no uncompacted blobs")
+}
+
 func TestMaybeGenerateRangeCheckpoint_Empty(t *testing.T) {
 	t.Parallel()
 
