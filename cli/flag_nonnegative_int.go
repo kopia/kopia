@@ -15,10 +15,15 @@ type nonNegativeIntValue struct {
 }
 
 func (v *nonNegativeIntValue) Set(s string) error {
-	n, err := strconv.Atoi(s)
+	// Parse the same way kingpin's built-in int flag does (ParseFloat then
+	// truncate), so the only behavior change versus the previous IntVar is that
+	// negative values are rejected rather than accepted.
+	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		return errors.Wrapf(err, "invalid integer value %q", s)
 	}
+
+	n := int(f)
 
 	if n < 0 {
 		return errors.Errorf("must not be negative, got %d", n)
