@@ -29,7 +29,7 @@ func (c *commandSnapshotFixInvalidFiles) setup(svc appServices, parent commandPa
 	cmd.Flag("invalid-file-handling", "How to handle invalid files").Default(invalidEntryStub).EnumVar(&c.invalidFileHandling, invalidEntryFail, invalidEntryStub, invalidEntryKeep, invalidEntryRemove)
 	cmd.Flag("verify-files-percent", "Verify a percentage of files by fully downloading them [0.0 .. 100.0]").Default("0").Float64Var(&c.verifyFilesPercent)
 
-	cmd.Action(svc.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterActionWithMaintenance(c.run))
 }
 
 func (c *commandSnapshotFixInvalidFiles) rewriteEntry(ctx context.Context, pathFromRoot string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {
