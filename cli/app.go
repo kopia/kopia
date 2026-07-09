@@ -474,10 +474,8 @@ func (c *App) repositoryWriterActionWithMaintenance(act func(ctx context.Context
 			return errors.Wrap(err, "running in write session")
 		}
 
-		if rep != nil {
-			if err := c.maybeRunMaintenance(ctx, rep); err != nil {
-				return errors.Wrap(err, "running auto-maintenance")
-			}
+		if err := c.maybeRunMaintenance(ctx, rep); err != nil {
+			return errors.Wrap(err, "running auto-maintenance")
 		}
 
 		return nil
@@ -585,6 +583,10 @@ func (c *App) repositoryHintAction(act func(ctx context.Context, rep repo.Reposi
 
 func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 	if !c.enableAutomaticMaintenance {
+		return nil
+	}
+
+	if rep == nil {
 		return nil
 	}
 
