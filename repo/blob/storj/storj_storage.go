@@ -69,6 +69,8 @@ func (storj *impl) _getBlobFromPath(ctx context.Context, key string, offset, len
 	if err != nil {
 		return errors.Wrap(translateError(err), "GetBlobFromPath")
 	}
+	// TODO(rjk): Is this erroring a fatal?
+	defer dl.Close()
 
 	// TODO(rjk): Why is this necessary? I would *not* have expected this but
 	// validate-provider requires this. Without this line, _getBlobFromPath
@@ -234,6 +236,15 @@ func (storj *storjStorage) Close(ctx context.Context) error {
 // Code is based on the usage flow documented at
 // https://github.com/storj/storj/wiki/Libuplink-Walkthrough
 func _new(ctx context.Context, opt *Options, isCreate bool) (*storjStorage, error) {
+	// Each concurrent Storj download fans out to ~80 storage-node TCP connections
+	// (erasure coding). Without a concurrency cap the ephemeral port range is
+	// exhausted during maintenance on large repos, causing EADDRNOTAVAIL.
+	if opt.ConcurrentReads == 0 {
+		optCopy := *opt
+		optCopy.ConcurrentReads = 4
+		opt = &optCopy
+	}
+
 	access, err := uplink.ParseAccess(opt.AccessGrant)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not parse access grant")
