@@ -463,14 +463,19 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 // repositoryWriterActionWithMaintenance runs act in a write session and
 // may run opportunistic automatic maintenance on success. It should be used
 // only for operations that modify snapshot data such as snapshot create/delete.
-func (c *App) repositoryWriterActionWithMaintenance(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
-	return c.repositoryWriterAction(func(ctx context.Context, rw repo.RepositoryWriter) error {
-		if err := act(ctx, rw); err != nil {
-			return err
+func (c *App) repositoryWriterActionWithMaintenance(act func(ctx context.Context, rw repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+	return c.repositoryAction(func(ctx context.Context, rep repo.Repository) error {
+		o := repo.WriteSessionOptions{
+			Purpose:  "cli:" + c.currentActionName(),
+			OnUpload: c.progress.UploadedBytes,
 		}
 
-		if rw != nil {
-			if err := c.maybeRunMaintenance(ctx, rw); err != nil {
+		if err := repo.WriteSession(ctx, rep, o, act); err != nil {
+			return errors.Wrap(err, "running in write session")
+		}
+
+		if rep != nil {
+			if err := c.maybeRunMaintenance(ctx, rep); err != nil {
 				return errors.Wrap(err, "running auto-maintenance")
 			}
 		}
