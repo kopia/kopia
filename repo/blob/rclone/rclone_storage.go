@@ -172,6 +172,34 @@ func (r *rcloneStorage) forgetVFS(ctx context.Context) error {
 	return r.remoteControl(ctx, "vfs/forget", map[string]string{}, &out)
 }
 
+// createSupportFilesDir creates a directory for files that must remain available
+// for the lifetime of the rclone child process: the htpasswd file, the TLS key and
+// certificate, and the optional embedded rclone config.
+//
+// These files must NOT live in the OS temp directory: temp cleaners (e.g. Windows
+// Storage Sense) delete them from under long-running processes, after which rclone
+// drops every authenticated connection and all storage operations fail with EOF
+// until the storage is reopened (#4791). The user cache dir is used instead,
+// falling back to the temp dir when no cache dir is available.
+func createSupportFilesDir() (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		td, terr := os.MkdirTemp("", "kopia-rclone")
+		return td, errors.Wrap(terr, "unable to create temporary dir")
+	}
+
+	parent := filepath.Join(base, "kopia-rclone")
+
+	//nolint:mnd
+	if err := os.MkdirAll(parent, 0o700); err != nil {
+		return "", errors.Wrap(err, "unable to create rclone support files dir")
+	}
+
+	td, err := os.MkdirTemp(parent, "s")
+
+	return td, errors.Wrap(err, "unable to create rclone support files dir")
+}
+
 type rcloneURLs struct {
 	webdavAddr        string
 	remoteControlAddr string
@@ -252,10 +280,10 @@ func (r *rcloneStorage) runRCloneAndWaitForServerAddress(ctx context.Context, c 
 func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error) {
 	log(ctx).Warn("The rclone storage provider is not actively tested, it may cause data loss, use at your own risk")
 
-	// generate directory for all temp files.
-	td, err := os.MkdirTemp("", "kopia-rclone")
+	// directory for rclone support files (htpasswd, TLS key+cert, embedded config).
+	td, err := createSupportFilesDir()
 	if err != nil {
-		return nil, errors.Wrap(err, "error getting temporary dir")
+		return nil, errors.Wrap(err, "error creating support files dir")
 	}
 
 	r := &rcloneStorage{
