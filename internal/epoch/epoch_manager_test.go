@@ -1351,7 +1351,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				tb.Helper()
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 0, 4, 200)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 6, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 6)                          // settled <= 4
+				mustMakeWriteEpoch(ctx, tb, te, 6)                         // settled <= 4
 			},
 			wantEpoch:      0,
 			wantCompaction: true,
@@ -1363,7 +1363,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 2, 100)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 200)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 6, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 6)                          // settled <= 4
+				mustMakeWriteEpoch(ctx, tb, te, 6)                         // settled <= 4
 			},
 			wantEpoch:      3,
 			wantCompaction: true,
@@ -1375,7 +1375,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 2, 400)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 200)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 6, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 6)                          // settled <= 4
+				mustMakeWriteEpoch(ctx, tb, te, 6)                         // settled <= 4
 			},
 			wantEpoch:      3,
 			wantCompaction: true,
@@ -1389,7 +1389,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 1, 1, 200)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 200)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 6, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 6)                          // settled <= 4
+				mustMakeWriteEpoch(ctx, tb, te, 6)                         // settled <= 4
 			},
 			wantEpoch:      1,
 			wantCompaction: true,
@@ -1400,7 +1400,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				tb.Helper()
 				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 2, 100)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 4)                          // settled <= 2, all compacted
+				mustMakeWriteEpoch(ctx, tb, te, 4)                         // settled <= 2, all compacted
 			},
 			wantCompaction: false,
 		},
@@ -1416,7 +1416,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 8, 8, 100)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 9, 9, 200)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 10, 11, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 11)                           // settled <= 9
+				mustMakeWriteEpoch(ctx, tb, te, 11)                          // settled <= 9
 			},
 			wantEpoch:      9,
 			wantCompaction: true,
@@ -1432,7 +1432,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 8, 9, 100)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 10, 10, 200)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 11, 12, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 12)                           // settled <= 10
+				mustMakeWriteEpoch(ctx, tb, te, 12)                          // settled <= 10
 			},
 			wantEpoch:      10,
 			wantCompaction: true,
@@ -1451,7 +1451,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 4, 4, 100)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 5, 200)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 6, 7, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 7)                          // settled <= 5
+				mustMakeWriteEpoch(ctx, tb, te, 7)                         // settled <= 5
 			},
 			wantEpoch:      5,
 			wantCompaction: true,
@@ -1469,7 +1469,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 6, 7, 100)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 5, 200)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 8, 9, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 9)                          // settled <= 7
+				mustMakeWriteEpoch(ctx, tb, te, 9)                         // settled <= 7
 			},
 			wantEpoch:      5,
 			wantCompaction: true,
@@ -1485,7 +1485,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 9, 100)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 10, 10, 200)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 11, 12, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 12)                           // settled <= 10
+				mustMakeWriteEpoch(ctx, tb, te, 12)                          // settled <= 10
 			},
 			wantEpoch:      10,
 			wantCompaction: true,
@@ -1500,7 +1500,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 0, 100)
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 0, 3, 200) // includes stale epoch-0 blobs
 				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 4, 5, 300) // unsettled
-				mustMakeWriteEpoch(ctx, t, te, 5)                          // settled <= 3
+				mustMakeWriteEpoch(ctx, tb, te, 5)                         // settled <= 3
 			},
 			wantEpoch:      1,
 			wantCompaction: true,
@@ -1512,7 +1512,7 @@ func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
 			name: "NonZeroWriteEpoch_NoBlobs_NoOp",
 			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
 				tb.Helper()
-				mustMakeWriteEpoch(ctx, t, te, 3) // settled <= 1
+				mustMakeWriteEpoch(ctx, tb, te, 3) // settled <= 1
 			},
 			wantCompaction: false,
 		},
