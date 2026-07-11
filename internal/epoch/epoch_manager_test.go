@@ -198,9 +198,9 @@ func makeRangeCheckpointIndexBlob(
 	ctx context.Context,
 	tb testing.TB,
 	te *epochManagerTestEnv,
-	minEpoch int,
+	minEpoch int, //nolint:unparam // kept for generality
 	maxEpoch int,
-	idxDataOffset int,
+	idxDataOffset int, //nolint:unparam // kept for generality
 ) {
 	tb.Helper()
 
@@ -1323,6 +1323,235 @@ func TestMaybeCompactSingleEpoch(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, cs.SingleEpochCompactionSets, newestEpochToCompact)
+}
+
+// TestMaybeCompactSingleEpoch_SelectsCorrectEpoch checks that, across healthy
+// and inconsistent on-disk layouts, MaybeCompactSingleEpoch picks the oldest
+// settled epoch not already covered by another compacted set, never re-compacts
+// one that is, and runs the compactor exactly once (or not at all for no-ops).
+//
+// Each case models a complete repository, seeding blobs with the same offset
+// convention as TestGetCompleteIndexSet_CoversAllEpochs: range checkpoint 400,
+// single-epoch compaction 100, settled uncompacted 200, unsettled uncompacted
+// 300. Unsettled epochs (writeEpoch-1, writeEpoch) don't affect selection but
+// are seeded for realism; the no-blobs case is the deliberate exception.
+func TestMaybeCompactSingleEpoch_SelectsCorrectEpoch(t *testing.T) {
+	table := []struct {
+		name        string
+		initStorage func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv)
+		// wantEpoch is the epoch expected to be compacted. wantCompaction=false
+		// means no epoch is eligible and MaybeCompactSingleEpoch returns (nil, nil).
+		wantEpoch      int
+		wantCompaction bool
+	}{
+		// --- healthy layouts ---
+		{
+			name: "NoCompactions_PicksOldestSettled",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 0, 4, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 6, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 6)                          // settled <= 4
+			},
+			wantEpoch:      0,
+			wantCompaction: true,
+		},
+		{
+			name: "ContiguousSingleCompactions_PicksNext",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 2, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 6, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 6)                          // settled <= 4
+			},
+			wantEpoch:      3,
+			wantCompaction: true,
+		},
+		{
+			name: "RangeOnly_PicksAfterRange",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 2, 400)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 6, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 6)                          // settled <= 4
+			},
+			wantEpoch:      3,
+			wantCompaction: true,
+		},
+		{
+			name: "GapInSingleCompactions_FillsGap",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 0, 100)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 2, 2, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 1, 1, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 6, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 6)                          // settled <= 4
+			},
+			wantEpoch:      1,
+			wantCompaction: true,
+		},
+		{
+			name: "AllSettledCompacted_NoEligibleEpoch",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 2, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 3, 4, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 4)                          // settled <= 2, all compacted
+			},
+			wantCompaction: false,
+		},
+		// --- inconsistent layouts ---
+		{
+			// A single-epoch compaction exists for the
+			// epoch right after the range (8 = range.hi+1). The next epoch to
+			// compact must skip past it to 9, not re-compact 8.
+			name: "StaleSingleAtRangeBoundary_DoesNotRecompact",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 7, 400)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 8, 8, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 9, 9, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 10, 11, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 11)                           // settled <= 9
+			},
+			wantEpoch:      9,
+			wantCompaction: true,
+		},
+		{
+			// Range checkpoint plus single-epoch compactions for the epoch after
+			// the range (8) and the next one (9). Selection must walk that run
+			// and land on the first truly-uncompacted epoch (10), not re-compact 8.
+			name: "StaleSingleRunAfterRange_SkipsToNextUncompacted",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 7, 400)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 8, 9, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 10, 10, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 11, 12, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 12)                           // settled <= 10
+			},
+			wantEpoch:      10,
+			wantCompaction: true,
+		},
+		{
+			// The shape in which the bug was originally found: a range checkpoint
+			// spans past a gap in the single-epoch compactions, and a single-epoch
+			// compaction also exists right at the range boundary (4 = range.hi+1).
+			// The gap (2, 3) is covered by the range, so selection must skip the
+			// boundary compaction and land on the first uncompacted epoch (5).
+			name: "RangeSpansGapInSingle_PicksAfterBoundarySingle",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 3, 400)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 1, 100)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 4, 4, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 5, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 6, 7, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 7)                          // settled <= 5
+			},
+			wantEpoch:      5,
+			wantCompaction: true,
+		},
+		{
+			// A gap in the single-epoch compactions lies past the end of the
+			// range: range covers 0-3, single compactions are 0-4 and 6-7, so
+			// epoch 5 is the gap. Selection must stop at 5 rather than jumping to
+			// the 6-7 run.
+			name: "GapInSinglePastRange_PicksGap",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 3, 400)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 4, 100)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 6, 7, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 5, 5, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 8, 9, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 9)                          // settled <= 7
+			},
+			wantEpoch:      5,
+			wantCompaction: true,
+		},
+		{
+			// Redundant single-epoch compactions overlap a range that already
+			// covers them, plus a contiguous run after the range. Selection must
+			// walk the run and land on the first truly-uncompacted epoch.
+			name: "RedundantSingleCompactionsOverlapRange_PicksAfterRun",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeRangeCheckpointIndexBlob(ctx, tb, te, 0, 7, 400)
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 9, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 10, 10, 200)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 11, 12, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 12)                           // settled <= 10
+			},
+			wantEpoch:      10,
+			wantCompaction: true,
+		},
+		{
+			// Partial cleanup: epoch 0 is single-compacted but its superseded
+			// uncompacted blobs were never deleted. The leftover blobs must not
+			// cause epoch 0 to be re-compacted; selection moves on to epoch 1.
+			name: "LeftoverUncompactedOnCompactedEpoch_SkipsToNext",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				makeSingleEpochCompactedIndexBlobsForEpochs(ctx, tb, te, 0, 0, 100)
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 0, 3, 200) // includes stale epoch-0 blobs
+				makeUncompactedIndexBlobsForEpochs(ctx, tb, te, 4, 5, 300) // unsettled
+				mustMakeWriteEpoch(ctx, t, te, 5)                          // settled <= 3
+			},
+			wantEpoch:      1,
+			wantCompaction: true,
+		},
+		{
+			// Degenerate edge state: a non-zero write epoch but no index blobs of
+			// any kind. The oldest uncompacted epoch (0) is settled but has no
+			// uncompacted blobs, so the empty-blobs path makes this a no-op.
+			name: "NonZeroWriteEpoch_NoBlobs_NoOp",
+			initStorage: func(ctx context.Context, tb testing.TB, te *epochManagerTestEnv) {
+				tb.Helper()
+				mustMakeWriteEpoch(ctx, t, te, 3) // settled <= 1
+			},
+			wantCompaction: false,
+		},
+	}
+
+	for _, test := range table {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := testlogging.Context(t)
+			te := newTestEnv(t)
+
+			test.initStorage(ctx, t, te)
+
+			require.NoError(t, te.mgr.Refresh(ctx), "refreshing epoch manager")
+
+			// Count compaction invocations so no-op cases can assert the
+			// compactor is never called and positive cases that it runs once.
+			var compactions int
+
+			inner := te.mgr.compact
+			te.mgr.compact = func(ctx context.Context, ids []blob.ID, prefix blob.ID) error {
+				compactions++
+				return inner(ctx, ids, prefix)
+			}
+
+			stats, err := te.mgr.MaybeCompactSingleEpoch(ctx)
+			require.NoError(t, err)
+
+			if !test.wantCompaction {
+				require.Nil(t, stats, "expected no epoch to be compacted")
+				require.Zero(t, compactions, "expected the compactor not to be invoked")
+
+				return
+			}
+
+			require.NotNil(t, stats, "expected an epoch to be compacted")
+			require.EqualValues(t, test.wantEpoch, stats.Epoch)
+			require.Equal(t, 1, compactions, "expected exactly one compaction")
+		})
+	}
 }
 
 func TestMaybeGenerateRangeCheckpoint_Empty(t *testing.T) {
