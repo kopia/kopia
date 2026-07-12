@@ -1,0 +1,80 @@
+Subject: Failed to create 1 of 4 snapshots on some-host
+
+{
+  "status": "Failed to create 1 of 4 snapshots",
+  "hostname": "some-host",
+  "generatedAt": "Wed, 01 Jan 2020 19:04:05 PST",
+  "kopiaVersion": "v0-unofficial",
+  "snapshots": [
+    {
+      "id": null,
+      "description": null,
+      "path": "/some/other/path",
+      "status": "fatal",
+      "start": "Wed, 31 Dec 1969 16:00:00 PST",
+      "duration": "0s",
+      "totalSize": 0,
+      "totalSizeDelta": 0,
+      "totalFiles": 0,
+      "totalFilesDelta": 0,
+      "totalDirs": 0,
+      "totalDirsDelta": 0,
+      "error": "some top-level error"
+    },
+    {
+      "id": "9b7417fee914e4e4c471a3772f958515",
+      "description": "some description",
+      "path": "/some/path",
+      "status": "success",
+      "start": "Wed, 01 Jan 2020 19:04:05 PST",
+      "duration": "1.1s",
+      "totalSize": 456,
+      "totalSizeDelta": 56,
+      "totalFiles": 123,
+      "totalFilesDelta": 23,
+      "totalDirs": 33,
+      "totalDirsDelta": 3,
+      "tags": {"env": "prod", "service": "backup"},
+      "failedEntries": [
+        { "path": "/some/path", "error": "some error" },
+        { "path": "/some/path2", "error": "some error" }
+      ]
+    },
+    {
+      "id": "9b7417fee914e4e4c471a3772f958515",
+      "description": "some description",
+      "path": "/some/path",
+      "status": "success",
+      "start": "Wed, 01 Jan 2020 19:04:05 PST",
+      "duration": "1.1s",
+      "totalSize": 456,
+      "totalSizeDelta": -44,
+      "totalFiles": 123,
+      "totalFilesDelta": -77,
+      "totalDirs": 33,
+      "totalDirsDelta": -7,
+      "failedEntries": [
+        { "path": "/some/path", "error": "some error" },
+        { "path": "/some/path2", "error": "some error" }
+      ]
+    },
+    {
+      "id": "9b7417fee914e4e4c471a3772f958515",
+      "description": "some description",
+      "path": "/some/path2",
+      "status": "success",
+      "start": "Wed, 01 Jan 2020 19:04:05 PST",
+      "duration": "1.1s",
+      "totalSize": 456,
+      "totalSizeDelta": 0,
+      "totalFiles": 123,
+      "totalFilesDelta": 0,
+      "totalDirs": 33,
+      "totalDirsDelta": 0,
+      "failedEntries": [
+        { "path": "/some/path", "error": "some error" },
+        { "path": "/some/path2", "error": "some error" }
+      ]
+    }
+  ]
+}

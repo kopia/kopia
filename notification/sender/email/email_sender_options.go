@@ -20,11 +20,11 @@ type Options struct {
 	To   string `json:"to"`
 	CC   string `json:"cc"`
 
-	Format string `json:"format"` // format of the message, must be "html" or "md"
+	Format string `json:"format"` // format of the message, must be "html", "txt", or "json"
 }
 
 // MergeOptions updates the destination options with the source options.
-func MergeOptions(ctx context.Context, src Options, dst *Options, isUpdate bool) error {
+func MergeOptions(ctx context.Context, src, dst *Options, isUpdate bool) error {
 	copyOrMerge(&dst.SMTPServer, src.SMTPServer, isUpdate)
 	copyOrMerge(&dst.SMTPPort, src.SMTPPort, isUpdate)
 	copyOrMerge(&dst.SMTPIdentity, src.SMTPIdentity, isUpdate)

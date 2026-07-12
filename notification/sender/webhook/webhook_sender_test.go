@@ -148,7 +148,7 @@ func TestWebhook_InvalidMethod(t *testing.T) {
 func TestMergeOptions(t *testing.T) {
 	var dst webhook.Options
 
-	require.NoError(t, webhook.MergeOptions(context.Background(), webhook.Options{
+	require.NoError(t, webhook.MergeOptions(context.Background(), &webhook.Options{
 		Endpoint: "http://localhost:1234",
 		Method:   "POST",
 		Format:   "txt",
@@ -158,7 +158,7 @@ func TestMergeOptions(t *testing.T) {
 	require.Equal(t, "POST", dst.Method)
 	require.Equal(t, "txt", dst.Format)
 
-	require.NoError(t, webhook.MergeOptions(context.Background(), webhook.Options{
+	require.NoError(t, webhook.MergeOptions(context.Background(), &webhook.Options{
 		Method: "PUT",
 	}, &dst, true))
 
@@ -166,7 +166,7 @@ func TestMergeOptions(t *testing.T) {
 	require.Equal(t, "PUT", dst.Method)
 	require.Equal(t, "txt", dst.Format)
 
-	require.NoError(t, webhook.MergeOptions(context.Background(), webhook.Options{
+	require.NoError(t, webhook.MergeOptions(context.Background(), &webhook.Options{
 		Endpoint: "http://localhost:5678",
 		Method:   "PUT",
 		Format:   "html",

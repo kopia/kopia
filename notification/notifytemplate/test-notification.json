@@ -1,0 +1,9 @@
+Subject: Test notification from Kopia at {{ .EventTime | formatTime }}
+
+{
+  "message": "This is a test notification from Kopia.",
+  "kopiaVersion": {{ printf "%q" .KopiaBuildVersion }},
+  "kopiaBuildInfo": {{ printf "%q" .KopiaBuildInfo }},
+  "kopiaRepo": {{ printf "%q" .KopiaRepo }},
+  "hostname": {{ printf "%q" .Hostname }}
+}
