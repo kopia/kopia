@@ -215,7 +215,9 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 			}
 		}
 
-		if logOutput {
+		if err := scanner.Err(); err != nil {
+			tb.Logf("Error reading [%sstdout]: %v", prefix, err)
+		} else if logOutput {
 			tb.Logf("[%vstdout] EOF", prefix)
 		}
 	}()
@@ -239,7 +241,9 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 			}
 		}
 
-		if logOutput {
+		if err := scanner.Err(); err != nil {
+			tb.Logf("Error reading [%sstderr]: %v", prefix, err)
+		} else if logOutput {
 			tb.Logf("[%vstderr] EOF", prefix)
 		}
 	}()
@@ -314,6 +318,10 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 
 			stdout = append(stdout, scanner.Text())
 		}
+
+		if err := scanner.Err(); err != nil {
+			tb.Logf("Error reading [%sstdout]: %v", outputPrefix, err)
+		}
 	})
 
 	wg.Go(func() {
@@ -324,6 +332,10 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 			}
 
 			stderr = append(stderr, scanner.Text())
+		}
+
+		if err := scanner.Err(); err != nil {
+			tb.Logf("Error reading [%sstderr]: %v", outputPrefix, err)
 		}
 	})
 
