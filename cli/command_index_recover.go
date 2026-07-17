@@ -68,6 +68,7 @@ func (c *commandIndexRecover) run(ctx context.Context, rep repo.DirectRepository
 			}
 
 			log(ctx).Infof("would delete old index: %v (pass --commit to approve)", bm.BlobID)
+
 			return nil
 		}); err != nil {
 			return errors.Wrap(err, "error deleting old indexes")

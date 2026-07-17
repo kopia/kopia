@@ -150,7 +150,7 @@ func (m *LogManager) initNewBuffer() (flushBuffer *gather.WriteBuffer, flushBlob
 func NewLogManager(ctx context.Context, w *BlobWriter, disableRepositoryLog bool, textWriter io.Writer, params ...contentlog.ParamWriter) *LogManager {
 	var rnd [2]byte
 
-	rand.Read(rnd[:]) //nolint:errcheck
+	rand.Read(rnd[:])
 
 	return &LogManager{
 		ctx:                  context.WithoutCancel(ctx),
