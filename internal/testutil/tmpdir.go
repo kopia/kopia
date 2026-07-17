@@ -113,7 +113,7 @@ func TempLogDirectory(tb testing.TB) string {
 
 	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.Now().Local().Format("20060102150405"))
 
-	require.NoError(tb, os.MkdirAll(logsDir, logsDirPermissions))
+	require.NoError(tb, os.MkdirAll(logsDir, logsDirPermissions)) //nolint:gosec // only used in tests
 
 	tb.Cleanup(func() {
 		if getEnvVarBool("KOPIA_KEEP_LOGS") {
@@ -125,7 +125,7 @@ func TempLogDirectory(tb testing.TB) string {
 			dumpLogs(tb, logsDir)
 		}
 
-		os.RemoveAll(logsDir) //nolint:errcheck
+		os.RemoveAll(logsDir) //nolint:errcheck,gosec // only used in tests
 	})
 
 	return logsDir
