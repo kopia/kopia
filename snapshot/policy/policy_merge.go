@@ -1,8 +1,6 @@
 package policy
 
 import (
-	"sort"
-
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -89,31 +87,29 @@ func mergeStringsReplace(target *[]string, src []string, def *snapshot.SourceInf
 	}
 }
 
-func mergeStrings(target *[]string, targetNoParent *bool, src []string, noParent bool, def *snapshot.SourceInfo, si snapshot.SourceInfo) {
+func mergeExtensionSets(target *ExtensionSet, targetNoParent *bool, src ExtensionSet, noParent bool, def *snapshot.SourceInfo, si snapshot.SourceInfo) {
 	if *targetNoParent {
 		// merges prevented
 		return
 	}
 
-	merged := map[string]bool{}
-
-	for _, v := range *target {
-		merged[v] = true
+	// The tests are a little picky and want the merged result to be a nil map if neither input has values
+	var merged ExtensionSet
+	if len(*target)+len(src) > 0 {
+		merged = make(ExtensionSet)
 	}
 
-	for _, v := range src {
-		merged[v] = true
+	for ext := range *target {
+		merged.Add(ext)
+	}
+
+	for ext := range src {
+		merged.Add(ext)
+
 		*def = si
 	}
 
-	var result []string
-	for v := range merged {
-		result = append(result, v)
-	}
-
-	sort.Strings(result)
-
-	*target = result
+	*target = merged
 
 	if noParent {
 		// prevent future merges.
