@@ -24,6 +24,7 @@ require (
 	github.com/google/fswalker v0.3.3
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
+	github.com/gophercloud/gophercloud/v2 v2.12.0
 	github.com/gorilla/mux v1.8.1
 	github.com/hanwen/go-fuse/v2 v2.10.1
 	github.com/hashicorp/cronexpr v1.1.3

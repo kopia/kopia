@@ -14,6 +14,7 @@ Kopia allows you to save your [encrypted](../features/#user-controlled-end-to-en
 * [Azure Blob Storage](#azure-blob-storage)
 * [Backblaze B2](#backblaze-b2)
 * [Google Cloud Storage](#google-cloud-storage)
+* [OpenStack Swift](#openstack-swift)
 * [Google Drive](#google-drive)
   * Kopia supports Google Drive natively and through Kopia's Rclone option (see below)
   * Native support for Google Drive in Kopia is currently experimental
@@ -241,6 +242,34 @@ If using [ransomware protection](../advanced/ransomware#Google-protection) then 
 ```
 storage.objects.setRetention
 ```
+
+## OpenStack Swift
+
+OpenStack Swift repositories are currently supported through Kopia CLI. KopiaUI form support is not available for this storage provider.
+
+### Kopia CLI
+
+#### Creating a Repository
+
+You must use the [`kopia repository create swift` command](../reference/command-line/common/repository-create-swift/) to create a `repository`:
+
+```shell
+$ kopia repository create swift \
+        --container=... \
+        --auth-url=... \
+        --username=... \
+        --os-password=... \
+        --domain-name=... \
+        --tenant-name=...
+```
+
+The command also accepts standard OpenStack environment variables such as `OS_AUTH_URL`, `OS_USERNAME`, `OS_PASSWORD`, `OS_USER_DOMAIN_NAME`, `OS_PROJECT_NAME`, `OS_PROJECT_ID`, `OS_REGION_NAME`, `OS_INTERFACE`, and application credential variables. You can use `--prefix` to store repository objects under a container prefix.
+
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+
+#### Connecting to Repository
+
+After you have created the `repository`, you connect to it using the [`kopia repository connect swift` command](../reference/command-line/common/repository-connect-swift/). Read the [help docs](../reference/command-line/common/repository-connect-swift/) for more information on the options available for this command.
 
 ## Google Drive
 
