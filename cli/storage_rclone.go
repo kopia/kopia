@@ -1,3 +1,5 @@
+//go:build !no_extra_providers
+
 package cli
 
 import (
@@ -47,4 +49,12 @@ func (c *storageRcloneFlags) Connect(ctx context.Context, isCreate bool, formatV
 
 	//nolint:wrapcheck
 	return rclone.New(ctx, &c.opt, isCreate)
+}
+
+func init() {
+	mustRegisterStorageProvider(
+		"rclone",
+		"a rclone-based provider [Not maintained]",
+		func() StorageFlags { return &storageRcloneFlags{} },
+	)
 }

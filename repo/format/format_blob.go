@@ -169,11 +169,11 @@ func verifyFormatBlobChecksum(b []byte) ([]byte, bool) {
 
 // WriteKopiaRepositoryBlob writes `kopia.repository` blob to a given storage.
 func (f *KopiaRepositoryJSON) WriteKopiaRepositoryBlob(ctx context.Context, st blob.Storage, blobCfg BlobStorageConfiguration) error {
-	return f.WriteKopiaRepositoryBlobWithID(ctx, st, blobCfg, KopiaRepositoryBlobID)
+	return f.writeKopiaRepositoryBlobWithID(ctx, st, blobCfg, KopiaRepositoryBlobID)
 }
 
-// WriteKopiaRepositoryBlobWithID writes `kopia.repository` blob to a given storage under an alternate blobID.
-func (f *KopiaRepositoryJSON) WriteKopiaRepositoryBlobWithID(ctx context.Context, st blob.Storage, blobCfg BlobStorageConfiguration, id blob.ID) error {
+// writeKopiaRepositoryBlobWithID writes `kopia.repository` blob to a given storage under an alternate blobID.
+func (f *KopiaRepositoryJSON) writeKopiaRepositoryBlobWithID(ctx context.Context, st blob.Storage, blobCfg BlobStorageConfiguration, id blob.ID) error {
 	buf := gather.NewWriteBuffer()
 	e := json.NewEncoder(buf)
 	e.SetIndent("", "  ")

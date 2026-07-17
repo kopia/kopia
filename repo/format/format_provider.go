@@ -61,7 +61,6 @@ type Provider interface {
 	GetMutableParameters(ctx context.Context) (MutableParameters, error)
 	GetCachedMutableParameters() MutableParameters
 	SupportsPasswordChange() bool
-	GetMasterKey() []byte
 
 	RepositoryFormatBytes(ctx context.Context) ([]byte, error)
 }

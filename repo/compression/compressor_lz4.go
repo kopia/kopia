@@ -1,82 +1,26 @@
 package compression
 
 import (
+	"errors"
 	"io"
-	"sync"
-
-	"github.com/pierrec/lz4"
-	"github.com/pkg/errors"
-
-	"github.com/kopia/kopia/internal/freepool"
-	"github.com/kopia/kopia/internal/iocopy"
 )
 
 func init() {
-	RegisterDeprecatedCompressor("lz4", newLZ4Compressor(headerLZ4Default))
+	registerUnsupportedCompressor("lz4", lz4Compressor{})
 }
 
-func newLZ4Compressor(id HeaderID) Compressor {
-	return &lz4Compressor{id, compressionHeader(id), sync.Pool{
-		New: func() any {
-			return lz4.NewWriter(io.Discard)
-		},
-	}}
+var errLZ4NotSupported = errors.New("LZ4 compressor is not supported in recent versions of kopia, version v0.22.3 or older is needed to read legacy repositories that use the LZ4 compressor")
+
+type lz4Compressor struct{}
+
+func (c lz4Compressor) HeaderID() HeaderID {
+	return headerLZ4Removed
 }
 
-type lz4Compressor struct {
-	id     HeaderID
-	header []byte
-	pool   sync.Pool
+func (c lz4Compressor) Compress(_ io.Writer, _ io.Reader) error {
+	return errLZ4NotSupported
 }
 
-func (c *lz4Compressor) HeaderID() HeaderID {
-	return c.id
-}
-
-func (c *lz4Compressor) Compress(output io.Writer, input io.Reader) error {
-	if _, err := output.Write(c.header); err != nil {
-		return errors.Wrap(err, "unable to write header")
-	}
-
-	//nolint:forcetypeassert
-	w := c.pool.Get().(*lz4.Writer)
-	defer c.pool.Put(w)
-
-	w.Reset(output)
-
-	if err := iocopy.JustCopy(w, input); err != nil {
-		return errors.Wrap(err, "compression error")
-	}
-
-	if err := w.Close(); err != nil {
-		return errors.Wrap(err, "compression close error")
-	}
-
-	return nil
-}
-
-//nolint:gochecknoglobals
-var lz4DecoderPool = freepool.New(func() *lz4.Reader {
-	return lz4.NewReader(nil)
-}, func(v *lz4.Reader) {
-	v.Reset(nil)
-})
-
-func (c *lz4Compressor) Decompress(output io.Writer, input io.Reader, withHeader bool) error {
-	if withHeader {
-		if err := verifyCompressionHeader(input, c.header); err != nil {
-			return err
-		}
-	}
-
-	dec := lz4DecoderPool.Take()
-	defer lz4DecoderPool.Return(dec)
-
-	dec.Reset(input)
-
-	if err := iocopy.JustCopy(output, dec); err != nil {
-		return errors.Wrap(err, "decompression error")
-	}
-
-	return nil
+func (c lz4Compressor) Decompress(_ io.Writer, _ io.Reader, _ bool) error {
+	return errLZ4NotSupported
 }

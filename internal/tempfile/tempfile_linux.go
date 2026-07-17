@@ -17,11 +17,11 @@ func CreateAutoDelete() (*os.File, error) {
 	// on reasonably modern Linux (3.11 and above) O_TMPFILE is supported,
 	// which creates invisible, unlinked file in a given directory.
 	fd, err := unix.Open(dir, unix.O_RDWR|unix.O_TMPFILE|unix.O_CLOEXEC, permissions)
-	if err == nil {
+	if err == nil && fd >= 0 {
 		return os.NewFile(uintptr(fd), ""), nil
 	}
 
-	if errors.Is(err, syscall.EISDIR) || errors.Is(err, syscall.EOPNOTSUPP) {
+	if err == nil || errors.Is(err, syscall.EISDIR) || errors.Is(err, syscall.EOPNOTSUPP) {
 		return createUnixFallback()
 	}
 

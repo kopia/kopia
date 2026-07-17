@@ -23,7 +23,7 @@ func (c *commandSnapshotExpire) setup(svc appServices, parent commandParent) {
 	cmd.Flag("all", "Expire all snapshots").BoolVar(&c.snapshotExpireAll)
 	cmd.Arg("path", "Expire snapshots for given paths only").StringsVar(&c.snapshotExpirePaths)
 	cmd.Flag("delete", "Whether to actually delete snapshots").BoolVar(&c.snapshotExpireDelete)
-	cmd.Action(svc.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterActionWithMaintenance(c.run))
 }
 
 func (c *commandSnapshotExpire) getSnapshotSourcesToExpire(ctx context.Context, rep repo.Repository) ([]snapshot.SourceInfo, error) {

@@ -3,6 +3,7 @@ package contentlog
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -741,10 +742,17 @@ func TestJSONWriter_StringEscapingPerformanceWithManyControlChars(t *testing.T) 
 	jw.BeginObject()
 
 	// Create a string with many control characters to test performance
-	var testString string
-	for i := range 100 {
-		testString += string(rune(i % 32)) // Mix of control chars 0x00-0x1F
+	const testStringLen = 100
+
+	var sb strings.Builder
+
+	sb.Grow(testStringLen)
+
+	for i := range testStringLen {
+		sb.WriteRune(rune(i % 32)) // Mix of control chars 0x00-0x1F
 	}
+
+	testString := sb.String()
 
 	jw.StringField("manyControlChars", testString)
 	jw.EndObject()

@@ -10,15 +10,15 @@ const generateRangeCheckpointStatsKind = "generateRangeCheckpointStats"
 
 // GenerateRangeCheckpointStats are the stats for generating range checkpoints.
 type GenerateRangeCheckpointStats struct {
-	RangeMinEpoch int `json:"rangeMinEpoch"`
-	RangeMaxEpoch int `json:"rangeMaxEpoch"`
+	RangeMinEpoch uint64 `json:"rangeMinEpoch"`
+	RangeMaxEpoch uint64 `json:"rangeMaxEpoch"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
 func (gs *GenerateRangeCheckpointStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(gs.Kind())
-	jw.IntField("rangeMinEpoch", gs.RangeMinEpoch)
-	jw.IntField("rangeMaxEpoch", gs.RangeMaxEpoch)
+	jw.UInt64Field("rangeMinEpoch", gs.RangeMinEpoch)
+	jw.UInt64Field("rangeMaxEpoch", gs.RangeMaxEpoch)
 	jw.EndObject()
 }
 

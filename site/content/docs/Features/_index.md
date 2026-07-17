@@ -125,7 +125,7 @@ Kopia supports [Reed-Solomon error correction algorithm](../advanced/ecc/) to he
 
 ### Verifying Backup Validity and Consistency
 
-Backing up data is great, but you also need to be able to restore that data when (if) the time arises. Kopia has built-in functions that enable you to verify the consistency/validity of your backed up files. You can run these consistency checks are frequently as you like (e.g., once a month, once a year, etc.). Read the [repository consistency](../advanced/consistency/) help docs for more information.
+Backing up data is great, but you also need to be able to restore that data when (if) the time arises. Kopia has built-in functions that enable you to verify the consistency/validity of your backed up files. You can run these consistency checks as frequently as you like (e.g., once a month, once a year, etc.). Read the [repository consistency](../advanced/consistency/) help docs for more information.
 
 ### Recovering Backed Up Data When There is Data Loss
 

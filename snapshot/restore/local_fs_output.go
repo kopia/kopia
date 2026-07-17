@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/sparsefile"
 	"github.com/kopia/kopia/internal/stat"
 	"github.com/kopia/kopia/snapshot"
@@ -433,7 +434,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 	}
 
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
-	targetPath = atomicfile.MaybePrefixLongFilenameOnWindows(targetPath)
+	targetPath = ospath.SafeLongFilename(targetPath)
 
 	if o.WriteFilesAtomically {
 		//nolint:wrapcheck
