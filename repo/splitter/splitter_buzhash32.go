@@ -1,7 +1,7 @@
 package splitter
 
 import (
-	"github.com/chmduquesne/rollinghash/buzhash32"
+	"github.com/chmduquesne/rollinghash/v4/buzhash32"
 )
 
 type buzhash32Splitter struct {
