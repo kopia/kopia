@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/r2"
 	"github.com/kopia/kopia/repo/blob/throttling"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/ecc"
@@ -111,6 +112,10 @@ func handleRepoCreate(ctx context.Context, rc requestContext) (any, *apiError) {
 		return nil, requestError(serverapi.ErrorStorageConnection, "unable to connect to storage: "+err.Error())
 	}
 	defer st.Close(ctx) //nolint:errcheck
+
+	if st.ConnectionInfo().Type == r2.StorageType && (req.NewRepositoryOptions.RetentionMode != "" || req.NewRepositoryOptions.RetentionPeriod != 0) {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "Cloudflare R2 does not support S3 Object Lock headers; retention options are unsupported")
+	}
 
 	if err = repo.Initialize(ctx, st, &req.NewRepositoryOptions, req.Password); err != nil {
 		return nil, repoErrorToAPIError(err)
