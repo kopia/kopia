@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -291,7 +290,7 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 	}
 
 	if blobcfg.IsRetentionEnabled() {
-		st = wrapLockingStorage(st, blobcfg)
+		st = WrapLockingStorage(st, blobcfg)
 	}
 
 	_, err = retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (any, error) {
@@ -418,24 +417,6 @@ func handleMissingRequiredFeatures(ctx context.Context, fmgr *format.Manager, ig
 	}
 
 	return nil
-}
-
-func wrapLockingStorage(st blob.Storage, r format.BlobStorageConfiguration) blob.Storage {
-	// collect prefixes that need to be locked on put
-	prefixes := GetLockingStoragePrefixes()
-
-	return beforeop.NewWrapper(st, nil, nil, nil, func(_ context.Context, id blob.ID, opts *blob.PutOptions) error {
-		for _, prefix := range prefixes {
-			if strings.HasPrefix(string(id), string(prefix)) {
-				opts.RetentionMode = r.RetentionMode
-				opts.RetentionPeriod = r.RetentionPeriod
-
-				break
-			}
-		}
-
-		return nil
-	})
 }
 
 func addThrottler(st blob.Storage, limits throttling.Limits) (blob.Storage, throttling.SettableThrottler, error) {

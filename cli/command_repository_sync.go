@@ -30,6 +30,9 @@ type commandRepositorySyncTo struct {
 	repositorySyncParallelism          int
 	repositorySyncDestinationMustExist bool
 	repositorySyncTimes                bool
+	repositorySyncRetentionMode        string
+	repositorySyncRetentionPeriod      time.Duration
+	repositorySyncExtendObjectLocks    bool
 
 	lastSyncProgress  string
 	syncProgressMutex sync.Mutex
@@ -46,6 +49,9 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("parallel", "Copy parallelism.").Default("1").IntVar(&c.repositorySyncParallelism)
 	cmd.Flag("must-exist", "Fail if destination does not have repository format blob.").BoolVar(&c.repositorySyncDestinationMustExist)
 	cmd.Flag("times", "Synchronize blob times if supported.").BoolVar(&c.repositorySyncTimes)
+	cmd.Flag("retention-mode", "Apply object-lock retention mode to synchronized blobs on the destination (requires object-lock capable storage such as S3).").EnumVar(&c.repositorySyncRetentionMode, blob.Governance.String(), blob.Compliance.String())
+	cmd.Flag("retention-period", "Object-lock retention period for synchronized blobs (minimum 24h). Schedule syncs so locks are refreshed with a safety margin of at least 24h before expiry.").DurationVar(&c.repositorySyncRetentionPeriod)
+	cmd.Flag("extend-object-locks", "Extend object locks on destination blobs already in sync (one retention-update API request per locked blob per run).").Default("true").BoolVar(&c.repositorySyncExtendObjectLocks)
 
 	c.out.setup(svc)
 	c.progress = svc.getProgress()
@@ -91,21 +97,72 @@ func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src bl
 		log(ctx).Info("NOTE: By default no BLOBs are deleted, pass --delete to allow it.")
 	}
 
-	if err := c.ensureRepositoriesHaveSameFormatBlob(ctx, src, dst); err != nil {
+	dst, blobcfg, err := c.setupDestinationRetention(ctx, dst)
+	if err != nil {
 		return err
+	}
+
+	if err := c.ensureRepositoriesHaveSameFormatBlob(ctx, src, dst); err != nil {
+		return wrapObjectLockError(err)
 	}
 
 	log(ctx).Info("Looking for BLOBs to synchronize...")
 
+	extendLocks := c.extendLocksEnabled(blobcfg)
+
+	plan, err := c.computeSyncPlan(ctx, src, dst, extendLocks)
+	if err != nil {
+		return err
+	}
+
+	log(ctx).Infof(
+		"  Found %v BLOBs to delete (%v), %v in sync (%v)",
+		len(plan.blobsToDelete), units.BytesString(plan.totalDeleteBytes),
+		plan.inSyncBlobs, units.BytesString(plan.inSyncBytes),
+	)
+
+	if extendLocks {
+		log(ctx).Infof("  Found %v BLOBs to extend object locks on", len(plan.blobsToExtend))
+	}
+
+	if c.repositorySyncDryRun {
+		return nil
+	}
+
+	log(ctx).Info("Copying...")
+
+	c.beginSyncProgress()
+
+	finalErr := c.runSyncBlobs(ctx, src, dst, plan.blobsToCopy, plan.blobsToDelete, plan.totalCopyBytes)
+
+	c.finishSyncProcess()
+
+	if finalErr == nil {
+		finalErr = c.extendDestinationLocks(ctx, dst, plan.blobsToExtend, blobcfg)
+	}
+
+	return wrapObjectLockError(finalErr)
+}
+
+// syncPlan describes the work to be performed by a sync-to run.
+type syncPlan struct {
+	blobsToCopy    []blob.Metadata
+	totalCopyBytes int64
+
+	blobsToDelete    []blob.Metadata
+	totalDeleteBytes int64
+
+	blobsToExtend []blob.Metadata
+
+	inSyncBlobs int
+	inSyncBytes int64
+}
+
+// computeSyncPlan lists the source and destination blobs and classifies them
+// into blobs to copy, delete and extend object locks on.
+func (c *commandRepositorySyncTo) computeSyncPlan(ctx context.Context, src blob.Reader, dst blob.Storage, extendLocks bool) (*syncPlan, error) {
 	var (
-		inSyncBlobs int
-		inSyncBytes int64
-
-		blobsToCopy    []blob.Metadata
-		totalCopyBytes int64
-
-		blobsToDelete    []blob.Metadata
-		totalDeleteBytes int64
+		plan syncPlan
 
 		srcBlobs     int
 		totalSrcSize int64
@@ -113,7 +170,7 @@ func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src bl
 
 	dstMetadata, err := c.listDestinationBlobs(ctx, dst)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	c.beginSyncProgress()
@@ -126,22 +183,26 @@ func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src bl
 
 		switch {
 		case !exists:
-			blobsToCopy = append(blobsToCopy, srcmd)
-			totalCopyBytes += srcmd.Length
+			plan.blobsToCopy = append(plan.blobsToCopy, srcmd)
+			plan.totalCopyBytes += srcmd.Length
 		case srcmd.Timestamp.After(dstmd.Timestamp) && c.repositorySyncUpdate:
-			blobsToCopy = append(blobsToCopy, srcmd)
-			totalCopyBytes += srcmd.Length
+			plan.blobsToCopy = append(plan.blobsToCopy, srcmd)
+			plan.totalCopyBytes += srcmd.Length
 		default:
-			inSyncBlobs++
-			inSyncBytes += srcmd.Length
+			plan.inSyncBlobs++
+			plan.inSyncBytes += srcmd.Length
+
+			if shouldExtendObjectLock(extendLocks, srcmd.BlobID) {
+				plan.blobsToExtend = append(plan.blobsToExtend, srcmd)
+			}
 		}
 
 		srcBlobs++
-		c.outputSyncProgress(fmt.Sprintf("  Found %v BLOBs (%v) in the source repository, %v (%v) to copy", srcBlobs, units.BytesString(totalSrcSize), len(blobsToCopy), units.BytesString(totalCopyBytes)))
+		c.outputSyncProgress(fmt.Sprintf("  Found %v BLOBs (%v) in the source repository, %v (%v) to copy", srcBlobs, units.BytesString(totalSrcSize), len(plan.blobsToCopy), units.BytesString(plan.totalCopyBytes)))
 
 		return nil
 	}); err != nil {
-		return errors.Wrap(err, "error listing blobs")
+		return nil, errors.Wrap(err, "error listing blobs")
 	}
 
 	c.finishSyncProcess()
@@ -149,30 +210,68 @@ func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src bl
 	if c.repositorySyncDelete {
 		for _, dstmd := range dstMetadata {
 			// found in dst, not in src since we were deleting from dst as we found a match.
-			blobsToDelete = append(blobsToDelete, dstmd)
-			totalDeleteBytes += dstmd.Length
+			plan.blobsToDelete = append(plan.blobsToDelete, dstmd)
+			plan.totalDeleteBytes += dstmd.Length
 		}
 	}
 
-	log(ctx).Infof(
-		"  Found %v BLOBs to delete (%v), %v in sync (%v)",
-		len(blobsToDelete), units.BytesString(totalDeleteBytes),
-		inSyncBlobs, units.BytesString(inSyncBytes),
-	)
+	return &plan, nil
+}
 
-	if c.repositorySyncDryRun {
+// setupDestinationRetention validates the retention flags and, when retention
+// is enabled, wraps the destination storage so that locking-prefixed blobs are
+// written with the configured retention options.
+func (c *commandRepositorySyncTo) setupDestinationRetention(ctx context.Context, dst blob.Storage) (blob.Storage, format.BlobStorageConfiguration, error) {
+	blobcfg := format.BlobStorageConfiguration{
+		RetentionMode:   blob.RetentionMode(c.repositorySyncRetentionMode),
+		RetentionPeriod: c.repositorySyncRetentionPeriod,
+	}
+	if err := blobcfg.Validate(); err != nil {
+		return dst, blobcfg, errors.Wrap(err, "invalid retention flags")
+	}
+
+	if blobcfg.IsRetentionEnabled() {
+		dst = repo.WrapLockingStorage(dst, blobcfg)
+
+		if c.repositorySyncDelete {
+			log(ctx).Warn("--delete with object-lock retention may create delete markers; locked historical versions remain retained but point-in-time recovery may be required")
+		}
+	}
+
+	return dst, blobcfg, nil
+}
+
+// extendLocksEnabled returns whether object locks on in-sync destination blobs
+// should be extended during this run.
+func (c *commandRepositorySyncTo) extendLocksEnabled(blobcfg format.BlobStorageConfiguration) bool {
+	return blobcfg.IsRetentionEnabled() && c.repositorySyncExtendObjectLocks
+}
+
+// shouldExtendObjectLock returns whether the given in-sync blob is a candidate
+// for object-lock extension.
+func shouldExtendObjectLock(extendLocks bool, id blob.ID) bool {
+	return extendLocks && repo.IsLockingStorageBlobID(id)
+}
+
+// extendDestinationLocks extends object locks on destination blobs that were
+// already in sync and therefore not re-uploaded with fresh retention.
+func (c *commandRepositorySyncTo) extendDestinationLocks(ctx context.Context, dst blob.Storage, blobsToExtend []blob.Metadata, blobcfg format.BlobStorageConfiguration) error {
+	if len(blobsToExtend) == 0 {
 		return nil
 	}
 
-	log(ctx).Info("Copying...")
+	log(ctx).Info("Extending object locks...")
 
 	c.beginSyncProgress()
 
-	finalErr := c.runSyncBlobs(ctx, src, dst, blobsToCopy, blobsToDelete, totalCopyBytes)
+	err := c.runExtendBlobRetention(ctx, dst, blobsToExtend, blob.ExtendOptions{
+		RetentionMode:   blobcfg.RetentionMode,
+		RetentionPeriod: blobcfg.RetentionPeriod,
+	})
 
 	c.finishSyncProcess()
 
-	return finalErr
+	return err
 }
 
 func (c *commandRepositorySyncTo) listDestinationBlobs(ctx context.Context, dst blob.Storage) (map[blob.ID]blob.Metadata, error) {
@@ -349,6 +448,56 @@ func syncDeleteBlob(ctx context.Context, m blob.Metadata, dst blob.Storage) erro
 	}
 
 	return errors.Wrap(err, "error deleting blob")
+}
+
+func (c *commandRepositorySyncTo) runExtendBlobRetention(ctx context.Context, dst blob.Storage, blobsToExtend []blob.Metadata, opts blob.ExtendOptions) error {
+	eg, ctx := errgroup.WithContext(ctx)
+	extendCh := sliceToChannel(ctx, blobsToExtend)
+
+	var totalExtended stats.CountSum
+
+	for workerID := range c.repositorySyncParallelism {
+		eg.Go(func() error {
+			for m := range extendCh {
+				log(ctx).Debugf("[%v] Extending object lock on %v...\n", workerID, m.BlobID)
+
+				if err := syncExtendBlobRetention(ctx, m, dst, opts); err != nil {
+					return errors.Wrapf(err, "error extending object lock on %v", m.BlobID)
+				}
+
+				numBlobs, _ := totalExtended.Add(m.Length)
+
+				c.outputSyncProgress(fmt.Sprintf("  Extended object locks on %v of %v BLOBs", numBlobs, len(blobsToExtend)))
+			}
+
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return errors.Wrap(err, "error extending object locks")
+	}
+
+	return nil
+}
+
+func syncExtendBlobRetention(ctx context.Context, m blob.Metadata, dst blob.Storage, opts blob.ExtendOptions) error {
+	err := dst.ExtendBlobRetention(ctx, m.BlobID, opts)
+
+	// tolerate blobs that disappeared between listing and extension, same as syncDeleteBlob.
+	if errors.Is(err, blob.ErrBlobNotFound) {
+		return nil
+	}
+
+	return wrapObjectLockError(errors.Wrap(err, "error extending blob retention"))
+}
+
+func wrapObjectLockError(err error) error {
+	if errors.Is(err, blob.ErrUnsupportedPutBlobOption) || errors.Is(err, blob.ErrUnsupportedObjectLock) {
+		return errors.Wrap(err, "destination storage does not support object-lock retention; remove --retention-mode/--retention-period or use an object-lock capable destination (e.g. s3)")
+	}
+
+	return err
 }
 
 func (c *commandRepositorySyncTo) ensureRepositoriesHaveSameFormatBlob(ctx context.Context, src blob.Reader, dst blob.Storage) error {
