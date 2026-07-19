@@ -421,21 +421,25 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 		"repository already initialized")
 
 	// backup blobcfg blob
-	{
+	func() {
+		var b gather.WriteBuffer
+		defer b.Close()
+
 		// backup & corrupt the blobcfg blob
-		d.Reset()
-		require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &d))
-		corruptedData := d.Dup()
-		corruptedData.Append([]byte("bad bits"))
-		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, format.KopiaBlobCfgBlobID, corruptedData.Bytes(), blob.PutOptions{}))
+		require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &b))
+
+		originalBlobCfg := b.ToByteSlice()
+
+		b.Append([]byte("bad bits"))
+		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, format.KopiaBlobCfgBlobID, b.Bytes(), blob.PutOptions{}))
 
 		// verify that we error out on corrupted blobcfg blob
 		_, err := repo.Open(ctx, env.ConfigFile(), env.Password, &repo.Options{})
 		require.ErrorContains(t, err, "invalid repository password")
 
 		// restore the original blob
-		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, format.KopiaBlobCfgBlobID, d.Bytes(), blob.PutOptions{}))
-	}
+		require.NoError(t, env.RepositoryWriter.BlobStorage().PutBlob(ctx, format.KopiaBlobCfgBlobID, gather.FromSlice(originalBlobCfg), blob.PutOptions{}))
+	}()
 
 	// verify that we'd hard-fail on unexpected errors on blobcfg blob-puts
 	// when creating a new repository
