@@ -24,7 +24,7 @@ func TestAllFormatsSmokeTest(t *testing.T) {
 		MaxFileSize:            100,
 	}, nil)
 
-	for _, encryptionAlgo := range encryption.SupportedAlgorithms(false) {
+	for _, encryptionAlgo := range encryption.SupportedAlgorithms() {
 		t.Run(encryptionAlgo, func(t *testing.T) {
 			for _, hashAlgo := range hashing.SupportedAlgorithms() {
 				t.Run(hashAlgo, func(t *testing.T) {

@@ -25,7 +25,7 @@ func (c *commandSnapshotDelete) setup(svc appServices, parent commandParent) {
 	cmd.Flag("delete", "Confirm deletion").BoolVar(&c.snapshotDeleteConfirm)
 	// hidden flag for backwards compatibility
 	cmd.Flag("unsafe-ignore-source", "Alias for --delete").Hidden().BoolVar(&c.snapshotDeleteConfirm)
-	cmd.Action(svc.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterActionWithMaintenance(c.run))
 }
 
 func (c *commandSnapshotDelete) run(ctx context.Context, rep repo.RepositoryWriter) error {

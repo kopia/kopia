@@ -29,7 +29,7 @@ func (c *commandSnapshotCopyMoveHistory) setup(svc appServices, parent commandPa
 	cmd.Arg("source", "Source (user@host or user@host:path)").Required().StringVar(&c.snapshotCopyOrMoveSource)
 	cmd.Arg("destination", "Destination (defaults to current user@host)").StringVar(&c.snapshotCopyOrMoveDestination)
 
-	cmd.Action(svc.repositoryWriterAction(func(ctx context.Context, rep repo.RepositoryWriter) error {
+	cmd.Action(svc.repositoryWriterActionWithMaintenance(func(ctx context.Context, rep repo.RepositoryWriter) error {
 		return c.run(ctx, rep, isMove)
 	}))
 }
