@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	net_url "net/url"
-	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -61,22 +60,21 @@ func (c *KopiaAPIClient) Delete(ctx context.Context, urlSuffix string, onNotFoun
 }
 
 // FetchCSRFTokenForTesting fetches the CSRF token and session cookie for use when making subsequent calls to the API.
-// This simulates the browser behavior of downloading the "/" and is required to call the UI-only methods.
+// This bootstraps via /api/v1/auth/status (same anonymous session the login page uses) and is required to call UI API methods.
 func (c *KopiaAPIClient) FetchCSRFTokenForTesting(ctx context.Context) error {
-	var b []byte
+	var status struct {
+		CSRFToken string `json:"csrfToken"`
+	}
 
-	if err := c.Get(ctx, "/", nil, &b); err != nil {
+	if err := c.Get(ctx, "auth/status", nil, &status); err != nil {
 		return err
 	}
 
-	re := regexp.MustCompile(`<meta name="kopia-csrf-token" content="(.*)" />`)
-
-	match := re.FindSubmatch(b)
-	if match == nil {
+	if status.CSRFToken == "" {
 		return errors.New("CSRF token not found")
 	}
 
-	c.CSRFToken = string(match[1])
+	c.CSRFToken = status.CSRFToken
 
 	return nil
 }

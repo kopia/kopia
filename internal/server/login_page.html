@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="kopia-csrf-token" content="{{.CSRFToken}}">
+  <title>{{.TitlePrefix}} — Sign in</title>
+  <link rel="stylesheet" href="/auth-ui/auth.css">
+</head>
+<body>
+  <main class="stage">
+    <header class="brand centered">
+      <img class="brand-mark" src="/auth-ui/logo.svg" alt="">
+      <div>
+        <h1 class="brand-name">Kopia</h1>
+        <p class="tagline">Sign in to your backup server</p>
+      </div>
+    </header>
+
+    <form id="login-form" class="card" autocomplete="on">
+      <div id="password-step">
+        <div class="field">
+          <label for="username">Username</label>
+          <input id="username" name="username" type="text" autocomplete="username" required autofocus value="{{.DefaultUsername}}">
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="actions">
+          <button type="submit" class="btn-primary" id="login-btn">Sign in</button>
+        </div>
+        <div id="passkey-section">
+          <div class="divider">or</div>
+          <div class="actions">
+            <button type="button" class="btn-secondary" id="passkey-btn">Sign in with Passkey</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="totp-step" class="hidden">
+        <p class="totp-hint">Enter the 6-digit code from your authenticator app.</p>
+        <div class="field">
+          <label for="totp">Authentication code</label>
+          <input id="totp" name="totp" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="one-time-code" maxlength="8">
+        </div>
+        <div class="actions">
+          <button type="button" class="btn-primary" id="totp-btn">Verify</button>
+          <button type="button" class="btn-secondary" id="back-btn">Back</button>
+        </div>
+      </div>
+
+      <p class="msg" id="msg" role="status" aria-live="polite"></p>
+    </form>
+  </main>
+
+  <script src="/auth-ui/auth.js"></script>
+  <script src="/auth-ui/login.js"></script>
+</body>
+</html>

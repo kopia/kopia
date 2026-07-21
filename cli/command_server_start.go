@@ -154,6 +154,8 @@ func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Op
 		uiPreferencesFile = filepath.Join(filepath.Dir(c.svc.repositoryConfigFileName()), "ui-preferences.json")
 	}
 
+	mfaCredentialsFile := filepath.Join(filepath.Dir(c.svc.repositoryConfigFileName()), "server-mfa.json")
+
 	return &server.Options{
 		ConfigFile:           c.svc.repositoryConfigFileName(),
 		ConnectOptions:       c.co.toRepoConnectOptions(),
@@ -167,6 +169,7 @@ func (c *commandServerStart) serverStartOptions(ctx context.Context) (*server.Op
 		LogRequests:          c.logServerRequests,
 		PasswordPersist:      c.svc.passwordPersistenceStrategy(),
 		UIPreferencesFile:    uiPreferencesFile,
+		MFACredentialsFile:   mfaCredentialsFile,
 		UITitlePrefix:        c.uiTitlePrefix,
 		PersistentLogs:       c.persistentLogs,
 
