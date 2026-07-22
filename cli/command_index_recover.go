@@ -30,7 +30,7 @@ func (c *commandIndexRecover) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("recover", "Recover indexes from pack blobs")
 	cmd.Flag("blob-prefixes", "Prefixes of pack blobs to recover from (default=all packs)").StringsVar(&c.blobPrefixes)
 	cmd.Flag("blobs", "Names of pack blobs to recover from (default=all packs)").StringsVar(&c.blobIDs)
-	cmd.Flag("parallel", "Recover parallelism").Default("1").IntVar(&c.parallel)
+	cmd.Flag("parallel", "Recover parallelism").Default("1").SetValue(nonNegativeIntVar(&c.parallel))
 	cmd.Flag("ignore-errors", "Ignore errors when recovering").BoolVar(&c.ignoreErrors)
 	cmd.Flag("delete-indexes", "Delete all indexes before recovering").BoolVar(&c.deleteIndexes)
 	cmd.Flag("commit", "Commit recovered content").BoolVar(&c.commit)
