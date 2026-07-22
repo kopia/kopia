@@ -133,6 +133,7 @@ func TLSConfigTrustingSingleCertificate(sha256Fingerprint string) *tls.Config {
 	return &tls.Config{
 		InsecureSkipVerify:    true, //nolint:gosec
 		VerifyPeerCertificate: verifyPeerCertificate(sha256Fingerprint),
+		MinVersion:            tls.VersionTLS13,
 	}
 }
 
