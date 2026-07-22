@@ -53,7 +53,7 @@ func (s *Server) validateCSRFToken(r *http.Request) bool {
 		return true
 	}
 
-	userLog(ctx).Warnf("got invalid CSRF token for %v: %v, want %v, session %v", path, token, validToken, sessionCookie.Value)
+	userLog(ctx).Warnf("got invalid CSRF token for %v", path)
 
 	return false
 }
@@ -67,7 +67,25 @@ func requireUIUser(_ context.Context, rc requestContext) bool {
 		return false
 	}
 
-	user, _, _ := rc.req.BasicAuth()
+	s, ok := rc.srv.(*Server)
+	if ok {
+		if username, sessionOK := s.uiSessionUsername(rc.req); sessionOK {
+			return username == s.options.UIUser
+		}
+
+		// Basic Auth is allowed for CLI tooling, but not when TOTP is enabled for the UI user.
+		user, passOK := authenticatedUsername(rc)
+		if !passOK || user != s.options.UIUser {
+			return false
+		}
+
+		return !s.mfaStore.isTOTPEnabled(user)
+	}
+
+	user, ok := authenticatedUsername(rc)
+	if !ok {
+		return false
+	}
 
 	return user == rc.srv.getOptions().UIUser
 }
@@ -81,7 +99,10 @@ func requireServerControlUser(_ context.Context, rc requestContext) bool {
 		return false
 	}
 
-	user, _, _ := rc.req.BasicAuth()
+	user, ok := authenticatedUsername(rc)
+	if !ok {
+		return false
+	}
 
 	return user == rc.srv.getOptions().ServerControlUser
 }
