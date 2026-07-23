@@ -49,7 +49,7 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:cleanup-logs", contentlog.RandomSpanID()))
 
-	log := rep.LogManager().NewLogger("maintenance-cleanup-logs")
+	log := repodiag.NewContentLogger(rep, "maintenance-cleanup-logs")
 
 	if opt.TimeFunc == nil {
 		opt.TimeFunc = clock.Now
