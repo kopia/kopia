@@ -93,6 +93,7 @@ type SharedManager struct {
 	// exclusive lock will be acquired during compaction or refresh.
 	indexesLock            sync.RWMutex
 	permissiveCacheLoading bool
+	objectLockEnabled      bool
 
 	// maybeRefreshIndexes() will call Refresh() after this point in ime.
 	// +checklocks:indexesLock
@@ -617,6 +618,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 		timeNow:                 opts.TimeNow,
 		format:                  prov,
 		permissiveCacheLoading:  opts.PermissiveCacheLoading,
+		objectLockEnabled:       opts.ObjectLockEnabled,
 		minPreambleLength:       defaultMinPreambleLength,
 		maxPreambleLength:       defaultMaxPreambleLength,
 		paddingUnit:             defaultPaddingUnit,
