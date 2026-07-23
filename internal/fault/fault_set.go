@@ -95,7 +95,7 @@ func (s *Set) GetNextFault(ctx context.Context, method Method, args ...any) (boo
 	// Count down repeat count in fault.
 	if f.repeatCount > 0 {
 		f.repeatCount--
-		log(ctx).Debugf("will repeat %v more times the fault for %v %v", f.repeatCount, method, args)
+		log(ctx).Debugw("fault will repeat", "remainingRepeats", f.repeatCount, "method", method, "args", args)
 	} else {
 		// `repeatCount` == 0.  Remove the fault if there are faults remaining in the queue ...
 		if remaining := faults[1:]; len(remaining) > 0 {
@@ -115,7 +115,7 @@ func (s *Set) GetNextFault(ctx context.Context, method Method, args ...any) (boo
 
 	if delay > 0 {
 		// sleep for a while
-		log(ctx).Debugf("sleeping for %v in %v %v", delay, method, args)
+		log(ctx).Debugw("sleeping before fault", "delay", delay, "method", method, "args", args)
 		time.Sleep(delay)
 	}
 
@@ -134,7 +134,7 @@ func (s *Set) GetNextFault(ctx context.Context, method Method, args ...any) (boo
 
 	if errCb != nil {
 		err := errCb()
-		log(ctx).Debugf("returning %v for %v %v", err, method, args)
+		log(ctx).Debugw("returning fault", "err", err, "method", method, "args", args)
 
 		return true, err
 	}
