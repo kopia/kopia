@@ -25,6 +25,7 @@ import (
 	"github.com/kopia/kopia/notification/sender"
 	"github.com/kopia/kopia/notification/sender/webhook"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -171,6 +172,7 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 	mustGetObjectNotFound(ctx, t, rep, mustParseObjectID(t, "abcd"))
 	mustGetManifestNotFound(ctx, t, rep, "mnosuchmanifest")
 	mustPrefetchObjectsNotFound(ctx, t, rep, mustParseObjectID(t, "abcd"))
+	mustGetCapacityNotAVolume(ctx, t, rep)
 
 	var (
 		result                  object.ID
@@ -422,4 +424,59 @@ func mustParseObjectID(t *testing.T, s string) object.ID {
 	require.NoError(t, err)
 
 	return id
+}
+
+func mustGetCapacityNotAVolume(ctx context.Context, t *testing.T, rep repo.Repository) {
+	t.Helper()
+
+	_, err := rep.GetCapacity(ctx)
+	require.ErrorIs(t, err, blob.ErrNotAVolume, "expected 'not a volume' error")
+}
+
+func mustGetCapacity(ctx context.Context, t *testing.T, rep repo.Repository, wantSizeB, wantFreeB uint64) {
+	t.Helper()
+
+	cp, err := rep.GetCapacity(ctx)
+	require.NoError(t, err, "expected GetCapacity to succeed")
+	require.Equal(t, wantSizeB, cp.SizeB, "unexpected capacity size")
+	require.Equal(t, wantFreeB, cp.FreeB, "unexpected capacity free space")
+}
+
+func TestServer_GetCapacity(t *testing.T) {
+	const storageLimitBytes = int64(10 * 1024 * 1024) // 10 MiB
+
+	limitVal := storageLimitBytes
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		StorageLimitBytes: &limitVal,
+	})
+
+	// Query the expected capacity directly via the local repository so we know
+	// exactly what the gRPC server should return.
+	want, err := env.Repository.GetCapacity(ctx)
+	require.NoError(t, err)
+	require.Equal(t, uint64(storageLimitBytes), want.SizeB, "direct GetCapacity SizeB should equal configured limit")
+
+	apiServerInfo := servertesting.StartServer(t, env, true)
+
+	ctx2, cancel := context.WithCancel(ctx)
+
+	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx2, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory:        testutil.TempDirectory(t),
+		ContentCacheSizeBytes: maxCacheSizeBytes,
+	}, servertesting.TestPassword, &repo.Options{})
+
+	// cancel immediately to ensure we did not spawn goroutines that depend on ctx2 inside
+	// repo.OpenAPIServer()
+	cancel()
+
+	require.NoError(t, err)
+
+	defer rep.Close(ctx)
+
+	// Verify the full gRPC round trip: SizeB and FreeB must match what the
+	// underlying storage reported directly.
+	mustGetCapacity(ctx, t, rep, want.SizeB, want.FreeB)
 }
