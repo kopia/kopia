@@ -447,9 +447,7 @@ func (s *Server) Refresh() {
 	s.serverMutex.Lock()
 	defer s.serverMutex.Unlock()
 
-	ctx := s.rootctx
-
-	if err := s.refreshLocked(ctx); err != nil {
+	if err := s.refreshLocked(s.rootctx); err != nil {
 		userLog(s.rootctx).Warnw("refresh error", "err", err)
 	}
 }
