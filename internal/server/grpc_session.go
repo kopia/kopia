@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.opentelemetry.io/otel"
@@ -14,6 +15,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
@@ -641,9 +643,37 @@ func (s *Server) GRPCRouterHandler(handler http.Handler) http.Handler {
 	defer s.grpcMutex.Unlock()
 
 	if s.grpcServer == nil {
+		keepaliveMinTime := 15 * time.Second
+		if s.options.GRPCKeepaliveMinTime > 0 {
+			keepaliveMinTime = s.options.GRPCKeepaliveMinTime
+		}
+
+		keepaliveTime := 30 * time.Second
+		if s.options.GRPCKeepaliveTime > 0 {
+			keepaliveTime = s.options.GRPCKeepaliveTime
+		}
+
+		keepaliveTimeout := 10 * time.Second
+		if s.options.GRPCKeepaliveTimeout > 0 {
+			keepaliveTimeout = s.options.GRPCKeepaliveTimeout
+		}
+
 		s.grpcServer = grpc.NewServer(
 			grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
 			grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
+			// Keepalive enforcement allows clients to send pings at up to 2x the
+			// server's own ping interval (MinTime=15s vs client Time=30s).
+			// PermitWithoutStream allows pings during idle periods so dead
+			// connections are detected even between backup operations.
+			// See https://github.com/kopia/kopia/issues/3073
+			grpc.KeepaliveEnforcementPolicy(keepalive.EnforcementPolicy{
+				MinTime:             keepaliveMinTime,
+				PermitWithoutStream: true,
+			}),
+			grpc.KeepaliveParams(keepalive.ServerParameters{
+				Time:    keepaliveTime,
+				Timeout: keepaliveTimeout,
+			}),
 		)
 
 		s.RegisterGRPCHandlers(s.grpcServer)
