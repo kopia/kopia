@@ -162,6 +162,10 @@ func testPolicyMergeSingleField(t *testing.T, fieldName string, typ reflect.Type
 		v0 = reflect.ValueOf("")
 		v1 = reflect.ValueOf("FIXED-2M")
 		v2 = reflect.ValueOf("FIXED-4M")
+	case "policy.ExtensionSet":
+		v0 = reflect.ValueOf(policy.ExtensionSet{})
+		v1 = reflect.ValueOf(*policy.NewExtensionSet("txt"))
+		v2 = reflect.ValueOf(*policy.NewExtensionSet("png"))
 
 	default:
 		t.Fatalf("unhandled case: %v - %v - please update test", fieldName, typ)
@@ -236,26 +240,26 @@ func disableParentMerging(p *policy.Policy) {
 func TestPolicyMergeOnlyCompressIncludingParents(t *testing.T) {
 	p0 := &policy.Policy{
 		CompressionPolicy: policy.CompressionPolicy{
-			OnlyCompress: []string{"a", "c", "e"},
+			OnlyCompress: *policy.NewExtensionSet("a", "C", "e"),
 		},
 	}
 
 	p1 := &policy.Policy{
 		CompressionPolicy: policy.CompressionPolicy{
-			OnlyCompress: []string{"b", "d"},
+			OnlyCompress: *policy.NewExtensionSet("b", "D"),
 		},
 	}
 
 	p2 := &policy.Policy{
 		CompressionPolicy: policy.CompressionPolicy{
-			OnlyCompress: []string{"f", "g"},
+			OnlyCompress: *policy.NewExtensionSet("f", "g"),
 		},
 	}
 
 	result, _ := policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want := *policy.DefaultPolicy
-	want.CompressionPolicy.OnlyCompress = []string{"a", "b", "c", "d", "e", "f", "g"}
+	want.CompressionPolicy.OnlyCompress = *policy.NewExtensionSet("a", "b", "c", "d", "e", "f", "g")
 
 	require.Equal(t, want.String(), result.String())
 
@@ -263,7 +267,7 @@ func TestPolicyMergeOnlyCompressIncludingParents(t *testing.T) {
 	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want = policy.Policy{}
-	want.CompressionPolicy.OnlyCompress = []string{"a", "b", "c", "d", "e", "f", "g"}
+	want.CompressionPolicy.OnlyCompress = *policy.NewExtensionSet("a", "b", "c", "d", "e", "f", "g")
 
 	require.Equal(t, want.String(), result.String())
 
@@ -271,7 +275,7 @@ func TestPolicyMergeOnlyCompressIncludingParents(t *testing.T) {
 	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want = policy.Policy{}
-	want.CompressionPolicy.OnlyCompress = []string{"a", "b", "c", "d", "e"}
+	want.CompressionPolicy.OnlyCompress = *policy.NewExtensionSet("a", "b", "c", "d", "e")
 
 	require.Equal(t, want.String(), result.String())
 
@@ -279,7 +283,7 @@ func TestPolicyMergeOnlyCompressIncludingParents(t *testing.T) {
 	result, _ = policy.MergePolicies([]*policy.Policy{p0, p1, p2}, p0.Target())
 
 	want = policy.Policy{}
-	want.CompressionPolicy.OnlyCompress = []string{"a", "c", "e"}
+	want.CompressionPolicy.OnlyCompress = *policy.NewExtensionSet("a", "c", "e")
 
 	require.Equal(t, want.String(), result.String())
 }
