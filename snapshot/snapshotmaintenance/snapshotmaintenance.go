@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/snapshot/snapshotgc"
@@ -20,7 +21,7 @@ func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.M
 		return ErrReadonly
 	}
 
-	dr.LogManager().Enable()
+	repodiag.EnableContentLog(dr)
 
 	//nolint:wrapcheck
 	return maintenance.RunExclusive(ctx, dr, mode, force,
