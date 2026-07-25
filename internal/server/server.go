@@ -388,7 +388,6 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 		rc.w.Header().Set("Content-Type", "application/json")
 
 		e := json.NewEncoder(rc.w)
-		e.SetIndent("", "  ")
 
 		var (
 			v   any
