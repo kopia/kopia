@@ -26,7 +26,7 @@ func GetFileAllocSize(fname string) (uint64, error) {
 		return 0, err //nolint:wrapcheck
 	}
 
-	return uint64(st.Blocks) * diskBlockSize, nil
+	return uint64(st.Blocks) * diskBlockSize, nil //nolint:gosec
 }
 
 // GetBlockSize gets the disk block size of the underlying system.

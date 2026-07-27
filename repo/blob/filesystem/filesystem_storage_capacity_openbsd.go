@@ -21,7 +21,7 @@ func (fs *fsStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 
 		return blob.Capacity{
 			SizeB: uint64(stat.F_blocks) * uint64(stat.F_bsize), //nolint:unconvert,nolintlint
-			FreeB: uint64(stat.F_bavail) * uint64(stat.F_bsize), //nolint:unconvert,nolintlint
+			FreeB: uint64(stat.F_bavail) * uint64(stat.F_bsize), //nolint:unconvert,nolintlint,gosec
 		}, nil
 	}, fs.Impl.(*fsImpl).isRetriable) //nolint:forcetypeassert
 }

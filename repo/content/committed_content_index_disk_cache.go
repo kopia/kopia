@@ -44,6 +44,7 @@ func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlo
 	ndx, err := index.Open(f, closeMmap, c.v1PerContentOverhead)
 	if err != nil {
 		closeMmap() //nolint:errcheck
+
 		return nil, errors.Wrapf(err, "error opening index from %v", indexBlobID)
 	}
 

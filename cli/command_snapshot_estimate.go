@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -80,7 +81,9 @@ func (c *commandSnapshotEstimate) run(ctx context.Context, rep repo.Repository) 
 		UserName: rep.ClientOptions().Username,
 	}
 
-	entry, err := getLocalFSEntry(ctx, path)
+	// snapshot estimate only reads cached fs.Entry metadata and never opens files,
+	// so localfs.Options has no effect — pass the zero value.
+	entry, err := getLocalFSEntry(ctx, path, localfs.Options{})
 	if err != nil {
 		return err
 	}

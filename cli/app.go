@@ -83,6 +83,7 @@ type appServices interface {
 	directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error
 	repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error
 	repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
+	repositoryWriterActionWithMaintenance(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error
 	repositoryHintAction(act func(ctx context.Context, rep repo.Repository) []string) func() []string
 	baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error
 	openRepository(ctx context.Context, mustBeConnected bool) (repo.Repository, error)
@@ -433,32 +434,51 @@ func (c *App) directRepositoryWriteAction(act func(ctx context.Context, rep repo
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
 			Purpose:  "cli:" + c.currentActionName(),
 			OnUpload: c.progress.UploadedBytes,
-		}, func(ctx context.Context, dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
-	}), repositoryAccessMode{})
+		}, act)
+	}))
 }
 
 func (c *App) directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
-	return c.repositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
-		return act(ctx, rep)
-	}), repositoryAccessMode{})
+	return c.repositoryAction(assertDirectRepository(act))
 }
 
 func (c *App) repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
-	return c.repositoryAction(func(ctx context.Context, rep repo.Repository) error {
-		return act(ctx, rep)
-	}, repositoryAccessMode{})
+	return c.repositoryAction(act)
 }
 
+// repositoryWriterAction runs act in a write session. It does NOT trigger
+// automatic maintenance, so it is appropriate for control-only operations that
+// modify repository configuration (policies, ACLs, users, ...) rather than
+// snapshot data.
 func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+	return c.repositoryAction(
+		func(ctx context.Context, rep repo.Repository) error {
+			return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
+				Purpose:  "cli:" + c.currentActionName(),
+				OnUpload: c.progress.UploadedBytes,
+			}, act)
+		})
+}
+
+// repositoryWriterActionWithMaintenance runs act in a write session and
+// may run opportunistic automatic maintenance on success. It should be used
+// only for operations that modify snapshot data such as snapshot create/delete.
+func (c *App) repositoryWriterActionWithMaintenance(act func(ctx context.Context, rw repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
 	return c.repositoryAction(func(ctx context.Context, rep repo.Repository) error {
-		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
+		o := repo.WriteSessionOptions{
 			Purpose:  "cli:" + c.currentActionName(),
 			OnUpload: c.progress.UploadedBytes,
-		}, func(ctx context.Context, w repo.RepositoryWriter) error {
-			return act(ctx, w)
-		})
-	}, repositoryAccessMode{
-		allowMaintenance: true,
+		}
+
+		if err := repo.WriteSession(ctx, rep, o, act); err != nil {
+			return errors.Wrap(err, "running in write session")
+		}
+
+		if err := c.maybeRunMaintenance(ctx, rep); err != nil {
+			return errors.Wrap(err, "running auto-maintenance")
+		}
+
+		return nil
 	})
 }
 
@@ -499,17 +519,13 @@ func (c *App) runAppWithContext(command *kingpin.CmdClause, cb func(ctx context.
 	return nil
 }
 
-type repositoryAccessMode struct {
-	allowMaintenance bool
-}
-
 func (c *App) baseActionWithContext(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		return c.runAppWithContext(kpc.SelectedCommand, act)
 	}
 }
 
-func (c *App) repositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
+func (c *App) repositoryAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return c.baseActionWithContext(func(ctx context.Context) error {
 		const requireConnected = true
 
@@ -521,12 +537,6 @@ func (c *App) repositoryAction(act func(ctx context.Context, rep repo.Repository
 		t0 := clock.Now()
 
 		err = act(ctx, rep)
-
-		if rep != nil && err == nil && mode.allowMaintenance {
-			if merr := c.maybeRunMaintenance(ctx, rep); merr != nil {
-				err = errors.Wrap(merr, "running auto-maintenance") // surface auto-maintenance error
-			}
-		}
 
 		if err != nil && c.enableErrorNotifications() && rep != nil {
 			notification.Send(ctx, rep, "generic-error", notifydata.NewErrorInfo(
@@ -573,6 +583,10 @@ func (c *App) repositoryHintAction(act func(ctx context.Context, rep repo.Reposi
 
 func (c *App) maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 	if !c.enableAutomaticMaintenance {
+		return nil
+	}
+
+	if rep == nil {
 		return nil
 	}
 

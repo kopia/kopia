@@ -25,7 +25,7 @@ func (c *commandSnapshotFixRemoveFiles) setup(svc appServices, parent commandPar
 	cmd.Flag("object-id", "Remove files by their object ID").StringsVar(&c.removeObjectIDs)
 	cmd.Flag("filename", "Remove files by filename (wildcards are supported)").StringsVar(&c.removeFilesByName)
 
-	cmd.Action(svc.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterActionWithMaintenance(c.run))
 }
 
 func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, pathFromRoot string, ent *snapshot.DirEntry) (*snapshot.DirEntry, error) {

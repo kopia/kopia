@@ -106,7 +106,7 @@ endif
 # tool versions
 GOLANGCI_LINT_VERSION=2.6.1
 CHECKLOCKS_VERSION=release-20241104.0
-NODE_VERSION=22.15.1
+NODE_VERSION=24.16.0
 HUGO_VERSION=0.113.0
 GOTESTSUM_VERSION=1.13.0
 GORELEASER_VERSION=v0.176.0
@@ -121,7 +121,7 @@ else
 node_dir=$(node_base_dir)$(slash)bin
 endif
 npm=$(node_dir)$(slash)npm$(cmd_suffix)
-npm_flags=--scripts-prepend-node-path=auto
+npm_flags=--ignore-scripts --allow-git=none
 
 npm_install_or_ci:=install
 ifneq ($(CI),)

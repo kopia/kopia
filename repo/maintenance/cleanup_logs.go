@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/repodiag"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/maintenancestats"
@@ -54,7 +55,7 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 		opt.TimeFunc = clock.Now
 	}
 
-	allLogBlobs, err := blob.ListAllBlobs(ctx, rep.BlobStorage(), "_")
+	allLogBlobs, err := blob.ListAllBlobs(ctx, rep.BlobStorage(), repodiag.LogBlobPrefix)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing logs")
 	}

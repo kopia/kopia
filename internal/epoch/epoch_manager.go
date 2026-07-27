@@ -1021,8 +1021,30 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (*maintenancestat
 		return nil, err
 	}
 
+	// Defense in depth: oldestUncompactedEpoch is expected to always return a
+	// non-negative, not-yet-compacted epoch, but guard against picking one that
+	// is already covered by another compacted set.
+	if uncompacted < 0 {
+		return nil, errors.Errorf("oldestUncompactedEpoch returned invalid epoch %v", uncompacted)
+	}
+
 	if !cs.isSettledEpochNumber(uncompacted) {
 		contentlog.Log1(ctx, e.log, "there are no uncompacted epochs eligible for compaction", logparam.Int("oldestUncompactedEpoch", uncompacted))
+
+		return nil, nil
+	}
+
+	if _, alreadyCompacted := cs.SingleEpochCompactionSets[uncompacted]; alreadyCompacted {
+		contentlog.Log1(ctx, e.log, "unexpected: selected epoch is already single-compacted, skipping", logparam.Int("epoch", uncompacted))
+
+		return nil, nil
+	}
+
+	if rangeCompacted := getRangeCompactedRange(cs); !rangeCompacted.isEmpty() && uncompacted <= rangeCompacted.hi {
+		contentlog.Log3(ctx, e.log, "unexpected: selected epoch is within the range-compacted window, skipping",
+			logparam.Int("epoch", uncompacted),
+			logparam.Int("rangeLo", rangeCompacted.lo),
+			logparam.Int("rangeHi", rangeCompacted.hi))
 
 		return nil, nil
 	}
@@ -1036,6 +1058,12 @@ func (e *Manager) MaybeCompactSingleEpoch(ctx context.Context) (*maintenancestat
 		}
 
 		uncompactedBlobs = ue
+	}
+
+	if len(uncompactedBlobs) == 0 {
+		// Does not catch cases where some but not all xn blobs in an epoch are missing;
+		// e.g. a previous compaction and partial deletion of superseded xn blobs.
+		return nil, nil
 	}
 
 	var uncompactedSize uint64

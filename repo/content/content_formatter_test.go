@@ -29,7 +29,7 @@ func TestFormatters(t *testing.T) {
 
 	for _, hashAlgo := range hashing.SupportedAlgorithms() {
 		t.Run(hashAlgo, func(t *testing.T) {
-			for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
+			for _, encryptionAlgo := range encryption.SupportedAlgorithms() {
 				t.Run(encryptionAlgo, func(t *testing.T) {
 					ctx := testlogging.Context(t)
 

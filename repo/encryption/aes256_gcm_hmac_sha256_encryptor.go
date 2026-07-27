@@ -69,7 +69,7 @@ func (e aes256GCMHmacSha256) Overhead() int {
 }
 
 func init() {
-	Register("AES256-GCM-HMAC-SHA256", "AES-256-GCM using per-content key generated using HMAC-SHA256", false, func(p Parameters) (Encryptor, error) {
+	Register("AES256-GCM-HMAC-SHA256", "AES-256-GCM using per-content key generated using HMAC-SHA256", func(p Parameters) (Encryptor, error) {
 		keyDerivationSecret, err := deriveKey(p, []byte(purposeEncryptionKey), aes256KeyDerivationSecretSize)
 		if err != nil {
 			return nil, err

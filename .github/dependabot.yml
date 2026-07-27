@@ -37,7 +37,7 @@ updates:
       github-actions:
         patterns:
         - "actions/*"
-        - "github/codeql-action"
+        - "github/codeql-action/*"
       docker:
         patterns:
         - "docker/*"
