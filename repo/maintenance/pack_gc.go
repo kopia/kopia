@@ -44,6 +44,15 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	var eg errgroup.Group
 
+	// Under a storage-level retention policy (e.g. S3 Object Lock in
+	// compliance mode) some of these unreferenced packs may still be
+	// within their retention window and genuinely cannot be deleted yet
+	// by anyone, not just kopia - that's the point of compliance mode.
+	// Failing the whole maintenance run's exit code for that is wrong:
+	// the pack is simply not eligible for reclamation this cycle and
+	// will be picked up again once its retention expires naturally.
+	objectLockEnabled := rep.ContentManager().IsObjectLockEnabled()
+
 	unused := make(chan blob.Metadata, deleteQueueSize)
 
 	if !opt.DryRun {
@@ -52,6 +61,15 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 			eg.Go(func() error {
 				for bm := range unused {
 					if err := rep.BlobStorage().DeleteBlob(ctx, bm.BlobID); err != nil {
+						if objectLockEnabled {
+							contentlog.Log2(ctx, log,
+								"could not delete unreferenced pack blob (object lock enabled), leaving it for a future maintenance cycle",
+								blobparam.BlobID("blobID", bm.BlobID),
+								logparam.Error("error", err))
+
+							continue
+						}
+
 						return errors.Wrapf(err, "unable to delete pack blob %q", bm.BlobID)
 					}
 

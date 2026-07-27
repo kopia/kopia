@@ -121,6 +121,13 @@ func (sm *SharedManager) IsReadOnly() bool {
 	return sm.st.IsReadOnly()
 }
 
+// IsObjectLockEnabled returns whether the underlying storage has a retention
+// policy (e.g. S3 Object Lock) that may keep some blobs undeletable until
+// their retention expires, independent of what kopia wants to do with them.
+func (sm *SharedManager) IsObjectLockEnabled() bool {
+	return sm.objectLockEnabled
+}
+
 // LoadIndexBlob return index information loaded from the specified blob.
 func (sm *SharedManager) LoadIndexBlob(ctx context.Context, ibid blob.ID, d *gather.WriteBuffer) ([]Info, error) {
 	err := sm.st.GetBlob(ctx, ibid, 0, -1, d)
