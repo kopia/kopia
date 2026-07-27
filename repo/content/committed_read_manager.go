@@ -527,7 +527,8 @@ func (sm *SharedManager) setupCachesAndIndexManagers(ctx context.Context, cachin
 				return errors.Wrap(sm.indexBlobManagerV1.CompactEpoch(ctx, blobIDs, outputPrefix), "CompactEpoch")
 			},
 			sm.namedLogger("epoch-manager"),
-			sm.timeNow),
+			sm.timeNow,
+			sm.objectLockEnabled),
 		sm.timeNow,
 		sm.format,
 		sm.namedLogger("index-blob-manager"),

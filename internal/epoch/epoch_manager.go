@@ -187,6 +187,17 @@ type Manager struct {
 	log      *contentlog.Logger
 	timeFunc func() time.Time
 
+	// objectLockEnabled indicates the underlying storage has a retention
+	// policy (e.g. S3 Object Lock) that may prevent deleting this
+	// manager's own epoch markers and deletion watermark blobs before
+	// their retention expires. When set, CleanupMarkers tolerates
+	// failures to delete these blobs instead of treating them as fatal -
+	// see the analogous fix in repo/content/sessions.go for session
+	// markers. The blobs are internal bookkeeping only; leaving one
+	// around until its retention lock naturally expires does not affect
+	// the durability or visibility of any already-committed content.
+	objectLockEnabled bool
+
 	// wait group that waits for all compaction and cleanup goroutines.
 	backgroundWork sync.WaitGroup
 
@@ -360,7 +371,20 @@ func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot, d
 		}
 	}
 
-	return uint64(len(toDelete)), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism), "error deleting index blob marker")
+	err := blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism)
+	if err != nil && e.objectLockEnabled {
+		contentlog.Log1(ctx, e.log,
+			"could not delete some epoch marker blobs (object lock enabled), leaving them to expire",
+			logparam.Error("error", err))
+
+		// We don't know exactly how many of toDelete actually succeeded
+		// before the tolerated error (DeleteMultiple reports one combined
+		// error, not per-blob results) - report 0 rather than claim a
+		// count we can't verify.
+		return 0, nil
+	}
+
+	return uint64(len(toDelete)), errors.Wrap(err, "error deleting index blob marker")
 }
 
 func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, maxReplacementTime time.Time, deleteParallelism int) (uint64, error) {
@@ -381,7 +405,18 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, max
 		}
 	}
 
-	return uint64(len(toDelete)), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism), "error deleting watermark blobs")
+	err := blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism)
+	if err != nil && e.objectLockEnabled {
+		contentlog.Log1(ctx, e.log,
+			"could not delete some deletion watermark blobs (object lock enabled), leaving them to expire",
+			logparam.Error("error", err))
+
+		// See cleanupEpochMarkers: DeleteMultiple gives one combined
+		// error, not per-blob results, so we can't claim a verified count.
+		return 0, nil
+	}
+
+	return uint64(len(toDelete)), errors.Wrap(err, "error deleting watermark blobs")
 }
 
 // CleanupSupersededIndexes cleans up the indexes which have been superseded by compacted ones.
@@ -1144,13 +1179,14 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 }
 
 // NewManager creates new epoch manager.
-func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log *contentlog.Logger, timeNow func() time.Time) *Manager {
+func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log *contentlog.Logger, timeNow func() time.Time, objectLockEnabled bool) *Manager {
 	return &Manager{
 		st:                           st,
 		log:                          log,
 		compact:                      compactor,
 		timeFunc:                     timeNow,
 		paramProvider:                paramProvider,
+		objectLockEnabled:            objectLockEnabled,
 		getCompleteIndexSetTooSlow:   new(int32),
 		committedStateRefreshTooSlow: new(int32),
 		writeIndexTooSlow:            new(int32),
