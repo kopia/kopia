@@ -292,6 +292,11 @@ func openWithConfig(ctx context.Context, st blob.Storage, cliOpts ClientOptions,
 
 	if blobcfg.IsRetentionEnabled() {
 		st = wrapLockingStorage(st, blobcfg)
+
+		// Let the content manager know Object Lock is in effect so it tolerates
+		// a session marker that a stricter bucket-level policy (e.g. a bucket
+		// default retention) may have locked, instead of aborting every flush.
+		cmOpts.ObjectLockEnabled = true
 	}
 
 	_, err = retry.WithExponentialBackoffMaxRetries(ctx, -1, "wait for upgrade", func() (any, error) {

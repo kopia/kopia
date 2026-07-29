@@ -13,6 +13,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobcrypto"
+	"github.com/kopia/kopia/internal/blobparam"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -123,6 +126,26 @@ func (bm *WriteManager) getOrStartSessionLocked(ctx context.Context) (SessionID,
 func (bm *WriteManager) commitSession(ctx context.Context) error {
 	for _, b := range bm.sessionMarkerBlobIDs {
 		if err := bm.st.DeleteBlob(ctx, b); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
+			// Under S3 Object Lock the session marker may itself be
+			// retention-locked (for example when the bucket carries a default
+			// retention that applies to every object, since session markers are
+			// deliberately not in GetLockingStoragePrefixes and so kopia never
+			// requests a lock on them). Failing to delete it is not fatal: the
+			// index blobs written in this session are already durable and
+			// visible - readers never consult session markers - blob GC stops
+			// treating the session as active once it ages past
+			// SessionExpirationAge, and the marker expires with the retention
+			// the bucket applied. Log and continue rather than aborting the
+			// flush and losing the just-written snapshot.
+			if bm.objectLockEnabled {
+				contentlog.Log2(ctx, bm.log,
+					"could not delete session marker (object lock enabled), leaving it to expire",
+					blobparam.BlobID("blobID", b),
+					logparam.Error("error", err))
+
+				continue
+			}
+
 			return errors.Wrapf(err, "failed to delete session marker %v", b)
 		}
 	}

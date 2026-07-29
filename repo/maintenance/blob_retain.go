@@ -29,7 +29,16 @@ type ExtendBlobRetentionTimeOptions struct {
 }
 
 // extendBlobRetentionTime extends the retention time of all relevant blobs managed by storage engine with Object Locking enabled.
-func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions) (*maintenancestats.ExtendBlobRetentionStats, error) {
+//
+// Pack blobs that garbage collection is about to reclaim are deliberately left
+// alone. Renewing their retention on every maintenance cycle would push the
+// expiry date further out each time, so a blob that GC already wants to delete
+// could never be deleted again and the repository would grow without bound.
+// Under a compliance-mode lock that is not recoverable: nobody, including the
+// account owner, can remove the object before its retention expires. The
+// safety margins for "about to be reclaimed" are shared with
+// DeleteUnreferencedPacks rather than re-derived, see pack_eligibility.go.
+func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWriter, opt ExtendBlobRetentionTimeOptions, safety SafetyParameters) (*maintenancestats.ExtendBlobRetentionStats, error) {
 	ctx = contentlog.WithParams(ctx,
 		logparam.String("span:blob-retain", contentlog.RandomSpanID()))
 	log := rep.LogManager().NewLogger("maintenance-blob-retain")
@@ -63,6 +72,17 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 		opt.Parallel = runtime.NumCPU() * parallelBlobRetainCPUMultiplier
 	}
 
+	// Determined before extending anything, so the decision is taken against
+	// one consistent view of the repository. Only pack blobs can appear in
+	// here; index, epoch and format blobs are never reclaimable and must stay
+	// locked for as long as the repository exists.
+	reclaimable, err := reclaimablePackBlobs(ctx, rep, opt.Parallel, safety)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to determine reclaimable pack blobs")
+	}
+
+	var skipped atomic.Uint64
+
 	// start goroutines to extend blob retention as they come.
 	for range opt.Parallel {
 		wg.Go(func() error {
@@ -91,6 +111,19 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	contentlog.Log(ctx, log, "Extending retention time for blobs...")
 
 	err = blob.IterateAllPrefixesInParallel(ctx, opt.Parallel, rep.BlobStorage(), repo.GetLockingStoragePrefixes(), func(bm blob.Metadata) error {
+		if _, ok := reclaimable[bm.BlobID]; ok {
+			// GC wants this pack gone. Extending it now would make that
+			// impossible for another full retention period, every cycle,
+			// forever.
+			skipped.Add(1)
+
+			contentlog.Log1(ctx, log,
+				"not extending reclaimable pack blob",
+				blobparam.BlobID("blobID", bm.BlobID))
+
+			return nil
+		}
+
 		extend <- bm
 
 		toExtend.Add(1)
@@ -100,7 +133,9 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	close(extend)
 
-	contentlog.Log1(ctx, log, "Found blobs to extend", logparam.UInt64("count", toExtend.Load()))
+	contentlog.Log2(ctx, log, "Found blobs to extend",
+		logparam.UInt64("count", toExtend.Load()),
+		logparam.UInt64("skippedReclaimable", skipped.Load()))
 
 	errWait := wg.Wait() // wait for all extend workers to finish.
 	impossible.PanicOnError(errWait)
@@ -114,9 +149,10 @@ func extendBlobRetentionTime(ctx context.Context, rep repo.DirectRepositoryWrite
 	}
 
 	result := &maintenancestats.ExtendBlobRetentionStats{
-		ToExtendBlobCount: toExtend.Load(),
-		ExtendedBlobCount: extendedCount.Load(),
-		RetentionPeriod:   extendOpts.RetentionPeriod.String(),
+		ToExtendBlobCount:           toExtend.Load(),
+		ExtendedBlobCount:           extendedCount.Load(),
+		SkippedReclaimableBlobCount: skipped.Load(),
+		RetentionPeriod:             extendOpts.RetentionPeriod.String(),
 	}
 
 	contentlog.Log1(ctx, log, "Extended retention time for blobs", result)

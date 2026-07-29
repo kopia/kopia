@@ -93,6 +93,7 @@ type SharedManager struct {
 	// exclusive lock will be acquired during compaction or refresh.
 	indexesLock            sync.RWMutex
 	permissiveCacheLoading bool
+	objectLockEnabled      bool
 
 	// maybeRefreshIndexes() will call Refresh() after this point in ime.
 	// +checklocks:indexesLock
@@ -118,6 +119,13 @@ type SharedManager struct {
 // reads or if it also supports mutations to the index.
 func (sm *SharedManager) IsReadOnly() bool {
 	return sm.st.IsReadOnly()
+}
+
+// IsObjectLockEnabled returns whether the underlying storage has a retention
+// policy (e.g. S3 Object Lock) that may keep some blobs undeletable until
+// their retention expires, independent of what kopia wants to do with them.
+func (sm *SharedManager) IsObjectLockEnabled() bool {
+	return sm.objectLockEnabled
 }
 
 // LoadIndexBlob return index information loaded from the specified blob.
@@ -526,7 +534,8 @@ func (sm *SharedManager) setupCachesAndIndexManagers(ctx context.Context, cachin
 				return errors.Wrap(sm.indexBlobManagerV1.CompactEpoch(ctx, blobIDs, outputPrefix), "CompactEpoch")
 			},
 			sm.namedLogger("epoch-manager"),
-			sm.timeNow),
+			sm.timeNow,
+			sm.objectLockEnabled),
 		sm.timeNow,
 		sm.format,
 		sm.namedLogger("index-blob-manager"),
@@ -617,6 +626,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 		timeNow:                 opts.TimeNow,
 		format:                  prov,
 		permissiveCacheLoading:  opts.PermissiveCacheLoading,
+		objectLockEnabled:       opts.ObjectLockEnabled,
 		minPreambleLength:       defaultMinPreambleLength,
 		maxPreambleLength:       defaultMaxPreambleLength,
 		paddingUnit:             defaultPaddingUnit,

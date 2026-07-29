@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"slices"
 	"sort"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -104,7 +105,7 @@ func newTestEnv(t *testing.T) *epochManagerTestEnv {
 		EpochAdvanceOnCountThreshold:          15,
 		EpochAdvanceOnTotalSizeBytesThreshold: 20 << 20,
 		DeleteParallelism:                     1,
-	}}, te.compact, nil, te.ft.NowFunc())
+	}}, te.compact, nil, te.ft.NowFunc(), false)
 	te.mgr = m
 	te.faultyStorage = fs
 	te.data = data
@@ -123,7 +124,7 @@ func (te *epochManagerTestEnv) another() *epochManagerTestEnv {
 		faultyStorage: te.faultyStorage,
 	}
 
-	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc)
+	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc, te.mgr.objectLockEnabled)
 
 	return te2
 }
@@ -648,7 +649,7 @@ func TestIndexEpochManager_NoCompactionInReadOnly(t *testing.T) {
 	}
 
 	// Set new epoch manager to read-only to ensure we don't get stuck.
-	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc)
+	te2.mgr = NewManager(te2.st, te.mgr.paramProvider, te2.compact, te.mgr.log, te.mgr.timeFunc, te.mgr.objectLockEnabled)
 
 	// Use assert.Eventually here so we'll exit the test early instead of getting
 	// stuck until the timeout.
@@ -1974,6 +1975,211 @@ func TestCleanupMarkers_CleanUpManyMarkers(t *testing.T) {
 	cs, err = te.mgr.Current(ctx)
 	require.NoError(t, err)
 	require.Len(t, cs.EpochMarkerBlobs, 2) // at least 2 epoch markers are kept
+}
+
+// TestCleanupMarkers_ToleratesLockedBlobsWithObjectLock verifies that with
+// objectLockEnabled a CleanupMarkers run succeeds even when its own epoch
+// marker and deletion watermark blobs cannot be deleted. This is the S3
+// Object Lock case: a bucket default retention locks every object,
+// including kopia's own internal bookkeeping blobs, not just user data.
+// The already-committed indexes must stay intact - only the undeletable
+// marker blobs are left in place to expire on their own.
+func TestCleanupMarkers_ToleratesLockedBlobsWithObjectLock(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	te.mgr.objectLockEnabled = true
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	const epochsToAdvance = 5
+
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(0))
+
+	for i := range epochsToAdvance {
+		te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+		te.mgr.forceAdvanceEpoch(ctx)
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i+1))
+	}
+
+	require.NoError(t, te.mgr.Refresh(ctx))
+	te.verifyCurrentWriteEpoch(t, epochsToAdvance)
+
+	cs, err := te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Len(t, cs.EpochMarkerBlobs, epochsToAdvance)
+
+	// From here on every DeleteBlob fails, standing in for retention-locked
+	// epoch marker / watermark blobs that S3 Object Lock (compliance mode)
+	// refuses to delete.
+	te.faultyStorage.AddFault(blobtesting.MethodDeleteBlob).
+		Repeat(1000).
+		ErrorInstead(errors.New("AccessDenied: object is WORM protected"))
+
+	stats, err := te.mgr.CleanupMarkers(ctx)
+	require.NoError(t, err, "CleanupMarkers must tolerate undeletable marker blobs when object lock is enabled")
+	require.NotNil(t, stats)
+
+	// the epoch markers that could not be deleted were left in storage
+	// rather than aborting cleanup.
+	require.NoError(t, te.mgr.Refresh(ctx))
+	te.verifyCurrentWriteEpoch(t, epochsToAdvance)
+
+	cs, err = te.mgr.Current(ctx)
+	require.NoError(t, err)
+	require.Len(t, cs.EpochMarkerBlobs, epochsToAdvance, "undeletable epoch markers must remain in storage")
+}
+
+// TestCleanupMarkers_FailsOnLockedBlobsWithoutObjectLock is the negative
+// case: without objectLockEnabled a DeleteBlob failure during marker cleanup
+// stays fatal, preserving the strict behavior for non-object-lock
+// repositories, where a delete failure signals a real storage problem.
+func TestCleanupMarkers_FailsOnLockedBlobsWithoutObjectLock(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	const epochsToAdvance = 5
+
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(0))
+
+	for i := range epochsToAdvance {
+		te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+		te.mgr.forceAdvanceEpoch(ctx)
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i+1))
+	}
+
+	require.NoError(t, te.mgr.Refresh(ctx))
+	te.verifyCurrentWriteEpoch(t, epochsToAdvance)
+
+	te.faultyStorage.AddFault(blobtesting.MethodDeleteBlob).
+		Repeat(1000).
+		ErrorInstead(errors.New("AccessDenied"))
+
+	_, err = te.mgr.CleanupMarkers(ctx)
+	require.Error(t, err, "CleanupMarkers must fail on undeletable marker blobs when object lock is disabled")
+}
+
+// setupSupersededIndexes brings the manager into the state
+// CleanupSupersededIndexes actually acts on: uncompacted index blobs for an
+// epoch that already has a single-epoch compaction set, written long enough
+// ago to be past CleanupSafetyMargin. It returns the number of uncompacted
+// index blobs present at that point.
+func setupSupersededIndexes(ctx context.Context, t *testing.T, te *epochManagerTestEnv) int {
+	t.Helper()
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	// write indexes into epoch 0, then move on so epoch 0 becomes compactable.
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(1))
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(2))
+
+	for range 3 {
+		te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+		require.NoError(t, te.mgr.forceAdvanceEpoch(ctx))
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(3))
+	}
+
+	require.NoError(t, te.mgr.Refresh(ctx))
+
+	_, err = te.mgr.MaybeCompactSingleEpoch(ctx)
+	require.NoError(t, err)
+
+	// Move well past the safety margin so the compaction set counts as
+	// "written sufficiently long ago" and its uncompacted inputs become
+	// deletable. Advancing the fake clock alone is not enough:
+	// maxCleanupTime derives the storage clock from the newest blob
+	// timestamp in the repository, so without a write after the advance the
+	// newest blob is still the compaction set itself, maxReplacementTime
+	// stays before it, and nothing becomes eligible - which silently makes
+	// the whole test vacuous.
+	te.ft.Advance(p.CleanupSafetyMargin + 24*time.Hour)
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(4))
+	require.NoError(t, te.mgr.Refresh(ctx))
+
+	var uncompacted int
+
+	for blobID := range te.data {
+		if strings.HasPrefix(string(blobID), string(UncompactedIndexBlobPrefix)) {
+			uncompacted++
+		}
+	}
+
+	return uncompacted
+}
+
+// TestCleanupSupersededIndexes_ToleratesLockedBlobsWithObjectLock covers the
+// third distinct Object Lock failure site, the one that hit
+// srv-mog-prod-nextcloud-02 in production while already running the release
+// that fixed the epoch marker and pack GC paths:
+//
+//	error cleaning up epoch manager: error removing superseded epoch index
+//	blobs: unable to delete uncompacted blobs: ... xn0_... : AccessDenied
+//
+// A superseded uncompacted index blob has a compacted replacement already in
+// storage, so leaving it behind is dead weight, not a correctness problem. It
+// must not fail the maintenance run.
+func TestCleanupSupersededIndexes_ToleratesLockedBlobsWithObjectLock(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	te.mgr.objectLockEnabled = true
+	ctx := testlogging.Context(t)
+
+	uncompacted := setupSupersededIndexes(ctx, t, te)
+	require.Positive(t, uncompacted, "test setup must leave uncompacted index blobs to delete")
+
+	// From here on every DeleteBlob fails, standing in for retention-locked
+	// uncompacted index blobs that S3 Object Lock refuses to delete.
+	te.faultyStorage.AddFault(blobtesting.MethodDeleteBlob).
+		Repeat(1000).
+		ErrorInstead(errors.New("AccessDenied: object is WORM protected"))
+
+	stats, err := te.mgr.CleanupSupersededIndexes(ctx)
+	require.NoError(t, err, "CleanupSupersededIndexes must tolerate undeletable index blobs when object lock is enabled")
+	require.NotNil(t, stats)
+	require.Zero(t, stats.DeletedBlobCount, "nothing was actually deleted, so the reported count must not claim otherwise")
+
+	// the blobs that could not be deleted were left in storage.
+	var stillThere int
+
+	for blobID := range te.data {
+		if strings.HasPrefix(string(blobID), string(UncompactedIndexBlobPrefix)) {
+			stillThere++
+		}
+	}
+
+	require.Equal(t, uncompacted, stillThere, "undeletable uncompacted index blobs must remain in storage")
+
+	// the repository is still readable afterwards.
+	require.NoError(t, te.mgr.Refresh(ctx))
+}
+
+// TestCleanupSupersededIndexes_FailsOnLockedBlobsWithoutObjectLock is the
+// negative case: without object lock a delete failure signals a real storage
+// problem and must stay fatal.
+func TestCleanupSupersededIndexes_FailsOnLockedBlobsWithoutObjectLock(t *testing.T) {
+	t.Parallel()
+
+	te := newTestEnv(t)
+	ctx := testlogging.Context(t)
+
+	uncompacted := setupSupersededIndexes(ctx, t, te)
+	require.Positive(t, uncompacted, "test setup must leave uncompacted index blobs to delete")
+
+	te.faultyStorage.AddFault(blobtesting.MethodDeleteBlob).
+		Repeat(1000).
+		ErrorInstead(errors.New("AccessDenied"))
+
+	_, err := te.mgr.CleanupSupersededIndexes(ctx)
+	require.Error(t, err, "CleanupSupersededIndexes must fail on undeletable index blobs when object lock is disabled")
 }
 
 func randomTime(minTime, maxTime time.Duration) time.Duration {

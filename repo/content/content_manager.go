@@ -961,6 +961,16 @@ func (bm *WriteManager) MetadataCache() cache.ContentCache {
 type ManagerOptions struct {
 	TimeNow                func() time.Time // Time provider
 	PermissiveCacheLoading bool
+
+	// ObjectLockEnabled indicates the repository uses blob retention (S3
+	// Object Lock). When set, commitSession tolerates a failure to delete a
+	// session marker instead of failing the whole flush: under Object Lock a
+	// session marker may itself be retention-locked (for example when the
+	// bucket carries a default retention that applies to every object), and a
+	// lingering session marker is harmless. Readers never consult session
+	// markers, blob GC stops treating the session as active once it ages past
+	// SessionExpirationAge, and the marker expires with its own retention.
+	ObjectLockEnabled bool
 }
 
 // CloneOrDefault returns a clone of provided ManagerOptions or default empty struct if nil.

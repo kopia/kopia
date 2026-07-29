@@ -101,7 +101,7 @@ func TestBuildExtraSuccess(t *testing.T) {
 			},
 			expected: Extra{
 				Kind: extendBlobRetentionStatsKind,
-				Data: []byte(`{"toExtendBlobCount":10,"extendedBlobCount":10,"retentionPeriod":"360h0m0s"}`),
+				Data: []byte(`{"toExtendBlobCount":10,"extendedBlobCount":10,"skippedReclaimableBlobCount":0,"retentionPeriod":"360h0m0s"}`),
 			},
 		},
 		{
@@ -291,7 +291,7 @@ func TestBuildFromExtraSuccess(t *testing.T) {
 			name: "ExtendBlobRetentionStats",
 			stats: Extra{
 				Kind: extendBlobRetentionStatsKind,
-				Data: []byte(`{"toExtendBlobCount":10,"extendedBlobCount":10,"retentionPeriod":"360h0m0s"}`),
+				Data: []byte(`{"toExtendBlobCount":10,"extendedBlobCount":10,"skippedReclaimableBlobCount":0,"retentionPeriod":"360h0m0s"}`),
 			},
 			expected: &ExtendBlobRetentionStats{
 				ToExtendBlobCount: 10,

@@ -187,6 +187,17 @@ type Manager struct {
 	log      *contentlog.Logger
 	timeFunc func() time.Time
 
+	// objectLockEnabled indicates the underlying storage has a retention
+	// policy (e.g. S3 Object Lock) that may prevent deleting this
+	// manager's own epoch markers and deletion watermark blobs before
+	// their retention expires. When set, CleanupMarkers tolerates
+	// failures to delete these blobs instead of treating them as fatal -
+	// see the analogous fix in repo/content/sessions.go for session
+	// markers. The blobs are internal bookkeeping only; leaving one
+	// around until its retention lock naturally expires does not affect
+	// the durability or visibility of any already-committed content.
+	objectLockEnabled bool
+
 	// wait group that waits for all compaction and cleanup goroutines.
 	backgroundWork sync.WaitGroup
 
@@ -360,7 +371,20 @@ func (e *Manager) cleanupEpochMarkers(ctx context.Context, cs CurrentSnapshot, d
 		}
 	}
 
-	return uint64(len(toDelete)), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism), "error deleting index blob marker")
+	err := blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism)
+	if err != nil && e.objectLockEnabled {
+		contentlog.Log1(ctx, e.log,
+			"could not delete some epoch marker blobs (object lock enabled), leaving them to expire",
+			logparam.Error("error", err))
+
+		// We don't know exactly how many of toDelete actually succeeded
+		// before the tolerated error (DeleteMultiple reports one combined
+		// error, not per-blob results) - report 0 rather than claim a
+		// count we can't verify.
+		return 0, nil
+	}
+
+	return uint64(len(toDelete)), errors.Wrap(err, "error deleting index blob marker")
 }
 
 func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, maxReplacementTime time.Time, deleteParallelism int) (uint64, error) {
@@ -381,7 +405,18 @@ func (e *Manager) cleanupWatermarks(ctx context.Context, cs CurrentSnapshot, max
 		}
 	}
 
-	return uint64(len(toDelete)), errors.Wrap(blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism), "error deleting watermark blobs")
+	err := blob.DeleteMultiple(ctx, e.st, toDelete, deleteParallelism)
+	if err != nil && e.objectLockEnabled {
+		contentlog.Log1(ctx, e.log,
+			"could not delete some deletion watermark blobs (object lock enabled), leaving them to expire",
+			logparam.Error("error", err))
+
+		// See cleanupEpochMarkers: DeleteMultiple gives one combined
+		// error, not per-blob results, so we can't claim a verified count.
+		return 0, nil
+	}
+
+	return uint64(len(toDelete)), errors.Wrap(err, "error deleting watermark blobs")
 }
 
 // CleanupSupersededIndexes cleans up the indexes which have been superseded by compacted ones.
@@ -433,7 +468,31 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*maintenancesta
 	}
 
 	if err := blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism); err != nil {
-		return nil, errors.Wrap(err, "unable to delete uncompacted blobs")
+		if !e.objectLockEnabled {
+			return nil, errors.Wrap(err, "unable to delete uncompacted blobs")
+		}
+
+		// Same reasoning as cleanupEpochMarkers/cleanupWatermarks: under a
+		// storage-level retention policy (e.g. S3 Object Lock in compliance
+		// mode) an uncompacted index blob may still be inside its retention
+		// window and cannot be deleted by anyone yet. The compacted
+		// replacement already exists, so the superseded blob is dead weight,
+		// not a correctness problem, and a later maintenance cycle will
+		// remove it once retention expires. Failing the whole maintenance
+		// run's exit code for it is wrong.
+		contentlog.Log1(ctx, e.log,
+			"could not delete some superseded uncompacted index blobs (object lock enabled), leaving them to expire",
+			logparam.Error("error", err))
+
+		// DeleteMultiple reports one combined error rather than per-blob
+		// results, so we cannot say how many of toDelete actually got
+		// deleted before the tolerated failure. Report 0 instead of a count
+		// we cannot verify.
+		return &maintenancestats.CleanupSupersededIndexesStats{
+			MaxReplacementTime: maxReplacementTime,
+			DeletedBlobCount:   0,
+			DeletedTotalSize:   0,
+		}, nil
 	}
 
 	return &maintenancestats.CleanupSupersededIndexesStats{
@@ -856,7 +915,28 @@ func (e *Manager) WriteIndex(ctx0 context.Context, dataShards map[blob.ID]blob.B
 
 		if cs.WriteEpoch != writtenForEpoch {
 			if err = e.deletePartiallyWrittenShards(ctx, written); err != nil {
-				return nil, errors.Wrap(err, "unable to delete partially written shard")
+				if !e.objectLockEnabled {
+					return nil, errors.Wrap(err, "unable to delete partially written shard")
+				}
+
+				// Unlike the other tolerated sites this one is not in
+				// maintenance but in the index write path, so an intolerant
+				// failure here fails an actual snapshot, not just the
+				// maintenance exit code. Under Object Lock it is also
+				// guaranteed to fail: these shards were written seconds ago
+				// and are therefore squarely inside their retention window.
+				//
+				// Leaving them behind is safe. They are uncompacted index
+				// blobs for the epoch we were writing for, they reference
+				// content that really was written to packs, and index
+				// entries are additive - a reader that picks them up sees
+				// real content, never a missing or wrong entry. The shards
+				// get rewritten for the new write epoch below, and
+				// CleanupSupersededIndexes removes the orphans once that
+				// epoch has a compaction set and retention has expired.
+				contentlog.Log1(ctx, e.log,
+					"could not delete partially written index shards (object lock enabled), leaving them for a future maintenance cycle",
+					logparam.Error("error", err))
 			}
 
 			writtenForEpoch = cs.WriteEpoch
@@ -1144,13 +1224,14 @@ func rangeCheckpointBlobPrefix(epoch1, epoch2 int) blob.ID {
 }
 
 // NewManager creates new epoch manager.
-func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log *contentlog.Logger, timeNow func() time.Time) *Manager {
+func NewManager(st blob.Storage, paramProvider ParametersProvider, compactor CompactionFunc, log *contentlog.Logger, timeNow func() time.Time, objectLockEnabled bool) *Manager {
 	return &Manager{
 		st:                           st,
 		log:                          log,
 		compact:                      compactor,
 		timeFunc:                     timeNow,
 		paramProvider:                paramProvider,
+		objectLockEnabled:            objectLockEnabled,
 		getCompleteIndexSetTooSlow:   new(int32),
 		committedStateRefreshTooSlow: new(int32),
 		writeIndexTooSlow:            new(int32),
