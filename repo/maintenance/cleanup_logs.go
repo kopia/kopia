@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/blobparam"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
@@ -109,14 +110,49 @@ func CleanupLogs(ctx context.Context, rep repo.DirectRepositoryWriter, opt LogRe
 	contentlog.Log1(ctx, log, "Clean up logs", result)
 
 	if !opt.DryRun {
+		// Under a storage-level retention policy (e.g. S3 Object Lock in
+		// compliance mode, or a bucket default retention that applies to
+		// every object) a log blob can still be inside its retention window
+		// and is undeletable by anyone. Log blobs are pure diagnostics, so
+		// keeping one for another cycle costs nothing but storage - failing
+		// the whole maintenance run's exit code for it is wrong. Note this
+		// is not a corner case with our defaults: log retention is 30 days
+		// and a typical Object Lock retention is also 30 days, so the two
+		// boundaries coincide.
+		objectLockEnabled := rep.ContentManager().IsObjectLockEnabled()
+
+		var deletedCount, retainedByLock uint64
+
+		var deletedSize uint64
+
 		for _, bm := range toDelete {
 			if err := rep.BlobStorage().DeleteBlob(ctx, bm.BlobID); err != nil {
+				if objectLockEnabled {
+					retainedByLock++
+
+					contentlog.Log2(ctx, log,
+						"could not delete log blob (object lock enabled), leaving it for a future maintenance cycle",
+						blobparam.BlobID("blobID", bm.BlobID),
+						logparam.Error("error", err))
+
+					continue
+				}
+
 				return nil, errors.Wrapf(err, "error deleting log %v", bm.BlobID)
 			}
+
+			deletedCount++
+			deletedSize += maintenancestats.ToUint64(bm.Length)
 		}
 
-		result.DeletedBlobCount = result.ToDeleteBlobCount
-		result.DeletedBlobSize = result.ToDeleteBlobSize
+		if retainedByLock > 0 {
+			contentlog.Log1(ctx, log,
+				"some log blobs could not be deleted because of object lock retention",
+				logparam.UInt64("retainedByLock", retainedByLock))
+		}
+
+		result.DeletedBlobCount = deletedCount
+		result.DeletedBlobSize = deletedSize
 	}
 
 	return result, nil
