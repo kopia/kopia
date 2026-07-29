@@ -468,7 +468,31 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*maintenancesta
 	}
 
 	if err := blob.DeleteMultiple(ctx, e.st, toDelete, p.DeleteParallelism); err != nil {
-		return nil, errors.Wrap(err, "unable to delete uncompacted blobs")
+		if !e.objectLockEnabled {
+			return nil, errors.Wrap(err, "unable to delete uncompacted blobs")
+		}
+
+		// Same reasoning as cleanupEpochMarkers/cleanupWatermarks: under a
+		// storage-level retention policy (e.g. S3 Object Lock in compliance
+		// mode) an uncompacted index blob may still be inside its retention
+		// window and cannot be deleted by anyone yet. The compacted
+		// replacement already exists, so the superseded blob is dead weight,
+		// not a correctness problem, and a later maintenance cycle will
+		// remove it once retention expires. Failing the whole maintenance
+		// run's exit code for it is wrong.
+		contentlog.Log1(ctx, e.log,
+			"could not delete some superseded uncompacted index blobs (object lock enabled), leaving them to expire",
+			logparam.Error("error", err))
+
+		// DeleteMultiple reports one combined error rather than per-blob
+		// results, so we cannot say how many of toDelete actually got
+		// deleted before the tolerated failure. Report 0 instead of a count
+		// we cannot verify.
+		return &maintenancestats.CleanupSupersededIndexesStats{
+			MaxReplacementTime: maxReplacementTime,
+			DeletedBlobCount:   0,
+			DeletedTotalSize:   0,
+		}, nil
 	}
 
 	return &maintenancestats.CleanupSupersededIndexesStats{
@@ -891,7 +915,28 @@ func (e *Manager) WriteIndex(ctx0 context.Context, dataShards map[blob.ID]blob.B
 
 		if cs.WriteEpoch != writtenForEpoch {
 			if err = e.deletePartiallyWrittenShards(ctx, written); err != nil {
-				return nil, errors.Wrap(err, "unable to delete partially written shard")
+				if !e.objectLockEnabled {
+					return nil, errors.Wrap(err, "unable to delete partially written shard")
+				}
+
+				// Unlike the other tolerated sites this one is not in
+				// maintenance but in the index write path, so an intolerant
+				// failure here fails an actual snapshot, not just the
+				// maintenance exit code. Under Object Lock it is also
+				// guaranteed to fail: these shards were written seconds ago
+				// and are therefore squarely inside their retention window.
+				//
+				// Leaving them behind is safe. They are uncompacted index
+				// blobs for the epoch we were writing for, they reference
+				// content that really was written to packs, and index
+				// entries are additive - a reader that picks them up sees
+				// real content, never a missing or wrong entry. The shards
+				// get rewritten for the new write epoch below, and
+				// CleanupSupersededIndexes removes the orphans once that
+				// epoch has a compaction set and retention has expired.
+				contentlog.Log1(ctx, e.log,
+					"could not delete partially written index shards (object lock enabled), leaving them for a future maintenance cycle",
+					logparam.Error("error", err))
 			}
 
 			writtenForEpoch = cs.WriteEpoch
