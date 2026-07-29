@@ -94,58 +94,49 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 		prefixes = append(prefixes, content.PackBlobIDPrefixRegular, content.PackBlobIDPrefixSpecial, content.BlobIDPrefixSession)
 	}
 
-	activeSessions, err := rep.ContentManager().ListActiveSessions(ctx)
+	// The same predicate the extend step uses, so the two cannot disagree
+	// about which packs are about to be reclaimed. See pack_eligibility.go.
+	elig, err := newPackEligibility(ctx, rep, opt.NotAfterTime, safety)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to load active sessions")
+		return nil, err
 	}
-
-	cutoffTime := opt.NotAfterTime
-	if cutoffTime.IsZero() {
-		cutoffTime = rep.Time()
-	}
-
-	// move the cutoff time a bit forward, because on Windows clock does not reliably move forward so we may end
-	// up not deleting some blobs - this only really affects tests, since BlobDeleteMinAge provides real
-	// protection here.
-	const cutoffTimeSlack = 1 * time.Second
-
-	cutoffTime = cutoffTime.Add(cutoffTimeSlack)
 
 	// iterate all pack blobs + session blobs and keep ones that are too young or
 	// belong to alive sessions.
 	if err := rep.ContentManager().IterateUnreferencedPacks(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
-		if bm.Timestamp.After(cutoffTime) {
+		switch elig.reason(bm) {
+		case packRetainedAfterCutoff:
 			retained.Add(bm.Length)
 
 			contentlog.Log3(ctx, log,
 				"preserving pack - after cutoff time",
 				blobparam.BlobID("blobID", bm.BlobID),
-				logparam.Time("cutoffTime", cutoffTime),
+				logparam.Time("cutoffTime", elig.cutoffTime),
 				logparam.Time("timestamp", bm.Timestamp))
-			return nil
-		}
 
-		if age := cutoffTime.Sub(bm.Timestamp); age < safety.PackDeleteMinAge {
+			return nil
+
+		case packRetainedBelowMinAge:
 			retained.Add(bm.Length)
 
 			contentlog.Log2(ctx, log,
 				"preserving pack - below min age",
 				blobparam.BlobID("blobID", bm.BlobID),
-				logparam.Duration("age", age))
+				logparam.Duration("age", elig.age(bm)))
+
 			return nil
-		}
 
-		sid := content.SessionIDFromBlobID(bm.BlobID)
-		if s, ok := activeSessions[sid]; ok {
-			if age := cutoffTime.Sub(s.CheckpointTime); age < safety.SessionExpirationAge {
-				retained.Add(bm.Length)
+		case packRetainedActiveSession:
+			retained.Add(bm.Length)
 
-				contentlog.Log2(ctx, log,
-					"preserving pack - part of active session",
-					blobparam.BlobID("blobID", bm.BlobID),
-					logparam.String("sessionID", string(sid)))
-				return nil
-			}
+			contentlog.Log2(ctx, log,
+				"preserving pack - part of active session",
+				blobparam.BlobID("blobID", bm.BlobID),
+				logparam.String("sessionID", string(content.SessionIDFromBlobID(bm.BlobID))))
+
+			return nil
+
+		case packEligible:
 		}
 
 		unreferenced.Add(bm.Length)

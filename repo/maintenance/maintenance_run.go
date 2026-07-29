@@ -492,9 +492,9 @@ func runTaskDeleteOrphanedPacksQuick(ctx context.Context, runParams RunParameter
 	})
 }
 
-func runTaskExtendBlobRetentionTimeFull(ctx context.Context, runParams RunParameters, s *Schedule) error {
+func runTaskExtendBlobRetentionTimeFull(ctx context.Context, runParams RunParameters, s *Schedule, safety SafetyParameters) error {
 	return ReportRun(ctx, runParams.rep, TaskExtendBlobRetentionTimeFull, s, func() (maintenancestats.Kind, error) {
-		return extendBlobRetentionTime(ctx, runParams.rep, ExtendBlobRetentionTimeOptions{})
+		return extendBlobRetentionTime(ctx, runParams.rep, ExtendBlobRetentionTimeOptions{}, safety)
 	})
 }
 
@@ -533,7 +533,7 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 
 	// extend retention-time on supported storage.
 	if runParams.Params.ExtendObjectLocks {
-		if err := runTaskExtendBlobRetentionTimeFull(ctx, runParams, s); err != nil {
+		if err := runTaskExtendBlobRetentionTimeFull(ctx, runParams, s, safety); err != nil {
 			return errors.Wrap(err, "error extending object lock retention time")
 		}
 	} else {
