@@ -41,6 +41,16 @@ type Options struct {
 	ConnectOptions       func(*repo.ConnectOptions)
 	NewRepositoryOptions func(*repo.NewRepositoryOptions)
 	OpenOptions          func(*repo.Options)
+
+	// WrapStorage, if set, is applied to the environment's storage as the
+	// outermost layer, so it sees every blob operation the repository makes.
+	// Its main use is fault injection via blobtesting.NewFaultyStorage:
+	// without it there is no way to make a repository-level test observe a
+	// failing DeleteBlob, because the in-memory storages this package builds
+	// always succeed, and blobtesting.NewVersionedMapStorage models S3
+	// versioning (DeleteBlob inserts a delete marker) rather than a hard
+	// object-lock denial.
+	WrapStorage func(blob.Storage) blob.Storage
 }
 
 // RepositoryMetrics returns metrics.Registry associated with a repository.
@@ -100,6 +110,18 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	} else {
 		// use versioned mock storage when retention settings are specified
 		st = blobtesting.NewVersionedMapStorage(openOpt.TimeNowFunc)
+	}
+
+	// Applied before the reconnectable wrapper on purpose. That wrapper
+	// registers itself in a global map and repo.Open resolves the connection
+	// info back to exactly that instance, so anything wrapped *around* it is
+	// invisible to the opened repository. Wrapping the base storage first
+	// puts the layer inside, where the repository's own calls pass through
+	// it.
+	for _, mod := range opts {
+		if mod.WrapStorage != nil {
+			st = mod.WrapStorage(st)
+		}
 	}
 
 	st = NewReconnectableStorage(tb, st)
