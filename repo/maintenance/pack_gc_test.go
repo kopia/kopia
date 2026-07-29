@@ -4,6 +4,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/gather"
@@ -23,6 +25,7 @@ import (
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/repo/maintenancestats"
 	"github.com/kopia/kopia/repo/object"
 )
 
@@ -147,6 +150,84 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedPacks(t *testing.T) {
 
 	diff := cmp.Diff(blobsBefore, blobsAfter)
 	require.Empty(t, diff, "unexpected blobs")
+}
+
+// TestDeleteUnreferencedPacksDoesNotDeadlockOnPersistentDeleteFailure covers a
+// deadlock that is easy to hit and hard to diagnose. The delete workers leave
+// their range loop as soon as one of them returns an error, while the producer
+// keeps sending into a buffered channel. Once every worker is gone and the
+// buffer is full, the send blocks forever: close(unused) and eg.Wait() are
+// never reached, and the maintenance run sits there with no output and no CPU
+// use until it is killed. SIGTERM does not clear it either, because the
+// goroutine is parked on a channel send rather than on the context.
+//
+// The threshold is deleteQueueSize plus the worker count, so roughly 116 with
+// the defaults, and it is unrelated to repository size. S3 Object Lock is
+// simply the most reliable way to produce a persistent DeleteBlob failure;
+// any storage that keeps rejecting deletes does the same, which is why this
+// test runs without object lock enabled.
+func TestDeleteUnreferencedPacksDoesNotDeadlockOnPersistentDeleteFailure(t *testing.T) {
+	t.Parallel()
+
+	var faulty *blobtesting.FaultyStorage
+
+	ctx, env := repotesting.NewEnvironment(t, format.FormatVersion3, repotesting.Options{
+		WrapStorage: func(st blob.Storage) blob.Storage {
+			faulty = blobtesting.NewFaultyStorage(st)
+			return faulty
+		},
+	})
+
+	// Comfortably more than deleteQueueSize + parallelism, so the producer
+	// still has blobs to hand over after the last worker has given up.
+	const unreferencedBlobs = 250
+
+	// Hex-only IDs on purpose: kopia parses pack blob IDs, and a name with
+	// non-hex characters is skipped instead of being treated as an
+	// unreferenced pack, which would make this test silently vacuous.
+	for i := range unreferencedBlobs {
+		mustPutDummyBlob(t, env.RepositoryWriter.BlobStorage(), blob.ID(fmt.Sprintf("pbeef%08x", i)))
+	}
+
+	// Every delete from here on is refused, standing in for a storage-level
+	// retention policy or any other permanent denial.
+	faulty.AddFault(blobtesting.MethodDeleteBlob).
+		Repeat(10 * unreferencedBlobs).
+		ErrorInstead(errors.New("AccessDenied"))
+
+	type outcome struct {
+		stats *maintenancestats.DeleteUnreferencedPacksStats
+		err   error
+	}
+
+	done := make(chan outcome, 1)
+
+	go func() {
+		// SafetyNone so the blobs we just wrote are immediately eligible
+		// instead of being retained by PackDeleteMinAge.
+		s, err := maintenance.DeleteUnreferencedPacks(ctx, env.RepositoryWriter,
+			maintenance.DeleteUnreferencedPacksOptions{}, maintenance.SafetyNone)
+		done <- outcome{stats: s, err: err}
+	}()
+
+	select {
+	case res := <-done:
+		if res.err == nil && res.stats != nil {
+			// Guard against a vacuous pass: if the GC pass found nothing to
+			// delete, it never exercised the delete path at all and this
+			// test proves nothing.
+			require.Failf(t, "GC pass did not attempt any deletes",
+				"unreferenced=%d retained=%d deleted=%d - the seeded blobs were not treated as unreferenced packs",
+				res.stats.UnreferencedPackCount, res.stats.RetainedPackCount, res.stats.DeletedPackCount)
+		}
+
+		// Returning an error is the correct behaviour without object lock:
+		// a delete that keeps failing is a real storage problem. What must
+		// not happen is not returning at all.
+		require.Error(t, res.err, "a persistent delete failure must fail the GC pass, not succeed")
+	case <-time.After(30 * time.Second):
+		t.Fatal("DeleteUnreferencedPacks did not return - the producer is deadlocked on the delete queue")
+	}
 }
 
 func verifyBlobExists(t *testing.T, st blob.Storage, blobID blob.ID) {

@@ -42,7 +42,24 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	var unreferenced, deleted, retained stats.CountSum
 
-	var eg errgroup.Group
+	// errgroup.WithContext, not a bare errgroup: the delete workers below
+	// leave their range loop as soon as one of them returns an error, and
+	// the producer keeps feeding a buffered channel. Once every worker is
+	// gone and the buffer is full, an unguarded `unused <- bm` blocks
+	// forever - close(unused) and eg.Wait() are never reached and the whole
+	// maintenance run hangs with no output and no CPU use. The cancelled
+	// context is what lets the producer notice that and stop.
+	//
+	// Observed in production against S3 Object Lock, where practically
+	// every delete is denied: runs sat wedged for 11 hours after their
+	// snapshot had already succeeded, and only SIGKILL cleared them
+	// (SIGTERM does not, since the goroutine is blocked on a channel send
+	// rather than on the context). The threshold is low - deleteQueueSize
+	// plus opt.Parallel unreferenced blobs, so ~116 with the defaults - and
+	// it has nothing to do with repository size. Object Lock is only the
+	// most reliable way to trigger it; any persistent DeleteBlob failure
+	// does the same.
+	eg, egCtx := errgroup.WithContext(ctx)
 
 	unused := make(chan blob.Metadata, deleteQueueSize)
 
@@ -95,7 +112,7 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 
 	// iterate all pack blobs + session blobs and keep ones that are too young or
 	// belong to alive sessions.
-	if err := rep.ContentManager().IterateUnreferencedPacks(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
+	iterErr := rep.ContentManager().IterateUnreferencedPacks(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
 		if bm.Timestamp.After(cutoffTime) {
 			retained.Add(bm.Length)
 
@@ -133,15 +150,32 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 		unreferenced.Add(bm.Length)
 
 		if !opt.DryRun {
-			unused <- bm
+			select {
+			case unused <- bm:
+			case <-egCtx.Done():
+				// Every delete worker has given up. Stop producing; the
+				// worker's error is reported below and is the real cause.
+				return egCtx.Err()
+			}
 		}
 
 		return nil
-	}); err != nil {
-		return nil, errors.Wrap(err, "error looking for unreferenced pack blobs")
+	})
+
+	// Close and drain before looking at either error, so no worker is left
+	// blocked on a channel that nobody will ever close.
+	close(unused)
+
+	// The workers' error takes precedence: when the producer aborted, it did
+	// so *because* the workers were gone, and their failure is the root
+	// cause rather than the cancellation it caused.
+	if werr := eg.Wait(); werr != nil {
+		return nil, errors.Wrap(werr, "worker error")
 	}
 
-	close(unused)
+	if iterErr != nil {
+		return nil, errors.Wrap(iterErr, "error looking for unreferenced pack blobs")
+	}
 
 	unreferencedCount, unreferencedSize := unreferenced.Approximate()
 	retainedCount, retainedSize := retained.Approximate()
@@ -156,11 +190,6 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 	}
 
 	contentlog.Log1(ctx, log, "Found unreferenced pack blobs to delete", result)
-
-	// wait for all delete workers to finish.
-	if err := eg.Wait(); err != nil {
-		return nil, errors.Wrap(err, "worker error")
-	}
 
 	if opt.DryRun {
 		return result, nil
