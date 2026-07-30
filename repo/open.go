@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -207,7 +208,16 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 		beforeFlush:      options.BeforeFlush,
 	}
 
-	return openGRPCAPIRepository(ctx, si, password, par)
+	res, err := openGRPCAPIRepository(ctx, si, password, par)
+	if err == nil {
+		return res, nil
+	}
+
+	if err2 := par.Close(ctx); err2 != nil {
+		err = stderrors.Join(err, err2)
+	}
+
+	return nil, err
 }
 
 // openDirect opens the repository that directly manipulates blob storage..
