@@ -83,6 +83,7 @@ const (
 	ErrorResponse_OBJECT_NOT_FOUND   ErrorResponse_Code = 4
 	ErrorResponse_ACCESS_DENIED      ErrorResponse_Code = 5
 	ErrorResponse_STREAM_BROKEN      ErrorResponse_Code = 6
+	ErrorResponse_NOT_A_VOLUME       ErrorResponse_Code = 7
 )
 
 // Enum value maps for ErrorResponse_Code.
@@ -95,6 +96,7 @@ var (
 		4: "OBJECT_NOT_FOUND",
 		5: "ACCESS_DENIED",
 		6: "STREAM_BROKEN",
+		7: "NOT_A_VOLUME",
 	}
 	ErrorResponse_Code_value = map[string]int32{
 		"UNKNOWN_ERROR":      0,
@@ -104,6 +106,7 @@ var (
 		"OBJECT_NOT_FOUND":   4,
 		"ACCESS_DENIED":      5,
 		"STREAM_BROKEN":      6,
+		"NOT_A_VOLUME":       7,
 	}
 )
 
@@ -131,7 +134,7 @@ func (x ErrorResponse_Code) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use ErrorResponse_Code.Descriptor instead.
 func (ErrorResponse_Code) EnumDescriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{2, 0}
+	return file_repository_server_proto_rawDescGZIP(), []int{3, 0}
 }
 
 // corresponds to content.Info
@@ -304,6 +307,59 @@ func (x *ManifestEntryMetadata) GetLabels() map[string]string {
 	return nil
 }
 
+// corresponds to blob.Capacity
+type Capacity struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	SizeB         uint64                 `protobuf:"varint,1,opt,name=size_b,json=sizeB,proto3" json:"size_b,omitempty"`
+	FreeB         uint64                 `protobuf:"varint,2,opt,name=free_b,json=freeB,proto3" json:"free_b,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Capacity) Reset() {
+	*x = Capacity{}
+	mi := &file_repository_server_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Capacity) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Capacity) ProtoMessage() {}
+
+func (x *Capacity) ProtoReflect() protoreflect.Message {
+	mi := &file_repository_server_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Capacity.ProtoReflect.Descriptor instead.
+func (*Capacity) Descriptor() ([]byte, []int) {
+	return file_repository_server_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Capacity) GetSizeB() uint64 {
+	if x != nil {
+		return x.SizeB
+	}
+	return 0
+}
+
+func (x *Capacity) GetFreeB() uint64 {
+	if x != nil {
+		return x.FreeB
+	}
+	return 0
+}
+
 // ErrorResponse can be sent in response to any request.
 type ErrorResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -315,7 +371,7 @@ type ErrorResponse struct {
 
 func (x *ErrorResponse) Reset() {
 	*x = ErrorResponse{}
-	mi := &file_repository_server_proto_msgTypes[2]
+	mi := &file_repository_server_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -327,7 +383,7 @@ func (x *ErrorResponse) String() string {
 func (*ErrorResponse) ProtoMessage() {}
 
 func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[2]
+	mi := &file_repository_server_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -340,7 +396,7 @@ func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorResponse.ProtoReflect.Descriptor instead.
 func (*ErrorResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{2}
+	return file_repository_server_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ErrorResponse) GetCode() ErrorResponse_Code {
@@ -370,7 +426,7 @@ type RepositoryParameters struct {
 
 func (x *RepositoryParameters) Reset() {
 	*x = RepositoryParameters{}
-	mi := &file_repository_server_proto_msgTypes[3]
+	mi := &file_repository_server_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -382,7 +438,7 @@ func (x *RepositoryParameters) String() string {
 func (*RepositoryParameters) ProtoMessage() {}
 
 func (x *RepositoryParameters) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[3]
+	mi := &file_repository_server_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -395,7 +451,7 @@ func (x *RepositoryParameters) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RepositoryParameters.ProtoReflect.Descriptor instead.
 func (*RepositoryParameters) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{3}
+	return file_repository_server_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RepositoryParameters) GetHashFunction() string {
@@ -437,7 +493,7 @@ type InitializeSessionRequest struct {
 
 func (x *InitializeSessionRequest) Reset() {
 	*x = InitializeSessionRequest{}
-	mi := &file_repository_server_proto_msgTypes[4]
+	mi := &file_repository_server_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -449,7 +505,7 @@ func (x *InitializeSessionRequest) String() string {
 func (*InitializeSessionRequest) ProtoMessage() {}
 
 func (x *InitializeSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[4]
+	mi := &file_repository_server_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -462,7 +518,7 @@ func (x *InitializeSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InitializeSessionRequest.ProtoReflect.Descriptor instead.
 func (*InitializeSessionRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{4}
+	return file_repository_server_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *InitializeSessionRequest) GetPurpose() string {
@@ -489,7 +545,7 @@ type InitializeSessionResponse struct {
 
 func (x *InitializeSessionResponse) Reset() {
 	*x = InitializeSessionResponse{}
-	mi := &file_repository_server_proto_msgTypes[5]
+	mi := &file_repository_server_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -501,7 +557,7 @@ func (x *InitializeSessionResponse) String() string {
 func (*InitializeSessionResponse) ProtoMessage() {}
 
 func (x *InitializeSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[5]
+	mi := &file_repository_server_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -514,7 +570,7 @@ func (x *InitializeSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InitializeSessionResponse.ProtoReflect.Descriptor instead.
 func (*InitializeSessionResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{5}
+	return file_repository_server_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *InitializeSessionResponse) GetParameters() *RepositoryParameters {
@@ -533,7 +589,7 @@ type GetContentInfoRequest struct {
 
 func (x *GetContentInfoRequest) Reset() {
 	*x = GetContentInfoRequest{}
-	mi := &file_repository_server_proto_msgTypes[6]
+	mi := &file_repository_server_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -545,7 +601,7 @@ func (x *GetContentInfoRequest) String() string {
 func (*GetContentInfoRequest) ProtoMessage() {}
 
 func (x *GetContentInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[6]
+	mi := &file_repository_server_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -558,7 +614,7 @@ func (x *GetContentInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContentInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetContentInfoRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{6}
+	return file_repository_server_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *GetContentInfoRequest) GetContentId() string {
@@ -577,7 +633,7 @@ type GetContentInfoResponse struct {
 
 func (x *GetContentInfoResponse) Reset() {
 	*x = GetContentInfoResponse{}
-	mi := &file_repository_server_proto_msgTypes[7]
+	mi := &file_repository_server_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -589,7 +645,7 @@ func (x *GetContentInfoResponse) String() string {
 func (*GetContentInfoResponse) ProtoMessage() {}
 
 func (x *GetContentInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[7]
+	mi := &file_repository_server_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -602,7 +658,7 @@ func (x *GetContentInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContentInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetContentInfoResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{7}
+	return file_repository_server_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *GetContentInfoResponse) GetInfo() *ContentInfo {
@@ -621,7 +677,7 @@ type GetContentRequest struct {
 
 func (x *GetContentRequest) Reset() {
 	*x = GetContentRequest{}
-	mi := &file_repository_server_proto_msgTypes[8]
+	mi := &file_repository_server_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -633,7 +689,7 @@ func (x *GetContentRequest) String() string {
 func (*GetContentRequest) ProtoMessage() {}
 
 func (x *GetContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[8]
+	mi := &file_repository_server_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -646,7 +702,7 @@ func (x *GetContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContentRequest.ProtoReflect.Descriptor instead.
 func (*GetContentRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{8}
+	return file_repository_server_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetContentRequest) GetContentId() string {
@@ -665,7 +721,7 @@ type GetContentResponse struct {
 
 func (x *GetContentResponse) Reset() {
 	*x = GetContentResponse{}
-	mi := &file_repository_server_proto_msgTypes[9]
+	mi := &file_repository_server_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -677,7 +733,7 @@ func (x *GetContentResponse) String() string {
 func (*GetContentResponse) ProtoMessage() {}
 
 func (x *GetContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[9]
+	mi := &file_repository_server_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -690,7 +746,7 @@ func (x *GetContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetContentResponse.ProtoReflect.Descriptor instead.
 func (*GetContentResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{9}
+	return file_repository_server_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetContentResponse) GetData() []byte {
@@ -708,7 +764,7 @@ type FlushRequest struct {
 
 func (x *FlushRequest) Reset() {
 	*x = FlushRequest{}
-	mi := &file_repository_server_proto_msgTypes[10]
+	mi := &file_repository_server_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -720,7 +776,7 @@ func (x *FlushRequest) String() string {
 func (*FlushRequest) ProtoMessage() {}
 
 func (x *FlushRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[10]
+	mi := &file_repository_server_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -733,7 +789,7 @@ func (x *FlushRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlushRequest.ProtoReflect.Descriptor instead.
 func (*FlushRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{10}
+	return file_repository_server_proto_rawDescGZIP(), []int{11}
 }
 
 type FlushResponse struct {
@@ -744,7 +800,7 @@ type FlushResponse struct {
 
 func (x *FlushResponse) Reset() {
 	*x = FlushResponse{}
-	mi := &file_repository_server_proto_msgTypes[11]
+	mi := &file_repository_server_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -756,7 +812,7 @@ func (x *FlushResponse) String() string {
 func (*FlushResponse) ProtoMessage() {}
 
 func (x *FlushResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[11]
+	mi := &file_repository_server_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -769,7 +825,7 @@ func (x *FlushResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FlushResponse.ProtoReflect.Descriptor instead.
 func (*FlushResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{11}
+	return file_repository_server_proto_rawDescGZIP(), []int{12}
 }
 
 type WriteContentRequest struct {
@@ -783,7 +839,7 @@ type WriteContentRequest struct {
 
 func (x *WriteContentRequest) Reset() {
 	*x = WriteContentRequest{}
-	mi := &file_repository_server_proto_msgTypes[12]
+	mi := &file_repository_server_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -795,7 +851,7 @@ func (x *WriteContentRequest) String() string {
 func (*WriteContentRequest) ProtoMessage() {}
 
 func (x *WriteContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[12]
+	mi := &file_repository_server_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -808,7 +864,7 @@ func (x *WriteContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteContentRequest.ProtoReflect.Descriptor instead.
 func (*WriteContentRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{12}
+	return file_repository_server_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *WriteContentRequest) GetPrefix() string {
@@ -841,7 +897,7 @@ type WriteContentResponse struct {
 
 func (x *WriteContentResponse) Reset() {
 	*x = WriteContentResponse{}
-	mi := &file_repository_server_proto_msgTypes[13]
+	mi := &file_repository_server_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -853,7 +909,7 @@ func (x *WriteContentResponse) String() string {
 func (*WriteContentResponse) ProtoMessage() {}
 
 func (x *WriteContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[13]
+	mi := &file_repository_server_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -866,7 +922,7 @@ func (x *WriteContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WriteContentResponse.ProtoReflect.Descriptor instead.
 func (*WriteContentResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{13}
+	return file_repository_server_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *WriteContentResponse) GetContentId() string {
@@ -885,7 +941,7 @@ type GetManifestRequest struct {
 
 func (x *GetManifestRequest) Reset() {
 	*x = GetManifestRequest{}
-	mi := &file_repository_server_proto_msgTypes[14]
+	mi := &file_repository_server_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -897,7 +953,7 @@ func (x *GetManifestRequest) String() string {
 func (*GetManifestRequest) ProtoMessage() {}
 
 func (x *GetManifestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[14]
+	mi := &file_repository_server_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -910,7 +966,7 @@ func (x *GetManifestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetManifestRequest.ProtoReflect.Descriptor instead.
 func (*GetManifestRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{14}
+	return file_repository_server_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetManifestRequest) GetManifestId() string {
@@ -930,7 +986,7 @@ type GetManifestResponse struct {
 
 func (x *GetManifestResponse) Reset() {
 	*x = GetManifestResponse{}
-	mi := &file_repository_server_proto_msgTypes[15]
+	mi := &file_repository_server_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -942,7 +998,7 @@ func (x *GetManifestResponse) String() string {
 func (*GetManifestResponse) ProtoMessage() {}
 
 func (x *GetManifestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[15]
+	mi := &file_repository_server_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -955,7 +1011,7 @@ func (x *GetManifestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetManifestResponse.ProtoReflect.Descriptor instead.
 func (*GetManifestResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{15}
+	return file_repository_server_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetManifestResponse) GetJsonData() []byte {
@@ -982,7 +1038,7 @@ type PutManifestRequest struct {
 
 func (x *PutManifestRequest) Reset() {
 	*x = PutManifestRequest{}
-	mi := &file_repository_server_proto_msgTypes[16]
+	mi := &file_repository_server_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -994,7 +1050,7 @@ func (x *PutManifestRequest) String() string {
 func (*PutManifestRequest) ProtoMessage() {}
 
 func (x *PutManifestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[16]
+	mi := &file_repository_server_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1007,7 +1063,7 @@ func (x *PutManifestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutManifestRequest.ProtoReflect.Descriptor instead.
 func (*PutManifestRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{16}
+	return file_repository_server_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *PutManifestRequest) GetJsonData() []byte {
@@ -1033,7 +1089,7 @@ type PutManifestResponse struct {
 
 func (x *PutManifestResponse) Reset() {
 	*x = PutManifestResponse{}
-	mi := &file_repository_server_proto_msgTypes[17]
+	mi := &file_repository_server_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1045,7 +1101,7 @@ func (x *PutManifestResponse) String() string {
 func (*PutManifestResponse) ProtoMessage() {}
 
 func (x *PutManifestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[17]
+	mi := &file_repository_server_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1058,7 +1114,7 @@ func (x *PutManifestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PutManifestResponse.ProtoReflect.Descriptor instead.
 func (*PutManifestResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{17}
+	return file_repository_server_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *PutManifestResponse) GetManifestId() string {
@@ -1077,7 +1133,7 @@ type DeleteManifestRequest struct {
 
 func (x *DeleteManifestRequest) Reset() {
 	*x = DeleteManifestRequest{}
-	mi := &file_repository_server_proto_msgTypes[18]
+	mi := &file_repository_server_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1089,7 +1145,7 @@ func (x *DeleteManifestRequest) String() string {
 func (*DeleteManifestRequest) ProtoMessage() {}
 
 func (x *DeleteManifestRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[18]
+	mi := &file_repository_server_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1102,7 +1158,7 @@ func (x *DeleteManifestRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteManifestRequest.ProtoReflect.Descriptor instead.
 func (*DeleteManifestRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{18}
+	return file_repository_server_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *DeleteManifestRequest) GetManifestId() string {
@@ -1120,7 +1176,7 @@ type DeleteManifestResponse struct {
 
 func (x *DeleteManifestResponse) Reset() {
 	*x = DeleteManifestResponse{}
-	mi := &file_repository_server_proto_msgTypes[19]
+	mi := &file_repository_server_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1132,7 +1188,7 @@ func (x *DeleteManifestResponse) String() string {
 func (*DeleteManifestResponse) ProtoMessage() {}
 
 func (x *DeleteManifestResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[19]
+	mi := &file_repository_server_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1145,7 +1201,7 @@ func (x *DeleteManifestResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteManifestResponse.ProtoReflect.Descriptor instead.
 func (*DeleteManifestResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{19}
+	return file_repository_server_proto_rawDescGZIP(), []int{20}
 }
 
 type FindManifestsRequest struct {
@@ -1159,7 +1215,7 @@ type FindManifestsRequest struct {
 
 func (x *FindManifestsRequest) Reset() {
 	*x = FindManifestsRequest{}
-	mi := &file_repository_server_proto_msgTypes[20]
+	mi := &file_repository_server_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1171,7 +1227,7 @@ func (x *FindManifestsRequest) String() string {
 func (*FindManifestsRequest) ProtoMessage() {}
 
 func (x *FindManifestsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[20]
+	mi := &file_repository_server_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1184,7 +1240,7 @@ func (x *FindManifestsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindManifestsRequest.ProtoReflect.Descriptor instead.
 func (*FindManifestsRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{20}
+	return file_repository_server_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *FindManifestsRequest) GetLabels() map[string]string {
@@ -1210,7 +1266,7 @@ type FindManifestsResponse struct {
 
 func (x *FindManifestsResponse) Reset() {
 	*x = FindManifestsResponse{}
-	mi := &file_repository_server_proto_msgTypes[21]
+	mi := &file_repository_server_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1222,7 +1278,7 @@ func (x *FindManifestsResponse) String() string {
 func (*FindManifestsResponse) ProtoMessage() {}
 
 func (x *FindManifestsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[21]
+	mi := &file_repository_server_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1235,7 +1291,7 @@ func (x *FindManifestsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FindManifestsResponse.ProtoReflect.Descriptor instead.
 func (*FindManifestsResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{21}
+	return file_repository_server_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *FindManifestsResponse) GetMetadata() []*ManifestEntryMetadata {
@@ -1255,7 +1311,7 @@ type PrefetchContentsRequest struct {
 
 func (x *PrefetchContentsRequest) Reset() {
 	*x = PrefetchContentsRequest{}
-	mi := &file_repository_server_proto_msgTypes[22]
+	mi := &file_repository_server_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1267,7 +1323,7 @@ func (x *PrefetchContentsRequest) String() string {
 func (*PrefetchContentsRequest) ProtoMessage() {}
 
 func (x *PrefetchContentsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[22]
+	mi := &file_repository_server_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1280,7 +1336,7 @@ func (x *PrefetchContentsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrefetchContentsRequest.ProtoReflect.Descriptor instead.
 func (*PrefetchContentsRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{22}
+	return file_repository_server_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *PrefetchContentsRequest) GetContentIds() []string {
@@ -1306,7 +1362,7 @@ type PrefetchContentsResponse struct {
 
 func (x *PrefetchContentsResponse) Reset() {
 	*x = PrefetchContentsResponse{}
-	mi := &file_repository_server_proto_msgTypes[23]
+	mi := &file_repository_server_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1318,7 +1374,7 @@ func (x *PrefetchContentsResponse) String() string {
 func (*PrefetchContentsResponse) ProtoMessage() {}
 
 func (x *PrefetchContentsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[23]
+	mi := &file_repository_server_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1331,7 +1387,7 @@ func (x *PrefetchContentsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrefetchContentsResponse.ProtoReflect.Descriptor instead.
 func (*PrefetchContentsResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{23}
+	return file_repository_server_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *PrefetchContentsResponse) GetContentIds() []string {
@@ -1351,7 +1407,7 @@ type ApplyRetentionPolicyRequest struct {
 
 func (x *ApplyRetentionPolicyRequest) Reset() {
 	*x = ApplyRetentionPolicyRequest{}
-	mi := &file_repository_server_proto_msgTypes[24]
+	mi := &file_repository_server_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1363,7 +1419,7 @@ func (x *ApplyRetentionPolicyRequest) String() string {
 func (*ApplyRetentionPolicyRequest) ProtoMessage() {}
 
 func (x *ApplyRetentionPolicyRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[24]
+	mi := &file_repository_server_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1376,7 +1432,7 @@ func (x *ApplyRetentionPolicyRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyRetentionPolicyRequest.ProtoReflect.Descriptor instead.
 func (*ApplyRetentionPolicyRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{24}
+	return file_repository_server_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *ApplyRetentionPolicyRequest) GetSourcePath() string {
@@ -1402,7 +1458,7 @@ type ApplyRetentionPolicyResponse struct {
 
 func (x *ApplyRetentionPolicyResponse) Reset() {
 	*x = ApplyRetentionPolicyResponse{}
-	mi := &file_repository_server_proto_msgTypes[25]
+	mi := &file_repository_server_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1414,7 +1470,7 @@ func (x *ApplyRetentionPolicyResponse) String() string {
 func (*ApplyRetentionPolicyResponse) ProtoMessage() {}
 
 func (x *ApplyRetentionPolicyResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[25]
+	mi := &file_repository_server_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1427,7 +1483,7 @@ func (x *ApplyRetentionPolicyResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ApplyRetentionPolicyResponse.ProtoReflect.Descriptor instead.
 func (*ApplyRetentionPolicyResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{25}
+	return file_repository_server_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *ApplyRetentionPolicyResponse) GetManifestIds() []string {
@@ -1449,7 +1505,7 @@ type SendNotificationRequest struct {
 
 func (x *SendNotificationRequest) Reset() {
 	*x = SendNotificationRequest{}
-	mi := &file_repository_server_proto_msgTypes[26]
+	mi := &file_repository_server_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1461,7 +1517,7 @@ func (x *SendNotificationRequest) String() string {
 func (*SendNotificationRequest) ProtoMessage() {}
 
 func (x *SendNotificationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[26]
+	mi := &file_repository_server_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1474,7 +1530,7 @@ func (x *SendNotificationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendNotificationRequest.ProtoReflect.Descriptor instead.
 func (*SendNotificationRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{26}
+	return file_repository_server_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *SendNotificationRequest) GetTemplateName() string {
@@ -1513,7 +1569,7 @@ type SendNotificationResponse struct {
 
 func (x *SendNotificationResponse) Reset() {
 	*x = SendNotificationResponse{}
-	mi := &file_repository_server_proto_msgTypes[27]
+	mi := &file_repository_server_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1525,7 +1581,7 @@ func (x *SendNotificationResponse) String() string {
 func (*SendNotificationResponse) ProtoMessage() {}
 
 func (x *SendNotificationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[27]
+	mi := &file_repository_server_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1538,7 +1594,87 @@ func (x *SendNotificationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendNotificationResponse.ProtoReflect.Descriptor instead.
 func (*SendNotificationResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{27}
+	return file_repository_server_proto_rawDescGZIP(), []int{28}
+}
+
+type GetCapacityRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCapacityRequest) Reset() {
+	*x = GetCapacityRequest{}
+	mi := &file_repository_server_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCapacityRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCapacityRequest) ProtoMessage() {}
+
+func (x *GetCapacityRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_repository_server_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCapacityRequest.ProtoReflect.Descriptor instead.
+func (*GetCapacityRequest) Descriptor() ([]byte, []int) {
+	return file_repository_server_proto_rawDescGZIP(), []int{29}
+}
+
+type GetCapacityResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Capacity      *Capacity              `protobuf:"bytes,1,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCapacityResponse) Reset() {
+	*x = GetCapacityResponse{}
+	mi := &file_repository_server_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCapacityResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCapacityResponse) ProtoMessage() {}
+
+func (x *GetCapacityResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_repository_server_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCapacityResponse.ProtoReflect.Descriptor instead.
+func (*GetCapacityResponse) Descriptor() ([]byte, []int) {
+	return file_repository_server_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *GetCapacityResponse) GetCapacity() *Capacity {
+	if x != nil {
+		return x.Capacity
+	}
+	return nil
 }
 
 type SessionRequest struct {
@@ -1563,6 +1699,7 @@ type SessionRequest struct {
 	//	*SessionRequest_PrefetchContents
 	//	*SessionRequest_ApplyRetentionPolicy
 	//	*SessionRequest_SendNotification
+	//	*SessionRequest_GetCapacity
 	Request       isSessionRequest_Request `protobuf_oneof:"request"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1570,7 +1707,7 @@ type SessionRequest struct {
 
 func (x *SessionRequest) Reset() {
 	*x = SessionRequest{}
-	mi := &file_repository_server_proto_msgTypes[28]
+	mi := &file_repository_server_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1582,7 +1719,7 @@ func (x *SessionRequest) String() string {
 func (*SessionRequest) ProtoMessage() {}
 
 func (x *SessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[28]
+	mi := &file_repository_server_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1595,7 +1732,7 @@ func (x *SessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionRequest.ProtoReflect.Descriptor instead.
 func (*SessionRequest) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{28}
+	return file_repository_server_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *SessionRequest) GetRequestId() int64 {
@@ -1727,6 +1864,15 @@ func (x *SessionRequest) GetSendNotification() *SendNotificationRequest {
 	return nil
 }
 
+func (x *SessionRequest) GetGetCapacity() *GetCapacityRequest {
+	if x != nil {
+		if x, ok := x.Request.(*SessionRequest_GetCapacity); ok {
+			return x.GetCapacity
+		}
+	}
+	return nil
+}
+
 type isSessionRequest_Request interface {
 	isSessionRequest_Request()
 }
@@ -1779,6 +1925,10 @@ type SessionRequest_SendNotification struct {
 	SendNotification *SendNotificationRequest `protobuf:"bytes,21,opt,name=send_notification,json=sendNotification,proto3,oneof"`
 }
 
+type SessionRequest_GetCapacity struct {
+	GetCapacity *GetCapacityRequest `protobuf:"bytes,22,opt,name=get_capacity,json=getCapacity,proto3,oneof"`
+}
+
 func (*SessionRequest_InitializeSession) isSessionRequest_Request() {}
 
 func (*SessionRequest_GetContentInfo) isSessionRequest_Request() {}
@@ -1803,6 +1953,8 @@ func (*SessionRequest_ApplyRetentionPolicy) isSessionRequest_Request() {}
 
 func (*SessionRequest_SendNotification) isSessionRequest_Request() {}
 
+func (*SessionRequest_GetCapacity) isSessionRequest_Request() {}
+
 type SessionResponse struct {
 	state     protoimpl.MessageState `protogen:"open.v1"`
 	RequestId int64                  `protobuf:"varint,1,opt,name=request_id,json=requestId,proto3" json:"request_id,omitempty"` // corresponds to request ID
@@ -1822,6 +1974,7 @@ type SessionResponse struct {
 	//	*SessionResponse_PrefetchContents
 	//	*SessionResponse_ApplyRetentionPolicy
 	//	*SessionResponse_SendNotification
+	//	*SessionResponse_GetCapacity
 	Response      isSessionResponse_Response `protobuf_oneof:"response"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1829,7 +1982,7 @@ type SessionResponse struct {
 
 func (x *SessionResponse) Reset() {
 	*x = SessionResponse{}
-	mi := &file_repository_server_proto_msgTypes[29]
+	mi := &file_repository_server_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1841,7 +1994,7 @@ func (x *SessionResponse) String() string {
 func (*SessionResponse) ProtoMessage() {}
 
 func (x *SessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_repository_server_proto_msgTypes[29]
+	mi := &file_repository_server_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1854,7 +2007,7 @@ func (x *SessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionResponse.ProtoReflect.Descriptor instead.
 func (*SessionResponse) Descriptor() ([]byte, []int) {
-	return file_repository_server_proto_rawDescGZIP(), []int{29}
+	return file_repository_server_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *SessionResponse) GetRequestId() int64 {
@@ -1995,6 +2148,15 @@ func (x *SessionResponse) GetSendNotification() *SendNotificationResponse {
 	return nil
 }
 
+func (x *SessionResponse) GetGetCapacity() *GetCapacityResponse {
+	if x != nil {
+		if x, ok := x.Response.(*SessionResponse_GetCapacity); ok {
+			return x.GetCapacity
+		}
+	}
+	return nil
+}
+
 type isSessionResponse_Response interface {
 	isSessionResponse_Response()
 }
@@ -2051,6 +2213,10 @@ type SessionResponse_SendNotification struct {
 	SendNotification *SendNotificationResponse `protobuf:"bytes,21,opt,name=send_notification,json=sendNotification,proto3,oneof"`
 }
 
+type SessionResponse_GetCapacity struct {
+	GetCapacity *GetCapacityResponse `protobuf:"bytes,22,opt,name=get_capacity,json=getCapacity,proto3,oneof"`
+}
+
 func (*SessionResponse_Error) isSessionResponse_Response() {}
 
 func (*SessionResponse_InitializeSession) isSessionResponse_Response() {}
@@ -2077,6 +2243,8 @@ func (*SessionResponse_ApplyRetentionPolicy) isSessionResponse_Response() {}
 
 func (*SessionResponse_SendNotification) isSessionResponse_Response() {}
 
+func (*SessionResponse_GetCapacity) isSessionResponse_Response() {}
+
 var File_repository_server_proto protoreflect.FileDescriptor
 
 const file_repository_server_proto_rawDesc = "" +
@@ -2100,10 +2268,13 @@ const file_repository_server_proto_rawDesc = "" +
 	"\x06labels\x18\x04 \x03(\v23.kopia_repository.ManifestEntryMetadata.LabelsEntryR\x06labels\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xfc\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"8\n" +
+	"\bCapacity\x12\x15\n" +
+	"\x06size_b\x18\x01 \x01(\x04R\x05sizeB\x12\x15\n" +
+	"\x06free_b\x18\x02 \x01(\x04R\x05freeB\"\x8e\x02\n" +
 	"\rErrorResponse\x128\n" +
 	"\x04code\x18\x01 \x01(\x0e2$.kopia_repository.ErrorResponse.CodeR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\x96\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\xa8\x01\n" +
 	"\x04Code\x12\x11\n" +
 	"\rUNKNOWN_ERROR\x10\x00\x12\x10\n" +
 	"\fCLIENT_ERROR\x10\x01\x12\x15\n" +
@@ -2111,7 +2282,8 @@ const file_repository_server_proto_rawDesc = "" +
 	"\x12MANIFEST_NOT_FOUND\x10\x03\x12\x14\n" +
 	"\x10OBJECT_NOT_FOUND\x10\x04\x12\x11\n" +
 	"\rACCESS_DENIED\x10\x05\x12\x11\n" +
-	"\rSTREAM_BROKEN\x10\x06\"\xba\x01\n" +
+	"\rSTREAM_BROKEN\x10\x06\x12\x10\n" +
+	"\fNOT_A_VOLUME\x10\a\"\xba\x01\n" +
 	"\x14RepositoryParameters\x12#\n" +
 	"\rhash_function\x18\x01 \x01(\tR\fhashFunction\x12\x1f\n" +
 	"\vhmac_secret\x18\x02 \x01(\fR\n" +
@@ -2190,7 +2362,10 @@ const file_repository_server_proto_rawDesc = "" +
 	"event_args\x18\x02 \x01(\fR\teventArgs\x12\x1a\n" +
 	"\bseverity\x18\x03 \x01(\x05R\bseverity\x12R\n" +
 	"\x0fevent_args_type\x18\x04 \x01(\x0e2*.kopia_repository.NotificationEventArgTypeR\reventArgsType\"\x1a\n" +
-	"\x18SendNotificationResponse\"\xaa\t\n" +
+	"\x18SendNotificationResponse\"\x14\n" +
+	"\x12GetCapacityRequest\"M\n" +
+	"\x13GetCapacityResponse\x126\n" +
+	"\bcapacity\x18\x01 \x01(\v2\x1a.kopia_repository.CapacityR\bcapacity\"\xf5\t\n" +
 	"\x0eSessionRequest\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\x03R\trequestId\x12W\n" +
@@ -2208,11 +2383,12 @@ const file_repository_server_proto_rawDesc = "" +
 	"\x0fdelete_manifest\x18\x12 \x01(\v2'.kopia_repository.DeleteManifestRequestH\x00R\x0edeleteManifest\x12X\n" +
 	"\x11prefetch_contents\x18\x13 \x01(\v2).kopia_repository.PrefetchContentsRequestH\x00R\x10prefetchContents\x12e\n" +
 	"\x16apply_retention_policy\x18\x14 \x01(\v2-.kopia_repository.ApplyRetentionPolicyRequestH\x00R\x14applyRetentionPolicy\x12X\n" +
-	"\x11send_notification\x18\x15 \x01(\v2).kopia_repository.SendNotificationRequestH\x00R\x10sendNotification\x1a?\n" +
+	"\x11send_notification\x18\x15 \x01(\v2).kopia_repository.SendNotificationRequestH\x00R\x10sendNotification\x12I\n" +
+	"\fget_capacity\x18\x16 \x01(\v2$.kopia_repository.GetCapacityRequestH\x00R\vgetCapacity\x1a?\n" +
 	"\x11TraceContextEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\t\n" +
-	"\arequest\"\xf2\b\n" +
+	"\arequest\"\xbe\t\n" +
 	"\x0fSessionResponse\x12\x1d\n" +
 	"\n" +
 	"request_id\x18\x01 \x01(\x03R\trequestId\x12\x19\n" +
@@ -2231,7 +2407,8 @@ const file_repository_server_proto_rawDesc = "" +
 	"\x0fdelete_manifest\x18\x12 \x01(\v2(.kopia_repository.DeleteManifestResponseH\x00R\x0edeleteManifest\x12Y\n" +
 	"\x11prefetch_contents\x18\x13 \x01(\v2*.kopia_repository.PrefetchContentsResponseH\x00R\x10prefetchContents\x12f\n" +
 	"\x16apply_retention_policy\x18\x14 \x01(\v2..kopia_repository.ApplyRetentionPolicyResponseH\x00R\x14applyRetentionPolicy\x12Y\n" +
-	"\x11send_notification\x18\x15 \x01(\v2*.kopia_repository.SendNotificationResponseH\x00R\x10sendNotificationB\n" +
+	"\x11send_notification\x18\x15 \x01(\v2*.kopia_repository.SendNotificationResponseH\x00R\x10sendNotification\x12J\n" +
+	"\fget_capacity\x18\x16 \x01(\v2%.kopia_repository.GetCapacityResponseH\x00R\vgetCapacityB\n" +
 	"\n" +
 	"\bresponse*\x81\x01\n" +
 	"\x18NotificationEventArgType\x12\x14\n" +
@@ -2255,88 +2432,94 @@ func file_repository_server_proto_rawDescGZIP() []byte {
 }
 
 var file_repository_server_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_repository_server_proto_msgTypes = make([]protoimpl.MessageInfo, 34)
+var file_repository_server_proto_msgTypes = make([]protoimpl.MessageInfo, 37)
 var file_repository_server_proto_goTypes = []any{
 	(NotificationEventArgType)(0),        // 0: kopia_repository.NotificationEventArgType
 	(ErrorResponse_Code)(0),              // 1: kopia_repository.ErrorResponse.Code
 	(*ContentInfo)(nil),                  // 2: kopia_repository.ContentInfo
 	(*ManifestEntryMetadata)(nil),        // 3: kopia_repository.ManifestEntryMetadata
-	(*ErrorResponse)(nil),                // 4: kopia_repository.ErrorResponse
-	(*RepositoryParameters)(nil),         // 5: kopia_repository.RepositoryParameters
-	(*InitializeSessionRequest)(nil),     // 6: kopia_repository.InitializeSessionRequest
-	(*InitializeSessionResponse)(nil),    // 7: kopia_repository.InitializeSessionResponse
-	(*GetContentInfoRequest)(nil),        // 8: kopia_repository.GetContentInfoRequest
-	(*GetContentInfoResponse)(nil),       // 9: kopia_repository.GetContentInfoResponse
-	(*GetContentRequest)(nil),            // 10: kopia_repository.GetContentRequest
-	(*GetContentResponse)(nil),           // 11: kopia_repository.GetContentResponse
-	(*FlushRequest)(nil),                 // 12: kopia_repository.FlushRequest
-	(*FlushResponse)(nil),                // 13: kopia_repository.FlushResponse
-	(*WriteContentRequest)(nil),          // 14: kopia_repository.WriteContentRequest
-	(*WriteContentResponse)(nil),         // 15: kopia_repository.WriteContentResponse
-	(*GetManifestRequest)(nil),           // 16: kopia_repository.GetManifestRequest
-	(*GetManifestResponse)(nil),          // 17: kopia_repository.GetManifestResponse
-	(*PutManifestRequest)(nil),           // 18: kopia_repository.PutManifestRequest
-	(*PutManifestResponse)(nil),          // 19: kopia_repository.PutManifestResponse
-	(*DeleteManifestRequest)(nil),        // 20: kopia_repository.DeleteManifestRequest
-	(*DeleteManifestResponse)(nil),       // 21: kopia_repository.DeleteManifestResponse
-	(*FindManifestsRequest)(nil),         // 22: kopia_repository.FindManifestsRequest
-	(*FindManifestsResponse)(nil),        // 23: kopia_repository.FindManifestsResponse
-	(*PrefetchContentsRequest)(nil),      // 24: kopia_repository.PrefetchContentsRequest
-	(*PrefetchContentsResponse)(nil),     // 25: kopia_repository.PrefetchContentsResponse
-	(*ApplyRetentionPolicyRequest)(nil),  // 26: kopia_repository.ApplyRetentionPolicyRequest
-	(*ApplyRetentionPolicyResponse)(nil), // 27: kopia_repository.ApplyRetentionPolicyResponse
-	(*SendNotificationRequest)(nil),      // 28: kopia_repository.SendNotificationRequest
-	(*SendNotificationResponse)(nil),     // 29: kopia_repository.SendNotificationResponse
-	(*SessionRequest)(nil),               // 30: kopia_repository.SessionRequest
-	(*SessionResponse)(nil),              // 31: kopia_repository.SessionResponse
-	nil,                                  // 32: kopia_repository.ManifestEntryMetadata.LabelsEntry
-	nil,                                  // 33: kopia_repository.PutManifestRequest.LabelsEntry
-	nil,                                  // 34: kopia_repository.FindManifestsRequest.LabelsEntry
-	nil,                                  // 35: kopia_repository.SessionRequest.TraceContextEntry
+	(*Capacity)(nil),                     // 4: kopia_repository.Capacity
+	(*ErrorResponse)(nil),                // 5: kopia_repository.ErrorResponse
+	(*RepositoryParameters)(nil),         // 6: kopia_repository.RepositoryParameters
+	(*InitializeSessionRequest)(nil),     // 7: kopia_repository.InitializeSessionRequest
+	(*InitializeSessionResponse)(nil),    // 8: kopia_repository.InitializeSessionResponse
+	(*GetContentInfoRequest)(nil),        // 9: kopia_repository.GetContentInfoRequest
+	(*GetContentInfoResponse)(nil),       // 10: kopia_repository.GetContentInfoResponse
+	(*GetContentRequest)(nil),            // 11: kopia_repository.GetContentRequest
+	(*GetContentResponse)(nil),           // 12: kopia_repository.GetContentResponse
+	(*FlushRequest)(nil),                 // 13: kopia_repository.FlushRequest
+	(*FlushResponse)(nil),                // 14: kopia_repository.FlushResponse
+	(*WriteContentRequest)(nil),          // 15: kopia_repository.WriteContentRequest
+	(*WriteContentResponse)(nil),         // 16: kopia_repository.WriteContentResponse
+	(*GetManifestRequest)(nil),           // 17: kopia_repository.GetManifestRequest
+	(*GetManifestResponse)(nil),          // 18: kopia_repository.GetManifestResponse
+	(*PutManifestRequest)(nil),           // 19: kopia_repository.PutManifestRequest
+	(*PutManifestResponse)(nil),          // 20: kopia_repository.PutManifestResponse
+	(*DeleteManifestRequest)(nil),        // 21: kopia_repository.DeleteManifestRequest
+	(*DeleteManifestResponse)(nil),       // 22: kopia_repository.DeleteManifestResponse
+	(*FindManifestsRequest)(nil),         // 23: kopia_repository.FindManifestsRequest
+	(*FindManifestsResponse)(nil),        // 24: kopia_repository.FindManifestsResponse
+	(*PrefetchContentsRequest)(nil),      // 25: kopia_repository.PrefetchContentsRequest
+	(*PrefetchContentsResponse)(nil),     // 26: kopia_repository.PrefetchContentsResponse
+	(*ApplyRetentionPolicyRequest)(nil),  // 27: kopia_repository.ApplyRetentionPolicyRequest
+	(*ApplyRetentionPolicyResponse)(nil), // 28: kopia_repository.ApplyRetentionPolicyResponse
+	(*SendNotificationRequest)(nil),      // 29: kopia_repository.SendNotificationRequest
+	(*SendNotificationResponse)(nil),     // 30: kopia_repository.SendNotificationResponse
+	(*GetCapacityRequest)(nil),           // 31: kopia_repository.GetCapacityRequest
+	(*GetCapacityResponse)(nil),          // 32: kopia_repository.GetCapacityResponse
+	(*SessionRequest)(nil),               // 33: kopia_repository.SessionRequest
+	(*SessionResponse)(nil),              // 34: kopia_repository.SessionResponse
+	nil,                                  // 35: kopia_repository.ManifestEntryMetadata.LabelsEntry
+	nil,                                  // 36: kopia_repository.PutManifestRequest.LabelsEntry
+	nil,                                  // 37: kopia_repository.FindManifestsRequest.LabelsEntry
+	nil,                                  // 38: kopia_repository.SessionRequest.TraceContextEntry
 }
 var file_repository_server_proto_depIdxs = []int32{
-	32, // 0: kopia_repository.ManifestEntryMetadata.labels:type_name -> kopia_repository.ManifestEntryMetadata.LabelsEntry
+	35, // 0: kopia_repository.ManifestEntryMetadata.labels:type_name -> kopia_repository.ManifestEntryMetadata.LabelsEntry
 	1,  // 1: kopia_repository.ErrorResponse.code:type_name -> kopia_repository.ErrorResponse.Code
-	5,  // 2: kopia_repository.InitializeSessionResponse.parameters:type_name -> kopia_repository.RepositoryParameters
+	6,  // 2: kopia_repository.InitializeSessionResponse.parameters:type_name -> kopia_repository.RepositoryParameters
 	2,  // 3: kopia_repository.GetContentInfoResponse.info:type_name -> kopia_repository.ContentInfo
 	3,  // 4: kopia_repository.GetManifestResponse.metadata:type_name -> kopia_repository.ManifestEntryMetadata
-	33, // 5: kopia_repository.PutManifestRequest.labels:type_name -> kopia_repository.PutManifestRequest.LabelsEntry
-	34, // 6: kopia_repository.FindManifestsRequest.labels:type_name -> kopia_repository.FindManifestsRequest.LabelsEntry
+	36, // 5: kopia_repository.PutManifestRequest.labels:type_name -> kopia_repository.PutManifestRequest.LabelsEntry
+	37, // 6: kopia_repository.FindManifestsRequest.labels:type_name -> kopia_repository.FindManifestsRequest.LabelsEntry
 	3,  // 7: kopia_repository.FindManifestsResponse.metadata:type_name -> kopia_repository.ManifestEntryMetadata
 	0,  // 8: kopia_repository.SendNotificationRequest.event_args_type:type_name -> kopia_repository.NotificationEventArgType
-	35, // 9: kopia_repository.SessionRequest.trace_context:type_name -> kopia_repository.SessionRequest.TraceContextEntry
-	6,  // 10: kopia_repository.SessionRequest.initialize_session:type_name -> kopia_repository.InitializeSessionRequest
-	8,  // 11: kopia_repository.SessionRequest.get_content_info:type_name -> kopia_repository.GetContentInfoRequest
-	12, // 12: kopia_repository.SessionRequest.flush:type_name -> kopia_repository.FlushRequest
-	14, // 13: kopia_repository.SessionRequest.write_content:type_name -> kopia_repository.WriteContentRequest
-	10, // 14: kopia_repository.SessionRequest.get_content:type_name -> kopia_repository.GetContentRequest
-	16, // 15: kopia_repository.SessionRequest.get_manifest:type_name -> kopia_repository.GetManifestRequest
-	18, // 16: kopia_repository.SessionRequest.put_manifest:type_name -> kopia_repository.PutManifestRequest
-	22, // 17: kopia_repository.SessionRequest.find_manifests:type_name -> kopia_repository.FindManifestsRequest
-	20, // 18: kopia_repository.SessionRequest.delete_manifest:type_name -> kopia_repository.DeleteManifestRequest
-	24, // 19: kopia_repository.SessionRequest.prefetch_contents:type_name -> kopia_repository.PrefetchContentsRequest
-	26, // 20: kopia_repository.SessionRequest.apply_retention_policy:type_name -> kopia_repository.ApplyRetentionPolicyRequest
-	28, // 21: kopia_repository.SessionRequest.send_notification:type_name -> kopia_repository.SendNotificationRequest
-	4,  // 22: kopia_repository.SessionResponse.error:type_name -> kopia_repository.ErrorResponse
-	7,  // 23: kopia_repository.SessionResponse.initialize_session:type_name -> kopia_repository.InitializeSessionResponse
-	9,  // 24: kopia_repository.SessionResponse.get_content_info:type_name -> kopia_repository.GetContentInfoResponse
-	13, // 25: kopia_repository.SessionResponse.flush:type_name -> kopia_repository.FlushResponse
-	15, // 26: kopia_repository.SessionResponse.write_content:type_name -> kopia_repository.WriteContentResponse
-	11, // 27: kopia_repository.SessionResponse.get_content:type_name -> kopia_repository.GetContentResponse
-	17, // 28: kopia_repository.SessionResponse.get_manifest:type_name -> kopia_repository.GetManifestResponse
-	19, // 29: kopia_repository.SessionResponse.put_manifest:type_name -> kopia_repository.PutManifestResponse
-	23, // 30: kopia_repository.SessionResponse.find_manifests:type_name -> kopia_repository.FindManifestsResponse
-	21, // 31: kopia_repository.SessionResponse.delete_manifest:type_name -> kopia_repository.DeleteManifestResponse
-	25, // 32: kopia_repository.SessionResponse.prefetch_contents:type_name -> kopia_repository.PrefetchContentsResponse
-	27, // 33: kopia_repository.SessionResponse.apply_retention_policy:type_name -> kopia_repository.ApplyRetentionPolicyResponse
-	29, // 34: kopia_repository.SessionResponse.send_notification:type_name -> kopia_repository.SendNotificationResponse
-	30, // 35: kopia_repository.KopiaRepository.Session:input_type -> kopia_repository.SessionRequest
-	31, // 36: kopia_repository.KopiaRepository.Session:output_type -> kopia_repository.SessionResponse
-	36, // [36:37] is the sub-list for method output_type
-	35, // [35:36] is the sub-list for method input_type
-	35, // [35:35] is the sub-list for extension type_name
-	35, // [35:35] is the sub-list for extension extendee
-	0,  // [0:35] is the sub-list for field type_name
+	4,  // 9: kopia_repository.GetCapacityResponse.capacity:type_name -> kopia_repository.Capacity
+	38, // 10: kopia_repository.SessionRequest.trace_context:type_name -> kopia_repository.SessionRequest.TraceContextEntry
+	7,  // 11: kopia_repository.SessionRequest.initialize_session:type_name -> kopia_repository.InitializeSessionRequest
+	9,  // 12: kopia_repository.SessionRequest.get_content_info:type_name -> kopia_repository.GetContentInfoRequest
+	13, // 13: kopia_repository.SessionRequest.flush:type_name -> kopia_repository.FlushRequest
+	15, // 14: kopia_repository.SessionRequest.write_content:type_name -> kopia_repository.WriteContentRequest
+	11, // 15: kopia_repository.SessionRequest.get_content:type_name -> kopia_repository.GetContentRequest
+	17, // 16: kopia_repository.SessionRequest.get_manifest:type_name -> kopia_repository.GetManifestRequest
+	19, // 17: kopia_repository.SessionRequest.put_manifest:type_name -> kopia_repository.PutManifestRequest
+	23, // 18: kopia_repository.SessionRequest.find_manifests:type_name -> kopia_repository.FindManifestsRequest
+	21, // 19: kopia_repository.SessionRequest.delete_manifest:type_name -> kopia_repository.DeleteManifestRequest
+	25, // 20: kopia_repository.SessionRequest.prefetch_contents:type_name -> kopia_repository.PrefetchContentsRequest
+	27, // 21: kopia_repository.SessionRequest.apply_retention_policy:type_name -> kopia_repository.ApplyRetentionPolicyRequest
+	29, // 22: kopia_repository.SessionRequest.send_notification:type_name -> kopia_repository.SendNotificationRequest
+	31, // 23: kopia_repository.SessionRequest.get_capacity:type_name -> kopia_repository.GetCapacityRequest
+	5,  // 24: kopia_repository.SessionResponse.error:type_name -> kopia_repository.ErrorResponse
+	8,  // 25: kopia_repository.SessionResponse.initialize_session:type_name -> kopia_repository.InitializeSessionResponse
+	10, // 26: kopia_repository.SessionResponse.get_content_info:type_name -> kopia_repository.GetContentInfoResponse
+	14, // 27: kopia_repository.SessionResponse.flush:type_name -> kopia_repository.FlushResponse
+	16, // 28: kopia_repository.SessionResponse.write_content:type_name -> kopia_repository.WriteContentResponse
+	12, // 29: kopia_repository.SessionResponse.get_content:type_name -> kopia_repository.GetContentResponse
+	18, // 30: kopia_repository.SessionResponse.get_manifest:type_name -> kopia_repository.GetManifestResponse
+	20, // 31: kopia_repository.SessionResponse.put_manifest:type_name -> kopia_repository.PutManifestResponse
+	24, // 32: kopia_repository.SessionResponse.find_manifests:type_name -> kopia_repository.FindManifestsResponse
+	22, // 33: kopia_repository.SessionResponse.delete_manifest:type_name -> kopia_repository.DeleteManifestResponse
+	26, // 34: kopia_repository.SessionResponse.prefetch_contents:type_name -> kopia_repository.PrefetchContentsResponse
+	28, // 35: kopia_repository.SessionResponse.apply_retention_policy:type_name -> kopia_repository.ApplyRetentionPolicyResponse
+	30, // 36: kopia_repository.SessionResponse.send_notification:type_name -> kopia_repository.SendNotificationResponse
+	32, // 37: kopia_repository.SessionResponse.get_capacity:type_name -> kopia_repository.GetCapacityResponse
+	33, // 38: kopia_repository.KopiaRepository.Session:input_type -> kopia_repository.SessionRequest
+	34, // 39: kopia_repository.KopiaRepository.Session:output_type -> kopia_repository.SessionResponse
+	39, // [39:40] is the sub-list for method output_type
+	38, // [38:39] is the sub-list for method input_type
+	38, // [38:38] is the sub-list for extension type_name
+	38, // [38:38] is the sub-list for extension extendee
+	0,  // [0:38] is the sub-list for field type_name
 }
 
 func init() { file_repository_server_proto_init() }
@@ -2344,7 +2527,7 @@ func file_repository_server_proto_init() {
 	if File_repository_server_proto != nil {
 		return
 	}
-	file_repository_server_proto_msgTypes[28].OneofWrappers = []any{
+	file_repository_server_proto_msgTypes[31].OneofWrappers = []any{
 		(*SessionRequest_InitializeSession)(nil),
 		(*SessionRequest_GetContentInfo)(nil),
 		(*SessionRequest_Flush)(nil),
@@ -2357,8 +2540,9 @@ func file_repository_server_proto_init() {
 		(*SessionRequest_PrefetchContents)(nil),
 		(*SessionRequest_ApplyRetentionPolicy)(nil),
 		(*SessionRequest_SendNotification)(nil),
+		(*SessionRequest_GetCapacity)(nil),
 	}
-	file_repository_server_proto_msgTypes[29].OneofWrappers = []any{
+	file_repository_server_proto_msgTypes[32].OneofWrappers = []any{
 		(*SessionResponse_Error)(nil),
 		(*SessionResponse_InitializeSession)(nil),
 		(*SessionResponse_GetContentInfo)(nil),
@@ -2372,6 +2556,7 @@ func file_repository_server_proto_init() {
 		(*SessionResponse_PrefetchContents)(nil),
 		(*SessionResponse_ApplyRetentionPolicy)(nil),
 		(*SessionResponse_SendNotification)(nil),
+		(*SessionResponse_GetCapacity)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -2379,7 +2564,7 @@ func file_repository_server_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_repository_server_proto_rawDesc), len(file_repository_server_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   34,
+			NumMessages:   37,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

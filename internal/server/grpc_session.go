@@ -26,6 +26,7 @@ import (
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifydata"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
@@ -204,6 +205,9 @@ func (s *Server) handleSessionRequest(ctx context.Context, dw repo.DirectReposit
 
 	case *grpcapi.SessionRequest_SendNotification:
 		respond(s.handleSendNotificationRequest(ctx, dw, authz, inner.SendNotification))
+
+	case *grpcapi.SessionRequest_GetCapacity:
+		respond(s.handleGetCapacityRequest(ctx, dw, authz, inner.GetCapacity))
 
 	case *grpcapi.SessionRequest_InitializeSession:
 		respond(errorResponse(errors.New("InitializeSession must be the first request in a session")))
@@ -532,6 +536,31 @@ func (s *Server) handleSendNotificationRequest(ctx context.Context, rep repo.Rep
 	}
 }
 
+func (s *Server) handleGetCapacityRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, _ *grpcapi.GetCapacityRequest) *grpcapi.SessionResponse {
+	ctx, span := tracer.Start(ctx, "GRPCSession.GetCapacity")
+	defer span.End()
+
+	if authz.ContentAccessLevel() < auth.AccessLevelRead {
+		return accessDeniedResponse()
+	}
+
+	capacity, err := dw.BlobVolume().GetCapacity(ctx)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_GetCapacity{
+			GetCapacity: &grpcapi.GetCapacityResponse{
+				Capacity: &grpcapi.Capacity{
+					SizeB: capacity.SizeB,
+					FreeB: capacity.FreeB,
+				},
+			},
+		},
+	}
+}
+
 func accessDeniedResponse() *grpcapi.SessionResponse {
 	return &grpcapi.SessionResponse{
 		Response: &grpcapi.SessionResponse_Error{
@@ -553,6 +582,8 @@ func errorResponse(err error) *grpcapi.SessionResponse {
 		errorCode = grpcapi.ErrorResponse_MANIFEST_NOT_FOUND
 	case errors.Is(err, object.ErrObjectNotFound):
 		errorCode = grpcapi.ErrorResponse_OBJECT_NOT_FOUND
+	case errors.Is(err, blob.ErrNotAVolume):
+		errorCode = grpcapi.ErrorResponse_NOT_A_VOLUME
 	default:
 		errorCode = grpcapi.ErrorResponse_UNKNOWN_ERROR
 	}
