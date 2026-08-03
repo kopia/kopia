@@ -147,8 +147,8 @@ func LoadConfigFromFile(fileName string) (*LocalConfig, error) {
 			lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(fileName), lc.Caching.CacheDirectory)
 		}
 
-		// override cache directory from the environment variable.
-		if cd := os.Getenv("KOPIA_CACHE_DIRECTORY"); cd != "" && ospath.IsAbs(cd) {
+		// override cache directory from the environment variable when caching is enabled.
+		if cd := os.Getenv("KOPIA_CACHE_DIRECTORY"); lc.Caching.ContentCacheSizeBytes > 0 && cd != "" && ospath.IsAbs(cd) {
 			lc.Caching.CacheDirectory = cd
 		}
 	}

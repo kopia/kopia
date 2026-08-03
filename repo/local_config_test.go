@@ -60,6 +60,46 @@ func TestLocalConfig_noCaching(t *testing.T) {
 	}
 }
 
+func TestLocalConfig_disabledCachingIgnoresEnvCacheDirectory(t *testing.T) {
+	td := testutil.TempDirectory(t)
+	cacheDir := filepath.Join(td, "env-cache")
+	t.Setenv("KOPIA_CACHE_DIRECTORY", cacheDir)
+
+	originalLC := &LocalConfig{
+		Caching: &content.CachingOptions{},
+	}
+
+	cfgFile := filepath.Join(td, "repository.config")
+	require.NoError(t, originalLC.writeToFile(cfgFile))
+
+	loadedLC, err := LoadConfigFromFile(cfgFile)
+	require.NoError(t, err)
+
+	require.NotNil(t, loadedLC.Caching)
+	require.Empty(t, loadedLC.Caching.CacheDirectory)
+}
+
+func TestLocalConfig_enabledCachingUsesEnvCacheDirectory(t *testing.T) {
+	td := testutil.TempDirectory(t)
+	cacheDir := filepath.Join(td, "env-cache")
+	t.Setenv("KOPIA_CACHE_DIRECTORY", cacheDir)
+
+	originalLC := &LocalConfig{
+		Caching: &content.CachingOptions{
+			CacheDirectory:        filepath.Join(td, "cache-dir"),
+			ContentCacheSizeBytes: 1,
+		},
+	}
+
+	cfgFile := filepath.Join(td, "repository.config")
+	require.NoError(t, originalLC.writeToFile(cfgFile))
+
+	loadedLC, err := LoadConfigFromFile(cfgFile)
+	require.NoError(t, err)
+
+	require.Equal(t, cacheDir, loadedLC.Caching.CacheDirectory)
+}
+
 func TestLocalConfig_notFound(t *testing.T) {
 	if _, err := LoadConfigFromFile("nosuchfile.json"); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("unexpected error %v: wanted ErrNotExist", err)
