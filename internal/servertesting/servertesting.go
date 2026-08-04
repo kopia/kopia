@@ -51,9 +51,10 @@ func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Envi
 			auth.AuthenticateSingleUser(TestUsername+"@"+TestHostname, TestPassword),
 			auth.AuthenticateSingleUser(TestUIUsername, TestUIPassword),
 		),
-		RefreshInterval:   1 * time.Minute,
-		UIUser:            TestUIUsername,
-		UIPreferencesFile: filepath.Join(testutil.TempDirectory(t), "ui-pref.json"),
+		RefreshInterval:    1 * time.Minute,
+		UIUser:             TestUIUsername,
+		UIPreferencesFile:  filepath.Join(testutil.TempDirectory(t), "ui-pref.json"),
+		MFACredentialsFile: filepath.Join(testutil.TempDirectory(t), "server-mfa.json"),
 	})
 
 	require.NoError(t, err)

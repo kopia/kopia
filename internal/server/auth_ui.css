@@ -1,0 +1,236 @@
+:root {
+  --bg: #222;
+  --surface: #2c2c2c;
+  --surface-2: #343a40;
+  --text: #cfcfcf;
+  --muted: #6c757d;
+  --primary: #1162b1;
+  --primary-hover: #0d4f8f;
+  --submit: #00b4d8;
+  --danger: #ea868f;
+  --line: #495057;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--bg);
+  padding: 2rem 1rem 3rem;
+}
+
+.stage {
+  width: min(100%, 400px);
+  margin: 0 auto;
+  display: grid;
+  place-items: center;
+  min-height: calc(100vh - 4rem);
+}
+
+.wrap { width: min(100%, 560px); margin: 0 auto; }
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 1.5rem;
+}
+
+.brand.centered {
+  flex-direction: column;
+  text-align: center;
+  gap: 0.75rem;
+}
+
+.brand-mark { width: 48px; height: auto; }
+.brand.centered .brand-mark { width: 88px; }
+.brand-mark svg,
+.brand-mark img { width: 100%; height: auto; display: block; }
+
+.brand-name {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.brand.centered .brand-name { font-size: 1.75rem; }
+
+.tagline,
+.sub {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-top: 0.2rem;
+}
+
+.card,
+form.card {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1.2rem;
+  margin-bottom: 0.9rem;
+}
+
+h1 { font-size: 1.5rem; color: #fff; font-weight: 600; }
+h2 { font-size: 1rem; margin-bottom: 0.4rem; color: #fff; }
+p { color: var(--muted); font-size: 0.92rem; line-height: 1.45; }
+
+label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.field { margin-bottom: 0.9rem; }
+
+input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.7rem 0.8rem;
+  font: inherit;
+  font-size: 1rem;
+  background: var(--surface-2);
+  color: var(--text);
+  outline: none;
+}
+
+input:focus { border-color: var(--primary); }
+
+.actions,
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  margin-top: 0.25rem;
+}
+
+.row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  margin-top: 0.9rem;
+}
+
+button,
+a.btn {
+  appearance: none;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.7rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+}
+
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+
+.btn-secondary {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
+
+.btn-danger {
+  background: #3a1f22;
+  color: var(--danger);
+  border: 1px solid #5c2a30;
+}
+
+.divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0.9rem 0 0.15rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  height: 1px;
+  background: var(--line);
+}
+
+.msg {
+  margin-top: 0.85rem;
+  min-height: 1.2rem;
+  font-size: 0.9rem;
+}
+
+.msg.error { color: var(--danger); }
+.msg.ok { color: var(--submit); }
+
+.hidden { display: none !important; }
+
+.totp-hint { color: var(--muted); font-size: 0.9rem; margin-bottom: 0.85rem; }
+
+.totp-setup-hint { margin-top: 1rem; }
+
+.passkey-list {
+  list-style: none;
+  margin: 0.75rem 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.passkey-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.foot {
+  margin-top: 1rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.foot a { color: var(--submit); text-decoration: none; }
+
+code,
+.secret {
+  display: block;
+  margin-top: 0.55rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 6px;
+  background: var(--surface-2);
+  font-size: 0.82rem;
+  word-break: break-all;
+  color: var(--text);
+}
+
+.totp-qr {
+  display: block;
+  margin: 1rem auto 0.5rem;
+  width: 200px;
+  height: 200px;
+  background: #fff;
+  border-radius: 8px;
+  padding: 0.5rem;
+}
+
+.nav { margin-top: 1.1rem; }

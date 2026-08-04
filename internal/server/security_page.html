@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="kopia-csrf-token" content="{{.CSRFToken}}">
+  <title>{{.TitlePrefix}} — Security</title>
+  <link rel="stylesheet" href="/auth-ui/auth.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="brand">
+      <img class="brand-mark" src="/auth-ui/logo.svg" alt="">
+      <div>
+        <h1>Security</h1>
+        <p class="sub">Signed in as <strong>{{.Username}}</strong></p>
+      </div>
+    </header>
+
+    <section class="card">
+      <h2>Authenticator app (TOTP)</h2>
+      {{if .TOTPEnabled}}
+      <p>TOTP is enabled for this account.</p>
+      <div class="field">
+        <label for="totp-disable-password">Confirm password to disable</label>
+        <input id="totp-disable-password" type="password" autocomplete="current-password">
+      </div>
+      <div class="row">
+        <button type="button" class="btn-danger" id="totp-disable">Disable TOTP</button>
+      </div>
+      {{else}}
+      <p>Add a second factor with Google Authenticator, 1Password, or similar apps.</p>
+      <div class="row">
+        <button type="button" class="btn-primary" id="totp-begin">Set up TOTP</button>
+      </div>
+      <div id="totp-setup" class="hidden">
+        <p class="totp-setup-hint">Scan the QR code with your authenticator app, then enter a code:</p>
+        <img id="totp-qr" class="totp-qr" alt="TOTP QR code" width="200" height="200">
+        <div class="secret" id="totp-secret"></div>
+        <div class="field">
+          <label for="totp-code">6-digit code</label>
+          <input id="totp-code" type="text" inputmode="numeric" autocomplete="one-time-code">
+        </div>
+        <div class="row">
+          <button type="button" class="btn-primary" id="totp-confirm">Confirm</button>
+        </div>
+      </div>
+      {{end}}
+      <p class="msg" id="totp-msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card">
+      <h2>Passkeys</h2>
+      <p>{{.PasskeyCount}} passkey(s) registered. Passkeys allow passwordless sign-in.</p>
+      {{if .Passkeys}}
+      <ul class="passkey-list" id="passkey-list">
+        {{range .Passkeys}}
+        <li>
+          <span>{{.Label}}</span>
+          <button type="button" class="btn-danger passkey-delete" data-id="{{.ID}}">Remove</button>
+        </li>
+        {{end}}
+      </ul>
+      {{end}}
+      <div class="field">
+        <label for="passkey-password">Confirm password to register or remove</label>
+        <input id="passkey-password" type="password" autocomplete="current-password">
+      </div>
+      <div class="row">
+        <button type="button" class="btn-primary" id="passkey-register">Register passkey</button>
+      </div>
+      <p class="msg" id="passkey-msg" role="status" aria-live="polite"></p>
+    </section>
+
+    <div class="nav row">
+      <a class="btn btn-secondary" href="/">Back to UI</a>
+      <button type="button" class="btn btn-secondary" id="logout-btn">Sign out</button>
+    </div>
+  </div>
+
+  <script src="/auth-ui/auth.js"></script>
+  <script src="/auth-ui/security.js"></script>
+</body>
+</html>

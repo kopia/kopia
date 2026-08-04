@@ -102,8 +102,10 @@ type Server struct {
 
 	taskmgr              *uitask.Manager
 	authCookieSigningKey []byte
+	loginSessions        *loginSessionManager
+	mfaStore             *mfaCredentialStore
+	loginLimiter         *loginRateLimiter
 
-	// channel to which we can post to trigger scheduler re-evaluation.
 	schedulerRefresh chan string
 
 	// +checklocks:serverMutex
@@ -172,6 +174,28 @@ func (s *Server) SetupHTMLUIAPIHandlers(m *mux.Router) {
 	m.HandleFunc("/api/v1/notificationProfiles", s.handleUI(handleNotificationProfileList)).Methods(http.MethodGet)
 
 	m.HandleFunc("/api/v1/testNotificationProfile", s.handleUI(handleNotificationProfileTest)).Methods(http.MethodPost)
+
+	m.HandleFunc("/api/v1/auth/status", s.handlePublicAuth(handleAuthStatus)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/auth/login", s.handlePublicAuth(handleAuthLogin)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/auth/login/totp", s.handlePublicAuth(handleAuthLoginTOTP)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/auth/logout", s.handlePublicAuth(handleAuthLogout)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/auth/webauthn/login/begin", s.handlePublicAuth(handleWebAuthnLoginBegin)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/auth/webauthn/login/finish", s.handlePublicAuth(handleWebAuthnLoginFinish)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/auth/totp/setup/begin", s.handleUI(handleTOTPSetupBegin)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/auth/totp/setup/confirm", s.handleUI(handleTOTPSetupConfirm)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/auth/totp/disable", s.handleUI(handleTOTPDisable)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/auth/webauthn/register/begin", s.handleUI(handleWebAuthnRegisterBegin)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/auth/webauthn/register/finish", s.handleUI(handleWebAuthnRegisterFinish)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/auth/webauthn/delete", s.handleUI(handleWebAuthnDelete)).Methods(http.MethodPost)
+
+	m.HandleFunc("/auth-ui/auth.css", s.serveAuthUIFile("auth_ui.css", "text/css; charset=utf-8")).Methods(http.MethodGet)
+	m.HandleFunc("/auth-ui/auth.js", s.serveAuthUIFile("auth_ui.js", "text/javascript; charset=utf-8")).Methods(http.MethodGet)
+	m.HandleFunc("/auth-ui/auth_nav.js", s.serveAuthUIFile("auth_nav.js", "text/javascript; charset=utf-8")).Methods(http.MethodGet)
+	m.HandleFunc("/auth-ui/login.js", s.serveAuthUIFile("login.js", "text/javascript; charset=utf-8")).Methods(http.MethodGet)
+	m.HandleFunc("/auth-ui/security.js", s.serveAuthUIFile("security.js", "text/javascript; charset=utf-8")).Methods(http.MethodGet)
+	m.HandleFunc("/auth-ui/logo.svg", s.serveAuthUIFile("login_logo.svg", "image/svg+xml")).Methods(http.MethodGet)
+	m.HandleFunc("/login", s.handleLoginPage).Methods(http.MethodGet)
+	m.HandleFunc("/account/security", s.handleSecurityPage).Methods(http.MethodGet)
 }
 
 // SetupControlAPIHandlers registers control API handlers.
@@ -200,18 +224,20 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 		return true
 	}
 
+	if c, err := rc.req.Cookie(kopiaSessionCookie); err == nil {
+		if sess := s.loginSessions.get(c.Value); sess != nil && sess.State == loginSessionAuthenticated {
+			return true
+		}
+	}
+
 	username, password, ok := rc.req.BasicAuth()
 	if !ok {
-		rc.w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
-		http.Error(rc.w, "Missing credentials.\n", http.StatusUnauthorized)
-
+		s.writeAuthRequired(rc)
 		return false
 	}
 
 	if c, err := rc.req.Cookie(kopiaAuthCookie); err == nil && c != nil {
 		if rc.srv.isAuthCookieValid(username, c.Value) {
-			// found a short-term JWT cookie that matches given username, trust it.
-			// this avoids potentially expensive password hashing inside the authenticator.
 			return true
 		}
 	}
@@ -220,7 +246,6 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 		rc.w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
 		http.Error(rc.w, "Access denied.\n", http.StatusUnauthorized)
 
-		// Log failed authentication attempt
 		userLog(rc.req.Context()).Warnf("failed login attempt by client %s for user %s", rc.req.RemoteAddr, username)
 
 		return false
@@ -233,19 +258,37 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 		userLog(rc.req.Context()).Errorf("unable to generate short-term auth cookie: %v", err)
 	} else {
 		http.SetCookie(rc.w, &http.Cookie{
-			Name:    kopiaAuthCookie,
-			Value:   ac,
-			Expires: now.Add(kopiaAuthCookieTTL),
-			Path:    "/",
+			Name:     kopiaAuthCookie,
+			Value:    ac,
+			Expires:  now.Add(kopiaAuthCookieTTL),
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			Secure:   rc.req.TLS != nil,
 		})
 
 		if s.options.LogRequests {
-			// Log successful authentication
 			userLog(rc.req.Context()).Infof("successful login by client %s for user %s", rc.req.RemoteAddr, username)
 		}
 	}
 
 	return true
+}
+
+func (s *Server) writeAuthRequired(rc requestContext) {
+	if wantsHTML(rc.req) && rc.req.Method == http.MethodGet {
+		http.Redirect(rc.w, rc.req, "/login", http.StatusFound)
+		return
+	}
+
+	rc.w.Header().Set("Content-Type", "application/json")
+	rc.w.Header().Set("X-Content-Type-Options", "nosniff")
+	rc.w.Header().Set("Cache-Control", "no-store")
+	rc.w.WriteHeader(http.StatusUnauthorized)
+	_ = json.NewEncoder(rc.w).Encode(&serverapi.ErrorResponse{
+		Code:  serverapi.ErrorAuthFailed,
+		Error: "authentication required",
+	})
 }
 
 func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
@@ -759,10 +802,13 @@ func (s *Server) patchIndexBytes(sessionID string, b []byte) []byte {
 
 	csrfToken := s.generateCSRFToken(sessionID)
 
-	// insert <meta name="kopia-csrf-token" content="..." /> just before closing head tag.
 	b = bytes.ReplaceAll(b,
 		[]byte(`</head>`),
 		[]byte(`<meta name="kopia-csrf-token" content="`+csrfToken+`" /></head>`))
+
+	b = bytes.ReplaceAll(b,
+		[]byte(`</body>`),
+		[]byte(`<script src="/auth-ui/auth_nav.js" defer></script></body>`))
 
 	return b
 }
@@ -791,6 +837,15 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 	indexBytes := maybeReadIndexBytes(fs)
 
 	m.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/login":
+			s.handleLoginPage(w, r)
+			return
+		case "/account/security":
+			s.handleSecurityPage(w, r)
+			return
+		}
+
 		if s.isKnownUIRoute(r.URL.Path) {
 			r2 := new(http.Request)
 			*r2 = *r
@@ -802,31 +857,30 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 
 		rc := s.captureRequestContext(w, r)
 
-		//nolint:contextcheck
-		if !s.isAuthenticated(rc) {
-			return
-		}
+		// No authenticator (--without-password): serve the UI openly, matching legacy behavior.
+		if s.getAuthenticator() != nil {
+			// Browser UI requires a form-login session. Basic Auth alone must not open the SPA.
+			username, ok := s.uiSessionUsername(r)
+			if !ok {
+				//nolint:contextcheck
+				s.writeAuthRequired(rc)
+				return
+			}
 
-		//nolint:contextcheck
-		if !requireUIUser(rc.req.Context(), rc) {
-			http.Error(w, `UI Access denied. See https://github.com/kopia/kopia/issues/880#issuecomment-798421751 for more information.`, http.StatusForbidden)
-			return
+			if s.options.UIUser != "" && username != s.options.UIUser {
+				http.Error(w, `UI Access denied. See https://github.com/kopia/kopia/issues/880#issuecomment-798421751 for more information.`, http.StatusForbidden)
+				return
+			}
 		}
 
 		if r.URL.Path == "/" && indexBytes != nil {
 			var sessionID string
 
 			if cookie, err := r.Cookie(kopiaSessionCookie); err == nil {
-				// already in a session, likely a new tab was opened
 				sessionID = cookie.Value
 			} else {
 				sessionID = uuid.NewString()
-
-				http.SetCookie(w, &http.Cookie{
-					Name:  kopiaSessionCookie,
-					Value: sessionID,
-					Path:  "/",
-				})
+				hardenSessionCookie(w, r, sessionID, loginSessionTTL)
 			}
 
 			http.ServeContent(w, r, "/", clock.Now(), bytes.NewReader(s.patchIndexBytes(sessionID, indexBytes)))
@@ -851,6 +905,7 @@ type Options struct {
 	LogRequests              bool
 	UIUser                   string // name of the user allowed to access the UI API
 	UIPreferencesFile        string // name of the JSON file storing UI preferences
+	MFACredentialsFile       string // name of the JSON file storing UI TOTP/Passkey credentials
 	ServerControlUser        string // name of the user allowed to access the server control API
 	DisableCSRFTokenChecks   bool
 	PersistentLogs           bool
@@ -1120,6 +1175,13 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 		options.AuthCookieSigningKey = uuid.New().String()
 	}
 
+	signingKey := []byte(options.AuthCookieSigningKey)
+
+	mfaStore, err := newMFACredentialStore(options.MFACredentialsFile, signingKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to initialize MFA credential store")
+	}
+
 	s := &Server{
 		rootctx:              ctx,
 		options:              *options,
@@ -1130,7 +1192,10 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 		authorizer:           options.Authorizer,
 		taskmgr:              uitask.NewManager(options.PersistentLogs),
 		mounts:               map[object.ID]mount.Controller{},
-		authCookieSigningKey: []byte(options.AuthCookieSigningKey),
+		authCookieSigningKey: signingKey,
+		loginSessions:        newLoginSessionManager(),
+		mfaStore:             mfaStore,
+		loginLimiter:         newLoginRateLimiter(),
 		nextRefreshTime:      clock.Now().Add(options.RefreshInterval),
 		schedulerRefresh:     make(chan string, 1),
 	}
