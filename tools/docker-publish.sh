@@ -68,5 +68,5 @@ for t in $extra_tags; do
     fi
 done
 
-echo Building $versioned_image with tags [$tags]...
+echo Building kopia container image with tags [$tags]...
 docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 $tags --push $DOCKER_BUILD_DIR
