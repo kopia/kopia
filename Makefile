@@ -503,12 +503,7 @@ publish-scoop:
 	$(CURDIR)/tools/scoop-publish.sh $(RELEASE_STAGING_DIR) $(KOPIA_VERSION_NO_PREFIX)
 
 publish-docker:
-ifneq ($(DOCKERHUB_TOKEN),)
-	@echo $(DOCKERHUB_TOKEN) | docker login --username $(DOCKERHUB_USERNAME) --password-stdin
 	$(CURDIR)/tools/docker-publish.sh $(CURDIR)/dist_binaries
-else
-	@echo DOCKERHUB_TOKEN is not set.
-endif
 
 PERF_BENCHMARK_INSTANCE=kopia-perf
 PERF_BENCHMARK_INSTANCE_ZONE=us-west1-a
