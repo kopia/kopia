@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 GS_PREFIX=gs://$PACKAGES_HOST/rpm
 PKGDIR=$1
