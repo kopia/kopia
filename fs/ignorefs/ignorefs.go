@@ -300,9 +300,13 @@ func resolveSymlink(ctx context.Context, entry fs.Symlink) (fs.File, error) {
 }
 
 func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, error) {
-	effectiveDotIgnoreFiles := d.parentContext.dotIgnoreFiles
+	return buildContextForDirectory(ctx, d.Directory, d.relativePath, d.parentContext, d.policyTree)
+}
 
-	pol := d.policyTree.DefinedPolicy()
+func buildContextForDirectory(ctx context.Context, dir fs.Directory, relativePath string, parentContext *ignoreContext, policyTree *policy.Tree) (*ignoreContext, error) {
+	effectiveDotIgnoreFiles := parentContext.dotIgnoreFiles
+
+	pol := policyTree.DefinedPolicy()
 	if pol != nil {
 		effectiveDotIgnoreFiles = pol.FilesPolicy.DotIgnoreFiles
 	}
@@ -310,7 +314,7 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 	var dotIgnoreFiles []fs.File
 
 	for _, dotfile := range effectiveDotIgnoreFiles {
-		if e, err := d.Directory.Child(ctx, dotfile); err == nil {
+		if e, err := dir.Child(ctx, dotfile); err == nil {
 			switch entry := e.(type) {
 			case fs.File:
 				dotIgnoreFiles = append(dotIgnoreFiles, entry)
@@ -328,24 +332,24 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 
 	if len(dotIgnoreFiles) == 0 && pol == nil {
 		// no dotfiles and no policy at this level, reuse parent ignore rules
-		return d.parentContext, nil
+		return parentContext, nil
 	}
 
 	newic := &ignoreContext{
-		parent:         d.parentContext,
-		onIgnore:       d.parentContext.onIgnore,
+		parent:         parentContext,
+		onIgnore:       parentContext.onIgnore,
 		dotIgnoreFiles: effectiveDotIgnoreFiles,
-		maxFileSize:    d.parentContext.maxFileSize,
-		oneFileSystem:  d.parentContext.oneFileSystem,
+		maxFileSize:    parentContext.maxFileSize,
+		oneFileSystem:  parentContext.oneFileSystem,
 	}
 
 	if pol != nil {
-		if err := newic.overrideFromPolicy(&pol.FilesPolicy, d.relativePath); err != nil {
+		if err := newic.overrideFromPolicy(&pol.FilesPolicy, relativePath); err != nil {
 			return nil, err
 		}
 	}
 
-	if err := newic.loadDotIgnoreFiles(ctx, d.relativePath, dotIgnoreFiles); err != nil {
+	if err := newic.loadDotIgnoreFiles(ctx, relativePath, dotIgnoreFiles); err != nil {
 		return nil, err
 	}
 
