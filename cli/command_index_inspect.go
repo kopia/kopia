@@ -31,7 +31,7 @@ func (c *commandIndexInspect) setup(svc appServices, parent commandParent) {
 	cmd.Flag("all", "Inspect all index blobs in the repository, including inactive").BoolVar(&c.all)
 	cmd.Flag("active", "Inspect all active index blobs").BoolVar(&c.active)
 	cmd.Flag("content-id", "Inspect all active index blobs").StringsVar(&c.contentIDs)
-	cmd.Flag("parallel", "Parallelism").Default("8").IntVar(&c.parallel)
+	cmd.Flag("parallel", "Parallelism").Default("8").SetValue(nonNegativeIntVar(&c.parallel))
 	cmd.Arg("blobs", "Names of index blobs to inspect").StringsVar(&c.blobIDs)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
 

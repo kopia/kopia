@@ -17,7 +17,7 @@ type commandCacheSync struct {
 
 func (c *commandCacheSync) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("sync", "Synchronizes the metadata cache with blobs in storage")
-	cmd.Flag("parallel", "Fetch parallelism").Default("16").IntVar(&c.parallel)
+	cmd.Flag("parallel", "Fetch parallelism").Default("16").SetValue(nonNegativeIntVar(&c.parallel))
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
 }
 

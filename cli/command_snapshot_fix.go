@@ -47,7 +47,7 @@ func (c *commonRewriteSnapshots) setup(svc appServices, cmd *kingpin.CmdClause) 
 	cmd.Flag("manifest-id", "Manifest IDs").StringsVar(&c.manifestIDs)
 	cmd.Flag("source", "Source to target (username@hostname:/path)").StringsVar(&c.sources)
 	cmd.Flag("commit", "Update snapshot manifests").BoolVar(&c.commit)
-	cmd.Flag("parallel", "Parallelism").IntVar(&c.parallel)
+	cmd.Flag("parallel", "Parallelism").SetValue(nonNegativeIntVar(&c.parallel))
 	cmd.Flag("invalid-directory-handling", "Handling of invalid directories").Default(invalidEntryStub).EnumVar(&c.invalidDirHandling, invalidEntryFail, invalidEntryStub, invalidEntryKeep)
 }
 

@@ -147,7 +147,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("write-sparse-files", "When doing a restore, attempt to write files sparsely-allocating the minimum amount of disk space needed.").Default("false").BoolVar(&c.restoreWriteSparseFiles)
 	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar(svc.EnvName("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES")).BoolVar(&c.restoreConsistentAttributes)
 	cmd.Flag("mode", "Override restore mode").Default(restoreModeAuto).EnumVar(&c.restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
-	cmd.Flag("parallel", "Restore parallelism (1=disable)").Default("8").IntVar(&c.restoreParallel)
+	cmd.Flag("parallel", "Restore parallelism (1=disable)").Default("8").SetValue(nonNegativeIntVar(&c.restoreParallel))
 	cmd.Flag("skip-owners", "Skip owners during restore").BoolVar(&c.restoreSkipOwners)
 	cmd.Flag("skip-permissions", "Skip permissions during restore").BoolVar(&c.restoreSkipPermissions)
 	cmd.Flag("skip-times", "Skip times during restore").BoolVar(&c.restoreSkipTimes)

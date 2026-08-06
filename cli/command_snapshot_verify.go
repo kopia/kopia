@@ -42,7 +42,7 @@ func (c *commandSnapshotVerify) setup(svc appServices, parent commandParent) {
 	cmd.Flag("file-id", "File object IDs to verify").StringsVar(&c.verifyCommandFileObjectIDs)
 	cmd.Flag("all-sources", "Verify all snapshots (DEPRECATED)").Hidden().BoolVar(&c.verifyCommandAllSources)
 	cmd.Flag("sources", "Verify the provided sources").StringsVar(&c.verifyCommandSources)
-	cmd.Flag("parallel", "Parallelization").Default("8").IntVar(&c.verifyCommandParallel)
+	cmd.Flag("parallel", "Parallelization").Default("8").SetValue(nonNegativeIntVar(&c.verifyCommandParallel))
 	cmd.Flag("file-queue-length", "Queue length for file verification").Default("20000").IntVar(&c.fileQueueLength)
 	cmd.Flag("file-parallelism", "Parallelism for file verification").IntVar(&c.fileParallelism)
 	cmd.Flag("verify-files-percent", "Randomly verify a percentage of files by downloading them [0.0 .. 100.0]").Default("0").Float64Var(&c.verifyCommandFilesPercent)

@@ -43,7 +43,7 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("update", "Whether to update blobs present in destination and source if the source is newer.").Default("true").BoolVar(&c.repositorySyncUpdate)
 	cmd.Flag("delete", "Whether to delete blobs present in destination but not source.").BoolVar(&c.repositorySyncDelete)
 	cmd.Flag("dry-run", "Do not perform copying.").Short('n').BoolVar(&c.repositorySyncDryRun)
-	cmd.Flag("parallel", "Copy parallelism.").Default("1").IntVar(&c.repositorySyncParallelism)
+	cmd.Flag("parallel", "Copy parallelism.").Default("1").SetValue(nonNegativeIntVar(&c.repositorySyncParallelism))
 	cmd.Flag("must-exist", "Fail if destination does not have repository format blob.").BoolVar(&c.repositorySyncDestinationMustExist)
 	cmd.Flag("times", "Synchronize blob times if supported.").BoolVar(&c.repositorySyncTimes)
 
