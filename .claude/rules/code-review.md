@@ -1,1 +1,1 @@
-../../.github/instructions/code-review.copilot-instructions.md
+../../.github/instructions/code-review.instructions.md

@@ -1,1 +1,1 @@
-../../.github/instructions/go-dev.copilot-instructions.md
+../../.github/instructions/go-dev.instructions.md

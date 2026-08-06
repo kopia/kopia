@@ -1,1 +1,1 @@
-../../.github/instructions/go-testing.copilot-instructions.md
+../../.github/instructions/go-testing.instructions.md

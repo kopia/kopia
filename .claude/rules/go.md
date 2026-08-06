@@ -1,1 +1,0 @@
-../../.github/instructions/go.copilot-instructions.md
