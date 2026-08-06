@@ -5,6 +5,25 @@ DOCKER_BUILD_DIR=tools/docker
 if [ "$DOCKERHUB_REPO" == "" ]; then
     DOCKERHUB_REPO=kopia/kopia
 fi
+if [ "$GHCR_REPO" == "" ]; then
+    GHCR_REPO=ghcr.io/kopia/kopia
+fi
+
+if [ "$DOCKERHUB_USERNAME" == "" ]; then
+    echo "DOCKERHUB_USERNAME is not set."
+fi
+if [ "$DOCKERHUB_TOKEN" == "" ]; then
+    echo "DOCKERHUB_TOKEN is not set."
+fi
+echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+
+if [ "$GHCR_USERNAME" == "" ]; then
+    echo "GHCR_USERNAME is not set."
+fi
+if [ "$GHCR_TOKEN" == "" ]; then
+    echo "GHCR_TOKEN is not set."
+fi
+echo "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USERNAME" --password-stdin
 
 cp -r "$DIST_DIR/kopia_linux_amd64/" "$DOCKER_BUILD_DIR/bin-amd64/"
 chmod 0755 "$DOCKER_BUILD_DIR/bin-amd64/kopia"
@@ -40,13 +59,14 @@ if [[ "$KOPIA_VERSION_NO_PREFIX" =~ 20[0-9]+\.[0-9]+\.[0-9]+ ]]; then
     extra_tags="unstable"
 fi
 
-versioned_image=$DOCKERHUB_REPO:$KOPIA_VERSION_NO_PREFIX
-tags="-t $versioned_image"
+dockerhub_versioned_image=$DOCKERHUB_REPO:$KOPIA_VERSION_NO_PREFIX
+ghcr_versioned_image=$GHCR_REPO:$KOPIA_VERSION_NO_PREFIX
+tags="-t $dockerhub_versioned_image -t $ghcr_versioned_image"
 for t in $extra_tags; do
     if [ "$t" != "0" ]; then
-        tags="$tags -t $DOCKERHUB_REPO:$t"
+        tags="$tags -t $DOCKERHUB_REPO:$t -t $GHCR_REPO:$t"
     fi
 done
 
-echo Building $versioned_image with tags [$tags]...
+echo Building kopia container image with tags [$tags]...
 docker buildx build --platform linux/amd64,linux/arm64,linux/arm/v7 $tags --push $DOCKER_BUILD_DIR
