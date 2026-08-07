@@ -996,7 +996,21 @@ func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, i
 }
 
 func (s *Server) runMaintenanceTask(ctx context.Context, dr repo.DirectRepository) error {
-	return errors.Wrap(s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
+	p, err := maintenance.GetParams(ctx, dr)
+	if err != nil {
+		return errors.Wrap(err, "unable to get maintenance params")
+	}
+	mode, err := maintenance.DetermineMode(ctx, dr, p)
+	if err != nil {
+		return errors.Wrap(err, "unable to determine maintenance mode")
+	}
+	kind := "Maintenance"
+	if mode == maintenance.ModeFull {
+		kind = "Maintenance - Full"
+	} else if mode == maintenance.ModeQuick {
+		kind = "Maintenance - Quick"
+	}
+	return errors.Wrap(s.taskmgr.Run(ctx, kind, "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
 		return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 			Purpose: "periodicMaintenance",
 		}, func(ctx context.Context, w repo.DirectRepositoryWriter) error {
