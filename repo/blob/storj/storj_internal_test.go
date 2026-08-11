@@ -1,3 +1,5 @@
+//go:build !no_extra_providers
+
 // Package storj implements Storage based on the Storj distributed storage system.
 package storj
 
