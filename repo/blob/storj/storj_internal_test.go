@@ -20,15 +20,15 @@ import (
 const (
 	blobname     = "testblob-1"
 	blobcontents = "a test blob"
-	testbucket   = "kopia-test"
 )
 
 func TestConnect(t *testing.T) {
 	ctx := context.Background()
 	accessgrant := getStorjTestConfiguration(t)
+	bucket := getStorjTestBucket(t)
 
 	opts := &Options{
-		BucketName:  testbucket,
+		BucketName:  bucket,
 		AccessGrant: accessgrant,
 	}
 
@@ -37,7 +37,7 @@ func TestConnect(t *testing.T) {
 		t.Fatalf("expected  New to succeed: %v", err)
 	}
 
-	removeTheBucket(t, ctx, rs, testbucket)
+	cleanupTestBlobs(t, ctx, rs)
 }
 
 // TODO(rjk): Would it be nicer to populate the options object in this function?
@@ -50,12 +50,25 @@ func getStorjTestConfiguration(t *testing.T) string {
 	return accessgrant
 }
 
+// getStorjTestBucket returns the same STORJ_TEST_BUCKET storj_storage_test.go
+// uses, so these ad hoc tests work under a bucket-scoped access grant
+// instead of needing separate access to a hardcoded bucket name.
+func getStorjTestBucket(t *testing.T) string {
+	t.Helper()
+	bucket := os.Getenv("STORJ_TEST_BUCKET")
+	if bucket == "" {
+		t.Skip("skipping test because Storj test bucket is not set")
+	}
+	return bucket
+}
+
 func TestListBlobs(t *testing.T) {
 	ctx := context.Background()
 	accessgrant := getStorjTestConfiguration(t)
+	bucket := getStorjTestBucket(t)
 
 	opts := &Options{
-		BucketName:  testbucket,
+		BucketName:  bucket,
 		AccessGrant: accessgrant,
 	}
 
@@ -63,7 +76,12 @@ func TestListBlobs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected  New to succeed: %v", err)
 	}
-	defer removeTheBucket(t, ctx, storj, testbucket)
+	defer cleanupTestBlobs(t, ctx, storj)
+
+	// STORJ_TEST_BUCKET is shared and persistent (unlike the bucket this
+	// test used to create and delete for itself), so start from a clean
+	// slate in case a previous run's cleanup didn't complete.
+	deleteAllTestBlobs(t, ctx, storj)
 
 	now := time.Now()
 	diffopts := cmpopts.EquateApproxTime(5 * time.Second)
@@ -77,12 +95,6 @@ func TestListBlobs(t *testing.T) {
 			Length:    int64(len(blobcontents)),
 			Timestamp: timestamp,
 		}
-	}
-
-	dotshards := blob.Metadata{
-		BlobID:    ".shards",
-		Length:    int64(43),
-		Timestamp: now,
 	}
 
 	for _, tv := range []struct {
@@ -102,7 +114,6 @@ func TestListBlobs(t *testing.T) {
 				_mh("a", now),
 				_mh("b", now),
 				_mh("c", now),
-				dotshards,
 			},
 		},
 		{
@@ -129,7 +140,6 @@ func TestListBlobs(t *testing.T) {
 				"xn0_af57ceddd161394455b90db173f5c0d9-s6682f1d36839014a121-c1",
 			},
 			want: []blob.Metadata{
-				dotshards,
 				_mh("dd1", now),
 				_mh("dd2", now),
 				_mh("dd3", now),
@@ -196,9 +206,10 @@ func TestListBlobs(t *testing.T) {
 func TestPutOpts(t *testing.T) {
 	ctx := context.Background()
 	accessgrant := getStorjTestConfiguration(t)
+	bucket := getStorjTestBucket(t)
 
 	opts := &Options{
-		BucketName:  testbucket,
+		BucketName:  bucket,
 		AccessGrant: accessgrant,
 	}
 
@@ -206,7 +217,7 @@ func TestPutOpts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected  New to succeed: %v", err)
 	}
-	defer removeTheBucket(t, ctx, storj, testbucket)
+	defer cleanupTestBlobs(t, ctx, storj)
 
 	// Put the blob.
 	if err := storj.PutBlob(ctx, blob.ID(blobname), gather.FromSlice([]byte(blobcontents)), blob.PutOptions{}); err != nil {
@@ -233,9 +244,10 @@ func TestPutOpts(t *testing.T) {
 func TestPutGetBlob(t *testing.T) {
 	ctx := context.Background()
 	accessgrant := getStorjTestConfiguration(t)
+	bucket := getStorjTestBucket(t)
 
 	opts := &Options{
-		BucketName:  testbucket,
+		BucketName:  bucket,
 		AccessGrant: accessgrant,
 	}
 
@@ -243,7 +255,7 @@ func TestPutGetBlob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected  New to succeed: %v", err)
 	}
-	defer removeTheBucket(t, ctx, storj, testbucket)
+	defer cleanupTestBlobs(t, ctx, storj)
 
 	diffopts := cmpopts.EquateApproxTime(2 * time.Second)
 	now := time.Now()
@@ -308,8 +320,12 @@ func TestPutGetBlob(t *testing.T) {
 	}
 }
 
-// Also tests "DeleteBlob" and Close.
-func removeTheBucket(t *testing.T, ctx context.Context, rsj *storjStorage, bucket string) {
+// deleteAllTestBlobs deletes every blob in rsj's bucket, leaving the bucket
+// itself and the connection open. STORJ_TEST_BUCKET is shared and
+// persistent (unlike the throwaway bucket these tests used to create and
+// delete for themselves), and a bucket-scoped access grant generally can't
+// delete the bucket it's scoped to anyway. Also tests "DeleteBlob".
+func deleteAllTestBlobs(t *testing.T, ctx context.Context, rsj *storjStorage) {
 	t.Helper()
 
 	blobs := []blob.ID{}
@@ -320,25 +336,24 @@ func removeTheBucket(t *testing.T, ctx context.Context, rsj *storjStorage, bucke
 	}
 
 	if err := rsj.ListBlobs(ctx, "", cb); err != nil {
-		t.Fatalf("removeTheBucket: ListBlobs unexpected error %v", err)
+		t.Fatalf("deleteAllTestBlobs: ListBlobs unexpected error %v", err)
 	}
 
 	for _, b := range blobs {
 		if err := rsj.DeleteBlob(ctx, b); err != nil {
-			t.Errorf("removeTheBucket: DeleteBlob %q failed: %v", string(b), err)
+			t.Errorf("deleteAllTestBlobs: DeleteBlob %q failed: %v", string(b), err)
 		}
-	}
-
-	if err := rsj.deleteBucket(ctx, bucket); err != nil {
-		t.Errorf("removeTheBucket: DeleteBucket of %q failed: %v", bucket, err)
-	}
-
-	if err := rsj.Close(ctx); err != nil {
-		t.Errorf("removeTheBucket: Close failed: %v", err)
 	}
 }
 
-func (storj *storjStorage) deleteBucket(ctx context.Context, bucket string) error {
-	_, err := storj.Storage.Impl.(*impl).project.DeleteBucket(ctx, bucket)
-	return err
+// cleanupTestBlobs deletes every blob in rsj's bucket, then closes rsj.
+// Also tests Close.
+func cleanupTestBlobs(t *testing.T, ctx context.Context, rsj *storjStorage) {
+	t.Helper()
+
+	deleteAllTestBlobs(t, ctx, rsj)
+
+	if err := rsj.Close(ctx); err != nil {
+		t.Errorf("cleanupTestBlobs: Close failed: %v", err)
+	}
 }

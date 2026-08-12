@@ -56,6 +56,13 @@ func (storj *impl) MakeFileName(blobID blob.ID) string {
 	return string(blobID)
 }
 func (storj *impl) GetBlobIDFromFileName(name string) (blob.ID, bool) {
+	// sharded.Storage persists its shard-layout config as a real object
+	// named sharded.ParametersFile at the bucket root; it is not a blob and
+	// must not be surfaced through ListBlobs.
+	if name == sharded.ParametersFile {
+		return blob.ID(""), false
+	}
+
 	return blob.ID(name), true
 }
 
