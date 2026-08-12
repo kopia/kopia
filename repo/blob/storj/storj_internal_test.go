@@ -34,7 +34,7 @@ func TestConnect(t *testing.T) {
 
 	rs, err := _new(ctx, opts, true)
 	if err != nil {
-		t.Errorf("expected  New to succeed: %v", err)
+		t.Fatalf("expected  New to succeed: %v", err)
 	}
 
 	removeTheBucket(t, ctx, rs, testbucket)
