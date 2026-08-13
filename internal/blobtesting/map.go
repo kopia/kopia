@@ -28,7 +28,7 @@ type mapStorage struct {
 	// +checklocks:mutex
 	totalBytes int64
 	// +checklocksignore
-	limit int64
+	limit uint64
 	mutex sync.RWMutex
 }
 
@@ -37,7 +37,7 @@ func (s *mapStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 		return blob.Capacity{}, errors.Wrap(err, "get capacity failed")
 	}
 
-	if s.limit < 0 {
+	if s.limit == 0 {
 		return blob.Capacity{}, blob.ErrNotAVolume
 	}
 
@@ -45,8 +45,8 @@ func (s *mapStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
 	defer s.mutex.RUnlock()
 
 	return blob.Capacity{
-		SizeB: uint64(s.limit),
-		FreeB: uint64(s.limit - s.totalBytes),
+		SizeB: s.limit,
+		FreeB: s.limit - uint64(s.totalBytes),
 	}, nil
 }
 
@@ -128,7 +128,7 @@ func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes, o
 
 	data.WriteTo(&b)
 
-	if s.limit >= 0 && s.totalBytes+int64(b.Len()) > s.limit {
+	if s.limit > 0 && uint64(s.totalBytes+int64(b.Len())) > s.limit {
 		return errors.Errorf("exceeded limit, unable to add %v bytes, currently using %v/%v", b.Len(), s.totalBytes, s.limit)
 	}
 
@@ -235,12 +235,12 @@ func (s *mapStorage) DisplayName() string {
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
 func NewMapStorage(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() time.Time) blob.Storage {
-	return NewMapStorageWithLimit(data, keyTime, timeNow, -1)
+	return NewMapStorageWithLimit(data, keyTime, timeNow, 0)
 }
 
 // NewMapStorageWithLimit returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
-func NewMapStorageWithLimit(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() time.Time, limit int64) blob.Storage {
+func NewMapStorageWithLimit(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() time.Time, limit uint64) blob.Storage {
 	if keyTime == nil {
 		keyTime = make(map[blob.ID]time.Time)
 	}

@@ -41,6 +41,9 @@ type Options struct {
 	ConnectOptions       func(*repo.ConnectOptions)
 	NewRepositoryOptions func(*repo.NewRepositoryOptions)
 	OpenOptions          func(*repo.Options)
+	// A non-zero StorageLimitBytes option limits the capacity of the underlying storage,
+	// otherwise it is unlimited.
+	StorageLimitBytes uint64
 }
 
 // RepositoryMetrics returns metrics.Registry associated with a repository.
@@ -94,9 +97,18 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 		}
 	}
 
+	// collect last non-zero StorageLimitBytes across all opts
+	var storageLimitBytes uint64
+
+	for _, mod := range opts {
+		if mod.StorageLimitBytes != 0 {
+			storageLimitBytes = mod.StorageLimitBytes
+		}
+	}
+
 	var st blob.Storage
 	if opt.RetentionPeriod == 0 || opt.RetentionMode == "" {
-		st = blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, openOpt.TimeNowFunc)
+		st = blobtesting.NewMapStorageWithLimit(blobtesting.DataMap{}, nil, openOpt.TimeNowFunc, storageLimitBytes)
 	} else {
 		// use versioned mock storage when retention settings are specified
 		st = blobtesting.NewVersionedMapStorage(openOpt.TimeNowFunc)

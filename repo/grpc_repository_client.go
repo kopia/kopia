@@ -502,6 +502,33 @@ func (r *grpcInnerSession) SendNotification(ctx context.Context, templateName st
 	return struct{}{}, errNoSessionResponse()
 }
 
+func (r *grpcRepositoryClient) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	return maybeRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (blob.Capacity, error) {
+		return sess.getCapacity(ctx)
+	})
+}
+
+func (r *grpcInnerSession) getCapacity(ctx context.Context) (blob.Capacity, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+		Request: &apipb.SessionRequest_GetCapacity{
+			GetCapacity: &apipb.GetCapacityRequest{},
+		},
+	}) {
+		switch rr := resp.GetResponse().(type) {
+		case *apipb.SessionResponse_GetCapacity:
+			return blob.Capacity{
+				SizeB: rr.GetCapacity.GetCapacity().GetSizeB(),
+				FreeB: rr.GetCapacity.GetCapacity().GetFreeB(),
+			}, nil
+
+		default:
+			return blob.Capacity{}, unhandledSessionResponse(resp)
+		}
+	}
+
+	return blob.Capacity{}, errNoSessionResponse()
+}
+
 func (r *grpcRepositoryClient) Time() time.Time {
 	return clock.Now()
 }
@@ -658,6 +685,8 @@ func errorFromSessionResponse(rr *apipb.ErrorResponse) error {
 		return content.ErrContentNotFound
 	case apipb.ErrorResponse_STREAM_BROKEN:
 		return errors.Wrap(io.EOF, rr.GetMessage())
+	case apipb.ErrorResponse_NOT_A_VOLUME:
+		return blob.ErrNotAVolume
 	default:
 		return errors.New(rr.GetMessage())
 	}
