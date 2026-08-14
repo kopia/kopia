@@ -14,7 +14,7 @@ import (
 )
 
 type commandContentVerify struct {
-	contentVerifyParallel       int
+	contentVerifyParallel       uint
 	contentVerifyFull           bool
 	contentVerifyIncludeDeleted bool
 	contentVerifyPercent        float64
@@ -26,7 +26,7 @@ type commandContentVerify struct {
 func (c *commandContentVerify) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("verify", "Verify that each content is backed by a valid blob")
 
-	cmd.Flag("parallel", "Parallelism").Default("16").SetValue(nonNegativeIntVar(&c.contentVerifyParallel))
+	cmd.Flag("parallel", "Parallelism").Default("16").UintVar(&c.contentVerifyParallel)
 	cmd.Flag("full", "Full verification (including download)").BoolVar(&c.contentVerifyFull)
 	cmd.Flag("include-deleted", "Include deleted contents").BoolVar(&c.contentVerifyIncludeDeleted)
 	cmd.Flag("download-percent", "Download a percentage of files [0.0 .. 100.0]").Float64Var(&c.contentVerifyPercent)
@@ -70,7 +70,7 @@ func (c *commandContentVerify) run(ctx context.Context, rep repo.DirectRepositor
 		ContentIDRange:            c.contentRange.contentIDRange(),
 		ContentReadPercentage:     c.contentVerifyPercent,
 		IncludeDeletedContents:    c.contentVerifyIncludeDeleted,
-		ContentIterateParallelism: c.contentVerifyParallel,
+		ContentIterateParallelism: parallelismAsInt(c.contentVerifyParallel),
 		ProgressCallbackInterval:  1,
 
 		ProgressCallback: func(vps content.VerifyProgressStats) {

@@ -27,7 +27,7 @@ func TestNegativeParallelRejected(t *testing.T) {
 		{"content", "verify", "--parallel=-1"},
 	} {
 		_, _, err := env.Run(t, true, args...)
-		require.ErrorContains(t, err, "must not be negative",
-			"'kopia %v' should fail with the negative-value rejection", strings.Join(args, " "))
+		require.ErrorContains(t, err, "invalid syntax",
+			"'kopia %v' should fail parsing the negative value", strings.Join(args, " "))
 	}
 }
