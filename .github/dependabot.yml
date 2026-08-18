@@ -7,7 +7,7 @@ updates:
       interval: weekly
       day: sunday
       # UTC
-      time: 12:17
+      time: "12:17"
     cooldown:
       default-days: 4
     ignore:
