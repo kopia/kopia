@@ -841,6 +841,8 @@ func (e *Manager) WriteIndex(ctx0 context.Context, dataShards map[blob.ID]blob.B
 	for {
 		ctx := contentlog.WithParams(ctx0, logparam.Int("span:writeEpochIndex:attempt", attempt))
 
+		attempt++
+
 		p, err := e.getParameters(ctx)
 		if err != nil {
 			return nil, err
