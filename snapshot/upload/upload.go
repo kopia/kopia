@@ -242,7 +242,7 @@ func (u *Uploader) uploadFileData(ctx context.Context, parentCheckpointRegistry 
 	defer file.Close() //nolint:errcheck
 
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
-		Description:        "FILE:" + fname,
+		Description:        fname,
 		Compressor:         compressor,
 		MetadataCompressor: metadataComp,
 		Splitter:           splitterName,
@@ -313,7 +313,7 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 	}
 
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
-		Description:        "SYMLINK:" + f.Name(),
+		Description:        f.Name(),
 		MetadataCompressor: metadataComp,
 	})
 	defer writer.Close() //nolint:errcheck
@@ -358,7 +358,7 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 	metadataComp := pol.MetadataCompressionPolicy.MetadataCompressor()
 
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
-		Description:        "STREAMFILE:" + f.Name(),
+		Description:        f.Name(),
 		Compressor:         comp,
 		MetadataCompressor: metadataComp,
 		Splitter:           pol.SplitterPolicy.SplitterForFile(f),
