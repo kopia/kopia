@@ -803,3 +803,43 @@ func verifyEmptyDir(t *testing.T, dir string) {
 	require.NoError(t, err)
 	require.Empty(t, entries)
 }
+
+func TestFileStorage_DeleteBlob_RemoveDirErrorDoesNotFailDelete(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	dir := testutil.TempDirectory(t)
+
+	st, err := New(ctx, &Options{
+		Path: dir,
+		Options: sharded.Options{
+			DirectoryShards: []int{3, 3},
+		},
+	}, true)
+	require.NoError(t, err)
+
+	defer st.Close(ctx)
+
+	// Must exceed defaultMinShardedBlobIDLength (20) to trigger sharding.
+	blobID := blob.ID("abcdef1234567890abcde")
+	require.NoError(t, st.PutBlob(ctx, blobID, gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+
+	// Place a foreign file in the sub-shard directory so that os.Remove on
+	// the directory fails with ENOTEMPTY. This simulates RemoveDirInPath
+	// returning an error during the post-delete sweep.
+	foreignFile := filepath.Join(dir, "abc", "def", "foreign.txt")
+	require.NoError(t, os.WriteFile(foreignFile, []byte("keep"), 0o600))
+
+	// DeleteBlob should succeed even though directory removal fails.
+	require.NoError(t, st.DeleteBlob(ctx, blobID))
+
+	// Verify the blob file is actually gone.
+	var buf gather.WriteBuffer
+	defer buf.Close()
+
+	require.ErrorIs(t, st.GetBlob(ctx, blobID, 0, -1, &buf), blob.ErrBlobNotFound)
+
+	// The shard directories remain because of the foreign file.
+	require.DirExists(t, filepath.Join(dir, "abc", "def"))
+	require.FileExists(t, foreignFile)
+}
