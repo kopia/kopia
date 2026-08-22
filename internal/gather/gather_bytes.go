@@ -21,7 +21,7 @@ var (
 //
 //nolint:recvcheck
 type Bytes struct {
-	Slices [][]byte
+	slices [][]byte
 
 	// for common case where there's one slice, store the slice itself here
 	// to avoid allocation
@@ -30,7 +30,7 @@ type Bytes struct {
 
 func (b *Bytes) invalidate() {
 	b.sliceBuf[0] = invalidSliceBuf
-	b.Slices = nil
+	b.slices = nil
 }
 
 func (b *Bytes) assertValid() {
@@ -50,7 +50,7 @@ func (b *Bytes) AppendSectionTo(w io.Writer, offset, size int) error {
 	// find the index of starting slice
 	sliceNdx := -1
 
-	for i, bs := range b.Slices {
+	for i, bs := range b.slices {
 		if offset < len(bs) {
 			sliceNdx = i
 			break
@@ -66,14 +66,14 @@ func (b *Bytes) AppendSectionTo(w io.Writer, offset, size int) error {
 
 	// first slice, possibly with offset zero
 	var firstChunkSize int
-	if offset+size <= len(b.Slices[sliceNdx]) {
+	if offset+size <= len(b.slices[sliceNdx]) {
 		firstChunkSize = size
 	} else {
 		// slice shorter
-		firstChunkSize = len(b.Slices[sliceNdx]) - offset
+		firstChunkSize = len(b.slices[sliceNdx]) - offset
 	}
 
-	if _, err := w.Write(b.Slices[sliceNdx][offset : offset+firstChunkSize]); err != nil {
+	if _, err := w.Write(b.slices[sliceNdx][offset : offset+firstChunkSize]); err != nil {
 		return errors.Wrap(err, "error appending")
 	}
 
@@ -81,8 +81,8 @@ func (b *Bytes) AppendSectionTo(w io.Writer, offset, size int) error {
 	sliceNdx++
 
 	// at this point we're staying at offset 0
-	for size > 0 && sliceNdx < len(b.Slices) {
-		s := b.Slices[sliceNdx]
+	for size > 0 && sliceNdx < len(b.slices) {
+		s := b.slices[sliceNdx]
 
 		// l is how many bytes we consume out of the current slice
 		l := min(size, len(s))
@@ -104,7 +104,7 @@ func (b Bytes) Length() int {
 
 	l := 0
 
-	for _, data := range b.Slices {
+	for _, data := range b.slices {
 		l += len(data)
 	}
 
@@ -127,7 +127,7 @@ func (b *bytesReadSeekCloser) ReadAt(bs []byte, off int64) (int, error) {
 	b.b.assertValid()
 	// cache "b.b.Slices" - slice parameters will stay constant for duration of
 	// function.  Locking is left to the calling function
-	slices := b.b.Slices
+	slices := b.b.slices
 
 	// source data that is read will be written to w, the buffer backed by p.
 	offset := off
@@ -255,7 +255,7 @@ func (b Bytes) Reader() io.ReadSeekCloser {
 func (b Bytes) AppendToSlice(output []byte) []byte {
 	b.assertValid()
 
-	for _, v := range b.Slices {
+	for _, v := range b.slices {
 		output = append(output, v...)
 	}
 
@@ -275,7 +275,7 @@ func (b Bytes) WriteTo(w io.Writer) (int64, error) {
 
 	var totalN int64
 
-	for _, v := range b.Slices {
+	for _, v := range b.slices {
 		n, err := w.Write(v)
 
 		totalN += int64(n)
@@ -294,7 +294,7 @@ func FromSlice(b []byte) Bytes {
 	var r Bytes
 
 	r.sliceBuf[0] = b
-	r.Slices = r.sliceBuf[:]
+	r.slices = r.sliceBuf[:]
 
 	return r
 }
