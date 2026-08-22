@@ -4,7 +4,9 @@ package webhook
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
@@ -24,9 +26,27 @@ func (p *webhookProvider) Send(ctx context.Context, msg *sender.Message) error {
 	targetURL := p.opt.Endpoint
 	method := p.opt.Method
 
-	body := bytes.NewReader([]byte(msg.Body))
+	var body []byte
 
-	req, err := http.NewRequestWithContext(ctx, method, targetURL, body)
+	if p.opt.Discord {
+		payload := map[string]any{
+			"content": msg.Subject,
+			"embeds": []map[string]string{{
+				"description": msg.Body,
+			}},
+		}
+
+		jsonBody, err := json.Marshal(payload)
+		if err != nil {
+			return errors.Wrap(err, "error preparing discord notification")
+		}
+
+		body = jsonBody
+	} else {
+		body = []byte(msg.Body)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, targetURL, bytes.NewReader(body))
 	if err != nil {
 		return errors.Wrap(err, "error preparing notification")
 	}
@@ -53,8 +73,13 @@ func (p *webhookProvider) Send(ctx context.Context, msg *sender.Message) error {
 
 	defer resp.Body.Close() //nolint:errcheck
 
-	if resp.StatusCode != http.StatusOK {
-		return errors.Errorf("error sending webhook notification: %v", resp.Status)
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 { // Discord returns a 204 no content
+		bodyBytes, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return errors.Wrapf(err, "error sending webhook notification: %v (failed to read response body)", resp.Status)
+		}
+
+		return errors.Errorf("error sending webhook notification: %v, %s", resp.Status, string(bodyBytes))
 	}
 
 	return nil
