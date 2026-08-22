@@ -22,24 +22,17 @@ func (b *WriteBuffer) Close() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if b.alloc != nil {
-		for _, s := range b.inner.Slices {
-			b.alloc.releaseChunk(s)
-		}
-
-		b.alloc = nil
-	}
-
+	b.releaseChunksLocked()
 	b.inner.invalidate()
 }
 
 // MakeContiguous ensures the write buffer consists of exactly one contiguous single slice of the provided length
 // and returns the slice.
 func (b *WriteBuffer) MakeContiguous(length int) []byte {
-	b.Reset()
-
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	b.releaseChunksLocked()
 
 	var v []byte
 
@@ -47,17 +40,17 @@ func (b *WriteBuffer) MakeContiguous(length int) []byte {
 	case length <= typicalContiguousAllocator.chunkSize:
 		// most commonly used allocator for default chunk size with max 8MB
 		b.alloc = typicalContiguousAllocator
-		v = b.allocChunk()[0:length]
+		v = b.allocChunkLocked()[0:length]
 
 	case length <= maxContiguousAllocator.chunkSize:
 		b.alloc = maxContiguousAllocator
-		v = b.allocChunk()[0:length]
+		v = b.allocChunkLocked()[0:length]
 
 	default:
 		v = make([]byte, length)
 	}
 
-	b.inner.Slices = [][]byte{v}
+	b.inner.slices = [][]byte{v}
 
 	return v
 }
@@ -67,16 +60,19 @@ func (b *WriteBuffer) Reset() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.releaseChunksLocked()
+}
+
+func (b *WriteBuffer) releaseChunksLocked() {
 	if b.alloc != nil {
-		for _, s := range b.inner.Slices {
+		for _, s := range b.inner.slices {
 			b.alloc.releaseChunk(s)
 		}
 	}
 
-	b.inner.invalidate()
-
 	b.alloc = nil
 
+	// calling b.inner.invalidate() is ineffective because it is reset below
 	b.inner = Bytes{}
 }
 
@@ -86,7 +82,7 @@ func (b *WriteBuffer) Write(data []byte) (n int, err error) {
 	return len(data), nil
 }
 
-// AppendSectionTo appends the section of the buffer to the provided slice and returns it.
+// AppendSectionTo appends the section of the buffer to the provided writer.
 func (b *WriteBuffer) AppendSectionTo(w io.Writer, offset, size int) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -102,7 +98,7 @@ func (b *WriteBuffer) Length() int {
 	return b.inner.Length()
 }
 
-// ToByteSlice appends all bytes to the provided slice and returns it.
+// ToByteSlice returns contents as a newly-allocated byte slice.
 func (b *WriteBuffer) ToByteSlice() []byte {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -111,6 +107,9 @@ func (b *WriteBuffer) ToByteSlice() []byte {
 }
 
 // Bytes returns inner gather.Bytes.
+// Note: Use with caution, the returned Bytes are not concurrency safe.
+// A goroutine reading from the returned Bytes may or may not observe a
+// concurrent modification in this WriteBuffer.
 func (b *WriteBuffer) Bytes() Bytes {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -125,47 +124,34 @@ func (b *WriteBuffer) Append(data []byte) {
 
 	b.inner.assertValid()
 
-	if len(b.inner.Slices) == 0 {
-		b.inner.sliceBuf[0] = b.allocChunk()
-		b.inner.Slices = b.inner.sliceBuf[0:1]
+	if len(b.inner.slices) == 0 {
+		b.inner.sliceBuf[0] = b.allocChunkLocked()
+		b.inner.slices = b.inner.sliceBuf[0:1]
 	}
 
 	for len(data) > 0 {
-		ndx := len(b.inner.Slices) - 1
-		remaining := cap(b.inner.Slices[ndx]) - len(b.inner.Slices[ndx])
+		ndx := len(b.inner.slices) - 1
+		remaining := cap(b.inner.slices[ndx]) - len(b.inner.slices[ndx])
 
 		if remaining == 0 {
-			b.inner.Slices = append(b.inner.Slices, b.allocChunk())
-			ndx = len(b.inner.Slices) - 1
-			remaining = cap(b.inner.Slices[ndx]) - len(b.inner.Slices[ndx])
+			b.inner.slices = append(b.inner.slices, b.allocChunkLocked())
+			ndx = len(b.inner.slices) - 1
+			remaining = cap(b.inner.slices[ndx]) - len(b.inner.slices[ndx])
 		}
 
 		chunkSize := min(remaining, len(data))
 
-		b.inner.Slices[ndx] = append(b.inner.Slices[ndx], data[0:chunkSize]...)
+		b.inner.slices[ndx] = append(b.inner.slices[ndx], data[0:chunkSize]...)
 		data = data[chunkSize:]
 	}
 }
 
-func (b *WriteBuffer) allocChunk() []byte {
+func (b *WriteBuffer) allocChunkLocked() []byte {
 	if b.alloc == nil {
 		b.alloc = defaultAllocator
 	}
 
 	return b.alloc.allocChunk()
-}
-
-// Dup creates a clone of the WriteBuffer.
-func (b *WriteBuffer) Dup() *WriteBuffer {
-	dup := &WriteBuffer{}
-
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	dup.alloc = b.alloc
-	dup.inner = FromSlice(b.inner.ToByteSlice())
-
-	return dup
 }
 
 // NewWriteBuffer creates new write buffer.
