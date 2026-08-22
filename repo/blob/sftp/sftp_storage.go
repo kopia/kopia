@@ -49,6 +49,7 @@ type sftpImpl struct {
 	Options
 
 	rec *connection.Reconnector
+	sharded.ImplHelper
 }
 
 type sftpConnection struct {

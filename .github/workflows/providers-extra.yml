@@ -59,3 +59,9 @@ jobs:
         KOPIA_WEBDAV_TEST_USERNAME: ${{ secrets.KOPIA_WEBDAV_TEST_USERNAME }}
         KOPIA_WEBDAV_TEST_PASSWORD: ${{ secrets.KOPIA_WEBDAV_TEST_PASSWORD }}
       if: ${{ success() || failure() }}
+    - name: Storj
+      run: make provider-tests PROVIDER_TEST_TARGET=storj
+      env:
+        STORJ_ACCESS_GRANT: ${{ secrets.STORJ_ACCESS_GRANT }}
+        STORJ_TEST_BUCKET: ${{ secrets.STORJ_TEST_BUCKET }}
+      if: ${{ success() || failure() }}

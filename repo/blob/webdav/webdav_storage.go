@@ -45,6 +45,7 @@ type davStorageImpl struct {
 	Options
 
 	cli *gowebdav.Client
+	sharded.ImplHelper
 }
 
 func (d *davStorageImpl) GetBlobFromPath(_ context.Context, dirPath, path string, offset, length int64, output blob.OutputBuffer) error {

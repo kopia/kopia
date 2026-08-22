@@ -29,6 +29,8 @@ type Impl interface {
 	PutBlobInPath(ctx context.Context, dirPath, filePath string, dataSlices blob.Bytes, opts blob.PutOptions) error
 	DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error
 	ReadDir(ctx context.Context, path string) ([]os.FileInfo, error)
+	MakeFileName(blobID blob.ID) string
+	GetBlobIDFromFileName(name string) (blob.ID, bool)
 }
 
 // Storage provides common implementation of sharded storage.
@@ -44,6 +46,23 @@ type Storage struct {
 	parameters *Parameters
 }
 
+// Include this in implementations of Impl to get the default
+// MakeFileName and GetBlobIDFromFileName that's appropriate to a
+// POSIX-style implementation.
+type ImplHelper struct{}
+
+func (_ *ImplHelper) GetBlobIDFromFileName(name string) (blob.ID, bool) {
+	if strings.HasSuffix(name, CompleteBlobSuffix) {
+		return blob.ID(name[0 : len(name)-len(CompleteBlobSuffix)]), true
+	}
+
+	return blob.ID(""), false
+}
+
+func (_ *ImplHelper) MakeFileName(blobID blob.ID) string {
+	return string(blobID) + CompleteBlobSuffix
+}
+
 // GetBlob implements blob.Storage.
 func (s *Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64, output blob.OutputBuffer) error {
 	dirPath, filePath, err := s.GetShardedPathAndFilePath(ctx, blobID)
@@ -53,18 +72,6 @@ func (s *Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length in
 
 	//nolint:wrapcheck
 	return s.Impl.GetBlobFromPath(ctx, dirPath, filePath, offset, length, output)
-}
-
-func (s *Storage) getBlobIDFromFileName(name string) (blob.ID, bool) {
-	if strings.HasSuffix(name, CompleteBlobSuffix) {
-		return blob.ID(name[0 : len(name)-len(CompleteBlobSuffix)]), true
-	}
-
-	return blob.ID(""), false
-}
-
-func (s *Storage) makeFileName(blobID blob.ID) string {
-	return string(blobID) + CompleteBlobSuffix
 }
 
 // ListBlobs implements blob.Storage.
@@ -114,7 +121,7 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 				continue
 			}
 
-			fullID, ok := s.getBlobIDFromFileName(currentPrefix + e.Name())
+			fullID, ok := s.Impl.GetBlobIDFromFileName(currentPrefix + e.Name())
 			if !ok {
 				continue
 			}
@@ -262,7 +269,7 @@ func (s *Storage) GetShardedPathAndFilePath(ctx context.Context, blobID blob.ID)
 		return "", "", err
 	}
 
-	filePath = path.Join(shardPath, s.makeFileName(blobID))
+	filePath = path.Join(shardPath, s.Impl.MakeFileName(blobID))
 
 	return shardPath, filePath, nil
 }
