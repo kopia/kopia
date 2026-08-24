@@ -118,15 +118,10 @@ no = 'Sorry to hear that. Please <a href="https://github.com/kopia/kopia/issues/
 	icon = "fas fa-comments"
     desc = "Chat with fellow Kopia users"
 [[params.links.developer]]
-	name = "Slack"
-	url = "https://slack.kopia.io"
-	icon = "fab fa-slack"
-    desc = "Chat with other project developers"
-[[params.links.developer]]
 	name = "GitHub"
 	url = "https://github.com/kopia/kopia"
 	icon = "fab fa-github"
-    desc = "Development takes place here!"
+    desc = "Source code"
 
 [module]
   proxy = "direct"

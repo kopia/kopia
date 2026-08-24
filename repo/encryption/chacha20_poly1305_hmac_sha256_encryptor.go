@@ -64,7 +64,7 @@ func (e chacha20poly1305hmacSha256Encryptor) Overhead() int {
 }
 
 func init() {
-	Register("CHACHA20-POLY1305-HMAC-SHA256", "CHACHA20-POLY1305 using per-content key generated using HMAC-SHA256", false, func(p Parameters) (Encryptor, error) {
+	Register("CHACHA20-POLY1305-HMAC-SHA256", "CHACHA20-POLY1305 using per-content key generated using HMAC-SHA256", func(p Parameters) (Encryptor, error) {
 		keyDerivationSecret, err := deriveKey(p, []byte(purposeEncryptionKey), chacha20KeyDerivationSecretSize)
 		if err != nil {
 			return nil, err

@@ -16,6 +16,8 @@ env:
   ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
   # set (to any value other than false) to trigger very long filenames testing
   ENABLE_LONG_FILENAMES: ${{ secrets.ENABLE_LONG_FILENAMES }}
+permissions:
+  contents: read
 jobs:
   build:
     strategy:
@@ -24,27 +26,35 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     name: Lint
     runs-on: ${{ matrix.os }}
+    permissions:
+      security-events: write
     steps:
     - name: Check out repository
-      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version-file: 'go.mod'
     - id: govulncheck
-      uses: golang/govulncheck-action@b625fbe08f3bccbe446d94fbf87fcc875a4f50ee # v1.0.4
+      name: govulncheck
+      # generate report and then fail if issues are found
+      run: |
+        go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
+        govulncheck -format sarif ./... > govulncheck.sarif
+        govulncheck ./...
+    - id: govulncheck-results
+      if: ${{ always() }}
+      name: "Upload govulncheck results to dashboard"
+      uses: github/codeql-action/upload-sarif@ff2f1c621b7f889edc0d3c761ac2e6a3f8cdb0dd # v3.29.5
       with:
-        cache: false
-        go-version-input: '1.25.5'
-        # An explicit Go version is needed for govulncheck-action since internally
-        # it uses an outdated setup-go@v5.0 action that does not respect the 'toolchain'
-        # directive in the 'go.mod' file.
-        #go-version-file: 'go.mod'
-        repo-checkout: false
+        sarif_file: govulncheck.sarif
     - name: Lint
       run: make lint
+    - name: Lint Windows
+      if: ${{ contains(matrix.os, 'ubuntu') }}
+      run: make lint-windows
     - name: Check Locks
       run: make check-locks
     - name: Prettier

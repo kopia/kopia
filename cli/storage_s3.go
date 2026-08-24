@@ -89,3 +89,11 @@ func (c *storageS3Flags) Connect(ctx context.Context, isCreate bool, formatVersi
 	//nolint:wrapcheck
 	return s3.New(ctx, &c.s3options, isCreate)
 }
+
+func init() {
+	mustRegisterStorageProvider(
+		"s3",
+		"an S3 bucket",
+		func() StorageFlags { return &storageS3Flags{} },
+	)
+}

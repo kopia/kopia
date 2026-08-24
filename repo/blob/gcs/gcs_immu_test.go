@@ -70,7 +70,7 @@ func TestGoogleStorageImmutabilityProtection(t *testing.T) {
 	count := getBlobCount(ctx, t, st, dummyBlob[:1])
 	require.Equal(t, 1, count)
 
-	cli := getGoogleCLI(t, opts.credentialsJSON)
+	cli := getGcsClient(t, opts.credentialsJSON)
 
 	attrs, err := cli.Bucket(opts.bucket).Object(blobNameFullPath).Attrs(ctx)
 	require.NoError(t, err)
@@ -111,12 +111,12 @@ func TestGoogleStorageImmutabilityProtection(t *testing.T) {
 	require.Equal(t, 0, count)
 }
 
-// getGoogleCLI returns a separate client to verify things the Storage interface doesn't support.
-func getGoogleCLI(t *testing.T, credentialsJSON []byte) *gcsclient.Client {
+// getGcsClient returns a separate client to verify things the Storage interface doesn't support.
+func getGcsClient(t *testing.T, credentialsJSON []byte) *gcsclient.Client {
 	t.Helper()
 
-	ctx := context.Background()
-	cli, err := gcsclient.NewClient(ctx, option.WithCredentialsJSON(credentialsJSON))
+	ctx := t.Context()
+	cli, err := gcsclient.NewClient(ctx, option.WithAuthCredentialsJSON(option.ServiceAccount, credentialsJSON))
 
 	require.NoError(t, err, "unable to create GCS client")
 

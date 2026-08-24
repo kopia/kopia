@@ -3,7 +3,7 @@ package cli
 import (
 	"os"
 
-	"github.com/mattn/go-isatty"
+	"golang.org/x/term"
 )
 
 const (
@@ -25,7 +25,7 @@ func (c *App) enableErrorNotifications() bool {
 			return false
 		}
 
-		if isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+		if fd, err := intFd(os.Stdout); err == nil && term.IsTerminal(fd) {
 			// interactive terminal, don't send notifications
 			return false
 		}

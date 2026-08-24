@@ -142,12 +142,12 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	rewrittenCount, rewrittenBytes := rewritten.Approximate()
 
 	result := &maintenancestats.RewriteContentsStats{
-		ToRewriteContentCount: int(toRewriteCount),
-		ToRewriteContentSize:  toRewriteBytes,
-		RewrittenContentCount: int(rewrittenCount),
-		RewrittenContentSize:  rewrittenBytes,
-		RetainedContentCount:  int(retainedCount),
-		RetainedContentSize:   retainedBytes,
+		ToRewriteContentCount: uint64(toRewriteCount),
+		ToRewriteContentSize:  maintenancestats.ToUint64(toRewriteBytes),
+		RewrittenContentCount: uint64(rewrittenCount),
+		RewrittenContentSize:  maintenancestats.ToUint64(rewrittenBytes),
+		RetainedContentCount:  uint64(retainedCount),
+		RetainedContentSize:   maintenancestats.ToUint64(retainedBytes),
 	}
 
 	contentlog.Log1(ctx, log, "Rewritten contents", result)

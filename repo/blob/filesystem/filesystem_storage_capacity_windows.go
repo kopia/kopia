@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-func (fs *fsStorage) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+func (fs *fsStorage) GetCapacity(_ context.Context) (blob.Capacity, error) {
 	var c blob.Capacity
 
 	pathPtr, err := windows.UTF16PtrFromString(fs.RootPath)

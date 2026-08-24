@@ -1,3 +1,5 @@
+//go:build !no_extra_providers
+
 // Package webdav implements WebDAV-based Storage.
 package webdav
 

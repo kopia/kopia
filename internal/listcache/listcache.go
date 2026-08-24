@@ -37,7 +37,7 @@ type cachedList struct {
 func (s *listCacheStorage) saveListToCache(ctx context.Context, prefix blob.ID, cl *cachedList) {
 	data, err := json.Marshal(cl)
 	if err != nil {
-		log(ctx).Debugf("unable to marshal list cache entry: %v", err)
+		log(ctx).Debugw("unable to marshal list cache entry", "prefix", prefix, "err", err)
 		return
 	}
 
@@ -47,7 +47,7 @@ func (s *listCacheStorage) saveListToCache(ctx context.Context, prefix blob.ID, 
 	hmac.Append(gather.FromSlice(data), s.hmacSecret, &b)
 
 	if err := s.cacheStorage.PutBlob(ctx, prefix, b.Bytes(), blob.PutOptions{}); err != nil {
-		log(ctx).Debugf("unable to persist list cache entry: %v", err)
+		log(ctx).Debugw("unable to persist list cache entry", "prefix", prefix, "err", err)
 	}
 }
 
@@ -148,7 +148,7 @@ func (s *listCacheStorage) invalidateAfterUpdate(ctx context.Context, blobID blo
 	for _, p := range s.prefixes {
 		if strings.HasPrefix(string(blobID), string(p)) {
 			if err := s.cacheStorage.DeleteBlob(ctx, p); err != nil {
-				log(ctx).Debugf("unable to delete cached list: %v", err)
+				log(ctx).Debugw("unable to delete cached list", "prefix", p, "err", err)
 			}
 		}
 	}

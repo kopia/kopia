@@ -1,3 +1,5 @@
+//go:build !no_extra_providers
+
 package cli
 
 import (
@@ -42,4 +44,12 @@ func (c *storageGDriveFlags) Connect(ctx context.Context, isCreate bool, formatV
 
 	//nolint:wrapcheck
 	return gdrive.New(ctx, &c.options, isCreate)
+}
+
+func init() {
+	mustRegisterStorageProvider(
+		"gdrive",
+		"a Google Drive folder [Not maintained]",
+		func() StorageFlags { return &storageGDriveFlags{} },
+	)
 }

@@ -263,9 +263,9 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	clientOptions := []option.ClientOption{option.WithScopes(scope)}
 
 	if j := opt.ServiceAccountCredentialJSON; len(j) > 0 {
-		clientOptions = append(clientOptions, option.WithCredentialsJSON(j))
+		clientOptions = append(clientOptions, option.WithAuthCredentialsJSON(option.ServiceAccount, j))
 	} else if fn := opt.ServiceAccountCredentialsFile; fn != "" {
-		clientOptions = append(clientOptions, option.WithCredentialsFile(fn))
+		clientOptions = append(clientOptions, option.WithAuthCredentialsFile(option.ServiceAccount, fn))
 	}
 
 	cli, err := gcsclient.NewClient(ctx, clientOptions...)

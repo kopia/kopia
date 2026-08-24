@@ -111,7 +111,7 @@ func resolveSymlink(path string) (string, error) {
 	return filepath.EvalSymlinks(path)
 }
 
-func getLocalFSEntry(ctx context.Context, path0 string) (fs.Entry, error) {
+func getLocalFSEntry(ctx context.Context, path0 string, opts localfs.Options) (fs.Entry, error) {
 	path, err := resolveSymlink(path0)
 	if err != nil {
 		return nil, errors.Wrap(err, "resolveSymlink")
@@ -121,7 +121,7 @@ func getLocalFSEntry(ctx context.Context, path0 string) (fs.Entry, error) {
 		log(ctx).Infof("%v resolved to %v", path0, path)
 	}
 
-	e, err := localfs.NewEntry(path)
+	e, err := localfs.NewEntryWithOptions(path, opts)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't get local fs entry")
 	}

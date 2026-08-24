@@ -1,4 +1,4 @@
-package atomicfile
+package ospath
 
 import (
 	"runtime"
@@ -6,12 +6,12 @@ import (
 	"testing"
 )
 
-var veryLongSegment = strings.Repeat("f", 270)
-
-func TestMaybePrefixLongFilenameOnWindows(t *testing.T) {
+func TestSafeLongFilename_Windows(t *testing.T) {
 	if runtime.GOOS != "windows" {
-		return
+		t.Skip("Windows-only test")
 	}
+
+	veryLongSegment := strings.Repeat("f", 270)
 
 	cases := []struct {
 		input string
@@ -37,7 +37,7 @@ func TestMaybePrefixLongFilenameOnWindows(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if got := MaybePrefixLongFilenameOnWindows(tc.input); got != tc.want {
+		if got := SafeLongFilename(tc.input); got != tc.want {
 			t.Errorf("invalid result for %v: got %v, want %v", tc.input, got, tc.want)
 		}
 	}

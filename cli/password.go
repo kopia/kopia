@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strings"
 
@@ -94,10 +95,15 @@ func (c *App) getPasswordFromFlags(ctx context.Context, isCreate, allowPersisten
 
 // askPass presents a given prompt and asks the user for password.
 func askPass(out io.Writer, prompt string) (string, error) {
+	fd, err := intFd(os.Stdin)
+	if err != nil {
+		return "", errors.Wrap(err, "password input error")
+	}
+
 	for range 5 {
 		fmt.Fprint(out, prompt) //nolint:errcheck
 
-		passBytes, err := term.ReadPassword(int(os.Stdin.Fd()))
+		passBytes, err := term.ReadPassword(fd)
 		if err != nil {
 			return "", errors.Wrap(err, "password prompt error")
 		}
@@ -112,4 +118,16 @@ func askPass(out io.Writer, prompt string) (string, error) {
 	}
 
 	return "", errors.New("can't get password")
+}
+
+var errFdConversionOverflows = errors.New("uintptr file descriptor conversion to int overflows")
+
+func intFd(f *os.File) (int, error) {
+	fd := f.Fd()
+
+	if fd <= math.MaxInt {
+		return int(fd), nil
+	}
+
+	return -1, errFdConversionOverflows
 }

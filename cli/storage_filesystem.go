@@ -97,3 +97,11 @@ func getFileModeValue(value string, def os.FileMode) os.FileMode {
 
 	return def
 }
+
+func init() {
+	mustRegisterStorageProvider(
+		"filesystem",
+		"a filesystem",
+		func() StorageFlags { return &storageFilesystemFlags{} },
+	)
+}

@@ -36,11 +36,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - name: Check out repository
-      uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6.1.0
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version-file: 'go.mod'
       id: go
@@ -62,7 +62,7 @@ jobs:
         CSC_KEYCHAIN: ${{ secrets.CSC_KEYCHAIN }}
         CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
         MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
-      if: ${{ contains(matrix.os, 'macos') }}
+      if: ${{ contains(matrix.os, 'macos') && github.event_name != 'pull_request' }}
     - name: Install Windows signing tools
       # install signing tools and credentials for macOS and Windows outside of main
       # build process.
@@ -90,9 +90,9 @@ jobs:
         WINDOWS_SIGN_TOOL: ${{ secrets.WINDOWS_SIGN_TOOL }}
 
         # macOS signing certificate (base64-encoded), used by Electron Builder
-        MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
+        MACOS_SIGNING_IDENTITY: ${{ github.event_name != 'pull_request' && secrets.MACOS_SIGNING_IDENTITY || '' }}
     - name: Upload Kopia Artifacts
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: kopia-${{ matrix.os }}
         path: |
@@ -113,7 +113,7 @@ jobs:
           dist/kopia-ui/*.yml
         if-no-files-found: ignore
     - name: Upload Kopia Binary
-      uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
         name: kopia_binaries-${{ matrix.os }}
         path: |
@@ -128,21 +128,21 @@ jobs:
     needs: build
     if: github.event_name != 'pull_request' && github.repository == 'kopia/kopia'
     steps:
-    - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3.7.0
+      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
     - name: Install Linux-specific packages
       run: "sudo apt-get install -y createrepo-c"
     - name: Download Artifacts
-      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         pattern: kopia-*
         merge-multiple: true
         path: dist
     - name: Download Kopia Binaries
-      uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+      uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
       with:
         pattern: kopia_binaries-*
         merge-multiple: true
@@ -185,7 +185,7 @@ jobs:
         DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Bump Homebrew formula
-      uses: dawidd6/action-homebrew-bump-formula@3428a0601bba3173ec0bdcc945be23fa27aa4c31 # v5
+      uses: dawidd6/action-homebrew-bump-formula@1446dca236b0440c6f02723a3f14f13be2c04ab0 # v7
       # only bump formula for tags which don't contain '-'
       # this excludes vx.y.z-rc1
       if: github.ref_type == 'tag' && !contains(github.ref_name, '-')

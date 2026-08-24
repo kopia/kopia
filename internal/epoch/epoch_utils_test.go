@@ -3,6 +3,7 @@ package epoch
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"testing"
 
@@ -250,6 +251,36 @@ func TestOldestUncompactedEpoch(t *testing.T) {
 		{
 			input: CurrentSnapshot{
 				LongestRangeCheckpointSets: makeLongestRange(0, 7),
+				// non-contiguous single epoch compaction set, the first contiguous sequence fully overlaps with the compacted range
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 2, 4, 6, 7, 9}),
+			},
+			expectedEpoch: 8,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: makeLongestRange(0, 7),
+				// non-contiguous single epoch compaction set, but most of the
+				// set overlaps with the compacted range except for the last
+				// epoch in the range (7), and the next epoch (8) is in the
+				// single compaction set already
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 2, 4, 6, 8, 9}),
+			},
+			expectedEpoch: 10,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: makeLongestRange(0, 7),
+				// non-contiguous single epoch compaction set, but most of the
+				// set overlaps with the compacted range except for the last
+				// epoch in the range (7), and the next epoch (8) is in the
+				// single compaction set already
+				SingleEpochCompactionSets: makeSingleCompactionEpochSets([]int{0, 1, 2, 4, 6, 8, 10}),
+			},
+			expectedEpoch: 9,
+		},
+		{
+			input: CurrentSnapshot{
+				LongestRangeCheckpointSets: makeLongestRange(0, 7),
 				SingleEpochCompactionSets:  makeSingleCompactionEpochSets([]int{9, 10}),
 			},
 			expectedEpoch: 8,
@@ -308,111 +339,180 @@ func makeLongestRange(minEpoch, maxEpoch int) []*RangeMetadata {
 	}
 }
 
-func TestGetFirstContiguousKeyRange(t *testing.T) {
+func TestGetOldestUncompactedAfterEpoch(t *testing.T) {
 	cases := []struct {
-		input   map[int]bool
-		want    closedIntRange
-		length  uint
-		isEmpty bool
+		in        []int
+		threshold int
+		expected  int
 	}{
+		{},
 		{
-			isEmpty: true,
-			want:    closedIntRange{0, -1},
+			threshold: 5,
+			expected:  5,
 		},
 		{
-			input:  map[int]bool{0: true},
-			want:   closedIntRange{lo: 0, hi: 0},
-			length: 1,
+			in:        []int{},
+			threshold: 0,
+			expected:  0,
 		},
 		{
-			input:  map[int]bool{-5: true},
-			want:   closedIntRange{lo: -5, hi: -5},
-			length: 1,
+			in:        []int{0},
+			threshold: 0,
+			expected:  1,
+		},
+
+		{
+			in:        []int{0},
+			threshold: 1,
+			expected:  1,
 		},
 		{
-			input:  map[int]bool{-5: true, -4: true},
-			want:   closedIntRange{lo: -5, hi: -4},
-			length: 2,
+			in:        []int{0, 2, 5, 3},
+			threshold: 0,
+			expected:  1,
 		},
 		{
-			input:  map[int]bool{0: true},
-			want:   closedIntRange{lo: 0, hi: 0},
-			length: 1,
+			in:        []int{0, 2, 5, 3},
+			threshold: 1,
+			expected:  1,
 		},
 		{
-			input:  map[int]bool{5: true},
-			want:   closedIntRange{lo: 5, hi: 5},
-			length: 1,
+			in:        []int{0, 2, 5, 3},
+			threshold: 2,
+			expected:  4,
 		},
 		{
-			input:  map[int]bool{0: true, 1: true},
-			want:   closedIntRange{lo: 0, hi: 1},
-			length: 2,
+			in:        []int{0, 2, 5, 3},
+			threshold: 3,
+			expected:  4,
 		},
 		{
-			input:  map[int]bool{8: true, 9: true},
-			want:   closedIntRange{lo: 8, hi: 9},
-			length: 2,
+			in:        []int{0, 2, 5, 3},
+			threshold: 4,
+			expected:  4,
 		},
 		{
-			input:  map[int]bool{1: true, 2: true, 3: true, 4: true, 5: true},
-			want:   closedIntRange{lo: 1, hi: 5},
-			length: 5,
+			in:        []int{0, 2, 5, 3},
+			threshold: 5,
+			expected:  6,
 		},
 		{
-			input:  map[int]bool{8: true, 10: true},
-			want:   closedIntRange{lo: 8, hi: 8},
-			length: 1,
+			in:        []int{0, 2, 5, 3},
+			threshold: 6,
+			expected:  6,
 		},
 		{
-			input:  map[int]bool{1: true, 2: true, 3: true, 5: true},
-			want:   closedIntRange{lo: 1, hi: 3},
-			length: 3,
+			in:        []int{0, 2, 5, 3},
+			threshold: 8,
+			expected:  8,
 		},
 		{
-			input:  map[int]bool{-5: true, -7: true},
-			want:   closedIntRange{lo: -7, hi: -7},
-			length: 1,
+			in:        []int{1, 0, 5, 4},
+			threshold: 0,
+			expected:  2,
 		},
 		{
-			input:  map[int]bool{0: true, minInt: true},
-			want:   closedIntRange{lo: minInt, hi: minInt},
-			length: 1,
+			in:        []int{1, 0, 5, 4},
+			threshold: 1,
+			expected:  2,
 		},
 		{
-			input:  map[int]bool{0: true, maxInt: true},
-			want:   closedIntRange{lo: 0, hi: 0},
-			length: 1,
+			in:        []int{1, 0, 5, 4},
+			threshold: 2,
+			expected:  2,
 		},
 		{
-			input:  map[int]bool{maxInt: true, minInt: true},
-			want:   closedIntRange{lo: minInt, hi: minInt},
-			length: 1,
+			in:        []int{1, 0, 5, 4},
+			threshold: 3,
+			expected:  3,
 		},
 		{
-			input:  map[int]bool{minInt: true},
-			want:   closedIntRange{lo: minInt, hi: minInt},
-			length: 1,
+			in:        []int{1, 0, 5, 4},
+			threshold: 4,
+			expected:  6,
 		},
 		{
-			input:  map[int]bool{maxInt - 1: true},
-			want:   closedIntRange{lo: maxInt - 1, hi: maxInt - 1},
-			length: 1,
+			in:        []int{1, 0, 5, 4},
+			threshold: 5,
+			expected:  6,
 		},
 		{
-			input:  map[int]bool{maxInt: true},
-			want:   closedIntRange{lo: maxInt, hi: maxInt},
-			length: 1,
+			in:        []int{1, 0, 5, 4},
+			threshold: 6,
+			expected:  6,
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 7,
+			expected:  7,
 		},
 	}
 
 	for i, tc := range cases {
-		t.Run(fmt.Sprint("case:", i), func(t *testing.T) {
-			got := getFirstContiguousKeyRange(tc.input)
+		t.Run("case:"+strconv.Itoa(i), func(t *testing.T) {
+			vseq := slices.Values(tc.in)
+			got := getOldestUncompactedAfterEpoch(vseq, tc.threshold)
 
-			require.Equal(t, tc.want, got, "input: %#v", tc.input)
-			require.Equal(t, tc.length, got.length())
-			require.Equal(t, tc.isEmpty, got.isEmpty())
+			require.Equal(t, tc.expected, got)
+		})
+	}
+}
+
+func TestFilterLowerThan(t *testing.T) {
+	cases := []struct {
+		in        []int
+		threshold int
+		expected  []int
+	}{
+		{},
+		{
+			threshold: 5,
+		},
+		{
+			in:        []int{},
+			threshold: 0,
+			expected:  []int{},
+		},
+		{
+			in:        []int{0},
+			threshold: 0,
+			expected:  []int{0},
+		},
+		{
+			in:        []int{0},
+			threshold: 1,
+			expected:  []int{},
+		},
+		{
+			in:        []int{0, 2, 5, 3},
+			threshold: 6,
+			expected:  []int{},
+		},
+		{
+			in:        []int{1, 0, 5, 4},
+			threshold: 0,
+			expected:  []int{1, 0, 5, 4},
+		},
+		{
+			in:        []int{1, 0, -1, 5, 4},
+			threshold: 3,
+			expected:  []int{4, 5},
+		},
+		{
+			in:        []int{1, 0, -1, 5, 4},
+			threshold: 4,
+			expected:  []int{4, 5},
+		},
+	}
+
+	for i, tc := range cases {
+		t.Run("case:"+strconv.Itoa(i), func(t *testing.T) {
+			vseq := slices.Values(tc.in)
+			got := filterLowerThan(tc.threshold, vseq)
+			gotSlice := slices.Collect(got)
+
+			require.Subset(t, tc.in, gotSlice)
+			require.ElementsMatch(t, gotSlice, tc.expected)
 		})
 	}
 }

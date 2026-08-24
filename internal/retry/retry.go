@@ -100,6 +100,13 @@ func WithExponentialBackoffNoValue(ctx context.Context, desc string, attempt fun
 	return err
 }
 
+// NoValueFn is an adapter from func() error to func() (any, error).
+func NoValueFn(f func() error) func() (any, error) {
+	return func() (any, error) {
+		return nil, f()
+	}
+}
+
 // Always is a retry function that retries all errors.
 func Always(error) bool {
 	return true

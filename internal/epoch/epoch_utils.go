@@ -1,6 +1,9 @@
 package epoch
 
 import (
+	"cmp"
+	"iter"
+	"maps"
 	"slices"
 	"strconv"
 	"strings"
@@ -124,42 +127,6 @@ const (
 	minInt = -1 << (intSize - 1)
 )
 
-func getFirstContiguousKeyRange[E any](m map[int]E) closedIntRange {
-	if len(m) == 0 {
-		return closedIntRange{lo: 0, hi: -1}
-	}
-
-	keys := make([]int, 0, len(m))
-
-	for k := range m {
-		keys = append(keys, k)
-	}
-
-	slices.Sort(keys)
-
-	lo := keys[0]
-	if hi := keys[len(keys)-1]; hi-lo+1 == len(m) {
-		// the difference between the largest and smallest key is the same as
-		// the length of the key set, then the range is contiguous
-		return closedIntRange{lo: lo, hi: hi}
-	}
-
-	hi := lo
-	for _, v := range keys[1:] {
-		if v != hi+1 {
-			break
-		}
-
-		hi = v
-	}
-
-	return closedIntRange{lo: lo, hi: hi}
-}
-
-func getCompactedEpochRange(cs CurrentSnapshot) closedIntRange {
-	return getFirstContiguousKeyRange(cs.SingleEpochCompactionSets)
-}
-
 var errInvalidCompactedRange = errors.New("invalid compacted epoch range")
 
 func getRangeCompactedRange(cs CurrentSnapshot) closedIntRange {
@@ -189,16 +156,56 @@ func oldestUncompactedEpoch(cs CurrentSnapshot) (int, error) {
 		oldestUncompacted = rangeCompacted.hi + 1
 	}
 
-	singleCompacted := getCompactedEpochRange(cs)
+	oldestUncompacted = getOldestUncompactedAfterEpoch(maps.Keys(cs.SingleEpochCompactionSets), oldestUncompacted)
 
-	if singleCompacted.isEmpty() || oldestUncompacted < singleCompacted.lo {
-		return oldestUncompacted, nil
+	return oldestUncompacted, nil
+}
+
+// filterLowerThan returns a sequence with the elements from s that are greater
+// or equal than threshold, that is it omits the elements that are strictly less
+// than threshold.
+// For example, if s = {0, 3, 5} and threshold is 3, then the resulting sequence
+// yields {3, 5}.
+func filterLowerThan[V cmp.Ordered](threshold V, s iter.Seq[V]) iter.Seq[V] {
+	return func(yield func(V) bool) {
+		s(func(v V) bool { // this is the filtering function
+			if v >= threshold {
+				return yield(v) // only yield values >= threshold
+			}
+
+			return true
+		})
+	}
+}
+
+// getOldestUncompactedAfterEpoch finds the oldest uncompacted epoch given a
+// sequence of known (single-epoch) compacted epochs. The returned epoch is
+// greater or equal than the uncompactedCandidateEpoch. For example, suppose
+// that compacted epochs has { 3, 5, 6, 8 } then the following are the returned
+// values for uncompactedCandidateEpoch
+// uncompactedCandidateEpoch < 3 => uncompactedCandidateEpoch
+// uncompactedCandidateEpoch == 3 => 4
+// uncompactedCandidateEpoch == 4 => 4
+// uncompactedCandidateEpoch == 5 or 6 => 7
+// uncompactedCandidateEpoch == 7 => 7
+// uncompactedCandidateEpoch == 8 => 9
+// uncompactedCandidateEpoch > 8 => uncompactedCandidateEpoch.
+//
+//nolint:dupword
+func getOldestUncompactedAfterEpoch(compactedEpochs iter.Seq[int], uncompactedCandidateEpoch int) int {
+	s := slices.Sorted(filterLowerThan(uncompactedCandidateEpoch, compactedEpochs))
+	if len(s) == 0 || uncompactedCandidateEpoch < s[0] {
+		return uncompactedCandidateEpoch
 	}
 
-	// singleCompacted is not empty
-	if oldestUncompacted > singleCompacted.hi {
-		return oldestUncompacted, nil
+	prev := s[0]
+	for _, v := range s[1:] {
+		if v != prev+1 {
+			break
+		}
+
+		prev = v
 	}
 
-	return singleCompacted.hi + 1, nil
+	return prev + 1
 }

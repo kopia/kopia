@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/contentparam"
 	"github.com/kopia/kopia/internal/stats"
+	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
@@ -29,6 +30,8 @@ import (
 var userLog = logging.Module("snapshotgc")
 
 func findInUseContentIDs(ctx context.Context, log *contentlog.Logger, rep repo.Repository, used *bigmap.Set) error {
+	const loggingPeriod = time.Duration(10) * time.Minute
+
 	ids, err := snapshot.ListSnapshotManifests(ctx, rep, nil, nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to list snapshot manifest IDs")
@@ -63,7 +66,9 @@ func findInUseContentIDs(ctx context.Context, log *contentlog.Logger, rep repo.R
 
 	contentlog.Log(ctx, log, "Looking for active contents...")
 
-	for _, m := range manifests {
+	lastLog := timetrack.StartTimer()
+
+	for i, m := range manifests {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
 		if err != nil {
 			return errors.Wrap(err, "unable to get snapshot root")
@@ -71,6 +76,16 @@ func findInUseContentIDs(ctx context.Context, log *contentlog.Logger, rep repo.R
 
 		if err := w.Process(ctx, root, ""); err != nil {
 			return errors.Wrap(err, "error processing snapshot root")
+		}
+
+		if lastLog.Elapsed() >= loggingPeriod {
+			userLog(ctx).Infow(
+				"finding contents in live snapshots",
+				"snapshotsProcessed", i+1,
+				"totalSnapshots", len(manifests),
+			)
+
+			lastLog = timetrack.StartTimer()
 		}
 	}
 
@@ -214,28 +229,28 @@ func buildGCResult(unused, inUse, system, tooRecent, undeleted, deleted *stats.C
 	result := &maintenancestats.SnapshotGCStats{}
 
 	cnt, size := unused.Approximate()
-	result.UnreferencedContentCount = cnt
-	result.UnreferencedContentSize = size
+	result.UnreferencedContentCount = uint64(cnt)
+	result.UnreferencedContentSize = maintenancestats.ToUint64(size)
 
 	cnt, size = tooRecent.Approximate()
-	result.UnreferencedRecentContentCount = cnt
-	result.UnreferencedRecentContentSize = size
+	result.UnreferencedRecentContentCount = uint64(cnt)
+	result.UnreferencedRecentContentSize = maintenancestats.ToUint64(size)
 
 	cnt, size = inUse.Approximate()
-	result.InUseContentCount = cnt
-	result.InUseContentSize = size
+	result.InUseContentCount = uint64(cnt)
+	result.InUseContentSize = maintenancestats.ToUint64(size)
 
 	cnt, size = system.Approximate()
-	result.InUseSystemContentCount = cnt
-	result.InUseSystemContentSize = size
+	result.InUseSystemContentCount = uint64(cnt)
+	result.InUseSystemContentSize = maintenancestats.ToUint64(size)
 
 	cnt, size = undeleted.Approximate()
-	result.RecoveredContentCount = cnt
-	result.RecoveredContentSize = size
+	result.RecoveredContentCount = uint64(cnt)
+	result.RecoveredContentSize = maintenancestats.ToUint64(size)
 
 	cnt, size = deleted.Approximate()
-	result.DeletedContentCount = cnt
-	result.DeletedContentSize = size
+	result.DeletedContentCount = uint64(cnt)
+	result.DeletedContentSize = maintenancestats.ToUint64(size)
 
 	return result
 }

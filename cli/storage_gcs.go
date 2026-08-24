@@ -66,3 +66,11 @@ func (c *storageGCSFlags) Connect(ctx context.Context, isCreate bool, formatVers
 	//nolint:wrapcheck
 	return gcs.New(ctx, &c.options, isCreate)
 }
+
+func init() {
+	mustRegisterStorageProvider(
+		"gcs",
+		"a Google Cloud Storage bucket",
+		func() StorageFlags { return &storageGCSFlags{} },
+	)
+}

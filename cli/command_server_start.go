@@ -20,6 +20,7 @@ import (
 	htpasswd "github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/insecureserverbind"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/sender/jsonsender"
@@ -75,6 +76,8 @@ type commandServerStart struct {
 
 	logServerRequests bool
 
+	serverStartAllowDangerousUnauthenticatedNetwork bool
+
 	disableCSRFTokenChecks bool // disable CSRF token checks - used for development/debugging only
 
 	sf  serverFlags
@@ -93,6 +96,10 @@ func (c *commandServerStart) setup(svc advancedAppServices, parent commandParent
 	cmd.Flag("refresh-interval", "Frequency for refreshing repository status").Default("4h").DurationVar(&c.serverStartRefreshInterval)
 	cmd.Flag("insecure", "Allow insecure configurations (do not use in production)").Hidden().BoolVar(&c.serverStartInsecure)
 	cmd.Flag("max-concurrency", "Maximum number of server goroutines").Default("0").IntVar(&c.serverStartMaxConcurrency)
+
+	cmd.Flag(insecureserverbind.AllowDangerousUnauthenticatedNetworkFlag, insecureserverbind.AllowDangerousUnauthenticatedNetworkFlagHelp).
+		Hidden().
+		BoolVar(&c.serverStartAllowDangerousUnauthenticatedNetwork)
 
 	cmd.Flag("without-password", "Start the server without a password").Hidden().BoolVar(&c.serverStartWithoutPassword)
 	cmd.Flag("random-password", "Generate random password and print to stderr").Hidden().BoolVar(&c.serverStartRandomPassword)
@@ -190,6 +197,15 @@ func (c *commandServerStart) initRepositoryPossiblyAsync(ctx context.Context, sr
 }
 
 func (c *commandServerStart) run(ctx context.Context) (reterr error) {
+	if err := insecureserverbind.ValidateListenAddressIfRestricted(
+		c.serverStartInsecure,
+		c.serverStartWithoutPassword,
+		c.serverStartAllowDangerousUnauthenticatedNetwork,
+		c.sf.serverAddress,
+	); err != nil {
+		return errors.Wrap(err, "listen address not allowed for insecure server without password")
+	}
+
 	opts, err := c.serverStartOptions(ctx)
 	if err != nil {
 		return err

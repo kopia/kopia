@@ -10,15 +10,15 @@ const cleanupMarkersStatsKind = "cleanupMarkersStats"
 
 // CleanupMarkersStats are the stats for cleaning up markers.
 type CleanupMarkersStats struct {
-	DeletedEpochMarkerBlobCount int `json:"deletedEpochMarkerBlobCount"`
-	DeletedWatermarkBlobCount   int `json:"deletedWatermarkBlobCount"`
+	DeletedEpochMarkerBlobCount uint64 `json:"deletedEpochMarkerBlobCount"`
+	DeletedWatermarkBlobCount   uint64 `json:"deletedWatermarkBlobCount"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
 func (cs *CleanupMarkersStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.BeginObjectField(cs.Kind())
-	jw.IntField("deletedEpochMarkerBlobCount", cs.DeletedEpochMarkerBlobCount)
-	jw.IntField("deletedWatermarkBlobCount", cs.DeletedWatermarkBlobCount)
+	jw.UInt64Field("deletedEpochMarkerBlobCount", cs.DeletedEpochMarkerBlobCount)
+	jw.UInt64Field("deletedWatermarkBlobCount", cs.DeletedWatermarkBlobCount)
 	jw.EndObject()
 }
 

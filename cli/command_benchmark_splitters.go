@@ -19,9 +19,9 @@ import (
 type commandBenchmarkSplitters struct {
 	randSeed    int64
 	blockSize   atunits.Base2Bytes
-	blockCount  int
+	blockCount  uint
 	printOption bool
-	parallel    int
+	parallel    uint
 
 	out textOutput
 }
@@ -31,9 +31,9 @@ func (c *commandBenchmarkSplitters) setup(svc appServices, parent commandParent)
 
 	cmd.Flag("rand-seed", "Random seed").Default("42").Int64Var(&c.randSeed)
 	cmd.Flag("data-size", "Size of a data to split").Default("32MB").BytesVar(&c.blockSize)
-	cmd.Flag("block-count", "Number of data blocks to split").Default("16").IntVar(&c.blockCount)
+	cmd.Flag("block-count", "Number of data blocks to split").Default("16").UintVar(&c.blockCount)
 	cmd.Flag("print-options", "Print out the fastest dynamic splitter option").BoolVar(&c.printOption)
-	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").IntVar(&c.parallel)
+	cmd.Flag("parallel", "Number of parallel goroutines").Default("1").UintVar(&c.parallel)
 
 	cmd.Action(svc.noRepositoryAction(c.run))
 
