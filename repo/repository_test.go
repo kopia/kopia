@@ -5,6 +5,7 @@ import (
 	"context"
 	"io"
 	"math/rand"
+	"path/filepath"
 	"runtime/debug"
 	"strings"
 	"sync/atomic"
@@ -19,6 +20,7 @@ import (
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/metricid"
+	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/servertesting"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -717,6 +719,30 @@ func TestWriteSessionFlushOnSuccessClient(t *testing.T) {
 
 	require.EqualValues(t, 2, beforeFlushCount.Load())
 	require.EqualValues(t, 2, afterFlushCount.Load())
+}
+
+func TestConnectAPIServerInvalidPasswordDoesNotLeakPersistentCache(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{})
+
+	apiServerInfo := servertesting.StartServer(t, env, true)
+
+	baselinePersistentCacheCount := len(releasable.Active()["persistent-cache"])
+	configFile := filepath.Join(t.TempDir(), "repo.config")
+
+	err := repo.ConnectAPIServer(ctx, configFile, apiServerInfo, "invalid-password", &repo.ConnectOptions{
+		ClientOptions: repo.ClientOptions{
+			Username: servertesting.TestUsername,
+			Hostname: servertesting.TestHostname,
+		},
+		CachingOptions: content.CachingOptions{
+			CacheDirectory:        testutil.TempDirectory(t),
+			ContentCacheSizeBytes: 1 << 20,
+		},
+	})
+
+	require.Error(t, err)
+	require.NoError(t, releasable.Verify())
+	require.Len(t, releasable.Active()["persistent-cache"], baselinePersistentCacheCount)
 }
 
 func (s *formatSpecificTestSuite) TestWriteSessionNoFlushOnFailure(t *testing.T) {

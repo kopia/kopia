@@ -81,7 +81,12 @@ func maybeOID(e fs.Entry) string {
 }
 
 func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directory, parent string) error {
-	log(ctx).Debugf("comparing directories %v (%v and %v)", parent, maybeOID(dir1), maybeOID(dir2))
+	log(ctx).Debugw(
+		"comparing directories",
+		"parent", parent,
+		"dir1", maybeOID(dir1),
+		"dir2", maybeOID(dir2),
+	)
 
 	var entries1, entries2 []fs.Entry
 
@@ -235,7 +240,7 @@ func compareMetadata(ctx context.Context, e1, e2 fs.Entry, path string, st *Entr
 	if changed {
 		st.SameContentButDifferentMetadata++
 
-		log(ctx).Debugf("content unchanged but metadata has been modified: %v", path)
+		log(ctx).Debugw("content unchanged but metadata has been modified", "path", path)
 	}
 }
 

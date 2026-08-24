@@ -91,7 +91,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	c.out.setup(svc)
 
 	c.svc = svc
-	cmd.Action(svc.repositoryWriterAction(c.run))
+	cmd.Action(svc.repositoryWriterActionWithMaintenance(c.run))
 }
 
 //nolint:gocyclo

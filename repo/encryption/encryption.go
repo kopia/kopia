@@ -4,7 +4,8 @@ package encryption
 import (
 	"crypto/hkdf"
 	"crypto/sha256"
-	"sort"
+	"maps"
+	"slices"
 
 	"github.com/pkg/errors"
 
@@ -56,34 +57,20 @@ const DefaultAlgorithm = "AES256-GCM-HMAC-SHA256"
 
 // SupportedAlgorithms returns the names of the supported encryption
 // methods.
-func SupportedAlgorithms(includeDeprecated bool) []string {
-	var result []string
-
-	for k, e := range encryptors {
-		if e.deprecated && !includeDeprecated {
-			continue
-		}
-
-		result = append(result, k)
-	}
-
-	sort.Strings(result)
-
-	return result
+func SupportedAlgorithms() []string {
+	return slices.Sorted(maps.Keys(encryptors))
 }
 
 // Register registers new encryption algorithm.
-func Register(name, description string, deprecated bool, newEncryptor EncryptorFactory) {
+func Register(name, description string, newEncryptor EncryptorFactory) {
 	encryptors[name] = &encryptorInfo{
 		description,
-		deprecated,
 		newEncryptor,
 	}
 }
 
 type encryptorInfo struct {
 	description  string
-	deprecated   bool
 	newEncryptor EncryptorFactory
 }
 
