@@ -9,9 +9,24 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/iomem"
+	"github.com/kopia/kopia/repo/logging"
 )
 
+var log = logging.Module("kopia/localfs")
+
 const numEntriesToRead = 100 // number of directory entries to read in one shot
+
+// Options configures behavior of a local filesystem entry tree created by
+// NewEntryWithOptions. The zero value means default behavior.
+type Options struct {
+	// StreamingReads indicates whether to hint the OS regarding how to cache
+	// files opened through this entry (tree). The option is propagated to all
+	// the children in a subtree.
+	// HintStreaming is issued at Open() and HintNotNeeded at Close().
+	// These hints are advisory-only and only effective on Linux.
+	StreamingReads bool
+}
 
 type filesystemEntry struct {
 	name       string
@@ -22,6 +37,7 @@ type filesystemEntry struct {
 	device     fs.DeviceInfo
 
 	prefix string
+	opts   Options
 }
 
 func (e *filesystemEntry) Name() string {
@@ -92,6 +108,9 @@ func (fsd *filesystemDirectory) Size() int64 {
 
 type fileWithMetadata struct {
 	*os.File
+
+	// opts may be used for operations on the file, including Close().
+	opts Options
 }
 
 func (f *fileWithMetadata) Entry() (fs.Entry, error) {
@@ -102,16 +121,39 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 
 	basename, prefix := splitDirPrefix(f.Name())
 
-	return newFilesystemFile(newEntry(basename, fi, prefix)), nil
+	return newFilesystemFile(newEntry(basename, fi, prefix, f.opts)), nil
 }
 
-func (fsf *filesystemFile) Open(_ context.Context) (fs.Reader, error) {
+func (f *fileWithMetadata) Close() error {
+	if f.opts.StreamingReads {
+		// HintNotNeeded is advisory and best-effort; failures don't affect
+		// correctness. The error is intentionally ignored and not logged given
+		// that Close() has no ctx to retrieve a ctx-derived logger.
+		_ = iomem.HintNotNeeded(f.File)
+	}
+
+	if err := f.File.Close(); err != nil {
+		return errors.Wrap(err, "unable to close local file")
+	}
+
+	return nil
+}
+
+func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	f, err := os.Open(fsf.fullPath())
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open local file")
 	}
 
-	return &fileWithMetadata{f}, nil
+	// In streaming-reads mode, hint the kernel for readahead at open
+	// (HintStreaming) and to drop the pages at close (HintNotNeeded).
+	if fsf.opts.StreamingReads {
+		if hintErr := iomem.HintStreaming(f); hintErr != nil {
+			log(ctx).Debugf("streaming read hint at open failed for %q: %v", f.Name(), hintErr)
+		}
+	}
+
+	return &fileWithMetadata{File: f, opts: fsf.opts}, nil
 }
 
 func (fsl *filesystemSymlink) Readlink(_ context.Context) (string, error) {
@@ -125,7 +167,7 @@ func (fsl *filesystemSymlink) Resolve(_ context.Context) (fs.Entry, error) {
 		return nil, errors.Wrapf(err, "cannot resolve symlink for '%q'", fsl.fullPath())
 	}
 
-	return NewEntry(target)
+	return NewEntryWithOptions(target, fsl.opts)
 }
 
 func (e *filesystemErrorEntry) ErrorInfo() error {
@@ -144,9 +186,14 @@ func splitDirPrefix(s string) (basename, prefix string) {
 	return s, ""
 }
 
-// Directory returns fs.Directory for the specified path.
+// Directory returns fs.Directory for the specified path with default Options.
 func Directory(path string) (fs.Directory, error) {
-	e, err := NewEntry(path)
+	return directoryWithOptions(path, Options{})
+}
+
+// directoryWithOptions configures the returned directory (and its descendants) with opts.
+func directoryWithOptions(path string, opts Options) (fs.Directory, error) {
+	e, err := NewEntryWithOptions(path, opts)
 	if err != nil {
 		return nil, err
 	}

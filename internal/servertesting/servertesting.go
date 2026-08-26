@@ -106,6 +106,5 @@ func ConnectAndOpenAPIServer(t *testing.T, ctx context.Context, asi *repo.APISer
 		repo.Disconnect(ctx, configFile)
 	})
 
-	//
 	return repo.Open(ctx, configFile, password, opt)
 }

@@ -121,7 +121,7 @@ func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) []fs.E
 			c.moveToHead(v)
 
 			if c.debug {
-				log(ctx).Debugf("cache hit for %q (valid until %v)", id, v.expireAfter)
+				log(ctx).Debugw("cache hit", "id", id, "validUntil", v.expireAfter)
 			}
 
 			return v.entries
@@ -129,7 +129,7 @@ func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) []fs.E
 
 		// time expired
 		if c.debug {
-			log(ctx).Debugf("removing expired cache entry %q after %v", id, v.expireAfter)
+			log(ctx).Debugw("removing expired cache entry", "id", id, "expiredAt", v.expireAfter)
 		}
 
 		c.removeEntryLocked(v)
@@ -153,7 +153,7 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 	}
 
 	if c.debug {
-		log(ctx).Debugf("cache miss for %q", id)
+		log(ctx).Debugw("cache miss", "id", id)
 	}
 
 	raw, err := cb(ctx)

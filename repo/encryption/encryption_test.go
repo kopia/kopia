@@ -35,7 +35,7 @@ func TestRoundTrip(t *testing.T) {
 	contentID2 := make([]byte, 16)
 	rand.Read(contentID2)
 
-	for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
+	for _, encryptionAlgo := range encryption.SupportedAlgorithms() {
 		t.Run(encryptionAlgo, func(t *testing.T) {
 			e, err := encryption.CreateEncryptor(parameters{encryptionAlgo, masterKey})
 			if err != nil {
@@ -133,7 +133,7 @@ func TestCiphertextSamples(t *testing.T) {
 func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte, samples map[string]string) {
 	t.Helper()
 
-	for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
+	for _, encryptionAlgo := range encryption.SupportedAlgorithms() {
 		enc, err := encryption.CreateEncryptor(parameters{encryptionAlgo, masterKey})
 		if err != nil {
 			t.Fatal(err)

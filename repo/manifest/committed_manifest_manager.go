@@ -257,7 +257,7 @@ func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 	}
 
 	// compaction needs to be atomic (deletes and rewrite should show up in one index blob or not show up at all)
-	// that's why we want to prevent index flushes while we're d.
+	// that's why we want to prevent index flushes while we're compacting.
 	m.b.DisableIndexFlush(ctx)
 	defer m.b.EnableIndexFlush(ctx)
 
