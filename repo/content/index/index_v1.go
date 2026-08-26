@@ -42,7 +42,7 @@ type FormatV1 struct {
 
 type indexV1 struct {
 	hdr    v1HeaderInfo
-	data   []byte
+	data   Source
 	closer func() error
 
 	// v1 index does not explicitly store per-content length so we compute it from packed length and fixed overhead
@@ -397,7 +397,7 @@ type v1HeaderInfo struct {
 	entryCount int
 }
 
-func v1ReadHeader(data []byte) (v1HeaderInfo, error) {
+func v1ReadHeader(data Source) (v1HeaderInfo, error) {
 	header, err := safeSlice(data, 0, v1HeaderSize)
 	if err != nil {
 		return v1HeaderInfo{}, errors.Wrap(err, "invalid header")
@@ -417,6 +417,6 @@ func v1ReadHeader(data []byte) (v1HeaderInfo, error) {
 	return hi, nil
 }
 
-func openV1PackIndex(hdr v1HeaderInfo, data []byte, closer func() error, overhead uint32) (Index, error) {
+func openV1PackIndex(hdr v1HeaderInfo, data Source, closer func() error, overhead uint32) (Index, error) {
 	return &indexV1{hdr, data, closer, overhead, sync.Mutex{}, map[uint32]blob.ID{}}, nil
 }
