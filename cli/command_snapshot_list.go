@@ -155,12 +155,6 @@ func (c *commandSnapshotList) outputJSON(ctx context.Context, rep repo.Repositor
 	defer jl.end()
 
 	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
-		snapshotGroup = snapshot.SortByTime(snapshotGroup, c.reverseSort)
-
-		if c.maxResultsPerPath > 0 && len(snapshotGroup) > c.maxResultsPerPath {
-			snapshotGroup = snapshotGroup[len(snapshotGroup)-c.maxResultsPerPath:]
-		}
-
 		if c.snapshotListShowRetentionReasons {
 			src := snapshotGroup[0].Source
 			// compute retention reason
@@ -252,8 +246,14 @@ type snapshotListRow struct {
 
 func (c *commandSnapshotList) iterateSnapshotsMaybeWithStorageStats(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, callback func(m *snapshot.Manifest) error) error {
 	if c.storageStats {
-		//nolint:wrapcheck
-		return snapshotfs.CalculateStorageStats(ctx, rep, manifests, callback)
+		if err := snapshotfs.CalculateStorageStats(ctx, rep, snapshot.SortByTime(manifests, false), func(*snapshot.Manifest) error { return nil }); err != nil {
+			return err //nolint:wrapcheck
+		}
+	}
+
+	manifests = snapshot.SortByTime(manifests, c.reverseSort)
+	if c.maxResultsPerPath > 0 && len(manifests) > c.maxResultsPerPath {
+		manifests = manifests[len(manifests)-c.maxResultsPerPath:]
 	}
 
 	for _, m := range manifests {
@@ -267,11 +267,6 @@ func (c *commandSnapshotList) iterateSnapshotsMaybeWithStorageStats(ctx context.
 
 func (c *commandSnapshotList) outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, parts []string) error {
 	var lastTotalFileSize int64
-
-	manifests = snapshot.SortByTime(manifests, c.reverseSort)
-	if c.maxResultsPerPath > 0 && len(manifests) > c.maxResultsPerPath {
-		manifests = manifests[len(manifests)-c.maxResultsPerPath:]
-	}
 
 	var rows []*snapshotListRow
 
