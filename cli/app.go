@@ -361,7 +361,7 @@ func (c *App) Attach(app *kingpin.Application) {
 
 // safetyFlagVar defines c --safety=none|full flag that sets the SafetyParameters.
 func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters) {
-	var str string
+	str := "full"
 
 	*result = maintenance.SafetyFull
 
