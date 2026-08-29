@@ -4,8 +4,10 @@ package email
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/smtp"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -17,11 +19,13 @@ const ProviderType = "email"
 
 const defaultSMTPPort = 587
 
+const smtpSendTimeout = 10 * time.Second
+
 type emailProvider struct {
 	opt Options
 }
 
-func (p *emailProvider) Send(_ context.Context, msg *sender.Message) error {
+func (p *emailProvider) Send(ctx context.Context, msg *sender.Message) error {
 	var auth smtp.Auth
 
 	if p.opt.SMTPUsername != "" {
@@ -49,13 +53,80 @@ func (p *emailProvider) Send(_ context.Context, msg *sender.Message) error {
 
 	msgPayload = []byte(strings.Join(headers, "\r\n") + "\r\n\r\n" + msg.Body)
 
-	//nolint:wrapcheck
-	return smtp.SendMail(
-		fmt.Sprintf("%v:%d", p.opt.SMTPServer, p.opt.SMTPPort),
-		auth,
-		p.opt.From,
-		strings.Split(p.opt.To, ","),
-		msgPayload)
+	ctx, cancel := context.WithTimeout(ctx, smtpSendTimeout)
+	defer cancel()
+
+	return sendMail(ctx, fmt.Sprintf("%v:%d", p.opt.SMTPServer, p.opt.SMTPPort), auth, p.opt.From, strings.Split(p.opt.To, ","), msgPayload)
+}
+
+func sendMail(ctx context.Context, addr string, auth smtp.Auth, from string, to []string, msg []byte) error {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return err
+	}
+
+	conn, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close() //nolint:errcheck
+
+	deadline, _ := ctx.Deadline()
+	if err := conn.SetDeadline(deadline); err != nil {
+		return err
+	}
+
+	c, err := smtp.NewClient(conn, host)
+	if err != nil {
+		return contextError(ctx, err)
+	}
+	defer c.Close() //nolint:errcheck
+
+	if err := c.Hello("localhost"); err != nil {
+		return contextError(ctx, err)
+	}
+
+	if auth != nil {
+		if ok, _ := c.Extension("AUTH"); !ok {
+			return errors.New("smtp: server doesn't support AUTH")
+		}
+		if err := c.Auth(auth); err != nil {
+			return contextError(ctx, err)
+		}
+	}
+
+	if err := c.Mail(from); err != nil {
+		return contextError(ctx, err)
+	}
+	for _, addr := range to {
+		if err := c.Rcpt(addr); err != nil {
+			return contextError(ctx, err)
+		}
+	}
+
+	w, err := c.Data()
+	if err != nil {
+		return contextError(ctx, err)
+	}
+	if _, err := w.Write(msg); err != nil {
+		return contextError(ctx, err)
+	}
+	if err := w.Close(); err != nil {
+		return contextError(ctx, err)
+	}
+
+	if err := c.Quit(); err != nil {
+		return contextError(ctx, err)
+	}
+
+	return nil
+}
+
+func contextError(ctx context.Context, err error) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return err
 }
 
 func (p *emailProvider) Summary() string {

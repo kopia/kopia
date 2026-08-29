@@ -2,6 +2,7 @@ package email_test
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 
@@ -164,6 +165,47 @@ func TestEmailProvider_AUTH(t *testing.T) {
 	require.ErrorContains(t,
 		p2.Send(ctx, &sender.Message{Subject: "Test", Body: "test"}),
 		"smtp: server doesn't support AUTH")
+}
+
+func TestEmailProviderHonorsContextDeadline(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer listener.Close()
+
+	serverDone := make(chan struct{})
+	defer close(serverDone)
+
+	go func() {
+		conn, acceptErr := listener.Accept()
+		if acceptErr != nil {
+			return
+		}
+		defer conn.Close()
+		<-serverDone
+	}()
+
+	p, err := sender.GetSender(testlogging.Context(t), "my-profile", "email", &email.Options{
+		SMTPServer: "127.0.0.1",
+		SMTPPort:   listener.Addr().(*net.TCPAddr).Port,
+		From:       "some-user@example.com",
+		To:         "another-user@example.com",
+	})
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- p.Send(ctx, &sender.Message{Subject: "Test", Body: "test"})
+	}()
+
+	select {
+	case err := <-errCh:
+		require.ErrorIs(t, err, context.DeadlineExceeded)
+	case <-time.After(time.Second):
+		t.Fatal("email send did not honor its context deadline")
+	}
 }
 
 func TestEmailProvider_Invalid(t *testing.T) {
