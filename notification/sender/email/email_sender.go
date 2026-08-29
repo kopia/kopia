@@ -3,6 +3,7 @@ package email
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/smtp"
@@ -84,6 +85,11 @@ func sendMail(ctx context.Context, addr string, auth smtp.Auth, from string, to 
 
 	if err := c.Hello("localhost"); err != nil {
 		return contextError(ctx, err)
+	}
+	if ok, _ := c.Extension("STARTTLS"); ok {
+		if err := c.StartTLS(&tls.Config{MinVersion: tls.VersionTLS12, ServerName: host}); err != nil {
+			return contextError(ctx, err)
+		}
 	}
 
 	if auth != nil {
