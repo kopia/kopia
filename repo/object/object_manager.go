@@ -44,9 +44,10 @@ type contentManager interface {
 type Manager struct {
 	Format format.ObjectFormat
 
-	contentMgr         contentManager
-	newDefaultSplitter splitter.Factory
-	writerPool         sync.Pool
+	contentMgr              contentManager
+	newDefaultSplitter      splitter.Factory
+	newDefaultChunkSplitter splitter.ChunkFactory
+	writerPool              sync.Pool
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
@@ -55,17 +56,22 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 	w.ctx = ctx
 	w.om = om
 
-	var splitFactory splitter.Factory
+	splitFactory := om.newDefaultSplitter
+	chunkFactory := om.newDefaultChunkSplitter
 
 	if opt.Splitter != "" {
-		splitFactory = splitter.GetFactory(opt.Splitter)
+		if cf := splitter.GetChunkFactory(opt.Splitter); cf != nil {
+			splitFactory, chunkFactory = nil, cf
+		} else if sf := splitter.GetFactory(opt.Splitter); sf != nil {
+			splitFactory, chunkFactory = sf, nil
+		}
 	}
 
-	if splitFactory == nil {
-		splitFactory = om.newDefaultSplitter
+	if chunkFactory != nil {
+		w.splitter, w.chunkSplitter = nil, chunkFactory()
+	} else {
+		w.splitter, w.chunkSplitter = splitFactory(), nil
 	}
-
-	w.splitter = splitFactory()
 
 	w.description = opt.Description
 	w.prefix = opt.Prefix
@@ -239,6 +245,7 @@ func NewObjectManager(_ context.Context, bm contentManager, f format.ObjectForma
 	}
 
 	om.newDefaultSplitter = os
+	om.newDefaultChunkSplitter = splitter.GetChunkFactory(splitterID)
 
 	return om, nil
 }
