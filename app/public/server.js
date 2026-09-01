@@ -3,6 +3,7 @@ const path = await import("path");
 const https = await import("https");
 
 import { defaultServerBinary } from "./utils.js";
+import { createRequestPoller } from "./request-poller.js";
 import { spawn } from "child_process";
 import log from "electron-log";
 import { configDir, isPortableConfig } from "./config.js";
@@ -11,6 +12,7 @@ let servers = {};
 
 function newServerForRepo(repoID) {
   let runningServerProcess = null;
+  let runningStatusPoller = null;
   let runningServerCertSHA256 = "";
   let runningServerPassword = "";
   let runningServerControlPassword = "";
@@ -73,18 +75,20 @@ function newServerForRepo(repoID) {
 
       const pollInterval = 3000;
 
-      function pollOnce() {
-        if (
-          !runningServerAddress ||
-          !runningServerCertificate ||
-          !runningServerPassword ||
-          !runningServerControlPassword
-        ) {
-          return;
-        }
+      const statusPoller = createRequestPoller({
+        interval: pollInterval,
+        request: https.request,
+        getRequestOptions: () => {
+          if (
+            !runningServerAddress ||
+            !runningServerCertificate ||
+            !runningServerPassword ||
+            !runningServerControlPassword
+          ) {
+            return null;
+          }
 
-        const req = https.request(
-          {
+          return {
             ca: [runningServerCertificate],
             host: "127.0.0.1",
             port: parseInt(new URL(runningServerAddress).port),
@@ -98,43 +102,45 @@ function newServerForRepo(repoID) {
                   "server-control" + ":" + runningServerControlPassword,
                 ).toString("base64"),
             },
-          },
-          (resp) => {
-            if (resp.statusCode === 200) {
-              resp.on("data", (x) => {
-                try {
-                  const newDetails = JSON.parse(x);
-                  if (
-                    JSON.stringify(newDetails) !=
-                    JSON.stringify(runningServerStatusDetails)
-                  ) {
-                    runningServerStatusDetails = newDetails;
-                    statusUpdated();
-                  }
-                } catch (e) {
-                  log.warn("unable to parse status JSON", e);
-                }
-              });
-            } else {
-              log.warn("error fetching status", resp.statusMessage);
+          };
+        },
+        onResponse: (resp, body) => {
+          if (resp.statusCode === 200) {
+            try {
+              const newDetails = JSON.parse(body.toString());
+              if (
+                JSON.stringify(newDetails) !=
+                JSON.stringify(runningServerStatusDetails)
+              ) {
+                runningServerStatusDetails = newDetails;
+                statusUpdated();
+              }
+            } catch (e) {
+              log.warn("unable to parse status JSON", e);
             }
-          },
-        );
-        req.on("error", (e) => {
+          } else {
+            log.warn("error fetching status", resp.statusMessage);
+          }
+        },
+        onError: (e) => {
           log.info("error fetching status", e);
-        });
-        req.end();
-      }
+        },
+      });
 
-      const statusPollInterval = setInterval(pollOnce, pollInterval);
+      runningStatusPoller = statusPoller;
+      statusPoller.start();
 
       runningServerProcess.on("close", (code, signal) => {
         this.appendToLog(
           `child process exited with code ${code} and signal ${signal}`,
         );
-        if (runningServerProcess === p) {
-          clearInterval(statusPollInterval);
 
+        statusPoller.stop();
+        if (runningStatusPoller === statusPoller) {
+          runningStatusPoller = null;
+        }
+
+        if (runningServerProcess === p) {
           runningServerAddress = "";
           runningServerPassword = "";
           runningServerControlPassword = "";
@@ -210,6 +216,9 @@ function newServerForRepo(repoID) {
     },
 
     stopServer() {
+      runningStatusPoller?.stop();
+      runningStatusPoller = null;
+
       if (!runningServerProcess) {
         log.info("stopServer: server not started");
         return;
