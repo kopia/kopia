@@ -77,7 +77,10 @@ dev: node_modules/.up-to-date
 run:
 	$(npm) $(npm_flags) run start-electron-prebuilt
 
-e2e-test:
+test: $(npm)
+	$(npm) $(npm_flags) test
+
+e2e-test: test
 	$(npm) $(npm_flags) run e2e
 
 build-electron: ../dist/kopia-ui/.up-to-date
