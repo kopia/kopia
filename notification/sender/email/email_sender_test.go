@@ -167,45 +167,108 @@ func TestEmailProvider_AUTH(t *testing.T) {
 		"smtp: server doesn't support AUTH")
 }
 
-func TestEmailProviderHonorsContextDeadline(t *testing.T) {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
-	defer listener.Close()
+// stalledSMTPServer accepts TCP connections and then never speaks, which is how a
+// wedged SMTP server behaves: the connection succeeds and the greeting never arrives.
+func stalledSMTPServer(t *testing.T) (host string, port int) {
+	t.Helper()
 
-	serverDone := make(chan struct{})
-	defer close(serverDone)
+	var lc net.ListenConfig
+
+	listener, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	done := make(chan struct{})
 
 	go func() {
-		conn, acceptErr := listener.Accept()
-		if acceptErr != nil {
-			return
+		for {
+			conn, acceptErr := listener.Accept()
+			if acceptErr != nil {
+				return
+			}
+
+			go func() {
+				<-done
+
+				conn.Close() //nolint:errcheck
+			}()
 		}
-		defer conn.Close()
-		<-serverDone
 	}()
 
+	t.Cleanup(func() {
+		close(done)
+		listener.Close() //nolint:errcheck
+	})
+
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	require.True(t, ok)
+
+	return addr.IP.String(), addr.Port
+}
+
+// sendToStalledServer sends a notification to a server that never answers and returns
+// the resulting error, failing the test if the send does not give up on its own.
+func sendToStalledServer(ctx context.Context, t *testing.T, giveUpAfter time.Duration) error {
+	t.Helper()
+
+	host, port := stalledSMTPServer(t)
+
 	p, err := sender.GetSender(testlogging.Context(t), "my-profile", "email", &email.Options{
-		SMTPServer: "127.0.0.1",
-		SMTPPort:   listener.Addr().(*net.TCPAddr).Port,
+		SMTPServer: host,
+		SMTPPort:   port,
 		From:       "some-user@example.com",
 		To:         "another-user@example.com",
 	})
 	require.NoError(t, err)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
-
 	errCh := make(chan error, 1)
+
 	go func() {
 		errCh <- p.Send(ctx, &sender.Message{Subject: "Test", Body: "test"})
 	}()
 
 	select {
-	case err := <-errCh:
-		require.ErrorIs(t, err, context.DeadlineExceeded)
-	case <-time.After(time.Second):
-		t.Fatal("email send did not honor its context deadline")
+	case sendErr := <-errCh:
+		return sendErr
+	case <-time.After(giveUpAfter):
+		t.Fatal("email send did not give up on its own")
+
+		return nil
 	}
+}
+
+// TestEmailProvider_SendTimeout covers the failure in #5563: the caller's context has no
+// deadline of its own, so the provider's own timeout is the only thing that ends the send.
+func TestEmailProvider_SendTimeout(t *testing.T) {
+	defer email.TestingSetSendTimeout(200 * time.Millisecond)()
+
+	require.ErrorIs(t, sendToStalledServer(context.Background(), t, 30*time.Second), context.DeadlineExceeded)
+}
+
+// TestEmailProvider_ContextDeadline covers a caller deadline shorter than the provider's
+// own timeout, which must win.
+func TestEmailProvider_ContextDeadline(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	require.ErrorIs(t, sendToStalledServer(ctx, t, 30*time.Second), context.DeadlineExceeded)
+}
+
+// TestEmailProvider_Cancellation covers cancellation while the connection is already
+// established, which a connection deadline alone does not observe.
+func TestEmailProvider_Cancellation(t *testing.T) {
+	// A send timeout far longer than the guard below, so that only the cancellation can
+	// end the send in time. A connection deadline alone would run to the full timeout.
+	defer email.TestingSetSendTimeout(60 * time.Second)()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		time.Sleep(200 * time.Millisecond)
+		cancel()
+	}()
+
+	require.ErrorIs(t, sendToStalledServer(ctx, t, 10*time.Second), context.Canceled)
 }
 
 func TestEmailProvider_Invalid(t *testing.T) {
