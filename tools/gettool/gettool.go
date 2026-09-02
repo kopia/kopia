@@ -119,7 +119,7 @@ var tools = map[string]ToolInfo{
 	"node": {
 		urlTemplate:         "https://nodejs.org/dist/vVERSION/node-vVERSION-GOOS-GOARCH.EXT",
 		osMap:               map[string]string{"windows": "win"},
-		archMap:             map[string]string{"arm": "armv7l", "amd64": "x64"},
+		archMap:             map[string]string{"amd64": "x64"},
 		stripPathComponents: 1,
 	},
 }
