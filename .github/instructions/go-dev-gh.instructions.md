@@ -58,5 +58,4 @@ excludeAgent: "code-review"
 
 ## Other Instructions
 
-- Do not modify any file or directory under `/site`
-- Never delete nor modify `/site/go.mod`, `/site/go.sum`
+- Do not modify anything under `site/` (including `site/go.mod` and `site/go.sum`)
