@@ -9,7 +9,7 @@
     "electron-updater": "^6.8.9",
     "minimist": "^1.2.8",
     "semver": "^7.8.5",
-    "uuid": "^14.0.1"
+    "uuid": "^14.0.2"
   },
   "type": "module",
   "author": {
@@ -125,9 +125,9 @@
     "@electron/notarize": "^3.1.1",
     "@playwright/test": "^1.62.1",
     "asar": "^3.2.0",
-    "concurrently": "^10.0.4",
+    "concurrently": "^10.0.5",
     "dotenv": "^17.4.2",
-    "electron": "^43.3.0",
+    "electron": "^44.0.0",
     "electron-builder": "^26.15.3",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1",
