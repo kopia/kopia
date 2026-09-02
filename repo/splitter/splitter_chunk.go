@@ -86,56 +86,31 @@ func GetChunkFactory(name string) ChunkFactory {
 }
 
 // rollingHashChunkSplitter adapts rollinghash.ChunkWriter to ChunkSplitter.
+//
+// A stream shorter than the rolling window yields no boundary; since
+// rollinghash v4.3.3 the ChunkWriter still emits those trailing bytes as a
+// single final chunk (a truly empty stream yields nothing), so no
+// short-stream fallback is needed here.
 type rollingHashChunkSplitter struct {
 	cw      rollinghash.ChunkWriter
 	maxSize int
-
-	// head keeps the first up-to-window bytes of the stream. A stream
-	// shorter than the rolling window never produces a boundary and
-	// rollinghash.ChunkWriter does not emit it as a chunk, so we emit it
-	// from here instead.
-	head   []byte
-	total  int
-	closed bool
-	tiny   bool // the short-stream fallback chunk in head is being served
 }
 
 func (s *rollingHashChunkSplitter) Write(p []byte) (int, error) {
-	if s.total < splitterSlidingWindowSize {
-		s.head = append(s.head, p[:min(len(p), splitterSlidingWindowSize-s.total)]...)
-	}
-
-	s.total += len(p)
-
 	//nolint:wrapcheck
 	return s.cw.Write(p)
 }
 
 func (s *rollingHashChunkSplitter) Close() error {
-	s.closed = true
-
 	//nolint:wrapcheck
 	return s.cw.Close()
 }
 
 func (s *rollingHashChunkSplitter) Next() bool {
-	if s.cw.Next() {
-		return true
-	}
-
-	if s.closed && !s.tiny && s.total > 0 && s.total < splitterSlidingWindowSize {
-		s.tiny = true
-		return true
-	}
-
-	return false
+	return s.cw.Next()
 }
 
 func (s *rollingHashChunkSplitter) Bytes() []byte {
-	if s.tiny {
-		return s.head
-	}
-
 	return s.cw.Bytes()
 }
 
@@ -145,10 +120,6 @@ func (s *rollingHashChunkSplitter) MaxSegmentSize() int {
 
 func (s *rollingHashChunkSplitter) Reset() {
 	s.cw.Reset()
-	s.head = s.head[:0]
-	s.total = 0
-	s.closed = false
-	s.tiny = false
 }
 
 // recyclableChunkSplitter returns its wrapped splitter to a pool when
