@@ -55,3 +55,7 @@ excludeAgent: "code-review"
 - Unit tests: 1200s (20 minutes)
 - Integration tests: 300s (5 minutes)
 - Stress/endurance: 3600s (1 hour)
+
+## Other Instructions
+
+- Do not modify anything under `site/` (including `site/go.mod` and `site/go.sum`)
