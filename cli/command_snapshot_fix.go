@@ -64,18 +64,16 @@ func failedEntryCallback(rep repo.RepositoryWriter, enumVal string) snapshotfs.R
 	}
 }
 
+// RewriteEntryFactory builds a per-source rewrite callback.
+type RewriteEntryFactory func(ctx context.Context, source snapshot.SourceInfo, policyTree *policy.Tree) (snapshotfs.RewriteDirEntryCallback, error)
+
 func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, rep repo.RepositoryWriter, rewrite snapshotfs.RewriteDirEntryCallback) error {
-	rw, err := snapshotfs.NewDirRewriter(ctx, rep, snapshotfs.DirRewriterOptions{
-		Parallel:               c.parallel,
-		RewriteEntry:           rewrite,
-		OnDirectoryReadFailure: failedEntryCallback(rep, c.invalidDirHandling),
+	return c.rewriteMatchingSnapshotsWithFactory(ctx, rep, func(ctx context.Context, source snapshot.SourceInfo, policyTree *policy.Tree) (snapshotfs.RewriteDirEntryCallback, error) {
+		return rewrite, nil
 	})
-	if err != nil {
-		return errors.Wrap(err, "unable to create dir rewriter")
-	}
+}
 
-	defer rw.Close(ctx)
-
+func (c *commonRewriteSnapshots) rewriteMatchingSnapshotsWithFactory(ctx context.Context, rep repo.RepositoryWriter, factory RewriteEntryFactory) error {
 	var updatedSnapshots int
 
 	manifestIDs, err := c.listManifestIDs(ctx, rep)
@@ -89,11 +87,27 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 	}
 
 	for _, mg := range snapshot.GroupBySource(manifests) {
-		log(ctx).Infof("Processing snapshot %v", mg[0].Source)
+		source := mg[0].Source
 
-		policyTree, err := policy.TreeForSource(ctx, rep, mg[0].Source)
+		log(ctx).Infof("Processing snapshot %v", source)
+
+		policyTree, err := policy.TreeForSource(ctx, rep, source)
 		if err != nil {
 			return errors.Wrap(err, "unable to get policy tree")
+		}
+
+		rewrite, err := factory(ctx, source, policyTree)
+		if err != nil {
+			return err
+		}
+
+		rw, err := snapshotfs.NewDirRewriter(ctx, rep, snapshotfs.DirRewriterOptions{
+			Parallel:               c.parallel,
+			RewriteEntry:           rewrite,
+			OnDirectoryReadFailure: failedEntryCallback(rep, c.invalidDirHandling),
+		})
+		if err != nil {
+			return errors.Wrap(err, "unable to create dir rewriter")
 		}
 
 		metadataComp := policyTree.EffectivePolicy().MetadataCompressionPolicy.MetadataCompressor()
@@ -129,6 +143,8 @@ func (c *commonRewriteSnapshots) rewriteMatchingSnapshots(ctx context.Context, r
 
 			updatedSnapshots++
 		}
+
+		rw.Close(ctx)
 	}
 
 	if updatedSnapshots > 0 {
