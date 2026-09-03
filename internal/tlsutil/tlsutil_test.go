@@ -3,8 +3,11 @@ package tlsutil_test
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,4 +68,125 @@ func TestTransportTrustingSingleCertificate(t *testing.T) {
 		require.Error(t, err)
 		require.ErrorContains(t, err, "can't find certificate matching SHA256 fingerprint")
 	})
+}
+
+func TestTransportTrustingSingleCertificate_BadFingerprint(t *testing.T) {
+	ctx := t.Context()
+	certValid := 24 * time.Hour
+	names := []string{"127.0.0.1", "localhost"}
+
+	cert, _, err := tlsutil.GenerateServerCertificate(ctx, 2048, certValid, names)
+	require.NoError(t, err, "generating server cert")
+
+	cases := []struct {
+		name        string
+		fingerprint string
+	}{
+		{
+			name:        "OddLength",
+			fingerprint: strings.Repeat("a", 33),
+		},
+		{
+			name:        "TooShort",
+			fingerprint: strings.Repeat("a", 2),
+		},
+		{
+			name:        "TooLong",
+			fingerprint: strings.Repeat("a", 42),
+		},
+		{
+			name:        "NotHex",
+			fingerprint: "coffee",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			transport := tlsutil.TransportTrustingSingleCertificate(testCase.fingerprint)
+			require.NotNil(t, transport)
+
+			verifyPeerCertificate := transport.(*http.Transport).TLSClientConfig.VerifyPeerCertificate //nolint:forcetypeassert
+
+			rawCerts := [][]byte{cert.Raw}
+			err := verifyPeerCertificate(rawCerts, nil)
+			require.Error(t, err)
+			require.ErrorContains(t, err, "invalid SHA256 fingerprint")
+		})
+	}
+}
+
+func TestTransportTrustingSingleClientCertificate_TestClientFlow(t *testing.T) {
+	ctx := t.Context()
+	certValid := 24 * time.Hour
+	names := []string{"127.0.0.1", "localhost"}
+
+	cert, priv, err := tlsutil.GenerateServerCertificate(ctx, 2048, certValid, names)
+	require.NoError(t, err, "generating server cert")
+
+	h := sha256.Sum256(cert.Raw)
+	fingerprint := hex.EncodeToString(h[:])
+
+	tlsCert := tls.Certificate{
+		Certificate: [][]byte{cert.Raw},
+		PrivateKey:  priv,
+		Leaf:        cert,
+	}
+
+	cases := []struct {
+		name         string
+		getTransport func() *http.Transport
+		wantResumed  bool
+	}{
+		{
+			name: "NoResume",
+			getTransport: func() *http.Transport {
+				return tlsutil.TransportTrustingSingleCertificate(fingerprint).(*http.Transport) //nolint:forcetypeassert
+			},
+		},
+		{
+			name: "Resume",
+			getTransport: func() *http.Transport {
+				transport := tlsutil.TransportTrustingSingleCertificate(fingerprint).(*http.Transport) //nolint:forcetypeassert
+				transport.TLSClientConfig.ClientSessionCache = tls.NewLRUClientSessionCache(0)
+
+				return transport
+			},
+			wantResumed: true,
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			srv := httptest.NewUnstartedServer(
+				http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					w.WriteHeader(http.StatusOK)
+				}),
+			)
+			srv.TLS = &tls.Config{
+				Certificates: []tls.Certificate{tlsCert},
+			}
+			srv.StartTLS()
+			t.Cleanup(srv.Close)
+
+			transport := testCase.getTransport()
+			client := &http.Client{
+				Transport: transport,
+			}
+
+			// Make multiple calls to allow checking resume behavior.
+			for i := range 2 {
+				resp, err := client.Get(srv.URL) //nolint:noctx
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+
+				wantResumed := testCase.wantResumed && i > 0
+				require.Equal(t, wantResumed, resp.TLS.DidResume)
+
+				resp.Body.Close()
+
+				// Use to force a resume if the client has a configured TLS cache.
+				transport.CloseIdleConnections()
+			}
+		})
+	}
 }

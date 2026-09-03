@@ -131,7 +131,7 @@ func WriteCertificateToFile(fname string, cert *x509.Certificate) (err error) {
 // provided SHA256 fingerprint.
 func TLSConfigTrustingSingleCertificate(sha256Fingerprint string) *tls.Config {
 	sha256FingerprintBytes, err := hex.DecodeString(sha256Fingerprint)
-	if err != nil {
+	if err != nil || len(sha256FingerprintBytes) < sha256.Size {
 		return &tls.Config{
 			MinVersion: tls.VersionTLS12,
 			VerifyPeerCertificate: func(_ [][]byte, _ [][]*x509.Certificate) error {
