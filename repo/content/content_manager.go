@@ -262,6 +262,10 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		return errors.Wrap(err, "unable to flush old pending writes")
 	}
 
+	if mp.Version > maxUInt8 {
+		return errors.Errorf("invalid format version %v", mp.Version)
+	}
+
 	prefix := packPrefixForContentID(contentID)
 
 	var compressedAndEncrypted gather.WriteBuffer
@@ -311,10 +315,6 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 	if err != nil {
 		bm.unlock(ctx)
 		return errors.Wrap(err, "unable to create pending pack")
-	}
-
-	if mp.Version > maxUInt8 {
-		return errors.Errorf("invalid format version %v", mp.Version)
 	}
 
 	info := Info{
