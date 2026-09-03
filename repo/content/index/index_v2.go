@@ -500,7 +500,9 @@ func buildV2(sortedInfos []*Info, output io.Writer) error {
 	// prepare extra data to be appended at the end of an index.
 	extraData := b2.prepareExtraData(sortedInfos)
 
-	if b2.keyLength <= 1 || b2.keyLength > maxUInt8 {
+	if b2.keyLength == -1 {
+		b2.keyLength = unknownKeySize
+	} else if b2.keyLength <= 1 || b2.keyLength > maxUInt8 {
 		return errors.Errorf("invalid key length: %v for %v", b2.keyLength, len(sortedInfos))
 	}
 
@@ -511,8 +513,8 @@ func buildV2(sortedInfos []*Info, output io.Writer) error {
 
 	// write header
 	header := make([]byte, v2IndexHeaderSize)
-	header[0] = Version2 // version
-	header[1] = byte(b2.keyLength)
+	header[0] = Version2                                                   // version
+	header[1] = byte(b2.keyLength)                                         //nolint:gosec // range checked above
 	binary.BigEndian.PutUint16(header[2:4], uint16(b2.entrySize))          //nolint:gosec
 	binary.BigEndian.PutUint32(header[4:8], uint32(b2.entryCount))         //nolint:gosec
 	binary.BigEndian.PutUint32(header[8:12], uint32(len(b2.packID2Index))) //nolint:gosec
