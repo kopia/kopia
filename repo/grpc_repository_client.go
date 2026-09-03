@@ -660,7 +660,7 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 
 			fv := rr.GetContentInfo.GetInfo().GetFormatVersion()
 			if fv > maxUInt8 {
-				return content.Info{}, errors.Errorf("invalid content id: %v", fv)
+				return content.Info{}, errors.Errorf("invalid format version: %v", fv)
 			}
 
 			return content.Info{
