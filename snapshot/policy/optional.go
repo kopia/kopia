@@ -14,7 +14,7 @@ func (b *OptionalBool) OrDefault(def bool) bool {
 
 // NewOptionalBool provides an OptionalBool pointer.
 func NewOptionalBool(b OptionalBool) *OptionalBool {
-	return &b
+	return new(b)
 }
 
 // OptionalInt provides convenience methods for manipulating optional integers.
@@ -30,7 +30,7 @@ func (b *OptionalInt) OrDefault(def int) int {
 }
 
 func newOptionalInt(b OptionalInt) *OptionalInt {
-	return &b
+	return new(b)
 }
 
 // OptionalInt64 provides convenience methods for manipulating optional integers.
@@ -46,5 +46,5 @@ func (b *OptionalInt64) OrDefault(def int64) int64 {
 }
 
 func newOptionalInt64(b OptionalInt64) *OptionalInt64 {
-	return &b
+	return new(b)
 }
