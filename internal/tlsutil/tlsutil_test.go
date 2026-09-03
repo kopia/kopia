@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,4 +66,49 @@ func TestTransportTrustingSingleCertificate(t *testing.T) {
 		require.Error(t, err)
 		require.ErrorContains(t, err, "can't find certificate matching SHA256 fingerprint")
 	})
+}
+
+func TestTransportTrustingSingleCertificate_BadFingerprint(t *testing.T) {
+	ctx := t.Context()
+	certValid := 24 * time.Hour
+	names := []string{"127.0.0.1", "localhost"}
+
+	cert, _, err := tlsutil.GenerateServerCertificate(ctx, 2048, certValid, names)
+	require.NoError(t, err, "generating server cert")
+
+	cases := []struct {
+		name        string
+		fingerprint string
+	}{
+		{
+			name:        "OddLength",
+			fingerprint: strings.Repeat("a", 33),
+		},
+		{
+			name:        "TooShort",
+			fingerprint: strings.Repeat("a", 2),
+		},
+		{
+			name:        "TooLong",
+			fingerprint: strings.Repeat("a", 42),
+		},
+		{
+			name:        "NotHex",
+			fingerprint: "coffee",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			transport := tlsutil.TransportTrustingSingleCertificate(testCase.fingerprint)
+			require.NotNil(t, transport)
+
+			verifyPeerCertificate := transport.(*http.Transport).TLSClientConfig.VerifyPeerCertificate //nolint:forcetypeassert
+
+			rawCerts := [][]byte{cert.Raw}
+			err := verifyPeerCertificate(rawCerts, nil)
+			require.Error(t, err)
+			require.ErrorContains(t, err, "invalid SHA256 fingerprint")
+		})
+	}
 }
