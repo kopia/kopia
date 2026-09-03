@@ -489,7 +489,7 @@ func newIndexBuilderV2(sortedInfos []*Info) (*indexBuilderV2, error) {
 }
 
 // buildV2 writes the pack index to the provided output.
-func buildV2(sortedInfos []*Info, output io.Writer) error {
+func buildV2(sortedInfos []*Info, output io.Writer) error { //nolint:gocyclo
 	b2, err := newIndexBuilderV2(sortedInfos)
 	if err != nil {
 		return err
