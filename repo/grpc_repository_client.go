@@ -641,6 +641,8 @@ func (r *grpcRepositoryClient) ContentInfo(ctx context.Context, contentID conten
 	})
 }
 
+const maxUInt8 = 255
+
 func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
 	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetContentInfo{
@@ -656,6 +658,11 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 				return content.Info{}, errors.Wrap(err, "invalid content ID")
 			}
 
+			fv := rr.GetContentInfo.GetInfo().GetFormatVersion()
+			if fv > maxUInt8 {
+				return content.Info{}, errors.Errorf("invalid format version: %v", fv)
+			}
+
 			return content.Info{
 				ContentID:        contentID,
 				PackedLength:     rr.GetContentInfo.GetInfo().GetPackedLength(),
@@ -663,7 +670,7 @@ func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID
 				PackBlobID:       blob.ID(rr.GetContentInfo.GetInfo().GetPackBlobId()),
 				PackOffset:       rr.GetContentInfo.GetInfo().GetPackOffset(),
 				Deleted:          rr.GetContentInfo.GetInfo().GetDeleted(),
-				FormatVersion:    byte(rr.GetContentInfo.GetInfo().GetFormatVersion()),
+				FormatVersion:    byte(fv),
 				OriginalLength:   rr.GetContentInfo.GetInfo().GetOriginalLength(),
 			}, nil
 

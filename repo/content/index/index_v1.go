@@ -258,6 +258,8 @@ func (b *indexV1) Close() error {
 	return nil
 }
 
+var errInvalidKeySize = errors.New("invalid key length")
+
 type indexBuilderV1 struct {
 	packBlobIDOffsets map[blob.ID]uint32
 	entryCount        int
@@ -280,10 +282,16 @@ func buildV1(allContents []*Info, output io.Writer) error {
 	// prepare extra data to be appended at the end of an index.
 	extraData := b1.prepareExtraData(allContents)
 
+	if b1.keyLength == -1 {
+		b1.keyLength = unknownKeySize
+	} else if b1.keyLength < 1 || b1.keyLength > maxContentIDSize {
+		return errors.Wrapf(errInvalidKeySize, "key length=%d", b1.keyLength)
+	}
+
 	// write header
 	header := make([]byte, v1HeaderSize)
-	header[0] = 1 // version
-	header[1] = byte(b1.keyLength)
+	header[0] = 1                                                   // version
+	header[1] = byte(b1.keyLength)                                  //nolint:gosec // range checked above
 	binary.BigEndian.PutUint16(header[2:4], uint16(b1.entryLength)) //nolint:gosec
 	binary.BigEndian.PutUint32(header[4:8], uint32(b1.entryCount))  //nolint:gosec
 

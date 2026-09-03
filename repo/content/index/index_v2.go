@@ -382,17 +382,23 @@ func indexV2FormatInfoFromInfo(v *Info) indexV2FormatInfo {
 }
 
 // buildUniqueFormatToIndexMap builds a map of unique indexV2FormatInfo to their numeric identifiers.
-func buildUniqueFormatToIndexMap(sortedInfos []*Info) map[indexV2FormatInfo]byte {
+func buildUniqueFormatToIndexMap(sortedInfos []*Info) (map[indexV2FormatInfo]byte, error) {
 	result := map[indexV2FormatInfo]byte{}
 
 	for _, v := range sortedInfos {
 		key := indexV2FormatInfoFromInfo(v)
 		if _, ok := result[key]; !ok {
-			result[key] = byte(len(result))
+			rl := len(result)
+
+			if rl > maxUInt8 {
+				return nil, errors.New("unsupported - too many index v2 format infos")
+			}
+
+			result[key] = byte(rl)
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 // buildPackIDToIndexMap builds a map of unique blob IDs to their numeric identifiers.
@@ -424,7 +430,11 @@ func newIndexBuilderV2(sortedInfos []*Info) (*indexBuilderV2, error) {
 	entrySize := v2EntryOffsetFormatID
 
 	// compute a map of unique formats to their indexes.
-	uniqueFormat2Index := buildUniqueFormatToIndexMap(sortedInfos)
+	uniqueFormat2Index, err := buildUniqueFormatToIndexMap(sortedInfos)
+	if err != nil {
+		return nil, err
+	}
+
 	if len(uniqueFormat2Index) > v2MaxFormatCount {
 		return nil, errors.Errorf("unsupported - too many unique formats %v (max %v)", len(uniqueFormat2Index), v2MaxFormatCount)
 	}
@@ -479,7 +489,7 @@ func newIndexBuilderV2(sortedInfos []*Info) (*indexBuilderV2, error) {
 }
 
 // buildV2 writes the pack index to the provided output.
-func buildV2(sortedInfos []*Info, output io.Writer) error {
+func buildV2(sortedInfos []*Info, output io.Writer) error { //nolint:gocyclo
 	b2, err := newIndexBuilderV2(sortedInfos)
 	if err != nil {
 		return err
@@ -490,18 +500,25 @@ func buildV2(sortedInfos []*Info, output io.Writer) error {
 	// prepare extra data to be appended at the end of an index.
 	extraData := b2.prepareExtraData(sortedInfos)
 
-	if b2.keyLength <= 1 {
+	if b2.keyLength == -1 {
+		b2.keyLength = unknownKeySize
+	} else if b2.keyLength <= 1 || b2.keyLength > maxUInt8 {
 		return errors.Errorf("invalid key length: %v for %v", b2.keyLength, len(sortedInfos))
+	}
+
+	uniqueFormatInfo2IndexLen := len(b2.uniqueFormatInfo2Index)
+	if uniqueFormatInfo2IndexLen > maxUInt8 {
+		return errors.Errorf("invalid unique format v2 info index length: %v", uniqueFormatInfo2IndexLen)
 	}
 
 	// write header
 	header := make([]byte, v2IndexHeaderSize)
-	header[0] = Version2 // version
-	header[1] = byte(b2.keyLength)
+	header[0] = Version2                                                   // version
+	header[1] = byte(b2.keyLength)                                         //nolint:gosec // range checked above
 	binary.BigEndian.PutUint16(header[2:4], uint16(b2.entrySize))          //nolint:gosec
 	binary.BigEndian.PutUint32(header[4:8], uint32(b2.entryCount))         //nolint:gosec
 	binary.BigEndian.PutUint32(header[8:12], uint32(len(b2.packID2Index))) //nolint:gosec
-	header[12] = byte(len(b2.uniqueFormatInfo2Index))
+	header[12] = byte(uniqueFormatInfo2IndexLen)
 	binary.BigEndian.PutUint32(header[13:17], uint32(b2.baseTimestamp)) //nolint:gosec
 
 	if _, err := w.Write(header); err != nil {
@@ -594,7 +611,12 @@ func (b *indexBuilderV2) writeIndexEntry(w io.Writer, it *Info) error {
 func (b *indexBuilderV2) writePackIDEntry(w io.Writer, packID blob.ID) error {
 	var buf [v2PackInfoSize]byte
 
-	buf[0] = byte(len(packID))
+	packIDLen := len(packID)
+	if packIDLen > maxUInt8 {
+		return errors.Errorf("packID too long: %v", packID)
+	}
+
+	buf[0] = byte(packIDLen)
 	binary.BigEndian.PutUint32(buf[1:], b.packBlobIDOffsets[packID]+b.extraDataOffset)
 
 	_, err := w.Write(buf[:])
@@ -619,8 +641,7 @@ func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it *Info) error {
 
 	//    0-3: timestamp bits 0..31 (relative to base time)
 
-	binary.BigEndian.PutUint32(
-		buf[v2EntryOffsetTimestampSeconds:],
+	binary.BigEndian.PutUint32(buf[v2EntryOffsetTimestampSeconds:],
 		uint32(it.TimestampSeconds-b.baseTimestamp)) //nolint:gosec
 
 	//    4-7: pack offset bits 0..29
@@ -652,12 +673,24 @@ func (b *indexBuilderV2) writeIndexValueEntry(w io.Writer, it *Info) error {
 	buf[v2EntryOffsetFormatID] = b.uniqueFormatInfo2Index[indexV2FormatInfoFromInfo(it)]
 
 	//     17: pack ID - bits 16..23 - present if more than 2^16 packs are in a single index
-	buf[v2EntryOffsetExtendedPackBlobID] = byte(packBlobIndex >> v2EntryExtendedPackBlobIDShift)
+	extendedPackBlobIndexBits := packBlobIndex >> v2EntryExtendedPackBlobIDShift
+	if extendedPackBlobIndexBits > maxUInt8 {
+		panic(fmt.Sprintf("encoding bug: extendedPackBlobIndexBits=%v > 255", extendedPackBlobIndexBits))
+	}
+
+	buf[v2EntryOffsetExtendedPackBlobID] = byte(extendedPackBlobIndexBits) //nolint:gosec // range checked above
 
 	//     18: high-order bits - present if any content length is greater than 2^24 == 16MiB
 	//            original length bits 24..27  (4 hi bits)
 	//            packed length bits 24..27    (4 lo bits)
-	buf[v2EntryOffsetHighLengthBits] = byte(it.PackedLength>>v2EntryHighLengthShift) | byte((it.OriginalLength>>v2EntryHighLengthShift)<<v2EntryHighLengthBitsOriginalLengthShift)
+	packedLengthHiBits := byte(it.PackedLength >> v2EntryHighLengthShift)
+	originalLengthHiBits := byte(it.OriginalLength >> v2EntryHighLengthShift)
+
+	if packedLengthHiBits > 0xF || originalLengthHiBits > 0xF {
+		panic(fmt.Sprintf("encoding bug: packedLengthHiBits=%v, originalLengthHiBits=%v", packedLengthHiBits, originalLengthHiBits))
+	}
+
+	buf[v2EntryOffsetHighLengthBits] = packedLengthHiBits | (originalLengthHiBits << v2EntryHighLengthBitsOriginalLengthShift)
 
 	for i := b.entrySize; i < v2EntryMaxLength; i++ {
 		if buf[i] != 0 {

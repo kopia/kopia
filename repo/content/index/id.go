@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/impossible"
 	"github.com/kopia/kopia/repo/hashing"
 )
 
@@ -28,7 +29,24 @@ func (p IDPrefix) ValidateSingle() error {
 	return errors.New("invalid prefix, must be empty or a single letter between 'g' and 'z'")
 }
 
-const maxIDLength = hashing.MaxHashSize
+const (
+	maxIDLength = hashing.MaxHashSize
+
+	maxUInt8 = 255
+
+	// maxIDLength needs to be less or equal than maxUInt8 and at least 8 bytes.
+	_ uint = maxUInt8 - maxIDLength
+)
+
+func _() {
+	var (
+		id ID
+
+		// verify len(ID.data) <= maxUInt8 and > 0
+		_ = uint(len(id.data))
+		_ = uint(maxUInt8 - len(id.data))
+	)
+}
 
 // ID is an identifier of content in content-addressable storage.
 //
@@ -216,15 +234,17 @@ func ParseID(s string) (ID, error) {
 	}
 
 	n, err := hex.Decode(id.data[:], []byte(s))
-	if err != nil {
+	switch {
+	case err != nil:
 		return id, errors.Wrap(err, "invalid content hash")
-	}
-
-	if n == 0 {
+	case n == 0:
 		return id, errors.Errorf("id too short: %q", s0)
+	case n > len(id.data):
+		impossible.PanicOnError(errors.Errorf("id too large: %d, %q", n, s))
 	}
 
-	id.idLen = byte(n)
+	_ = uint(maxUInt8 - len(id.data))
+	id.idLen = byte(n) //nolint:gosec // n <= len(id.data) <= 255
 
 	return id, nil
 }

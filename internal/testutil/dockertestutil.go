@@ -25,7 +25,7 @@ func runDockerAndGetOutputOrSkip(ctx context.Context, tb testing.TB, args ...str
 
 	var stderr bytes.Buffer
 
-	c := exec.CommandContext(ctx, "docker", args...)
+	c := exec.CommandContext(ctx, "docker", args...) //nolint:gosec // only used in tests
 	c.Stderr = &stderr
 
 	out, err := c.Output()

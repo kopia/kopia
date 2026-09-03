@@ -92,7 +92,9 @@ func RecoverFormatBlob(ctx context.Context, st blob.Storage, blobID blob.ID, opt
 		if foundMetadata.BlobID != "" {
 			return errors.Errorf("found multiple blocks with a given prefix: %v", blobID)
 		}
+
 		foundMetadata = bm
+
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "error")
@@ -221,9 +223,9 @@ func addFormatBlobChecksumAndLength(fb []byte) ([]byte, error) {
 	}
 
 	// return <length><checksummed-bytes><length>
-	result := append([]byte(nil), byte(l), byte(l>>8)) //nolint:mnd
+	result := append([]byte(nil), byte(0xFF&l), byte(l>>8)) //nolint:mnd
 	result = append(result, checksummedFormatBytes...)
-	result = append(result, byte(l), byte(l>>8)) //nolint:mnd
+	result = append(result, byte(0xFF&l), byte(l>>8)) //nolint:mnd
 
 	return result, nil
 }
