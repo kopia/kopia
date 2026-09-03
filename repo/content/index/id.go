@@ -233,17 +233,18 @@ func ParseID(s string) (ID, error) {
 		return id, errors.New("hash too long")
 	}
 
-	switch n, err := hex.Decode(id.data[:], []byte(s)); {
+	n, err := hex.Decode(id.data[:], []byte(s))
+	switch {
 	case err != nil:
 		return id, errors.Wrap(err, "invalid content hash")
 	case n == 0:
 		return id, errors.Errorf("id too short: %q", s0)
 	case n > len(id.data):
 		impossible.PanicOnError(errors.Errorf("id too large: %d, %q", n, s))
-	default:
-		_ = uint(maxUInt8 - len(id.data))
-		id.idLen = byte(n) //nolint:gosec // n <= len(id.data) <= 255
 	}
+
+	_ = uint(maxUInt8 - len(id.data))
+	id.idLen = byte(n) //nolint:gosec // n <= len(id.data) <= 255
 
 	return id, nil
 }
