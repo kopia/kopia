@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/splitter"
+	"github.com/kopia/kopia/internal/storagereserve"
 )
 
 const (
@@ -48,8 +49,18 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "invalid parameters")
 	}
 
-	//nolint:wrapcheck
-	return format.Initialize(ctx, st, formatBlob, repoConfig, blobcfg, password)
+	if err := format.Initialize(ctx, st, formatBlob, repoConfig, blobcfg, password); err != nil {
+		return errors.Wrap(err, "error initializing format")
+	}
+
+	// Best-effort: create the storage reserve. A failure here (e.g. insufficient space,
+	// permission denied, or a non-volume backend) must not prevent the repo from being
+	// usable — the reserve is recreated on the next connect or maintenance run.
+	if err := storagereserve.Ensure(ctx, st, storagereserve.DefaultReserveSize); err != nil {
+		log(ctx).Warnf("could not create initial storage reserve: %v", err)
+	}
+
+	return nil
 }
 
 func formatBlobFromOptions(opt *NewRepositoryOptions) *format.KopiaRepositoryJSON {

@@ -29,6 +29,9 @@ import (
 func TestSnapshotFix(t *testing.T) {
 	// assumption: the test is run on filesystem & not directly on object store
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
+	if *repoPathPrefix == "" {
+		dataRepoPath = path.Join(t.TempDir(), dataSubPath)
+	}
 
 	baseDir := t.TempDir()
 	if baseDir == "" {
@@ -106,6 +109,9 @@ func TestSnapshotFix(t *testing.T) {
 func TestSnapshotFixInvalidFiles(t *testing.T) {
 	// assumption: the test is run on filesystem & not directly on object store
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath, "-fix-invalid")
+	if *repoPathPrefix == "" {
+		dataRepoPath = path.Join(t.TempDir(), dataSubPath, "-fix-invalid")
+	}
 
 	baseDir := t.TempDir()
 	if baseDir == "" {
@@ -181,6 +187,9 @@ func TestSnapshotFixInvalidFiles(t *testing.T) {
 func TestConsistencyWhenKill9AfterModify(t *testing.T) {
 	// assumption: the test is run on filesystem & not directly on object store
 	dataRepoPath := path.Join(*repoPathPrefix, dirPath, dataPath)
+	if *repoPathPrefix == "" {
+		dataRepoPath = path.Join(t.TempDir(), dirPath, dataPath)
+	}
 
 	baseDir := t.TempDir()
 	require.NotEmpty(t, baseDir, "TempDir() did not generate a valid dir")
