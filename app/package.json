@@ -140,6 +140,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build-html": "react-scripts build",
+    "test": "node --test tests/*.test.js",
     "e2e": "playwright test",
     "eject": "react-scripts eject",
     "start-electron": "electron .",
