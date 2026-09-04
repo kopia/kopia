@@ -434,6 +434,213 @@ func verifyNoError(t *testing.T, err error) {
 	require.NoError(t, err)
 }
 
+// TestChunkSplitterObjectWriter checks that the rolling-hash splitters
+// drive the object writer to the same result regardless of how the input
+// is broken up across Write calls, and that the data round-trips.
+func TestChunkSplitterObjectWriter(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	r := rand.New(rand.NewSource(42))
+	data := make([]byte, 5<<20)
+	_, err := r.Read(data)
+	require.NoError(t, err)
+
+	for _, splitterName := range []string{"DYNAMIC-256K-BUZHASH", "DYNAMIC-4M-BUZHASH", "DYNAMIC-256K-RABINKARP"} {
+		for _, async := range []int{0, 4} {
+			t.Run(fmt.Sprintf("%s/async-%d", splitterName, async), func(t *testing.T) {
+				_, _, om := setupTest(t, nil)
+
+				write := func(pieceSize int) ID {
+					w := om.NewWriter(ctx, WriterOptions{Splitter: splitterName, AsyncWrites: async})
+					defer w.Close() //nolint:errcheck
+
+					for off := 0; off < len(data); off += pieceSize {
+						end := min(off+pieceSize, len(data))
+						_, werr := w.Write(data[off:end])
+						require.NoError(t, werr)
+					}
+
+					oid, rerr := w.Result()
+					require.NoError(t, rerr)
+
+					return oid
+				}
+
+				oid := write(len(data))
+				verifyFull(ctx, t, om, oid, data)
+
+				for _, pieceSize := range []int{1, 100, 4096, 1 << 20} {
+					require.Equal(t, oid, write(pieceSize), "object id depends on Write chunking for piece size %d", pieceSize)
+				}
+
+				// the push-based splitter must produce the same object id as
+				// the byte-at-a-time splitter for the same algorithm, so that
+				// deduplication against existing repositories is preserved.
+				pull := om.NewWriter(ctx, WriterOptions{Splitter: splitterName, AsyncWrites: async})
+				ow := testutil.EnsureType[*objectWriter](t, pull)
+				ow.splitter, ow.chunkSplitter = splitter.GetFactory(splitterName)(), nil
+
+				_, werr := pull.Write(data)
+				require.NoError(t, werr)
+
+				pullOID, rerr := pull.Result()
+				require.NoError(t, rerr)
+				require.NoError(t, pull.Close())
+				require.Equal(t, pullOID, oid, "push and pull splitter produced different object ids")
+			})
+		}
+	}
+}
+
+func TestChunkSplitterObjectWriterShortInputs(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	_, _, om := setupTest(t, nil)
+
+	for _, size := range []int{0, 1, 63, 64, 65, 1000} {
+		data := make([]byte, size)
+		for i := range data {
+			data[i] = byte(i)
+		}
+
+		w := om.NewWriter(ctx, WriterOptions{Splitter: "DYNAMIC-256K-BUZHASH"})
+
+		_, err := w.Write(data)
+		require.NoError(t, err)
+
+		oid, err := w.Result()
+		require.NoError(t, err)
+		require.NoError(t, w.Close())
+
+		verifyFull(ctx, t, om, oid, data)
+	}
+}
+
+// TestChunkSplitterCheckpointing exercises Checkpoint mid-stream on the
+// push-based splitter path: every checkpoint must be a verifiable object
+// and the final result must round-trip.
+func TestChunkSplitterCheckpointing(t *testing.T) {
+	ctx := testlogging.Context(t)
+	_, _, om := setupTest(t, nil)
+
+	r := rand.New(rand.NewSource(7))
+	data := make([]byte, 6<<20)
+	_, err := r.Read(data)
+	require.NoError(t, err)
+
+	w := om.NewWriter(ctx, WriterOptions{Splitter: "DYNAMIC-256K-BUZHASH"})
+	defer w.Close() //nolint:errcheck
+
+	written := 0
+
+	for _, piece := range []int{40, 1 << 20, 33, 3 << 20, len(data) - 40 - (1 << 20) - 33 - (3 << 20)} {
+		_, werr := w.Write(data[written : written+piece])
+		require.NoError(t, werr)
+
+		written += piece
+
+		cp, cerr := w.Checkpoint()
+		require.NoError(t, cerr)
+
+		if cp != EmptyID {
+			_, verr := VerifyObject(ctx, om.contentMgr, cp)
+			require.NoError(t, verr)
+		}
+	}
+
+	require.Equal(t, len(data), written)
+
+	oid, err := w.Result()
+	require.NoError(t, err)
+	verifyFull(ctx, t, om, oid, data)
+}
+
+// TestChunkSplitterConcatenate checks Concatenate over objects written
+// through the push-based splitter path.
+func TestChunkSplitterConcatenate(t *testing.T) {
+	ctx := testlogging.Context(t)
+	_, _, om := setupTest(t, nil)
+
+	mkObject := func(seed int64, size int) (ID, []byte) {
+		r := rand.New(rand.NewSource(seed))
+		buf := make([]byte, size)
+		_, err := r.Read(buf)
+		require.NoError(t, err)
+
+		w := om.NewWriter(ctx, WriterOptions{Splitter: "DYNAMIC-256K-RABINKARP"})
+		defer w.Close() //nolint:errcheck
+
+		_, err = w.Write(buf)
+		require.NoError(t, err)
+
+		oid, err := w.Result()
+		require.NoError(t, err)
+
+		return oid, buf
+	}
+
+	a, aData := mkObject(1, 3<<20)
+	b, bData := mkObject(2, 5<<20)
+
+	concatenated, err := om.Concatenate(ctx, []ID{a, b, a}, "")
+	require.NoError(t, err)
+
+	verifyFull(ctx, t, om, concatenated, slices.Concat(aData, bData, aData))
+}
+
+// BenchmarkObjectWriterSplitting compares object-writer throughput with
+// the byte-at-a-time splitter (pull) against the rollinghash.ChunkWriter
+// splitter (push) for the same algorithm, feeding data in iocopy-sized
+// pieces.
+func BenchmarkObjectWriterSplitting(b *testing.B) {
+	ctx := testlogging.Context(b)
+
+	r := rand.New(rand.NewSource(5))
+	data := make([]byte, 64<<20)
+	_, err := r.Read(data)
+	require.NoError(b, err)
+
+	const pieceSize = 64 << 10
+
+	run := func(b *testing.B, splitterName string, pull bool) {
+		b.Helper()
+
+		fcm := &fakeContentManager{data: map[content.ID][]byte{}}
+
+		om, err := NewObjectManager(ctx, fcm, format.ObjectFormat{Splitter: splitterName}, nil)
+		require.NoError(b, err)
+
+		b.SetBytes(int64(len(data)))
+		b.ReportAllocs()
+
+		for b.Loop() {
+			w := om.NewWriter(ctx, WriterOptions{})
+
+			if pull {
+				ow := testutil.EnsureType[*objectWriter](b, w)
+				ow.splitter, ow.chunkSplitter = splitter.GetFactory(splitterName)(), nil
+			}
+
+			for off := 0; off < len(data); off += pieceSize {
+				if _, err := w.Write(data[off:min(off+pieceSize, len(data))]); err != nil {
+					b.Fatal(err)
+				}
+			}
+
+			if _, err := w.Result(); err != nil {
+				b.Fatal(err)
+			}
+
+			w.Close() //nolint:errcheck
+		}
+	}
+
+	for _, splitterName := range []string{"DYNAMIC-4M-BUZHASH", "DYNAMIC-2M-RABINKARP"} {
+		b.Run(splitterName+"/before-pull", func(b *testing.B) { run(b, splitterName, true) })
+		b.Run(splitterName+"/after-push", func(b *testing.B) { run(b, splitterName, false) })
+	}
+}
+
 func verifyIndirectBlock(ctx context.Context, t *testing.T, om *Manager, oid ID, expectedComp compression.HeaderID) {
 	t.Helper()
 

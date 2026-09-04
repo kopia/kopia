@@ -83,7 +83,11 @@ type objectWriter struct {
 
 	description string
 
-	splitter splitter.Splitter
+	// exactly one of splitter and chunkSplitter is non-nil: chunkSplitter
+	// for the rolling-hash algorithms that support push-based splitting,
+	// splitter for the FIXED family and as a fallback.
+	splitter      splitter.Splitter
+	chunkSplitter splitter.ChunkSplitter
 
 	// provides mutual exclusion of all public APIs (Write, Result, Checkpoint)
 	mu sync.Mutex
@@ -103,6 +107,12 @@ func (w *objectWriter) Close() error {
 		w.splitter.Close()
 	}
 
+	if w.chunkSplitter != nil {
+		w.chunkSplitter.Close() //nolint:errcheck
+		w.chunkSplitter.Reset() // return the splitter to its pool
+		w.chunkSplitter = nil
+	}
+
 	w.buffer.Close()
 
 	w.om.closedWriter(w)
@@ -116,6 +126,14 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 
 	dataLen := len(data)
 	w.totalLength += int64(dataLen)
+
+	if w.chunkSplitter != nil {
+		if err := w.writeChunkedLocked(data); err != nil {
+			return 0, err
+		}
+
+		return dataLen, nil
+	}
 
 	for len(data) > 0 {
 		n := w.splitter.NextSplitPoint(data)
@@ -139,8 +157,52 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 }
 
 // +checklocks:w.mu
+func (w *objectWriter) writeChunkedLocked(data []byte) error {
+	// Feed the splitter in bounded slices, draining completed chunks
+	// between them, so that an unusually large Write does not make the
+	// splitter buffer the whole slice before any chunk is emitted. Most
+	// callers already Write in iocopy.BufSize (64 KiB) pieces; this only
+	// caps the outliers.
+	const feedSize = 256 << 10
+
+	for len(data) > 0 {
+		n := min(len(data), feedSize)
+
+		if _, err := w.chunkSplitter.Write(data[:n]); err != nil {
+			return errors.Wrap(err, "splitter error")
+		}
+
+		if err := w.drainChunksLocked(); err != nil {
+			return err
+		}
+
+		data = data[n:]
+	}
+
+	return nil
+}
+
+// +checklocks:w.mu
+func (w *objectWriter) drainChunksLocked() error {
+	for w.chunkSplitter.Next() {
+		if err := w.flushChunkLocked(gather.FromSlice(w.chunkSplitter.Bytes())); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// +checklocks:w.mu
 func (w *objectWriter) flushBufferLocked() error {
-	length := w.buffer.Length()
+	defer w.buffer.Reset()
+
+	return w.flushChunkLocked(w.buffer.Bytes())
+}
+
+// +checklocks:w.mu
+func (w *objectWriter) flushChunkLocked(data gather.Bytes) error {
+	length := data.Length()
 
 	// hold a lock as we may grow the index
 	w.indirectIndexGrowMutex.Lock()
@@ -151,10 +213,8 @@ func (w *objectWriter) flushBufferLocked() error {
 	w.currentPosition += int64(length)
 	w.indirectIndexGrowMutex.Unlock()
 
-	defer w.buffer.Reset()
-
 	if w.asyncWritesSemaphore == nil {
-		return w.saveError(w.prepareAndWriteContentChunk(chunkID, w.buffer.Bytes()))
+		return w.saveError(w.prepareAndWriteContentChunk(chunkID, data))
 	}
 
 	// acquire write semaphore
@@ -163,7 +223,7 @@ func (w *objectWriter) flushBufferLocked() error {
 	w.asyncWritesWG.Add(1)
 
 	asyncBuf := gather.NewWriteBuffer()
-	w.buffer.Bytes().WriteTo(asyncBuf) //nolint:errcheck
+	data.WriteTo(asyncBuf) //nolint:errcheck
 
 	go func() {
 		defer func() {
@@ -267,6 +327,14 @@ func (w *objectWriter) Result() (ID, error) {
 
 	// no need to hold a lock on w.indirectIndexGrowMutex, since growing index only happens synchronously
 	// and never in parallel with calling Result()
+	if w.chunkSplitter != nil {
+		if err := w.flushFinalChunksLocked(); err != nil {
+			return EmptyID, err
+		}
+
+		return w.checkpointLocked()
+	}
+
 	if w.buffer.Length() > 0 || len(w.indirectIndex) == 0 {
 		if err := w.flushBufferLocked(); err != nil {
 			return EmptyID, err
@@ -274,6 +342,25 @@ func (w *objectWriter) Result() (ID, error) {
 	}
 
 	return w.checkpointLocked()
+}
+
+// +checklocks:w.mu
+func (w *objectWriter) flushFinalChunksLocked() error {
+	if err := w.chunkSplitter.Close(); err != nil {
+		return errors.Wrap(err, "splitter error")
+	}
+
+	if err := w.drainChunksLocked(); err != nil {
+		return err
+	}
+
+	if len(w.indirectIndex) == 0 {
+		// nothing was written: emit a single empty content, same as the
+		// byte-at-a-time path flushing an empty buffer.
+		return w.flushChunkLocked(gather.Bytes{})
+	}
+
+	return nil
 }
 
 // Checkpoint returns object ID which represents portion of the object that has already been written.

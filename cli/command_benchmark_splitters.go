@@ -40,7 +40,53 @@ func (c *commandBenchmarkSplitters) setup(svc appServices, parent commandParent)
 	c.out.setup(svc)
 }
 
-func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:funlen
+// benchmarkSplitterFeedSize mirrors objectWriter's feed granularity so the
+// benchmark measures splitting the way snapshots actually drive it.
+const benchmarkSplitterFeedSize = 256 << 10
+
+// appendSegmentLengths splits d with the named algorithm and appends the
+// length of every produced segment. It uses the push-based ChunkSplitter
+// when the algorithm has one (as the object writer does), otherwise the
+// byte-at-a-time Splitter.
+func appendSegmentLengths(dst []int, algo string, d []byte) []int {
+	if cf := splitter.GetChunkFactory(algo); cf != nil {
+		s := cf()
+		defer s.Reset()
+
+		drain := func() {
+			for s.Next() {
+				dst = append(dst, len(s.Bytes()))
+			}
+		}
+
+		for off := 0; off < len(d); off += benchmarkSplitterFeedSize {
+			s.Write(d[off:min(off+benchmarkSplitterFeedSize, len(d))]) //nolint:errcheck
+			drain()
+		}
+
+		s.Close() //nolint:errcheck
+		drain()
+
+		return dst
+	}
+
+	s := splitter.GetFactory(algo)()
+	defer s.Close()
+
+	for len(d) > 0 {
+		n := s.NextSplitPoint(d)
+		if n < 0 {
+			return append(dst, len(d))
+		}
+
+		dst = append(dst, n)
+		d = d[n:]
+	}
+
+	return dst
+}
+
+func (c *commandBenchmarkSplitters) run(ctx context.Context) error {
 	type benchResult struct {
 		splitter       string
 		duration       time.Duration
@@ -81,23 +127,10 @@ func (c *commandBenchmarkSplitters) run(ctx context.Context) error { //nolint:fu
 		tt := timetrack.Start()
 
 		segmentLengths := runInParallelNoInput(c.parallel, func() []int {
-			fact := splitter.GetFactory(sp)
-
 			var segmentLengths []int
 
 			for _, d := range dataBlocks {
-				s := fact()
-
-				for len(d) > 0 {
-					n := s.NextSplitPoint(d)
-					if n < 0 {
-						segmentLengths = append(segmentLengths, len(d))
-						break
-					}
-
-					segmentLengths = append(segmentLengths, n)
-					d = d[n:]
-				}
+				segmentLengths = appendSegmentLengths(segmentLengths, sp, d)
 			}
 
 			return segmentLengths
