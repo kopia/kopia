@@ -14,6 +14,7 @@ import (
 	"context"
 	"encoding/binary"
 	"os"
+	"slices"
 	"sync"
 
 	"github.com/edsrzf/mmap-go"
@@ -393,8 +394,8 @@ func (m *internalMap) Close(_ context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	for i := len(m.cleanups) - 1; i >= 0; i-- {
-		m.cleanups[i]()
+	for _, v := range slices.Backward(m.cleanups) {
+		v()
 	}
 
 	m.cleanups = nil
