@@ -53,8 +53,6 @@ func _() {
 }
 
 // ID is an identifier of content in content-addressable storage.
-//
-//nolint:recvcheck
 type ID struct {
 	data [maxIDDataLength]byte
 

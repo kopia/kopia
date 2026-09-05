@@ -972,7 +972,6 @@ func (u *Uploader) processSingle(
 	}
 }
 
-//nolint:unparam
 func (u *Uploader) processEntryUploadResult(
 	ctx context.Context,
 	de *snapshot.DirEntry,
