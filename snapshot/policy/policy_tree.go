@@ -195,7 +195,7 @@ func childrenWithPrefix(m map[string]*Policy, path string) map[string]map[string
 			continue
 		}
 
-		childName := strings.Split(k[len(path):], "/")[0]
+		childName, _, _ := strings.Cut(k[len(path):], "/")
 		if result[childName] == nil {
 			result[childName] = map[string]*Policy{}
 		}

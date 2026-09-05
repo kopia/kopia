@@ -16,7 +16,7 @@ func TestBlobShardsModify(t *testing.T) {
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 
-	someQBlob := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=q")[0], " ")[0]
+	someQBlob, _, _ := strings.Cut(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=q")[0], " ")
 
 	// verify default sharding is 1,3
 	require.FileExists(t, filepath.Join(env.RepoDir, someQBlob[0:1], someQBlob[1:4], someQBlob[4:]+sharded.CompleteBlobSuffix))
