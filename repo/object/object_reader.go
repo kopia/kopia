@@ -89,7 +89,10 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 		if r.currentChunkIndex < len(r.seekTable) {
 			err := r.openCurrentChunk()
 			if err != nil {
-				return 0, err
+				// return the bytes already copied to the caller in this call,
+				// per the io.Reader contract — discarding them would silently
+				// lose data, since the reader position has advanced past them.
+				return readBytes, err
 			}
 		} else {
 			break
