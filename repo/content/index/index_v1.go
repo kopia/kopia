@@ -284,7 +284,7 @@ func buildV1(allContents []*Info, output io.Writer) error {
 
 	if b1.keyLength == -1 {
 		b1.keyLength = unknownKeySize
-	} else if b1.keyLength < 1 || b1.keyLength > maxContentIDSize {
+	} else if b1.keyLength <= 1 || b1.keyLength > maxContentIDSize {
 		return errors.Wrapf(errInvalidKeySize, "key length=%d", b1.keyLength)
 	}
 
