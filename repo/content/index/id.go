@@ -35,19 +35,20 @@ const (
 
 	unknownKeySize = 255
 
-	maxUInt8 = 255
+	// ensure maxContentIDSize < unknownKeySize.
+	_ uint8 = unknownKeySize - maxContentIDSize - 1
 
-	// maxIDLength needs to be less or equal than maxUInt8 and at least 8 bytes.
-	_ uint = maxUInt8 - maxIDDataLength
+	maxUInt8 = 255
+	// keep maxUInt8 untyped int and ensure it fits in uint8.
+	_ uint8 = maxUInt8
 )
 
 func _() {
 	var (
 		id ID
 
-		// verify len(ID.data) <= maxUInt8 and > 0
-		_ = uint(len(id.data))
-		_ = uint(maxUInt8 - len(id.data))
+		// verify len(ID.data) + 1 < 255 (unkownKeySize)
+		_ = uint8(unknownKeySize - 2 - len(id.data))
 	)
 }
 
