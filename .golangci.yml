@@ -28,7 +28,7 @@ linters:
       statements: 60
     gocognit:
       min-complexity: 40
-    gomodguard:
+    gomodguard_v2:
       blocked:
         modules:
           - github.com/aws/aws-sdk-go:
@@ -90,9 +90,11 @@ linters:
   disable:
     - embeddedstructfieldcheck
     - exhaustruct
+    - exhaustruct_v5
     - funcorder
     - gochecknoglobals
     - gochecknoinits
+    - gomodguard # replaced with gomodguard_v2
     - gosmopolitan
     - importas
     - ireturn # this one may be interesting to control allocations
@@ -192,7 +194,10 @@ formatters:
         - default
         - localmodule
     gofumpt:
-      extra-rules: true
+      extra:
+        group-params: true
+        clothe-returns: true
+        balance-calls: false
 
 output:
   show-stats: false

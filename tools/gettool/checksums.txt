@@ -13,6 +13,12 @@ https://github.com/golangci/golangci-lint/releases/download/v2.11.4/golangci-lin
 https://github.com/golangci/golangci-lint/releases/download/v2.11.4/golangci-lint-2.11.4-linux-arm64.tar.gz: 3bcfa2e6f3d32b2bf5cd75eaa876447507025e0303698633f722a05331988db4
 https://github.com/golangci/golangci-lint/releases/download/v2.11.4/golangci-lint-2.11.4-linux-armv6.tar.gz: 28e270666f94547dd9d885c97974f343ca0d7dd05b050ab3e2dcb1d5fc7a27c4
 https://github.com/golangci/golangci-lint/releases/download/v2.11.4/golangci-lint-2.11.4-windows-amd64.zip: 4932cfca5e75bf60fe1c576edf459e5e809e6644664a068185d64b84af3fad9e
+https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-darwin-amd64.tar.gz: 8a13aaf9cbbb1dee52824e862cf0d0720e5bb97c1f4260d1e51623a09492b57b
+https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-darwin-arm64.tar.gz: f4bf83f0b64f055c42b28fc9a38861839f69c096e61c788e72dfaae412011789
+https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-linux-amd64.tar.gz: 2277d43b98ec0054280f2ac26b53268bae97682444678a59a657dd565da021d6
+https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-linux-arm64.tar.gz: a2a4e0065aa41be71f7c5ac90f271b61751331e5d04314e62afe4027855f0893
+https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-linux-armv6.tar.gz: 1d5100291e3eed1a4e55dc094ebdac9926ce66def857dd7ef80504241695f3b1
+https://github.com/golangci/golangci-lint/releases/download/v2.13.2/golangci-lint-2.13.2-windows-amd64.zip: 4735fdc8e84a0cfb7a15a1c364a650942f88215e0d36c674ebc4024f7b554524
 https://github.com/goreleaser/goreleaser/releases/download/v0.176.0/goreleaser_Darwin_arm64.tar.gz: 1f95e6561974f4766d8833438b646b06930563ca9867447ea03edb623d876c75
 https://github.com/goreleaser/goreleaser/releases/download/v0.176.0/goreleaser_Darwin_x86_64.tar.gz: 17ecad881a50e32f033da5a200c8417d37cae70f09e925645452937998aca506
 https://github.com/goreleaser/goreleaser/releases/download/v0.176.0/goreleaser_Linux_arm64.tar.gz: 8bf2a9b9e84498bfa239f2fe91b2d555642c87ab9d3f5d37f29e6e97116910a3
