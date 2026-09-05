@@ -40,7 +40,7 @@ type commandRepositorySyncTo struct {
 
 func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandParent) {
 	cmd := parent.Command("sync-to", "Synchronizes the contents of this repository to another location")
-	cmd.Flag("update", "Whether to update blobs present in destination and source if the source is newer.").Default("true").BoolVar(&c.repositorySyncUpdate)
+	cmd.Flag("update", "Whether to update blobs present in destination and source if the source is newer.").Default(trueStr).BoolVar(&c.repositorySyncUpdate)
 	cmd.Flag("delete", "Whether to delete blobs present in destination but not source.").BoolVar(&c.repositorySyncDelete)
 	cmd.Flag("dry-run", "Do not perform copying.").Short('n').BoolVar(&c.repositorySyncDryRun)
 	cmd.Flag("parallel", "Copy parallelism.").Default("1").IntVar(&c.repositorySyncParallelism)

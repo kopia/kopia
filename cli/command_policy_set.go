@@ -51,7 +51,7 @@ func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
 }
 
 //nolint:gochecknoglobals
-var booleanEnumValues = []string{"true", "false", "inherit"}
+var booleanEnumValues = []string{trueStr, falseStr, "inherit"}
 
 const (
 	inheritPolicyString = "inherit"

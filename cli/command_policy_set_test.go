@@ -54,7 +54,7 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		{
 			name:           "One is malformed, the other well formed",
 			startingPolicy: &policy.ErrorHandlingPolicy{},
-			fileArg:        "true",
+			fileArg:        trueStr,
 			dirArg:         "some-malformed-arg",
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      policy.NewOptionalBool(true),
@@ -77,8 +77,8 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		{
 			name:           "Set to true",
 			startingPolicy: &policy.ErrorHandlingPolicy{},
-			fileArg:        "true",
-			dirArg:         "true",
+			fileArg:        trueStr,
+			dirArg:         trueStr,
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      policy.NewOptionalBool(true),
 				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
@@ -91,8 +91,8 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      policy.NewOptionalBool(true),
 				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
-			fileArg: "false",
-			dirArg:  "false",
+			fileArg: falseStr,
+			dirArg:  falseStr,
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      policy.NewOptionalBool(false),
 				IgnoreDirectoryErrors: policy.NewOptionalBool(false),
@@ -105,8 +105,8 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      policy.NewOptionalBool(true),
 				IgnoreDirectoryErrors: policy.NewOptionalBool(false),
 			},
-			fileArg: "false",
-			dirArg:  "true",
+			fileArg: falseStr,
+			dirArg:  trueStr,
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      policy.NewOptionalBool(false),
 				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
@@ -119,8 +119,8 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      policy.NewOptionalBool(false),
 				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
-			fileArg: "true",
-			dirArg:  "false",
+			fileArg: trueStr,
+			dirArg:  falseStr,
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      policy.NewOptionalBool(true),
 				IgnoreDirectoryErrors: policy.NewOptionalBool(false),
@@ -134,7 +134,7 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreDirectoryErrors: policy.NewOptionalBool(false),
 			},
 			fileArg: "inherit",
-			dirArg:  "true",
+			dirArg:  trueStr,
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      nil,
 				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
@@ -147,7 +147,7 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      policy.NewOptionalBool(false),
 				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
-			fileArg: "true",
+			fileArg: trueStr,
 			dirArg:  "inherit",
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      policy.NewOptionalBool(true),
@@ -419,7 +419,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			startingPolicy: &policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
 			},
-			runMissedArg: "true",
+			runMissedArg: trueStr,
 			expResult: &policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
 				RunMissed:  policy.NewOptionalBool(true),
@@ -436,7 +436,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
 				RunMissed:  policy.NewOptionalBool(false),
 			},
-			runMissedArg:   "false",
+			runMissedArg:   falseStr,
 			expChangeCount: 1,
 		},
 		{
