@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -84,6 +85,52 @@ func mustRunCommand(t *testing.T, cmd string, args ...string) []byte {
 	return v
 }
 
+// requireProcessesReaped ensures all given process IDs have been cleaned up by the operating system.
+// Used to check if we left zombie processes behind, such as when killing but not waiting for a process
+// (resulting in a "defunct"/zombie process that the operating system has to keep around).
+func requireProcessesReaped(t *testing.T, pids []int) {
+	t.Helper()
+
+	listed := map[int]bool{}
+
+	for line := range strings.SplitSeq(string(mustRunCommand(t, "ps", "-e", "-o", "pid=")), "\n") {
+		if pid, err := strconv.Atoi(strings.TrimSpace(line)); err == nil {
+			listed[pid] = true
+		}
+	}
+
+	for _, pid := range pids {
+		require.False(t, listed[pid], "SSH process %v was not reaped", pid)
+	}
+}
+
+// sshChildProcesses returns the PIDs of the `ssh` processes started by the test process
+func sshChildProcesses(t *testing.T) []int {
+	t.Helper()
+
+	ret := []int{}
+
+	for line := range strings.SplitSeq(string(mustRunCommand(t, "ps", "-e", "-o", "pid=,ppid=,comm=")), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 3 || filepath.Base(fields[2]) != "ssh" {
+			continue
+		}
+
+		pid, err := strconv.Atoi(fields[0])
+		if err != nil {
+			continue
+		}
+
+		if ppid, err := strconv.Atoi(fields[1]); err != nil || ppid != os.Getpid() {
+			continue
+		}
+
+		ret = append(ret, pid)
+	}
+
+	return ret
+}
+
 func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port int, knownHostsFile string) {
 	t.Helper()
 
@@ -142,7 +189,8 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 
 		time.Sleep(3 * time.Second)
 
-		knownHostsData, err := runAndGetOutput(t, "ssh-keyscan", "-t", "rsa", "-p", strconv.Itoa(port), host)
+		// docker publishes the mapped port on IPv4 only, so ensure `ssh-keyscan` also uses IPv4
+		knownHostsData, err := runAndGetOutput(t, "ssh-keyscan", "-4", "-t", "rsa", "-p", strconv.Itoa(port), host)
 		if err != nil || len(knownHostsData) == 0 {
 			t.Logf("error scanning keys: %v", err)
 			time.Sleep(time.Second)
@@ -159,7 +207,7 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 		return host, port, knownHostsFile
 	}
 
-	t.Skipf("SFTP server did not start!")
+	t.Error("SFTP server did not start!")
 
 	return "", -1, ""
 }
@@ -211,6 +259,55 @@ func TestSFTPStorageValid(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("ExternalSSH", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("ssh command may not be available on Windows")
+		}
+
+		ctx := testlogging.Context(t)
+		newctx, cancel := context.WithCancel(ctx)
+
+		st, err := sftp.New(newctx, &sftp.Options{
+			Path:        "/upload",
+			Host:        host,
+			Username:    sftpUsernameWithKeyAuth,
+			Port:        port,
+			ExternalSSH: true,
+			SSHArguments: strings.Join([]string{
+				// The personal config file and agent of whoever runs the test are excluded, otherwise ssh
+				// offers their keys first and the server may reject the connection once MaxAuthTries is reached
+				"-F", "/dev/null",
+				"-p", strconv.Itoa(port),
+				"-i", idRSA,
+				"-o", "IdentitiesOnly=yes",
+				"-o", "IdentityAgent=none",
+				"-o", "UserKnownHostsFile=" + knownHostsFile,
+				"-o", "StrictHostKeyChecking=yes",
+				"-o", "BatchMode=yes",
+			}, " "),
+		}, true)
+		if err != nil {
+			t.Fatalf("unable to connect to SSH: %v", err)
+		}
+
+		cancel()
+
+		deleteBlobs(ctx, t, st)
+
+		blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
+		blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+
+		// delete everything again
+		deleteBlobs(ctx, t, st)
+
+		sshPIDs := sshChildProcesses(t)
+		require.NotEmpty(t, sshPIDs, "no external SSH process was launched")
+
+		require.NoError(t, st.Close(ctx))
+
+		requireProcessesReaped(t, sshPIDs)
+	})
 
 	t.Run("PasswordCreds", func(t *testing.T) {
 		ctx := testlogging.Context(t)
