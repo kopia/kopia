@@ -30,7 +30,10 @@ func (p IDPrefix) ValidateSingle() error {
 }
 
 const (
-	maxIDDataLength = hashing.MaxHashSize
+	maxIDDataLength  = hashing.MaxHashSize
+	maxContentIDSize = maxIDDataLength + 1
+
+	unknownKeySize = 255
 
 	maxUInt8 = 255
 
