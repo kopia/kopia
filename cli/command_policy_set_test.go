@@ -66,8 +66,8 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		{
 			name:           "Inherit case",
 			startingPolicy: &policy.ErrorHandlingPolicy{},
-			fileArg:        "inherit",
-			dirArg:         "inherit",
+			fileArg:        inheritPolicyString,
+			dirArg:         inheritPolicyString,
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      nil,
 				IgnoreDirectoryErrors: nil,
@@ -133,7 +133,7 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreFileErrors:      policy.NewOptionalBool(true),
 				IgnoreDirectoryErrors: policy.NewOptionalBool(false),
 			},
-			fileArg: "inherit",
+			fileArg: inheritPolicyString,
 			dirArg:  trueStr,
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      nil,
@@ -148,7 +148,7 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 				IgnoreDirectoryErrors: policy.NewOptionalBool(true),
 			},
 			fileArg: trueStr,
-			dirArg:  "inherit",
+			dirArg:  inheritPolicyString,
 			expResult: &policy.ErrorHandlingPolicy{
 				IgnoreFileErrors:      policy.NewOptionalBool(true),
 				IgnoreDirectoryErrors: nil,
@@ -354,7 +354,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			startingPolicy: &policy.SchedulingPolicy{
 				TimesOfDay: []policy.TimeOfDay{{Hour: 12, Minute: 0}},
 			},
-			timesOfDayArg: []string{"inherit"},
+			timesOfDayArg: []string{inheritPolicyString},
 			expResult: &policy.SchedulingPolicy{
 				TimesOfDay: nil,
 			},
@@ -408,7 +408,7 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			startingPolicy: &policy.SchedulingPolicy{
 				Cron: []string{"1 2 * * *", "2 1 * * *"},
 			},
-			cronArg: "inherit",
+			cronArg: inheritPolicyString,
 			expResult: &policy.SchedulingPolicy{
 				Cron: nil,
 			},
