@@ -503,7 +503,8 @@ func TestS3StorageMinioSelfSignedCert(t *testing.T) {
 		ctx,
 		2048,
 		24*time.Hour,
-		[]string{"myhost"})
+		[]string{"myhost"},
+	)
 
 	require.NoError(t, err)
 
@@ -538,7 +539,8 @@ func TestS3StorageMinioSelfSignedCertWithProvidedCA(t *testing.T) {
 		ctx,
 		2048,
 		24*time.Hour,
-		[]string{"localhost"})
+		[]string{"localhost"},
+	)
 
 	require.NoError(t, err)
 

@@ -430,7 +430,8 @@ func listAndReadAllContents(ctx context.Context, r repo.DirectRepositoryWriter, 
 			}
 
 			return nil
-		}), "listAndReadAllContents()")
+		},
+	), "listAndReadAllContents()")
 }
 
 func compact(ctx context.Context, r repo.DirectRepositoryWriter, rs *repomodel.RepositorySession, log logging.Logger) error {

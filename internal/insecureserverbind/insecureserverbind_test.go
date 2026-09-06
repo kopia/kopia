@@ -72,7 +72,8 @@ func TestValidateListenAddressIfRestricted(t *testing.T) {
 			t.Parallel()
 
 			err := ValidateListenAddressIfRestricted(
-				tc.insecure, tc.withoutPassword, tc.allowDangerous, tc.address)
+				tc.insecure, tc.withoutPassword, tc.allowDangerous, tc.address,
+			)
 			if tc.wantErr {
 				require.Error(t, err)
 				require.ErrorIs(t, err, ErrDisallowedPublicBind)
@@ -124,7 +125,8 @@ func TestValidateListenerAddrIfRestricted(t *testing.T) {
 			t.Parallel()
 
 			err := ValidateListenerAddrIfRestricted(
-				tc.insecure, tc.withoutPassword, tc.allowDangerous, tc.addr)
+				tc.insecure, tc.withoutPassword, tc.allowDangerous, tc.addr,
+			)
 			if tc.wantErr {
 				require.Error(t, err)
 				require.ErrorIs(t, err, ErrDisallowedPublicBind)

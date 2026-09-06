@@ -995,7 +995,8 @@ func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, i
 		fmt.Sprintf("%v at %v", src, clock.Now().Format(time.RFC3339)),
 		func(ctx context.Context, ctrl uitask.Controller) error {
 			return inner(ctx, ctrl, &result)
-		}), "snapshot task")
+		},
+	), "snapshot task")
 	if err != nil {
 		result.Error = err.Error()
 	}

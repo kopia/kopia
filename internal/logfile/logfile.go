@@ -273,7 +273,8 @@ func (c *loggingFlags) setupLogFileCore(now time.Time, suffix string) zapcore.Co
 				EncodeDuration:   zapcore.StringDurationEncoder,
 				ConsoleSeparator: " ",
 			},
-			c.jsonLogFile),
+			c.jsonLogFile,
+		),
 		c.setupLogFileBasedLogger(now, "cli-logs", suffix, c.logFile, c.logDirMaxFiles, c.logDirMaxTotalSizeMB, c.logDirMaxAge),
 		logLevelFromFlag(c.fileLogLevel),
 	)

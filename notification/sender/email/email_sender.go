@@ -55,7 +55,8 @@ func (p *emailProvider) Send(_ context.Context, msg *sender.Message) error {
 		auth,
 		p.opt.From,
 		strings.Split(p.opt.To, ","),
-		msgPayload)
+		msgPayload,
+	)
 }
 
 func (p *emailProvider) Summary() string {

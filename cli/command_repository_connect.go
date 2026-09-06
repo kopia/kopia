@@ -127,7 +127,8 @@ func (c *App) runConnectCommandWithStorageAndPassword(ctx context.Context, co *c
 	configFile := c.repositoryConfigFileName()
 	if err := passwordpersist.OnSuccess(
 		ctx, repo.Connect(ctx, configFile, st, password, co.toRepoConnectOptions()),
-		c.passwordPersistenceStrategy(), configFile, password); err != nil {
+		c.passwordPersistenceStrategy(), configFile, password,
+	); err != nil {
 		return errors.Wrap(err, "error connecting to repository")
 	}
 

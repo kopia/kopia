@@ -130,7 +130,8 @@ func TestManifest(t *testing.T) {
 		func(ci content.Info) error {
 			foundContents++
 			return nil
-		}); err != nil {
+		},
+	); err != nil {
 		t.Errorf("unable to list manifest content: %v", err)
 	}
 
@@ -452,7 +453,8 @@ func getManifestContentCount(ctx context.Context, t *testing.T, mgr *Manager) in
 		func(ci content.Info) error {
 			foundContents++
 			return nil
-		}); err != nil {
+		},
+	); err != nil {
 		t.Errorf("unable to list manifest content: %v", err)
 	}
 

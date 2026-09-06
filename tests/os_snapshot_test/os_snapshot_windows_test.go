@@ -82,7 +82,8 @@ func createAutoDelete(t *testing.T, dir string) *os.File {
 		nil,
 		syscall.OPEN_ALWAYS,
 		uint32(windows.FILE_FLAG_DELETE_ON_CLOSE),
-		0)
+		0,
+	)
 
 	require.NoError(t, err, "creating file")
 
