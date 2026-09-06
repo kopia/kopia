@@ -265,7 +265,7 @@ func (s *contentManagerSuite) TestContentManagerInternalFlush(t *testing.T) {
 
 	defer bm.CloseShared(ctx)
 
-	itemsToOverflow := (maxPackCapacity)/(25+encryptionOverhead) + 2
+	itemsToOverflow := maxPackCapacity/(25+encryptionOverhead) + 2
 	for range itemsToOverflow {
 		b := make([]byte, 25)
 		cryptorand.Read(b)
