@@ -201,7 +201,7 @@ formatters:
       extra:
         group-params: true
         clothe-returns: true
-        balance-calls: false
+        balance-calls: true
 
 output:
   show-stats: false
