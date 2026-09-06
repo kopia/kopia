@@ -47,7 +47,7 @@ func _() {
 	var (
 		id ID
 
-		// verify len(ID.data) + 1 < 255 (unkownKeySize)
+		// verify len(ID.data) + 1 < 255 (unknownKeySize)
 		_ = uint8(unknownKeySize - 2 - len(id.data))
 	)
 }
