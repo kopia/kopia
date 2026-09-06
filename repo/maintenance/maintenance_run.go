@@ -57,6 +57,10 @@ const (
 	TaskEpochCompactSingle           = "compact-single-epoch"
 )
 
+func DetermineMode(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode, error) {
+	return shouldRun(ctx, rep, p)
+}
+
 // shouldRun returns Mode if repository is due for periodic maintenance.
 func shouldRun(ctx context.Context, rep repo.DirectRepository, p *Params) (Mode, error) {
 	if myUsername := rep.ClientOptions().UsernameAtHost(); p.Owner != myUsername {
