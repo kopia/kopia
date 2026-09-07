@@ -249,7 +249,7 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 		}
 
 		if err := scanner.Err(); err != nil {
-			_, drainErr := io.Copy(io.Discard, stderr) // drain stdout to avoid deadlock
+			_, drainErr := io.Copy(io.Discard, stderr) // drain stderr to avoid deadlock
 			tb.Logf("Error reading [%sstderr]: %v, %v", prefix, err, drainErr)
 		} else if logOutput {
 			tb.Logf("[%vstderr] EOF", prefix)
