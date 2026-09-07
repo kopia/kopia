@@ -23,9 +23,7 @@ func TestServerUserHashPassword(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-username", "server", "--override-hostname", "host")
 
-	t.Cleanup(func() {
-		e.RunAndExpectSuccess(t, "repo", "disconnect")
-	})
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	userPassword := "bad-password-" + strconv.Itoa(int(rand.Int31()))
 
