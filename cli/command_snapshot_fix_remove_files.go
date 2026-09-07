@@ -16,6 +16,7 @@ type commandSnapshotFixRemoveFiles struct {
 
 	removeObjectIDs   []string
 	removeFilesByName []string
+	removeFilesByPath []string
 }
 
 func (c *commandSnapshotFixRemoveFiles) setup(svc appServices, parent commandParent) {
@@ -24,6 +25,7 @@ func (c *commandSnapshotFixRemoveFiles) setup(svc appServices, parent commandPar
 
 	cmd.Flag("object-id", "Remove files by their object ID").StringsVar(&c.removeObjectIDs)
 	cmd.Flag("filename", "Remove files by filename (wildcards are supported)").StringsVar(&c.removeFilesByName)
+	cmd.Flag("path", "Remove files by path relative to the snapshot root (wildcards are supported)").StringsVar(&c.removeFilesByPath)
 
 	cmd.Action(svc.repositoryWriterActionWithMaintenance(c.run))
 }
@@ -48,11 +50,24 @@ func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, pathFr
 		}
 	}
 
+	for _, p := range c.removeFilesByPath {
+		matched, err := path.Match(p, pathFromRoot)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid wildcard")
+		}
+
+		if matched {
+			log(ctx).Infof("will remove file %v", pathFromRoot)
+
+			return nil, nil
+		}
+	}
+
 	return ent, nil
 }
 
 func (c *commandSnapshotFixRemoveFiles) run(ctx context.Context, rep repo.RepositoryWriter) error {
-	if len(c.removeObjectIDs)+len(c.removeFilesByName) == 0 {
+	if len(c.removeObjectIDs)+len(c.removeFilesByName)+len(c.removeFilesByPath) == 0 {
 		return errors.New("must specify files to remove")
 	}
 
