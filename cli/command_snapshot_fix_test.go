@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -269,6 +270,22 @@ func TestSnapshotFix(t *testing.T) {
 			},
 		},
 		{
+			name:                    "FixRemoveFiles_ByPath",
+			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {},
+			flags:                   []string{"remove-files", "--path=dir1", "--path=dir2/small-*", "--path=large-file1"},
+			wantRecoveredFiles: []string{
+				"dir2",
+				"dir2/large-file1",
+				"dir2/large-file1-dup",
+				"dir2/large-file2",
+				"large-file1-dup",
+				"large-file2",
+				"small-file1",
+				"small-file1-dup",
+				"small-file2",
+			},
+		},
+		{
 			name:                    "FixRemoveFiles_ByWildcard",
 			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {},
 			flags:                   []string{"remove-files", "--filename=small-*", "--filename=*-dup"},
@@ -360,6 +377,62 @@ func TestSnapshotFix(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSnapshotFixRemoveFiles_ByPathIdenticalEntries(t *testing.T) {
+	if testutil.ShouldReduceTestComplexity() {
+		return
+	}
+
+	srcDir := testutil.TempDirectory(t)
+	mtime := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	// same name, contents and modification time, so the two entries differ by path only
+	for _, dir := range []string{"keep", "remove"} {
+		require.NoError(t, os.MkdirAll(filepath.Join(srcDir, dir), 0o700))
+
+		fname := filepath.Join(srcDir, dir, "file")
+		mustWriteFileWithRepeatedData(t, fname, 1, []byte{1, 2, 3})
+		require.NoError(t, os.Chtimes(fname, mtime, mtime))
+	}
+
+	runner := testenv.NewInProcRunner(t)
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+	env.RunAndExpectSuccess(t, "snapshot", "create", srcDir)
+
+	// with one worker the entries are rewritten in order, so the kept entry is
+	// in the rewriter's cache before the entry to remove is looked at
+	env.RunAndExpectSuccess(t, "snapshot", "fix", "remove-files", "--path=remove/file", "--parallel=1", "--commit")
+	env.RunAndExpectSuccess(t, "snapshot", "verify")
+
+	var manifests []cli.SnapshotManifest
+
+	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &manifests)
+	require.Len(t, manifests, 1)
+
+	var remainingFiles []string
+
+	for f := range mustGetFileMap(t, env, manifests[0].RootObjectID()) {
+		remainingFiles = append(remainingFiles, f)
+	}
+
+	sort.Strings(remainingFiles)
+	require.Equal(t, []string{"keep", "keep/file", "remove"}, remainingFiles)
+}
+
+func TestSnapshotFixRemoveFiles_ByPathInvalidWildcard(t *testing.T) {
+	srcDir := testutil.TempDirectory(t)
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir, "file"), 1, []byte{1, 2, 3})
+
+	runner := testenv.NewInProcRunner(t)
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+	env.RunAndExpectSuccess(t, "snapshot", "create", srcDir)
+
+	env.RunAndExpectFailure(t, "snapshot", "fix", "remove-files", "--path=[", "--parallel=1")
 }
 
 // forgetContents rewrites contents into a new blob and deletes the blob
