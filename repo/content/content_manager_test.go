@@ -2532,9 +2532,7 @@ func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st b
 		panic("can't create content manager: " + err.Error())
 	}
 
-	t.Cleanup(func() {
-		bm.CloseShared(ctx)
-	})
+	t.Cleanup(func() { bm.CloseShared(testlogging.ContextForCleanup(t)) })
 
 	bm.checkInvariantsOnUnlock = true
 
