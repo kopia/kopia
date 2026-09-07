@@ -315,12 +315,11 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 
 	stdoutReader, stderrReader, wait, _ := e.Runner.Start(tb, e.RunContext, args, e.Environment)
 
-	eg, _ := errgroup.WithContext(tb.Context())
-	// tb.Context() is canceled on test termination, thus no additional cleanup is needed
+	eg, ctx := errgroup.WithContext(tb.Context())
 
 	eg.Go(func() error {
 		scanner := bufio.NewScanner(stdoutReader)
-		for scanner.Scan() {
+		for ctx.Err() == nil && scanner.Scan() {
 			if logOutput {
 				tb.Logf("[%vstdout] %v", outputPrefix, scanner.Text())
 			}
@@ -338,7 +337,7 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 
 	eg.Go(func() error {
 		scanner := bufio.NewScanner(stderrReader)
-		for scanner.Scan() {
+		for ctx.Err() == nil && scanner.Scan() {
 			if logOutput {
 				tb.Logf("[%vstderr] %v", outputPrefix, scanner.Text())
 			}
