@@ -47,7 +47,8 @@ func TestTransportTrustingSingleCertificate(t *testing.T) {
 	h := sha256.Sum256(cert.Raw)
 	fingerprint := hex.EncodeToString(h[:])
 
-	transport := tlsutil.TransportTrustingSingleCertificate(fingerprint)
+	transport, err := tlsutil.TransportTrustingSingleCertificate(fingerprint)
+	require.NoError(t, err)
 	require.NotNil(t, transport)
 
 	// Testing the VerifyPeerCertificate function
@@ -71,13 +72,6 @@ func TestTransportTrustingSingleCertificate(t *testing.T) {
 }
 
 func TestTransportTrustingSingleCertificate_BadFingerprint(t *testing.T) {
-	ctx := t.Context()
-	certValid := 24 * time.Hour
-	names := []string{"127.0.0.1", "localhost"}
-
-	cert, _, err := tlsutil.GenerateServerCertificate(ctx, 2048, certValid, names)
-	require.NoError(t, err, "generating server cert")
-
 	cases := []struct {
 		name        string
 		fingerprint string
@@ -102,15 +96,10 @@ func TestTransportTrustingSingleCertificate_BadFingerprint(t *testing.T) {
 
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			transport := tlsutil.TransportTrustingSingleCertificate(testCase.fingerprint)
-			require.NotNil(t, transport)
-
-			verifyPeerCertificate := transport.(*http.Transport).TLSClientConfig.VerifyPeerCertificate //nolint:forcetypeassert
-
-			rawCerts := [][]byte{cert.Raw}
-			err := verifyPeerCertificate(rawCerts, nil)
+			transport, err := tlsutil.TransportTrustingSingleCertificate(testCase.fingerprint)
 			require.Error(t, err)
 			require.ErrorContains(t, err, "invalid SHA256 fingerprint")
+			require.Nil(t, transport)
 		})
 	}
 }
@@ -140,13 +129,19 @@ func TestTransportTrustingSingleClientCertificate_TestClientFlow(t *testing.T) {
 		{
 			name: "NoResume",
 			getTransport: func() *http.Transport {
-				return tlsutil.TransportTrustingSingleCertificate(fingerprint).(*http.Transport) //nolint:forcetypeassert
+				tr, err := tlsutil.TransportTrustingSingleCertificate(fingerprint)
+				require.NoError(t, err)
+
+				return tr.(*http.Transport) //nolint:forcetypeassert
 			},
 		},
 		{
 			name: "Resume",
 			getTransport: func() *http.Transport {
-				transport := tlsutil.TransportTrustingSingleCertificate(fingerprint).(*http.Transport) //nolint:forcetypeassert
+				tr, err := tlsutil.TransportTrustingSingleCertificate(fingerprint)
+				require.NoError(t, err)
+
+				transport := tr.(*http.Transport) //nolint:forcetypeassert
 				transport.TLSClientConfig.ClientSessionCache = tls.NewLRUClientSessionCache(0)
 
 				return transport

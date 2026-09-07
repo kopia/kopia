@@ -893,7 +893,12 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	var transportCreds credentials.TransportCredentials
 
 	if si.TrustedServerCertificateFingerprint != "" {
-		transportCreds = credentials.NewTLS(tlsutil.TLSConfigTrustingSingleCertificate(si.TrustedServerCertificateFingerprint))
+		c, err := tlsutil.TLSConfigTrustingSingleCertificate(si.TrustedServerCertificateFingerprint)
+		if err != nil {
+			return nil, errors.Wrap(err, "creating TLS config")
+		}
+
+		transportCreds = credentials.NewTLS(c)
 	} else {
 		transportCreds = credentials.NewClientTLSFromCert(nil, "")
 	}
