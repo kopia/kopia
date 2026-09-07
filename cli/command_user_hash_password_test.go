@@ -51,11 +51,13 @@ func TestServerUserHashPassword(t *testing.T) {
 		"--shutdown-grace-period", "100ms",
 	)
 
-	t.Cleanup(func() {
+	defer func() {
 		kill()
-		wait()
-		t.Log("server stopped")
-	})
+
+		werr := wait()
+
+		t.Log("server stopped with error:", werr)
+	}()
 
 	t.Logf("detected server parameters %#v", sp)
 
