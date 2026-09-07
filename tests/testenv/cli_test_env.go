@@ -4,6 +4,7 @@ package testenv
 import (
 	"bufio"
 	"context"
+	stderrors "errors"
 	"io"
 	"io/fs"
 	"math/rand"
@@ -218,7 +219,8 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 		}
 
 		if err := scanner.Err(); err != nil {
-			tb.Logf("Error reading [%sstdout]: %v", prefix, err)
+			_, drainErr := io.Copy(io.Discard, stdout) // drain stdout to avoid deadlock
+			tb.Logf("Error reading [%sstdout]: %v, %v", prefix, err, drainErr)
 		} else if logOutput {
 			tb.Logf("[%vstdout] EOF", prefix)
 		}
@@ -247,7 +249,8 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 		}
 
 		if err := scanner.Err(); err != nil {
-			tb.Logf("Error reading [%sstderr]: %v", prefix, err)
+			_, drainErr := io.Copy(io.Discard, stderr) // drain stdout to avoid deadlock
+			tb.Logf("Error reading [%sstderr]: %v, %v", prefix, err, drainErr)
 		} else if logOutput {
 			tb.Logf("[%vstderr] EOF", prefix)
 		}
@@ -313,6 +316,7 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 	stdoutReader, stderrReader, wait, _ := e.Runner.Start(tb, e.RunContext, args, e.Environment)
 
 	eg, _ := errgroup.WithContext(tb.Context())
+	// tb.Context() is canceled on test termination, thus no additional cleanup is needed
 
 	eg.Go(func() error {
 		scanner := bufio.NewScanner(stdoutReader)
@@ -325,7 +329,8 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 		}
 
 		if err := scanner.Err(); err != nil {
-			return errors.Wrapf(err, "error reading [%sstdout]", outputPrefix)
+			_, drainErr := io.Copy(io.Discard, stdoutReader) // drain stdout to avoid deadlock
+			return errors.Wrapf(stderrors.Join(err, drainErr), "error reading [%sstdout]", outputPrefix)
 		}
 
 		return nil
@@ -342,7 +347,8 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 		}
 
 		if err := scanner.Err(); err != nil {
-			return errors.Wrapf(err, "error reading [%sstderr]", outputPrefix)
+			_, drainErr := io.Copy(io.Discard, stderrReader) // drain stderr to avoid deadlock
+			return errors.Wrapf(stderrors.Join(err, drainErr), "error reading [%sstderr]", outputPrefix)
 		}
 
 		return nil
