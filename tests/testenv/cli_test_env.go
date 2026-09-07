@@ -327,7 +327,7 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 			stdout = append(stdout, scanner.Text())
 		}
 
-		if err := scanner.Err(); err != nil {
+		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
 			_, drainErr := io.Copy(io.Discard, stdoutReader) // drain stdout to avoid deadlock
 			return errors.Wrapf(stderrors.Join(err, drainErr), "error reading [%sstdout]", outputPrefix)
 		}
@@ -345,7 +345,7 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 			stderr = append(stderr, scanner.Text())
 		}
 
-		if err := scanner.Err(); err != nil {
+		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
 			_, drainErr := io.Copy(io.Discard, stderrReader) // drain stderr to avoid deadlock
 			return errors.Wrapf(stderrors.Join(err, drainErr), "error reading [%sstderr]", outputPrefix)
 		}
