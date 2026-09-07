@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -229,6 +230,9 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 		}
 	}
 
+	err := scanner.Err()
+	require.NoError(tb, err, "Error reading [%sstderr]", prefix)
+
 	// complete stderr scanning in the background without processing lines.
 	go func() {
 		for scanner.Scan() {
@@ -307,7 +311,10 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 
 	stdoutReader, stderrReader, wait, _ := e.Runner.Start(tb, e.RunContext, args, e.Environment)
 
-	var wg sync.WaitGroup
+	var (
+		wg           sync.WaitGroup
+		hadScanError atomic.Bool
+	)
 
 	wg.Go(func() {
 		scanner := bufio.NewScanner(stdoutReader)
@@ -320,6 +327,7 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 		}
 
 		if err := scanner.Err(); err != nil {
+			hadScanError.Store(true)
 			tb.Logf("Error reading [%sstdout]: %v", outputPrefix, err)
 		}
 	})
@@ -335,6 +343,7 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 		}
 
 		if err := scanner.Err(); err != nil {
+			hadScanError.Store(true)
 			tb.Logf("Error reading [%sstderr]: %v", outputPrefix, err)
 		}
 	})
@@ -348,6 +357,8 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 	} else {
 		require.NoError(tb, gotErr, "unexpected error when running 'kopia %v' (stdout:\n%v\nstderr:\n%v", strings.Join(args, " "), strings.Join(stdout, "\n"), strings.Join(stderr, "\n"))
 	}
+
+	require.False(tb, hadScanError.Load(), "encountered error(s) reading stdout/stderr from runner process")
 
 	//nolint:forbidigo
 	tb.Logf("%vfinished in %v: 'kopia %v'", outputPrefix, timer.Elapsed().Milliseconds(), strings.Join(args, " "))
