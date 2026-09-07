@@ -13,11 +13,12 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -311,12 +312,9 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 
 	stdoutReader, stderrReader, wait, _ := e.Runner.Start(tb, e.RunContext, args, e.Environment)
 
-	var (
-		wg           sync.WaitGroup
-		hadScanError atomic.Bool
-	)
+	eg, _ := errgroup.WithContext(tb.Context())
 
-	wg.Go(func() {
+	eg.Go(func() error {
 		scanner := bufio.NewScanner(stdoutReader)
 		for scanner.Scan() {
 			if logOutput {
@@ -327,12 +325,13 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 		}
 
 		if err := scanner.Err(); err != nil {
-			hadScanError.Store(true)
-			tb.Logf("Error reading [%sstdout]: %v", outputPrefix, err)
+			return errors.Wrapf(err, "error reading [%sstdout]", outputPrefix)
 		}
+
+		return nil
 	})
 
-	wg.Go(func() {
+	eg.Go(func() error {
 		scanner := bufio.NewScanner(stderrReader)
 		for scanner.Scan() {
 			if logOutput {
@@ -343,13 +342,13 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 		}
 
 		if err := scanner.Err(); err != nil {
-			hadScanError.Store(true)
-			tb.Logf("Error reading [%sstderr]: %v", outputPrefix, err)
+			return errors.Wrapf(err, "error reading [%sstderr]", outputPrefix)
 		}
+
+		return nil
 	})
 
-	wg.Wait()
-
+	scanErr := eg.Wait()
 	gotErr := wait()
 
 	if expectedError {
@@ -358,7 +357,7 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 		require.NoError(tb, gotErr, "unexpected error when running 'kopia %v' (stdout:\n%v\nstderr:\n%v", strings.Join(args, " "), strings.Join(stdout, "\n"), strings.Join(stderr, "\n"))
 	}
 
-	require.False(tb, hadScanError.Load(), "encountered error(s) reading stdout/stderr from runner process")
+	require.NoError(tb, scanErr, "encountered error(s) reading stdout/stderr from runner process")
 
 	//nolint:forbidigo
 	tb.Logf("%vfinished in %v: 'kopia %v'", outputPrefix, timer.Elapsed().Milliseconds(), strings.Join(args, " "))
