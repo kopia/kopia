@@ -45,9 +45,7 @@ func TestGetBlobVersionsFailsWhenVersioningDisabled(t *testing.T) {
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
@@ -87,9 +85,7 @@ func TestGetBlobVersions(t *testing.T) {
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
@@ -198,9 +194,7 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
