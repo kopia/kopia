@@ -210,15 +210,17 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 
 	prefix, logOutput := e.getLogOutputPrefix()
 
+	ctx := tb.Context()
+
 	go func() {
 		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
+		for ctx.Err() == nil && scanner.Scan() {
 			if logOutput {
 				tb.Logf("[%vstdout] %v", prefix, scanner.Text())
 			}
 		}
 
-		if err := scanner.Err(); err != nil {
+		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
 			_, drainErr := io.Copy(io.Discard, stdout) // drain stdout to avoid deadlock
 			tb.Logf("Error reading [%sstdout]: %v, %v", prefix, err, drainErr)
 		} else if logOutput {
@@ -238,7 +240,7 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 
 	// complete stderr scanning in the background without processing lines.
 	go func() {
-		for scanner.Scan() {
+		for ctx.Err() == nil && scanner.Scan() {
 			if stderrAsyncCallback != nil {
 				stderrAsyncCallback(scanner.Text())
 			}
@@ -248,7 +250,7 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 			}
 		}
 
-		if err := scanner.Err(); err != nil {
+		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
 			_, drainErr := io.Copy(io.Discard, stderr) // drain stderr to avoid deadlock
 			tb.Logf("Error reading [%sstderr]: %v, %v", prefix, err, drainErr)
 		} else if logOutput {
