@@ -303,6 +303,8 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters, safety Sa
 		if err != nil {
 			return errors.Wrap(err, "error deleting unreferenced metadata packs")
 		}
+
+		sweepEmptyShardDirectories(ctx, runParams)
 	} else {
 		notDeletingOrphanedPacks(ctx, log, s, safety)
 	}
@@ -328,6 +330,21 @@ func notDeletingOrphanedPacks(ctx context.Context, log *contentlog.Logger, s *Sc
 	left := nextPackDeleteTime(s, safety).Sub(clock.Now()).Truncate(time.Second)
 
 	contentlog.Log1(ctx, log, "Skipping pack deletion because not enough time has passed yet", logparam.Duration("left", left))
+}
+
+// sweepEmptyShardDirectories removes empty shard directories left behind
+// after blob deletion. This is a best-effort operation; failures are logged
+// but do not fail maintenance.
+func sweepEmptyShardDirectories(ctx context.Context, runParams RunParameters) {
+	type sweeper interface {
+		SweepEmptyDirectories(ctx context.Context) error
+	}
+
+	if s, ok := runParams.rep.BlobStorage().(sweeper); ok {
+		if err := s.SweepEmptyDirectories(ctx); err != nil {
+			userLog(ctx).Warnf("Failed to sweep empty shard directories: %v", err)
+		}
+	}
 }
 
 func runTaskCleanupLogs(ctx context.Context, runParams RunParameters, s *Schedule) error {
@@ -527,6 +544,8 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		if err := runTaskDeleteOrphanedPacksFull(ctx, runParams, s, safety); err != nil {
 			return errors.Wrap(err, "error deleting unreferenced blobs")
 		}
+
+		sweepEmptyShardDirectories(ctx, runParams)
 	} else {
 		notDeletingOrphanedPacks(ctx, log, s, safety)
 	}
