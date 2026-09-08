@@ -210,9 +210,9 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 
 	prefix, logOutput := e.getLogOutputPrefix()
 
-	ctx := tb.Context()
+	eg, ctx := errgroup.WithContext(tb.Context())
 
-	go func() {
+	eg.Go(func() error {
 		scanner := bufio.NewScanner(stdout)
 		for ctx.Err() == nil && scanner.Scan() {
 			if logOutput {
@@ -222,11 +222,14 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 
 		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
 			_, drainErr := io.Copy(io.Discard, stdout) // drain stdout to avoid deadlock
-			tb.Logf("Error reading [%sstdout]: %v, %v", prefix, err, drainErr)
+
+			return errors.Wrapf(stderrors.Join(err, drainErr), "reading [%sstdout]", prefix)
 		} else if logOutput {
 			tb.Logf("[%vstdout] EOF", prefix)
 		}
-	}()
+
+		return nil
+	})
 
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
@@ -238,7 +241,7 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 	scannerErr := scanner.Err()
 
 	// complete stderr scanning in the background without processing lines.
-	go func() {
+	eg.Go(func() error {
 		for ctx.Err() == nil && scanner.Scan() {
 			if stderrAsyncCallback != nil {
 				stderrAsyncCallback(scanner.Text())
@@ -251,15 +254,26 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 
 		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
 			_, drainErr := io.Copy(io.Discard, stderr) // drain stderr to avoid deadlock
-			tb.Logf("Error reading [%sstderr]: %v, %v", prefix, err, drainErr)
+
+			return errors.Wrapf(stderrors.Join(err, drainErr), "reading [%sstderr]", prefix)
 		} else if logOutput {
 			tb.Logf("[%vstderr] EOF", prefix)
 		}
-	}()
+
+		return nil
+	})
 
 	require.NoError(tb, scannerErr, "Error reading [%sstderr]", prefix)
 
-	return wait, interrupt
+	wf := func() error {
+		if err := wait(); err != nil {
+			return err
+		}
+
+		return eg.Wait()
+	}
+
+	return wf, interrupt
 }
 
 // RunAndExpectSuccessWithErrOut runs the given command, expects it to succeed and returns its stdout and stderr lines.
