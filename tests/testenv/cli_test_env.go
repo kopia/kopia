@@ -235,8 +235,7 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 		}
 	}
 
-	err := scanner.Err()
-	require.NoError(tb, err, "Error reading [%sstderr]", prefix)
+	scannerErr := scanner.Err()
 
 	// complete stderr scanning in the background without processing lines.
 	go func() {
@@ -257,6 +256,8 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 			tb.Logf("[%vstderr] EOF", prefix)
 		}
 	}()
+
+	require.NoError(tb, scannerErr, "Error reading [%sstderr]", prefix)
 
 	return wait, interrupt
 }
