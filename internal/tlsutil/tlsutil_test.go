@@ -72,13 +72,15 @@ func TestTransportTrustingSingleCertificate(t *testing.T) {
 }
 
 func TestTransportTrustingSingleCertificate_BadFingerprint(t *testing.T) {
+	const coffee = "coffee"
+
 	cases := []struct {
 		name        string
 		fingerprint string
 	}{
 		{
 			name:        "OddLength",
-			fingerprint: strings.Repeat("a", 33),
+			fingerprint: strings.Repeat("a", 65),
 		},
 		{
 			name:        "TooShort",
@@ -86,11 +88,11 @@ func TestTransportTrustingSingleCertificate_BadFingerprint(t *testing.T) {
 		},
 		{
 			name:        "TooLong",
-			fingerprint: strings.Repeat("a", 42),
+			fingerprint: strings.Repeat("a", 66),
 		},
 		{
 			name:        "NotHex",
-			fingerprint: "coffee",
+			fingerprint: coffee + strings.Repeat("a", 64-len(coffee)),
 		},
 	}
 
