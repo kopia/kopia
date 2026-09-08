@@ -129,34 +129,35 @@ func WriteCertificateToFile(fname string, cert *x509.Certificate) (err error) {
 
 // TLSConfigTrustingSingleCertificate return tls.Config which trusts exactly one TLS certificate with
 // provided SHA256 fingerprint.
-func TLSConfigTrustingSingleCertificate(sha256Fingerprint string) *tls.Config {
+func TLSConfigTrustingSingleCertificate(sha256Fingerprint string) (*tls.Config, error) {
+	if len(sha256Fingerprint) != sha256.Size*2 {
+		return nil, errors.Errorf("invalid SHA256 fingerprint %q", sha256Fingerprint)
+	}
+
 	sha256FingerprintBytes, err := hex.DecodeString(sha256Fingerprint)
-	if err != nil || len(sha256FingerprintBytes) < sha256.Size {
-		return &tls.Config{
-			MinVersion: tls.VersionTLS12,
-			VerifyPeerCertificate: func(_ [][]byte, _ [][]*x509.Certificate) error {
-				return errors.Errorf("invalid SHA256 fingerprint %q", sha256Fingerprint)
-			},
-			VerifyConnection: func(tls.ConnectionState) error {
-				return errors.Errorf("invalid SHA256 fingerprint %q", sha256Fingerprint)
-			},
-		}
+	if err != nil {
+		return nil, errors.Errorf("invalid SHA256 fingerprint %q", sha256Fingerprint)
 	}
 
 	return &tls.Config{
 		InsecureSkipVerify:    true, //nolint:gosec
 		VerifyPeerCertificate: verifyPeerCertificateFunction(sha256FingerprintBytes),
 		VerifyConnection:      verifyConnectionFunction(sha256FingerprintBytes),
-	}
+	}, nil
 }
 
 // TransportTrustingSingleCertificate return http.RoundTripper which trusts exactly one TLS certificate with
 // provided SHA256 fingerprint.
-func TransportTrustingSingleCertificate(sha256Fingerprint string) http.RoundTripper {
-	t2 := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
-	t2.TLSClientConfig = TLSConfigTrustingSingleCertificate(sha256Fingerprint)
+func TransportTrustingSingleCertificate(sha256Fingerprint string) (http.RoundTripper, error) {
+	c, err := TLSConfigTrustingSingleCertificate(sha256Fingerprint)
+	if err != nil {
+		return nil, err
+	}
 
-	return t2
+	t2 := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+	t2.TLSClientConfig = c
+
+	return t2, nil
 }
 
 func verifyPeerCertificateFunction(sha256FingerprintBytes []byte) func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
