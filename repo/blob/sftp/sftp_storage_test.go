@@ -104,7 +104,7 @@ func requireProcessesReaped(t *testing.T, pids []int) {
 	}
 }
 
-// sshChildProcesses returns the PIDs of the `ssh` processes started by the test process
+// sshChildProcesses returns the PIDs of the `ssh` processes started by the test process.
 func sshChildProcesses(t *testing.T) []int {
 	t.Helper()
 
@@ -207,7 +207,7 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 		return host, port, knownHostsFile
 	}
 
-	t.Error("SFTP server did not start!")
+	t.Skip("SFTP server did not start!")
 
 	return "", -1, ""
 }
@@ -261,9 +261,6 @@ func TestSFTPStorageValid(t *testing.T) {
 	}
 
 	t.Run("ExternalSSH", func(t *testing.T) {
-		if runtime.GOOS == "windows" {
-			t.Skip("ssh command may not be available on Windows")
-		}
 
 		ctx := testlogging.Context(t)
 		newctx, cancel := context.WithCancel(ctx)
@@ -287,9 +284,7 @@ func TestSFTPStorageValid(t *testing.T) {
 				"-o", "BatchMode=yes",
 			}, " "),
 		}, true)
-		if err != nil {
-			t.Fatalf("unable to connect to SSH: %v", err)
-		}
+		require.NoError(t, err, "unable to connect to SSH")
 
 		cancel()
 
