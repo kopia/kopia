@@ -21,5 +21,5 @@ func (l *LogDetail) OrDefault(def LogDetail) LogDetail {
 
 // NewLogDetail returns a pointer to the provided LogDetail.
 func NewLogDetail(l LogDetail) *LogDetail {
-	return &l
+	return new(l)
 }

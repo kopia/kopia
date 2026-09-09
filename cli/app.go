@@ -29,6 +29,11 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
+const (
+	falseStr = "false"
+	trueStr  = "true"
+)
+
 var log = logging.Module("kopia/cli")
 
 var tracer = otel.Tracer("cli")
@@ -266,22 +271,22 @@ func (c *App) setup(app *kingpin.Application) {
 		return nil
 	}).Bool()
 
-	app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().BoolVar(&c.enableAutomaticMaintenance)
+	app.Flag("auto-maintenance", "Automatic maintenance").Default(trueStr).Hidden().BoolVar(&c.enableAutomaticMaintenance)
 
 	// hidden flags to control auto-update behavior.
 	app.Flag("initial-update-check-delay", "Initial delay before first time update check").Default("24h").Hidden().Envar(c.EnvName("KOPIA_INITIAL_UPDATE_CHECK_DELAY")).DurationVar(&c.initialUpdateCheckDelay)
 	app.Flag("update-check-interval", "Interval between update checks").Default("168h").Hidden().Envar(c.EnvName("KOPIA_UPDATE_CHECK_INTERVAL")).DurationVar(&c.updateCheckInterval)
 	app.Flag("update-available-notify-interval", "Interval between update notifications").Default("1h").Hidden().Envar(c.EnvName("KOPIA_UPDATE_NOTIFY_INTERVAL")).DurationVar(&c.updateAvailableNotifyInterval)
 	app.Flag("config-file", "Specify the config file to use").Default("repository.config").Envar(c.EnvName("KOPIA_CONFIG_PATH")).StringVar(&c.configPath)
-	app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().BoolVar(&c.traceStorage)
+	app.Flag("trace-storage", "Enables tracing of storage operations.").Default(trueStr).Hidden().BoolVar(&c.traceStorage)
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar(c.EnvName("KOPIA_PASSWORD")).Short('p').StringVar(&c.password)
-	app.Flag("persist-credentials", "Persist credentials").Default("true").Envar(c.EnvName("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT")).BoolVar(&c.persistCredentials)
+	app.Flag("persist-credentials", "Persist credentials").Default(trueStr).Envar(c.EnvName("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT")).BoolVar(&c.persistCredentials)
 	app.Flag("disable-repository-log", "Disable repository log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_REPOSITORY_LOG")).BoolVar(&c.disableRepositoryLog)
 	app.Flag("dangerous-commands", "Enable dangerous commands that could result in data loss and repository corruption.").Hidden().Envar(c.EnvName("KOPIA_DANGEROUS_COMMANDS")).StringVar(&c.DangerousCommands)
 	app.Flag("track-releasable", "Enable tracking of releasable resources.").Hidden().Envar(c.EnvName("KOPIA_TRACK_RELEASABLE")).StringsVar(&c.trackReleasable)
 	app.Flag("upgrade-owner-id", "Repository format upgrade owner-id.").Hidden().Envar(c.EnvName("KOPIA_REPO_UPGRADE_OWNER_ID")).StringVar(&c.upgradeOwnerID)
-	app.Flag("upgrade-no-block", "Do not block when repository format upgrade is in progress, instead exit with a message.").Hidden().Default("false").Envar(c.EnvName("KOPIA_REPO_UPGRADE_NO_BLOCK")).BoolVar(&c.doNotWaitForUpgrade)
+	app.Flag("upgrade-no-block", "Do not block when repository format upgrade is in progress, instead exit with a message.").Hidden().Default(falseStr).Envar(c.EnvName("KOPIA_REPO_UPGRADE_NO_BLOCK")).BoolVar(&c.doNotWaitForUpgrade)
 	app.Flag("error-notifications", "Send notification on errors").Hidden().
 		Envar(c.EnvName("KOPIA_SEND_ERROR_NOTIFICATIONS")).
 		Default(errorNotificationsNonInteractive).

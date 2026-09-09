@@ -67,7 +67,7 @@ endif
 # build x86_64 and arm64 binaries
 ifeq ($(GOOS),linux)
 ifeq ($(KOPIA_UI_CURRENT_ARCH_ONLY),)
-electron_builder_flags+=--x64 --arm64 --armv7l
+electron_builder_flags+=--x64 --arm64
 endif
 endif
 

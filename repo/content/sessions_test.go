@@ -140,7 +140,7 @@ func TestWriteSessionMarkerLockedWithoutClockSkew(t *testing.T) {
 	}), nil, &ManagerOptions{TimeNow: ta.NowFunc()}) // Use the same time advance for the manager's timeNow().
 	require.NoError(t, err, "can't create bm")
 
-	t.Cleanup(func() { bm.CloseShared(ctx) })
+	t.Cleanup(func() { bm.CloseShared(testlogging.ContextForCleanup(t)) })
 
 	err = bm.writeSessionMarkerLocked(ctx)
 	require.NoError(t, err)
@@ -171,7 +171,7 @@ func TestWriteSessionMarkerLockedWithClockSkew(t *testing.T) {
 	}), nil, &ManagerOptions{TimeNow: bmTime.NowFunc()})
 	require.NoError(t, err, "can't create bm")
 
-	t.Cleanup(func() { bm.CloseShared(ctx) })
+	t.Cleanup(func() { bm.CloseShared(testlogging.ContextForCleanup(t)) })
 
 	err = bm.writeSessionMarkerLocked(ctx)
 	require.Error(t, err)

@@ -274,7 +274,7 @@ func (m *committedManifestManager) compactLocked(ctx context.Context) error {
 		}
 
 		if err := m.b.DeleteContent(ctx, b); err != nil {
-			return errors.Wrapf(err, "unable to delete content %q", b)
+			return errors.Wrapf(err, "unable to delete manifest content %q", b)
 		}
 
 		delete(m.committedContentIDs, b)

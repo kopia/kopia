@@ -20,14 +20,14 @@ func (s *formatSpecificTestSuite) TestBlobShow(t *testing.T) {
 		}
 	}
 
-	someQBlob := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=q")[0], " ")[0]
+	someQBlob, _, _ := strings.Cut(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=q")[0], " ")
 
 	if hasEpochManager {
-		someXNBlob := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=xn")[0], " ")[0]
+		someXNBlob, _, _ := strings.Cut(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=xn")[0], " ")
 		env.RunAndExpectSuccess(t, "blob", "show", someXNBlob)
 		env.RunAndExpectSuccess(t, "blob", "show", "--decrypt", someXNBlob)
 	} else {
-		someNBlob := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=n")[0], " ")[0]
+		someNBlob, _, _ := strings.Cut(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=n")[0], " ")
 		env.RunAndExpectSuccess(t, "blob", "show", someNBlob)
 		env.RunAndExpectSuccess(t, "blob", "show", "--decrypt", someNBlob)
 	}
