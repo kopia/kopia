@@ -34,7 +34,7 @@ func (c *commandSnapshotMigrate) setup(svc advancedAppServices, parent commandPa
 	cmd.Flag("source-config", "Configuration file for the source repository").Required().ExistingFileVar(&c.migrateSourceConfig)
 	cmd.Flag("sources", "List of sources to migrate").StringsVar(&c.migrateSources)
 	cmd.Flag("all", "Migrate all sources").BoolVar(&c.migrateAll)
-	cmd.Flag("policies", "Migrate policies too").Default("true").BoolVar(&c.migratePolicies)
+	cmd.Flag("policies", "Migrate policies too").Default(trueStr).BoolVar(&c.migratePolicies)
 	cmd.Flag("overwrite-policies", "Overwrite policies").BoolVar(&c.migrateOverwritePolicies)
 	cmd.Flag("latest-only", "Only migrate the latest snapshot").BoolVar(&c.migrateLatestOnly)
 	cmd.Flag("parallel", "Number of sources to migrate in parallel").Default("1").IntVar(&c.migrateParallel)

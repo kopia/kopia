@@ -358,13 +358,24 @@ func (s *Server) handleUIPossiblyNotConnected(f apiRequestFunc) http.HandlerFunc
 }
 
 func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc, checkCSRFToken csrfTokenOption, f apiRequestFunc) http.HandlerFunc {
+	const maxRequestBodySizeBytes = 100_000
+
 	return s.requireAuth(checkCSRFToken, func(ctx context.Context, rc requestContext) {
 		// we must pre-read request body before acquiring the lock as it sometimes leads to deadlock
 		// in HTTP/2 server.
 		// See https://github.com/golang/go/issues/40816
-		body, berr := io.ReadAll(rc.req.Body)
+		body, berr := io.ReadAll(http.MaxBytesReader(rc.w, rc.req.Body, maxRequestBodySizeBytes))
 		if berr != nil {
-			http.Error(rc.w, "error reading request body", http.StatusInternalServerError)
+			errCode := http.StatusInternalServerError
+
+			var mbe *http.MaxBytesError
+
+			if errors.As(berr, &mbe) {
+				errCode = http.StatusRequestEntityTooLarge
+			}
+
+			http.Error(rc.w, "error reading request body", errCode)
+
 			return
 		}
 
@@ -377,7 +388,6 @@ func (s *Server) handleRequestPossiblyNotConnected(isAuthorized isAuthorizedFunc
 		rc.w.Header().Set("Content-Type", "application/json")
 
 		e := json.NewEncoder(rc.w)
-		e.SetIndent("", "  ")
 
 		var (
 			v   any
@@ -436,9 +446,7 @@ func (s *Server) Refresh() {
 	s.serverMutex.Lock()
 	defer s.serverMutex.Unlock()
 
-	ctx := s.rootctx
-
-	if err := s.refreshLocked(ctx); err != nil {
+	if err := s.refreshLocked(s.rootctx); err != nil {
 		userLog(s.rootctx).Warnw("refresh error", "err", err)
 	}
 }

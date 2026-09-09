@@ -36,7 +36,7 @@ func (s *formatSpecificTestSuite) TestIndexRecover(t *testing.T) {
 
 	lines := e.RunAndVerifyOutputLineCount(t, 6, "index", "ls")
 	for _, l := range lines {
-		indexFile := strings.Split(l, " ")[0]
+		indexFile, _, _ := strings.Cut(l, " ")
 		e.RunAndExpectSuccess(t, "blob", "delete", indexFile)
 	}
 

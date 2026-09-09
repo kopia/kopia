@@ -36,9 +36,9 @@ func TestLogsCommands(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", testutil.TempDirectory(t))
 
 	lines := e.RunAndVerifyOutputLineCount(t, 3, "logs", "list")
-	firstLogID := strings.Split(lines[0], " ")[0]
-	secondLogID := strings.Split(lines[1], " ")[0]
-	thirdLogID := strings.Split(lines[2], " ")[0]
+	firstLogID, _, _ := strings.Cut(lines[0], " ")
+	secondLogID, _, _ := strings.Cut(lines[1], " ")
+	thirdLogID, _, _ := strings.Cut(lines[2], " ")
 
 	firstLogLines := e.RunAndExpectSuccess(t, "logs", "show", firstLogID)
 	secondLogLines := e.RunAndExpectSuccess(t, "logs", "show", secondLogID)

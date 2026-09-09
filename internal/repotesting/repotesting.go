@@ -142,8 +142,10 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() {
-		e.RepositoryWriter.Close(ctx)
-		rep.Close(ctx)
+		cctx := testlogging.ContextForCleanup(tb)
+
+		e.RepositoryWriter.Close(cctx)
+		rep.Close(cctx)
 	})
 
 	return e
@@ -187,7 +189,7 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 	rep, err := repo.Open(ctx2, e.ConfigFile(), e.Password, repoOptions(openOpts))
 	require.NoError(tb, err)
 
-	tb.Cleanup(func() { rep.Close(ctx) })
+	tb.Cleanup(func() { rep.Close(testlogging.ContextForCleanup(tb)) })
 
 	_, e.RepositoryWriter, err = testutil.EnsureType[repo.DirectRepository](tb, rep).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(tb, err)
@@ -202,9 +204,7 @@ func (e *Environment) MustOpenAnother(tb testing.TB, openOpts ...func(*repo.Opti
 	rep2, err := repo.Open(ctx, e.ConfigFile(), e.Password, repoOptions(openOpts))
 	require.NoError(tb, err)
 
-	tb.Cleanup(func() {
-		rep2.Close(ctx)
-	})
+	tb.Cleanup(func() { rep2.Close(testlogging.ContextForCleanup(tb)) })
 
 	_, w, err := rep2.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(tb, err)
@@ -283,9 +283,7 @@ func NewEnvironment(tb testing.TB, version format.Version, opts ...Options) (con
 
 	env.setup(tb, version, opts...)
 
-	tb.Cleanup(func() {
-		env.Close(ctx, tb)
-	})
+	tb.Cleanup(func() { env.Close(testlogging.ContextForCleanup(tb), tb) })
 
 	return ctx, &env
 }

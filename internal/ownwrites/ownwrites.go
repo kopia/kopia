@@ -86,7 +86,6 @@ func (s *CacheStorage) ListBlobs(ctx context.Context, prefix blob.ID, cb func(bl
 	if err := s.Storage.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
 		if _, ok := cachedDeletionsSet[bm.BlobID]; ok {
 			// blob was deleted locally but still exists on the server, don't invoke callback for it.
-
 			return nil
 		}
 

@@ -48,9 +48,7 @@ func TestAzureStorageImmutabilityProtection(t *testing.T) {
 	cancel()
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
 	const (
 		blobName  = "sExample"

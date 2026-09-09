@@ -25,7 +25,7 @@ func runDockerAndGetOutputOrSkip(ctx context.Context, tb testing.TB, args ...str
 
 	var stderr bytes.Buffer
 
-	c := exec.CommandContext(ctx, "docker", args...)
+	c := exec.CommandContext(ctx, "docker", args...) //nolint:gosec // only used in tests
 	c.Stderr = &stderr
 
 	out, err := c.Output()
@@ -50,7 +50,7 @@ func RunContainerAndKillOnCloseOrSkip(t *testing.T, args ...string) string {
 
 	t.Cleanup(func() {
 		// t.Context() is canceled by the time cleanup executes, so it cannot be used here
-		runDockerAndGetOutputOrSkip(context.WithoutCancel(t.Context()), t, "kill", containerID)
+		runDockerAndGetOutputOrSkip(testlogging.ContextForCleanup(t), t, "kill", containerID)
 	})
 
 	return containerID
