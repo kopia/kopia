@@ -422,9 +422,16 @@ func TestSnapshotFixRemoveFiles_ByPathIdenticalEntries(t *testing.T) {
 	require.Equal(t, []string{"keep", "keep/file", "remove"}, remainingFiles)
 }
 
-func TestSnapshotFixRemoveFiles_ByPathInvalidWildcard(t *testing.T) {
+func TestSnapshotFixRemoveFiles_ByPathRootWildcard(t *testing.T) {
+	if testutil.ShouldReduceTestComplexity() {
+		return
+	}
+
 	srcDir := testutil.TempDirectory(t)
-	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir, "file"), 1, []byte{1, 2, 3})
+
+	require.NoError(t, os.MkdirAll(filepath.Join(srcDir, "dir"), 0o700))
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir, "dir", "file"), 1, []byte{1, 2, 3})
+	mustWriteFileWithRepeatedData(t, filepath.Join(srcDir, "top"), 1, []byte{1, 2, 3})
 
 	runner := testenv.NewInProcRunner(t)
 	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
@@ -432,7 +439,27 @@ func TestSnapshotFixRemoveFiles_ByPathInvalidWildcard(t *testing.T) {
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 	env.RunAndExpectSuccess(t, "snapshot", "create", srcDir)
 
-	env.RunAndExpectFailure(t, "snapshot", "fix", "remove-files", "--path=[", "--parallel=1")
+	// "*" must not match the root itself, which would be replaced by a stub (or fail here)
+	env.RunAndExpectSuccess(t, "snapshot", "fix", "remove-files", "--path=*", "--invalid-directory-handling=fail", "--commit")
+	env.RunAndExpectSuccess(t, "snapshot", "verify")
+
+	var manifests []cli.SnapshotManifest
+
+	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &manifests)
+	require.Len(t, manifests, 1)
+	require.Equal(t, snapshot.EntryTypeDirectory, manifests[0].RootEntry.Type)
+	require.Empty(t, mustGetFileMap(t, env, manifests[0].RootObjectID()))
+}
+
+func TestSnapshotFixRemoveFiles_InvalidWildcard(t *testing.T) {
+	runner := testenv.NewInProcRunner(t)
+	env := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
+
+	// no snapshot to match against, so the pattern must be rejected before rewriting
+	env.RunAndExpectFailure(t, "snapshot", "fix", "remove-files", "--path=[")
+	env.RunAndExpectFailure(t, "snapshot", "fix", "remove-files", "--filename=[")
 }
 
 // forgetContents rewrites contents into a new blob and deletes the blob
