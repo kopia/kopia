@@ -166,6 +166,6 @@
   "overrides": {
     "undici": "^7.29.0",
     "fast-uri": "^3.1.7",
-    "js-yaml": "^4.3.1"
+    "js-yaml": "^4.3.2"
   }
 }
