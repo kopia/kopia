@@ -11,7 +11,6 @@ import (
 )
 
 func TestMaintenanceRunReportsInvalidGlobalFlag(t *testing.T) {
-
 	app := cli.NewApp()
 	parser := kingpin.New("kopia", "")
 	logfile.Attach(app, parser)
