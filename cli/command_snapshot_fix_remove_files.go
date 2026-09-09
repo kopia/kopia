@@ -50,6 +50,11 @@ func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, pathFr
 		}
 	}
 
+	// the root's path is ".", which "*" matches; path wildcards apply to the entries below it
+	if pathFromRoot == "." {
+		return ent, nil
+	}
+
 	for _, p := range c.removeFilesByPath {
 		matched, err := path.Match(p, pathFromRoot)
 		if err != nil {
@@ -71,5 +76,25 @@ func (c *commandSnapshotFixRemoveFiles) run(ctx context.Context, rep repo.Reposi
 		return errors.New("must specify files to remove")
 	}
 
+	if err := validateWildcards(c.removeFilesByName); err != nil {
+		return err
+	}
+
+	if err := validateWildcards(c.removeFilesByPath); err != nil {
+		return err
+	}
+
 	return c.common.rewriteMatchingSnapshots(ctx, rep, c.rewriteEntry)
+}
+
+// validateWildcards fails on a malformed pattern before any snapshot is read,
+// since rewriting only reports it when an entry is matched against it.
+func validateWildcards(patterns []string) error {
+	for _, p := range patterns {
+		if _, err := path.Match(p, ""); err != nil {
+			return errors.Wrapf(err, "invalid wildcard %q", p)
+		}
+	}
+
+	return nil
 }
