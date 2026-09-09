@@ -11,7 +11,6 @@ import (
 )
 
 func TestMaintenanceRunReportsInvalidGlobalFlag(t *testing.T) {
-	t.Parallel()
 
 	app := cli.NewApp()
 	parser := kingpin.New("kopia", "")
