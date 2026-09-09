@@ -206,7 +206,7 @@ func (e *CLITest) RunAndProcessStderrAsync(tb testing.TB, stderrCallback func(li
 func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line string) bool, stderrAsyncCallback func(line string), args ...string) (wait func() error, interrupt func(os.Signal)) {
 	tb.Helper()
 
-	stdout, stderr, wait, interrupt := e.Runner.Start(tb, e.RunContext, e.cmdArgs(args), e.Environment)
+	stdout, stderr, rWait, interrupt := e.Runner.Start(tb, e.RunContext, e.cmdArgs(args), e.Environment)
 
 	prefix, logOutput := e.getLogOutputPrefix()
 
@@ -266,7 +266,7 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 	require.NoError(tb, scannerErr, "Error reading [%sstderr]", prefix)
 
 	wf := func() error {
-		if err := wait(); err != nil {
+		if err := rWait(); err != nil {
 			return err
 		}
 
