@@ -260,7 +260,6 @@ func TestSFTPStorageValid(t *testing.T) {
 	}
 
 	t.Run("ExternalSSH", func(t *testing.T) {
-
 		ctx := testlogging.Context(t)
 		newctx, cancel := context.WithCancel(ctx)
 
