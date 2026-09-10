@@ -140,9 +140,8 @@ func TLSConfigTrustingSingleCertificate(sha256Fingerprint string) (*tls.Config, 
 	}
 
 	return &tls.Config{
-		InsecureSkipVerify:    true, //nolint:gosec
-		VerifyPeerCertificate: verifyPeerCertificateFunction(sha256FingerprintBytes),
-		VerifyConnection:      verifyConnectionFunction(sha256FingerprintBytes),
+		InsecureSkipVerify: true, //nolint:gosec
+		VerifyConnection:   verifyConnectionFunction(sha256FingerprintBytes),
 	}, nil
 }
 
@@ -158,30 +157,6 @@ func TransportTrustingSingleCertificate(sha256Fingerprint string) (http.RoundTri
 	t2.TLSClientConfig = c
 
 	return t2, nil
-}
-
-func verifyPeerCertificateFunction(sha256FingerprintBytes []byte) func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-		_ = verifiedChains
-
-		return verifyPeerCertificate(sha256FingerprintBytes, rawCerts)
-	}
-}
-
-func verifyPeerCertificate(sha256FingerprintBytes []byte, rawCerts [][]byte) error {
-	var serverCerts [][]byte
-
-	for _, c := range rawCerts {
-		serverCertFingerPrint := sha256.Sum256(c)
-
-		if bytes.Equal(serverCertFingerPrint[:], sha256FingerprintBytes) {
-			return nil
-		}
-
-		serverCerts = append(serverCerts, serverCertFingerPrint[:])
-	}
-
-	return errors.Errorf("can't find certificate matching SHA256 fingerprint %x (server had %x)", sha256FingerprintBytes, serverCerts)
 }
 
 func verifyConnectionFunction(sha256FingerprintBytes []byte) func(s tls.ConnectionState) error {
