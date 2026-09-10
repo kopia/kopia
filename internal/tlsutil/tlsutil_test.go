@@ -133,7 +133,7 @@ func TestTransportTrustingSingleClientCertificate_TestClientFlow(t *testing.T) {
 				tr, err := tlsutil.TransportTrustingSingleCertificate(fingerprint)
 				require.NoError(t, err)
 
-				return tr.(*http.Transport) //nolint:forcetypeassert
+				return testutil.EnsureType[*http.Transport](t, tr)
 			},
 		},
 		{
@@ -142,7 +142,7 @@ func TestTransportTrustingSingleClientCertificate_TestClientFlow(t *testing.T) {
 				tr, err := tlsutil.TransportTrustingSingleCertificate(fingerprint)
 				require.NoError(t, err)
 
-				transport := tr.(*http.Transport) //nolint:forcetypeassert
+				transport := testutil.EnsureType[*http.Transport](t, tr)
 				transport.TLSClientConfig.ClientSessionCache = tls.NewLRUClientSessionCache(0)
 
 				return transport
