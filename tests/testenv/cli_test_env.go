@@ -4,6 +4,7 @@ package testenv
 import (
 	"bufio"
 	"context"
+	stderrors "errors"
 	"io"
 	"io/fs"
 	"math/rand"
@@ -16,7 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -200,27 +203,33 @@ func (e *CLITest) RunAndProcessStderrAsync(tb testing.TB, stderrCallback func(li
 // line-by-line to stderrCallback until it returns false. The remaining lines
 // from stderr, if any, are asynchronously sent line-by-line to
 // stderrAsyncCallback.
-func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line string) bool, stderrAsyncCallback func(line string), args ...string) (wait func() error, interrupt func(os.Signal)) {
+func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line string) bool, stderrAsyncCallback func(line string), args ...string) (wait func() error, interrupt func(os.Signal)) { //nolint:gocyclo
 	tb.Helper()
 
-	stdout, stderr, wait, interrupt := e.Runner.Start(tb, e.RunContext, e.cmdArgs(args), e.Environment)
+	stdout, stderr, rWait, interrupt := e.Runner.Start(tb, e.RunContext, e.cmdArgs(args), e.Environment)
 
 	prefix, logOutput := e.getLogOutputPrefix()
 
-	go func() {
+	eg, ctx := errgroup.WithContext(tb.Context())
+
+	eg.Go(func() error {
 		scanner := bufio.NewScanner(stdout)
-		for scanner.Scan() {
+		for ctx.Err() == nil && scanner.Scan() {
 			if logOutput {
 				tb.Logf("[%vstdout] %v", prefix, scanner.Text())
 			}
 		}
 
-		if err := scanner.Err(); err != nil {
-			tb.Logf("Error reading [%sstdout]: %v", prefix, err)
+		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
+			_, drainErr := io.Copy(io.Discard, stdout) // drain stdout to avoid deadlock
+
+			return errors.Wrapf(stderrors.Join(err, drainErr), "reading [%sstdout]", prefix)
 		} else if logOutput {
 			tb.Logf("[%vstdout] EOF", prefix)
 		}
-	}()
+
+		return nil
+	})
 
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
@@ -229,9 +238,11 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 		}
 	}
 
+	scannerErr := scanner.Err()
+
 	// complete stderr scanning in the background without processing lines.
-	go func() {
-		for scanner.Scan() {
+	eg.Go(func() error {
+		for ctx.Err() == nil && scanner.Scan() {
 			if stderrAsyncCallback != nil {
 				stderrAsyncCallback(scanner.Text())
 			}
@@ -241,14 +252,37 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 			}
 		}
 
-		if err := scanner.Err(); err != nil {
-			tb.Logf("Error reading [%sstderr]: %v", prefix, err)
+		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
+			_, drainErr := io.Copy(io.Discard, stderr) // drain stderr to avoid deadlock
+
+			return errors.Wrapf(stderrors.Join(err, drainErr), "reading [%sstderr]", prefix)
 		} else if logOutput {
 			tb.Logf("[%vstderr] EOF", prefix)
 		}
-	}()
 
-	return wait, interrupt
+		return nil
+	})
+
+	if scannerErr != nil {
+		interrupt(os.Kill) // terminate sub-process before terminating test
+
+		_ = eg.Wait()
+		_ = rWait()
+
+		require.NoError(tb, scannerErr, "Error reading [%sstderr]", prefix)
+	}
+
+	wf := func() error {
+		egErr := eg.Wait()
+
+		if err := rWait(); err != nil {
+			return err
+		}
+
+		return egErr
+	}
+
+	return wf, interrupt
 }
 
 // RunAndExpectSuccessWithErrOut runs the given command, expects it to succeed and returns its stdout and stderr lines.
@@ -307,11 +341,11 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 
 	stdoutReader, stderrReader, wait, _ := e.Runner.Start(tb, e.RunContext, args, e.Environment)
 
-	var wg sync.WaitGroup
+	eg, ctx := errgroup.WithContext(tb.Context())
 
-	wg.Go(func() {
+	eg.Go(func() error {
 		scanner := bufio.NewScanner(stdoutReader)
-		for scanner.Scan() {
+		for ctx.Err() == nil && scanner.Scan() {
 			if logOutput {
 				tb.Logf("[%vstdout] %v", outputPrefix, scanner.Text())
 			}
@@ -319,14 +353,17 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 			stdout = append(stdout, scanner.Text())
 		}
 
-		if err := scanner.Err(); err != nil {
-			tb.Logf("Error reading [%sstdout]: %v", outputPrefix, err)
+		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
+			_, drainErr := io.Copy(io.Discard, stdoutReader) // drain stdout to avoid deadlock
+			return errors.Wrapf(stderrors.Join(err, drainErr), "error reading [%sstdout]", outputPrefix)
 		}
+
+		return nil
 	})
 
-	wg.Go(func() {
+	eg.Go(func() error {
 		scanner := bufio.NewScanner(stderrReader)
-		for scanner.Scan() {
+		for ctx.Err() == nil && scanner.Scan() {
 			if logOutput {
 				tb.Logf("[%vstderr] %v", outputPrefix, scanner.Text())
 			}
@@ -334,13 +371,15 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 			stderr = append(stderr, scanner.Text())
 		}
 
-		if err := scanner.Err(); err != nil {
-			tb.Logf("Error reading [%sstderr]: %v", outputPrefix, err)
+		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
+			_, drainErr := io.Copy(io.Discard, stderrReader) // drain stderr to avoid deadlock
+			return errors.Wrapf(stderrors.Join(err, drainErr), "error reading [%sstderr]", outputPrefix)
 		}
+
+		return nil
 	})
 
-	wg.Wait()
-
+	scanErr := eg.Wait()
 	gotErr := wait()
 
 	if expectedError {
@@ -348,6 +387,8 @@ func (e *CLITest) Run(tb testing.TB, expectedError bool, args ...string) (stdout
 	} else {
 		require.NoError(tb, gotErr, "unexpected error when running 'kopia %v' (stdout:\n%v\nstderr:\n%v", strings.Join(args, " "), strings.Join(stdout, "\n"), strings.Join(stderr, "\n"))
 	}
+
+	require.NoError(tb, scanErr, "encountered error(s) reading stdout/stderr from runner process")
 
 	//nolint:forbidigo
 	tb.Logf("%vfinished in %v: 'kopia %v'", outputPrefix, timer.Elapsed().Milliseconds(), strings.Join(args, " "))
