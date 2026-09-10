@@ -148,12 +148,12 @@ func TestGetBlobVersions(t *testing.T) {
 	} {
 		t.Run(tt.testName, func(t *testing.T) {
 			opts.PointInTime = tt.pointInTime
-			st, err = azure.New(ctx, opts, false)
+			pitSt, err := azure.New(ctx, opts, false)
 			require.NoError(t, err)
 
 			var tmp gather.WriteBuffer
 
-			err = st.GetBlob(ctx, blobID, 0, -1, &tmp)
+			err = pitSt.GetBlob(ctx, blobID, 0, -1, &tmp)
 			require.ErrorIs(t, err, tt.expectedError)
 			require.Equal(t, tt.expectedBlobData, string(tmp.ToByteSlice()))
 		})
