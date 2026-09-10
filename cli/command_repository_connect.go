@@ -72,7 +72,7 @@ func (c *connectOptions) setup(svc appServices, cmd *kingpin.CmdClause) {
 
 	cmd.Flag("override-hostname", "Override hostname used by this repository connection").Hidden().StringVar(&c.connectHostname)
 	cmd.Flag("override-username", "Override username used by this repository connection").Hidden().StringVar(&c.connectUsername)
-	cmd.Flag("check-for-updates", "Periodically check for Kopia updates on GitHub").Default("true").Envar(svc.EnvName(checkForUpdatesEnvar)).BoolVar(&c.connectCheckForUpdates)
+	cmd.Flag("check-for-updates", "Periodically check for Kopia updates on GitHub").Default(trueStr).Envar(svc.EnvName(checkForUpdatesEnvar)).BoolVar(&c.connectCheckForUpdates)
 	cmd.Flag("readonly", "Make repository read-only to avoid accidental changes").BoolVar(&c.connectReadonly)
 	cmd.Flag("permissive-cache-loading", "Do not fail when loading bad cache index entries.  Repository must be opened in read-only mode").Hidden().BoolVar(&c.connectPermissiveCacheLoading)
 	cmd.Flag("description", "Human-readable description of the repository").StringVar(&c.connectDescription)

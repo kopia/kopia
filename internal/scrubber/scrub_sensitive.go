@@ -10,7 +10,7 @@ import (
 // Fields are marked as sensitive with struct field tag `kopia:"sensitive"`.
 func ScrubSensitiveData(v reflect.Value) reflect.Value {
 	switch v.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		return ScrubSensitiveData(v.Elem()).Addr()
 
 	case reflect.Struct:

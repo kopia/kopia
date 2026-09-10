@@ -88,9 +88,7 @@ func TestCleanupOldData(t *testing.T) {
 
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(testlogging.ContextForCleanup(t))
-	})
+	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
 	blobtesting.CleanupOldData(ctx, t, st, blobtesting.MinCleanupAge)
 }
@@ -106,9 +104,6 @@ func TestAzureStorage(t *testing.T) {
 	// create container if does not exist
 	createContainer(t, container, storageAccount, storageKey)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
@@ -117,13 +112,13 @@ func TestAzureStorage(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data),
+		Prefix:         storagePrefixForTest(),
 	}, false)
 
 	cancel()
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
+	t.Cleanup(func() { cleanupTestDataAndClose(t, st) })
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -138,9 +133,6 @@ func TestAzureStorageSASToken(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	sasToken := getEnvOrSkip(t, testStorageSASTokenEnv)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after storage is initialize,
@@ -150,18 +142,13 @@ func TestAzureStorageSASToken(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		SASToken:       sasToken,
-		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
+		Prefix:         storagePrefixForTest(),
 	}, false)
 
 	require.NoError(t, err)
 	cancel()
 
-	t.Cleanup(func() {
-		ctx := testlogging.ContextForCleanup(t)
-
-		blobtesting.CleanupOldData(ctx, t, st, 0)
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { cleanupTestDataAndClose(t, st) })
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -178,9 +165,6 @@ func TestAzureStorageClientSecret(t *testing.T) {
 	clientID := getEnvOrSkip(t, testStorageClientIDEnv)
 	clientSecret := getEnvOrSkip(t, testStorageClientSecretEnv)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after storage is initialize,
@@ -192,18 +176,13 @@ func TestAzureStorageClientSecret(t *testing.T) {
 		TenantID:       tenantID,
 		ClientID:       clientID,
 		ClientSecret:   clientSecret,
-		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
+		Prefix:         storagePrefixForTest(),
 	}, false)
 
 	require.NoError(t, err)
 	cancel()
 
-	t.Cleanup(func() {
-		ctx := testlogging.ContextForCleanup(t)
-
-		blobtesting.CleanupOldData(ctx, t, st, 0)
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { cleanupTestDataAndClose(t, st) })
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -220,9 +199,6 @@ func TestAzureStorageClientCertificate(t *testing.T) {
 	clientID := getEnvOrSkip(t, testStorageClientIDEnv)
 	clientCert := getEnvOrSkip(t, testStorageClientCertEnv)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after storage is initialize,
@@ -234,18 +210,13 @@ func TestAzureStorageClientCertificate(t *testing.T) {
 		TenantID:          tenantID,
 		ClientID:          clientID,
 		ClientCertificate: clientCert,
-		Prefix:            fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
+		Prefix:            storagePrefixForTest(),
 	}, false)
 
 	require.NoError(t, err)
 	cancel()
 
-	t.Cleanup(func() {
-		ctx := testlogging.ContextForCleanup(t)
-
-		blobtesting.CleanupOldData(ctx, t, st, 0)
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { cleanupTestDataAndClose(t, st) })
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -262,9 +233,6 @@ func TestAzureFederatedIdentity(t *testing.T) {
 	clientID := getEnvOrSkip(t, testStorageClientIDEnv)
 	azureFederatedTokenFilePath := getEnvOrSkip(t, testAzureFederatedIdentityFilePathEnv)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after storage is initialize,
@@ -276,18 +244,13 @@ func TestAzureFederatedIdentity(t *testing.T) {
 		TenantID:                tenantID,
 		ClientID:                clientID,
 		AzureFederatedTokenFile: azureFederatedTokenFilePath,
-		Prefix:                  fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
+		Prefix:                  storagePrefixForTest(),
 	}, false)
 
 	require.NoError(t, err)
 	cancel()
 
-	t.Cleanup(func() {
-		ctx := testlogging.ContextForCleanup(t)
-
-		blobtesting.CleanupOldData(ctx, t, st, 0)
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { cleanupTestDataAndClose(t, st) })
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -416,4 +379,22 @@ func getBlobCount(ctx context.Context, t *testing.T, st blob.Storage, prefix blo
 	require.NoError(t, err)
 
 	return count
+}
+
+func storagePrefixForTest() string {
+	var data [4]byte
+
+	rand.Read(data[:])
+
+	return fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
+}
+
+func cleanupTestDataAndClose(tb testing.TB, st blob.Storage) {
+	tb.Helper()
+
+	ctx := testlogging.ContextForCleanup(tb)
+
+	blobtesting.CleanupOldData(ctx, tb, st, 0)
+
+	require.NoError(tb, st.Close(ctx))
 }

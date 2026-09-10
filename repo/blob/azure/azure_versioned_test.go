@@ -2,8 +2,6 @@ package azure_test
 
 import (
 	"context"
-	"crypto/rand"
-	"fmt"
 	"testing"
 	"time"
 
@@ -29,25 +27,21 @@ func TestGetBlobVersionsFailsWhenVersioningDisabled(t *testing.T) {
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 
 	ctx := testlogging.Context(t)
-	data := make([]byte, 8)
-	rand.Read(data)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	t.Cleanup(cancel)
 
-	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         prefix,
+		Prefix:         storagePrefixForTest(),
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(ctx)
-	})
+	cancel()
+
+	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
@@ -71,25 +65,23 @@ func TestGetBlobVersions(t *testing.T) {
 	createContainer(t, container, storageAccount, storageKey)
 
 	ctx := testlogging.Context(t)
-	data := make([]byte, 8)
-	rand.Read(data)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	t.Cleanup(cancel)
 
-	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         prefix,
+		Prefix:         storagePrefixForTest(),
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(ctx)
-	})
+	cancel()
+
+	cSt := st // grab reference to prevent clobbering that results in SIGSEV during t.Cleanup
+
+	t.Cleanup(func() { cSt.Close(testlogging.ContextForCleanup(t)) })
 
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
@@ -103,13 +95,12 @@ func TestGetBlobVersions(t *testing.T) {
 		latestData   = "latest version"
 	)
 
-	const blobName = "TestGetBlobVersions"
-
-	blobID := blob.ID(blobName)
+	blobID := blob.ID(t.Name())
 	dataBlobs := []string{originalData, updatedData, latestData}
 	dataTimestamps, err := putBlobs(ctx, st, blobID, dataBlobs)
 
 	require.NoError(t, err)
+	require.Len(t, dataTimestamps, 3)
 
 	pastPIT := dataTimestamps[0].Add(-1 * time.Second)
 	futurePIT := dataTimestamps[2].Add(1 * time.Second)
@@ -157,16 +148,17 @@ func TestGetBlobVersions(t *testing.T) {
 			expectedError:    nil,
 		},
 	} {
-		fmt.Printf("Running test: %s\n", tt.testName)
-		opts.PointInTime = tt.pointInTime
-		st, err = azure.New(ctx, opts, false)
-		require.NoError(t, err)
+		t.Run(tt.testName, func(t *testing.T) {
+			opts.PointInTime = tt.pointInTime
+			pitSt, err := azure.New(ctx, opts, false)
+			require.NoError(t, err)
 
-		var tmp gather.WriteBuffer
+			var tmp gather.WriteBuffer
 
-		err = st.GetBlob(ctx, blobID, 0, -1, &tmp)
-		require.ErrorIs(t, err, tt.expectedError)
-		require.Equal(t, tt.expectedBlobData, string(tmp.ToByteSlice()))
+			err = pitSt.GetBlob(ctx, blobID, 0, -1, &tmp)
+			require.ErrorIs(t, err, tt.expectedError)
+			require.Equal(t, tt.expectedBlobData, string(tmp.ToByteSlice()))
+		})
 	}
 }
 
@@ -182,25 +174,23 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	createContainer(t, container, storageAccount, storageKey)
 
 	ctx := testlogging.Context(t)
-	data := make([]byte, 8)
-	rand.Read(data)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	t.Cleanup(cancel)
 
-	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         prefix,
+		Prefix:         storagePrefixForTest(),
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(ctx)
-	})
+	cancel()
+
+	cSt := st // grab reference to prevent clobbering that results in SIGSEV during t.Cleanup
+
+	t.Cleanup(func() { cSt.Close(testlogging.ContextForCleanup(t)) })
 
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})

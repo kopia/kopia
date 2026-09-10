@@ -33,7 +33,7 @@ type commandSnapshotCreate struct {
 	snapshotCreateCheckpointInterval      time.Duration
 	snapshotCreateFailFast                bool
 	snapshotCreateForceHash               float64
-	snapshotCreateParallelUploads         int
+	snapshotCreateParallelUploads         uint
 	snapshotCreateStartTime               string
 	snapshotCreateEndTime                 string
 	snapshotCreateForceEnableActions      bool
@@ -67,7 +67,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("description", "Free-form snapshot description.").StringVar(&c.snapshotCreateDescription)
 	cmd.Flag("fail-fast", "Fail fast when creating snapshot.").Envar(svc.EnvName("KOPIA_SNAPSHOT_FAIL_FAST")).BoolVar(&c.snapshotCreateFailFast)
 	cmd.Flag("force-hash", "Force hashing of source files for a given percentage of files [0.0 .. 100.0]").Default("0").Float64Var(&c.snapshotCreateForceHash)
-	cmd.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").IntVar(&c.snapshotCreateParallelUploads)
+	cmd.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").UintVar(&c.snapshotCreateParallelUploads)
 	cmd.Flag("start-time", "Override snapshot start timestamp.").StringVar(&c.snapshotCreateStartTime)
 	cmd.Flag("end-time", "Override snapshot end timestamp.").StringVar(&c.snapshotCreateEndTime)
 	cmd.Flag("force-enable-actions", "Enable snapshot actions even if globally disabled on this client").Hidden().BoolVar(&c.snapshotCreateForceEnableActions)
@@ -77,9 +77,9 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("pin", "Create a pinned snapshot that will not expire automatically").StringsVar(&c.pins)
 	cmd.Flag("flush-per-source", "Flush writes at the end of each source").Hidden().BoolVar(&c.flushPerSource)
 	cmd.Flag("override-source", "Override the source of the snapshot.").StringVar(&c.sourceOverride)
-	cmd.Flag("send-snapshot-report", "Send a snapshot report notification using configured notification profiles").Default("true").BoolVar(&c.sendSnapshotReport)
+	cmd.Flag("send-snapshot-report", "Send a snapshot report notification using configured notification profiles").Default(trueStr).BoolVar(&c.sendSnapshotReport)
 	cmd.Flag("hint-streaming-reads", "[EXPERIMENTAL] Hint the OS to release memory used for I/O after reading files that are being backed up, aiming at reducing the memory footprint during backups (Linux only, best-effort).").
-		Default("false").Hidden().BoolVar(&c.snapshotCreateStreamingReads)
+		Default(falseStr).Hidden().BoolVar(&c.snapshotCreateStreamingReads)
 
 	c.logDirDetail = -1
 	c.logEntryDetail = -1
@@ -264,7 +264,7 @@ func (c *commandSnapshotCreate) setupUploader(rep repo.RepositoryWriter) *upload
 	c.svc.onTerminate(u.Cancel)
 
 	u.ForceHashPercentage = c.snapshotCreateForceHash
-	u.ParallelUploads = c.snapshotCreateParallelUploads
+	u.ParallelUploads = parallelismAsInt(c.snapshotCreateParallelUploads)
 
 	u.FailFast = c.snapshotCreateFailFast
 	u.Progress = c.svc.getProgress()

@@ -13,6 +13,11 @@ import (
 	"github.com/kopia/kopia/tests/testdirtree"
 )
 
+const (
+	falseStr = "false"
+	trueStr  = "true"
+)
+
 var (
 	sharedTestDataDirBase string
 	sharedTestDataDir1    string
