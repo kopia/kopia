@@ -232,10 +232,8 @@ func runStress(t *testing.T, opt *StressOptions) {
 		configFiles = append(configFiles, configFile)
 
 		if err = repo.Connect(ctx, configFile, st, masterPassword, &repo.ConnectOptions{
-			CachingOptions: content.CachingOptions{
-				CacheDirectory:        filepath.Join(tmpPath, fmt.Sprintf("cache-%v", i)),
-				ContentCacheSizeBytes: 2000000000,
-			},
+			CacheDirectory:        filepath.Join(tmpPath, fmt.Sprintf("cache-%v", i)),
+			ContentCacheSizeBytes: 2000000000,
 		}); err != nil {
 			t.Fatalf("unable to connect %v: %v", configFile, err)
 		}

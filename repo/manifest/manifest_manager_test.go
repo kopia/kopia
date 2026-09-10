@@ -155,12 +155,10 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
 	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
-		Hash:       hashing.DefaultAlgorithm,
-		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: format.MutableParameters{
-			Version:     1,
-			MaxPackSize: 100000,
-		},
+		Hash:        hashing.DefaultAlgorithm,
+		Encryption:  encryption.DefaultAlgorithm,
+		Version:     1,
+		MaxPackSize: 100000,
 	}, nil)
 	require.NoError(t, err)
 
@@ -322,12 +320,10 @@ func newContentManagerForTesting(ctx context.Context, tb testing.TB, data blobte
 	}
 
 	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
-		Hash:       hashing.DefaultAlgorithm,
-		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: format.MutableParameters{
-			Version:     1,
-			MaxPackSize: 100000,
-		},
+		Hash:        hashing.DefaultAlgorithm,
+		Encryption:  encryption.DefaultAlgorithm,
+		Version:     1,
+		MaxPackSize: 100000,
 	}, nil)
 
 	require.NoError(tb, err)

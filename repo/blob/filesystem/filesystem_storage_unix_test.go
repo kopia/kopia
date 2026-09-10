@@ -25,10 +25,8 @@ func TestFileStorage_ESTALE_ErrorHandling(t *testing.T) {
 	osi := newMockOS()
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:            dataDir,
+		DirectoryShards: []int{5, 2},
 	}, true)
 	require.NoError(t, err)
 

@@ -313,12 +313,10 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 	verifyUIServerConnected(t, cli, false)
 
 	if err = serverapi.CreateRepository(ctx, cli, &serverapi.CreateRepositoryRequest{
-		ConnectRepositoryRequest: serverapi.ConnectRepositoryRequest{
-			Password: "foofoo",
-			Storage:  connInfo,
-			ClientOptions: repo.ClientOptions{
-				PermissiveCacheLoading: true,
-			},
+		Password: "foofoo",
+		Storage:  connInfo,
+		ClientOptions: repo.ClientOptions{
+			PermissiveCacheLoading: true,
 		},
 	}); err != nil {
 		t.Fatalf("create error: %v", err)

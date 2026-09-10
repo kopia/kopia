@@ -210,12 +210,10 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	}
 
 	return versionMetadata{
-		Metadata: blob.Metadata{
-			BlobID:    b,
-			Length:    uploadInfo.Size,
-			Timestamp: uploadInfo.LastModified,
-		},
-		Version: uploadInfo.VersionID,
+		BlobID:    b,
+		Length:    uploadInfo.Size,
+		Timestamp: uploadInfo.LastModified,
+		Version:   uploadInfo.VersionID,
 	}, nil
 }
 
@@ -347,12 +345,10 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 	creds := credentials.NewChainCredentials(
 		[]credentials.Provider{
 			&credentials.Static{
-				Value: credentials.Value{
-					AccessKeyID:     opt.AccessKeyID,
-					SecretAccessKey: opt.SecretAccessKey,
-					SessionToken:    opt.SessionToken,
-					SignerType:      credentials.SignatureV4,
-				},
+				AccessKeyID:     opt.AccessKeyID,
+				SecretAccessKey: opt.SecretAccessKey,
+				SessionToken:    opt.SessionToken,
+				SignerType:      credentials.SignatureV4,
 			},
 			&credentials.EnvAWS{},
 			&credentials.IAM{

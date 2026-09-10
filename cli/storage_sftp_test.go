@@ -132,14 +132,12 @@ func TestSFTPOptions(t *testing.T) {
 				connectFlat: true,
 			},
 			want: &sftp.Options{
-				Host:           "some-host",
-				Port:           222,
-				Username:       "user",
-				KnownHostsFile: mustFileAbs(t, "my-known-hosts"),
-				Keyfile:        mustFileAbs(t, "my-key"),
-				Options: sharded.Options{
-					DirectoryShards: []int{},
-				},
+				Host:            "some-host",
+				Port:            222,
+				Username:        "user",
+				KnownHostsFile:  mustFileAbs(t, "my-known-hosts"),
+				Keyfile:         mustFileAbs(t, "my-key"),
+				DirectoryShards: []int{},
 			},
 		},
 		// 7
@@ -155,14 +153,12 @@ func TestSFTPOptions(t *testing.T) {
 				connectFlat: true,
 			},
 			want: &sftp.Options{
-				Host:           "some-host",
-				Port:           222,
-				Username:       "user",
-				KnownHostsFile: mustFileAbs(t, "my-known-hosts"),
-				Password:       "my-password",
-				Options: sharded.Options{
-					DirectoryShards: []int{},
-				},
+				Host:            "some-host",
+				Port:            222,
+				Username:        "user",
+				KnownHostsFile:  mustFileAbs(t, "my-known-hosts"),
+				Password:        "my-password",
+				DirectoryShards: []int{},
 			},
 		},
 	}

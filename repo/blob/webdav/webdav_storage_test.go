@@ -154,12 +154,10 @@ func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
 	st, err := New(newctx, &Options{
-		URL: url,
-		Options: sharded.Options{
-			DirectoryShards: shardSpec,
-		},
-		Username: username,
-		Password: password,
+		URL:             url,
+		DirectoryShards: shardSpec,
+		Username:        username,
+		Password:        password,
 	}, false)
 
 	cancel()
