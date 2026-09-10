@@ -77,7 +77,9 @@ func TestGetBlobVersions(t *testing.T) {
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
+	cSt := st // grab reference to prevent clobbering that results in SIGSEV during t.Cleanup
+
+	t.Cleanup(func() { cSt.Close(testlogging.ContextForCleanup(t)) })
 
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
