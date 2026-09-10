@@ -215,6 +215,9 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	count := getBlobCount(ctx, t, st, blobID)
 	require.Equal(t, 1, count)
 
+	// ensure blob deletion has a different time stamp so PIT below works
+	time.Sleep(2 * time.Second)
+
 	err = st.DeleteBlob(ctx, blobID)
 	require.NoError(t, err)
 
