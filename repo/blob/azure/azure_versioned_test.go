@@ -2,8 +2,6 @@ package azure_test
 
 import (
 	"context"
-	"crypto/rand"
-	"fmt"
 	"testing"
 	"time"
 
@@ -29,18 +27,15 @@ func TestGetBlobVersionsFailsWhenVersioningDisabled(t *testing.T) {
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
 
 	ctx := testlogging.Context(t)
-	data := make([]byte, 8)
-	rand.Read(data)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
 	t.Cleanup(cancel)
 
-	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         prefix,
+		Prefix:         storagePrefixForTest(),
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
@@ -69,18 +64,15 @@ func TestGetBlobVersions(t *testing.T) {
 	createContainer(t, container, storageAccount, storageKey)
 
 	ctx := testlogging.Context(t)
-	data := make([]byte, 8)
-	rand.Read(data)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
 	t.Cleanup(cancel)
 
-	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         prefix,
+		Prefix:         storagePrefixForTest(),
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
@@ -99,9 +91,7 @@ func TestGetBlobVersions(t *testing.T) {
 		latestData   = "latest version"
 	)
 
-	const blobName = "TestGetBlobVersions"
-
-	blobID := blob.ID(blobName)
+	blobID := blob.ID(t.Name())
 	dataBlobs := []string{originalData, updatedData, latestData}
 	dataTimestamps, err := putBlobs(ctx, st, blobID, dataBlobs)
 
@@ -179,18 +169,15 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	createContainer(t, container, storageAccount, storageKey)
 
 	ctx := testlogging.Context(t)
-	data := make([]byte, 8)
-	rand.Read(data)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
 	t.Cleanup(cancel)
 
-	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 	opts := &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         prefix,
+		Prefix:         storagePrefixForTest(),
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)

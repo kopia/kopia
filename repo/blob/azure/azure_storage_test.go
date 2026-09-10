@@ -104,9 +104,6 @@ func TestAzureStorage(t *testing.T) {
 	// create container if does not exist
 	createContainer(t, container, storageAccount, storageKey)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
@@ -115,7 +112,7 @@ func TestAzureStorage(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
-		Prefix:         fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data),
+		Prefix:         storagePrefixForTest(),
 	}, false)
 
 	cancel()
@@ -136,9 +133,6 @@ func TestAzureStorageSASToken(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	sasToken := getEnvOrSkip(t, testStorageSASTokenEnv)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after storage is initialize,
@@ -148,7 +142,7 @@ func TestAzureStorageSASToken(t *testing.T) {
 		Container:      container,
 		StorageAccount: storageAccount,
 		SASToken:       sasToken,
-		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
+		Prefix:         storagePrefixForTest(),
 	}, false)
 
 	require.NoError(t, err)
@@ -176,9 +170,6 @@ func TestAzureStorageClientSecret(t *testing.T) {
 	clientID := getEnvOrSkip(t, testStorageClientIDEnv)
 	clientSecret := getEnvOrSkip(t, testStorageClientSecretEnv)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after storage is initialize,
@@ -190,7 +181,7 @@ func TestAzureStorageClientSecret(t *testing.T) {
 		TenantID:       tenantID,
 		ClientID:       clientID,
 		ClientSecret:   clientSecret,
-		Prefix:         fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
+		Prefix:         storagePrefixForTest(),
 	}, false)
 
 	require.NoError(t, err)
@@ -218,9 +209,6 @@ func TestAzureStorageClientCertificate(t *testing.T) {
 	clientID := getEnvOrSkip(t, testStorageClientIDEnv)
 	clientCert := getEnvOrSkip(t, testStorageClientCertEnv)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after storage is initialize,
@@ -232,7 +220,7 @@ func TestAzureStorageClientCertificate(t *testing.T) {
 		TenantID:          tenantID,
 		ClientID:          clientID,
 		ClientCertificate: clientCert,
-		Prefix:            fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
+		Prefix:            storagePrefixForTest(),
 	}, false)
 
 	require.NoError(t, err)
@@ -260,9 +248,6 @@ func TestAzureFederatedIdentity(t *testing.T) {
 	clientID := getEnvOrSkip(t, testStorageClientIDEnv)
 	azureFederatedTokenFilePath := getEnvOrSkip(t, testAzureFederatedIdentityFilePathEnv)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after storage is initialize,
@@ -274,7 +259,7 @@ func TestAzureFederatedIdentity(t *testing.T) {
 		TenantID:                tenantID,
 		ClientID:                clientID,
 		AzureFederatedTokenFile: azureFederatedTokenFilePath,
-		Prefix:                  fmt.Sprintf("sastest-%v-%x/", clock.Now().Unix(), data),
+		Prefix:                  storagePrefixForTest(),
 	}, false)
 
 	require.NoError(t, err)
@@ -366,4 +351,12 @@ func getBlobCount(ctx context.Context, t *testing.T, st blob.Storage, prefix blo
 	require.NoError(t, err)
 
 	return count
+}
+
+func storagePrefixForTest() string {
+	var data [4]byte
+
+	rand.Read(data[:])
+
+	return fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
 }

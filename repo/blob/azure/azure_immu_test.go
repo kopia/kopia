@@ -2,7 +2,6 @@ package azure_test
 
 import (
 	"context"
-	"crypto/rand"
 	"fmt"
 	"testing"
 	"time"
@@ -30,14 +29,11 @@ func TestAzureStorageImmutabilityProtection(t *testing.T) {
 	storageAccount := getEnvOrSkip(t, testImmutableStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testImmutableStorageKeyEnv)
 
-	data := make([]byte, 8)
-	rand.Read(data)
-
 	ctx := testlogging.Context(t)
 
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	prefix := fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
+	prefix := storagePrefixForTest()
 	st, err := azure.New(newctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
