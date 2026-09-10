@@ -221,9 +221,7 @@ func (e *Environment) MustConnectOpenAnother(tb testing.TB, openOpts ...func(*re
 
 	config := filepath.Join(testutil.TempDirectory(tb), "kopia.config")
 	connOpts := &repo.ConnectOptions{
-		CachingOptions: content.CachingOptions{
-			CacheDirectory: testutil.TempDirectory(tb),
-		},
+		CacheDirectory: testutil.TempDirectory(tb),
 	}
 
 	err := repo.Connect(ctx, config, e.st, e.Password, connOpts)

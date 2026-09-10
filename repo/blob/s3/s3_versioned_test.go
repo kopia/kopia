@@ -332,11 +332,9 @@ func TestInfoToVersionMetadata(t *testing.T) {
 				VersionID:      "version-identifier",
 			},
 			versionMetadata{
-				Metadata: blob.Metadata{
-					BlobID:    "blob-id",
-					Length:    78901,
-					Timestamp: timestamp,
-				},
+				BlobID:         "blob-id",
+				Length:         78901,
+				Timestamp:      timestamp,
 				IsLatest:       true,
 				IsDeleteMarker: true,
 				Version:        "version-identifier",
@@ -354,11 +352,9 @@ func TestInfoToVersionMetadata(t *testing.T) {
 				VersionID:      "",
 			},
 			versionMetadata{
-				Metadata: blob.Metadata{
-					BlobID:    "blob-2",
-					Length:    78901,
-					Timestamp: timestamp,
-				},
+				BlobID:         "blob-2",
+				Length:         78901,
+				Timestamp:      timestamp,
 				IsLatest:       false,
 				IsDeleteMarker: false,
 				Version:        "",
@@ -825,7 +821,7 @@ func deleteBlob(ctx context.Context, s blob.Storage, b blob.ID) (versionMetadata
 
 	// length is 0, timestamp and version are unknown
 	return versionMetadata{
-		Metadata:       blob.Metadata{BlobID: b},
+		BlobID:         b,
 		IsDeleteMarker: true,
 	}, nil
 }
