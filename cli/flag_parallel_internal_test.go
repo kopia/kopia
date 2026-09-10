@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// TestParallelismAsInt guards the uint->int conversion used by the --parallel
-// flags. A plain int(v) would wrap large values to a negative int, which is the
-// panic-on-negative-parallelism bug that kopia/kopia#2022 fixed.
+// TestParallelismAsInt verifies the uint->int conversion used by the
+// --parallel flags to prevent wrap large values to a negative int.
 func TestParallelismAsInt(t *testing.T) {
 	cases := []struct {
 		name  string

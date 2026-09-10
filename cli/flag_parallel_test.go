@@ -10,13 +10,8 @@ import (
 )
 
 // TestNegativeParallelRejected verifies that a negative --parallel value is
-// rejected at flag-parse time (returning an error identifying the bad value)
-// rather than panicking once the command runs. See kopia/kopia#2022.
-//
-// The assertion checks the rejection message specifically, so the test fails if
-// the flag ever stops validating: a bare "command failed" check would pass even
-// without the fix, since these commands also fail later when no repository is
-// connected.
+// rejected at flag-parse time and returns an error identifying the bad value
+// rather than panicking once the command runs.
 func TestNegativeParallelRejected(t *testing.T) {
 	t.Parallel()
 
@@ -27,6 +22,11 @@ func TestNegativeParallelRejected(t *testing.T) {
 		{"content", "verify", "--parallel=-1"},
 	} {
 		_, _, err := env.Run(t, true, args...)
+		// check rejection message so the test fails if
+		// the flag ever stops validating, otherwise a
+		// bare "command failed" check would pass
+		// since these commands fail regardless given that
+		// no repository is connected.
 		require.ErrorContains(t, err, "invalid syntax",
 			"'kopia %v' should fail parsing the negative value", strings.Join(args, " "))
 	}
