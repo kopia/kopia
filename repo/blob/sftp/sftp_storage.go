@@ -6,6 +6,7 @@ package sftp
 import (
 	"context"
 	"crypto/rand"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"net"
@@ -54,7 +55,6 @@ type sftpImpl struct {
 type sftpConnection struct {
 	closeFunc     func() error
 	currentClient *sftp.Client
-	closed        bool
 }
 
 func (c *sftpConnection) String() string {
@@ -62,17 +62,13 @@ func (c *sftpConnection) String() string {
 }
 
 func (c *sftpConnection) Close() error {
-	if err := c.currentClient.Close(); err != nil {
-		return errors.Wrap(err, "error closing SFTP client")
-	}
+	clientErr := errors.Wrap(c.currentClient.Close(), "error closing SFTP client")
 
-	if err := c.closeFunc(); err != nil {
-		return errors.Wrap(err, "error closing SFTP connection")
-	}
+	// closeFunc must run even when closing the client failed, otherwise a broken
+	// connection leaves its external SSH process behind
+	connErr := errors.Wrap(c.closeFunc(), "error closing SFTP connection")
 
-	c.closed = true
-
-	return nil
+	return stderrors.Join(clientErr, connErr)
 }
 
 func (s *sftpImpl) NewConnection(ctx context.Context) (connection.Connection, error) {
@@ -490,7 +486,8 @@ func getSFTPClientExternal(ctx context.Context, opt *Options) (*sftpConnection, 
 	closeFunc := func() error {
 		p := cmd.Process
 		if p != nil {
-			p.Kill() //nolint:errcheck
+			p.Kill()   //nolint:errcheck
+			cmd.Wait() //nolint:errcheck
 		}
 
 		return nil
