@@ -46,11 +46,9 @@ func addBlobsToIndex(ndx map[blob.ID]*Metadata, blobs []blob.Metadata) {
 	for _, it := range blobs {
 		if ndx[it.BlobID] == nil {
 			ndx[it.BlobID] = &Metadata{
-				Metadata: blob.Metadata{
-					BlobID:    it.BlobID,
-					Length:    it.Length,
-					Timestamp: it.Timestamp,
-				},
+				BlobID:    it.BlobID,
+				Length:    it.Length,
+				Timestamp: it.Timestamp,
 			}
 		}
 	}

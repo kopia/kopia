@@ -102,12 +102,10 @@ func (imd *Directory) AddFileLines(name string, lines []string, permissions os.F
 func (imd *Directory) AddFile(name string, content []byte, permissions os.FileMode) *File {
 	imd, name = imd.resolveSubdir(name)
 	file := &File{
-		entry: entry{
-			name:    name,
-			mode:    permissions,
-			size:    int64(len(content)),
-			modTime: DefaultModTime,
-		},
+		name:    name,
+		mode:    permissions,
+		size:    int64(len(content)),
+		modTime: DefaultModTime,
 		source: func() (ReaderSeekerCloser, error) {
 			return readerSeekerCloser{bytes.NewReader(content)}, nil
 		},
@@ -123,13 +121,11 @@ func (imd *Directory) AddFile(name string, content []byte, permissions os.FileMo
 func (imd *Directory) AddFileWithSource(name string, permissions os.FileMode, source func() (ReaderSeekerCloser, error)) *File {
 	imd, name = imd.resolveSubdir(name)
 	file := &File{
-		entry: entry{
-			name:    name,
-			mode:    permissions,
-			size:    0,
-			modTime: DefaultModTime,
-		},
-		source: source,
+		name:    name,
+		mode:    permissions,
+		size:    0,
+		modTime: DefaultModTime,
+		source:  source,
 	}
 
 	imd.addChild(file)
@@ -150,14 +146,12 @@ func (imd *Directory) getRoot() *Directory {
 func (imd *Directory) AddSymlink(name, target string, permissions os.FileMode) *Symlink {
 	imd, name = imd.resolveSubdir(name)
 	sl := &Symlink{
-		entry: entry{
-			name:    name,
-			mode:    permissions | os.ModeSymlink,
-			size:    int64(len(target)),
-			modTime: DefaultModTime,
-		},
-		parent: imd,
-		target: target,
+		name:    name,
+		mode:    permissions | os.ModeSymlink,
+		size:    int64(len(target)),
+		modTime: DefaultModTime,
+		parent:  imd,
+		target:  target,
 	}
 
 	imd.addChild(sl)
@@ -169,13 +163,11 @@ func (imd *Directory) AddSymlink(name, target string, permissions os.FileMode) *
 func (imd *Directory) AddFileDevice(name string, content []byte, permissions os.FileMode, deviceInfo fs.DeviceInfo) *File {
 	imd, name = imd.resolveSubdir(name)
 	file := &File{
-		entry: entry{
-			name:    name,
-			mode:    permissions,
-			size:    int64(len(content)),
-			device:  deviceInfo,
-			modTime: DefaultModTime,
-		},
+		name:    name,
+		mode:    permissions,
+		size:    int64(len(content)),
+		device:  deviceInfo,
+		modTime: DefaultModTime,
 		source: func() (ReaderSeekerCloser, error) {
 			return readerSeekerCloser{bytes.NewReader(content)}, nil
 		},
@@ -191,12 +183,10 @@ func (imd *Directory) AddDir(name string, permissions os.FileMode) *Directory {
 	imd, name = imd.resolveSubdir(name)
 
 	subdir := &Directory{
-		entry: entry{
-			name:    name,
-			mode:    permissions | os.ModeDir,
-			modTime: DefaultModTime,
-		},
-		parent: imd,
+		name:    name,
+		mode:    permissions | os.ModeDir,
+		modTime: DefaultModTime,
+		parent:  imd,
 	}
 
 	imd.addChild(subdir)
@@ -223,12 +213,10 @@ func (imd *Directory) addErrorEntry(name string, permissions os.FileMode, err er
 	imd, name = imd.resolveSubdir(name)
 
 	ee := &ErrorEntry{
-		entry: entry{
-			name:    name,
-			mode:    permissions,
-			modTime: DefaultModTime,
-		},
-		err: err,
+		name:    name,
+		mode:    permissions,
+		modTime: DefaultModTime,
+		err:     err,
 	}
 
 	imd.addChild(ee)
@@ -241,12 +229,10 @@ func (imd *Directory) AddDirDevice(name string, permissions os.FileMode, deviceI
 	imd, name = imd.resolveSubdir(name)
 
 	subdir := &Directory{
-		entry: entry{
-			name:    name,
-			mode:    permissions | os.ModeDir,
-			device:  deviceInfo,
-			modTime: DefaultModTime,
-		},
+		name:    name,
+		mode:    permissions | os.ModeDir,
+		device:  deviceInfo,
+		modTime: DefaultModTime,
 	}
 
 	imd.addChild(subdir)
@@ -419,23 +405,19 @@ func (imsl *Symlink) Readlink(_ context.Context) (string, error) {
 // NewDirectory returns new mock directory.
 func NewDirectory() *Directory {
 	return &Directory{
-		entry: entry{
-			name:    "<root>",
-			mode:    0o777 | os.ModeDir, //nolint:mnd
-			modTime: DefaultModTime,
-		},
+		name:    "<root>",
+		mode:    0o777 | os.ModeDir, //nolint:mnd
+		modTime: DefaultModTime,
 	}
 }
 
 // NewFile returns a new mock file with the given name, contents, and mode.
 func NewFile(name string, content []byte, permissions os.FileMode) *File {
 	return &File{
-		entry: entry{
-			name:    name,
-			mode:    permissions,
-			size:    int64(len(content)),
-			modTime: DefaultModTime,
-		},
+		name:    name,
+		mode:    permissions,
+		size:    int64(len(content)),
+		modTime: DefaultModTime,
 		source: func() (ReaderSeekerCloser, error) {
 			return readerSeekerCloser{bytes.NewReader(content)}, nil
 		},

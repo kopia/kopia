@@ -91,26 +91,22 @@ func (c *connectOptions) getFormatBlobCacheDuration() time.Duration {
 
 func (c *connectOptions) toRepoConnectOptions() *repo.ConnectOptions {
 	return &repo.ConnectOptions{
-		CachingOptions: content.CachingOptions{
-			CacheDirectory:              c.connectCacheDirectory,
-			ContentCacheSizeBytes:       c.contentCacheSizeMB << 20,       //nolint:mnd
-			ContentCacheSizeLimitBytes:  c.contentCacheSizeLimitMB << 20,  //nolint:mnd
-			MetadataCacheSizeBytes:      c.metadataCacheSizeMB << 20,      //nolint:mnd
-			MetadataCacheSizeLimitBytes: c.metadataCacheSizeLimitMB << 20, //nolint:mnd
-			MaxListCacheDuration:        content.DurationSeconds(c.maxListCacheDuration.Seconds()),
-			MinContentSweepAge:          content.DurationSeconds(c.contentMinSweepAge.Seconds()),
-			MinMetadataSweepAge:         content.DurationSeconds(c.metadataMinSweepAge.Seconds()),
-			MinIndexSweepAge:            content.DurationSeconds(c.indexMinSweepAge.Seconds()),
-		},
-		ClientOptions: repo.ClientOptions{
-			Hostname:                c.connectHostname,
-			Username:                c.connectUsername,
-			ReadOnly:                c.connectReadonly,
-			PermissiveCacheLoading:  c.connectPermissiveCacheLoading,
-			Description:             c.connectDescription,
-			EnableActions:           c.connectEnableActions,
-			FormatBlobCacheDuration: c.getFormatBlobCacheDuration(),
-		},
+		CacheDirectory:              c.connectCacheDirectory,
+		ContentCacheSizeBytes:       c.contentCacheSizeMB << 20,       //nolint:mnd
+		ContentCacheSizeLimitBytes:  c.contentCacheSizeLimitMB << 20,  //nolint:mnd
+		MetadataCacheSizeBytes:      c.metadataCacheSizeMB << 20,      //nolint:mnd
+		MetadataCacheSizeLimitBytes: c.metadataCacheSizeLimitMB << 20, //nolint:mnd
+		MaxListCacheDuration:        content.DurationSeconds(c.maxListCacheDuration.Seconds()),
+		MinContentSweepAge:          content.DurationSeconds(c.contentMinSweepAge.Seconds()),
+		MinMetadataSweepAge:         content.DurationSeconds(c.metadataMinSweepAge.Seconds()),
+		MinIndexSweepAge:            content.DurationSeconds(c.indexMinSweepAge.Seconds()),
+		Hostname:                    c.connectHostname,
+		Username:                    c.connectUsername,
+		ReadOnly:                    c.connectReadonly,
+		PermissiveCacheLoading:      c.connectPermissiveCacheLoading,
+		Description:                 c.connectDescription,
+		EnableActions:               c.connectEnableActions,
+		FormatBlobCacheDuration:     c.getFormatBlobCacheDuration(),
 	}
 }
 

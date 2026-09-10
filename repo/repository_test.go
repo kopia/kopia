@@ -730,14 +730,10 @@ func TestConnectAPIServerInvalidPasswordDoesNotLeakPersistentCache(t *testing.T)
 	configFile := filepath.Join(t.TempDir(), "repo.config")
 
 	err := repo.ConnectAPIServer(ctx, configFile, apiServerInfo, "invalid-password", &repo.ConnectOptions{
-		ClientOptions: repo.ClientOptions{
-			Username: servertesting.TestUsername,
-			Hostname: servertesting.TestHostname,
-		},
-		CachingOptions: content.CachingOptions{
-			CacheDirectory:        testutil.TempDirectory(t),
-			ContentCacheSizeBytes: 1 << 20,
-		},
+		Username:              servertesting.TestUsername,
+		Hostname:              servertesting.TestHostname,
+		CacheDirectory:        testutil.TempDirectory(t),
+		ContentCacheSizeBytes: 1 << 20,
 	})
 
 	require.Error(t, err)
