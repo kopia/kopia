@@ -6,7 +6,7 @@ import (
 )
 
 // TestParallelismAsInt verifies the uint->int conversion used by the
-// --parallel flags to prevent wrap large values to a negative int.
+// --parallel flags to prevent large values from wrapping to a negative int.
 func TestParallelismAsInt(t *testing.T) {
 	cases := []struct {
 		name  string
