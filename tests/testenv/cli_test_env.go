@@ -203,7 +203,7 @@ func (e *CLITest) RunAndProcessStderrAsync(tb testing.TB, stderrCallback func(li
 // line-by-line to stderrCallback until it returns false. The remaining lines
 // from stderr, if any, are asynchronously sent line-by-line to
 // stderrAsyncCallback.
-func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line string) bool, stderrAsyncCallback func(line string), args ...string) (wait func() error, interrupt func(os.Signal)) {
+func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line string) bool, stderrAsyncCallback func(line string), args ...string) (wait func() error, interrupt func(os.Signal)) { //nolint:gocyclo
 	tb.Helper()
 
 	stdout, stderr, rWait, interrupt := e.Runner.Start(tb, e.RunContext, e.cmdArgs(args), e.Environment)
