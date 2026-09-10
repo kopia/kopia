@@ -78,6 +78,10 @@ type Server struct {
 
 	serverMutex sync.RWMutex
 
+	// refreshMutex serializes Refresh() calls. Request handlers never take it, so a refresh
+	// that is stuck on storage I/O does not block the API.
+	refreshMutex sync.Mutex
+
 	parallelSnapshotsMutex sync.Mutex
 
 	// +checklocks:parallelSnapshotsMutex
@@ -443,17 +447,26 @@ func (s *Server) refreshAsync() {
 
 // Refresh refreshes the state of the server in response to external signal (e.g. SIGHUP).
 func (s *Server) Refresh() {
-	s.serverMutex.Lock()
-	defer s.serverMutex.Unlock()
+	s.refreshMutex.Lock()
+	defer s.refreshMutex.Unlock()
 
-	if err := s.refreshLocked(s.rootctx); err != nil {
+	if err := s.refresh(s.rootctx); err != nil {
 		userLog(s.rootctx).Warnw("refresh error", "err", err)
 	}
 }
 
-// +checklocks:s.serverMutex
-func (s *Server) refreshLocked(ctx context.Context) error {
-	if s.rep == nil {
+// refresh reads the repository state without holding serverMutex, which is needed by every
+// API request, so that slow or unresponsive storage does not block unrelated requests.
+// serverMutex is only held to apply the result.
+//
+// +checklocks:s.refreshMutex
+func (s *Server) refresh(ctx context.Context) error {
+	s.serverMutex.RLock()
+	rep := s.rep
+	sourceManagersBefore := maps.Clone(s.sourceManagers)
+	s.serverMutex.RUnlock()
+
+	if rep == nil {
 		return nil
 	}
 
@@ -461,7 +474,7 @@ func (s *Server) refreshLocked(ctx context.Context) error {
 	s.nextRefreshTime = clock.Now().Add(s.options.RefreshInterval)
 	s.nextRefreshTimeLock.Unlock()
 
-	if err := s.rep.Refresh(ctx); err != nil {
+	if err := rep.Refresh(ctx); err != nil {
 		return errors.Wrap(err, "unable to refresh repository")
 	}
 
@@ -477,12 +490,29 @@ func (s *Server) refreshLocked(ctx context.Context) error {
 		}
 	}
 
-	if err := s.syncSourcesLocked(ctx); err != nil {
+	sources, maxParallelSnapshots, err := listSources(ctx, rep)
+	if err != nil {
 		return errors.Wrap(err, "unable to sync sources")
 	}
 
-	if s.maint != nil {
-		s.maint.refresh(ctx, false)
+	s.serverMutex.Lock()
+
+	if s.rep != rep {
+		// the repository was replaced by SetRepository() in the meantime, discard the result.
+		s.serverMutex.Unlock()
+
+		return nil
+	}
+
+	changes := s.updateSourceManagersLocked(sources, maxParallelSnapshots, sourceManagersBefore)
+	maint := s.maint
+
+	s.serverMutex.Unlock()
+
+	s.applySourceManagerChanges(ctx, changes)
+
+	if maint != nil {
+		maint.refresh(ctx, false)
 	}
 
 	return nil
@@ -679,72 +709,128 @@ func (s *Server) stopAllSourceManagersLocked(ctx context.Context) {
 
 // +checklocks:s.serverMutex
 func (s *Server) syncSourcesLocked(ctx context.Context) error {
+	sources, maxParallelSnapshots, err := listSources(ctx, s.rep)
+	if err != nil {
+		return err
+	}
+
+	changes := s.updateSourceManagersLocked(sources, maxParallelSnapshots, maps.Clone(s.sourceManagers))
+	s.applySourceManagerChanges(ctx, changes)
+
+	return nil
+}
+
+// listSources returns the sources that have snapshots or policies in the repository and
+// the maximum number of parallel snapshots for the repository user.
+func listSources(ctx context.Context, rep repo.Repository) (map[snapshot.SourceInfo]bool, int, error) {
+	snapshotSources, err := snapshot.ListSources(ctx, rep)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "unable to list sources")
+	}
+
+	policies, err := policy.ListPolicies(ctx, rep)
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "unable to list sources")
+	}
+
+	// user@host policy
+	userhostPol, _, _, err := policy.GetEffectivePolicy(ctx, rep, snapshot.SourceInfo{
+		UserName: rep.ClientOptions().Username,
+		Host:     rep.ClientOptions().Hostname,
+	})
+	if err != nil {
+		return nil, 0, errors.Wrap(err, "unable to get user policy")
+	}
+
 	sources := map[snapshot.SourceInfo]bool{}
 
-	if s.rep != nil {
-		snapshotSources, err := snapshot.ListSources(ctx, s.rep)
-		if err != nil {
-			return errors.Wrap(err, "unable to list sources")
-		}
+	for _, ss := range snapshotSources {
+		sources[ss] = true
+	}
 
-		policies, err := policy.ListPolicies(ctx, s.rep)
-		if err != nil {
-			return errors.Wrap(err, "unable to list sources")
-		}
-
-		// user@host policy
-		userhostPol, _, _, err := policy.GetEffectivePolicy(ctx, s.rep, snapshot.SourceInfo{
-			UserName: s.rep.ClientOptions().Username,
-			Host:     s.rep.ClientOptions().Hostname,
-		})
-		if err != nil {
-			return errors.Wrap(err, "unable to get user policy")
-		}
-
-		s.setMaxParallelSnapshotsLocked(userhostPol.UploadPolicy.MaxParallelSnapshots.OrDefault(1))
-
-		for _, ss := range snapshotSources {
-			sources[ss] = true
-		}
-
-		for _, pol := range policies {
-			if pol.Target().Path != "" && pol.Target().Host != "" && pol.Target().UserName != "" {
-				sources[pol.Target()] = true
-			}
+	for _, pol := range policies {
+		if pol.Target().Path != "" && pol.Target().Host != "" && pol.Target().UserName != "" {
+			sources[pol.Target()] = true
 		}
 	}
 
-	// copy existing sources to a map, from which we will remove sources that are found
-	// in the repository
-	oldSourceManagers := maps.Clone(s.sourceManagers)
+	return sources, userhostPol.UploadPolicy.MaxParallelSnapshots.OrDefault(1), nil
+}
+
+// sourceManagerChanges holds the source managers affected by updateSourceManagersLocked().
+type sourceManagerChanges struct {
+	added   map[*sourceManager]bool // new managers to start, the value indicates whether the source is local
+	kept    []*sourceManager        // existing managers whose status needs a refresh
+	removed []*sourceManager        // managers to stop
+}
+
+// updateSourceManagersLocked creates and removes source managers to match the provided
+// sources without performing storage I/O. Since the sources may have been listed without
+// holding serverMutex, managers created or deleted by other callers after 'before' was
+// captured are left as they are; the next refresh reconciles them.
+//
+// +checklocks:s.serverMutex
+func (s *Server) updateSourceManagersLocked(sources map[snapshot.SourceInfo]bool, maxParallelSnapshots int, before map[snapshot.SourceInfo]*sourceManager) sourceManagerChanges {
+	s.setMaxParallelSnapshotsLocked(maxParallelSnapshots)
+
+	changes := sourceManagerChanges{added: map[*sourceManager]bool{}}
 
 	for src := range sources {
-		if sm, ok := oldSourceManagers[src]; ok {
-			// pre-existing source, already has a manager
-			delete(oldSourceManagers, src)
-			sm.refreshStatus(ctx)
-		} else {
-			sm := newSourceManager(src, s, s.rep)
-			s.sourceManagers[src] = sm
+		if sm, ok := s.sourceManagers[src]; ok {
+			changes.kept = append(changes.kept, sm)
+			continue
+		}
 
-			sm.start(ctx, s.isLocal(src))
+		if _, ok := before[src]; ok {
+			// deleted in the meantime
+			continue
+		}
+
+		sm := newSourceManager(src, s, s.rep)
+		s.sourceManagers[src] = sm
+		changes.added[sm] = s.isLocal(src)
+	}
+
+	for src, sm := range s.sourceManagers {
+		if sources[src] || before[src] != sm {
+			// still in the repository or created in the meantime
+			continue
+		}
+
+		delete(s.sourceManagers, src)
+
+		changes.removed = append(changes.removed, sm)
+	}
+
+	return changes
+}
+
+// applySourceManagerChanges starts, refreshes and stops the source managers returned by
+// updateSourceManagersLocked(). It performs storage I/O and does not require serverMutex.
+func (s *Server) applySourceManagerChanges(ctx context.Context, changes sourceManagerChanges) {
+	// skip managers stopped in the meantime by SetRepository() or deleteSourceManager(),
+	// whose repository may already be closed.
+	for sm, isLocal := range changes.added {
+		if !sm.isStopped() {
+			sm.start(ctx, isLocal)
 		}
 	}
 
-	// whatever is left in oldSourceManagers are managers for sources that don't exist anymore.
-	// stop source manager for sources no longer in the repo.
-	for _, sm := range oldSourceManagers {
+	for _, sm := range changes.kept {
+		if !sm.isStopped() {
+			sm.refreshStatus(ctx)
+		}
+	}
+
+	for _, sm := range changes.removed {
 		sm.stop(ctx)
 	}
 
-	for src, sm := range oldSourceManagers {
+	for _, sm := range changes.removed {
 		sm.waitUntilStopped()
-		delete(s.sourceManagers, src)
 	}
 
 	s.refreshScheduler("sources refreshed")
-
-	return nil
 }
 
 func (s *Server) isKnownUIRoute(path string) bool {
@@ -1020,17 +1106,23 @@ func (s *Server) isLocal(src snapshot.SourceInfo) bool {
 
 func (s *Server) getOrCreateSourceManager(ctx context.Context, src snapshot.SourceInfo) *sourceManager {
 	s.serverMutex.Lock()
-	defer s.serverMutex.Unlock()
 
-	if s.sourceManagers[src] == nil {
-		userLog(ctx).Debugf("creating source manager for %v", src)
-		sm := newSourceManager(src, s, s.rep)
-		s.sourceManagers[src] = sm
-
-		sm.start(ctx, s.isLocal(src))
+	if sm := s.sourceManagers[src]; sm != nil {
+		s.serverMutex.Unlock()
+		return sm
 	}
 
-	return s.sourceManagers[src]
+	userLog(ctx).Debugf("creating source manager for %v", src)
+	sm := newSourceManager(src, s, s.rep)
+	s.sourceManagers[src] = sm
+	isLocal := s.isLocal(src)
+
+	s.serverMutex.Unlock()
+
+	// start without holding serverMutex, because it reads from the repository.
+	sm.start(ctx, isLocal)
+
+	return sm
 }
 
 func (s *Server) deleteSourceManager(ctx context.Context, src snapshot.SourceInfo) bool {
