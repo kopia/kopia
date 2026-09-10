@@ -86,8 +86,6 @@ func TestGetBlobVersions(t *testing.T) {
 	// required for PIT versioning check
 	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
 	require.NoError(t, err)
-	err = st.DeleteBlob(ctx, format.KopiaRepositoryBlobID) // blob can be deleted and still work
-	require.NoError(t, err)
 
 	const (
 		originalData = "original"
@@ -104,6 +102,13 @@ func TestGetBlobVersions(t *testing.T) {
 
 	pastPIT := dataTimestamps[0].Add(-1 * time.Second)
 	futurePIT := dataTimestamps[2].Add(1 * time.Second)
+
+	// wait before deleting the format.KopiaRepositoryBlobID blob so it shows up in a previous PIT.
+	time.Sleep(2 * time.Second)
+
+	// blob can be deleted and still work in prior PIT
+	err = st.DeleteBlob(ctx, format.KopiaRepositoryBlobID)
+	require.NoError(t, err)
 
 	for _, tt := range []struct {
 		testName         string
