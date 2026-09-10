@@ -265,6 +265,10 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 
 	if scannerErr != nil {
 		interrupt(os.Kill) // terminate sub-process before terminating test
+
+		_ = rWait()
+		_ = eg.Wait()
+
 		require.NoError(tb, scannerErr, "Error reading [%sstderr]", prefix)
 	}
 
