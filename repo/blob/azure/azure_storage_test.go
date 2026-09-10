@@ -86,9 +86,7 @@ func TestCleanupOldData(t *testing.T) {
 
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(testlogging.ContextForCleanup(t))
-	})
+	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
 	blobtesting.CleanupOldData(ctx, t, st, blobtesting.MinCleanupAge)
 }
@@ -118,7 +116,7 @@ func TestAzureStorage(t *testing.T) {
 	cancel()
 	require.NoError(t, err)
 
-	defer st.Close(ctx)
+	t.Cleanup(func() { cleanupTestDataAndClose(t, st) })
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -148,12 +146,7 @@ func TestAzureStorageSASToken(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
-	t.Cleanup(func() {
-		ctx := testlogging.ContextForCleanup(t)
-
-		blobtesting.CleanupOldData(ctx, t, st, 0)
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { cleanupTestDataAndClose(t, st) })
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -187,12 +180,7 @@ func TestAzureStorageClientSecret(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
-	t.Cleanup(func() {
-		ctx := testlogging.ContextForCleanup(t)
-
-		blobtesting.CleanupOldData(ctx, t, st, 0)
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { cleanupTestDataAndClose(t, st) })
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -226,12 +214,7 @@ func TestAzureStorageClientCertificate(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
-	t.Cleanup(func() {
-		ctx := testlogging.ContextForCleanup(t)
-
-		blobtesting.CleanupOldData(ctx, t, st, 0)
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { cleanupTestDataAndClose(t, st) })
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -265,12 +248,7 @@ func TestAzureFederatedIdentity(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
-	t.Cleanup(func() {
-		ctx := testlogging.ContextForCleanup(t)
-
-		blobtesting.CleanupOldData(ctx, t, st, 0)
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { cleanupTestDataAndClose(t, st) })
 
 	blobtesting.VerifyStorage(ctx, t, st, blob.PutOptions{})
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
@@ -359,4 +337,14 @@ func storagePrefixForTest() string {
 	rand.Read(data[:])
 
 	return fmt.Sprintf("test-%v-%x/", clock.Now().Unix(), data)
+}
+
+func cleanupTestDataAndClose(tb testing.TB, st blob.Storage) {
+	tb.Helper()
+
+	ctx := testlogging.ContextForCleanup(tb)
+
+	blobtesting.CleanupOldData(ctx, tb, st, 0)
+
+	require.NoError(tb, st.Close(ctx))
 }
