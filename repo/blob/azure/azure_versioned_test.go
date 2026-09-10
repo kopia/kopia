@@ -29,7 +29,6 @@ func TestGetBlobVersionsFailsWhenVersioningDisabled(t *testing.T) {
 	ctx := testlogging.Context(t)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	t.Cleanup(cancel)
 
 	opts := &azure.Options{
 		Container:      container,
@@ -39,6 +38,8 @@ func TestGetBlobVersionsFailsWhenVersioningDisabled(t *testing.T) {
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
+
+	cancel()
 
 	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
@@ -66,7 +67,6 @@ func TestGetBlobVersions(t *testing.T) {
 	ctx := testlogging.Context(t)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	t.Cleanup(cancel)
 
 	opts := &azure.Options{
 		Container:      container,
@@ -76,6 +76,8 @@ func TestGetBlobVersions(t *testing.T) {
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
+
+	cancel()
 
 	cSt := st // grab reference to prevent clobbering that results in SIGSEV during t.Cleanup
 
@@ -174,7 +176,6 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	ctx := testlogging.Context(t)
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
-	t.Cleanup(cancel)
 
 	opts := &azure.Options{
 		Container:      container,
@@ -184,6 +185,8 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	}
 	st, err := azure.New(newctx, opts, false)
 	require.NoError(t, err)
+
+	cancel()
 
 	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
