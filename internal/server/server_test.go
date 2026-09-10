@@ -25,6 +25,7 @@ import (
 	"github.com/kopia/kopia/notification/sender"
 	"github.com/kopia/kopia/notification/sender/webhook"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -165,12 +166,53 @@ func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
 	}
 }
 
+func TestServer_GetCapacity(t *testing.T) {
+	const storageLimitBytes = 10 * 1024 * 1024 // 10 MiB
+
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{
+		StorageLimitBytes: storageLimitBytes,
+	})
+
+	// Obtain the expected capacity directly from the repository. The returned
+	// capacity is used to check the response from the repository server.
+	c, err := env.Repository.GetCapacity(ctx)
+
+	require.NoError(t, err)
+	require.EqualValues(t, storageLimitBytes, c.SizeB, "direct GetCapacity SizeB should equal configured limit")
+
+	apiServerInfo := servertesting.StartServer(t, env, true)
+	ctx2, cancel := context.WithCancel(ctx)
+
+	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx2, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory:        testutil.TempDirectory(t),
+		ContentCacheSizeBytes: maxCacheSizeBytes,
+	}, servertesting.TestPassword, &repo.Options{})
+
+	// cancel immediately to ensure we did not spawn goroutines that depend on
+	// ctx2 inside repo.OpenAPIServer()
+	cancel()
+
+	require.NoError(t, err)
+
+	defer rep.Close(ctx)
+
+	// Verify the full gRPC round trip: SizeB and FreeB must match what was
+	// reported by the direct repository connection above
+	got, err := rep.GetCapacity(ctx)
+	require.NoError(t, err, "expected GetCapacity to succeed")
+	require.Equal(t, c, got, "capacity response")
+}
+
 //nolint:thelper
 func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository) {
 	mustListSnapshotCount(ctx, t, rep, 0)
 	mustGetObjectNotFound(ctx, t, rep, mustParseObjectID(t, "abcd"))
 	mustGetManifestNotFound(ctx, t, rep, "mnosuchmanifest")
 	mustPrefetchObjectsNotFound(ctx, t, rep, mustParseObjectID(t, "abcd"))
+	mustGetCapacityNotAVolume(ctx, t, rep)
 
 	var (
 		result                  object.ID
@@ -422,4 +464,11 @@ func mustParseObjectID(t *testing.T, s string) object.ID {
 	require.NoError(t, err)
 
 	return id
+}
+
+func mustGetCapacityNotAVolume(ctx context.Context, t *testing.T, rep repo.Repository) {
+	t.Helper()
+
+	_, err := rep.GetCapacity(ctx)
+	require.ErrorIs(t, err, blob.ErrNotAVolume, "expected 'not a volume' error")
 }

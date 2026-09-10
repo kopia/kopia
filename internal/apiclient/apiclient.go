@@ -207,13 +207,16 @@ type Options struct {
 
 // NewKopiaAPIClient creates a client for connecting to Kopia HTTP API.
 func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
-	var transport http.RoundTripper
+	transport := http.DefaultTransport
 
 	// override transport which trusts only one certificate
 	if f := options.TrustedServerCertificateFingerprint; f != "" {
-		transport = tlsutil.TransportTrustingSingleCertificate(f)
-	} else {
-		transport = http.DefaultTransport
+		tr, err := tlsutil.TransportTrustingSingleCertificate(f)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create transport")
+		}
+
+		transport = tr
 	}
 
 	uri := options.BaseURL
@@ -277,11 +280,11 @@ func (t loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	dur := timer.Elapsed()
 
 	if err != nil {
-		log(req.Context()).Debugf("%v %v took %v and failed with %v", req.Method, req.URL, dur, err)
+		log(req.Context()).Debugw("request failed", "method", req.Method, "url", req.URL, "duration", dur, "error", err)
 		return nil, errors.Wrap(err, "round-trip error")
 	}
 
-	log(req.Context()).Debugf("%v %v took %v and returned %v", req.Method, req.URL, dur, resp.Status)
+	log(req.Context()).Debugw("request completed", "method", req.Method, "url", req.URL, "duration", dur, "status", resp.Status)
 
 	return resp, nil
 }

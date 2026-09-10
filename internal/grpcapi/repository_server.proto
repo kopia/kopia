@@ -24,6 +24,12 @@ message ManifestEntryMetadata {
   map<string, string> labels = 4;
 }
 
+// corresponds to blob.Capacity
+message Capacity {
+  uint64 size_b = 1;
+  uint64 free_b = 2;
+}
+
 // ErrorResponse can be sent in response to any request.
 message ErrorResponse {
   enum Code {
@@ -34,6 +40,7 @@ message ErrorResponse {
     OBJECT_NOT_FOUND = 4;
     ACCESS_DENIED = 5;
     STREAM_BROKEN = 6;
+    NOT_A_VOLUME = 7;
   }
 
   Code code = 1;
@@ -162,6 +169,13 @@ message SendNotificationRequest {
 message SendNotificationResponse {
 }
 
+message GetCapacityRequest {
+}
+
+message GetCapacityResponse {
+  Capacity capacity = 1;
+}
+
 message SessionRequest {
   int64 request_id = 1;
   map<string,string> trace_context = 2;
@@ -182,6 +196,7 @@ message SessionRequest {
     PrefetchContentsRequest prefetch_contents = 19;
     ApplyRetentionPolicyRequest apply_retention_policy = 20;
     SendNotificationRequest send_notification = 21;
+    GetCapacityRequest get_capacity = 22;
   }
 }
 
@@ -204,6 +219,7 @@ message SessionResponse {
     PrefetchContentsResponse prefetch_contents = 19;
     ApplyRetentionPolicyResponse apply_retention_policy = 20;
     SendNotificationResponse send_notification = 21;
+    GetCapacityResponse get_capacity = 22;
   }
 }
 

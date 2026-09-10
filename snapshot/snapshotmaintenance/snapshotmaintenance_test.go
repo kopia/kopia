@@ -346,9 +346,7 @@ func (th *testHarness) openAnother(t *testing.T) repo.RepositoryWriter {
 	r := th.MustConnectOpenAnother(t, th.fakeTimeOpenRepoOption)
 	ctx := testlogging.Context(t)
 
-	t.Cleanup(func() {
-		r.Close(ctx)
-	})
+	t.Cleanup(func() { r.Close(testlogging.ContextForCleanup(t)) })
 
 	_, w, err := r.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(t, err)

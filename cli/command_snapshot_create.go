@@ -77,9 +77,9 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("pin", "Create a pinned snapshot that will not expire automatically").StringsVar(&c.pins)
 	cmd.Flag("flush-per-source", "Flush writes at the end of each source").Hidden().BoolVar(&c.flushPerSource)
 	cmd.Flag("override-source", "Override the source of the snapshot.").StringVar(&c.sourceOverride)
-	cmd.Flag("send-snapshot-report", "Send a snapshot report notification using configured notification profiles").Default("true").BoolVar(&c.sendSnapshotReport)
+	cmd.Flag("send-snapshot-report", "Send a snapshot report notification using configured notification profiles").Default(trueStr).BoolVar(&c.sendSnapshotReport)
 	cmd.Flag("hint-streaming-reads", "[EXPERIMENTAL] Hint the OS to release memory used for I/O after reading files that are being backed up, aiming at reducing the memory footprint during backups (Linux only, best-effort).").
-		Default("false").Hidden().BoolVar(&c.snapshotCreateStreamingReads)
+		Default(falseStr).Hidden().BoolVar(&c.snapshotCreateStreamingReads)
 
 	c.logDirDetail = -1
 	c.logEntryDetail = -1

@@ -61,7 +61,7 @@ func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Envi
 	s.SetRepository(ctx, env.Repository)
 
 	// ensure we disconnect the repository before shutting down the server.
-	t.Cleanup(func() { s.SetRepository(ctx, nil) })
+	t.Cleanup(func() { s.SetRepository(testlogging.ContextForCleanup(t), nil) })
 
 	require.NoError(t, err)
 
@@ -103,7 +103,7 @@ func ConnectAndOpenAPIServer(t *testing.T, ctx context.Context, asi *repo.APISer
 	}
 
 	t.Cleanup(func() {
-		repo.Disconnect(ctx, configFile)
+		repo.Disconnect(testlogging.ContextForCleanup(t), configFile)
 	})
 
 	return repo.Open(ctx, configFile, password, opt)

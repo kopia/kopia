@@ -31,7 +31,7 @@ func (c *commandList) setup(svc appServices, parent commandParent) {
 	cmd.Flag("human-readable", "Show human-readable sizes").Short('h').BoolVar(&c.humanReadable)
 	cmd.Flag("recursive", "Recursive output").Short('r').BoolVar(&c.recursive)
 	cmd.Flag("show-object-id", "Show object IDs").Short('o').BoolVar(&c.showOID)
-	cmd.Flag("error-summary", "Emit error summary").Default("true").BoolVar(&c.errorSummary)
+	cmd.Flag("error-summary", "Emit error summary").Default(trueStr).BoolVar(&c.errorSummary)
 	cmd.Arg("object-path", "Path").Required().StringVar(&c.path)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 

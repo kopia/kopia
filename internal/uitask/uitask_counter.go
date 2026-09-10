@@ -7,9 +7,11 @@ type CounterValue struct {
 	Level string `json:"level"` // "", "notice", "warning" or "error"
 }
 
+const bytesString = "bytes"
+
 // BytesCounter returns CounterValue for the number of bytes.
 func BytesCounter(v int64) CounterValue {
-	return CounterValue{v, "bytes", ""}
+	return CounterValue{v, bytesString, ""}
 }
 
 // SimpleCounter returns simple numeric CounterValue without units.
@@ -19,7 +21,7 @@ func SimpleCounter(v int64) CounterValue {
 
 // NoticeBytesCounter returns CounterValue for the number of bytes.
 func NoticeBytesCounter(v int64) CounterValue {
-	return CounterValue{v, "bytes", "notice"}
+	return CounterValue{v, bytesString, "notice"}
 }
 
 // NoticeCounter returns simple numeric CounterValue without units.
@@ -29,7 +31,7 @@ func NoticeCounter(v int64) CounterValue {
 
 // WarningBytesCounter returns CounterValue for the number of bytes.
 func WarningBytesCounter(v int64) CounterValue {
-	return CounterValue{v, "bytes", "warning"}
+	return CounterValue{v, bytesString, "warning"}
 }
 
 // WarningCounter returns simple numeric CounterValue without units.
@@ -39,7 +41,7 @@ func WarningCounter(v int64) CounterValue {
 
 // ErrorBytesCounter returns CounterValue for the number of bytes.
 func ErrorBytesCounter(v int64) CounterValue {
-	return CounterValue{v, "bytes", "error"}
+	return CounterValue{v, bytesString, "error"}
 }
 
 // ErrorCounter returns simple numeric CounterValue without units.

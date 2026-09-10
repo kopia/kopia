@@ -104,6 +104,7 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 				blobparam.BlobID("blobID", bm.BlobID),
 				logparam.Time("cutoffTime", cutoffTime),
 				logparam.Time("timestamp", bm.Timestamp))
+
 			return nil
 		}
 
@@ -114,6 +115,7 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 				"preserving pack - below min age",
 				blobparam.BlobID("blobID", bm.BlobID),
 				logparam.Duration("age", age))
+
 			return nil
 		}
 
@@ -126,6 +128,7 @@ func DeleteUnreferencedPacks(ctx context.Context, rep repo.DirectRepositoryWrite
 					"preserving pack - part of active session",
 					blobparam.BlobID("blobID", bm.BlobID),
 					logparam.String("sessionID", string(sid)))
+
 				return nil
 			}
 		}

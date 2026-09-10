@@ -24,6 +24,8 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
+const trueStr = "true"
+
 var tracer = otel.Tracer("kopia/repository")
 
 // Repository exposes public API of Kopia repository, including objects and manifests.
@@ -37,6 +39,7 @@ type Repository interface {
 	ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error)
 	PrefetchContents(ctx context.Context, contentIDs []content.ID, hint string) []content.ID
 	PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error)
+	GetCapacity(ctx context.Context) (blob.Capacity, error)
 	Time() time.Time
 	ClientOptions() ClientOptions
 	NewWriter(ctx context.Context, opt WriteSessionOptions) (context.Context, RepositoryWriter, error)
@@ -263,6 +266,12 @@ func (r *directRepository) PrefetchContents(ctx context.Context, contentIDs []co
 func (r *directRepository) PrefetchObjects(ctx context.Context, objectIDs []object.ID, hint string) ([]content.ID, error) {
 	//nolint:wrapcheck
 	return object.PrefetchBackingContents(ctx, r.cmgr, objectIDs, hint)
+}
+
+// GetCapacity returns the volume capacity.
+func (r *directRepository) GetCapacity(ctx context.Context) (blob.Capacity, error) {
+	//nolint:wrapcheck
+	return r.blobs.GetCapacity(ctx)
 }
 
 // ListActiveSessions returns the map of active sessions.

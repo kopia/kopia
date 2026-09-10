@@ -25,7 +25,7 @@ func (s *formatSpecificTestSuite) TestContentVerify(t *testing.T) {
 	env.RunAndExpectSuccess(t, "content", "verify", "--download-percent=30")
 
 	// delete one of 'p' blobs.
-	blobIDToDelete := strings.Split(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=p")[0], " ")[0]
+	blobIDToDelete, _, _ := strings.Cut(env.RunAndExpectSuccess(t, "blob", "list", "--prefix=p")[0], " ")
 	blobList := env.RunAndExpectSuccess(t, "blob", "list")
 	t.Logf("blob list: %v", strings.Join(blobList, "\n"))
 	env.RunAndExpectSuccess(t, "blob", "delete", blobIDToDelete)

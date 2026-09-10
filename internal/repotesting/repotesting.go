@@ -41,6 +41,9 @@ type Options struct {
 	ConnectOptions       func(*repo.ConnectOptions)
 	NewRepositoryOptions func(*repo.NewRepositoryOptions)
 	OpenOptions          func(*repo.Options)
+	// A non-zero StorageLimitBytes option limits the capacity of the underlying storage,
+	// otherwise it is unlimited.
+	StorageLimitBytes uint64
 }
 
 // RepositoryMetrics returns metrics.Registry associated with a repository.
@@ -94,9 +97,18 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 		}
 	}
 
+	// collect last non-zero StorageLimitBytes across all opts
+	var storageLimitBytes uint64
+
+	for _, mod := range opts {
+		if mod.StorageLimitBytes != 0 {
+			storageLimitBytes = mod.StorageLimitBytes
+		}
+	}
+
 	var st blob.Storage
 	if opt.RetentionPeriod == 0 || opt.RetentionMode == "" {
-		st = blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, openOpt.TimeNowFunc)
+		st = blobtesting.NewMapStorageWithLimit(blobtesting.DataMap{}, nil, openOpt.TimeNowFunc, storageLimitBytes)
 	} else {
 		// use versioned mock storage when retention settings are specified
 		st = blobtesting.NewVersionedMapStorage(openOpt.TimeNowFunc)
@@ -130,8 +142,10 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	require.NoError(tb, err)
 
 	tb.Cleanup(func() {
-		e.RepositoryWriter.Close(ctx)
-		rep.Close(ctx)
+		cctx := testlogging.ContextForCleanup(tb)
+
+		e.RepositoryWriter.Close(cctx)
+		rep.Close(cctx)
 	})
 
 	return e
@@ -175,7 +189,7 @@ func (e *Environment) MustReopen(tb testing.TB, openOpts ...func(*repo.Options))
 	rep, err := repo.Open(ctx2, e.ConfigFile(), e.Password, repoOptions(openOpts))
 	require.NoError(tb, err)
 
-	tb.Cleanup(func() { rep.Close(ctx) })
+	tb.Cleanup(func() { rep.Close(testlogging.ContextForCleanup(tb)) })
 
 	_, e.RepositoryWriter, err = testutil.EnsureType[repo.DirectRepository](tb, rep).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(tb, err)
@@ -190,9 +204,7 @@ func (e *Environment) MustOpenAnother(tb testing.TB, openOpts ...func(*repo.Opti
 	rep2, err := repo.Open(ctx, e.ConfigFile(), e.Password, repoOptions(openOpts))
 	require.NoError(tb, err)
 
-	tb.Cleanup(func() {
-		rep2.Close(ctx)
-	})
+	tb.Cleanup(func() { rep2.Close(testlogging.ContextForCleanup(tb)) })
 
 	_, w, err := rep2.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	require.NoError(tb, err)
@@ -271,9 +283,7 @@ func NewEnvironment(tb testing.TB, version format.Version, opts ...Options) (con
 
 	env.setup(tb, version, opts...)
 
-	tb.Cleanup(func() {
-		env.Close(ctx, tb)
-	})
+	tb.Cleanup(func() { env.Close(testlogging.ContextForCleanup(tb), tb) })
 
 	return ctx, &env
 }

@@ -364,13 +364,14 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 	fingerprintBytes := sha256.Sum256(cert.Raw)
 	fingerprintHexString := hex.EncodeToString(fingerprintBytes[:])
 
-	var cli http.Client
-
-	cli.Transport = &http.Transport{
-		TLSClientConfig: tlsutil.TLSConfigTrustingSingleCertificate(fingerprintHexString),
+	tc, err := tlsutil.TLSConfigTrustingSingleCertificate(fingerprintHexString)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating TLS config")
 	}
 
-	r.remoteControlHTTPClient = &cli
+	r.remoteControlHTTPClient = &http.Client{
+		Transport: &http.Transport{TLSClientConfig: tc},
+	}
 	r.remoteControlUsername = webdavUsername
 	r.remoteControlPassword = webdavPassword
 	r.remoteControlAddr = rcloneUrls.remoteControlAddr
