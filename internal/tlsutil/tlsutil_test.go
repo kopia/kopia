@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/tlsutil"
 )
 
@@ -51,12 +53,10 @@ func TestTransportTrustingSingleCertificate(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, transport)
 
-	// Testing the VerifyPeerCertificate function
-	verifyPeerCertificate := transport.(*http.Transport).TLSClientConfig.VerifyPeerCertificate //nolint:forcetypeassert
+	verifyConnection := testutil.EnsureType[*http.Transport](t, transport).TLSClientConfig.VerifyConnection
 
 	t.Run("Test with the correct certificate", func(t *testing.T) {
-		rawCerts := [][]byte{cert.Raw}
-		err := verifyPeerCertificate(rawCerts, nil)
+		err := verifyConnection(tls.ConnectionState{PeerCertificates: []*x509.Certificate{cert}})
 		require.NoError(t, err)
 	})
 
@@ -64,8 +64,7 @@ func TestTransportTrustingSingleCertificate(t *testing.T) {
 		invalidCert, _, err := tlsutil.GenerateServerCertificate(ctx, 2048, certValid, names)
 		require.NoError(t, err)
 
-		rawCerts := [][]byte{invalidCert.Raw}
-		err = verifyPeerCertificate(rawCerts, nil)
+		err = verifyConnection(tls.ConnectionState{PeerCertificates: []*x509.Certificate{invalidCert}})
 		require.Error(t, err)
 		require.ErrorContains(t, err, "can't find certificate matching SHA256 fingerprint")
 	})
