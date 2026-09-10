@@ -106,6 +106,7 @@ func TestGetBlobVersions(t *testing.T) {
 	dataTimestamps, err := putBlobs(ctx, st, blobID, dataBlobs)
 
 	require.NoError(t, err)
+	require.Len(t, dataTimestamps, 3)
 
 	pastPIT := dataTimestamps[0].Add(-1 * time.Second)
 	futurePIT := dataTimestamps[2].Add(1 * time.Second)
