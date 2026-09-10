@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
@@ -37,6 +38,24 @@ const (
 	tempFileRandomSuffixLen = 8
 
 	packetSize = 1 << 15
+
+	keepaliveRequestType = "keepalive@openssh.com"
+)
+
+// The SFTP client waits for replies without a deadline, so a server or network
+// path that stops responding without closing the connection would block
+// requests forever. These bound how long a silent connection is trusted.
+var (
+	// connectTimeout bounds establishing the TCP connection to the server.
+	connectTimeout = 30 * time.Second
+
+	// keepaliveInterval is how often a keepalive request is sent, so an idle
+	// but healthy connection keeps receiving data from the server.
+	keepaliveInterval = 15 * time.Second
+
+	// readIdleTimeout is how long the connection may receive nothing from the
+	// server before it is closed, turning the hang into a connection error.
+	readIdleTimeout = 60 * time.Second
 )
 
 // sftpStorage implements blob.Storage on top of sftp.
@@ -522,7 +541,7 @@ func getSFTPClient(ctx context.Context, opt *Options) (*sftpConnection, error) {
 
 	addr := fmt.Sprintf("%s:%d", opt.Host, opt.Port)
 
-	conn, err := ssh.Dial("tcp", addr, config)
+	conn, err := dialSSH(ctx, addr, config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to dial [%s]: %#v", addr, config)
 	}
@@ -541,6 +560,58 @@ func getSFTPClient(ctx context.Context, opt *Options) (*sftpConnection, error) {
 		currentClient: c,
 		closeFunc:     conn.Close,
 	}, nil
+}
+
+// dialSSH connects to the SSH server at addr. Reads from the returned client's
+// connection fail after readIdleTimeout without data from the server, and
+// keepalives make a healthy server send data at least every keepaliveInterval.
+func dialSSH(ctx context.Context, addr string, config *ssh.ClientConfig) (*ssh.Client, error) {
+	d := net.Dialer{Timeout: connectTimeout}
+
+	conn, err := d.DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "error connecting to SSH server")
+	}
+
+	c, chans, reqs, err := ssh.NewClientConn(&idleTimeoutConn{Conn: conn, timeout: readIdleTimeout}, addr, config)
+	if err != nil {
+		return nil, errors.Wrap(err, "error establishing SSH connection")
+	}
+
+	client := ssh.NewClient(c, chans, reqs)
+
+	go sendKeepalives(client, keepaliveInterval)
+
+	return client, nil
+}
+
+// sendKeepalives periodically sends a request the server must reply to, until
+// the connection is closed.
+func sendKeepalives(client *ssh.Client, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		if _, _, err := client.SendRequest(keepaliveRequestType, true, nil); err != nil {
+			return
+		}
+	}
+}
+
+// idleTimeoutConn fails a Read when nothing is received for the timeout.
+type idleTimeoutConn struct {
+	net.Conn
+
+	timeout time.Duration
+}
+
+func (c *idleTimeoutConn) Read(b []byte) (int, error) {
+	//nolint:forbidigo // network deadlines are based on the real wall clock
+	if err := c.SetReadDeadline(time.Now().Add(c.timeout)); err != nil {
+		return 0, errors.Wrap(err, "error setting read deadline")
+	}
+
+	return c.Conn.Read(b) //nolint:wrapcheck
 }
 
 // New creates new ssh-backed storage in a specified host.
