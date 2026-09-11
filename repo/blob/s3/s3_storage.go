@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"strconv"
 	"time"
 
 	"github.com/minio/minio-go/v7"
@@ -456,6 +457,14 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 		Options:       *opt,
 		cli:           cli,
 		storageConfig: &StorageConfig{},
+	}
+
+	
+
+
+	disableStorageConfig, _ := strconv.ParseBool(os.Getenv("KOPIA_DISABLE_STORAGECONFIG"))
+	if opt.DisableStorageConfig || disableStorageConfig {
+		return &s, nil
 	}
 
 	var scOutput gather.WriteBuffer
