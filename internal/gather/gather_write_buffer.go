@@ -125,6 +125,11 @@ func (b *WriteBuffer) Append(data []byte) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	b.appendLocked(data)
+}
+
+// +checklocks:b.mu
+func (b *WriteBuffer) appendLocked(data []byte) {
 	b.inner.assertValid()
 
 	if len(b.inner.slices) == 0 {
