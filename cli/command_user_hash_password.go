@@ -18,7 +18,7 @@ type commandServerUserHashPassword struct {
 func (c *commandServerUserHashPassword) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("hash-password", "Hash a user password that can be passed to the 'server user add/set' command").Alias("hash")
 
-	cmd.Flag("user-password", "Password").StringVar(&c.password)
+	cmd.Flag("user-password", "Password").Envar(svc.EnvName("KOPIA_USER_PASSWORD")).StringVar(&c.password)
 
 	cmd.Action(svc.repositoryWriterAction(c.runServerUserHashPassword))
 
