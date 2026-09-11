@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"time"
+
 	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/metrics"
 	"github.com/kopia/kopia/repo/format"
@@ -9,12 +11,14 @@ import (
 
 // immutableServerRepositoryParameters contains immutable parameters shared between HTTP and GRPC clients.
 type immutableServerRepositoryParameters struct {
-	h               hashing.HashFunc
-	objectFormat    format.ObjectFormat
-	cliOpts         ClientOptions
-	metricsRegistry *metrics.Registry
-	contentCache    *cache.PersistentCache
-	beforeFlush     []RepositoryWriterCallback
+	h                    hashing.HashFunc
+	objectFormat         format.ObjectFormat
+	cliOpts              ClientOptions
+	metricsRegistry      *metrics.Registry
+	contentCache         *cache.PersistentCache
+	beforeFlush          []RepositoryWriterCallback
+	grpcKeepaliveTime    time.Duration
+	grpcKeepaliveTimeout time.Duration
 
 	*refCountedCloser
 }
