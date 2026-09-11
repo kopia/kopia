@@ -25,4 +25,6 @@ type Options struct {
 	FuseAllowNonEmptyMount bool
 	// Use WebDAV even on platforms that support FUSE.
 	PreferWebDAV bool
+	// Port is the port to use for WebDAV server. If 0, a random port will be used.
+	Port int
 }

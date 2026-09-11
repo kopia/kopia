@@ -22,6 +22,7 @@ type commandMount struct {
 	mountFuseAllowOther         bool
 	mountFuseAllowNonEmptyMount bool
 	mountPreferWebDAV           bool
+	mountWebDAVPort             int
 	maxCachedEntries            int
 	maxCachedDirectories        int
 
@@ -39,6 +40,7 @@ func (c *commandMount) setup(svc appServices, parent commandParent) {
 	cmd.Flag("fuse-allow-other", "Allows other users to access the file system.").BoolVar(&c.mountFuseAllowOther)
 	cmd.Flag("fuse-allow-non-empty-mount", "Allows the mounting over a non-empty directory. The files in it will be shadowed by the freshly created mount.").BoolVar(&c.mountFuseAllowNonEmptyMount)
 	cmd.Flag("webdav", "Use WebDAV to mount the repository object regardless of fuse availability.").BoolVar(&c.mountPreferWebDAV)
+	cmd.Flag("webdav-port", "Port to use for WebDAV server (0 for random port).").Default("0").IntVar(&c.mountWebDAVPort)
 
 	cmd.Flag("max-cached-entries", "Limit the number of cached directory entries").Default("100000").IntVar(&c.maxCachedEntries)
 	cmd.Flag("max-cached-dirs", "Limit the number of cached directories").Default("100").IntVar(&c.maxCachedDirectories)
@@ -81,6 +83,7 @@ func (c *commandMount) run(ctx context.Context, rep repo.Repository) error {
 			FuseAllowOther:         c.mountFuseAllowOther,
 			FuseAllowNonEmptyMount: c.mountFuseAllowNonEmptyMount,
 			PreferWebDAV:           c.mountPreferWebDAV,
+			Port:                   c.mountWebDAVPort,
 		})
 	if mountErr != nil {
 		return errors.Wrap(mountErr, "mount error")
