@@ -14,6 +14,7 @@ var log = logging.Module("gather") // +checklocksignore
 type WriteBuffer struct {
 	alloc *chunkAllocator
 	mu    sync.Mutex
+	// +checklocks:mu
 	inner Bytes
 }
 
@@ -63,6 +64,7 @@ func (b *WriteBuffer) Reset() {
 	b.releaseChunksLocked()
 }
 
+// +checklocks:b.mu
 func (b *WriteBuffer) releaseChunksLocked() {
 	if b.alloc != nil {
 		for _, s := range b.inner.slices {
@@ -146,6 +148,7 @@ func (b *WriteBuffer) Append(data []byte) {
 	}
 }
 
+// +checklocks:b.mu
 func (b *WriteBuffer) allocChunkLocked() []byte {
 	if b.alloc == nil {
 		b.alloc = defaultAllocator
