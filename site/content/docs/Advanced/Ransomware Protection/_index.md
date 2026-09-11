@@ -100,6 +100,21 @@ An additional layer of protection is `Object Locking' that can be enabled in AWS
     * Run: `kopia maintenance set --extend-object-locks true`
       * Note that the `full-interval` must be at least 1 day shorter than the `retention-period` or Kopia will not allow you to enable Object Lock extension
 
+### How to maintain an immutable copy of a local repository (sync-to)
+
+If your primary repository lives on storage that does not support object locks (for example a local filesystem or SFTP server), you can still maintain an immutable third copy in object-locked storage using [Synchronization](../synchronization/):
+
+  * Create a new bucket with Object Locks (and versioning) enabled, as described above
+  * Synchronize regularly, applying retention to the destination:
+    * Run: `kopia repository sync-to s3 --bucket <bucket name> --access-key=<access key> --secret-access-key=<secret access key> --retention-mode COMPLIANCE --retention-period <retention time>`
+    * The retention flags only affect the destination; the source repository is unchanged
+  * Each run also extends the object locks on blobs that are already in sync, so protection does not lapse between runs.  This costs one retention-update API request per locked blob per run; on frequent syncs you can pass `--no-extend-object-locks` and refresh the locks on a less frequent schedule.  Always refresh with a safety margin of at least 24 hours before lock expiry (for example, 30d retention refreshed weekly)
+  * Grant the synchronization credentials only what is needed:
+    * AWS S3: `s3:PutObject`, `s3:GetObject`, `s3:ListBucket` and `s3:PutObjectRetention`; do **not** grant `s3:BypassGovernanceRetention`
+    * Backblaze B2 (S3-compatible keys): `listAllBucketNames`, `listFiles`, `readFiles`, `writeFiles` and `writeFileRetentions`; do **not** grant `deleteFiles` or governance-bypass capabilities
+  * Using `COMPLIANCE` mode is recommended, since the synchronization host necessarily holds credentials that can update retention
+  * Avoid `--delete` for immutable replicas: with object locks it creates delete markers — locked versions remain retained, but the current view of the repository may appear deleted and recovery requires point-in-time access
+
 ### How to restore a snapshot that was deleted by ransomware (or some other process)
   * If you have data that needs to be restored, make sure that either your retention time will not expire or your lifecycle data expiration is sufficient to ensure you can download your data before the cloud provider removes it
   * Disconnect the repo in Kopia
