@@ -75,8 +75,7 @@ func (b *WriteBuffer) releaseChunksLocked() {
 
 	b.alloc = nil
 
-	// calling b.inner.invalidate() is ineffective because it is reset below
-	b.inner = Bytes{}
+	b.inner.invalidate()
 }
 
 // Write implements io.Writer for appending to the buffer.
