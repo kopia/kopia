@@ -169,5 +169,8 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 		t.Fatal("server did not exit in time")
 	}
 
-	require.True(t, gotExpectedErrorMessage.Load(), "expected server's stderr to contain a line along the lines of 'Too many activated sockets ...'")
+	// gotExpectedErrorMessage may be read before stderrAsyncCallback sets it above.
+	// Prevent flaky tests failure by avoid potential race where stderrAsyncCallback may
+	// be still processing the server's output, even after wait() has returned.
+	require.Eventually(t, gotExpectedErrorMessage.Load, 15*time.Second, time.Second, "expected server's stderr to contain a line along the lines of 'Too many activated sockets ...'")
 }
