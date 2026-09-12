@@ -12,8 +12,9 @@ var log = logging.Module("gather") // +checklocksignore
 // WriteBuffer is a write buffer for content of unknown size that manages
 // data in a series of byte slices of uniform size.
 type WriteBuffer struct {
+	mu sync.Mutex
+	// +checklocks:mu
 	alloc *chunkAllocator
-	mu    sync.Mutex
 	// +checklocks:mu
 	inner Bytes
 }
