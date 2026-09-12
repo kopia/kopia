@@ -96,7 +96,10 @@ func (fsd *filesystemDirectory) Child(_ context.Context, name string) (fs.Entry,
 func toDirEntryOrNil(dirEntry os.DirEntry, prefix string, opts Options) (fs.Entry, error) {
 	n := dirEntry.Name()
 
-	switch fi, err := os.Lstat(prefix + n); {
+	// DirEntry.Info() is equivalent to Lstat(prefix+n) but is implemented by
+	// the os package without exposing the path; it also handles the
+	// entry-deleted-between-ReadDir-and-Info case.
+	switch fi, err := dirEntry.Info(); {
 	case err == nil:
 		return entryFromDirEntry(n, fi, prefix, opts), nil
 	case os.IsNotExist(err):
