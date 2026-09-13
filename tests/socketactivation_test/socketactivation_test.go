@@ -5,7 +5,6 @@ package socketactivation_test
 import (
 	"net"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
