@@ -148,7 +148,7 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 
 	t.Cleanup(kill)
 
-	serverStopped := make(chan error)
+	serverStopped := make(chan error, 1)
 	go func() {
 		defer close(serverStopped)
 
