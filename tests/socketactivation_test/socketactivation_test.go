@@ -59,6 +59,10 @@ func TestServerControlSocketActivated(t *testing.T) {
 	runner.ExtraFiles = append(runner.ExtraFiles, l1File)
 	wait, kill := env.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
+
+	// prevent other sub-processes from getting the activation file descriptor,
+	// which ends up causing the server to block on shutdown and leads to spurious
+	// test failures.
 	runner.ExtraFiles = nil
 
 	t.Cleanup(kill)
