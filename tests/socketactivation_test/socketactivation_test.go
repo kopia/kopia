@@ -57,9 +57,10 @@ func TestServerControlSocketActivated(t *testing.T) {
 	var sp testutil.ServerParameters
 
 	runner.ExtraFiles = append(runner.ExtraFiles, l1File)
-	wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
+	wait, kill := env.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 
+	t.Cleanup(func() { kill(); wait() })
 	l1File.Close()
 
 	require.NotEmpty(t, sp.BaseURL, "Failed to start server")
