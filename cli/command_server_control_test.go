@@ -28,29 +28,12 @@ func TestServerControl(t *testing.T) {
 	env.RunAndExpectSuccess(t, "snap", "create", dir1)
 	env.RunAndExpectSuccess(t, "snap", "create", dir2)
 
-	serverStarted := make(chan struct{})
-	serverStopped := make(chan struct{})
-
 	var sp testutil.ServerParameters
 
-	go func() {
-		wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
-			"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
+	wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 
-		close(serverStarted)
-
-		wait()
-
-		close(serverStopped)
-	}()
-
-	select {
-	case <-serverStarted:
-		t.Logf("server started on %v", sp.BaseURL)
-
-	case <-time.After(5 * time.Second):
-		t.Fatalf("server did not start in time")
-	}
+	t.Logf("server started on %v", sp.BaseURL)
 
 	const (
 		pollFrequency = 100 * time.Millisecond
@@ -151,6 +134,14 @@ func TestServerControl(t *testing.T) {
 
 	env.RunAndExpectSuccess(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
+	serverStopped := make(chan struct{})
+
+	go func() {
+		wait()
+
+		close(serverStopped)
+	}()
+
 	select {
 	case <-serverStopped:
 		t.Logf("server shut down")
@@ -182,35 +173,25 @@ func TestServerControlUDS(t *testing.T) {
 
 	env.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", env.RepoDir, "--override-username=test-user", "--override-hostname=test-host")
 
-	serverStarted := make(chan struct{})
-	serverStopped := make(chan struct{})
-
 	var sp testutil.ServerParameters
 
-	go func() {
-		wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
-			"server", "start", "--insecure", "--random-server-control-password", "--address="+"unix:"+dir1+"/sock")
+	wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start", "--insecure", "--random-server-control-password", "--address="+"unix:"+dir1+"/sock")
 
-		close(serverStarted)
-
-		wait()
-
-		close(serverStopped)
-	}()
-
-	select {
-	case <-serverStarted:
-		t.Logf("server started on %v", sp.BaseURL)
-
-	case <-time.After(5 * time.Second):
-		t.Fatalf("server did not start in time")
-	}
+	t.Logf("server started on %v", sp.BaseURL)
 
 	lines := env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote")
 	require.Len(t, lines, 1)
 	require.Contains(t, lines, "REMOTE: another-user@another-host:"+dir0)
 
 	env.RunAndExpectSuccess(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
+
+	serverStopped := make(chan struct{})
+	go func() {
+		wait()
+
+		close(serverStopped)
+	}()
 
 	select {
 	case <-serverStopped:
