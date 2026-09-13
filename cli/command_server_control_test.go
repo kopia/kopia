@@ -192,29 +192,37 @@ func TestServerControlUDS(t *testing.T) {
 
 	env.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", env.RepoDir, "--override-username=test-user", "--override-hostname=test-host")
 
-	serverStarted := make(chan struct{})
-	serverStopped := make(chan struct{})
-
 	var sp testutil.ServerParameters
 
+	wait, kill := env.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start", "--insecure", "--random-server-control-password", "--address="+"unix:"+dir1+"/sock")
+
+	t.Logf("server started on %v", sp.BaseURL)
+
+	serverStopped := make(chan error)
+
 	go func() {
-		wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
-			"server", "start", "--insecure", "--random-server-control-password", "--address="+"unix:"+dir1+"/sock")
-
-		close(serverStarted)
-
-		wait()
+		serverStopped <- wait()
 
 		close(serverStopped)
 	}()
 
-	select {
-	case <-serverStarted:
-		t.Logf("server started on %v", sp.BaseURL)
+	t.Cleanup(func() {
+		select {
+		// if wait() succeeded above, then serverStopped is closed, then the
+		// case reading from serverStopped is chosen (non-blocking)
+		case <-serverStopped:
+		default:
+			t.Log("terminating server")
+			kill()
+		}
 
-	case <-time.After(5 * time.Second):
-		t.Fatalf("server did not start in time")
-	}
+		select {
+		case err := <-serverStopped: // maybe drain serverStopped
+			t.Log("cleanup <-serverStopped:", err)
+		case <-time.After(3 * time.Second): // ensure cleanup exits
+		}
+	})
 
 	lines := env.RunAndExpectSuccess(t, "server", "status", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword, "--remote")
 	require.Len(t, lines, 1)
@@ -223,8 +231,10 @@ func TestServerControlUDS(t *testing.T) {
 	env.RunAndExpectSuccess(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
 	select {
-	case <-serverStopped:
+	case err := <-serverStopped:
+		require.NoError(t, err, "server exited with an error")
 		t.Logf("server shut down")
+		<-serverStopped // wait for channel closure
 
 	case <-time.After(15 * time.Second):
 		t.Fatalf("server did not shutdown in time")
