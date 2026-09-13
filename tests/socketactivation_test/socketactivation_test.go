@@ -63,6 +63,8 @@ func TestServerControlSocketActivated(t *testing.T) {
 	// test failures.
 	runner.ExtraFiles = nil
 
+	l1File.Close()
+
 	serverStopped := make(chan error)
 
 	t.Cleanup(func() {
@@ -74,8 +76,6 @@ func TestServerControlSocketActivated(t *testing.T) {
 		case <-time.After(3 * time.Second): // ensure cleanup exits
 		}
 	})
-
-	l1File.Close()
 
 	require.NotEmpty(t, sp.BaseURL, "Failed to start server")
 	require.Contains(t, sp.BaseURL, ":"+strconv.Itoa(port))
