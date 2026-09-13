@@ -52,7 +52,7 @@ func TestServerControlSocketActivated(t *testing.T) {
 	l1File, err := testutil.EnsureType[*net.TCPListener](t, l1).File()
 	require.NoError(t, err, "failed to get filehandle for socket")
 
-	serverStopped := make(chan error)
+serverStopped := make(chan error, 1)
 
 	var sp testutil.ServerParameters
 
@@ -161,8 +161,8 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 		t.Fatal("server did not exit in time")
 	}
 
-	// gotExpectedErrorMessage may be read before stderrAsyncCallback sets it above.
-	// Prevent flaky tests failure by avoid potential race where stderrAsyncCallback may
-	// be still processing the server's output, even after wait() has returned.
+// gotExpectedErrorMessage may be read before stderrAsyncCallback sets it above.
+// Prevent flaky test failures by avoiding a potential race where stderrAsyncCallback
+// may still be processing the server's output even after wait() has returned.
 	require.Eventually(t, gotExpectedErrorMessage.Load, 15*time.Second, time.Second, "expected server's stderr to contain a line along the lines of 'Too many activated sockets ...'")
 }
