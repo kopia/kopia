@@ -62,7 +62,7 @@ func TestServerControlSocketActivated(t *testing.T) {
 		"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 	runner.ExtraFiles = nil
 
-	t.Cleanup(func() { kill(); wait() })
+	t.Cleanup(kill)
 
 	l1File.Close()
 
