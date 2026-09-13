@@ -52,8 +52,6 @@ func TestServerControlSocketActivated(t *testing.T) {
 	l1File, err := testutil.EnsureType[*net.TCPListener](t, l1).File()
 	require.NoError(t, err, "failed to get filehandle for socket")
 
-	serverStopped := make(chan error, 1)
-
 	var sp testutil.ServerParameters
 
 	runner.ExtraFiles = append(runner.ExtraFiles, l1File)
@@ -65,7 +63,17 @@ func TestServerControlSocketActivated(t *testing.T) {
 	// test failures.
 	runner.ExtraFiles = nil
 
-	t.Cleanup(kill)
+	serverStopped := make(chan error)
+
+	t.Cleanup(func() {
+		kill()
+
+		select {
+		case err := <-serverStopped: // maybe drain serverStopped
+			t.Log("cleanup <-serverStopped:", err)
+		case <-time.After(3 * time.Second): // ensure cleanup exits
+		}
+	})
 
 	l1File.Close()
 
@@ -150,9 +158,18 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 	// to run and does not exit.
 	wait, kill := env.RunAndProcessStderrAsync(t, func(string) bool { return false }, stderrAsyncCallback, "server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 
-	t.Cleanup(kill)
+	serverStopped := make(chan error)
 
-	serverStopped := make(chan error, 1)
+	t.Cleanup(func() {
+		kill()
+
+		select {
+		case err := <-serverStopped: // maybe drain serverStopped
+			t.Log("cleanup <-serverStopped:", err)
+		case <-time.After(3 * time.Second): // ensure cleanup exits
+		}
+	})
+
 	go func() {
 		defer close(serverStopped)
 
