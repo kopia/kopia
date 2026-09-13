@@ -60,6 +60,7 @@ func TestServerControlSocketActivated(t *testing.T) {
 	runner.ExtraFiles = append(runner.ExtraFiles, l1File)
 	wait, kill := env.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
+	runner.ExtraFiles = nil
 
 	t.Cleanup(func() { kill(); wait() })
 
