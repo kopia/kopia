@@ -64,9 +64,7 @@ func TestServerControlSocketActivated(t *testing.T) {
 
 	t.Cleanup(func() { kill(); wait() })
 
-	if runtime.GOOS == "darwin" {
-		l1File.Close()
-	}
+	l1File.Close()
 
 	require.NotEmpty(t, sp.BaseURL, "Failed to start server")
 	require.Contains(t, sp.BaseURL, ":"+strconv.Itoa(port))
