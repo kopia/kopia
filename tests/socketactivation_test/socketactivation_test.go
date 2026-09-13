@@ -5,6 +5,7 @@ package socketactivation_test
 import (
 	"net"
 	"os"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -61,7 +62,10 @@ serverStopped := make(chan error, 1)
 		"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 
 	t.Cleanup(func() { kill(); wait() })
-	l1File.Close()
+
+	if runtime.GOOS == "darwin" {
+		l1File.Close()
+	}
 
 	require.NotEmpty(t, sp.BaseURL, "Failed to start server")
 	require.Contains(t, sp.BaseURL, ":"+strconv.Itoa(port))
