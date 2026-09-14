@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,17 +27,25 @@ type TimeOfDay struct {
 
 // Parse parses the time of day.
 func (t *TimeOfDay) Parse(s string) error {
-	if _, err := fmt.Sscanf(s, "%v:%02v", &t.Hour, &t.Minute); err != nil {
-		return errors.New("invalid time of day, must be HH:MM")
+	hh, mm, ok := strings.Cut(strings.TrimSpace(s), ":")
+	if !ok {
+		return errors.Errorf("invalid time of day %q, must be HH:MM", s)
 	}
 
-	if t.Hour < 0 || t.Hour > 23 {
-		return errors.Errorf("invalid hour %q, must be between 0 and 23", s)
+	// note: strconv.Atoi() always parses base 10, so that hours and minutes written
+	// with a leading zero, such as 08 or 09, are not treated as invalid octal numbers.
+	hour, err := strconv.Atoi(hh)
+	if err != nil || hour < 0 || hour > 23 {
+		return errors.Errorf("invalid hour in time of day %q, must be between 0 and 23", s)
 	}
 
-	if t.Minute < 0 || t.Minute > 59 {
-		return errors.Errorf("invalid minute %q, must be between 0 and 59", s)
+	minute, err := strconv.Atoi(mm)
+	if err != nil || minute < 0 || minute > 59 {
+		return errors.Errorf("invalid minute in time of day %q, must be between 0 and 59", s)
 	}
+
+	t.Hour = hour
+	t.Minute = minute
 
 	return nil
 }
