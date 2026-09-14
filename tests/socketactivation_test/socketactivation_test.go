@@ -52,33 +52,38 @@ func TestServerControlSocketActivated(t *testing.T) {
 	l1File, err := testutil.EnsureType[*net.TCPListener](t, l1).File()
 	require.NoError(t, err, "failed to get filehandle for socket")
 
-	serverStarted := make(chan struct{})
-	serverStopped := make(chan struct{})
-
 	var sp testutil.ServerParameters
 
+	runner.ExtraFiles = append(runner.ExtraFiles, l1File)
+	wait, kill := env.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
+
+	// prevent other sub-processes from getting the activation file descriptor,
+	// which ends up causing the server to block on shutdown and leads to spurious
+	// test failures.
+	runner.ExtraFiles = nil
+
+	l1File.Close()
+
+	serverStopped := make(chan error)
+
 	go func() {
-		runner.ExtraFiles = append(runner.ExtraFiles, l1File)
-		wait, _ := env.RunAndProcessStderr(t, sp.ProcessOutput,
-			"server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
-
-		l1File.Close()
-		close(serverStarted)
-
-		wait()
+		serverStopped <- wait()
 
 		close(serverStopped)
 	}()
 
-	select {
-	case <-serverStarted:
-		require.NotEmpty(t, sp.BaseURL, "Failed to start server")
-		t.Logf("server started on %v", sp.BaseURL)
+	t.Cleanup(func() {
+		kill()
 
-	case <-time.After(15 * time.Second):
-		t.Fatal("server did not start in time")
-	}
+		select {
+		case err := <-serverStopped: // maybe drain serverStopped
+			t.Log("cleanup <-serverStopped:", err)
+		case <-time.After(3 * time.Second): // ensure cleanup exits
+		}
+	})
 
+	require.NotEmpty(t, sp.BaseURL, "Failed to start server")
 	require.Contains(t, sp.BaseURL, ":"+strconv.Itoa(port))
 
 	checkServerStatusFn := func(collect *assert.CollectT) {
@@ -92,7 +97,8 @@ func TestServerControlSocketActivated(t *testing.T) {
 	env.RunAndExpectSuccess(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 
 	select {
-	case <-serverStopped:
+	case err := <-serverStopped:
+		require.NoError(t, err, "server exited with error")
 		t.Log("server shut down")
 
 	case <-time.After(15 * time.Second):
@@ -152,9 +158,18 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 	// to run and does not exit.
 	wait, kill := env.RunAndProcessStderrAsync(t, func(string) bool { return false }, stderrAsyncCallback, "server", "start", "--insecure", "--random-server-control-password", "--address=127.0.0.1:0")
 
-	t.Cleanup(kill)
-
 	serverStopped := make(chan error)
+
+	t.Cleanup(func() {
+		kill()
+
+		select {
+		case err := <-serverStopped: // maybe drain serverStopped
+			t.Log("cleanup <-serverStopped:", err)
+		case <-time.After(3 * time.Second): // ensure cleanup exits
+		}
+	})
+
 	go func() {
 		defer close(serverStopped)
 
@@ -169,5 +184,8 @@ func TestServerControlSocketActivatedTooManyFDs(t *testing.T) {
 		t.Fatal("server did not exit in time")
 	}
 
-	require.True(t, gotExpectedErrorMessage.Load(), "expected server's stderr to contain a line along the lines of 'Too many activated sockets ...'")
+	// gotExpectedErrorMessage may be read before stderrAsyncCallback sets it above.
+	// Prevent flaky test failures by avoiding a potential race where stderrAsyncCallback
+	// may still be processing the server's output even after wait() has returned.
+	require.Eventually(t, gotExpectedErrorMessage.Load, 15*time.Second, time.Second, "expected server's stderr to contain a line along the lines of 'Too many activated sockets ...'")
 }
