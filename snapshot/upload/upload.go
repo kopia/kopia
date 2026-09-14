@@ -719,6 +719,28 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 	return true
 }
 
+// symlinkTargetsEqual reports whether two symlink entries point to the same
+// target. It returns false if either entry is not a symlink or its target
+// cannot be read, so that an unverifiable pair is treated as a cache miss and
+// re-hashed rather than silently reused.
+func symlinkTargetsEqual(ctx context.Context, e1, e2 fs.Entry) bool {
+	s1, ok1 := e1.(fs.Symlink)
+	s2, ok2 := e2.(fs.Symlink)
+
+	if !ok1 || !ok2 {
+		return false
+	}
+
+	t1, err1 := s1.Readlink(ctx)
+	t2, err2 := s2.Readlink(ctx)
+
+	if err1 != nil || err2 != nil {
+		return false
+	}
+
+	return t1 == t2
+}
+
 func findCachedEntry(ctx context.Context, entryRelativePath string, entry fs.Entry, prevDirs []fs.Directory, pol *policy.Tree) fs.Entry {
 	var missedEntry fs.Entry
 
@@ -727,6 +749,15 @@ func findCachedEntry(ctx context.Context, entryRelativePath string, entry fs.Ent
 			switch entry.(type) {
 			case fs.StreamingFile:
 				if commonMetadataEquals(entry, ent) {
+					return ent
+				}
+			case fs.Symlink:
+				// A symlink's content is its target, but Size() only reports the
+				// target's byte length, so metadataEquals cannot distinguish a
+				// same-length target change (with preserved mtime) from an
+				// unchanged symlink. Compare the actual target to avoid reusing a
+				// stale cached entry, which would store the old target.
+				if commonMetadataEquals(entry, ent) && symlinkTargetsEqual(ctx, entry, ent) {
 					return ent
 				}
 			default:
