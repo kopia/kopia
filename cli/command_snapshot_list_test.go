@@ -1,6 +1,7 @@
 package cli_test
 
 import (
+	"crypto/rand"
 	"os"
 	"path/filepath"
 	"testing"
@@ -78,6 +79,58 @@ func TestSnapshotList(t *testing.T) {
 	// identical snapshot is not coalesced
 	require.Contains(t, lines[4], " 8 B ")
 	require.Contains(t, lines[4], " files:3 dirs:1 ")
+}
+
+// Regression test for #5326: `snapshot list --json` ignored the incomplete
+// filter and always emitted incomplete snapshots, while the text output
+// correctly hid them unless --incomplete/-i was passed.
+func TestSnapshotListIncompleteJSON(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	srcdir := testutil.TempDirectory(t)
+	require.NoError(t, os.WriteFile(filepath.Join(srcdir, "small.txt"), []byte{1, 2, 3}, 0o600))
+
+	// one complete snapshot
+	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir)
+
+	// force an incomplete (checkpoint) snapshot by capping the upload below the
+	// source size; the data is random so it neither compresses nor dedupes and
+	// reliably exceeds the 1 MB limit.
+	big := make([]byte, 5<<20)
+	_, err := rand.Read(big)
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(srcdir, "big.bin"), big, 0o600))
+	e.RunAndExpectSuccess(t, "snapshot", "create", srcdir, "--upload-limit-mb=1")
+
+	// sanity: with --incomplete the incomplete snapshot is present, so the
+	// default-listing assertion below is not vacuously true.
+	var withIncomplete []*cli.SnapshotManifest
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "--json", "--incomplete"), &withIncomplete)
+
+	var incompleteCount int
+
+	for _, s := range withIncomplete {
+		if s.IncompleteReason != "" {
+			incompleteCount++
+		}
+	}
+
+	require.Equal(t, 1, incompleteCount, "expected exactly one incomplete snapshot when --incomplete is set")
+
+	// the bug: without --incomplete, --json must not list incomplete snapshots.
+	var defaultList []*cli.SnapshotManifest
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &defaultList)
+
+	for _, s := range defaultList {
+		require.Empty(t, s.IncompleteReason, "snapshot list --json must not include incomplete snapshots unless --incomplete is set")
+	}
 }
 
 func TestSnapshotListWithSameFileInMultipleSnapshots(t *testing.T) {
