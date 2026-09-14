@@ -67,6 +67,12 @@ func TestServerControlSocketActivated(t *testing.T) {
 
 	serverStopped := make(chan error)
 
+	go func() {
+		serverStopped <- wait()
+
+		close(serverStopped)
+	}()
+
 	t.Cleanup(func() {
 		kill()
 
@@ -89,12 +95,6 @@ func TestServerControlSocketActivated(t *testing.T) {
 	require.EventuallyWithT(t, checkServerStatusFn, 30*time.Second, 2*time.Second, "could not get server status, perhaps it was not listening on the control endpoint yet?")
 
 	env.RunAndExpectSuccess(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
-
-	go func() {
-		serverStopped <- wait()
-
-		close(serverStopped)
-	}()
 
 	select {
 	case err := <-serverStopped:
