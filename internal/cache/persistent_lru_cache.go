@@ -95,7 +95,7 @@ func (c *PersistentCache) getFull(ctx context.Context, key string, output *gathe
 	return c.getPartial(ctx, key, 0, -1, output)
 }
 
-func (c *PersistentCache) getPartialCacheHit(ctx context.Context, key string, length int64, output *gather.WriteBuffer) {
+func (c *PersistentCache) getPartialCacheHit(ctx context.Context, key string, output *gather.WriteBuffer) {
 	// cache hit
 	c.reportHitBytes(int64(output.Length()))
 
@@ -105,11 +105,11 @@ func (c *PersistentCache) getPartialCacheHit(ctx context.Context, key string, le
 	defer c.listCacheMutex.Unlock()
 
 	if err == nil {
-		c.listCache.AddOrUpdate(blob.Metadata{
-			BlobID:    blob.ID(key),
-			Length:    length,
-			Timestamp: mtime,
-		})
+		// a read does not change the item's on-disk size, so only refresh its
+		// timestamp. Passing the request length here (-1 for a full read, or a
+		// sub-range length for a partial read) as the tracked size would corrupt
+		// totalDataBytes and defeat the sweep's size limits until the next scan.
+		c.listCache.Touch(blob.ID(key), mtime)
 	}
 }
 
@@ -146,7 +146,7 @@ func (c *PersistentCache) getPartial(ctx context.Context, key string, offset, le
 		}
 
 		if err := sp.Verify(key, tmp.Bytes(), output); err == nil {
-			c.getPartialCacheHit(ctx, key, length, output)
+			c.getPartialCacheHit(ctx, key, output)
 
 			return true
 		}
@@ -260,6 +260,16 @@ func (h *contentMetadataHeap) AddOrUpdate(bm blob.Metadata) {
 		}
 	} else {
 		heap.Push(h, bm)
+	}
+}
+
+// Touch refreshes the timestamp of an already-tracked item without altering its
+// tracked size (a cache hit does not change the blob's on-disk length). Items
+// that are not tracked are ignored, since their size is unknown here.
+func (h *contentMetadataHeap) Touch(blobID blob.ID, ts time.Time) {
+	if i, exists := h.index[blobID]; exists && ts.After(h.data[i].Timestamp) {
+		h.data[i].Timestamp = ts
+		heap.Fix(h, i)
 	}
 }
 
