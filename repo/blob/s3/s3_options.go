@@ -46,5 +46,4 @@ type Options struct {
 
 	// DisableStorageConfig disables retrieving the .storageconfig file from the bucket.
 	DisableStorageConfig bool `json:"disableStorageConfig,omitempty"`
-
 }
