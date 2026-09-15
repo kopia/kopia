@@ -49,7 +49,8 @@ func TestServerControl(t *testing.T) {
 		select {
 		// if wait() succeeded above, then serverStopped is closed, then the
 		// case reading from serverStopped is chosen (non-blocking)
-		case <-serverStopped:
+		case err := <-serverStopped:
+			t.Log("serverStopped error:", err)
 		default:
 			t.Log("terminating server")
 			kill()
@@ -215,7 +216,8 @@ func TestServerControlUDS(t *testing.T) {
 		select {
 		// if wait() succeeded above, then serverStopped is closed, then the
 		// case reading from serverStopped is chosen (non-blocking)
-		case <-serverStopped:
+		case err := <-serverStopped:
+			t.Log("serverStopped error:", err)
 		default:
 			t.Log("terminating server")
 			kill()
