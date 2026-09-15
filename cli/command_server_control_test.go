@@ -35,7 +35,9 @@ func TestServerControl(t *testing.T) {
 
 	t.Logf("server started on %v", sp.BaseURL)
 
-	serverStopped := make(chan error)
+	// buffered channel to ensure wait() can send and close the channel even when
+	// there are no receivers left.
+	serverStopped := make(chan error, 1)
 
 	go func() {
 		serverStopped <- wait()
@@ -199,7 +201,9 @@ func TestServerControlUDS(t *testing.T) {
 
 	t.Logf("server started on %v", sp.BaseURL)
 
-	serverStopped := make(chan error)
+	// buffered channel to ensure wait() can send and close the channel even when
+	// there are no receivers left.
+	serverStopped := make(chan error, 1)
 
 	go func() {
 		serverStopped <- wait()
