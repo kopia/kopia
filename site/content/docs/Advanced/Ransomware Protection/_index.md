@@ -12,7 +12,25 @@ Some cloud storage providers provide capabilities targeted at protecting against
 
 For the context of Kopia protection, ransomware refers to viruses, trojans or other malware that infects a system, and blocks user access to it (often by overwriting files with an encrypted version of themselves), usually requiring to pay for the decryption key to restore access. Because ransomware often targets 'high-value' user data, and often overwrites files in place, an automated backup solution (for instance running Kopia on a nightly cron-job) can cause the overwritten files to be propagated to cloud storage. For the case just described, having multiple snapshots would appear to be sufficient to restore your data from the cloud, however ransomware attacks are getting more sophisticated.  A ransomware application may look for your cloud provider access keys while examining your files and use that to permanently delete your snapshots on the cloud!  We need to better protect our cloud storage to ensure our snapshots are safe.
 
-### Some notes about storage providers
+### Different methods to prevent ransomware from removing data on the server
+
+#### First step: ensure that the ransomware can't have root access on the server
+
+The very first thing to do is to ensure that the ransomware cannot obtain root access to your backup server, otherwise they can always delete everything. It means that, ideally, you should NEVER connect as root on your backup server from your computer, since otherwise an advanced ransomware may inject a malicious version of ssh that destroys everything on the server right after you connect to a server (or that install a backdoor on the server etc). Note that MFA does not prevent this issue, since ultimately ssh still runs on a single device. Of course, it means that it is harder to administrate your server without root access… For this you have multiple options:
+- The simplest option is often to rely on an external provider like Amazon S3 that will ensure that, under proper configuration, no-one (not even you) can delete data on their server during some fixed time. If you choose this option, you can skip the second step as you must use the S3 compatible storage option.
+- Another option is to administrate your backup server physically (with a keyboard attached right to the server if it's in your home) or from a different computer than the one owning your data.
+- A third (more complex) option is to configure a "no-root" server (my term), were you never connect as root to the server, and instead deploy changes that are authorized by multiple devices (e.g. your computer + your phone), for instance by letting the server periodically get its NixOS/Ansible/Puppet/… configuration by reading a git repository (possibly located on the server itself if you trust no git provider) that you tune in such a way that only commits signed by multiple keys are deployed… 
+
+#### Second step: ensure that the ransomware can't delete backups
+
+Even if the ransomware can't have root access to the backup server, your computer (hence the ransomwere) must still have some access (e.g. via SFTP) to the backup server to push backups there. So the ransomware may use this access to remove all backups using the standard SFTP/… credentials. You can prevent this using multiple methods:
+- You can run on the server regular snapshots of the filesystem (if the filesystem is configured to be ZFS/lvm/btrfs…) as root. This way, if the ransomware removes, via SFTP, all data, they can't remove the snapshots that require root access.
+- You can also configure a S3-compatible backend (minio, rustfs, AWS S3…) configured in such a way that you allow the creation of new files but not the suppression of files. See below for more details.
+- Not recommanded: You can also use kopia-server with properly configured ACL **but beware**, most of the time this is NOT what you want to use since the backup server can decrypt all files… So if your backup server gets compromised by a virus/… not only the attacker can remove your backup, but they can also read all your data. Kopia-server is typically helpfull for companies that want to backup employees data and that want to prevent employees from reading other employees data while benefiting from deduplication, but it comes at the cost of storing non-encrypted data on the backup server.
+- Not recommanded: If your filesystem has no snapshot mechanism and you still want to use SFTP access, you can also simply write a cron script that regularly backup the backup (maybe with kopia itself?) the backup files to a folder owned by root. But you will double the required storage space so it is far from ideal.
+
+### Details about using S3
+#### Some notes about S3 storage providers
 
  * Kopia's AWS S3 storage engine supports using both restricted access keys as well as object-locks for ransomware protection.
     * Many storage providers with S3 compatibility (for instance Backblaze B2) can take full advantage of Kopia's ransomware
@@ -23,13 +41,13 @@ For the context of Kopia protection, ransomware refers to viruses, trojans or ot
     * To use storage locks with Backblaze B2, use the S3 storage engine.
 * Kopia's Azure & Google storage engines support object-locks for ransomware protection.
 
-### Using application keys to protect your data
+#### Using application keys to protect your data
 
 Some cloud storage solutions provide the ability to generate restricted access keys.  These keys can be configured to only allow access to specific data (a specific bucket or path within a bucket), as well as to restrict what capabilities that key has access to.  The easiest solution is to generate a key without any `delete` permissions, and to configure Kopia to use that key.  Now if a ransomware application finds your key, it can no longer permanently delete any data from the cloud! This might imply that now Kopia can no longer delete old snapshots as part of its maintenance cycle, but that is not the case. When Kopia deletes data from a compatible provider, it is replacing the data with a special file that has a `hidden` marker.  This makes the file appear to be deleted, but it can still be accessed by using an older version of the file).  Typically, the cloud provider offers 'Lifecycle-Management' to apply a true-deletion of hidden data after a certain period of time.  Since this is an automated process executed by the cloud provider, no 'true delete' is ever executed by Kopia.  As long as the hidden-to-delete time delay is long enough for you to notice the ransomware, you can still restore the old versions of your data.  Enabling restricted keys does not require any changes in your Kopia workflow, since Kopia does not need to change its behavior at all.  The cost of this is that data will remain on the cloud provider for extra time before being deleted, potentially incurring additional storage charges.
 
-### How to configure restricted access keys
+#### How to configure restricted access keys
 
-#### AWS
+##### AWS
 
  * Create a new application key
    * Create a IAM user for kopia to use
@@ -61,7 +79,7 @@ Some cloud storage solutions provide the ability to generate restricted access k
  * Regenerate (or delete) your root application key if you have one
  * Enable Lifecycle management for the Kopia bucket setting the 'Expiration' action to the time you want to ensure your data is protected for
 
-#### Backblaze
+##### Backblaze
   * Backblaze does not allow creation of an application key with restricted permission from the website.  Instead, you must use the cli-application to generate a restricted key.
     * Download the appropriate CLI application from [Backblaze](https://www.backblaze.com/b2/docs/quick_command_line.html)
     * Generate a new master API key on the [website](https://secure.backblaze.com/app_keys.htm)
@@ -74,11 +92,11 @@ Some cloud storage solutions provide the ability to generate restricted access k
     * Re-generate your API master API key (to deactivate the one you just used)
     * Delete any existing Application keys that do not have restricted access
 
-### Even more protection
+#### Even more protection with MFA and Object Locks
 
 So far, we have secured your access such that even if a bad actor gets access to your Kopia configuration, they can't do irreparable harm to your cloud backup.  However, what if they get access to your login credentials?  Your login credentials provide the ability to delete your data and even your entire buckets for all the buckets in your account.  But the cloud providers have protection from that too.
 
-Multi-factor-authentication (MFA) is one option.  With MFA enabled, an attacker would need access to your password as well as your security device to be able to manipulate your account.  All major providers support MFA, and it is recommended to use it to secure your account.  Note that it is important to eliminate and root/global access keys as well, since they can generally be used to execute nearly any task you can do when logged in (effectively bypassing MFA).
+Multi-factor-authentication (MFA) is one (partial) option that can mitigate this attack.  With MFA enabled, an attacker would need access to your password as well as your security device to be able to manipulate your account.  All major providers support MFA, and it is recommended to use it to secure your account.  Note that it is important to eliminate and root/global access keys as well, since they can generally be used to execute nearly any task you can do when logged in (effectively bypassing MFA). Note that MFA alone is also not completely secure: if the ransomware corrupts your browser/read your browser cookies, they can wait for you to connect to your S3 account via MFA, and use this same session to delete your bucket without the need to corrupt your other device.
 
 An additional layer of protection is `Object Locking' that can be enabled in AWS (and S3 compatible providers).  An Object Lock is applied when a file is created (or on an existing file), and it provides a specific retention date.  Until that retention date occurs, there is no way to delete the locked file.  Even using your login credentials, the file is protected from deletion.  It can still be overwritten with a new version or hidden such that it doesn't appear in a file list.  But it will always be accessible until its retention date occurs.  While Kopia supports applying Object Locks, there are some caveats:
 
@@ -87,7 +105,7 @@ An additional layer of protection is `Object Locking' that can be enabled in AWS
   * It is strongly recommended to use compliance mode when creating the Kopia repository.  Compliance mode ensures that even root users cannot delete files from a bucket, and provides the highest level of security.  More information can be found in the [S3 documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-overview.html#object-lock-retention-modes)
   * Kopia currently only supports object locks when using an S3 repo.  If you use Backblaze, you will need to use the S3 repo method with Kopia instead of the Backblaze native API.
 
-### How to enable Object Locks
+##### How to enable Object Locks
 
   * Create a new bucket with Object Locks enabled
     * There is no need to set a default Retention time
@@ -100,25 +118,25 @@ An additional layer of protection is `Object Locking' that can be enabled in AWS
     * Run: `kopia maintenance set --extend-object-locks true`
       * Note that the `full-interval` must be at least 1 day shorter than the `retention-period` or Kopia will not allow you to enable Object Lock extension
 
-### How to restore a snapshot that was deleted by ransomware (or some other process)
+#### How to restore a snapshot that was deleted by ransomware (or some other process)
   * If you have data that needs to be restored, make sure that either your retention time will not expire or your lifecycle data expiration is sufficient to ensure you can download your data before the cloud provider removes it
   * Disconnect the repo in Kopia
   * Reconnect the repo in Kopia using the `--point-in-time` option (ex: `--point-in-time=2021-11-29T01:10:00.000Z`)
     * This option is only currently available when using an 's3' repo
 
-### A caveat about ransomware protection
+#### A caveat about ransomware protection
 
 Ransomware can be very sophisticated software.  It may run on your system for weeks, slowly encrypting data that is not frequently used, and only hitting actively used data last (to avoid detection for as long as possible).  This means that you should ensure your data retention period is long enough that you will be able to recover your data.  It also means that recovery may not be easy.  You may have many snapshots after the ransomware has started modifying your system, and you may have made changes throughout that time such that there is no single snapshot that represents a good state of all your files.  Restoration is likely to be a time-consuming task, and your best bet is to protect your system from these threats, so they don't occur in the first place.  But if they do, Kopia can provide some additional security to protect your data.
 
 Additionally note that ransomware could theoretically weaponize object-locks to cost you a lot of money.  Because object-locks cannot be reduced or removed, sufficiently malicious ransomware could upload large amounts of data and set a very long object lock that would make it impossible to delete.  It is strongly recommended to ensure you have appropriate quotas/limits on your buckets to limit potential storage costs.
 
-### An additional note about Lifecycle Management vs retention-time
+#### An additional note about Lifecycle Management vs retention-time
 
 At first glance, Lifecycle Management and retention-time may seem to serve similar purposes.  However, if only using Lifecycle Management, an attacker could still log into your account and delete the entire bucket, or otherwise force-delete a file.  Using 'Object Lock' with retention-time provides an additional guarantee that the only way for data to be lost before the retention-time expires would be to delete your account altogether.  The S3 provider may allow enabling Object Lock without enabling Lifecycle Management.  When retention-time is applied to a file, and that file is deleted, the S3 service will set a `DELETE` marker instead of actually deleting the file. If Lifecycle Management is not enabled, then files may remain in the repository with  the `DELETED` tag indefinitely.  Thus, it is recommended to enable Lifecycle Management whenever using a retention-time in Kopia to balance protective measures against escalating storage costs.
 
 For simplicity, the recommendation is to use the same time period for Lifecycle Management and for retention-time, however, this is not a hard requirement.  It is possible to set a very short Lifecycle Management period and a long retention-time (in which case files will be permanently deleted soon after the retention-time expires.  Alternatively, the Lifecycle Management could be set to be significantly longer than the retention time.  This would provide additional restore capabilities while allowing for manual cleanup of deleted files should it be necessary (with the understanding that once the retention-time expires, the ransomware protention is reduced).  For simplicity, the recommendation is to use the same time period for Lifecycle Management and for retention-time.
 
-### Azure protection
+#### Azure protection
 
 Kopia supports ransomware protection for Azure in a similar manner to S3. The container must have version-level immutability support enabled and the related storage account must have versioning enabled.
 When this is configured, the retention mode can be set to either compliance or governance mode. In both cases the blobs will be in [Locked](https://learn.microsoft.com/en-us/rest/api/storageservices/set-blob-immutability-policy?tabs=microsoft-entra-id#remarks) mode. 
@@ -130,7 +148,7 @@ On Kopia side `--retention-mode COMPLIANCE --retention-period <retention time>` 
 To have continuous protection it is also necessary to run: `kopia maintenance set --extend-object-locks true`
 * Note that the `full-interval` must be at least 1 day shorter than the `retention-period` or Kopia will not allow you to enable Object Lock extension
 
-### Google protection
+#### Google protection
 
 Kopia supports ransomware protection for Google in a similar manner to S3. The bucket must have both versioning and object retention enabled.
 When this is configured, the retention mode can be set to either compliance or governance mode. In both cases the blobs will be in [Locked](https://cloud.google.com/storage/docs/object-lock#overview) mode.
