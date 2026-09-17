@@ -44,6 +44,9 @@ type Options struct {
 	// A non-zero StorageLimitBytes option limits the capacity of the underlying storage,
 	// otherwise it is unlimited.
 	StorageLimitBytes uint64
+	// WrapStorage, if set, wraps the underlying storage before the repository is created,
+	// for example to inject faults. RootStorage() returns the wrapped storage.
+	WrapStorage func(blob.Storage) blob.Storage
 }
 
 // RepositoryMetrics returns metrics.Registry associated with a repository.
@@ -53,8 +56,8 @@ func (e *Environment) RepositoryMetrics() *metrics.Registry {
 	}).Metrics()
 }
 
-// RootStorage returns the base storage map that implements the base in-memory
-// map at the base of all storage wrappers on top.
+// RootStorage returns the storage at the base of all storage wrappers on top:
+// the in-memory map, or the result of Options.WrapStorage when it is set.
 func (e *Environment) RootStorage() blob.Storage {
 	return e.st.(reconnectableStorage).Storage //nolint:forcetypeassert
 }
@@ -112,6 +115,12 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	} else {
 		// use versioned mock storage when retention settings are specified
 		st = blobtesting.NewVersionedMapStorage(openOpt.TimeNowFunc)
+	}
+
+	for _, mod := range opts {
+		if mod.WrapStorage != nil {
+			st = mod.WrapStorage(st)
+		}
 	}
 
 	st = NewReconnectableStorage(tb, st)
