@@ -2,6 +2,7 @@ package email_test
 
 import (
 	"context"
+	"regexp"
 	"testing"
 	"time"
 
@@ -55,26 +56,34 @@ func TestEmailProvider(t *testing.T) {
 	}, 10*time.Second, time.Second)
 	require.Len(t, srv.Messages(), 1)
 	msg := srv.Messages()[0]
+	msgContent := msg.MsgRequest()
 
-	require.Equal(t, "Subject: Test\r\n"+
-		"From: some-user@example.com\r\n"+
-		"To: another-user@example.com\r\n"+
-		"MIME-version: 1.0;\r\n"+
-		"Content-Type: text/html; charset=\"UTF-8\";\r\n"+
-		"X-ExtraHeader: value\r\n"+
-		"\r\n"+
-		"This is a test.\r\n"+
-		"\r\n"+
-		"* one\r\n"+
-		"* two\r\n"+
-		"* three\r\n"+
-		"\r\n"+
-		"# Header\r\n"+
-		"## Subheader\r\n"+
-		"\r\n"+
-		"- a\r\n"+
-		"- b\r\n"+
-		"- c\r\n", msg.MsgRequest())
+	// Normalize dynamic Date value and verify the full message exactly
+	dateRegexp := regexp.MustCompile(`Date: [A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} [+-]\d{4}\r\n`)
+	require.Regexp(t, dateRegexp, msgContent)
+	normalizedContent := dateRegexp.ReplaceAllString(msgContent, "Date: <date>\r\n")
+	require.Equal(t,
+		"Subject: Test\r\n"+
+			"From: some-user@example.com\r\n"+
+			"To: another-user@example.com\r\n"+
+			"Date: <date>\r\n"+
+			"MIME-version: 1.0;\r\n"+
+			"Content-Type: text/html; charset=\"UTF-8\";\r\n"+
+			"X-ExtraHeader: value\r\n"+
+			"\r\n"+
+			"This is a test.\r\n"+
+			"\r\n"+
+			"* one\r\n"+
+			"* two\r\n"+
+			"* three\r\n"+
+			"\r\n"+
+			"# Header\r\n"+
+			"## Subheader\r\n"+
+			"\r\n"+
+			"- a\r\n"+
+			"- b\r\n"+
+			"- c\r\n",
+		normalizedContent)
 }
 
 func TestEmailProvider_Text(t *testing.T) {
@@ -119,24 +128,32 @@ func TestEmailProvider_Text(t *testing.T) {
 	}, 10*time.Second, time.Second)
 	require.Len(t, srv.Messages(), 1)
 	msg := srv.Messages()[0]
+	msgContent := msg.MsgRequest()
 
-	require.Equal(t, "Subject: Test\r\n"+
-		"From: some-user@example.com\r\n"+
-		"To: another-user@example.com\r\n"+
-		"X-ExtraHeader: value\r\n"+
-		"\r\n"+
-		"This is a test.\r\n"+
-		"\r\n"+
-		"* one\r\n"+
-		"* two\r\n"+
-		"* three\r\n"+
-		"\r\n"+
-		"# Header\r\n"+
-		"## Subheader\r\n"+
-		"\r\n"+
-		"- a\r\n"+
-		"- b\r\n"+
-		"- c\r\n", msg.MsgRequest())
+	// Normalize dynamic Date value and verify the full message exactly
+	dateRegexp := regexp.MustCompile(`Date: [A-Za-z]{3}, \d{2} [A-Za-z]{3} \d{4} \d{2}:\d{2}:\d{2} [+-]\d{4}\r\n`)
+	require.Regexp(t, dateRegexp, msgContent)
+	normalizedContent := dateRegexp.ReplaceAllString(msgContent, "Date: <date>\r\n")
+	require.Equal(t,
+		"Subject: Test\r\n"+
+			"From: some-user@example.com\r\n"+
+			"To: another-user@example.com\r\n"+
+			"Date: <date>\r\n"+
+			"X-ExtraHeader: value\r\n"+
+			"\r\n"+
+			"This is a test.\r\n"+
+			"\r\n"+
+			"* one\r\n"+
+			"* two\r\n"+
+			"* three\r\n"+
+			"\r\n"+
+			"# Header\r\n"+
+			"## Subheader\r\n"+
+			"\r\n"+
+			"- a\r\n"+
+			"- b\r\n"+
+			"- c\r\n",
+		normalizedContent)
 }
 
 func TestEmailProvider_AUTH(t *testing.T) {
