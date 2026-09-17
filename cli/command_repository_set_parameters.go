@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/r2"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/maintenance"
 )
@@ -202,6 +203,10 @@ func (c *commandRepositorySetParameters) run(ctx context.Context, rep repo.Direc
 			disableBlobRetention(ctx, &blobcfg, &anyChange)
 		}
 	} else {
+		if rep.BlobStorage().ConnectionInfo().Type == r2.StorageType && (c.retentionMode != "" || c.retentionPeriod != 0) {
+			return errors.New(r2UnsupportedRetentionMessage)
+		}
+
 		setRetentionModeParameter(ctx, blob.RetentionMode(c.retentionMode), "storage backend blob retention mode", &blobcfg.RetentionMode, &anyChange)
 		setDurationParameter(ctx, c.retentionPeriod, "storage backend blob retention period", &blobcfg.RetentionPeriod, &anyChange)
 	}

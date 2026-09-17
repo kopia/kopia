@@ -16,6 +16,7 @@ When ready, head to the [installation](installation/) page to download and insta
 Kopia supports saving your [encrypted](features/#user-controlled-end-to-end-encryption) and [compressed](features/#compression) snapshots to all of the following [storage locations](features/#save-snapshots-to-cloud-network-or-local-storage):
 
 * **Amazon S3** and any **cloud storage that is compatible with S3**
+* **Cloudflare R2**
 * **Azure Blob Storage**
 * **Backblaze B2**
 * **Google Cloud Storage**

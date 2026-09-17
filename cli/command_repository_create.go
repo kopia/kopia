@@ -9,6 +9,7 @@ import (
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/r2"
 	"github.com/kopia/kopia/repo/ecc"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
@@ -22,6 +23,8 @@ const runValidationNote = `NOTE: To validate that your provider is compatible wi
 $ kopia repository validate-provider
 
 `
+
+const r2UnsupportedRetentionMessage = "Cloudflare R2 does not support S3 Object Lock headers; --retention-mode and --retention-period are unsupported"
 
 type commandRepositoryCreate struct {
 	createBlockHashFormat             string
@@ -120,6 +123,9 @@ func (c *commandRepositoryCreate) runCreateCommandWithStorage(ctx context.Contex
 	}
 
 	options := c.newRepositoryOptionsFromFlags()
+	if st.ConnectionInfo().Type == r2.StorageType && (options.RetentionMode != "" || options.RetentionPeriod != 0) {
+		return errors.New(r2UnsupportedRetentionMessage)
+	}
 
 	pass, err := c.svc.getPasswordFromFlags(ctx, true, false)
 	if err != nil {
