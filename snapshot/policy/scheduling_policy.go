@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"slices"
 	"strings"
@@ -68,16 +69,18 @@ type SchedulingPolicy struct {
 	NoParentTimesOfDay bool          `json:"noParentTimeOfDay,omitempty"`
 	Manual             bool          `json:"manual,omitempty"`
 	Cron               []string      `json:"cron,omitempty"`
+	RandomDelaySeconds int64         `json:"randomDelaySeconds,omitempty"`
 	RunMissed          *OptionalBool `json:"runMissed,omitempty"`
 }
 
 // SchedulingPolicyDefinition specifies which policy definition provided the value of a particular field.
 type SchedulingPolicyDefinition struct {
-	IntervalSeconds snapshot.SourceInfo `json:"intervalSeconds,omitempty"`
-	TimesOfDay      snapshot.SourceInfo `json:"timeOfDay,omitempty"`
-	Cron            snapshot.SourceInfo `json:"cron,omitempty"`
-	Manual          snapshot.SourceInfo `json:"manual,omitempty"`
-	RunMissed       snapshot.SourceInfo `json:"runMissed,omitempty"`
+	IntervalSeconds    snapshot.SourceInfo `json:"intervalSeconds,omitempty"`
+	TimesOfDay         snapshot.SourceInfo `json:"timeOfDay,omitempty"`
+	Cron               snapshot.SourceInfo `json:"cron,omitempty"`
+	Manual             snapshot.SourceInfo `json:"manual,omitempty"`
+	RandomDelaySeconds snapshot.SourceInfo `json:"randomDelaySeconds,omitempty"`
+	RunMissed          snapshot.SourceInfo `json:"runMissed,omitempty"`
 }
 
 // defaultRunMissed is the value for RunMissed.
@@ -91,6 +94,29 @@ func (p *SchedulingPolicy) Interval() time.Duration {
 // SetInterval sets the snapshot interval (zero disables).
 func (p *SchedulingPolicy) SetInterval(d time.Duration) {
 	p.IntervalSeconds = int64(d.Seconds())
+}
+
+// SetRandomDelay sets the snapshot random delay (zero disables).
+func (p *SchedulingPolicy) SetRandomDelay(d time.Duration) {
+	p.RandomDelaySeconds = int64(d.Seconds())
+}
+
+// RandomDelay returns the snapshot random delay or zero if not specified.
+func (p *SchedulingPolicy) RandomDelay() time.Duration {
+	if p.RandomDelaySeconds <= 0 {
+		return 0
+	}
+
+	return time.Duration(rand.Int63n(p.RandomDelaySeconds+1)) * time.Second //nolint:gosec
+}
+
+// addRandomDelay adds a random delay in [0, RandomDelaySeconds] to t when the policy has it set.
+func (p *SchedulingPolicy) addRandomDelay(t time.Time) time.Time {
+	if p.RandomDelaySeconds <= 0 {
+		return t
+	}
+
+	return t.Add(p.RandomDelay())
 }
 
 // NextSnapshotTime computes next snapshot time given previous
@@ -113,7 +139,7 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 		interval := time.Duration(interval) * time.Second
 
 		nt := previousSnapshotTime.Add(interval).Truncate(interval)
-		nextSnapshotTime = nt
+		nextSnapshotTime = p.addRandomDelay(nt)
 		ok = true
 
 		if nextSnapshotTime.Before(now) {
@@ -122,12 +148,12 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 	}
 
 	if todSnapshot, todOk := p.getNextTimeOfDaySnapshot(now); todOk && (!ok || todSnapshot.Before(nextSnapshotTime)) {
-		nextSnapshotTime = todSnapshot
+		nextSnapshotTime = p.addRandomDelay(todSnapshot)
 		ok = true
 	}
 
 	if cronSnapshot, cronOk := p.getNextCronSnapshot(now); cronOk && (!ok || cronSnapshot.Before(nextSnapshotTime)) {
-		nextSnapshotTime = cronSnapshot
+		nextSnapshotTime = p.addRandomDelay(cronSnapshot)
 		ok = true
 	}
 
@@ -226,6 +252,7 @@ func (p *SchedulingPolicy) checkMissedSnapshot(now, previousSnapshotTime, nextSn
 // Merge applies default values from the provided policy.
 func (p *SchedulingPolicy) Merge(src SchedulingPolicy, def *SchedulingPolicyDefinition, si snapshot.SourceInfo) {
 	mergeInt64(&p.IntervalSeconds, src.IntervalSeconds, &def.IntervalSeconds, si)
+	mergeInt64(&p.RandomDelaySeconds, src.RandomDelaySeconds, &def.RandomDelaySeconds, si)
 
 	if len(src.TimesOfDay) > 0 {
 		def.TimesOfDay = si

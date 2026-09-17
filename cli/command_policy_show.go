@@ -327,6 +327,14 @@ func appendSchedulingPolicyRows(rows []policyTableRow, p *policy.Policy, def *po
 		hasAny = true
 	}
 
+	if hasAny && p.SchedulingPolicy.RandomDelaySeconds > 0 {
+		rows = append(rows, policyTableRow{
+			"    Schedule random delay:",
+			(time.Duration(p.SchedulingPolicy.RandomDelaySeconds) * time.Second).String(),
+			definitionPointToString(p.Target(), def.SchedulingPolicy.RandomDelaySeconds),
+		})
+	}
+
 	if !hasAny {
 		rows = append(rows, policyTableRow{"    None.", "", ""})
 	}

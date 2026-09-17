@@ -289,6 +289,77 @@ func TestNextSnapshotTime(t *testing.T) {
 	}
 }
 
+func TestNextSnapshotTimeWithRandomDelay(t *testing.T) {
+	const maxDelaySec int64 = 300 // 5 minutes
+
+	const numSamples = 100
+
+	t.Run("interval", func(t *testing.T) {
+		pol := policy.SchedulingPolicy{
+			IntervalSeconds:    60,
+			RandomDelaySeconds: maxDelaySec,
+		}
+		previousSnapshotTime := time.Date(2020, time.January, 1, 11, 50, 0, 0, time.Local)
+		now := time.Date(2020, time.January, 1, 11, 50, 30, 0, time.Local)
+		baseTime := time.Date(2020, time.January, 1, 11, 51, 0, 0, time.Local)
+		maxTime := baseTime.Add(time.Duration(maxDelaySec) * time.Second)
+
+		seen := make(map[time.Time]bool)
+		for range numSamples {
+			gotTime, gotOK := pol.NextSnapshotTime(previousSnapshotTime, now)
+			require.True(t, gotOK, "expected ok")
+			require.False(t, gotTime.Before(baseTime), "got %v, want >= %v", gotTime, baseTime)
+			require.False(t, gotTime.After(maxTime), "got %v, want <= %v", gotTime, maxTime)
+			seen[gotTime] = true
+		}
+
+		require.Greater(t, len(seen), 1, "random delay should produce varied results, got %d distinct values", len(seen))
+	})
+
+	t.Run("time-of-day", func(t *testing.T) {
+		pol := policy.SchedulingPolicy{
+			TimesOfDay:         []policy.TimeOfDay{{11, 55}, {11, 57}},
+			RandomDelaySeconds: maxDelaySec,
+		}
+		now := time.Date(2020, time.January, 1, 11, 50, 30, 0, time.Local)
+		baseTime := time.Date(2020, time.January, 1, 11, 55, 0, 0, time.Local)
+		maxTime := baseTime.Add(time.Duration(maxDelaySec) * time.Second)
+
+		seen := make(map[time.Time]bool)
+		for range numSamples {
+			gotTime, gotOK := pol.NextSnapshotTime(time.Time{}, now)
+			require.True(t, gotOK, "expected ok")
+			require.False(t, gotTime.Before(baseTime), "got %v, want >= %v", gotTime, baseTime)
+			require.False(t, gotTime.After(maxTime), "got %v, want <= %v", gotTime, maxTime)
+			seen[gotTime] = true
+		}
+
+		require.Greater(t, len(seen), 1, "random delay should produce varied results, got %d distinct values", len(seen))
+	})
+
+	t.Run("cron", func(t *testing.T) {
+		pol := policy.SchedulingPolicy{
+			Cron:               []string{"0 23 * * *"},
+			RandomDelaySeconds: maxDelaySec,
+			RunMissed:          policy.NewOptionalBool(false),
+		}
+		now := time.Date(2020, time.January, 1, 10, 0, 0, 0, time.Local)
+		baseTime := time.Date(2020, time.January, 1, 23, 0, 0, 0, time.Local)
+		maxTime := baseTime.Add(time.Duration(maxDelaySec) * time.Second)
+
+		seen := make(map[time.Time]bool)
+		for range numSamples {
+			gotTime, gotOK := pol.NextSnapshotTime(time.Time{}, now)
+			require.True(t, gotOK, "expected ok")
+			require.False(t, gotTime.Before(baseTime), "got %v, want >= %v", gotTime, baseTime)
+			require.False(t, gotTime.After(maxTime), "got %v, want <= %v", gotTime, maxTime)
+			seen[gotTime] = true
+		}
+
+		require.Greater(t, len(seen), 1, "random delay should produce varied results, got %d distinct values", len(seen))
+	})
+}
+
 func TestSortAndDedupeTimesOfDay(t *testing.T) {
 	cases := []struct {
 		input []policy.TimeOfDay
