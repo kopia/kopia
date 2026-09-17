@@ -258,7 +258,7 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 
 		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
 			go func() { // drain async to avoid deadlock
-				if _, drainErr := io.Copy(io.Discard, stdout); drainErr != nil {
+				if _, drainErr := io.Copy(io.Discard, stderr); drainErr != nil {
 					tb.Logf("[%vstderr] drain error: %v", prefix, drainErr)
 				}
 			}()
