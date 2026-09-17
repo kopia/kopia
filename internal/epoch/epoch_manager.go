@@ -436,11 +436,48 @@ func (e *Manager) CleanupSupersededIndexes(ctx context.Context) (*maintenancesta
 		return nil, errors.Wrap(err, "unable to delete uncompacted blobs")
 	}
 
+	// delete single-epoch compaction blobs for epochs that are fully covered by
+	// a range checkpoint set written sufficiently long ago.
+	xsBlobs, err := blob.ListAllBlobs(ctx, e.st, SingleEpochCompactionBlobPrefix)
+	if err != nil {
+		return nil, errors.Wrap(err, "error listing single-epoch compaction blobs")
+	}
+
+	var toDeleteXS []blob.ID
+
+	for _, bm := range xsBlobs {
+		ep, ok := epochNumberFromBlobID(bm.BlobID)
+		if !ok {
+			continue
+		}
+
+		if rangeCoversEpochAndOldEnough(cs.LongestRangeCheckpointSets, ep, maxReplacementTime) {
+			toDeleteXS = append(toDeleteXS, bm.BlobID)
+			deletedTotalSize += maintenancestats.ToUint64(bm.Length)
+		}
+	}
+
+	if err := blob.DeleteMultiple(ctx, e.st, toDeleteXS, p.DeleteParallelism); err != nil {
+		return nil, errors.Wrap(err, "unable to delete superseded single-epoch compaction blobs")
+	}
+
+	toDelete = append(toDelete, toDeleteXS...)
+
 	return &maintenancestats.CleanupSupersededIndexesStats{
 		MaxReplacementTime: maxReplacementTime,
 		DeletedBlobCount:   uint64(len(toDelete)),
 		DeletedTotalSize:   deletedTotalSize,
 	}, nil
+}
+
+func rangeCoversEpochAndOldEnough(ranges []*RangeMetadata, epoch int, maxReplacementTime time.Time) bool {
+	for _, r := range ranges {
+		if epoch >= r.MinEpoch && epoch <= r.MaxEpoch {
+			return blobSetWrittenEarlyEnough(r.Blobs, maxReplacementTime)
+		}
+	}
+
+	return false
 }
 
 func blobSetWrittenEarlyEnough(replacementSet []blob.Metadata, maxReplacementTime time.Time) bool {
