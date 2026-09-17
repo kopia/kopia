@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/snapshot"
@@ -161,6 +162,246 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 	if got, want := snaps1[len(snaps1)-1].ObjectID, snaps1[0].ObjectID; got != want {
 		t.Fatalf("invalid snapshot ID after async action %v, wanted %v", got, want)
 	}
+}
+
+func TestSnapshotActionsSingleFile(t *testing.T) {
+	t.Parallel()
+
+	th := skipUnlessTestAction(t)
+	logsDir := testutil.TempLogDirectory(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	sourceFile := tmpfileWithContents(t, "original contents")
+	beforeFile := tmpfileWithContents(t, "before snapshot")
+	afterFile := tmpfileWithContents(t, "after snapshot")
+	beforeEnvFile := filepath.Join(logsDir, "before-env.txt")
+	afterEnvFile := filepath.Join(logsDir, "after-env.txt")
+	sessionFile := filepath.Join(logsDir, "session.txt")
+	beforeCopy := tmpfileWithContents(t, beforeFile+" => $KOPIA_SOURCE_PATH\n")
+	afterCopy := tmpfileWithContents(t, afterFile+" => $KOPIA_SOURCE_PATH\nsession => "+sessionFile+"\n")
+
+	e.RunAndExpectSuccess(t, "policy", "set", "--global",
+		"--before-snapshot-root-action", th+" --copy-files="+beforeCopy+" --save-env="+beforeEnvFile+" --create-file=session")
+	e.RunAndExpectSuccess(t, "policy", "set", sourceFile,
+		"--after-snapshot-root-action", th+" --copy-files="+afterCopy+" --save-env="+afterEnvFile)
+
+	var previousSnapshotID string
+
+	for range 2 {
+		oldTime := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+		require.NoError(t, os.Chtimes(sourceFile, oldTime, oldTime))
+
+		var man snapshot.Manifest
+
+		testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile, "--json"), &man)
+		require.Equal(t, []string{"before snapshot"}, e.RunAndExpectSuccess(t, "show", man.RootObjectID().String()))
+		require.EqualValues(t, len("before snapshot"), man.RootEntry.FileSize)
+		require.True(t, man.RootEntry.ModTime.ToTime().After(oldTime))
+
+		contents, err := os.ReadFile(sourceFile)
+		require.NoError(t, err)
+		require.Equal(t, "after snapshot", string(contents))
+		verifyFileExists(t, sessionFile)
+
+		beforeEnv := mustReadEnvFile(t, beforeEnvFile)
+		afterEnv := mustReadEnvFile(t, afterEnvFile)
+		require.Equal(t, "before-snapshot-root", beforeEnv["KOPIA_ACTION"])
+		require.Equal(t, "after-snapshot-root", afterEnv["KOPIA_ACTION"])
+		require.NotEmpty(t, beforeEnv["KOPIA_SNAPSHOT_ID"])
+		require.NotEqual(t, previousSnapshotID, beforeEnv["KOPIA_SNAPSHOT_ID"])
+
+		for _, name := range []string{"KOPIA_SNAPSHOT_ID", "KOPIA_SOURCE_PATH", "KOPIA_SNAPSHOT_PATH", "KOPIA_VERSION"} {
+			require.Equal(t, beforeEnv[name], afterEnv[name], name)
+		}
+
+		require.Equal(t, sourceFile, beforeEnv["KOPIA_SOURCE_PATH"])
+		require.Equal(t, sourceFile, beforeEnv["KOPIA_SNAPSHOT_PATH"])
+		require.NotEmpty(t, beforeEnv["KOPIA_VERSION"])
+
+		previousSnapshotID = beforeEnv["KOPIA_SNAPSHOT_ID"]
+	}
+}
+
+func TestSnapshotActionsSingleFileFailures(t *testing.T) {
+	t.Parallel()
+
+	th := skipUnlessTestAction(t)
+
+	for _, tc := range []struct {
+		name          string
+		beforeMode    string
+		beforeExit    string
+		afterExit     string
+		actions       bool
+		wantFailure   bool
+		wantBeforeRun bool
+		wantAfterRun  bool
+	}{
+		{"essential before", "essential", "3", "0", true, true, true, false},
+		{"optional before", "optional", "3", "0", true, false, true, true},
+		{"essential after", "essential", "0", "3", true, false, true, true},
+		{"after only", "", "0", "0", true, false, false, true},
+		{"disabled", "essential", "3", "3", false, false, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			logsDir := testutil.TempLogDirectory(t)
+			e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+
+			flags := []string{"repo", "create", "filesystem", "--path", e.RepoDir}
+			if tc.actions {
+				flags = append(flags, "--enable-actions")
+			}
+
+			e.RunAndExpectSuccess(t, flags...)
+			defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+			sourceFile := tmpfileWithContents(t, "snapshot contents")
+			beforeEnvFile := filepath.Join(logsDir, "before-env.txt")
+			afterEnvFile := filepath.Join(logsDir, "after-env.txt")
+
+			if tc.beforeMode != "" {
+				e.RunAndExpectSuccess(t, "policy", "set", sourceFile,
+					"--before-snapshot-root-action", th+" --exit-code="+tc.beforeExit+" --save-env="+beforeEnvFile,
+					"--action-command-mode="+tc.beforeMode)
+			}
+
+			e.RunAndExpectSuccess(t, "policy", "set", sourceFile,
+				"--after-snapshot-root-action", th+" --exit-code="+tc.afterExit+" --save-env="+afterEnvFile)
+
+			if tc.wantFailure {
+				e.RunAndExpectFailure(t, "snapshot", "create", sourceFile)
+				require.Empty(t, clitestutil.ListSnapshotsAndExpectSuccess(t, e, sourceFile))
+			} else {
+				e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
+			}
+
+			for envFile, wantRun := range map[string]bool{beforeEnvFile: tc.wantBeforeRun, afterEnvFile: tc.wantAfterRun} {
+				if wantRun {
+					verifyFileExists(t, envFile)
+				} else {
+					require.NoFileExists(t, envFile)
+				}
+			}
+		})
+	}
+}
+
+func TestSnapshotActionsSingleFileRedirection(t *testing.T) {
+	t.Parallel()
+
+	th := skipUnlessTestAction(t)
+
+	for _, tc := range []struct {
+		name        string
+		target      string
+		wantFailure bool
+	}{
+		{"file", tmpfileWithContents(t, "redirected contents"), false},
+		{"directory", testutil.TempDirectory(t), true},
+		{"missing", filepath.Join(testutil.TempDirectory(t), "missing"), true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			logsDir := testutil.TempLogDirectory(t)
+			e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+
+			e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
+			defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+			sourceFile := tmpfileWithContents(t, "original contents")
+			redirectFile := tmpfileWithContents(t, "KOPIA_SNAPSHOT_PATH="+tc.target+"\n")
+			afterEnvFile := filepath.Join(logsDir, "after-env.txt")
+
+			e.RunAndExpectSuccess(t, "policy", "set", sourceFile,
+				"--before-snapshot-root-action", th+" --stdout-file="+redirectFile)
+			e.RunAndExpectSuccess(t, "policy", "set", sourceFile,
+				"--after-snapshot-root-action", th+" --save-env="+afterEnvFile)
+
+			if tc.wantFailure {
+				e.RunAndExpectFailure(t, "snapshot", "create", sourceFile)
+				require.Empty(t, clitestutil.ListSnapshotsAndExpectSuccess(t, e, sourceFile))
+				require.NoFileExists(t, afterEnvFile)
+
+				return
+			}
+
+			var man snapshot.Manifest
+
+			testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile, "--json"), &man)
+			require.Equal(t, []string{"redirected contents"}, e.RunAndExpectSuccess(t, "show", man.RootObjectID().String()))
+			require.EqualValues(t, len("redirected contents"), man.RootEntry.FileSize)
+			require.Equal(t, sourceFile, man.Source.Path)
+
+			afterEnv := mustReadEnvFile(t, afterEnvFile)
+			require.Equal(t, sourceFile, afterEnv["KOPIA_SOURCE_PATH"])
+			require.Equal(t, tc.target, afterEnv["KOPIA_SNAPSHOT_PATH"])
+		})
+	}
+}
+
+func TestSnapshotActionsSingleFileUploadFailure(t *testing.T) {
+	t.Parallel()
+
+	th := skipUnlessTestAction(t)
+	logsDir := testutil.TempLogDirectory(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	sourceFile := tmpfileWithContents(t, "snapshot contents")
+	afterEnvFile := filepath.Join(logsDir, "after-env.txt")
+
+	removeScript := `rm "$KOPIA_SOURCE_PATH"`
+	if runtime.GOOS == windowsOSName {
+		removeScript = `del "%KOPIA_SOURCE_PATH%"`
+	}
+
+	e.RunAndExpectSuccess(t, "policy", "set", sourceFile,
+		"--before-snapshot-root-action", tmpfileWithContents(t, removeScript), "--persist-action-script")
+	e.RunAndExpectSuccess(t, "policy", "set", sourceFile,
+		"--after-snapshot-root-action", th+" --save-env="+afterEnvFile)
+
+	e.RunAndExpectFailure(t, "snapshot", "create", sourceFile)
+	require.NoFileExists(t, sourceFile)
+	require.Empty(t, clitestutil.ListSnapshotsAndExpectSuccess(t, e, sourceFile))
+	require.Equal(t, sourceFile, mustReadEnvFile(t, afterEnvFile)["KOPIA_SOURCE_PATH"])
+}
+
+func TestSnapshotActionsSingleFileShallow(t *testing.T) {
+	t.Parallel()
+
+	th := skipUnlessTestAction(t)
+	logsDir := testutil.TempLogDirectory(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	var original snapshot.Manifest
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", tmpfileWithContents(t, "snapshot contents"), "--json"), &original)
+	placeholder, err := localfs.WriteShallowPlaceholder(filepath.Join(testutil.TempDirectory(t), "placeholder"), original.RootEntry)
+	require.NoError(t, err)
+
+	beforeEnvFile := filepath.Join(logsDir, "before-env.txt")
+	afterEnvFile := filepath.Join(logsDir, "after-env.txt")
+	e.RunAndExpectSuccess(t, "policy", "set", "--global",
+		"--before-snapshot-root-action", th+" --save-env="+beforeEnvFile,
+		"--after-snapshot-root-action", th+" --save-env="+afterEnvFile)
+
+	var man snapshot.Manifest
+
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", placeholder, "--json"), &man)
+	require.Equal(t, original.RootObjectID(), man.RootObjectID())
+	verifyFileExists(t, beforeEnvFile)
+	verifyFileExists(t, afterEnvFile)
 }
 
 func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
