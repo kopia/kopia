@@ -24,7 +24,11 @@ type repositoryUserAuthenticator struct {
 	userProfileRefreshFrequency time.Duration
 }
 
-func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Repository, username, password string) bool {
+// loadProfile refreshes and returns the user profile for the given username,
+// acquiring the lock internally. The returned Profile is immutable after
+// loading, so it is safe to use after this function returns (no lock is held
+// on return).
+func (ac *repositoryUserAuthenticator) loadProfile(ctx context.Context, rep repo.Repository, username string) *user.Profile {
 	ac.mu.Lock()
 	defer ac.mu.Unlock()
 
@@ -49,9 +53,18 @@ func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Rep
 		}
 	}
 
+	return ac.userProfiles[username]
+}
+
+func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Repository, username, password string) bool {
+	// loadProfile acquires the lock internally and returns an immutable Profile
+	// pointer. We perform the CPU-intensive password verification outside the
+	// lock to avoid serializing concurrent session authentications.
+	profile := ac.loadProfile(ctx, rep, username)
+
 	// IsValidPassword can be safely called on nil and the call will take as much time as for a valid user
 	// thus not revealing anything about whether the user exists.
-	valid, err := ac.userProfiles[username].IsValidPassword(password)
+	valid, err := profile.IsValidPassword(password)
 	if err != nil {
 		log(ctx).Debugf("password error for user '%s': %v", username, err)
 
