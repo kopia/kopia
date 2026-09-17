@@ -221,9 +221,13 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 		}
 
 		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
-			_, drainErr := io.Copy(io.Discard, stdout) // drain stdout to avoid deadlock
+			go func() { // drain async to avoid deadlock
+				if _, drainErr := io.Copy(io.Discard, stdout); drainErr != nil {
+					tb.Logf("[%vstdout] drain error: %v", prefix, drainErr)
+				}
+			}()
 
-			return errors.Wrapf(stderrors.Join(err, drainErr), "reading [%sstdout]", prefix)
+			return errors.Wrapf(err, "reading [%sstdout]", prefix)
 		} else if logOutput {
 			tb.Logf("[%vstdout] EOF", prefix)
 		}
@@ -253,9 +257,13 @@ func (e *CLITest) RunAndProcessStderrInt(tb testing.TB, stderrCallback func(line
 		}
 
 		if err := stderrors.Join(ctx.Err(), scanner.Err()); err != nil {
-			_, drainErr := io.Copy(io.Discard, stderr) // drain stderr to avoid deadlock
+			go func() { // drain async to avoid deadlock
+				if _, drainErr := io.Copy(io.Discard, stdout); drainErr != nil {
+					tb.Logf("[%vstderr] drain error: %v", prefix, drainErr)
+				}
+			}()
 
-			return errors.Wrapf(stderrors.Join(err, drainErr), "reading [%sstderr]", prefix)
+			return errors.Wrapf(err, "reading [%sstderr]", prefix)
 		} else if logOutput {
 			tb.Logf("[%vstderr] EOF", prefix)
 		}
