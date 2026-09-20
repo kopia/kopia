@@ -134,6 +134,7 @@ type App struct {
 	updateCheckInterval           time.Duration
 	updateAvailableNotifyInterval time.Duration
 	password                      string
+	passwordFile                  string
 	configPath                    string
 	traceStorage                  bool
 	keyRingEnabled                bool
@@ -281,6 +282,7 @@ func (c *App) setup(app *kingpin.Application) {
 	app.Flag("trace-storage", "Enables tracing of storage operations.").Default(trueStr).Hidden().BoolVar(&c.traceStorage)
 	app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Hidden().StringVar(&timeZone)
 	app.Flag("password", "Repository password.").Envar(c.EnvName("KOPIA_PASSWORD")).Short('p').StringVar(&c.password)
+	app.Flag("password-file", "File containing the repository password (used when the password is not provided).").Envar(c.EnvName("KOPIA_PASSWORD_FILE")).StringVar(&c.passwordFile)
 	app.Flag("persist-credentials", "Persist credentials").Default(trueStr).Envar(c.EnvName("KOPIA_PERSIST_CREDENTIALS_ON_CONNECT")).BoolVar(&c.persistCredentials)
 	app.Flag("disable-repository-log", "Disable repository log").Hidden().Envar(c.EnvName("KOPIA_DISABLE_REPOSITORY_LOG")).BoolVar(&c.disableRepositoryLog)
 	app.Flag("dangerous-commands", "Enable dangerous commands that could result in data loss and repository corruption.").Hidden().Envar(c.EnvName("KOPIA_DANGEROUS_COMMANDS")).StringVar(&c.DangerousCommands)
