@@ -20,6 +20,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/apiserver"
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/mount"
@@ -67,16 +68,14 @@ type Server struct {
 	//nolint:containedctx
 	rootctx context.Context // +checklocksignore
 
-	OnShutdown    func(ctx context.Context) error
-	options       Options
-	authenticator auth.Authenticator
-	authorizer    auth.Authorizer
+	OnShutdown func(ctx context.Context) error
+	options    Options
 
 	initTaskMutex sync.Mutex
 	// +checklocks:initTaskMutex
 	initRepositoryTaskID string // non-empty - repository is currently being opened.
 
-	serverMutex sync.RWMutex
+	*apiserver.Server
 
 	parallelSnapshotsMutex sync.Mutex
 
@@ -91,13 +90,11 @@ type Server struct {
 	// +checklocks:parallelSnapshotsMutex
 	pendingMultiSnapshotStatus notifydata.MultiSnapshotStatus
 
-	// +checklocks:serverMutex
-	rep repo.Repository
-	// +checklocks:serverMutex
+	// +checklocks:ServerMutex
 	maint *srvMaintenance
-	// +checklocks:serverMutex
+	// +checklocks:ServerMutex
 	sourceManagers map[snapshot.SourceInfo]*sourceManager
-	// +checklocks:serverMutex
+	// +checklocks:ServerMutex
 	mounts map[object.ID]mount.Controller
 
 	taskmgr              *uitask.Manager
@@ -106,15 +103,13 @@ type Server struct {
 	// channel to which we can post to trigger scheduler re-evaluation.
 	schedulerRefresh chan string
 
-	// +checklocks:serverMutex
+	// +checklocks:ServerMutex
 	sched *scheduler.Scheduler
 
 	nextRefreshTimeLock sync.Mutex
 
 	// +checklocks:nextRefreshTimeLock
 	nextRefreshTime time.Time
-
-	grpcServerState
 }
 
 // SetupHTMLUIAPIHandlers registers API requests required by the HTMLUI.
@@ -278,23 +273,23 @@ func (s *Server) generateShortTermAuthCookie(username string, now time.Time) (st
 }
 
 func (s *Server) captureRequestContext(w http.ResponseWriter, r *http.Request) requestContext {
-	s.serverMutex.RLock()
-	defer s.serverMutex.RUnlock()
+	s.ServerMutex.RLock()
+	defer s.ServerMutex.RUnlock()
 
 	return requestContext{
 		w:   w,
 		req: r,
-		rep: s.rep,
+		rep: s.Rep,
 		srv: s,
 	}
 }
 
 func (s *Server) getAuthenticator() auth.Authenticator {
-	return s.authenticator
+	return s.Authenticator
 }
 
 func (s *Server) getAuthorizer() auth.Authorizer {
-	return s.authorizer
+	return s.Authorizer
 }
 
 func (s *Server) getOptions() *Options {
@@ -443,17 +438,17 @@ func (s *Server) refreshAsync() {
 
 // Refresh refreshes the state of the server in response to external signal (e.g. SIGHUP).
 func (s *Server) Refresh() {
-	s.serverMutex.Lock()
-	defer s.serverMutex.Unlock()
+	s.ServerMutex.Lock()
+	defer s.ServerMutex.Unlock()
 
 	if err := s.refreshLocked(s.rootctx); err != nil {
 		userLog(s.rootctx).Warnw("refresh error", "err", err)
 	}
 }
 
-// +checklocks:s.serverMutex
+// +checklocks:s.ServerMutex
 func (s *Server) refreshLocked(ctx context.Context) error {
-	if s.rep == nil {
+	if s.Rep == nil {
 		return nil
 	}
 
@@ -461,18 +456,18 @@ func (s *Server) refreshLocked(ctx context.Context) error {
 	s.nextRefreshTime = clock.Now().Add(s.options.RefreshInterval)
 	s.nextRefreshTimeLock.Unlock()
 
-	if err := s.rep.Refresh(ctx); err != nil {
+	if err := s.Rep.Refresh(ctx); err != nil {
 		return errors.Wrap(err, "unable to refresh repository")
 	}
 
-	if s.authenticator != nil {
-		if err := s.authenticator.Refresh(ctx); err != nil {
+	if s.Authenticator != nil {
+		if err := s.Authenticator.Refresh(ctx); err != nil {
 			userLog(ctx).Errorf("unable to refresh authenticator: %v", err)
 		}
 	}
 
-	if s.authorizer != nil {
-		if err := s.authorizer.Refresh(ctx); err != nil {
+	if s.Authorizer != nil {
+		if err := s.Authorizer.Refresh(ctx); err != nil {
 			userLog(ctx).Errorf("unable to refresh authorizer: %v", err)
 		}
 	}
@@ -574,9 +569,9 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo, mwe *no
 }
 
 func (s *Server) sendSnapshotReport(st notifydata.MultiSnapshotStatus) {
-	s.serverMutex.Lock()
-	rep := s.rep
-	s.serverMutex.Unlock()
+	s.ServerMutex.Lock()
+	rep := s.Rep
+	s.ServerMutex.Unlock()
 
 	// send the notification without blocking if we still have the repository
 	// it's possible that repository was closed in the meantime.
@@ -608,15 +603,15 @@ func (s *Server) notificationTemplateOptions() notifytemplate.Options {
 // SetRepository sets the repository (nil is allowed and indicates server that is not
 // connected to the repository).
 func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
-	s.serverMutex.Lock()
-	defer s.serverMutex.Unlock()
+	s.ServerMutex.Lock()
+	defer s.ServerMutex.Unlock()
 
-	if s.rep == rep {
+	if s.Rep == rep {
 		// nothing to do
 		return nil
 	}
 
-	if s.rep != nil {
+	if s.Rep != nil {
 		// stop previous scheduler asynchronously to avoid deadlock when
 		// scheduler is inside s.getSchedulerItems which needs a lock, which we're holding right now.
 		go s.sched.Stop()
@@ -630,7 +625,7 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 		s.stopAllSourceManagersLocked(ctx)
 		userLog(ctx).Debug("stopped all source managers")
 
-		if err := s.rep.Close(ctx); err != nil {
+		if err := s.Rep.Close(ctx); err != nil {
 			return errors.Wrap(err, "unable to close previous repository")
 		}
 
@@ -641,19 +636,19 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 		}
 	}
 
-	s.rep = rep
-	if s.rep == nil {
+	s.Rep = rep
+	if s.Rep == nil {
 		return nil
 	}
 
 	if err := s.syncSourcesLocked(ctx); err != nil {
 		s.stopAllSourceManagersLocked(ctx)
-		s.rep = nil
+		s.Rep = nil
 
 		return err
 	}
 
-	s.maint = maybeStartMaintenanceManager(ctx, s.rep, s, s.options.MinMaintenanceInterval)
+	s.maint = maybeStartMaintenanceManager(ctx, s.Rep, s, s.options.MinMaintenanceInterval)
 
 	s.sched = scheduler.Start(context.WithoutCancel(ctx), s.getSchedulerItems, scheduler.Options{
 		TimeNow:        clock.Now,
@@ -664,7 +659,7 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 	return nil
 }
 
-// +checklocks:s.serverMutex
+// +checklocks:s.ServerMutex
 func (s *Server) stopAllSourceManagersLocked(ctx context.Context) {
 	for _, sm := range s.sourceManagers {
 		sm.stop(ctx)
@@ -677,25 +672,25 @@ func (s *Server) stopAllSourceManagersLocked(ctx context.Context) {
 	s.sourceManagers = map[snapshot.SourceInfo]*sourceManager{}
 }
 
-// +checklocks:s.serverMutex
+// +checklocks:s.ServerMutex
 func (s *Server) syncSourcesLocked(ctx context.Context) error {
 	sources := map[snapshot.SourceInfo]bool{}
 
-	if s.rep != nil {
-		snapshotSources, err := snapshot.ListSources(ctx, s.rep)
+	if s.Rep != nil {
+		snapshotSources, err := snapshot.ListSources(ctx, s.Rep)
 		if err != nil {
 			return errors.Wrap(err, "unable to list sources")
 		}
 
-		policies, err := policy.ListPolicies(ctx, s.rep)
+		policies, err := policy.ListPolicies(ctx, s.Rep)
 		if err != nil {
 			return errors.Wrap(err, "unable to list sources")
 		}
 
 		// user@host policy
-		userhostPol, _, _, err := policy.GetEffectivePolicy(ctx, s.rep, snapshot.SourceInfo{
-			UserName: s.rep.ClientOptions().Username,
-			Host:     s.rep.ClientOptions().Hostname,
+		userhostPol, _, _, err := policy.GetEffectivePolicy(ctx, s.Rep, snapshot.SourceInfo{
+			UserName: s.Rep.ClientOptions().Username,
+			Host:     s.Rep.ClientOptions().Hostname,
 		})
 		if err != nil {
 			return errors.Wrap(err, "unable to get user policy")
@@ -724,7 +719,7 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 			delete(oldSourceManagers, src)
 			sm.refreshStatus(ctx)
 		} else {
-			sm := newSourceManager(src, s, s.rep)
+			sm := newSourceManager(src, s, s.Rep)
 			s.sourceManagers[src] = sm
 
 			sm.start(ctx, s.isLocal(src))
@@ -1013,18 +1008,18 @@ func (s *Server) runMaintenanceTask(ctx context.Context, dr repo.DirectRepositor
 	}), "unable to run maintenance")
 }
 
-// +checklocksread:s.serverMutex
+// +checklocksread:s.ServerMutex
 func (s *Server) isLocal(src snapshot.SourceInfo) bool {
-	return s.rep.ClientOptions().Hostname == src.Host && !s.rep.ClientOptions().ReadOnly
+	return s.Rep.ClientOptions().Hostname == src.Host && !s.Rep.ClientOptions().ReadOnly
 }
 
 func (s *Server) getOrCreateSourceManager(ctx context.Context, src snapshot.SourceInfo) *sourceManager {
-	s.serverMutex.Lock()
-	defer s.serverMutex.Unlock()
+	s.ServerMutex.Lock()
+	defer s.ServerMutex.Unlock()
 
 	if s.sourceManagers[src] == nil {
 		userLog(ctx).Debugf("creating source manager for %v", src)
-		sm := newSourceManager(src, s, s.rep)
+		sm := newSourceManager(src, s, s.Rep)
 		s.sourceManagers[src] = sm
 
 		sm.start(ctx, s.isLocal(src))
@@ -1034,10 +1029,10 @@ func (s *Server) getOrCreateSourceManager(ctx context.Context, src snapshot.Sour
 }
 
 func (s *Server) deleteSourceManager(ctx context.Context, src snapshot.SourceInfo) bool {
-	s.serverMutex.Lock()
+	s.ServerMutex.Lock()
 	sm := s.sourceManagers[src]
 	delete(s.sourceManagers, src)
-	s.serverMutex.Unlock()
+	s.ServerMutex.Unlock()
 
 	if sm == nil {
 		return false
@@ -1050,15 +1045,15 @@ func (s *Server) deleteSourceManager(ctx context.Context, src snapshot.SourceInf
 }
 
 func (s *Server) snapshotAllSourceManagers() map[snapshot.SourceInfo]*sourceManager {
-	s.serverMutex.RLock()
-	defer s.serverMutex.RUnlock()
+	s.ServerMutex.RLock()
+	defer s.ServerMutex.RUnlock()
 
 	return maps.Clone(s.sourceManagers)
 }
 
 func (s *Server) getSchedulerItems(ctx context.Context, now time.Time) []scheduler.Item {
-	s.serverMutex.RLock()
-	defer s.serverMutex.RUnlock()
+	s.ServerMutex.RLock()
+	defer s.ServerMutex.RUnlock()
 
 	var result []scheduler.Item
 
@@ -1129,13 +1124,11 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 	}
 
 	s := &Server{
+		Server:               apiserver.New(options.Authenticator, options.Authorizer, options.NotifyTemplateOptions, options.MaxConcurrency),
 		rootctx:              ctx,
 		options:              *options,
 		sourceManagers:       map[snapshot.SourceInfo]*sourceManager{},
 		maxParallelSnapshots: 1,
-		grpcServerState:      makeGRPCServerState(options.MaxConcurrency),
-		authenticator:        options.Authenticator,
-		authorizer:           options.Authorizer,
 		taskmgr:              uitask.NewManager(options.PersistentLogs),
 		mounts:               map[object.ID]mount.Controller{},
 		authCookieSigningKey: []byte(options.AuthCookieSigningKey),
