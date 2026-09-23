@@ -118,7 +118,7 @@ const (
 	Compliance RetentionMode = "COMPLIANCE"
 
 	// Locked - Locked policy mode for Azure.
-	Locked RetentionMode = "LOCKED"
+	Locked RetentionMode = "Locked"
 )
 
 func (r RetentionMode) String() string {
