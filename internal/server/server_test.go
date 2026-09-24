@@ -68,7 +68,7 @@ func TestServer(t *testing.T) {
 func TestServerTrustedServerCACertificate(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
-	ca, caKey := testutil.CreateRootCA(t)
+	ca, caKey := testutil.CreateServerRootCA(t)
 	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
 
 	tlsCert := tls.Certificate{
@@ -94,8 +94,8 @@ func TestServerTrustedServerCACertificate(t *testing.T) {
 func TestServerTrustedServerCACertificateWrongCA(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
 
-	ca, caKey := testutil.CreateRootCA(t)
-	otherCA, _ := testutil.CreateRootCA(t)
+	ca, caKey := testutil.CreateServerRootCA(t)
+	otherCA, _ := testutil.CreateServerRootCA(t)
 	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
 
 	tlsCert := tls.Certificate{
@@ -132,6 +132,22 @@ func TestServerTrustedServerCACertificateAndFingerprintMutuallyExclusive(t *test
 	}, servertesting.TestPassword, &repo.Options{})
 	require.Error(t, err)
 	require.ErrorContains(t, err, "mutually exclusive")
+}
+
+func TestServerTrustedServerCACertificateEmpty(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	apiServerInfo := servertesting.StartServer(t, env, false)
+	apiServerInfo.TrustedServerCACertificate = []byte{}
+
+	_, err := servertesting.ConnectAndOpenAPIServer(t, ctx, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory:        testutil.TempDirectory(t),
+		ContentCacheSizeBytes: maxCacheSizeBytes,
+	}, servertesting.TestPassword, &repo.Options{})
+	require.ErrorContains(t, err, "serverCertCA is empty")
 }
 
 func TestGRPCServer_AuthenticationError(t *testing.T) {

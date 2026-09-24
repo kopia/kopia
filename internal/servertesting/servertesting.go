@@ -115,7 +115,9 @@ func StartServerContextWithCertificate(
 	require.NoError(t, err)
 
 	s.SetRepository(ctx, env.Repository)
-	t.Cleanup(func() { s.SetRepository(ctx, nil) })
+
+	// ensure we disconnect the repository before shutting down the server.
+	t.Cleanup(func() { s.SetRepository(testlogging.ContextForCleanup(t), nil) })
 
 	asi := &repo.APIServerInfo{}
 

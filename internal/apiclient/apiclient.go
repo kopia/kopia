@@ -211,6 +211,10 @@ func (o *Options) validate() error {
 		return errors.New("invalid options, server-cert-fingerprint and server-cert-ca-file are mutually exclusive")
 	}
 
+	if o.TrustedServerCACertificate != nil && len(o.TrustedServerCACertificate) == 0 {
+		return errors.New("invalid options, server CA certificate is empty")
+	}
+
 	return nil
 }
 

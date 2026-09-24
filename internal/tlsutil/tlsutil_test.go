@@ -210,7 +210,7 @@ func startTLSTestServer(t *testing.T, cert *x509.Certificate, key *rsa.PrivateKe
 }
 
 func TestTLSConfigTrustingCA(t *testing.T) {
-	ca, caKey := testutil.CreateRootCA(t)
+	ca, caKey := testutil.CreateServerRootCA(t)
 	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
 
 	srv := startTLSTestServer(t, leaf, leafKey)
@@ -227,8 +227,8 @@ func TestTLSConfigTrustingCA(t *testing.T) {
 }
 
 func TestTLSConfigTrustingCARejectsWrongCA(t *testing.T) {
-	ca, caKey := testutil.CreateRootCA(t)
-	otherCA, _ := testutil.CreateRootCA(t)
+	ca, caKey := testutil.CreateServerRootCA(t)
+	otherCA, _ := testutil.CreateServerRootCA(t)
 	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
 
 	srv := startTLSTestServer(t, leaf, leafKey)
@@ -244,7 +244,7 @@ func TestTLSConfigTrustingCARejectsWrongCA(t *testing.T) {
 }
 
 func TestTLSConfigTrustingCARejectsHostnameMismatch(t *testing.T) {
-	ca, caKey := testutil.CreateRootCA(t)
+	ca, caKey := testutil.CreateServerRootCA(t)
 	// Leaf is valid for "localhost" only; dialing 127.0.0.1 must fail hostname check.
 	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "localhost")
 
@@ -267,7 +267,7 @@ func TestTLSConfigTrustingCAGarbagePEM(t *testing.T) {
 }
 
 func TestTransportTrustingCASurvivesLeafRotation(t *testing.T) {
-	ca, caKey := testutil.CreateRootCA(t)
+	ca, caKey := testutil.CreateServerRootCA(t)
 	leaf1, leafKey1 := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
 	leaf2, leafKey2 := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
 
@@ -296,7 +296,7 @@ func TestTransportTrustingCASurvivesLeafRotation(t *testing.T) {
 }
 
 func TestTLSConfigTrustingCARejectsExpiredLeaf(t *testing.T) {
-	ca, caKey := testutil.CreateRootCA(t)
+	ca, caKey := testutil.CreateServerRootCA(t)
 	leaf, leafKey := testutil.CreateAndSignExpiredServerCertificate(t, ca, caKey, "127.0.0.1")
 
 	srv := startTLSTestServer(t, leaf, leafKey)
@@ -312,8 +312,8 @@ func TestTLSConfigTrustingCARejectsExpiredLeaf(t *testing.T) {
 }
 
 func TestTLSConfigTrustingCATwoCAsConcatenated(t *testing.T) {
-	ca1, _ := testutil.CreateRootCA(t)
-	ca2, ca2Key := testutil.CreateRootCA(t)
+	ca1, _ := testutil.CreateServerRootCA(t)
+	ca2, ca2Key := testutil.CreateServerRootCA(t)
 	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca2, ca2Key, "127.0.0.1")
 
 	srv := startTLSTestServer(t, leaf, leafKey)

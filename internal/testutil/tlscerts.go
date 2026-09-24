@@ -22,14 +22,8 @@ const (
 	certValidHours = 24
 )
 
-// CreateRootCA creates a self-signed CA certificate and key for tests.
-//
-// NOTE: not named/shaped after upstream PR kopia/kopia#4886's
-// internal/testutil/certs.go (checked via `gh pr diff 4886`): that PR's
-// CreateRootCA takes (commonName, organizationalUnit string) and signs
-// client certificates. This helper is unrelated (server cert CA trust) and
-// deliberately uses different names to avoid colliding on merge.
-func CreateRootCA(t *testing.T) (*x509.Certificate, *rsa.PrivateKey) {
+// CreateServerRootCA creates a self-signed CA certificate and key for signing test server certificates.
+func CreateServerRootCA(t *testing.T) (*x509.Certificate, *rsa.PrivateKey) {
 	t.Helper()
 
 	priv, err := rsa.GenerateKey(rand.Reader, testKeyBits)

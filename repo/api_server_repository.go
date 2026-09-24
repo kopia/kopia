@@ -24,6 +24,10 @@ func (si *APIServerInfo) validate() error {
 		return errors.New("invalid server info, serverCertFingerprint and serverCertCA are mutually exclusive")
 	}
 
+	if si.TrustedServerCACertificate != nil && len(si.TrustedServerCACertificate) == 0 {
+		return errors.New("invalid server info, serverCertCA is empty")
+	}
+
 	return nil
 }
 

@@ -83,7 +83,7 @@ func writeCAAndLeaf(t *testing.T) (caPath, certFile, keyFile string, leaf *x509.
 
 	dir := t.TempDir()
 
-	ca, caKey := testutil.CreateRootCA(t)
+	ca, caKey := testutil.CreateServerRootCA(t)
 	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
 
 	caPath = testutil.WriteCertPEM(t, dir, "ca.pem", ca)
@@ -113,7 +113,7 @@ func TestConnectServerCAFile(t *testing.T) {
 
 func TestConnectServerCAFileWrongCA(t *testing.T) {
 	_, certFile, keyFile, _ := writeCAAndLeaf(t)
-	otherCA, _ := testutil.CreateRootCA(t)
+	otherCA, _ := testutil.CreateServerRootCA(t)
 	otherCAPath := testutil.WriteCertPEM(t, t.TempDir(), "other-ca.pem", otherCA)
 
 	env := newServerEnv(t)
@@ -168,8 +168,8 @@ func TestServerStatusCAFile(t *testing.T) {
 func TestConnectServerCAFileTwoCAsConcatenated(t *testing.T) {
 	dir := t.TempDir()
 
-	ca1, _ := testutil.CreateRootCA(t)
-	ca2, ca2Key := testutil.CreateRootCA(t)
+	ca1, _ := testutil.CreateServerRootCA(t)
+	ca2, ca2Key := testutil.CreateServerRootCA(t)
 	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca2, ca2Key, "127.0.0.1")
 
 	bundle := append(testutil.CertPEM(t, ca1), testutil.CertPEM(t, ca2)...)
@@ -195,7 +195,7 @@ func TestConnectServerCAFileTwoCAsConcatenated(t *testing.T) {
 func TestConnectServerCAFileExpiredLeaf(t *testing.T) {
 	dir := t.TempDir()
 
-	ca, caKey := testutil.CreateRootCA(t)
+	ca, caKey := testutil.CreateServerRootCA(t)
 	leaf, leafKey := testutil.CreateAndSignExpiredServerCertificate(t, ca, caKey, "127.0.0.1")
 
 	caPath := testutil.WriteCertPEM(t, dir, "ca.pem", ca)
@@ -224,6 +224,25 @@ func TestConnectServerCAFileMissingPath(t *testing.T) {
 		"--password", caClientPassword)
 
 	require.Contains(t, joinLines(stderr), "error opening server-cert-ca-file")
+}
+
+func TestServerCertCAFileEmpty(t *testing.T) {
+	env := newServerEnv(t)
+	emptyCA := filepath.Join(t.TempDir(), "empty.pem")
+	require.NoError(t, os.WriteFile(emptyCA, nil, 0o600))
+
+	_, stderr := env.RunAndExpectFailure(t, "repo", "connect", "server",
+		"--url", "https://127.0.0.1:1",
+		"--server-cert-ca-file", emptyCA,
+		"--password", caClientPassword)
+	require.Contains(t, joinLines(stderr), "invalid server-cert-ca-file")
+
+	// server commands validate their flags in a kingpin action, whose error is not written to stderr.
+	_, _, err := env.Run(t, true, "server", "status",
+		"--address", "https://127.0.0.1:1",
+		"--server-cert-ca-file", emptyCA,
+		"--server-control-password", "unused")
+	require.ErrorContains(t, err, "invalid server-cert-ca-file")
 }
 
 func joinLines(lines []string) string {

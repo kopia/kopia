@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/tlsutil"
 )
 
 type commandServer struct {
@@ -87,15 +88,9 @@ func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) 
 		return apiclient.Options{}, errors.New("server-cert-fingerprint and server-cert-ca-file are mutually exclusive")
 	}
 
-	var caPEM []byte
-
-	if c.serverCertCAFile != "" {
-		data, err := os.ReadFile(c.serverCertCAFile) //#nosec
-		if err != nil {
-			return apiclient.Options{}, errors.Wrapf(err, "error opening server-cert-ca-file %v", c.serverCertCAFile)
-		}
-
-		caPEM = data
+	caPEM, err := readServerCertCAFile(c.serverCertCAFile)
+	if err != nil {
+		return apiclient.Options{}, err
 	}
 
 	return apiclient.Options{
@@ -105,4 +100,23 @@ func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) 
 		TrustedServerCertificateFingerprint: c.serverCertFingerprint,
 		TrustedServerCACertificate:          caPEM,
 	}, nil
+}
+
+// readServerCertCAFile returns the contents of the --server-cert-ca-file PEM file, or nil when fname is empty.
+// The contents are validated up front: an empty or unparsable file must not fall back to the system roots.
+func readServerCertCAFile(fname string) ([]byte, error) {
+	if fname == "" {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(fname) //#nosec
+	if err != nil {
+		return nil, errors.Wrapf(err, "error opening server-cert-ca-file %v", fname)
+	}
+
+	if _, err := tlsutil.TLSConfigTrustingCA(data); err != nil {
+		return nil, errors.Wrapf(err, "invalid server-cert-ca-file %v", fname)
+	}
+
+	return data, nil
 }

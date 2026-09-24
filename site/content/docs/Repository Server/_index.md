@@ -89,8 +89,10 @@ If the server certificate is signed by a CA, that CA certificate can be
 passed to the client with `--server-cert-ca-file` instead of a fingerprint.
 The client then verifies the server certificate against the CA rather than
 pinning a single certificate, so the server certificate can be rotated
-without reconnecting the clients. The PEM file must contain the CA that
-issued the server certificate.
+without reconnecting the clients. The PEM file must contain a CA certificate
+the server certificate chains to, such as the root CA. Any intermediate
+certificates between the server certificate and that CA must be sent by the
+server.
 
 ```shell
 kopia repository connect server --url https://<address>:51515 \

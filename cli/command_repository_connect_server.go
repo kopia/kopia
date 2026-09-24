@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -31,7 +30,7 @@ func (c *commandRepositoryConnectServer) setup(svc advancedAppServices, parent c
 	cmd := parent.Command("server", "Connect to a repository API Server.")
 	cmd.Flag("url", "Server URL").Required().StringVar(&c.connectAPIServerURL)
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").StringVar(&c.connectAPIServerCertFingerprint)
-	cmd.Flag("server-cert-ca-file", "Path to a server CA certificate(s) PEM file; alternative to --server-cert-fingerprint").StringVar(&c.connectAPIServerCertCAFile)
+	cmd.Flag("server-cert-ca-file", "Path to a PEM file with the CA certificate(s) the server certificate must chain to; alternative to --server-cert-fingerprint").StringVar(&c.connectAPIServerCertCAFile)
 	//nolint:lll
 	cmd.Flag("local-cache-key-derivation-algorithm", "Key derivation algorithm used to derive the local cache encryption key").Hidden().Default(repo.DefaultServerRepoCacheKeyDerivationAlgorithm).EnumVar(&c.connectAPIServerLocalCacheKeyDerivationAlgorithm, repo.SupportedLocalCacheKeyDerivationAlgorithms()...)
 	cmd.Action(svc.noRepositoryAction(c.run))
@@ -44,15 +43,9 @@ func (c *commandRepositoryConnectServer) run(ctx context.Context) error {
 		return errors.New("server-cert-fingerprint and server-cert-ca-file are mutually exclusive")
 	}
 
-	var caPEM []byte
-
-	if c.connectAPIServerCertCAFile != "" {
-		data, err := os.ReadFile(c.connectAPIServerCertCAFile) //#nosec
-		if err != nil {
-			return errors.Wrapf(err, "error opening server-cert-ca-file %v", c.connectAPIServerCertCAFile)
-		}
-
-		caPEM = data
+	caPEM, err := readServerCertCAFile(c.connectAPIServerCertCAFile)
+	if err != nil {
+		return err
 	}
 
 	as := &repo.APIServerInfo{
