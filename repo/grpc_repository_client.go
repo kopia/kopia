@@ -897,13 +897,6 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 	var transportCreds credentials.TransportCredentials
 
 	switch {
-	case si.TrustedServerCertificateFingerprint != "":
-		c, err := tlsutil.TLSConfigTrustingSingleCertificate(si.TrustedServerCertificateFingerprint)
-		if err != nil {
-			return nil, errors.Wrap(err, "creating TLS config")
-		}
-
-		transportCreds = credentials.NewTLS(c)
 	case len(si.TrustedServerCACertificate) > 0:
 		cfg, err := tlsutil.TLSConfigTrustingCA(si.TrustedServerCACertificate)
 		if err != nil {
@@ -911,6 +904,13 @@ func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password stri
 		}
 
 		transportCreds = credentials.NewTLS(cfg)
+	case si.TrustedServerCertificateFingerprint != "":
+		c, err := tlsutil.TLSConfigTrustingSingleCertificate(si.TrustedServerCertificateFingerprint)
+		if err != nil {
+			return nil, errors.Wrap(err, "creating TLS config")
+		}
+
+		transportCreds = credentials.NewTLS(c)
 	default:
 		transportCreds = credentials.NewClientTLSFromCert(nil, "")
 	}

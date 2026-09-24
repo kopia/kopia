@@ -19,8 +19,13 @@ type APIServerInfo struct {
 	LocalCacheKeyDerivationAlgorithm    string `json:"localCacheKeyDerivationAlgorithm,omitempty"`
 }
 
+// serverCertFingerprintForCA is stored as serverCertFingerprint when serverCertCA is set.
+// Older Kopia versions ignore serverCertCA: this value makes them fail to connect
+// instead of trusting the system roots.
+const serverCertFingerprintForCA = "trusted-by-server-cert-ca"
+
 func (si *APIServerInfo) validate() error {
-	if si.TrustedServerCertificateFingerprint != "" && len(si.TrustedServerCACertificate) > 0 {
+	if si.TrustedServerCertificateFingerprint != "" && si.TrustedServerCertificateFingerprint != serverCertFingerprintForCA && len(si.TrustedServerCACertificate) > 0 {
 		return errors.New("invalid server info, serverCertFingerprint and serverCertCA are mutually exclusive")
 	}
 
@@ -37,8 +42,13 @@ func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo,
 		return err
 	}
 
+	stored := *si
+	if len(stored.TrustedServerCACertificate) > 0 {
+		stored.TrustedServerCertificateFingerprint = serverCertFingerprintForCA
+	}
+
 	lc := LocalConfig{
-		APIServer:     si,
+		APIServer:     &stored,
 		ClientOptions: opt.ApplyDefaults(ctx, "API Server: "+si.BaseURL),
 	}
 
