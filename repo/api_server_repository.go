@@ -15,11 +15,24 @@ import (
 type APIServerInfo struct {
 	BaseURL                             string `json:"url"`
 	TrustedServerCertificateFingerprint string `json:"serverCertFingerprint"`
+	TrustedServerCACertificate          []byte `json:"serverCertCA,omitempty"`
 	LocalCacheKeyDerivationAlgorithm    string `json:"localCacheKeyDerivationAlgorithm,omitempty"`
+}
+
+func (si *APIServerInfo) validate() error {
+	if si.TrustedServerCertificateFingerprint != "" && len(si.TrustedServerCACertificate) > 0 {
+		return errors.New("invalid server info, serverCertFingerprint and serverCertCA are mutually exclusive")
+	}
+
+	return nil
 }
 
 // ConnectAPIServer sets up repository connection to a particular API server.
 func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo, password string, opt *ConnectOptions) error {
+	if err := si.validate(); err != nil {
+		return err
+	}
+
 	lc := LocalConfig{
 		APIServer:     si,
 		ClientOptions: opt.ApplyDefaults(ctx, "API Server: "+si.BaseURL),
