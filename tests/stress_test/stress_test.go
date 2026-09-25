@@ -13,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
@@ -24,7 +25,7 @@ import (
 const goroutineCount = 16
 
 func TestStressBlockManager(t *testing.T) {
-	if os.Getenv("KOPIA_STRESS_TEST") == "" {
+	if !envflag.Bool("KOPIA_STRESS_TEST") {
 		t.Skip("skipping stress test")
 	}
 

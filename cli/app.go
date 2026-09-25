@@ -17,6 +17,7 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/notification"
@@ -190,7 +191,7 @@ type App struct {
 }
 
 func (c *App) enableTestOnlyFlags() bool {
-	return c.isInProcessTest || os.Getenv("KOPIA_TESTONLY_FLAGS") != ""
+	return c.isInProcessTest || envflag.Bool("KOPIA_TESTONLY_FLAGS")
 }
 
 func (c *App) getProgress() *cliProgress {
