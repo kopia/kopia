@@ -94,7 +94,7 @@ func TestServerControlSocketActivated(t *testing.T) {
 
 	require.EventuallyWithT(t, checkServerStatusFn, 30*time.Second, 2*time.Second, "could not get server status, perhaps it was not listening on the control endpoint yet?")
 
-	swait, skill := env.RunAndProcessStderr(t, nil, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
+	swait, skill := env.RunAndProcessStderr(t, func(_ string) bool { return false }, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
 	t.Cleanup(skill)
 
 	if err := swait(); err != nil {
