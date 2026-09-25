@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/listcache"
@@ -620,7 +621,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 		minPreambleLength:       defaultMinPreambleLength,
 		maxPreambleLength:       defaultMaxPreambleLength,
 		paddingUnit:             defaultPaddingUnit,
-		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
+		checkInvariantsOnUnlock: envflag.Bool("KOPIA_VERIFY_INVARIANTS"),
 		repoLogManager:          repoLogManager,
 
 		metricsStruct: initMetricsStruct(mr),
