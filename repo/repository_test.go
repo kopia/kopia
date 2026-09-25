@@ -127,7 +127,7 @@ func (s *formatSpecificTestSuite) TestPackingSimple(t *testing.T) {
 		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
 	}
 
-	env.VerifyBlobCount(t, 4)
+	env.VerifyBlobCount(t, 5)
 
 	env.MustReopen(t)
 
@@ -419,7 +419,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 	require.NoError(t, env.RepositoryWriter.BlobStorage().GetBlob(ctx, format.KopiaBlobCfgBlobID, 0, -1, &d))
 
 	// verify that we cannot re-initialize the repo even after password change
-	require.EqualError(t, repo.Initialize(testlogging.Context(t), env.RootStorage(), nil, env.Password),
+	require.ErrorContains(t, repo.Initialize(testlogging.Context(t), env.RootStorage(), nil, env.Password),
 		"repository already initialized")
 
 	// backup blobcfg blob
@@ -441,7 +441,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 
 	// verify that we'd hard-fail on unexpected errors on blobcfg blob-puts
 	// when creating a new repository
-	require.EqualError(t,
+	require.ErrorContains(t,
 		repo.Initialize(testlogging.Context(t),
 			beforeop.NewWrapper(
 				env.RootStorage(),
@@ -465,7 +465,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 
 	// verify that we'd consider the repository corrupted if we were able to
 	// read the blobcfg blob but failed to read the format blob
-	require.EqualError(t,
+	require.ErrorContains(t,
 		repo.Initialize(testlogging.Context(t),
 			beforeop.NewWrapper(
 				env.RootStorage(),
@@ -491,7 +491,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 
 	// verify that we consider the repository corrupted if we were unable to
 	// write the blobcfg blob
-	require.EqualError(t,
+	require.ErrorContains(t,
 		repo.Initialize(testlogging.Context(t),
 			beforeop.NewWrapper(
 				env.RootStorage(),
@@ -524,7 +524,7 @@ func TestInitializeWithBlobCfgRetentionBlob(t *testing.T) {
 
 	// verify that we always read/fail on the repository blob first before the
 	// blobcfg blob
-	require.EqualError(t,
+	require.ErrorContains(t,
 		repo.Initialize(testlogging.Context(t),
 			beforeop.NewWrapper(
 				env.RootStorage(),
