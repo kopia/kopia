@@ -196,6 +196,31 @@ type entry struct {
 	objectID object.ID
 }
 
+func TestUpload_SingleFileActionsNonLocal(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+	t.Cleanup(th.cleanup)
+
+	u := NewUploader(th.repo)
+	u.EnableActions = true
+
+	action := &policy.ActionCommand{
+		Command: filepath.Join(testutil.TempDirectory(t), "missing-command"),
+		Mode:    "essential",
+	}
+	pol := *policy.DefaultPolicy
+	pol.Actions.BeforeSnapshotRoot = action
+	pol.Actions.AfterSnapshotRoot = action
+	source := mockfs.NewFile("source", []byte("snapshot contents"), defaultPermissions)
+	require.Empty(t, source.LocalFilesystemPath())
+
+	man, err := u.Upload(ctx, source, policy.BuildTree(nil, &pol), snapshot.SourceInfo{})
+	require.NoError(t, err)
+	require.EqualValues(t, len("snapshot contents"), man.RootEntry.FileSize)
+}
+
 // findAllEntries recursively iterates over all the dirs and returns list of file entries.
 func findAllEntries(t *testing.T, ctx context.Context, dir fs.Directory) []entry {
 	t.Helper()
