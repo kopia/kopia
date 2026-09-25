@@ -2,6 +2,7 @@ package mount
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -27,9 +28,9 @@ func webdavServerLogger(r *http.Request, err error) {
 	}
 }
 
-// DirectoryWebDAV exposes the provided filesystem directory via WebDAV on a random port on localhost
-// and returns a controller.
-func DirectoryWebDAV(ctx context.Context, entry fs.Directory) (Controller, error) {
+// DirectoryWebDAV exposes the provided filesystem directory via WebDAV on localhost at the specified port
+// and returns a controller. If port is 0, a random port will be used.
+func DirectoryWebDAV(ctx context.Context, entry fs.Directory, port int) (Controller, error) {
 	log(ctx).Debug("creating webdav server...")
 
 	mux := http.NewServeMux()
@@ -46,7 +47,12 @@ func DirectoryWebDAV(ctx context.Context, entry fs.Directory) (Controller, error
 		Logger:     logger,
 	})
 
-	l, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
+	addr := "127.0.0.1:0"
+	if port > 0 {
+		addr = fmt.Sprintf("127.0.0.1:%d", port)
+	}
+
+	l, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
 	if err != nil {
 		return nil, errors.Wrap(err, "listen error")
 	}
