@@ -2,6 +2,7 @@ package tlsutil_test
 
 import (
 	"context"
+	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
@@ -185,4 +186,147 @@ func TestTransportTrustingSingleClientCertificate_TestClientFlow(t *testing.T) {
 			}
 		})
 	}
+}
+
+func startTLSTestServer(t *testing.T, cert *x509.Certificate, key *rsa.PrivateKey) *httptest.Server {
+	t.Helper()
+
+	srv := httptest.NewUnstartedServer(
+		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		}),
+	)
+	srv.TLS = &tls.Config{
+		Certificates: []tls.Certificate{{
+			Certificate: [][]byte{cert.Raw},
+			PrivateKey:  key,
+			Leaf:        cert,
+		}},
+	}
+	srv.StartTLS()
+	t.Cleanup(srv.Close)
+
+	return srv
+}
+
+func TestTLSConfigTrustingCA(t *testing.T) {
+	ca, caKey := testutil.CreateServerRootCA(t)
+	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
+
+	srv := startTLSTestServer(t, leaf, leafKey)
+
+	cfg, err := tlsutil.TLSConfigTrustingCA(testutil.CertPEM(t, ca))
+	require.NoError(t, err)
+
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: cfg}}
+
+	resp, err := client.Get(srv.URL) //nolint:noctx
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	resp.Body.Close() //nolint:errcheck
+}
+
+func TestTLSConfigTrustingCARejectsWrongCA(t *testing.T) {
+	ca, caKey := testutil.CreateServerRootCA(t)
+	otherCA, _ := testutil.CreateServerRootCA(t)
+	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
+
+	srv := startTLSTestServer(t, leaf, leafKey)
+
+	cfg, err := tlsutil.TLSConfigTrustingCA(testutil.CertPEM(t, otherCA))
+	require.NoError(t, err)
+
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: cfg}}
+
+	_, err = client.Get(srv.URL) //nolint:noctx,bodyclose
+	require.Error(t, err)
+	require.ErrorContains(t, err, "certificate signed by unknown authority")
+}
+
+func TestTLSConfigTrustingCARejectsHostnameMismatch(t *testing.T) {
+	ca, caKey := testutil.CreateServerRootCA(t)
+	// Leaf is valid for "localhost" only; dialing 127.0.0.1 must fail hostname check.
+	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "localhost")
+
+	srv := startTLSTestServer(t, leaf, leafKey)
+
+	cfg, err := tlsutil.TLSConfigTrustingCA(testutil.CertPEM(t, ca))
+	require.NoError(t, err)
+
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: cfg}}
+
+	_, err = client.Get(srv.URL) //nolint:noctx,bodyclose
+	require.Error(t, err)
+	require.ErrorContains(t, err, "doesn't contain any IP SANs")
+}
+
+func TestTLSConfigTrustingCAGarbagePEM(t *testing.T) {
+	_, err := tlsutil.TLSConfigTrustingCA([]byte("not a pem"))
+	require.Error(t, err)
+	require.ErrorContains(t, err, "cannot parse provided CA")
+}
+
+func TestTransportTrustingCASurvivesLeafRotation(t *testing.T) {
+	ca, caKey := testutil.CreateServerRootCA(t)
+	leaf1, leafKey1 := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
+	leaf2, leafKey2 := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
+
+	transport, err := tlsutil.TransportTrustingCA(testutil.CertPEM(t, ca))
+	require.NoError(t, err)
+
+	client := &http.Client{Transport: transport}
+
+	for _, leaf := range []struct {
+		cert *x509.Certificate
+		key  *rsa.PrivateKey
+	}{
+		{leaf1, leafKey1},
+		{leaf2, leafKey2},
+	} {
+		srv := startTLSTestServer(t, leaf.cert, leaf.key)
+
+		resp, err := client.Get(srv.URL) //nolint:noctx
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		resp.Body.Close() //nolint:errcheck
+
+		transport.(*http.Transport).CloseIdleConnections() //nolint:forcetypeassert
+		srv.Close()
+	}
+}
+
+func TestTLSConfigTrustingCARejectsExpiredLeaf(t *testing.T) {
+	ca, caKey := testutil.CreateServerRootCA(t)
+	leaf, leafKey := testutil.CreateAndSignExpiredServerCertificate(t, ca, caKey, "127.0.0.1")
+
+	srv := startTLSTestServer(t, leaf, leafKey)
+
+	cfg, err := tlsutil.TLSConfigTrustingCA(testutil.CertPEM(t, ca))
+	require.NoError(t, err)
+
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: cfg}}
+
+	_, err = client.Get(srv.URL) //nolint:noctx,bodyclose
+	require.Error(t, err)
+	require.ErrorContains(t, err, "certificate has expired or is not yet valid")
+}
+
+func TestTLSConfigTrustingCATwoCAsConcatenated(t *testing.T) {
+	ca1, _ := testutil.CreateServerRootCA(t)
+	ca2, ca2Key := testutil.CreateServerRootCA(t)
+	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca2, ca2Key, "127.0.0.1")
+
+	srv := startTLSTestServer(t, leaf, leafKey)
+
+	pemBundle := append(testutil.CertPEM(t, ca1), testutil.CertPEM(t, ca2)...)
+
+	cfg, err := tlsutil.TLSConfigTrustingCA(pemBundle)
+	require.NoError(t, err)
+
+	client := &http.Client{Transport: &http.Transport{TLSClientConfig: cfg}}
+
+	resp, err := client.Get(srv.URL) //nolint:noctx
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	resp.Body.Close() //nolint:errcheck
 }
