@@ -11,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -116,6 +117,11 @@ type Uploader struct {
 	workerPool *workshare.Pool[*uploadWorkItem]
 
 	traceEnabled bool
+
+	// ignoredEntries records files/directories excluded by ignore rules during upload.
+	ignoredEntriesMu sync.Mutex
+	// +checklocks:ignoredEntriesMu
+	ignoredEntries []*fs.EntryWithIgnore
 }
 
 // IsCanceled returns true if the upload is canceled.
@@ -1312,6 +1318,10 @@ func (u *Uploader) Upload(
 	u.stats = &snapshot.Stats{}
 	u.totalWrittenBytes.Store(0)
 
+	u.ignoredEntriesMu.Lock()
+	u.ignoredEntries = nil
+	u.ignoredEntriesMu.Unlock()
+
 	var err error
 
 	switch entry := source.(type) {
@@ -1333,6 +1343,10 @@ func (u *Uploader) Upload(
 	s.IncompleteReason = u.incompleteReason()
 	s.EndTime = fs.UTCTimestampFromTime(u.repo.Time())
 	s.Stats = *u.stats
+
+	u.ignoredEntriesMu.Lock()
+	s.IgnoredEntries = u.ignoredEntries
+	u.ignoredEntriesMu.Unlock()
 
 	return &s, nil
 }
@@ -1385,6 +1399,14 @@ func (u *Uploader) startDataSizeEstimation(
 	return estimator
 }
 
+// recordIgnored records an excluded file or directory in the upload's ignored list.
+func (u *Uploader) recordIgnored(path string, md fs.Entry) {
+	u.ignoredEntriesMu.Lock()
+	defer u.ignoredEntriesMu.Unlock()
+
+	u.ignoredEntries = append(u.ignoredEntries, &fs.EntryWithIgnore{EntryPath: path, IsDir: md.IsDir()})
+}
+
 func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, policyTree *policy.Tree, reportIgnoreStats bool) fs.Directory {
 	if u.DisableIgnoreRules {
 		return entry
@@ -1412,5 +1434,11 @@ func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, polic
 		}
 
 		u.stats.AddExcluded(md)
+
+		// Record the excluded entry in the manifest's ignored list (real upload only, not size
+		// estimation), but only when the effective policy at this location asks for it (default off).
+		if reportIgnoreStats && policyTree.EffectivePolicy().FilesPolicy.IgnoreRecord.OrDefault(false) {
+			u.recordIgnored(fname, md)
+		}
 	}))
 }
