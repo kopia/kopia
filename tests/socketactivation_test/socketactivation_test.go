@@ -94,7 +94,14 @@ func TestServerControlSocketActivated(t *testing.T) {
 
 	require.EventuallyWithT(t, checkServerStatusFn, 30*time.Second, 2*time.Second, "could not get server status, perhaps it was not listening on the control endpoint yet?")
 
-	env.RunAndExpectSuccess(t, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
+	swait, skill := env.RunAndProcessStderr(t, nil, "server", "shutdown", "--address", sp.BaseURL, "--server-control-password", sp.ServerControlPassword)
+	t.Cleanup(skill)
+
+	if err := swait(); err != nil {
+		// sometimes the server stops before sending the response to the
+		// 'shutdown' client process, the client gets an EOF and exits with an error.
+		t.Log("'server shutdown' command failed with error:", err)
+	}
 
 	select {
 	case err := <-serverStopped:
