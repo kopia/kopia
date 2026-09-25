@@ -40,6 +40,7 @@ func (c *storageSFTPFlags) Setup(_ StorageProviderServices, cmd *kingpin.CmdClau
 	cmd.Flag("external", "Launch external passwordless SSH command").BoolVar(&c.options.ExternalSSH)
 	cmd.Flag("ssh-command", "SSH command").Default("ssh").StringVar(&c.options.SSHCommand)
 	cmd.Flag("ssh-args", "Arguments to external SSH command").StringVar(&c.options.SSHArguments)
+	cmd.Flag("sftp-connect-timeout", "Time to wait for the internal SSH client to connect (use --ssh-args with -o ConnectTimeout= for --external)").Default("30s").DurationVar(&c.options.ConnectTimeout.Duration)
 
 	cmd.Flag("flat", "Use flat directory structure").BoolVar(&c.connectFlat)
 	cmd.Flag("list-parallelism", "Set list parallelism").Hidden().IntVar(&c.options.ListParallelism)
