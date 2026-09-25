@@ -117,11 +117,15 @@ function newServerForRepo(repoID) {
               });
             } else {
               log.warn("error fetching status", resp.statusMessage);
+              resp.resume();
             }
           },
         );
         req.on("error", (e) => {
           log.info("error fetching status", e);
+        });
+        req.on("timeout", () => {
+          req.destroy(new Error("status poll timed out"));
         });
         req.end();
       }
