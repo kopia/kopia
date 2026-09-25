@@ -264,7 +264,7 @@ The following tags are available:
 
 In order to run Kopia in a docker container, you must:
 
-* provide repository password via `KOPIA_PASSWORD` environment variable
+* provide repository password via `KOPIA_PASSWORD` or `KOPIA_PASSWORD_FILE` environment variables
 * mount `/app/config` directory in which Kopia will look for `repository.config` file
 * (recommended) mount `/app/cache` directory in which Kopia will be keeping a cache of downloaded data
 * (optional) mount `/app/logs` directory in which Kopia will be writing logs
