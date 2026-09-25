@@ -31,6 +31,12 @@ type Impl interface {
 	ReadDir(ctx context.Context, path string) ([]os.FileInfo, error)
 }
 
+// DirRemover is optionally implemented by Impl to enable
+// cleanup of empty shard directories after blob deletion.
+type DirRemover interface {
+	RemoveDirInPath(ctx context.Context, dirPath string) error
+}
+
 // Storage provides common implementation of sharded storage.
 type Storage struct {
 	Impl Impl
@@ -88,6 +94,10 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 
 		entries, err := s.Impl.ReadDir(ctx, directory)
 		if err != nil {
+			if os.IsNotExist(err) {
+				return nil // directory removed by concurrent sweep, skip
+			}
+
 			return errors.Wrap(err, "error reading directory")
 		}
 
@@ -198,6 +208,56 @@ func (s *Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 
 	//nolint:wrapcheck
 	return s.Impl.DeleteBlobInPath(ctx, dirPath, filePath)
+}
+
+// SweepEmptyDirectories walks the shard directory tree and removes empty
+// directories. It should be called after bulk blob deletions (e.g. during
+// maintenance) rather than after each individual DeleteBlob.
+func (s *Storage) SweepEmptyDirectories(ctx context.Context) error {
+	dr, ok := s.Impl.(DirRemover)
+	if !ok {
+		return nil
+	}
+
+	p, err := s.getParameters(ctx)
+	if err != nil {
+		return errors.Wrap(err, "error getting shard parameters")
+	}
+
+	return s.sweepEmptyDirsRecursive(ctx, dr, s.RootPath, p.maxShardDepth())
+}
+
+func (s *Storage) sweepEmptyDirsRecursive(ctx context.Context, dr DirRemover, dir string, depth int) error {
+	entries, err := s.Impl.ReadDir(ctx, dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
+		return errors.Wrap(err, "error reading directory")
+	}
+
+	if depth > 0 {
+		for _, e := range entries {
+			if !e.IsDir() {
+				continue
+			}
+
+			if err := s.sweepEmptyDirsRecursive(ctx, dr, path.Join(dir, e.Name()), depth-1); err != nil {
+				return err
+			}
+		}
+	}
+
+	if dir == path.Clean(s.RootPath) {
+		return nil
+	}
+
+	if err := dr.RemoveDirInPath(ctx, dir); err == nil {
+		log(ctx).Debugf("removed empty shard directory %v", dir)
+	}
+
+	return nil
 }
 
 func (s *Storage) getParameters(ctx context.Context) (*Parameters, error) {
