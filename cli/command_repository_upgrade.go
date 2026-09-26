@@ -3,12 +3,12 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
@@ -50,7 +50,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	// override the parent, the upgrade sub-command becomes the new parent here-onwards
 	parent = parent.Command("upgrade", "Upgrade repository format.\n\n"+warningColor.Sprint(experimentalWarning)).Hidden().
 		Validate(func(_ *kingpin.CmdClause) error {
-			if v := os.Getenv(c.svc.EnvName(upgradeLockFeatureEnv)); v == "" {
+			if !envflag.Bool(c.svc.EnvName(upgradeLockFeatureEnv)) {
 				return errors.Errorf("please set %q env variable to use this feature", upgradeLockFeatureEnv)
 			}
 
