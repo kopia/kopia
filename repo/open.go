@@ -82,6 +82,8 @@ type Options struct {
 
 	// test-only flags
 	TestOnlyIgnoreMissingRequiredFeatures bool // ignore missing features
+	TestOnlyGRPCKeepaliveTime             time.Duration
+	TestOnlyGRPCKeepaliveTimeout          time.Duration
 }
 
 // ErrInvalidPassword is returned when repository password is invalid.
@@ -201,11 +203,13 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 	)
 
 	par := &immutableServerRepositoryParameters{
-		cliOpts:          cliOpts,
-		contentCache:     contentCache,
-		metricsRegistry:  mr,
-		refCountedCloser: closer,
-		beforeFlush:      options.BeforeFlush,
+		cliOpts:              cliOpts,
+		contentCache:         contentCache,
+		metricsRegistry:      mr,
+		refCountedCloser:     closer,
+		beforeFlush:          options.BeforeFlush,
+		grpcKeepaliveTime:    options.TestOnlyGRPCKeepaliveTime,
+		grpcKeepaliveTimeout: options.TestOnlyGRPCKeepaliveTimeout,
 	}
 
 	res, err := openGRPCAPIRepository(ctx, si, password, par)
