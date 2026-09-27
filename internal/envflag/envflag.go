@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// Bool returns true only if varName is set to a "truthy" value, that is, "true"
-// (case independent) or 1, and returns false otherwise, including when the
+// Bool returns true only if varName is set to a "truthy" value, that is, "true",
+// "t" (case independent) or 1, and returns false otherwise, including when the
 // variable is unset, empty, set to "false" or a value that cannot be parsed.
 func Bool(varName string) bool {
 	// equivalent to return BoolDefault(varName, false)
