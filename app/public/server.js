@@ -5,9 +5,12 @@ const https = await import("https");
 import { defaultServerBinary } from "./utils.js";
 import { spawn } from "child_process";
 import log from "electron-log";
+import Store from "electron-store";
 import { configDir, isPortableConfig } from "./config.js";
 
 let servers = {};
+const store = new Store();
+const windowsServerIOPriorityKey = "windowsServerIOPriority";
 
 function newServerForRepo(repoID) {
   let runningServerProcess = null;
@@ -56,6 +59,13 @@ function newServerForRepo(repoID) {
         const logsDir = path.resolve(configDir(), "logs", repoID);
         args.push("--cache-directory", cacheDir);
         args.push("--log-dir", logsDir);
+      }
+
+      if (process.platform === "win32") {
+        const ioPriority = store.get(windowsServerIOPriorityKey, "normal");
+        if (ioPriority !== "normal") {
+          args.push(`--process-io-priority=${ioPriority}`);
+        }
       }
 
       log.info(`spawning ${kopiaPath} ${args.join(" ")}`);
