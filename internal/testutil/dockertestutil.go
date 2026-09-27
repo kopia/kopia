@@ -31,10 +31,10 @@ func runDockerAndGetOutputOrSkip(ctx context.Context, tb testing.TB, args ...str
 	out, err := c.Output()
 	if err != nil {
 		// skip or fail hard when running in CI environment.
-		if os.Getenv("CI") == "" {
-			tb.Skipf("unable to run docker: %v %s (stderr %s)", err, out, stderr.String())
-		} else {
+		if IsCI() {
 			tb.Fatalf("unable to run docker: %v %s (stderr %s)", err, out, stderr.String())
+		} else {
+			tb.Skipf("unable to run docker: %v %s (stderr %s)", err, out, stderr.String())
 		}
 	}
 

@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
@@ -38,7 +38,7 @@ func TestStressBlockManager(t *testing.T) {
 	memst := blobtesting.NewMapStorage(data, keyTimes, clock.Now)
 
 	duration := 3 * time.Second
-	if os.Getenv("CI") != "" {
+	if testutil.IsCI() {
 		duration = 30 * time.Second
 	}
 
