@@ -5,14 +5,13 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/json"
 	"fmt"
-	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobcrypto"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -59,20 +58,11 @@ func checkClockSkewBounds(localTime, modTime time.Time) error {
 }
 
 func maybeCheckClockSkewBounds(localTime, modTime time.Time) error {
-	v, found := os.LookupEnv("KOPIA_ENABLE_CLOCK_SKEW_CHECK")
-	if !found {
-		return nil
+	if envflag.Bool("KOPIA_ENABLE_CLOCK_SKEW_CHECK") {
+		return checkClockSkewBounds(localTime, modTime)
 	}
 
-	if enabled, err := strconv.ParseBool(v); err == nil && !enabled {
-		// err was nil and the value explicitly disabled the check, for example
-		// KOPIA_ENABLE_CLOCK_SKEW_CHECK=false
-		return nil
-	}
-
-	// Perform the check by default when the environment variable is set and
-	// is not a boolean, for example KOPIA_ENABLE_CLOCK_SKEW_CHECK=foo
-	return checkClockSkewBounds(localTime, modTime)
+	return nil
 }
 
 // generateSessionID generates a random session identifier.

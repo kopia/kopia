@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/releasable"
 )
 
@@ -20,8 +21,8 @@ import (
 func ProviderTest(t *testing.T) {
 	t.Helper()
 
-	if os.Getenv("KOPIA_PROVIDER_TEST") == "" {
-		t.Skip("skipping because KOPIA_PROVIDER_TEST is not set")
+	if !envflag.Bool("KOPIA_PROVIDER_TEST") {
+		t.Skip("skipping because KOPIA_PROVIDER_TEST is not set to true")
 	}
 }
 
@@ -29,7 +30,7 @@ func ProviderTest(t *testing.T) {
 func SkipNonDeterministicTestUnderCodeCoverage(t *testing.T) {
 	t.Helper()
 
-	if os.Getenv("KOPIA_COVERAGE_TEST") != "" {
+	if envflag.Bool("KOPIA_COVERAGE_TEST") {
 		t.Skip("Skipping non-deterministic test in code coverage run")
 	}
 }
@@ -64,9 +65,7 @@ func ShouldReduceTestComplexity() bool {
 // ShouldSkipUnicodeFilenames returns true if:
 // an environmental variable is unset, set to false, test is running on ARM, or if running race detection.
 func ShouldSkipUnicodeFilenames() bool {
-	val, enable := os.LookupEnv("ENABLE_UNICODE_FILENAMES")
-
-	if !enable || isRaceDetector || strings.EqualFold(val, "false") {
+	if isRaceDetector || !envflag.Bool("ENABLE_UNICODE_FILENAMES") {
 		return true
 	}
 
@@ -76,9 +75,7 @@ func ShouldSkipUnicodeFilenames() bool {
 // ShouldSkipLongFilenames returns true if:
 // an environmental variable is unset, set to false, test is running on ARM, or if running race detection.
 func ShouldSkipLongFilenames() bool {
-	val, enable := os.LookupEnv("ENABLE_LONG_FILENAMES")
-
-	if !enable || isRaceDetector || strings.EqualFold(val, "false") {
+	if isRaceDetector || !envflag.Bool("ENABLE_LONG_FILENAMES") {
 		return true
 	}
 

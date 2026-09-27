@@ -4,13 +4,13 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/net/webdav"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/webdavmount"
 )
 
@@ -36,7 +36,7 @@ func DirectoryWebDAV(ctx context.Context, entry fs.Directory) (Controller, error
 
 	var logger func(r *http.Request, err error)
 
-	if os.Getenv("WEBDAV_LOG_REQUESTS") != "" {
+	if envflag.Bool("WEBDAV_LOG_REQUESTS") {
 		logger = webdavServerLogger
 	}
 

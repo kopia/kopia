@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/internal/timetrack"
@@ -172,7 +173,7 @@ func (e *CLITest) getLogOutputPrefix() (string, bool) {
 	e.logMu.RLock()
 	defer e.logMu.RUnlock()
 
-	return e.logOutputPrefix, os.Getenv("KOPIA_TEST_LOG_OUTPUT") != "" || e.logOutputEnabled
+	return e.logOutputPrefix, envflag.Bool("KOPIA_TEST_LOG_OUTPUT") || e.logOutputEnabled
 }
 
 // RunAndProcessStderr runs the given command, and streams its stderr line-by-line to stderrCallback until it returns false.
