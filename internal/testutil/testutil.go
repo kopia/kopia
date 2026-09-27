@@ -75,7 +75,7 @@ func ShouldSkipUnicodeFilenames() bool {
 // ShouldSkipLongFilenames returns true if:
 // an environmental variable is unset, set to false, test is running on ARM, or if running race detection.
 func ShouldSkipLongFilenames() bool {
-	if isRaceDetector || envflag.Bool("ENABLE_LONG_FILENAMES") {
+	if isRaceDetector || !envflag.Bool("ENABLE_LONG_FILENAMES") {
 		return true
 	}
 
