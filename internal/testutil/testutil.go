@@ -65,7 +65,7 @@ func ShouldReduceTestComplexity() bool {
 // ShouldSkipUnicodeFilenames returns true if:
 // an environmental variable is unset, set to false, test is running on ARM, or if running race detection.
 func ShouldSkipUnicodeFilenames() bool {
-	if isRaceDetector || envflag.Bool("ENABLE_UNICODE_FILENAMES") {
+	if isRaceDetector || !envflag.Bool("ENABLE_UNICODE_FILENAMES") {
 		return true
 	}
 
