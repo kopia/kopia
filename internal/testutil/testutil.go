@@ -48,7 +48,7 @@ func SkipTestUnlessLinux(tb testing.TB) {
 func SkipTestOnCIUnlessLinuxAMD64(tb testing.TB) {
 	tb.Helper()
 
-	if os.Getenv("CI") != "" && runtime.GOOS+"/"+runtime.GOARCH != "linux/amd64" {
+	if IsCI() && runtime.GOOS+"/"+runtime.GOARCH != "linux/amd64" {
 		tb.Skip("test not supported in this environment.")
 	}
 }
@@ -80,6 +80,13 @@ func ShouldSkipLongFilenames() bool {
 	}
 
 	return strings.Contains(runtime.GOARCH, "arm")
+}
+
+// IsCI returns whether the (test) execution is happening as part of a
+// continuous integration job based on whether or not the "CI" environment
+// variable is set.
+func IsCI() bool {
+	return os.Getenv("CI") != ""
 }
 
 // MyTestMain runs tests and verifies some post-run invariants.

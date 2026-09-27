@@ -275,7 +275,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 	}
 
 	duration := shortStressTestDuration
-	if os.Getenv("CI") != "" && os.Getenv("IS_PULL_REQUEST") == "false" {
+	if testutil.IsCI() && os.Getenv("IS_PULL_REQUEST") == "false" {
 		duration = longStressTestDuration
 	}
 

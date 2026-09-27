@@ -70,9 +70,9 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 	ctx, cancelTimeout := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancelTimeout()
 
-	maybeHeadless := chromedp.Headless
-	if os.Getenv("CI") == "" {
-		maybeHeadless = func(a *chromedp.ExecAllocator) {}
+	maybeHeadless := func(_ *chromedp.ExecAllocator) {}
+	if testutil.IsCI() {
+		maybeHeadless = chromedp.Headless
 	}
 
 	ctx, cancelAllocator := chromedp.NewExecAllocator(ctx,
