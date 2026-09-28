@@ -51,11 +51,11 @@ func mustGetRcloneExeOrSkip(t *testing.T) string {
 
 	ctx := testlogging.Context(t)
 	if err := exec.CommandContext(ctx, rcloneExe, "version").Run(); err != nil {
-		if os.Getenv("CI") == "" {
-			t.Skipf("rclone not installed: %v", err)
-		} else {
+		if testutil.IsCI() {
 			// on CI fail hard
 			t.Fatalf("rclone not installed: %v", err)
+		} else {
+			t.Skipf("rclone not installed: %v", err)
 		}
 	}
 

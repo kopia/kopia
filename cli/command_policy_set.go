@@ -50,13 +50,13 @@ func (c *commandPolicySet) setup(svc appServices, parent commandParent) {
 	cmd.Action(svc.repositoryWriterAction(c.run))
 }
 
-//nolint:gochecknoglobals
-var booleanEnumValues = []string{"true", "false", "inherit"}
-
 const (
 	inheritPolicyString = "inherit"
 	defaultPolicyString = "default"
 )
+
+//nolint:gochecknoglobals
+var booleanEnumValues = []string{trueStr, falseStr, inheritPolicyString}
 
 func (c *commandPolicySet) run(ctx context.Context, rep repo.RepositoryWriter) error {
 	targets, err := c.policyTargets(ctx, rep)

@@ -49,7 +49,7 @@ func (p *Parameters) Save(w io.Writer) error {
 
 func cloneShards(v []int) []int {
 	if v != nil {
-		return append(([]int(nil)), v...)
+		return append([]int(nil), v...)
 	}
 
 	return nil

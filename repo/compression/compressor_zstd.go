@@ -65,6 +65,7 @@ func (c *zstdCompressor) Compress(output io.Writer, input io.Reader) error {
 var zstdDecoderPool = freepool.New(func() *zstd.Decoder {
 	r, err := zstd.NewReader(nil, zstd.WithDecoderConcurrency(1))
 	mustSucceed(err)
+
 	return r
 }, func(v *zstd.Decoder) {
 	mustSucceed(v.Reset(nil))

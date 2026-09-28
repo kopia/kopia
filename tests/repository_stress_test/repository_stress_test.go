@@ -16,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -188,7 +189,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 		return
 	}
 
-	if os.Getenv("KOPIA_STRESS_TEST") == "" {
+	if !envflag.Bool("KOPIA_STRESS_TEST") {
 		t.Skip("skipping stress test")
 	}
 
@@ -274,7 +275,7 @@ func runStress(t *testing.T, opt *StressOptions) {
 	}
 
 	duration := shortStressTestDuration
-	if os.Getenv("CI") != "" && os.Getenv("IS_PULL_REQUEST") == "false" {
+	if testutil.IsCI() && os.Getenv("IS_PULL_REQUEST") == "false" {
 		duration = longStressTestDuration
 	}
 

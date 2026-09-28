@@ -9,7 +9,6 @@ builds:
   - openbsd
   goarch:
     - amd64
-    - arm
     - arm64
   flags:
     - -trimpath
@@ -46,7 +45,6 @@ nfpms:
     license: Apache 2.0
     file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     replacements:
-      arm: armhf
     formats:
     - deb
     - rpm
@@ -57,7 +55,6 @@ nfpms:
         replacements:
           amd64: x86_64
           arm64: aarch64
-          arm: armhfp
 signs:
   - id: all
     artifacts: checksum

@@ -3,12 +3,12 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
@@ -50,7 +50,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	// override the parent, the upgrade sub-command becomes the new parent here-onwards
 	parent = parent.Command("upgrade", "Upgrade repository format.\n\n"+warningColor.Sprint(experimentalWarning)).Hidden().
 		Validate(func(_ *kingpin.CmdClause) error {
-			if v := os.Getenv(c.svc.EnvName(upgradeLockFeatureEnv)); v == "" {
+			if !envflag.Bool(c.svc.EnvName(upgradeLockFeatureEnv)) {
 				return errors.Errorf("please set %q env variable to use this feature", upgradeLockFeatureEnv)
 			}
 
@@ -59,10 +59,10 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 
 	beginCmd := parent.Command("begin", "Begin upgrade.")
 	beginCmd.Flag("io-drain-timeout", "Max time it should take all other Kopia clients to drop repository connections").Default(format.DefaultRepositoryBlobCacheDuration.String()).DurationVar(&c.ioDrainTimeout)
-	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default("false").Hidden().BoolVar(&c.allowUnsafeUpgradeTimings)
+	beginCmd.Flag("allow-unsafe-upgrade", "Force using an unsafe io-drain-timeout for the upgrade lock").Default(falseStr).Hidden().BoolVar(&c.allowUnsafeUpgradeTimings)
 	beginCmd.Flag("status-poll-interval", "An advisory polling interval to check for the status of upgrade").Default("60s").DurationVar(&c.statusPollInterval)
 	beginCmd.Flag("max-permitted-clock-drift", "The maximum drift between repository and client clocks").Default(maxPermittedClockDriftDefault.String()).DurationVar(&c.maxPermittedClockDrift)
-	beginCmd.Flag("lock-only", "Advertise the upgrade lock and exit without actually performing the drain or upgrade").Default("false").Hidden().BoolVar(&c.lockOnly) // this is used by tests
+	beginCmd.Flag("lock-only", "Advertise the upgrade lock and exit without actually performing the drain or upgrade").Default(falseStr).Hidden().BoolVar(&c.lockOnly) // this is used by tests
 	beginCmd.Flag("commit-mode", "Change behavior of commit. When not set, commit on validation success. 'always': always commit. 'never': always exit before commit.").Hidden().EnumVar(&c.commitMode, commitModeAlwaysCommit, commitModeNeverCommit)
 
 	// upgrade phases

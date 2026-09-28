@@ -117,7 +117,7 @@ func TestPutBlob_SyncBeforeClose(t *testing.T) {
 	}, true)
 	require.NoError(t, err)
 
-	t.Cleanup(func() { _ = st.Close(ctx) })
+	t.Cleanup(func() { _ = st.Close(testlogging.ContextForCleanup(t)) })
 
 	err = st.PutBlob(ctx, "blob-sync-ok", gather.FromSlice([]byte("hello")), blob.PutOptions{})
 
@@ -148,7 +148,7 @@ func TestPutBlob_FailsOnSyncError(t *testing.T) {
 		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = st.Close(ctx) })
+	t.Cleanup(func() { _ = st.Close(testlogging.ContextForCleanup(t)) })
 
 	// Test HACK: write a dummy blob to force writing the sharding configuration file, so writing the
 	// config file does not interfere with the test. While this is coupled to the specifics of the

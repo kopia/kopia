@@ -672,7 +672,7 @@ func TestFileStorage_CreateTempFileWithData_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		require.NoError(t, st.Close(ctx))
+		require.NoError(t, st.Close(testlogging.ContextForCleanup(t)))
 	})
 
 	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
@@ -713,7 +713,7 @@ func TestFileStorage_CreateTempFileWithData_WriteError(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		require.NoError(t, st.Close(ctx))
+		require.NoError(t, st.Close(testlogging.ContextForCleanup(t)))
 	})
 
 	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
@@ -748,7 +748,7 @@ func TestFileStorage_CreateTempFileWithData_SyncError(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		require.NoError(t, st.Close(ctx))
+		require.NoError(t, st.Close(testlogging.ContextForCleanup(t)))
 	})
 
 	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})
@@ -782,7 +782,7 @@ func TestFileStorage_CreateTempFileWithData_CloseError(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		require.NoError(t, st.Close(ctx))
+		require.NoError(t, st.Close(testlogging.ContextForCleanup(t)))
 	})
 
 	data := gather.FromSlice([]byte{1, 2, 3, 4, 5})

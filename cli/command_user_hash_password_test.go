@@ -23,9 +23,7 @@ func TestServerUserHashPassword(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-username", "server", "--override-hostname", "host")
 
-	t.Cleanup(func() {
-		e.RunAndExpectSuccess(t, "repo", "disconnect")
-	})
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	userPassword := "bad-password-" + strconv.Itoa(int(rand.Int31()))
 
@@ -53,11 +51,13 @@ func TestServerUserHashPassword(t *testing.T) {
 		"--shutdown-grace-period", "100ms",
 	)
 
-	t.Cleanup(func() {
+	defer func() {
 		kill()
-		wait()
-		t.Log("server stopped")
-	})
+
+		werr := wait()
+
+		t.Log("server stopped with error:", werr)
+	}()
 
 	t.Logf("detected server parameters %#v", sp)
 

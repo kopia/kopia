@@ -70,11 +70,11 @@ func (p *packContentPostamble) toBytes() ([]byte, error) {
 	binary.BigEndian.PutUint32(buf[n:], checksum)
 	n += 4
 
-	if n > 255 { //nolint:mnd
+	if n > maxUInt8 {
 		return nil, errors.Errorf("postamble too long: %v", n)
 	}
 
-	buf[n] = byte(n)
+	buf[n] = byte(n) //nolint:gosec // overflow is checked above
 
 	return buf[0 : n+1], nil
 }

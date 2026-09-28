@@ -50,9 +50,7 @@ func TestGetBlobVersionsFailsWhenVersioningDisabled(t *testing.T) {
 	st, err := gcs.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
 	pit := clock.Now()
 	opts.PointInTime = &pit
@@ -91,9 +89,7 @@ func TestGetBlobVersions(t *testing.T) {
 	st, err := gcs.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
 	const (
 		originalData = "original"
@@ -200,9 +196,7 @@ func TestGetBlobVersionsWithDeletion(t *testing.T) {
 	st, err := gcs.New(newctx, opts, false)
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		st.Close(ctx)
-	})
+	t.Cleanup(func() { st.Close(testlogging.ContextForCleanup(t)) })
 
 	const (
 		originalData = "original"

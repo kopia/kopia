@@ -170,7 +170,6 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 		mkdirAttempted := false
 
 		for {
-
 			err := d.translateError(d.cli.Write(writePath, b, defaultFilePerm))
 			if err == nil {
 				if d.AtomicWrites {
@@ -267,7 +266,12 @@ func New(_ context.Context, opts *Options, isCreate bool) (blob.Storage, error) 
 	cli.SetHeader("Accept-Encoding", "identity")
 
 	if opts.TrustedServerCertificateFingerprint != "" {
-		cli.SetTransport(tlsutil.TransportTrustingSingleCertificate(opts.TrustedServerCertificateFingerprint))
+		tr, err := tlsutil.TransportTrustingSingleCertificate(opts.TrustedServerCertificateFingerprint)
+		if err != nil {
+			return nil, errors.Wrap(err, "creating HTTP transport")
+		}
+
+		cli.SetTransport(tr)
 	}
 
 	s := retrying.NewWrapper(&davStorage{

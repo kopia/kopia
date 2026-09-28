@@ -11,7 +11,9 @@ Users may want to exclude folders and files not to be saved within the repositor
 Kopia uses `pattern-based` ignore rules to omit folders and files from snapshots. While scanning directories and their content, Kopia looks explicitly for files that contain such rules. 
 If such a file is placed within a directory, `Kopia` omits files and folders `matching` the rules.
 
->NOTE The default file is called `.kopiaignore`. However, ignore rules can be specified within the global or snapshot-specific `policy` - either directly or by providing a path to file containing such rules.   
+>NOTE The default file is called `.kopiaignore`. However, ignore rules can be specified within the global or snapshot-specific `policy` - either directly or by providing a path to a file containing such rules.
+
+>NOTE On Windows, use forward slashes (`/`) as path separators in ignore rules, including rules entered directly in a `policy` or loaded from a `.kopiaignore` file. Backslashes (`\`) copied from Windows paths are not supported. For example, use `Documents/cache/*` instead of `Documents\cache\*`.
 
 In the following, we explain different rules and provide examples to create `.kopiaignore` files.
 

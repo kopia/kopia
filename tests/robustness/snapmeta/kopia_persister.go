@@ -134,7 +134,7 @@ func (store *KopiaPersister) LoadMetadata() error {
 		return err
 	}
 
-	err = json.NewDecoder(f).Decode(&(store.Simple))
+	err = json.NewDecoder(f).Decode(&store.Simple)
 	if err != nil {
 		return err
 	}

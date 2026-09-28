@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/fusemount"
 )
 
@@ -26,7 +27,7 @@ func (mo *Options) toFuseMountOptions() *gofusefs.Options {
 			AllowOther: mo.FuseAllowOther,
 			Name:       "kopia",
 			FsName:     "kopia",
-			Debug:      os.Getenv("KOPIA_DEBUG_FUSE") != "",
+			Debug:      envflag.Bool("KOPIA_DEBUG_FUSE"),
 		},
 		EntryTimeout:    &cacheTimeout,
 		AttrTimeout:     &cacheTimeout,

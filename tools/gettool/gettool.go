@@ -31,6 +31,17 @@ type ToolInfo struct {
 	macosUniversalArch  string
 }
 
+const (
+	amd64   = "amd64"
+	arm     = "arm"
+	arm64   = "arm64"
+	armv6   = "armv6"
+	darwin  = "darwin"
+	linux   = "linux"
+	windows = "windows"
+	targz   = "tar.gz"
+)
+
 func (ti ToolInfo) actualURL(version, goos, goarch string) string {
 	if ti.unsupportedArch[goarch] {
 		return ""
@@ -43,16 +54,16 @@ func (ti ToolInfo) actualURL(version, goos, goarch string) string {
 	u := ti.urlTemplate
 	u = strings.ReplaceAll(u, "VERSION", version)
 
-	if goos == "darwin" && ti.macosUniversalArch != "" {
+	if goos == darwin && ti.macosUniversalArch != "" {
 		goarch = ti.macosUniversalArch
 	}
 
 	u = strings.ReplaceAll(u, "GOARCH", replacementFromMap(goarch, ti.archMap))
 	u = strings.ReplaceAll(u, "GOOS", replacementFromMap(goos, ti.osMap))
 	u = strings.ReplaceAll(u, "EXT", replacementFromMap(goos, map[string]string{
-		"windows": "zip",
-		"linux":   "tar.gz",
-		"darwin":  "tar.gz",
+		windows: "zip",
+		linux:   targz,
+		darwin:  targz,
 	}))
 
 	return u
@@ -63,14 +74,14 @@ var tools = map[string]ToolInfo{
 	"linter": {
 		urlTemplate: "https://github.com/golangci/golangci-lint/releases/download/vVERSION/golangci-lint-VERSION-GOOS-GOARCH.EXT",
 		archMap: map[string]string{
-			"arm": "armv6",
+			arm: armv6,
 		},
 		stripPathComponents: 1,
 	},
 	"hugo": {
 		urlTemplate: "https://github.com/gohugoio/hugo/releases/download/vVERSION/hugo_extended_VERSION_GOOS-GOARCH.EXT",
 		unsupportedArch: map[string]bool{
-			"arm": true,
+			arm: true,
 		},
 		unsupportedOSArch: map[string]bool{
 			"linux/arm64": true,
@@ -80,46 +91,46 @@ var tools = map[string]ToolInfo{
 	"gotestsum": {
 		urlTemplate: "https://github.com/gotestyourself/gotestsum/releases/download/vVERSION/gotestsum_VERSION_GOOS_GOARCH.tar.gz",
 		archMap: map[string]string{
-			"arm": "armv6",
+			arm: armv6,
 		},
 	},
 	"kopia": {
 		urlTemplate: "https://github.com/kopia/kopia/releases/download/vVERSION/kopia-VERSION-GOOS-GOARCH.EXT",
 		archMap: map[string]string{
-			"amd64": "x64",
+			amd64: "x64",
 		},
 		osMap: map[string]string{
-			"darwin": "macOS",
+			darwin: "macOS",
 		},
 		stripPathComponents: 1,
 	},
 	"rclone": {
 		urlTemplate:         "https://github.com/rclone/rclone/releases/download/vVERSION/rclone-vVERSION-GOOS-GOARCH.zip",
-		osMap:               map[string]string{"darwin": "osx"},
+		osMap:               map[string]string{darwin: "osx"},
 		stripPathComponents: 1,
 	},
 	"goreleaser": {
 		urlTemplate: "https://github.com/goreleaser/goreleaser/releases/download/VERSION/goreleaser_GOOS_GOARCH.EXT",
 		archMap: map[string]string{
-			"amd64": "x86_64",
-			"arm":   "armv6",
+			amd64: "x86_64",
+			arm:   armv6,
 		},
 		osMap: map[string]string{
-			"darwin":  "Darwin",
-			"linux":   "Linux",
-			"windows": "Windows",
+			darwin:  "Darwin",
+			linux:   "Linux",
+			windows: "Windows",
 		},
 	},
 	"gitchglog": {
 		urlTemplate: "https://github.com/git-chglog/git-chglog/releases/download/vVERSION/git-chglog_VERSION_GOOS_GOARCH.EXT",
 		archMap: map[string]string{
-			"arm": "armv6",
+			arm: armv6,
 		},
 	},
 	"node": {
 		urlTemplate:         "https://nodejs.org/dist/vVERSION/node-vVERSION-GOOS-GOARCH.EXT",
-		osMap:               map[string]string{"windows": "win"},
-		archMap:             map[string]string{"arm": "armv7l", "amd64": "x64"},
+		osMap:               map[string]string{windows: "win"},
+		archMap:             map[string]string{arm: "armv7l", amd64: "x64"},
 		stripPathComponents: 1,
 	},
 }
@@ -140,12 +151,12 @@ var buildArchitectures = []struct {
 	goos   string
 	goarch string
 }{
-	{"linux", "amd64"},
-	{"linux", "arm64"},
-	{"linux", "arm"},
-	{"darwin", "amd64"},
-	{"darwin", "arm64"},
-	{"windows", "amd64"},
+	{linux, amd64},
+	{linux, arm64},
+	{linux, arm},
+	{darwin, amd64},
+	{darwin, arm64},
+	{windows, amd64},
 }
 
 func replacementFromMap(defaultValue string, m map[string]string) string {
