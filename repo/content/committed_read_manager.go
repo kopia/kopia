@@ -296,7 +296,7 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 		logparam.Duration("latency", loadTimer.Elapsed()),
 		logparam.Int("attempts", indexLoadAttempts))
 
-	return errors.Wrapf(lastErr, "unable to load pack indexes despite %v retries", indexLoadAttempts)
+	return errors.Wrapf(lastErr, "unable to load pack indexes despite %v attempts", indexLoadAttempts)
 }
 
 func (sm *SharedManager) getCacheForContentID(id ID) cache.ContentCache {
