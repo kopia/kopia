@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	azblobblob "github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -68,4 +69,9 @@ func TestUserAgent(t *testing.T) {
 	require.EventuallyWithT(t, func(collect *assert.CollectT) {
 		require.True(collect, seenKopiaUserAgent.Load())
 	}, time.Minute, 100*time.Millisecond)
+}
+
+func TestLockedConstValue(t *testing.T) {
+	require.EqualValuesf(t, blob.Locked, azblobblob.ImmutabilityPolicySettingLocked,
+		"blob.Locked const must match Azure's equivalent ImmutabilityPolicySettingLocked")
 }
