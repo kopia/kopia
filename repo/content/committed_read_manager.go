@@ -215,6 +215,8 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 
 	nextSleepTime := 100 * time.Millisecond //nolint:mnd
 
+	var lastErr error
+
 	for i := range indexLoadAttempts {
 		ctx := contentlog.WithParams(ctx0,
 			logparam.Int("loadAttempt", i))
@@ -273,9 +275,11 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 		if !errors.Is(err, blob.ErrBlobNotFound) {
 			return err
 		}
+
+		lastErr = err
 	}
 
-	return errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
+	return errors.Wrapf(lastErr, "unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
 func (sm *SharedManager) getCacheForContentID(id ID) cache.ContentCache {
