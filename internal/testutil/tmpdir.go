@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -14,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/envflag"
 )
 
 const (
@@ -91,12 +91,6 @@ func TempDirectoryShort(tb testing.TB) string {
 	return d
 }
 
-func getEnvVarBool(name string) bool {
-	s, err := strconv.ParseBool(os.Getenv(name))
-
-	return err == nil && s
-}
-
 // TempLogDirectory returns a temporary directory used for storing logs.
 // If KOPIA_LOGS_DIR is provided.
 func TempLogDirectory(tb testing.TB) string {
@@ -113,19 +107,19 @@ func TempLogDirectory(tb testing.TB) string {
 
 	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.Now().Local().Format("20060102150405"))
 
-	require.NoError(tb, os.MkdirAll(logsDir, logsDirPermissions))
+	require.NoError(tb, os.MkdirAll(logsDir, logsDirPermissions)) //nolint:gosec // only used in tests
 
 	tb.Cleanup(func() {
-		if getEnvVarBool("KOPIA_KEEP_LOGS") {
+		if envflag.Bool("KOPIA_KEEP_LOGS") {
 			tb.Logf("logs preserved in %v", logsDir)
 			return
 		}
 
-		if tb.Failed() && !getEnvVarBool("KOPIA_DISABLE_LOG_DUMP_ON_FAILURE") {
+		if tb.Failed() && !envflag.Bool("KOPIA_DISABLE_LOG_DUMP_ON_FAILURE") {
 			dumpLogs(tb, logsDir)
 		}
 
-		os.RemoveAll(logsDir) //nolint:errcheck
+		os.RemoveAll(logsDir) //nolint:errcheck,gosec // only used in tests
 	})
 
 	return logsDir

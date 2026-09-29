@@ -155,20 +155,19 @@ func (c *loggingFlags) setupConsoleCore() zapcore.Core {
 		ConsoleSeparator: " ",
 	}
 
-	timeFormat := zaplogutil.PreciseLayout
+	timeFormat := ""
 
 	if c.consoleLogTimestamps {
 		ec.TimeKey = "t"
 
 		if c.jsonLogConsole {
+			timeFormat = zaplogutil.PreciseLayout
 			ec.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 		} else {
 			// always log local timestamps to the console, not UTC
 			timeFormat = "15:04:05.000"
 			ec.EncodeTime = zaplogutil.TimezoneAdjust(zapcore.TimeEncoderOfLayout(timeFormat), true)
 		}
-	} else {
-		timeFormat = ""
 	}
 
 	stec := zaplogutil.StdConsoleEncoderConfig{

@@ -47,11 +47,11 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 		return err
 	}
 
-	var lc LocalConfig
-
 	ci := st.ConnectionInfo()
-	lc.Storage = &ci
-	lc.ClientOptions = opt.ApplyDefaults(ctx, "Repository in "+st.DisplayName())
+	lc := LocalConfig{
+		Storage:       &ci,
+		ClientOptions: opt.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
+	}
 
 	if err = setupCachingOptionsWithDefaults(ctx, configFile, &lc, &opt.CachingOptions, f.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to set up caching")

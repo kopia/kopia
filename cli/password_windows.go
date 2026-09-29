@@ -5,5 +5,5 @@ import (
 )
 
 func (c *App) setupOSSpecificKeychainFlags(_ appServices, app *kingpin.Application) {
-	app.Flag("use-credential-manager", "Use Windows Credential Manager for storing repository password.").Default("true").BoolVar(&c.keyRingEnabled)
+	app.Flag("use-credential-manager", "Use Windows Credential Manager for storing repository password.").Default(trueStr).BoolVar(&c.keyRingEnabled)
 }

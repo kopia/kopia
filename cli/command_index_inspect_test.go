@@ -14,7 +14,7 @@ func (s *formatSpecificTestSuite) TestIndexInspect(t *testing.T) {
 
 	env.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", env.RepoDir)
 
-	someIndex := strings.Split(env.RunAndExpectSuccess(t, "index", "list")[0], " ")[0]
+	someIndex, _, _ := strings.Cut(env.RunAndExpectSuccess(t, "index", "list")[0], " ")
 	someContentID := env.RunAndExpectSuccess(t, "content", "list")[0]
 	env.RunAndExpectSuccess(t, "index", "inspect", someIndex)
 	env.RunAndExpectSuccess(t, "index", "inspect", "--active")

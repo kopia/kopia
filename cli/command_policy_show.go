@@ -154,10 +154,10 @@ func appendRetentionPolicyRows(rows []policyTableRow, p *policy.Policy, def *pol
 
 func boolToString(v bool) string {
 	if v {
-		return "true"
+		return trueStr
 	}
 
-	return "false"
+	return falseStr
 }
 
 func logDetailToString(v policy.LogDetail) string {

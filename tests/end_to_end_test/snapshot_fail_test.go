@@ -48,7 +48,7 @@ func TestSnapshotFail_DefaultJSONOutput(t *testing.T) {
 
 func TestSnapshotFail_EnvOverride(t *testing.T) {
 	t.Parallel()
-	testSnapshotFailText(t, true, nil, map[string]string{"KOPIA_SNAPSHOT_FAIL_FAST": "true"})
+	testSnapshotFailText(t, true, nil, map[string]string{"KOPIA_SNAPSHOT_FAIL_FAST": trueStr})
 }
 
 func TestSnapshotFail_NoFailFast(t *testing.T) {
@@ -99,17 +99,17 @@ func testSnapshotFail(
 		t.Skip("this test does not work as root, because we're unable to remove permissions.")
 	}
 
-	for _, ignoreFileErr := range []string{"true", "false"} {
-		// Use "inherit" instead of "false" sometimes. Inherit defaults to false
-		if ignoreFileErr == "false" && rand.Intn(2) == 0 {
+	for _, ignoreFileErr := range []string{trueStr, falseStr} {
+		// Use "inherit" instead of falseStr sometimes. Inherit defaults to false
+		if ignoreFileErr == falseStr && rand.Intn(2) == 0 {
 			ignoreFileErr = "inherit"
 		}
 
 		t.Run(fmt.Sprintf("failFast=%v:ignoreFileErr=%s", isFailFast, ignoreFileErr), func(t *testing.T) {
 			t.Parallel()
 
-			for _, ignoreDirErr := range []string{"true", "false"} {
-				if ignoreDirErr == "false" && rand.Intn(2) == 0 {
+			for _, ignoreDirErr := range []string{trueStr, falseStr} {
+				if ignoreDirErr == falseStr && rand.Intn(2) == 0 {
 					ignoreDirErr = "inherit"
 				}
 
@@ -139,8 +139,8 @@ func testSnapshotFailCases(
 	const dir0Path = "dir0"
 
 	var (
-		ignoringDirs       = ignoreDirErr == "true"
-		ignoringFiles      = ignoreFileErr == "true"
+		ignoringDirs       = ignoreDirErr == trueStr
+		ignoringFiles      = ignoreFileErr == trueStr
 		expectedSuccess    = expectedSnapshotResult{success: true}
 		expectEarlyFailure = expectedSnapshotResult{success: false}
 

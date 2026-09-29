@@ -24,6 +24,8 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
+const trueStr = "true"
+
 var tracer = otel.Tracer("kopia/repository")
 
 // Repository exposes public API of Kopia repository, including objects and manifests.

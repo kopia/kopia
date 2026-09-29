@@ -31,6 +31,12 @@ func (c *commandCacheInfo) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandCacheInfo) run(ctx context.Context, _ repo.Repository) error {
+	const (
+		contents       = "contents"
+		metadata       = "metadata"
+		serverContents = "server-contents"
+	)
+
 	opts, err := repo.GetCachingOptions(ctx, c.svc.repositoryConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "error getting cache options")
@@ -47,22 +53,22 @@ func (c *commandCacheInfo) run(ctx context.Context, _ repo.Repository) error {
 	}
 
 	path2SoftLimit := map[string]int64{
-		"contents":        opts.ContentCacheSizeBytes,
-		"metadata":        opts.MetadataCacheSizeBytes,
-		"server-contents": opts.ContentCacheSizeBytes,
+		contents:       opts.ContentCacheSizeBytes,
+		metadata:       opts.MetadataCacheSizeBytes,
+		serverContents: opts.ContentCacheSizeBytes,
 	}
 
 	path2HardLimit := map[string]int64{
-		"contents":        opts.ContentCacheSizeLimitBytes,
-		"metadata":        opts.MetadataCacheSizeLimitBytes,
-		"server-contents": opts.ContentCacheSizeLimitBytes,
+		contents:       opts.ContentCacheSizeLimitBytes,
+		metadata:       opts.MetadataCacheSizeLimitBytes,
+		serverContents: opts.ContentCacheSizeLimitBytes,
 	}
 
 	path2SweepAgeSeconds := map[string]time.Duration{
-		"contents":        opts.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
-		"metadata":        opts.MinMetadataSweepAge.DurationOrDefault(content.DefaultMetadataCacheSweepAge),
-		"indexes":         opts.MinIndexSweepAge.DurationOrDefault(content.DefaultIndexCacheSweepAge),
-		"server-contents": opts.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
+		contents:       opts.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
+		metadata:       opts.MinMetadataSweepAge.DurationOrDefault(content.DefaultMetadataCacheSweepAge),
+		"indexes":      opts.MinIndexSweepAge.DurationOrDefault(content.DefaultIndexCacheSweepAge),
+		serverContents: opts.MinContentSweepAge.DurationOrDefault(content.DefaultDataCacheSweepAge),
 	}
 
 	for _, ent := range entries {

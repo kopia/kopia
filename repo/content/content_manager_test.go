@@ -265,7 +265,7 @@ func (s *contentManagerSuite) TestContentManagerInternalFlush(t *testing.T) {
 
 	defer bm.CloseShared(ctx)
 
-	itemsToOverflow := (maxPackCapacity)/(25+encryptionOverhead) + 2
+	itemsToOverflow := maxPackCapacity/(25+encryptionOverhead) + 2
 	for range itemsToOverflow {
 		b := make([]byte, 25)
 		cryptorand.Read(b)
@@ -1768,6 +1768,7 @@ func dumpContents(ctx context.Context, t *testing.T, bm *WriteManager, caption s
 		func(ci Info) error {
 			t.Logf(" ci[%v]=%#v", count, ci)
 			count++
+
 			return nil
 		}); err != nil {
 		t.Errorf("error listing contents: %v", err)
@@ -2531,9 +2532,7 @@ func (s *contentManagerSuite) newTestContentManagerWithTweaks(t *testing.T, st b
 		panic("can't create content manager: " + err.Error())
 	}
 
-	t.Cleanup(func() {
-		bm.CloseShared(ctx)
-	})
+	t.Cleanup(func() { bm.CloseShared(testlogging.ContextForCleanup(t)) })
 
 	bm.checkInvariantsOnUnlock = true
 

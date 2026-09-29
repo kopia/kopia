@@ -41,6 +41,8 @@ const (
 	packBlobIDLength = 16
 
 	DefaultIndexVersion = 2
+
+	maxUInt8 = 255
 )
 
 var tracer = otel.Tracer("kopia/content")
@@ -260,6 +262,10 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		return errors.Wrap(err, "unable to flush old pending writes")
 	}
 
+	if mp.Version > maxUInt8 {
+		return errors.Errorf("invalid format version %v", mp.Version)
+	}
+
 	prefix := packPrefixForContentID(contentID)
 
 	var compressedAndEncrypted gather.WriteBuffer
@@ -317,7 +323,7 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		PackBlobID:       pp.packBlobID,
 		PackOffset:       uint32(pp.currentPackData.Length()), //nolint:gosec
 		TimestampSeconds: bm.contentWriteTime(previousWriteTime),
-		FormatVersion:    byte(mp.Version),
+		FormatVersion:    byte(mp.Version),      //nolint:gosec // value range checked above
 		OriginalLength:   uint32(data.Length()), //nolint:gosec
 	}
 
@@ -403,7 +409,7 @@ func (bm *WriteManager) verifyPackIndexBuilderLocked(mp format.MutableParameters
 			assertInvariant(cpi.PackBlobID == "", "content can't be both deleted and have a pack content: %v", cpi.ContentID)
 		} else {
 			assertInvariant(cpi.PackBlobID != "", "content that's not deleted must have a pack content: %+v", cpi)
-			assertInvariant(cpi.FormatVersion == byte(mp.Version), "content that's not deleted must have a valid format version: %+v", cpi)
+			assertInvariant(format.Version(cpi.FormatVersion) == mp.Version, "content that's not deleted must have a valid format version: %+v", cpi)
 		}
 
 		assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ContentID)

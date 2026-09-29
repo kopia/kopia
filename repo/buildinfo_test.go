@@ -19,7 +19,7 @@ func TestGetRevisionString(t *testing.T) {
 			input: []debug.BuildSetting{
 				{
 					Key:   "vcs.modified",
-					Value: "true",
+					Value: trueStr,
 				},
 			},
 			want: "-(unknown_revision)+dirty",
@@ -41,7 +41,7 @@ func TestGetRevisionString(t *testing.T) {
 				},
 				{
 					Key:   "vcs.modified",
-					Value: "true",
+					Value: trueStr,
 				},
 			},
 			want: "2025-04-12T16:01:30Z-(unknown_revision)+dirty",
@@ -97,7 +97,7 @@ func TestGetRevisionString(t *testing.T) {
 				},
 				{
 					Key:   "vcs.modified",
-					Value: "true",
+					Value: trueStr,
 				},
 			},
 			want: "2025-04-12T16:01:30Z-353676da445938316fa00b2b812a61f4b1dd3ffa+dirty",

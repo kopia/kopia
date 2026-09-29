@@ -74,7 +74,7 @@ func main() {
 	for i := range 300_000_000 {
 		// generate key=sha256(i) without allocations.
 		h.Reset()
-		binary.LittleEndian.PutUint64(num[:], uint64(i)) //nolint:gosec
+		binary.LittleEndian.PutUint64(num[:], uint64(i))
 		h.Write(num[:])
 		h.Sum(keyBuf[:0])
 
@@ -87,7 +87,7 @@ func main() {
 			bm.PutIfAbsent(ctx, keyBuf[:], keyBuf[:])
 		}
 
-		count := uint64(i + 1) //nolint:gosec
+		count := uint64(i + 1)
 
 		if count%1_000_000 == 0 {
 			var ms runtime.MemStats

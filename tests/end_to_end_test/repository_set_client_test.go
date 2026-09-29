@@ -27,7 +27,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetClient(t *testing.T) {
 		return strings.Contains(l, "Description:") && strings.Contains(l, "My Repo")
 	})
 	verifyHasLine(t, sl, func(l string) bool {
-		return strings.Contains(l, "Read-only:") && strings.Contains(l, "false")
+		return strings.Contains(l, "Read-only:") && strings.Contains(l, falseStr)
 	})
 	verifyHasLine(t, sl, func(l string) bool {
 		return strings.Contains(l, "Username:") && strings.Contains(l, "myuser")
@@ -51,7 +51,7 @@ func (s *formatSpecificTestSuite) TestRepositorySetClient(t *testing.T) {
 		return strings.Contains(l, "Description:") && strings.Contains(l, "My Updated Repo")
 	})
 	verifyHasLine(t, sl, func(l string) bool {
-		return strings.Contains(l, "Read-only:") && strings.Contains(l, "true")
+		return strings.Contains(l, "Read-only:") && strings.Contains(l, trueStr)
 	})
 	verifyHasLine(t, sl, func(l string) bool {
 		return strings.Contains(l, "Hostname:") && strings.Contains(l, "my-updated-host")

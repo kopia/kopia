@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/listcache"
@@ -212,7 +213,11 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 	ctx0 := contentlog.WithParams(ctx,
 		logparam.String("span:loadindex", contentlog.RandomSpanID()))
 
+	loadTimer := timetrack.StartTimer()
+
 	nextSleepTime := 100 * time.Millisecond //nolint:mnd
+
+	var lastErr error
 
 	for i := range indexLoadAttempts {
 		ctx := contentlog.WithParams(ctx0,
@@ -246,9 +251,14 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 			return errors.Wrap(err, "error listing index blobs")
 		}
 
-		var indexBlobIDs []blob.ID
+		var (
+			indexBlobIDs    []blob.ID
+			totalIndexBytes int64
+		)
+
 		for _, b := range indexBlobs {
 			indexBlobIDs = append(indexBlobIDs, b.BlobID)
+			totalIndexBytes += b.Length
 		}
 
 		err = sm.committedContents.fetchIndexBlobs(ctx, sm.permissiveCacheLoading, indexBlobIDs)
@@ -266,15 +276,27 @@ func (sm *SharedManager) loadPackIndexesLocked(ctx context.Context) error {
 
 			sm.refreshIndexesAfter = sm.timeNow().Add(indexRefreshFrequency)
 
+			contentlog.Log4(ctx, sm.log, "loadPackIndexes",
+				logparam.Duration("latency", loadTimer.Elapsed()),
+				logparam.Int("indexBlobs", len(indexBlobs)),
+				logparam.Int64("totalIndexBytes", totalIndexBytes),
+				logparam.Int("attempts", i+1))
+
 			return nil
 		}
 
 		if !errors.Is(err, blob.ErrBlobNotFound) {
 			return err
 		}
+
+		lastErr = err
 	}
 
-	return errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
+	contentlog.Log2(ctx0, sm.log, "loadPackIndexes gave up",
+		logparam.Duration("latency", loadTimer.Elapsed()),
+		logparam.Int("attempts", indexLoadAttempts))
+
+	return errors.Wrapf(lastErr, "unable to load pack indexes despite %v attempts", indexLoadAttempts)
 }
 
 func (sm *SharedManager) getCacheForContentID(id ID) cache.ContentCache {
@@ -620,7 +642,7 @@ func NewSharedManager(ctx context.Context, st blob.Storage, prov format.Provider
 		minPreambleLength:       defaultMinPreambleLength,
 		maxPreambleLength:       defaultMaxPreambleLength,
 		paddingUnit:             defaultPaddingUnit,
-		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
+		checkInvariantsOnUnlock: envflag.Bool("KOPIA_VERIFY_INVARIANTS"),
 		repoLogManager:          repoLogManager,
 
 		metricsStruct: initMetricsStruct(mr),

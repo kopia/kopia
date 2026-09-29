@@ -125,27 +125,23 @@ func TestACL(t *testing.T) {
 	foobarClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	// foo@bar sees one snapshot
-	if snaps := clitestutil.ListSnapshotsAndExpectSuccess(t, foobarClientEnvironment, "-a"); len(snaps) != 1 {
-		t.Fatalf("foo@bar expected to see 1 sources (own, got %v", snaps)
-	}
+	snaps := clitestutil.ListSnapshotsAndExpectSuccess(t, foobarClientEnvironment, "-a")
+	require.Len(t, snaps, 1, "foo@bar expected to see 1 source (own)")
 
-	// alice@wonderland sees zero sources
-	if snaps := clitestutil.ListSnapshotsAndExpectSuccess(t, aliceInWonderlandClientEnvironment, "-a"); len(snaps) != 0 {
-		t.Fatalf("foo@bar expected to see 0 sources (own), got %v", snaps)
-	}
+	// alice@wonderland sees zero snapshot sources
+	snaps = clitestutil.ListSnapshotsAndExpectSuccess(t, aliceInWonderlandClientEnvironment, "-a")
+	require.Empty(t, snaps, "alice@wonderland expected to see 0 sources (own)")
 
 	// alice@wonderland takes a snapshot now
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	// foo@bar now can see two snapshot sources (own and alice's)
-	if snaps := clitestutil.ListSnapshotsAndExpectSuccess(t, foobarClientEnvironment, "-a"); len(snaps) != 2 {
-		t.Fatalf("foo@bar expected to see 2 sources (own and alice), got %v", snaps)
-	}
+	snaps = clitestutil.ListSnapshotsAndExpectSuccess(t, foobarClientEnvironment, "-a")
+	require.Len(t, snaps, 2, "foo@bar expected to see 2 sources (own and alice's)")
 
 	// alice@wonderland can only see her own
-	if snaps := clitestutil.ListSnapshotsAndExpectSuccess(t, aliceInWonderlandClientEnvironment, "-a"); len(snaps) != 1 {
-		t.Fatalf("foo@bar expected to see 1 source (own), got %v", snaps)
-	}
+	snaps = clitestutil.ListSnapshotsAndExpectSuccess(t, aliceInWonderlandClientEnvironment, "-a")
+	require.Len(t, snaps, 1, "alice@wonderland expected to see 1 source (own)")
 
 	// another@bar can create snapshots but not delete them
 	anotherBarClientEnvironment.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)

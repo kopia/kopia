@@ -5,5 +5,5 @@ import (
 )
 
 func (c *App) setupOSSpecificKeychainFlags(_ appServices, app *kingpin.Application) {
-	app.Flag("use-keychain", "Use macOS Keychain for storing repository password.").Default("true").BoolVar(&c.keyRingEnabled)
+	app.Flag("use-keychain", "Use macOS Keychain for storing repository password.").Default(trueStr).BoolVar(&c.keyRingEnabled)
 }

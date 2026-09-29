@@ -5,13 +5,6 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
-
-	"github.com/kopia/kopia/repo/hashing"
-)
-
-const (
-	maxContentIDSize = hashing.MaxHashSize + 1
-	unknownKeySize   = 255
 )
 
 // Index is a read-only index of packed contents.

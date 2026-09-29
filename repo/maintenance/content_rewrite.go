@@ -2,7 +2,6 @@ package maintenance
 
 import (
 	"context"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/contentparam"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -115,7 +115,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 				if err := rep.ContentManager().RewriteContent(ctx, c.ContentID); err != nil {
 					// provide option to ignore failures when rewriting deleted contents during maintenance
 					// this is for advanced use only
-					if os.Getenv("KOPIA_IGNORE_MAINTENANCE_REWRITE_ERROR") != "" && c.Deleted {
+					if envflag.Bool("KOPIA_IGNORE_MAINTENANCE_REWRITE_ERROR") && c.Deleted {
 						contentlog.Log2(ctx, log,
 							"IGNORED: unable to rewrite deleted content",
 							contentparam.ContentID("contentID", c.ContentID),
