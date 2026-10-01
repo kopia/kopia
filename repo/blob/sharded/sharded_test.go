@@ -3,6 +3,7 @@ package sharded_test
 import (
 	"bytes"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -232,6 +233,47 @@ func TestShardedFileStorageShardingMap_Invalid(t *testing.T) {
 	require.NoError(t, os.WriteFile(dotShardsFile, []byte{1, 2, 3}, 0o600))
 
 	require.NoError(t, r.PutBlob(ctx, "someblob2", gather.FromSlice([]byte("foo")), blob.PutOptions{}))
+}
+
+func TestShardedStorageIgnoresAppleDoubleFiles(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	path := testutil.TempDirectory(t)
+
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path: path,
+		Options: sharded.Options{
+			DirectoryShards: []int{3, 3},
+		},
+	}, true)
+	require.NoError(t, err)
+
+	const blobID blob.ID = "xn0_98-229d014b2683a000c9a4a1416486a3-c1"
+	require.NoError(t, st.PutBlob(ctx, blobID, gather.FromSlice([]byte("data")), blob.PutOptions{}))
+
+	var blobFile string
+	err = filepath.WalkDir(path, func(p string, d fs.DirEntry, walkErr error) error {
+		require.NoError(t, walkErr)
+
+		if d.IsDir() {
+			return nil
+		}
+
+		if strings.HasSuffix(d.Name(), sharded.CompleteBlobSuffix) {
+			blobFile = p
+			return fs.SkipAll
+		}
+
+		return nil
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, blobFile)
+
+	appleDouble := filepath.Join(filepath.Dir(blobFile), "._"+filepath.Base(blobFile))
+	require.NoError(t, os.WriteFile(appleDouble, []byte("metadata"), 0o600))
+
+	blobtesting.AssertListResultsIDs(ctx, t, st, "", blobID)
 }
 
 func TestClone(t *testing.T) {
