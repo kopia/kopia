@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"os"
+
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/tlsutil"
 )
 
 type commandServer struct {
@@ -39,6 +42,7 @@ type serverClientFlags struct {
 	serverUsername        string
 	serverPassword        string
 	serverCertFingerprint string
+	serverCertCAFile      string
 }
 
 func (c *serverClientFlags) setup(svc appServices, cmd *kingpin.CmdClause) {
@@ -53,6 +57,7 @@ func (c *serverClientFlags) setup(svc appServices, cmd *kingpin.CmdClause) {
 	cmd.Flag("server-password", "Server control password").Hidden().StringVar(&c.serverPassword)
 
 	cmd.Flag("server-cert-fingerprint", "Server certificate fingerprint").PlaceHolder("SHA256-FINGERPRINT").Envar(svc.EnvName("KOPIA_SERVER_CERT_FINGERPRINT")).StringVar(&c.serverCertFingerprint)
+	cmd.Flag("server-cert-ca-file", "Path to a PEM file with the CA certificate(s) the server certificate must chain to; alternative to --server-cert-fingerprint").Envar(svc.EnvName("KOPIA_SERVER_CERT_CA_FILE")).StringVar(&c.serverCertCAFile)
 }
 
 func (c *commandServer) setup(svc advancedAppServices, parent commandParent) {
@@ -79,10 +84,39 @@ func (c *serverClientFlags) serverAPIClientOptions() (apiclient.Options, error) 
 		return apiclient.Options{}, errors.New("missing server address")
 	}
 
+	if c.serverCertFingerprint != "" && c.serverCertCAFile != "" {
+		return apiclient.Options{}, errors.New("server-cert-fingerprint and server-cert-ca-file are mutually exclusive")
+	}
+
+	caPEM, err := readServerCertCAFile(c.serverCertCAFile)
+	if err != nil {
+		return apiclient.Options{}, err
+	}
+
 	return apiclient.Options{
 		BaseURL:                             c.serverAddress,
 		Username:                            c.serverUsername,
 		Password:                            c.serverPassword,
 		TrustedServerCertificateFingerprint: c.serverCertFingerprint,
+		TrustedServerCACertificate:          caPEM,
 	}, nil
+}
+
+// readServerCertCAFile returns the contents of the --server-cert-ca-file PEM file, or nil when fname is empty.
+// The contents are validated up front: an empty or unparsable file must not fall back to the system roots.
+func readServerCertCAFile(fname string) ([]byte, error) {
+	if fname == "" {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(fname) //#nosec
+	if err != nil {
+		return nil, errors.Wrapf(err, "error opening server-cert-ca-file %v", fname)
+	}
+
+	if _, err := tlsutil.TLSConfigTrustingCA(data); err != nil {
+		return nil, errors.Wrapf(err, "invalid server-cert-ca-file %v", fname)
+	}
+
+	return data, nil
 }
