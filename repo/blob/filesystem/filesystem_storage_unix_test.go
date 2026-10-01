@@ -12,7 +12,6 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 func TestFileStorage_ESTALE_ErrorHandling(t *testing.T) {

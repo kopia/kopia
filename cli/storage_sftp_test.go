@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/repo/blob/sftp"
-	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 func TestSFTPOptions(t *testing.T) {
