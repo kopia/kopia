@@ -253,12 +253,12 @@ func CompactRetentionReasons(reasons []string) []string {
 }
 
 func prefixSuffix(s string) (prefix, suffix string) {
-	if p := strings.LastIndex(s, "-"); p < 0 {
+	if before, after, ok := strings.CutLast(s, "-"); !ok {
 		prefix = s
 		suffix = ""
 	} else {
-		prefix = s[0:p]
-		suffix = s[p+1:]
+		prefix = before
+		suffix = after
 	}
 
 	return prefix, suffix
