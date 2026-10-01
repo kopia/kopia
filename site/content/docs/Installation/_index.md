@@ -326,6 +326,10 @@ services:
             - /path/to/tmp/dir:/tmp:shared
 ```
 
+[Easypanel](https://easypanel.io) is a self-hosted Docker deployment platform, and it maintains a one-click deployment template for Kopia server mode:
+
+[![Deploy on Easypanel](https://easypanel.io/img/deploy-on-easypanel-40.svg)](https://easypanel.io/templates/kopia)
+
 Because the Docker environment uses random hostnames for its containers, it is recommended to explicitly set them using `hostname`. The name will be persisted in a configuration file and used afterwards.
 
 >NOTE Kopia within a container overrides default values of some environment variables, see our [dockerfile](https://github.com/kopia/kopia/blob/master/tools/docker/Dockerfile) for more details.
