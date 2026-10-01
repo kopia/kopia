@@ -386,6 +386,29 @@ func TestSFTPStorageRelativeKeyFile(t *testing.T) {
 	require.Contains(t, err.Error(), "key file path must be absolute")
 }
 
+func TestSFTPStorageKeyFileFromEnvironmentVariable(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("CREDENTIALS_DIRECTORY", dir)
+
+	kh := filepath.Join(dir, "known_hosts")
+	require.NoError(t, os.WriteFile(kh, []byte{}, 0o600))
+
+	// not a valid key, but it proves the expanded path was resolved and read.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "id_rsa"), []byte("not-a-key"), 0o600))
+
+	opt := &sftp.Options{
+		Path:           "/upload",
+		Host:           "some-host",
+		Username:       sftpUsernameWithKeyAuth,
+		Port:           22,
+		Keyfile:        "$CREDENTIALS_DIRECTORY/id_rsa",
+		KnownHostsFile: kh,
+	}
+
+	_, err := sftp.New(testlogging.Context(t), opt, false)
+	require.ErrorContains(t, err, "error parsing private key")
+}
+
 func TestSFTPStorageRelativeKnownHostsFile(t *testing.T) {
 	t.Parallel()
 
