@@ -30,7 +30,6 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/blob/rclone"
-	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 const cleanupAge = 4 * time.Hour
