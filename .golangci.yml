@@ -34,9 +34,14 @@ linters:
       min-complexity: 40
     gomodguard_v2:
       blocked:
-        - module: "github.com/aws/aws-sdk-go/.*"
-          match-type:  regexp
+        - module: "github.com/aws/aws-sdk-go"
+          match-type:  prefix
           reason: "github.com/aws/aws-sdk-go is deprecated, kopia uses minio-go to access S3"
+          recommendations:
+            - github.com/minio/minio-go
+        - module: "github.com/aws/aws-sdk-go-v2"
+          match-type:  prefix
+          reason: "kopia uses minio-go to access S3"
           recommendations:
             - github.com/minio/minio-go
         - module: github.com/rs/zerolog/log
