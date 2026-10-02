@@ -12,10 +12,14 @@ linters:
             - pkg: "github.com/aws/aws-sdk-go-v2"
               desc: "use github.com/minio/minio-go"
     exhaustive:
+      check:
+        - map
+        - switch
       # indicates that switch statements are to be considered exhaustive if a
       # 'default' case is present, even if all enum members aren't listed in the
       # switch
       default-signifies-exhaustive: true
+      explicit-exhaustive-map: true
     forbidigo:
       forbid:
         - pattern: filepath.IsAbs   # use ospath.IsAbs which supports windows UNC paths
