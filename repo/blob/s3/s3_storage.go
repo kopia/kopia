@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -456,6 +457,11 @@ func newStorageWithCredentials(ctx context.Context, creds *credentials.Credentia
 		Options:       *opt,
 		cli:           cli,
 		storageConfig: &StorageConfig{},
+	}
+
+	disableStorageConfig, _ := strconv.ParseBool(os.Getenv("KOPIA_DISABLE_STORAGECONFIG"))
+	if opt.DisableStorageConfig || disableStorageConfig {
+		return &s, nil
 	}
 
 	var scOutput gather.WriteBuffer
