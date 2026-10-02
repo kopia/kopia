@@ -34,19 +34,19 @@ linters:
       min-complexity: 40
     gomodguard_v2:
       blocked:
-        modules:
-          - github.com/aws/aws-sdk-go:
-              recommendations:
-                - github.com/minio/minio-go
-              reason: "github.com/aws/aws-sdk-go is not actively developed any longer"
-          - github.com/rs/zerolog/log:
-              recommendations:
-                - "use kopia's logging packages"
-              reason: "zerolog not currently use"
-          - go.uber.org/multierr:
-              recommendations:
-                - errors
-              reason: "multierr.Append() can be replaced by native errors.Join()"
+        - module: "github.com/aws/aws-sdk-go/.*"
+          match-type:  regexp
+          reason: "github.com/aws/aws-sdk-go is deprecated, kopia uses minio-go to access S3"
+          recommendations:
+            - github.com/minio/minio-go
+        - module: github.com/rs/zerolog/log
+          reason: "zerolog not currently use"
+          recommendations:
+            - "use kopia's logging packages"
+        - module: go.uber.org/multierr
+          reason: "multierr.Append() can be replaced by native errors.Join()"
+          recommendations:
+            - errors
     goconst:
       min-len: 5
       min-occurrences: 3
