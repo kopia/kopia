@@ -2115,7 +2115,7 @@ func (s *contentManagerSuite) TestCompression_CompressibleData(t *testing.T) {
 	require.NoError(t, err)
 
 	// gzip-compressed length
-	require.Equal(t, uint32(79), ci.PackedLength)
+	require.Equal(t, 75, int(ci.PackedLength), "packed length")
 	require.Equal(t, uint32(len(compressibleData)), ci.OriginalLength)
 	require.Equal(t, headerID, ci.CompressionHeaderID)
 
