@@ -232,7 +232,7 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 	if err != nil {
 		userLog(rc.req.Context()).Errorf("unable to generate short-term auth cookie: %v", err)
 	} else {
-		http.SetCookie(rc.w, &http.Cookie{
+		http.SetCookie(rc.w, &http.Cookie{ //nolint:gosec
 			Name:    kopiaAuthCookie,
 			Value:   ac,
 			Expires: now.Add(kopiaAuthCookieTTL),
@@ -830,7 +830,7 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 			} else {
 				sessionID = uuid.NewString()
 
-				http.SetCookie(w, &http.Cookie{
+				http.SetCookie(w, &http.Cookie{ //nolint:gosec
 					Name:  kopiaSessionCookie,
 					Value: sessionID,
 					Path:  "/",
@@ -995,7 +995,8 @@ func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, i
 		fmt.Sprintf("%v at %v", src, clock.Now().Format(time.RFC3339)),
 		func(ctx context.Context, ctrl uitask.Controller) error {
 			return inner(ctx, ctrl, &result)
-		}), "snapshot task")
+		},
+	), "snapshot task")
 	if err != nil {
 		result.Error = err.Error()
 	}

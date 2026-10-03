@@ -300,10 +300,7 @@ func (c *commandServerStart) run(ctx context.Context) (reterr error) {
 	// enable notification to be printed to stderr where KopiaUI will pick it up
 	if c.kopiauiNotifications {
 		notification.AdditionalSenders = append(notification.AdditionalSenders,
-			jsonsender.NewJSONSender(
-				"NOTIFICATION: ",
-				c.out.stderr(),
-				notification.SeverityVerbose))
+			jsonsender.NewJSONSender("NOTIFICATION: ", c.out.stderr(), notification.SeverityVerbose))
 	}
 
 	return c.startServerWithOptionalTLS(ctx, httpServer)

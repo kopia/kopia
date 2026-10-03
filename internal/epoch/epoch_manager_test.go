@@ -72,7 +72,8 @@ func (te *epochManagerTestEnv) compact(ctx context.Context, blobs []blob.ID, pre
 
 	return errors.Wrap(
 		te.st.PutBlob(ctx, blob.ID(fmt.Sprintf("%v%016x-s0-c1", prefix, rand.Int63())), gather.FromSlice(merged.Bytes()), blob.PutOptions{}),
-		"PutBlob error")
+		"PutBlob error",
+	)
 }
 
 // write two dummy compaction blobs instead of 3, simulating a compaction that crashed before fully complete.

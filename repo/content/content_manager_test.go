@@ -2010,7 +2010,8 @@ func (s *contentManagerSuite) TestReadsOwnWritesWithEventualConsistencyPersisten
 	ecst := blobtesting.NewEventuallyConsistentStorage(
 		logging.NewWrapper(st, testlogging.NewTestLogger(t), nil, "[STORAGE] "),
 		3*time.Second,
-		timeNow)
+		timeNow,
+	)
 
 	// disable own writes cache, will still be ok if store is strongly consistent
 	s.verifyReadsOwnWrites(t, ownwrites.NewWrapper(ecst, cacheSt, cachedIndexBlobPrefixes, ownWritesCacheDuration), timeNow)

@@ -96,7 +96,8 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 				"    %v (%v) %v\n",
 				formatTimestamp(t.Start),
 				t.End.Sub(t.Start).Truncate(time.Second),
-				message)
+				message,
+			)
 		}
 	}
 

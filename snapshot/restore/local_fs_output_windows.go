@@ -35,7 +35,8 @@ func symlinkChtimes(linkPath string, atime, mtime time.Time) error {
 		fn, windows.GENERIC_READ|windows.GENERIC_WRITE,
 		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE,
 		nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+		windows.FILE_FLAG_OPEN_REPARSE_POINT, 0,
+	)
 	if err != nil {
 		return errors.Wrapf(err, "CreateFile error on %v", linkPath)
 	}

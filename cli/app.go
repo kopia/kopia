@@ -463,7 +463,8 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 				Purpose:  "cli:" + c.currentActionName(),
 				OnUpload: c.progress.UploadedBytes,
 			}, act)
-		})
+		},
+	)
 }
 
 // repositoryWriterActionWithMaintenance runs act in a write session and
@@ -550,7 +551,8 @@ func (c *App) repositoryAction(act func(ctx context.Context, rep repo.Repository
 				c.currentActionName(),
 				t0,
 				clock.Now(),
-				err), notification.SeverityError,
+				err,
+			), notification.SeverityError,
 				c.notificationTemplateOptions(),
 			)
 		}

@@ -241,7 +241,8 @@ func (e *Manager) AdvanceDeletionWatermark(ctx context.Context, ts time.Time) (b
 	}
 
 	if ts.Before(cs.DeletionWatermark) {
-		contentlog.Log2(ctx, e.log,
+		contentlog.Log2(
+			ctx, e.log,
 			"ignoring attempt to move deletion watermark time backwards",
 			logparam.Time("ts", ts),
 			logparam.Time("deletionWatermark", cs.DeletionWatermark),
@@ -713,7 +714,8 @@ func (e *Manager) refreshAttemptLocked(ctx context.Context) error {
 
 	cs.UncompactedEpochSets = ues
 
-	contentlog.Log5(ctx, e.log,
+	contentlog.Log5(
+		ctx, e.log,
 		"epochs determined",
 		logparam.Int("writeEpoch", cs.WriteEpoch),
 		logparam.Int("ues1", len(ues[cs.WriteEpoch-1])),
@@ -805,7 +807,8 @@ func (e *Manager) GetCompleteIndexSet(ctx context.Context, maxEpoch int) ([]blob
 
 		result, err := e.getCompleteIndexSetForCommittedState(ctx, cs, 0, maxEpoch)
 		if e.timeFunc().Before(cs.ValidUntil) {
-			contentlog.Log4(ctx, e.log,
+			contentlog.Log4(
+				ctx, e.log,
 				"complete index set",
 				logparam.Int("maxEpoch", maxEpoch),
 				logparam.Int("resultLength", len(result)),
@@ -974,7 +977,8 @@ func (e *Manager) getCompleteIndexSetForCommittedState(ctx context.Context, cs C
 
 	eg, ctx := errgroup.WithContext(ctx)
 
-	contentlog.Log3(ctx, e.log, "adding incremental state for epochs",
+	contentlog.Log3(
+		ctx, e.log, "adding incremental state for epochs",
 		logparam.Int("startEpoch", startEpoch),
 		logparam.Int("maxEpoch", maxEpoch),
 		blobparam.BlobIDList("result", blob.IDsFromMetadata(result)),
