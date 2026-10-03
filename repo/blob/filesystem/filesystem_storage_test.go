@@ -42,10 +42,8 @@ func TestFileStorage(t *testing.T) {
 
 		// use context that gets canceled after opening storage to ensure it's not used beyond New().
 		r, err := New(newctx, &Options{
-			Path: path,
-			Options: sharded.Options{
-				DirectoryShards: shardSpec,
-			},
+			Path:            path,
+			DirectoryShards: shardSpec,
 		}, true)
 
 		cancel()
@@ -96,10 +94,8 @@ func TestFileStorageLongPath(t *testing.T) {
 	}
 
 	r, err := New(ctx, &Options{
-		Path: longBase,
-		Options: sharded.Options{
-			DirectoryShards: []int{2, 2},
-		},
+		Path:            longBase,
+		DirectoryShards: []int{2, 2},
 	}, true)
 	require.NoError(t, err)
 	require.NotNil(t, r)
@@ -231,10 +227,8 @@ func TestFilesystemStorageDirectoryShards(t *testing.T) {
 	dataDir := testutil.TempDirectory(t)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:            dataDir,
+		DirectoryShards: []int{5, 2},
 	}, true)
 	require.NoError(t, err)
 
@@ -253,10 +247,8 @@ func TestFileStorage_GetBlob_RetriesOnReadError(t *testing.T) {
 	osi.readFileRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: testutil.TempDirectory(t),
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:                testutil.TempDirectory(t),
+		DirectoryShards:     []int{5, 2},
 		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
@@ -279,10 +271,8 @@ func TestFileStorage_GetMetadata_RetriesOnError(t *testing.T) {
 	osi := newMockOS()
 
 	st, err := New(ctx, &Options{
-		Path: testutil.TempDirectory(t),
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:                testutil.TempDirectory(t),
+		DirectoryShards:     []int{5, 2},
 		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
@@ -352,12 +342,10 @@ func TestFileStorage_PutBlob_RetriesOnErrors(t *testing.T) {
 			osi := newMockOS()
 
 			st, err := New(ctx, &Options{
-				Path:    testutil.TempDirectory(t),
-				FileUID: &fileUID,
-				FileGID: &fileGID,
-				Options: sharded.Options{
-					DirectoryShards: []int{5, 2},
-				},
+				Path:                testutil.TempDirectory(t),
+				FileUID:             &fileUID,
+				FileGID:             &fileGID,
+				DirectoryShards:     []int{5, 2},
 				osInterfaceOverride: osi,
 			}, true)
 			require.NoError(t, err)
@@ -440,12 +428,10 @@ func TestFileStorage_PutBlob_DoesNotExceedRetriesOnErrors(t *testing.T) {
 			osi := newMockOS()
 
 			st, err := New(ctx, &Options{
-				Path:    testutil.TempDirectory(t),
-				FileUID: &fileUID,
-				FileGID: &fileGID,
-				Options: sharded.Options{
-					DirectoryShards: []int{5, 2},
-				},
+				Path:                testutil.TempDirectory(t),
+				FileUID:             &fileUID,
+				FileGID:             &fileGID,
+				DirectoryShards:     []int{5, 2},
 				osInterfaceOverride: osi,
 			}, true)
 			require.NoError(t, err)
@@ -494,10 +480,8 @@ func TestFileStorage_DeleteBlob_ErrorHandling(t *testing.T) {
 	osi.removeRemainingNonRetriableErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: testutil.TempDirectory(t),
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:                testutil.TempDirectory(t),
+		DirectoryShards:     []int{5, 2},
 		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
@@ -515,10 +499,8 @@ func TestFileStorage_New_MkdirAllFailureIsIgnored(t *testing.T) {
 	osi.mkdirAllRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: testutil.TempDirectory(t),
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:                testutil.TempDirectory(t),
+		DirectoryShards:     []int{5, 2},
 		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
@@ -535,10 +517,8 @@ func TestFileStorage_New_ChecksDirectoryExistence(t *testing.T) {
 	osi.statRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: testutil.TempDirectory(t),
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:                testutil.TempDirectory(t),
+		DirectoryShards:     []int{5, 2},
 		osInterfaceOverride: osi,
 	}, true)
 	require.Error(t, err)
@@ -555,10 +535,8 @@ func TestFileStorage_ListBlobs_ErrorHandling(t *testing.T) {
 	osi.readDirRemainingFileDeletedDirEntry.Store(3)
 
 	st, err := New(ctx, &Options{
-		Path: testutil.TempDirectory(t),
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:                testutil.TempDirectory(t),
+		DirectoryShards:     []int{5, 2},
 		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
@@ -589,10 +567,8 @@ func TestFileStorage_TouchBlob_ErrorHandling(t *testing.T) {
 	osi := newMockOS()
 
 	st, err := New(ctx, &Options{
-		Path: testutil.TempDirectory(t),
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:                testutil.TempDirectory(t),
+		DirectoryShards:     []int{5, 2},
 		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
@@ -615,10 +591,8 @@ func TestFileStorage_Misc(t *testing.T) {
 	dataDir := testutil.TempDirectory(t)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:            dataDir,
+		DirectoryShards: []int{5, 2},
 	}, true)
 	require.NoError(t, err)
 
@@ -664,10 +638,8 @@ func TestFileStorage_CreateTempFileWithData_Success(t *testing.T) {
 	dataDir := testutil.TempDirectory(t)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:            dataDir,
+		DirectoryShards: []int{5, 2},
 	}, true)
 	require.NoError(t, err)
 
@@ -704,10 +676,8 @@ func TestFileStorage_CreateTempFileWithData_WriteError(t *testing.T) {
 	osi.writeFileRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:                dataDir,
+		DirectoryShards:     []int{5, 2},
 		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
@@ -739,10 +709,8 @@ func TestFileStorage_CreateTempFileWithData_SyncError(t *testing.T) {
 	osi.writeFileSyncRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:                dataDir,
+		DirectoryShards:     []int{5, 2},
 		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)
@@ -773,10 +741,8 @@ func TestFileStorage_CreateTempFileWithData_CloseError(t *testing.T) {
 	osi.writeFileCloseRemainingErrors.Store(1)
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:                dataDir,
+		DirectoryShards:     []int{5, 2},
 		osInterfaceOverride: osi,
 	}, true)
 	require.NoError(t, err)

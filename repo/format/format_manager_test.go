@@ -25,15 +25,13 @@ var (
 	errSomeError = errors.New("some error")
 
 	cf = format.ContentFormat{
-		MutableParameters: format.MutableParameters{
-			Version:         format.FormatVersion1,
-			EpochParameters: epoch.DefaultParameters(),
-			MaxPackSize:     20e6,
-			IndexVersion:    2,
-		},
-		Hash:       hashing.DefaultAlgorithm,
-		Encryption: encryption.DefaultAlgorithm,
-		HMACSecret: []byte{1, 2, 3, 4, 5},
+		Version:         format.FormatVersion1,
+		EpochParameters: epoch.DefaultParameters(),
+		MaxPackSize:     20e6,
+		IndexVersion:    2,
+		Hash:            hashing.DefaultAlgorithm,
+		Encryption:      encryption.DefaultAlgorithm,
+		HMACSecret:      []byte{1, 2, 3, 4, 5},
 	}
 
 	uli = &format.UpgradeLockIntent{
