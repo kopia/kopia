@@ -7,3 +7,4 @@ no_list: true
 ---
 
 * [Command-Line Reference](command-line/)
+* [Environment Variables](environment-variables/)
