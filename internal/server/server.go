@@ -232,12 +232,7 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 	if err != nil {
 		userLog(rc.req.Context()).Errorf("unable to generate short-term auth cookie: %v", err)
 	} else {
-		http.SetCookie(rc.w, &http.Cookie{ //nolint:gosec
-			Name:    kopiaAuthCookie,
-			Value:   ac,
-			Expires: now.Add(kopiaAuthCookieTTL),
-			Path:    "/",
-		})
+		http.SetCookie(rc.w, newCookie(rc.req.TLS != nil, kopiaAuthCookie, ac, now.Add(kopiaAuthCookieTTL)))
 
 		if s.options.LogRequests {
 			// Log successful authentication
@@ -246,6 +241,23 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 	}
 
 	return true
+}
+
+func newCookie(secure bool, name, value string, expires time.Time) *http.Cookie {
+	cookie := &http.Cookie{ //nolint:gosec
+		Name:     name,
+		Value:    value,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   secure,
+		SameSite: http.SameSiteStrictMode,
+	}
+
+	if !expires.IsZero() {
+		cookie.Expires = expires
+	}
+
+	return cookie
 }
 
 func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
@@ -830,11 +842,7 @@ func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
 			} else {
 				sessionID = uuid.NewString()
 
-				http.SetCookie(w, &http.Cookie{ //nolint:gosec
-					Name:  kopiaSessionCookie,
-					Value: sessionID,
-					Path:  "/",
-				})
+				http.SetCookie(w, newCookie(r.TLS != nil, kopiaSessionCookie, sessionID, time.Time{}))
 			}
 
 			http.ServeContent(w, r, "/", clock.Now(), bytes.NewReader(s.patchIndexBytes(sessionID, indexBytes)))
