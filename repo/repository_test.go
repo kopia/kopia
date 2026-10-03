@@ -828,7 +828,7 @@ func TestMetrics_CompressibleData(t *testing.T) {
 
 	// this is what 100x{1,2,3,4} compresses down to using gzip, it's also
 	// the number of bytes that go into encryption.
-	const compressedByteCount = 36
+	const compressedByteCount = 33
 
 	const encryptionOverhead = 28
 
