@@ -244,7 +244,7 @@ func (s *Server) isAuthenticated(rc requestContext) bool {
 }
 
 func newCookie(secure bool, name, value string, expires time.Time) *http.Cookie {
-	cookie := &http.Cookie{
+	cookie := &http.Cookie{ //nolint:gosec
 		Name:     name,
 		Value:    value,
 		Path:     "/",
