@@ -1,6 +1,7 @@
 package maintenancestats
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -370,24 +371,40 @@ func TestBuildFromExtraError(t *testing.T) {
 		name        string
 		stats       Extra
 		expectedErr string
+		checkError  func(t *testing.T, err error)
 	}{
 		{
 			name:        "unsupported kind",
-			expectedErr: "invalid kind for stats { []}: unsupported stats kind",
+			expectedErr: "invalid kind for stats",
+			checkError: func(t *testing.T, err error) {
+				t.Helper()
+				require.ErrorIs(t, err, ErrUnSupportedStatKindError)
+			},
 		},
 		{
 			name: "unmarshal fails",
 			stats: Extra{
 				Kind: cleanupMarkersStatsKind,
 			},
-			expectedErr: "error unmarshaling raw stats [] of kind cleanupMarkersStats to *maintenancestats.CleanupMarkersStats: unexpected end of JSON input",
+			checkError: func(t *testing.T, err error) {
+				t.Helper()
+
+				var target *json.SyntaxError
+
+				require.ErrorAs(t, err, &target)
+			},
+
+			expectedErr: "error unmarshaling raw stats",
 		},
 	}
 
 	for _, tc := range cases {
-		result, err := BuildFromExtra(tc.stats)
+		t.Run(tc.name, func(t *testing.T) {
+			result, err := BuildFromExtra(tc.stats)
 
-		require.EqualError(t, err, tc.expectedErr)
-		require.Nil(t, result)
+			tc.checkError(t, err)
+			require.ErrorContains(t, err, tc.expectedErr)
+			require.Nil(t, result)
+		})
 	}
 }
