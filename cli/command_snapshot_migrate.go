@@ -308,15 +308,15 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 	newm.EndTime = m.EndTime
 	newm.Description = m.Description
 
-	if newm.IncompleteReason == "" {
-		if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
-			return errors.Wrap(err, "cannot save manifest")
-		}
-	}
-
 	if newm.RootEntry != nil {
 		if ds := newm.RootEntry.DirSummary; ds != nil && ds.FatalErrorCount > 0 {
 			return errors.Errorf("found %v fatal error(s) while migrating %v", ds.FatalErrorCount, s)
+		}
+	}
+
+	if newm.IncompleteReason == "" {
+		if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
+			return errors.Wrap(err, "cannot save manifest")
 		}
 	}
 

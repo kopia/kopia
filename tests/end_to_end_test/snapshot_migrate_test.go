@@ -202,7 +202,8 @@ func (s *formatSpecificTestSuite) TestSnapshotMigrateContinuesAfterSourceFailure
 		t, true,
 		"snapshot", "migrate",
 		"--source-config", filepath.Join(sourceEnv.ConfigDir, ".kopia.config"),
-		"--all",
+		"--sources", corruptDir,
+		"--sources", healthyDir,
 		"--no-policies",
 		"--parallel=1",
 	)
