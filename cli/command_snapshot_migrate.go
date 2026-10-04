@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	stderrors "errors"
 	"sort"
 	"sync"
 
@@ -64,6 +65,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		wg              sync.WaitGroup
 		mu              sync.Mutex
 		canceled        bool
+		migrationErrors []error
 		activeUploaders = map[snapshot.SourceInfo]*upload.Uploader{}
 	)
 
@@ -128,6 +130,10 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 
 			if err := c.migrateSingleSource(ctx, uploader, sourceRepo, destRepo, s); err != nil {
 				log(ctx).Errorf("unable to migrate source: %v", err)
+
+				mu.Lock()
+				migrationErrors = append(migrationErrors, err)
+				mu.Unlock()
 			}
 		}(s)
 	}
@@ -135,6 +141,11 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	wg.Wait()
 	c.svc.getProgress().FinishShared()
 	c.out.printStderr("\r\n")
+
+	if err := stderrors.Join(migrationErrors...); err != nil {
+		return errors.Wrap(err, "unable to migrate one or more sources")
+	}
+
 	log(ctx).Info("Migration finished.")
 
 	return nil
@@ -299,6 +310,10 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 	if newm.IncompleteReason == "" {
 		if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
 			return errors.Wrap(err, "cannot save manifest")
+		}
+
+		if ds := newm.RootEntry.DirSummary; ds != nil && ds.FatalErrorCount > 0 {
+			return errors.Errorf("found %v fatal error(s) while migrating %v", ds.FatalErrorCount, s)
 		}
 	}
 

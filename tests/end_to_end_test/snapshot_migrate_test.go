@@ -126,3 +126,35 @@ func writeCompressibleFile(fname string) error {
 
 	return nil
 }
+
+func (s *formatSpecificTestSuite) TestSnapshotMigrateFailsWhenSourceIsCorrupt(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	sourceEnv := testenv.NewCLITest(t, s.formatFlags, runner)
+	defer sourceEnv.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	sourceEnv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", sourceEnv.RepoDir)
+
+	sourceDir := testutil.TempDirectory(t)
+	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "file.txt"), []byte("migration source data"), 0o600))
+
+	beforeBlobList := sourceEnv.RunAndExpectSuccess(t, "blob", "list")
+	sourceEnv.RunAndExpectSuccess(t, "snapshot", "create", sourceDir)
+	afterBlobList := sourceEnv.RunAndExpectSuccess(t, "blob", "list")
+
+	blobIDToDelete := findPackBlob(getNewBlobIDs(beforeBlobList, afterBlobList))
+	require.NotEmpty(t, blobIDToDelete)
+	sourceEnv.RunAndExpectSuccess(t, "blob", "delete", blobIDToDelete)
+
+	destEnv := testenv.NewCLITest(t, s.formatFlags, runner)
+	destEnv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", destEnv.RepoDir)
+
+	destEnv.RunAndExpectFailure(
+		t,
+		"snapshot", "migrate",
+		"--source-config", filepath.Join(sourceEnv.ConfigDir, ".kopia.config"),
+		"--all",
+		"--no-policies",
+	)
+}
