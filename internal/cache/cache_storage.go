@@ -36,6 +36,20 @@ type filesystemImplWrapper struct {
 	Storage
 }
 
+// MakeDiskFreeSpaceFn returns a function that reports how many bytes are
+// available to unprivileged processes on the filesystem containing dir.
+// The returned function is safe to call concurrently and is intended for
+// use as SweepSettings.DiskFreeSpaceFn. Returns nil when dir is empty.
+func MakeDiskFreeSpaceFn(dir string) func() (uint64, error) {
+	if dir == "" {
+		return nil
+	}
+
+	return func() (uint64, error) {
+		return getDiskFreeBytes(dir)
+	}
+}
+
 // NewStorageOrNil returns cache.Storage backed by the provided directory.
 func NewStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdir string) (Storage, error) {
 	if maxBytes <= 0 || cacheDir == "" {
