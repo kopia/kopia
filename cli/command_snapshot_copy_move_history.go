@@ -9,12 +9,14 @@ import (
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 type commandSnapshotCopyMoveHistory struct {
-	snapshotCopyOrMoveDryRun      bool
-	snapshotCopyOrMoveSource      string
-	snapshotCopyOrMoveDestination string
+	snapshotCopyOrMoveDryRun        bool
+	snapshotCopyOrMoveMigratePolicy bool
+	snapshotCopyOrMoveSource        string
+	snapshotCopyOrMoveDestination   string
 }
 
 func (c *commandSnapshotCopyMoveHistory) setup(svc appServices, parent commandParent, isMove bool) {
@@ -26,12 +28,26 @@ func (c *commandSnapshotCopyMoveHistory) setup(svc appServices, parent commandPa
 	}
 
 	cmd.Flag("dry-run", "Do not actually copy snapshots, only print what would happen").Short('n').BoolVar(&c.snapshotCopyOrMoveDryRun)
+	cmd.Flag("migrate-policy", migratePolicyHelp(isMove)).BoolVar(&c.snapshotCopyOrMoveMigratePolicy)
 	cmd.Arg("source", "Source (user@host or user@host:path)").Required().StringVar(&c.snapshotCopyOrMoveSource)
 	cmd.Arg("destination", "Destination (defaults to current user@host)").StringVar(&c.snapshotCopyOrMoveDestination)
 
 	cmd.Action(svc.repositoryWriterActionWithMaintenance(func(ctx context.Context, rep repo.RepositoryWriter) error {
 		return c.run(ctx, rep, isMove)
 	}))
+}
+
+func migratePolicyHelp(isMove bool) string {
+	verb := "copy"
+	if isMove {
+		verb = "move"
+	}
+
+	return strings.ReplaceAll(`Also VERB the policy defined directly on each source to the destination.
+	If no policy is defined on a source, the flag is silently ignored for that source.
+	For partial sources (host-only or user-only), policies are VERBd per resolved SourceInfo pair.
+	For move-history: the source policy is removed after being copied to the destination.
+	Respects --dry-run: prints what would happen without writing.`, "VERB", verb)
 }
 
 func snapshotCopyMoveHelp(verb string) string {
@@ -98,6 +114,10 @@ func (c *commandSnapshotCopyMoveHistory) run(ctx context.Context, rep repo.Repos
 		return errors.Wrap(err, "error listing destination snapshots")
 	}
 
+	// policyMigrations tracks unique (srcSource → dstSource) pairs encountered
+	// during snapshot processing. Used when --migrate-policy is set.
+	policyMigrations := map[snapshot.SourceInfo]snapshot.SourceInfo{}
+
 	for _, manifest := range srcSnapshots {
 		dstSource := getCopyDestination(manifest.Source, di)
 
@@ -105,6 +125,9 @@ func (c *commandSnapshotCopyMoveHistory) run(ctx context.Context, rep repo.Repos
 			log(ctx).Debugf("%v is the same as destination, ignoring", dstSource)
 			continue
 		}
+
+		// Record the pair for potential policy migration.
+		policyMigrations[manifest.Source] = dstSource
 
 		if snapshotExists(dstSnapshots, dstSource, manifest) {
 			if isMoveCommand && !c.snapshotCopyOrMoveDryRun {
@@ -138,6 +161,57 @@ func (c *commandSnapshotCopyMoveHistory) run(ctx context.Context, rep repo.Repos
 		if isMoveCommand {
 			if err := rep.DeleteManifest(ctx, srcID); err != nil {
 				return errors.Wrap(err, "unable to delete source manifest")
+			}
+		}
+	}
+
+	if c.snapshotCopyOrMoveMigratePolicy {
+		if err := c.migratePolicies(ctx, rep, policyMigrations, isMoveCommand); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// migratePolicies copies or moves the policy from each source SourceInfo to the
+// corresponding destination SourceInfo. When isMoveCommand is true, the source
+// policy is removed after a successful copy (mirroring snapshot move semantics).
+// If no policy is defined on a source, a debug message is logged and the pair is skipped.
+func (c *commandSnapshotCopyMoveHistory) migratePolicies(ctx context.Context, rep repo.RepositoryWriter, migrations map[snapshot.SourceInfo]snapshot.SourceInfo, isMoveCommand bool) error {
+	verb := "copying"
+	if isMoveCommand {
+		verb = "moving"
+	}
+
+	if c.snapshotCopyOrMoveDryRun {
+		verb += " (dry run)"
+	}
+
+	for srcSource, dstSource := range migrations {
+		pol, err := policy.GetDefinedPolicy(ctx, rep, srcSource)
+		if err != nil {
+			if errors.Is(err, policy.ErrPolicyNotFound) {
+				log(ctx).Debugf("no policy defined for %v, skipping policy migration", srcSource)
+				continue
+			}
+
+			return errors.Wrapf(err, "unable to get policy for %v", srcSource)
+		}
+
+		log(ctx).Infof("%v policy %v => %v", verb, srcSource, dstSource)
+
+		if c.snapshotCopyOrMoveDryRun {
+			continue
+		}
+
+		if err := policy.SetPolicy(ctx, rep, dstSource, pol); err != nil {
+			return errors.Wrapf(err, "unable to set policy for %v", dstSource)
+		}
+
+		if isMoveCommand {
+			if err := policy.RemovePolicy(ctx, rep, srcSource); err != nil {
+				return errors.Wrapf(err, "unable to remove policy for %v", srcSource)
 			}
 		}
 	}
