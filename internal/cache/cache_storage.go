@@ -11,7 +11,6 @@ import (
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
-	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 //nolint:gochecknoglobals
@@ -55,10 +54,8 @@ func NewStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdi
 	}
 
 	fs, err := filesystem.New(context.WithoutCancel(ctx), &filesystem.Options{
-		Path: contentCacheDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{2},
-		},
+		Path:            contentCacheDir,
+		DirectoryShards: []int{2},
 	}, false)
 
 	return filesystemImplWrapper{fs.(Storage)}, errors.Wrap(err, "error initializing filesystem cache") //nolint:forcetypeassert

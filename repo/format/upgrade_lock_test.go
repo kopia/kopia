@@ -21,7 +21,6 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/beforeop"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/repo/object"
@@ -282,7 +281,7 @@ func TestFormatUpgradeFailureToBackupFormatBlobOnLock(t *testing.T) {
 	configFile := filepath.Join(testutil.TempDirectory(t), ".kopia.config")
 	defer os.Remove(configFile)
 
-	connectOpts := repo.ConnectOptions{CachingOptions: content.CachingOptions{CacheDirectory: testutil.TempDirectory(t)}}
+	connectOpts := repo.ConnectOptions{CacheDirectory: testutil.TempDirectory(t)}
 	defer os.RemoveAll(connectOpts.CacheDirectory)
 
 	require.NoError(t, repo.Connect(testlogging.Context(t), configFile, st, "password", &connectOpts))
