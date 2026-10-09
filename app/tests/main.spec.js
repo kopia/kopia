@@ -43,6 +43,8 @@ function getMainPath(kopiauiDir) {
         "public",
         "electron.js",
       );
+    case "linux":
+      return path.resolve("public/electron.js");
     default:
       return path.join(
         kopiauiDir,
@@ -66,6 +68,8 @@ function getExecutablePath(kopiauiDir) {
         "MacOS",
         "KopiaUI",
       );
+    case "linux":
+      return path.resolve("node_modules/electron/dist/electron");
     default:
       return path.join(kopiauiDir, "kopia-ui");
   }
@@ -154,30 +158,36 @@ test.afterEach(async () => {
   fs.rmSync(tmpAppDataDir, { recursive: true, force: true });
 });
 
-test("opens repository window on first start", async () => {
+test("opens repository window when server address is initially unavailable", async () => {
   electronApp = await launchApp(tmpAppDataDir);
 
   await electronApp.evaluate(async ({ app }) => {
+    const server = app.testHooks.serverForRepo("repository");
+
+    // Start normally so the repository server has its normal lifecycle state.
+    server.startServer();
+
+    // Stop it before opening the window so getServerAddress() returns empty.
+    server.stopServer();
+
     app.testHooks.showRepoWindow("repository");
+  });
+
+  // Keep the server stopped for longer than the existing 500ms retry delay.
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  await electronApp.evaluate(async ({ app }) => {
+    app.testHooks.serverForRepo("repository").startServer();
   });
 
   const page = await electronApp.firstWindow();
 
   expect(page).toBeTruthy();
-  await page.waitForNavigation({
-    waitUntil: "networkidle",
-    networkIdleTimeout: 1000,
-  });
   expect(await page.title()).toMatch(/KopiaUI v\d+/);
 
-  // TODO - we can exercise some UI scenario using 'page'
-
-  await electronApp.evaluate(async ({ app }) => {
-    return app.testHooks.tray.popUpContextMenu();
-  });
-
-  await electronApp.evaluate(async ({ app }) => {
-    return app.testHooks.tray.closeContextMenu();
+  // The repository window should recover once the server address becomes available.
+  await expect(page.locator("body")).not.toContainText("Network Error", {
+    timeout: 10000,
   });
 });
 
