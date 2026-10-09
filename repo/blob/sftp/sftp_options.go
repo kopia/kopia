@@ -5,6 +5,7 @@ package sftp
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/blob/throttling"
@@ -23,6 +24,10 @@ type Options struct {
 	KeyData        string `json:"keyData,omitempty"        kopia:"sensitive"`
 	KnownHostsFile string `json:"knownHostsFile,omitempty"`
 	KnownHostsData string `json:"knownHostsData,omitempty"`
+
+	// ConnectTimeout specifies the maximum time to wait for an SSH connection to be established.
+	// If zero, a default of 30s is used.
+	ConnectTimeout time.Duration `json:"connectTimeout,omitempty"`
 
 	ExternalSSH  bool   `json:"externalSSH"`
 	SSHCommand   string `json:"sshCommand,omitempty"` // default "ssh"
