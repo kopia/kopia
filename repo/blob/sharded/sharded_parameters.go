@@ -70,6 +70,18 @@ func (p *Parameters) Clone() *Parameters {
 	}
 }
 
+func (p *Parameters) maxShardDepth() int {
+	d := len(p.DefaultShards)
+
+	for _, o := range p.Overrides {
+		if len(o.Shards) > d {
+			d = len(o.Shards)
+		}
+	}
+
+	return d
+}
+
 func (p *Parameters) getShardsForBlobID(id blob.ID) []int {
 	for _, o := range p.Overrides {
 		if strings.HasPrefix(string(id), string(o.Prefix)) {
