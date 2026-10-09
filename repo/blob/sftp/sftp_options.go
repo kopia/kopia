@@ -8,6 +8,7 @@ import (
 
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/blob/throttling"
+	"github.com/kopia/kopia/repo/jsonencoding"
 )
 
 // Options defines options for sftp-backed storage.
@@ -27,6 +28,9 @@ type Options struct {
 	ExternalSSH  bool   `json:"externalSSH"`
 	SSHCommand   string `json:"sshCommand,omitempty"` // default "ssh"
 	SSHArguments string `json:"sshArguments,omitempty"`
+
+	// ConnectTimeout bounds the TCP connect of the internal SSH client (the SSH handshake is not covered), zero means the default.
+	ConnectTimeout jsonencoding.Duration `json:"connectTimeout,omitempty"`
 
 	sharded.Options
 	throttling.Limits
