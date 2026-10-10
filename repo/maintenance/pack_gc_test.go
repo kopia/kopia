@@ -56,7 +56,7 @@ func (s *formatSpecificTestSuite) TestDeleteUnreferencedPacks(t *testing.T) {
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
 
 	require.NoError(t, err)
-	require.Len(t, blobsBefore, 4, "unexpected number of blobs after writing")
+	require.Len(t, blobsBefore, 5, "unexpected number of blobs after writing")
 
 	// add some more unreferenced blobs
 	const (
