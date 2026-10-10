@@ -4,6 +4,7 @@ import (
 	"context"
 	"path"
 	"slices"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -35,8 +36,12 @@ func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, pathFr
 		return nil, nil
 	}
 
+	// pathFromRoot is already the entry's full path relative to the snapshot root.
 	for _, n := range c.removeFilesByName {
-		matched, err := path.Match(n, ent.Name)
+		matched, err := matchPathPattern(n, pathFromRoot)
+		if !matched && err == nil {
+			matched, err = path.Match(n, ent.Name)
+		}
 		if err != nil {
 			return nil, errors.Wrap(err, "invalid wildcard")
 		}
@@ -49,6 +54,47 @@ func (c *commandSnapshotFixRemoveFiles) rewriteEntry(ctx context.Context, pathFr
 	}
 
 	return ent, nil
+}
+
+// matchPathPattern reports whether glob pattern matches the full path.
+//
+// The pattern must match a suffix of the path: it may start at any depth, but
+// from there each pattern segment must match exactly one consecutive path
+// segment using path.Match wildcards. Pattern segments may not be skipped and
+// a "*" spans exactly one path segment.
+//
+// A single-segment pattern such as ".vscode" matches by basename at any depth,
+// preserving the original behavior, while patterns such as "Users/liquid/.vscode"
+// or "*/.vscode" match by anchored path suffix.
+func matchPathPattern(pattern, full string) (bool, error) {
+	patternSegments := strings.Split(pattern, "/")
+	pathSegments := strings.Split(full, "/")
+
+	// the pattern can only match if it is no longer than the path
+	if len(patternSegments) > len(pathSegments) {
+		return false, nil
+	}
+
+	for start := 0; start <= len(pathSegments)-len(patternSegments); start++ {
+		matchedAll := true
+
+		for i, seg := range patternSegments {
+			ok, err := path.Match(seg, pathSegments[start+i])
+			if err != nil {
+				return false, errors.Wrap(err, "invalid wildcard")
+			}
+			if !ok {
+				matchedAll = false
+				break
+			}
+		}
+
+		if matchedAll {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (c *commandSnapshotFixRemoveFiles) run(ctx context.Context, rep repo.RepositoryWriter) error {
