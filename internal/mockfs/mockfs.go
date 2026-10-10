@@ -35,13 +35,19 @@ func (c readerSeekerCloser) Close() error {
 	return nil
 }
 
+// NewReaderSeekerCloser wraps an io.ReadSeeker with a no-op Close.
+func NewReaderSeekerCloser(rs io.ReadSeeker) ReaderSeekerCloser {
+	return readerSeekerCloser{rs}
+}
+
 type entry struct {
-	name    string
-	mode    os.FileMode
-	size    int64
-	modTime time.Time
-	owner   fs.OwnerInfo
-	device  fs.DeviceInfo
+	name         string
+	mode         os.FileMode
+	size         int64
+	modTime      time.Time
+	owner        fs.OwnerInfo
+	device       fs.DeviceInfo
+	hardLinkInfo fs.HardLinkInfo
 }
 
 func (e *entry) Name() string {
@@ -74,6 +80,10 @@ func (e *entry) Owner() fs.OwnerInfo {
 
 func (e *entry) Device() fs.DeviceInfo {
 	return e.device
+}
+
+func (e *entry) HardLinkInfo() fs.HardLinkInfo {
+	return e.hardLinkInfo
 }
 
 func (e *entry) LocalFilesystemPath() string {
@@ -356,6 +366,21 @@ type File struct {
 	entry
 
 	source func() (ReaderSeekerCloser, error)
+}
+
+// SetHardLinkInfo sets the hardlink identity and device of the file.
+func (imf *File) SetHardLinkInfo(dev fs.DeviceInfo, hli fs.HardLinkInfo) *File {
+	imf.device = dev
+	imf.hardLinkInfo = hli
+
+	return imf
+}
+
+// SetSize sets the reported size of the file without changing its contents.
+func (imf *File) SetSize(size int64) *File {
+	imf.size = size
+
+	return imf
 }
 
 // SetContents changes the contents of a given file.

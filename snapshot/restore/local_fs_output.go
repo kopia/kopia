@@ -108,9 +108,16 @@ type FilesystemOutput struct {
 	// WriteSparseFiles when set to true, write contents as sparse files, minimizing allocated disk space.
 	WriteSparseFiles bool `json:"writeSparseFiles"`
 
+	// SkipHardlinks when set to true causes files that were hard-linked in the
+	// snapshot to be restored as independent copies instead of hardlinks.
+	SkipHardlinks bool `json:"skipHardlinks"`
+
 	// copier is the StreamCopier to use for copying the actual bit stream to output.
 	// It is assigned at runtime based on the target filesystem and restore options.
 	copier streamCopier `json:"-"`
+
+	// hardlinks tracks restored hardlink groups so later members can be linked.
+	hardlinks *hardLinkRegistry `json:"-"`
 
 	// Indicate whether or not flush files after restore.
 	// Varying from OS, the copier may write the file data to the system cache,
@@ -128,6 +135,7 @@ func (o *FilesystemOutput) Init(ctx context.Context) error {
 	}
 
 	o.copier = c
+	o.hardlinks = newHardLinkRegistry()
 
 	return nil
 }
@@ -175,6 +183,41 @@ func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f
 	log(ctx).Debugf("WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
+	key, isHardlink := o.hardLinkKey(f)
+	if !isHardlink {
+		return o.writeFileContent(ctx, path, f, progressCb)
+	}
+
+	anchor, owner := o.hardlinks.claim(key, path, objectIDOf(f))
+	if owner {
+		err := o.writeFileContent(ctx, path, f, progressCb)
+		if err != nil {
+			// let another member of the group become the anchor.
+			o.hardlinks.release(key, anchor)
+		}
+
+		anchor.finish(err)
+
+		return err
+	}
+
+	if err := anchor.wait(); err == nil && anchor.linkable(objectIDOf(f)) {
+		err = o.linkFile(ctx, anchor.path, path, f)
+		if err == nil {
+			if progressCb != nil {
+				progressCb(f.Size())
+			}
+
+			return nil
+		}
+
+		log(ctx).Debugf("unable to hardlink %v to %v, writing a copy instead: %v", path, anchor.path, err)
+	}
+
+	return o.writeFileContent(ctx, path, f, progressCb)
+}
+
+func (o *FilesystemOutput) writeFileContent(ctx context.Context, path string, f fs.File, progressCb FileWriteProgress) error {
 	if err := o.copyFileContent(ctx, path, f, progressCb); err != nil {
 		return errors.Wrap(err, "error creating file")
 	}
@@ -186,9 +229,47 @@ func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f
 	return SafeRemoveAll(path)
 }
 
+// linkFile creates targetPath as a hardlink to anchorPath. Since all links
+// share one inode, attributes set on the anchor already apply to the link.
+func (o *FilesystemOutput) linkFile(ctx context.Context, anchorPath, targetPath string, f fs.File) error {
+	switch _, err := os.Lstat(targetPath); {
+	case os.IsNotExist(err): // link below
+	case err == nil:
+		if !o.OverwriteFiles {
+			return errors.Errorf("unable to create %q, it already exists", targetPath)
+		}
+
+		log(ctx).Debugf("Overwriting existing file: %v", targetPath)
+
+		if err := os.Remove(targetPath); err != nil {
+			return errors.Wrap(err, "unable to remove existing file")
+		}
+	default:
+		return errors.Wrap(err, "failed to stat "+targetPath)
+	}
+
+	log(ctx).Debugf("hardlinking %v -> %v (%v bytes)", targetPath, anchorPath, f.Size())
+
+	if err := os.Link(ospath.SafeLongFilename(anchorPath), ospath.SafeLongFilename(targetPath)); err != nil {
+		return err //nolint:wrapcheck
+	}
+
+	return SafeRemoveAll(targetPath)
+}
+
+func (o *FilesystemOutput) hardLinkKey(e fs.Entry) (hardLinkKey, bool) {
+	if o.SkipHardlinks || o.hardlinks == nil {
+		return hardLinkKey{}, false
+	}
+
+	return hardLinkKeyOf(e)
+}
+
 // FileExists implements restore.Output interface.
 func (o *FilesystemOutput) FileExists(_ context.Context, relativePath string, e fs.File) bool {
-	st, err := os.Lstat(filepath.Join(o.TargetPath, relativePath))
+	path := filepath.Join(o.TargetPath, relativePath)
+
+	st, err := os.Lstat(path)
 	if err != nil {
 		return false
 	}
@@ -208,7 +289,19 @@ func (o *FilesystemOutput) FileExists(_ context.Context, relativePath string, e 
 		timeDelta = -timeDelta
 	}
 
-	return timeDelta < maxTimeDeltaToConsiderFileTheSame
+	if timeDelta >= maxTimeDeltaToConsiderFileTheSame {
+		return false
+	}
+
+	// an existing file that is skipped must still anchor its hardlink group so
+	// that other members restored in this run are linked to it.
+	if key, ok := o.hardLinkKey(e); ok {
+		if anchor, owner := o.hardlinks.claim(key, path, objectIDOf(e)); owner {
+			anchor.finish(nil)
+		}
+	}
+
+	return true
 }
 
 // CreateSymlink implements restore.Output interface.

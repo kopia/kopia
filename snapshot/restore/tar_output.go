@@ -15,6 +15,10 @@ import (
 type TarOutput struct {
 	w  io.Closer
 	tf *tar.Writer
+
+	// first archived path for each hardlink group; tar output is sequential
+	// so no synchronization is needed.
+	hardlinks map[hardLinkKey]*hardLinkAnchor
 }
 
 // Parallelizable implements restore.Output interface.
@@ -70,6 +74,15 @@ func (o *TarOutput) Close(_ context.Context) error {
 
 // WriteFile implements restore.Output interface.
 func (o *TarOutput) WriteFile(ctx context.Context, relativePath string, f fs.File, _ FileWriteProgress) error {
+	key, isHardlink := hardLinkKeyOf(f)
+	if isHardlink {
+		if anchor, ok := o.hardlinks[key]; ok && anchor.linkable(objectIDOf(f)) {
+			return o.writeHardLink(relativePath, anchor.path, f)
+		}
+
+		o.hardlinks[key] = &hardLinkAnchor{path: relativePath, objectID: objectIDOf(f)}
+	}
+
 	r, err := f.Open(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error opening file")
@@ -92,6 +105,24 @@ func (o *TarOutput) WriteFile(ctx context.Context, relativePath string, f fs.Fil
 
 	if _, err := io.Copy(o.tf, r); err != nil {
 		return errors.Wrap(err, "error copying data to tar")
+	}
+
+	return nil
+}
+
+func (o *TarOutput) writeHardLink(relativePath, linkTarget string, f fs.File) error {
+	h := &tar.Header{
+		Name:     relativePath,
+		ModTime:  f.ModTime(),
+		Mode:     int64(f.Mode()),
+		Uid:      int(f.Owner().UserID),
+		Gid:      int(f.Owner().GroupID),
+		Typeflag: tar.TypeLink,
+		Linkname: linkTarget,
+	}
+
+	if err := o.tf.WriteHeader(h); err != nil {
+		return errors.Wrap(err, "error writing tar header")
 	}
 
 	return nil
@@ -137,7 +168,7 @@ func (o *TarOutput) SymlinkExists(ctx context.Context, relativePath string, l fs
 
 // NewTarOutput creates new tar writer output.
 func NewTarOutput(w io.WriteCloser) *TarOutput {
-	return &TarOutput{w, tar.NewWriter(w)}
+	return &TarOutput{w: w, tf: tar.NewWriter(w), hardlinks: map[hardLinkKey]*hardLinkAnchor{}}
 }
 
 var _ Output = (*TarOutput)(nil)

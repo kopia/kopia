@@ -203,11 +203,17 @@ func appendFilesPolicyValue(items []policyTableRow, p *policy.Policy, def *polic
 		})
 	}
 
-	items = append(items, policyTableRow{
-		"  Scan one filesystem only:",
-		boolToString(p.FilesPolicy.OneFileSystem.OrDefault(false)),
-		definitionPointToString(p.Target(), def.FilesPolicy.OneFileSystem),
-	})
+	items = append(items,
+		policyTableRow{
+			"  Scan one filesystem only:",
+			boolToString(p.FilesPolicy.OneFileSystem.OrDefault(false)),
+			definitionPointToString(p.Target(), def.FilesPolicy.OneFileSystem),
+		},
+		policyTableRow{
+			"  Track hardlinks:",
+			boolToString(p.FilesPolicy.TrackHardlinks.OrDefault(false)),
+			definitionPointToString(p.Target(), def.FilesPolicy.TrackHardlinks),
+		})
 
 	return items
 }
@@ -277,6 +283,7 @@ func appendUploadPolicyRows(rows []policyTableRow, p *policy.Policy, def *policy
 		policyTableRow{"  Max parallel snapshots (server/UI):", valueOrNotSet(p.UploadPolicy.MaxParallelSnapshots), definitionPointToString(p.Target(), def.UploadPolicy.MaxParallelSnapshots)},
 		policyTableRow{"  Max parallel file reads:", valueOrNotSet(p.UploadPolicy.MaxParallelFileReads), definitionPointToString(p.Target(), def.UploadPolicy.MaxParallelFileReads)},
 		policyTableRow{"  Parallel upload above size:", valueOrNotSetOptionalInt64Bytes(p.UploadPolicy.ParallelUploadAboveSize), definitionPointToString(p.Target(), def.UploadPolicy.ParallelUploadAboveSize)},
+		policyTableRow{"  Reuse hardlink content:", boolToString(p.UploadPolicy.ReuseHardlinkContent.OrDefault(false)), definitionPointToString(p.Target(), def.UploadPolicy.ReuseHardlinkContent)},
 	)
 }
 

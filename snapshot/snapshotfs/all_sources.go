@@ -45,6 +45,10 @@ func (s *repositoryAllSources) Device() fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
 
+func (s *repositoryAllSources) HardLinkInfo() fs.HardLinkInfo {
+	return fs.HardLinkInfo{}
+}
+
 func (s *repositoryAllSources) Sys() any {
 	return nil
 }
