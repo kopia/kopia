@@ -474,8 +474,9 @@ func metadataCacheSizeSweepSettings(caching *CachingOptions) cache.SweepSettings
 
 func indexBlobCacheSweepSettings(caching *CachingOptions) cache.SweepSettings {
 	return cache.SweepSettings{
-		MaxSizeBytes: caching.EffectiveMetadataCacheSizeBytes(),
-		MinSweepAge:  caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
+		MaxSizeBytes:    caching.EffectiveMetadataCacheSizeBytes(),
+		MinSweepAge:     caching.MinMetadataSweepAge.DurationOrDefault(DefaultMetadataCacheSweepAge),
+		DiskFreeSpaceFn: cache.MakeDiskFreeSpaceFn(caching.CacheDirectory), // nil when CacheDirectory is ""
 	}
 }
 

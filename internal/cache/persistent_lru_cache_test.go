@@ -354,3 +354,170 @@ func verifyBlobDoesNotExist(ctx context.Context, t *testing.T, st cache.Storage,
 	_, err := st.GetMetadata(ctx, blobID)
 	require.ErrorIsf(t, err, blob.ErrBlobNotFound, "expected blob not found for '%s'", blobID)
 }
+
+// newTestStorage returns a cache.Storage backed by data with the given limit.
+func newTestStorage(t *testing.T, data blobtesting.DataMap, limitBytes uint64) cache.Storage {
+	t.Helper()
+
+	return testutil.EnsureType[cache.Storage](t, blobtesting.NewMapStorageWithLimit(data, nil, nil, limitBytes))
+}
+
+// TestPersistentLRUCache_DiskFreeSpaceAmple verifies that MaxSizeBytes still
+// governs when free disk space is plentiful.
+func TestPersistentLRUCache_DiskFreeSpaceAmple(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	const maxSizeBytes = 1000
+
+	data := blobtesting.DataMap{}
+	st := newTestStorage(t, data, maxSizeBytes)
+
+	const ampleFreeDiskBytes uint64 = 100 * 1024 * 1024 * 1024 // 100 GiB
+
+	pc, err := cache.NewPersistentCache(ctx, "testing", st, nil, cache.SweepSettings{
+		MaxSizeBytes:    maxSizeBytes,
+		DiskFreeSpaceFn: func() (uint64, error) { return ampleFreeDiskBytes, nil },
+	}, nil, clock.Now)
+	require.NoError(t, err)
+
+	item := bytes.Repeat([]byte{1}, 300)
+
+	pc.Put(ctx, "k1", gather.FromSlice(item))
+	pc.Put(ctx, "k2", gather.FromSlice(item))
+	pc.Put(ctx, "k3", gather.FromSlice(item))
+	pc.Put(ctx, "k4", gather.FromSlice(item))
+
+	pc.Close(ctx)
+
+	// k1 must be evicted by the MaxSizeBytes limit; k2–k4 retained.
+	require.NotContains(t, data, blob.ID("k1"), "oldest item must be evicted when above MaxSizeBytes")
+	require.Contains(t, data, blob.ID("k2"))
+	require.Contains(t, data, blob.ID("k3"))
+	require.Contains(t, data, blob.ID("k4"))
+}
+
+// TestPersistentLRUCache_DiskFreeSpaceLow verifies that Puts are skipped when
+// free disk space is below MinFreeDiskBytes from the moment the cache opens.
+func TestPersistentLRUCache_DiskFreeSpaceLow(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	const maxSizeBytes = 10 * 1024 * 1024 // 10 MiB – size limit never triggers
+
+	data := blobtesting.DataMap{}
+	st := newTestStorage(t, data, maxSizeBytes)
+
+	// Free space is always zero – every Put must be skipped.
+	pc, err := cache.NewPersistentCache(ctx, "testing", st, nil, cache.SweepSettings{
+		MaxSizeBytes:    maxSizeBytes,
+		MinSweepAge:     0,
+		DiskFreeSpaceFn: func() (uint64, error) { return 0, nil },
+	}, nil, clock.Now)
+	require.NoError(t, err)
+
+	item := bytes.Repeat([]byte{2}, 300)
+
+	pc.Put(ctx, "k1", gather.FromSlice(item))
+	pc.Put(ctx, "k2", gather.FromSlice(item))
+	pc.Put(ctx, "k3", gather.FromSlice(item))
+	pc.Close(ctx)
+
+	require.Empty(t, data, "no items should be cached when disk is always at zero free bytes")
+}
+
+// TestPersistentLRUCache_DiskFreeSpaceErrorFallback verifies that when
+// DiskFreeSpaceFn returns an error the cache falls back to MaxSizeBytes.
+func TestPersistentLRUCache_DiskFreeSpaceErrorFallback(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	const maxSizeBytes = 1000
+
+	data := blobtesting.DataMap{}
+	st := newTestStorage(t, data, maxSizeBytes)
+
+	diskErr := errors.New("disk query failed")
+
+	pc, err := cache.NewPersistentCache(ctx, "testing", st, nil, cache.SweepSettings{
+		MaxSizeBytes:    maxSizeBytes,
+		DiskFreeSpaceFn: func() (uint64, error) { return 0, diskErr },
+	}, nil, clock.Now)
+	require.NoError(t, err)
+
+	item := bytes.Repeat([]byte{3}, 300)
+
+	pc.Put(ctx, "k1", gather.FromSlice(item))
+	pc.Put(ctx, "k2", gather.FromSlice(item))
+	pc.Put(ctx, "k3", gather.FromSlice(item))
+	pc.Put(ctx, "k4", gather.FromSlice(item))
+
+	pc.Close(ctx)
+
+	// With a failing DiskFreeSpaceFn the cache falls back to MaxSizeBytes: k1
+	// is evicted and k2–k4 are retained.
+	require.NotContains(t, data, blob.ID("k1"), "k1 must be evicted by MaxSizeBytes fallback")
+	require.Contains(t, data, blob.ID("k2"))
+	require.Contains(t, data, blob.ID("k3"))
+	require.Contains(t, data, blob.ID("k4"))
+}
+
+// TestPersistentLRUCache_DiskFreeSpace_RestoreSimulation is the canonical test
+// for kopia/kopia#3438: a restore fills the disk with fresh cache items and
+// kopia keeps writing until the disk is full.
+//
+// With a high MinSweepAge (realistic) the soft-limit sweep cannot evict fresh
+// items.  Before this fix, new Puts kept succeeding regardless of free space.
+// After the fix, Puts are skipped once free space drops below MinFreeDiskBytes.
+//
+// Note: this test would fail to compile on upstream master because
+// SweepSettings.DiskFreeSpaceFn did not exist before this change.
+func TestPersistentLRUCache_DiskFreeSpace_RestoreSimulation(t *testing.T) {
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelInfo)
+
+	const (
+		maxSizeBytes = 10 * 1024 * 1024 // 10 MiB – size limit never triggers
+		minSweepAge  = time.Hour        // items are always "too fresh" for soft-limit sweep
+	)
+
+	data := blobtesting.DataMap{}
+	st := newTestStorage(t, data, maxSizeBytes)
+
+	freeBytes := uint64(cache.MinFreeDiskBytes) * 10
+
+	pc, err := cache.NewPersistentCache(ctx, "restore-sim", st, nil, cache.SweepSettings{
+		MaxSizeBytes:    maxSizeBytes,
+		MinSweepAge:     minSweepAge,
+		DiskFreeSpaceFn: func() (uint64, error) { return freeBytes, nil },
+	}, nil, clock.Now)
+	require.NoError(t, err)
+
+	item := bytes.Repeat([]byte{4}, 300)
+
+	// Writes with ample disk space succeed.
+	pc.Put(ctx, "k1", gather.FromSlice(item))
+	pc.Put(ctx, "k2", gather.FromSlice(item))
+	require.Len(t, data, 2, "items should be cached while disk space is ample")
+
+	// Simulate the disk running out.
+	freeBytes = 0
+
+	// Wait for the free-space cache TTL so the next Put sees the new value.
+	time.Sleep(cache.FreeSpaceCacheTTL + 100*time.Millisecond)
+
+	sizeBeforeFullDisk := len(data)
+
+	// In a restore, the caller keeps calling Put for every downloaded blob.
+	// With the fix these must all be skipped.
+	pc.Put(ctx, "k3", gather.FromSlice(item))
+	pc.Put(ctx, "k4", gather.FromSlice(item))
+	pc.Put(ctx, "k5", gather.FromSlice(item))
+
+	pc.Close(ctx)
+
+	require.Len(t, data, sizeBeforeFullDisk,
+		"no items should be written to the cache after the disk became full")
+}

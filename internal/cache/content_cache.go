@@ -187,6 +187,12 @@ func NewContentCache(ctx context.Context, st blob.Storage, opt Options, mr *metr
 		}
 	}
 
+	// Enable disk-free-space protection when using a real cache directory and
+	// the caller has not already supplied a custom DiskFreeSpaceFn.
+	if opt.Sweep.DiskFreeSpaceFn == nil && opt.BaseCacheDirectory != "" {
+		opt.Sweep.DiskFreeSpaceFn = MakeDiskFreeSpaceFn(opt.BaseCacheDirectory)
+	}
+
 	pc, err := NewPersistentCache(ctx, opt.CacheSubDir, cacheStorage, cacheprot.ChecksumProtection(opt.HMACSecret), opt.Sweep, mr, opt.TimeNow)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
