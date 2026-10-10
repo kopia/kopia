@@ -192,6 +192,13 @@ func NewContentCache(ctx context.Context, st blob.Storage, opt Options, mr *metr
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}
 
+	if pc == nil {
+		// The cache is effectively disabled (zero size) even though a cache
+		// directory was configured, so there is no persistent cache to back the
+		// contentCacheImpl. Fall back to a passthrough to avoid a nil dereference.
+		return passthroughContentCache{st}, nil
+	}
+
 	return &contentCacheImpl{
 		st:             st,
 		pc:             pc,
