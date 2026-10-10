@@ -363,6 +363,14 @@ type File struct {
 	source func() (ReaderSeekerCloser, error)
 }
 
+// SetHardLinkInfo sets the hardlink identity and device of the file.
+func (imf *File) SetHardLinkInfo(dev fs.DeviceInfo, hli fs.HardLinkInfo) *File {
+	imf.device = dev
+	imf.hardLinkInfo = hli
+
+	return imf
+}
+
 // SetContents changes the contents of a given file.
 func (imf *File) SetContents(b []byte) {
 	imf.source = func() (ReaderSeekerCloser, error) {

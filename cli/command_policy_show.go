@@ -203,11 +203,17 @@ func appendFilesPolicyValue(items []policyTableRow, p *policy.Policy, def *polic
 		})
 	}
 
-	items = append(items, policyTableRow{
-		"  Scan one filesystem only:",
-		boolToString(p.FilesPolicy.OneFileSystem.OrDefault(false)),
-		definitionPointToString(p.Target(), def.FilesPolicy.OneFileSystem),
-	})
+	items = append(items,
+		policyTableRow{
+			"  Scan one filesystem only:",
+			boolToString(p.FilesPolicy.OneFileSystem.OrDefault(false)),
+			definitionPointToString(p.Target(), def.FilesPolicy.OneFileSystem),
+		},
+		policyTableRow{
+			"  Track hardlinks:",
+			boolToString(p.FilesPolicy.TrackHardlinks.OrDefault(false)),
+			definitionPointToString(p.Target(), def.FilesPolicy.TrackHardlinks),
+		})
 
 	return items
 }
