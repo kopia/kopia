@@ -35,6 +35,11 @@ func (c readerSeekerCloser) Close() error {
 	return nil
 }
 
+// NewReaderSeekerCloser wraps an io.ReadSeeker with a no-op Close.
+func NewReaderSeekerCloser(rs io.ReadSeeker) ReaderSeekerCloser {
+	return readerSeekerCloser{rs}
+}
+
 type entry struct {
 	name         string
 	mode         os.FileMode
@@ -367,6 +372,13 @@ type File struct {
 func (imf *File) SetHardLinkInfo(dev fs.DeviceInfo, hli fs.HardLinkInfo) *File {
 	imf.device = dev
 	imf.hardLinkInfo = hli
+
+	return imf
+}
+
+// SetSize sets the reported size of the file without changing its contents.
+func (imf *File) SetSize(size int64) *File {
+	imf.size = size
 
 	return imf
 }
