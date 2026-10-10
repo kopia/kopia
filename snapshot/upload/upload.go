@@ -103,6 +103,9 @@ type Uploader struct {
 	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
 	stats *snapshot.Stats
 
+	// hardlinks tracks uploads of hardlink groups within the current Upload call.
+	hardlinks *hardLinkUploadRegistry
+
 	isCanceled atomic.Bool
 
 	getTicker func(time.Duration) <-chan time.Time
@@ -471,6 +474,76 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 		GroupID:     md.Owner().GroupID,
 		ObjectID:    oid,
 	}, nil
+}
+
+// uploadFileOrReuseHardLink uploads a file, or, when the upload policy allows it
+// and the file is a hardlink of a file already uploaded during this snapshot,
+// reuses that file's object without reading the content again.
+// reused reports whether the returned entry came from another member of the
+// hardlink group.
+func (u *Uploader) uploadFileOrReuseHardLink(
+	ctx context.Context,
+	parentCheckpointRegistry *checkpointRegistry,
+	relativePath string,
+	f fs.File,
+	policyTree *policy.Tree,
+) (de *snapshot.DirEntry, reused bool, err error) {
+	pol := policyTree.Child(f.Name()).EffectivePolicy()
+	parentPol := policyTree.EffectivePolicy()
+
+	// upload hashes the file and returns a fully populated entry.
+	// The entry must be complete before it is shared with other members of a
+	// hardlink group, so hardlink identity is applied here rather than by the caller.
+	upload := func() (*snapshot.DirEntry, bool, error) {
+		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
+
+		de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, relativePath, f, pol)
+		maybeSetHardLinkInfo(de, f, parentPol)
+
+		return de, false, err
+	}
+
+	if !pol.UploadPolicy.ReuseHardlinkContent.OrDefault(false) {
+		return upload()
+	}
+
+	key, isHardlink := hardLinkKeyOf(f)
+	if !isHardlink {
+		return upload()
+	}
+
+	hu, owner := u.hardlinks.claim(key)
+	if owner {
+		de, _, err := upload()
+		if err != nil {
+			// let another member of the group attempt the upload.
+			u.hardlinks.release(key, hu)
+		}
+
+		// after finish the entry is shared read-only with waiters and must not be modified.
+		hu.finish(de, err)
+
+		return de, false, err
+	}
+
+	if anchor := hu.wait(); anchor != nil && hu.reusableFor(f) {
+		// different name, same content: copy the entry and rename it.
+		de := anchor.Clone()
+		de.Name = f.Name()
+		de.Dev, de.Ino, de.NLink = 0, 0, 0
+		maybeSetHardLinkInfo(de, f, parentPol)
+
+		atomic.AddInt32(&u.stats.CachedFiles, 1)
+		atomic.AddInt64(&u.stats.TotalFileSize, de.FileSize)
+		u.Progress.CachedFile(relativePath, de.FileSize)
+		u.Progress.FinishedFile(relativePath, nil)
+
+		return de, true, nil
+	}
+
+	uploadLog(ctx).Debugw("hardlink not reusable, hashing", "path", relativePath)
+
+	return upload()
 }
 
 // maybeSetHardLinkInfo records hardlink identity on the directory entry when
@@ -941,11 +1014,14 @@ func (u *Uploader) processSingle(
 			"snapshotted symlink", t0)
 
 	case fs.File:
-		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
+		de, reused, err := u.uploadFileOrReuseHardLink(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree)
 
-		de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
-
-		maybeSetHardLinkInfo(de, entry, policyTree.EffectivePolicy())
+		if reused {
+			return u.processEntryUploadResult(ctx, de, nil, entryRelativePath, parentDirBuilder,
+				false,
+				u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.CacheHit.OrDefault(policy.LogDetailNone)),
+				"hardlink", t0)
+		}
 
 		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
@@ -1342,6 +1418,7 @@ func (u *Uploader) Upload(
 
 	u.stats = &snapshot.Stats{}
 	u.totalWrittenBytes.Store(0)
+	u.hardlinks = newHardLinkUploadRegistry()
 
 	var err error
 

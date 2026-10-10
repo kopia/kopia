@@ -943,6 +943,242 @@ func TestUpload_Hardlinks(t *testing.T) {
 	})
 }
 
+// countingFile adds a mock file whose reads are counted, so tests can verify
+// whether its data was hashed.
+func countingFile(root *mockfs.Directory, name string, data []byte, dev fs.DeviceInfo, hli fs.HardLinkInfo) *atomic.Int32 {
+	var opens atomic.Int32
+
+	root.AddFileWithSource(name, defaultPermissions, func() (mockfs.ReaderSeekerCloser, error) {
+		opens.Add(1)
+		return mockfs.NewReaderSeekerCloser(bytes.NewReader(data)), nil
+	}).SetHardLinkInfo(dev, hli).SetSize(int64(len(data)))
+
+	return &opens
+}
+
+func TestUpload_ReuseHardlinkContent(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	data := []byte("hard-linked data")
+	dev := fs.DeviceInfo{Dev: 7}
+	group := fs.HardLinkInfo{UniqID: 500, NLink: 3}
+
+	build := func() (*mockfs.Directory, map[string]*atomic.Int32) {
+		root := mockfs.NewDirectory()
+		root.AddDir("d1", defaultPermissions)
+		root.AddDir("d1/d2", defaultPermissions)
+
+		opens := map[string]*atomic.Int32{
+			"a":        countingFile(root, "a", data, dev, group),
+			"d1/b":     countingFile(root, "d1/b", data, dev, group),
+			"d1/d2/c":  countingFile(root, "d1/d2/c", data, dev, group),
+			"twin":     countingFile(root, "twin", data, dev, fs.HardLinkInfo{UniqID: 501, NLink: 1}),
+			"other":    countingFile(root, "other", []byte("other"), dev, fs.HardLinkInfo{UniqID: 502, NLink: 1}),
+			"pair1":    countingFile(root, "pair1", []byte("pair"), dev, fs.HardLinkInfo{UniqID: 503, NLink: 2}),
+			"d1/pair2": countingFile(root, "d1/pair2", []byte("pair"), dev, fs.HardLinkInfo{UniqID: 503, NLink: 2}),
+		}
+
+		return root, opens
+	}
+
+	total := func(opens map[string]*atomic.Int32, names ...string) int32 {
+		var n int32
+		for _, name := range names {
+			n += opens[name].Load()
+		}
+
+		return n
+	}
+
+	t.Run("policy off", func(t *testing.T) {
+		root, opens := build()
+
+		u := NewUploader(th.repo)
+		man, err := u.Upload(ctx, root, policy.BuildTree(nil, policy.DefaultPolicy), snapshot.SourceInfo{})
+		require.NoError(t, err)
+
+		for name, n := range opens {
+			require.Equal(t, int32(1), n.Load(), "%q must be read exactly once", name)
+		}
+
+		require.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.CachedFiles))
+		require.Equal(t, int32(7), atomic.LoadInt32(&man.Stats.NonCachedFiles))
+	})
+
+	pol := *policy.DefaultPolicy
+	pol.UploadPolicy.ReuseHardlinkContent = policy.NewOptionalBool(true)
+	policyTree := policy.BuildTree(nil, &pol)
+
+	for _, parallel := range []int{1, 4} {
+		t.Run(fmt.Sprintf("policy on parallel=%d", parallel), func(t *testing.T) {
+			root, opens := build()
+
+			u := NewUploader(th.repo)
+			u.ParallelUploads = parallel
+
+			man, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+			require.NoError(t, err)
+
+			require.Equal(t, int32(1), total(opens, "a", "d1/b", "d1/d2/c"), "3-link group must be read once")
+			require.Equal(t, int32(1), total(opens, "pair1", "d1/pair2"), "2-link group must be read once")
+			require.Equal(t, int32(1), opens["twin"].Load(), "same data but different inode must still be read")
+			require.Equal(t, int32(1), opens["other"].Load())
+
+			require.Equal(t, int32(3), atomic.LoadInt32(&man.Stats.CachedFiles), "2 + 1 reused links")
+			require.Equal(t, int32(4), atomic.LoadInt32(&man.Stats.NonCachedFiles))
+			require.Equal(t, int64(4*len(data)+len("other")+2*len("pair")), atomic.LoadInt64(&man.Stats.TotalFileSize), "reused links must count toward total size")
+
+			// every member of a group ends up with the same object and the right name.
+			dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry))
+
+			a, err := dir.Child(ctx, "a")
+			require.NoError(t, err)
+			b, err := testutil.EnsureType[fs.Directory](t, mustChild(ctx, t, dir, "d1")).Child(ctx, "b")
+			require.NoError(t, err)
+
+			require.Equal(t, objectIDOfEntry(t, a), objectIDOfEntry(t, b))
+			require.Equal(t, "b", b.Name())
+			require.Equal(t, int64(len(data)), b.Size())
+
+			verifyContent := func(e fs.Entry) {
+				r, err := testutil.EnsureType[fs.File](t, e).Open(ctx)
+				require.NoError(t, err)
+
+				defer r.Close()
+
+				got, err := io.ReadAll(r)
+				require.NoError(t, err)
+				require.Equal(t, data, got)
+			}
+
+			verifyContent(a)
+			verifyContent(b)
+		})
+	}
+
+	t.Run("metadata mismatch is not reused", func(t *testing.T) {
+		root := mockfs.NewDirectory()
+
+		// same (dev, ino) but different size: simulates inode reuse on a live filesystem.
+		first := countingFile(root, "first", []byte("aaaa"), dev, fs.HardLinkInfo{UniqID: 900, NLink: 2})
+		second := countingFile(root, "second", []byte("bbbbbbbb"), dev, fs.HardLinkInfo{UniqID: 900, NLink: 2})
+
+		u := NewUploader(th.repo)
+		u.ParallelUploads = 1
+
+		man, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+		require.NoError(t, err)
+
+		require.Equal(t, int32(1), first.Load())
+		require.Equal(t, int32(1), second.Load(), "mismatched member must be hashed")
+		require.Equal(t, int32(0), atomic.LoadInt32(&man.Stats.CachedFiles))
+
+		dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry))
+		require.NotEqual(t, objectIDOfEntry(t, mustChild(ctx, t, dir, "first")), objectIDOfEntry(t, mustChild(ctx, t, dir, "second")))
+	})
+
+	t.Run("failed anchor upload lets another member upload", func(t *testing.T) {
+		root := mockfs.NewDirectory()
+
+		var failingOpens atomic.Int32
+
+		root.AddFileWithSource("bad", defaultPermissions, func() (mockfs.ReaderSeekerCloser, error) {
+			failingOpens.Add(1)
+			return nil, errTest
+		}).SetHardLinkInfo(dev, fs.HardLinkInfo{UniqID: 950, NLink: 2}).SetSize(4)
+
+		good := countingFile(root, "good", []byte("good"), dev, fs.HardLinkInfo{UniqID: 950, NLink: 2})
+
+		ignoreErrors := pol
+		ignoreErrors.ErrorHandlingPolicy.IgnoreFileErrors = policy.NewOptionalBool(true)
+
+		u := NewUploader(th.repo)
+		u.ParallelUploads = 1
+
+		man, err := u.Upload(ctx, root, policy.BuildTree(nil, &ignoreErrors), snapshot.SourceInfo{})
+		require.NoError(t, err)
+
+		require.Equal(t, int32(1), failingOpens.Load())
+		require.Equal(t, int32(1), good.Load(), "after anchor failure the next member must upload itself")
+		require.Equal(t, int32(1), atomic.LoadInt32(&man.Stats.IgnoredErrorCount))
+
+		dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry))
+		_, err = dir.Child(ctx, "good")
+		require.NoError(t, err)
+	})
+}
+
+func TestUpload_ReuseHardlinkContentManyParallel(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	const (
+		groups       = 100
+		linksPerFile = 5
+		dirs         = 7
+	)
+
+	root := mockfs.NewDirectory()
+	for d := range dirs {
+		root.AddDir(fmt.Sprintf("d%d", d), defaultPermissions)
+	}
+
+	dev := fs.DeviceInfo{Dev: 1}
+	opens := make([][]*atomic.Int32, groups)
+
+	for g := range groups {
+		data := []byte(fmt.Sprintf("group %d data", g))
+		hli := fs.HardLinkInfo{UniqID: uint64(1000 + g), NLink: linksPerFile}
+
+		for l := range linksPerFile {
+			name := fmt.Sprintf("d%d/g%d-l%d", (g+l)%dirs, g, l)
+			opens[g] = append(opens[g], countingFile(root, name, data, dev, hli))
+		}
+	}
+
+	pol := *policy.DefaultPolicy
+	pol.UploadPolicy.ReuseHardlinkContent = policy.NewOptionalBool(true)
+
+	u := NewUploader(th.repo)
+	u.ParallelUploads = 16
+
+	man, err := u.Upload(ctx, root, policy.BuildTree(nil, &pol), snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	for g := range groups {
+		var n int32
+		for _, o := range opens[g] {
+			n += o.Load()
+		}
+
+		require.Equal(t, int32(1), n, "group %d must be read exactly once", g)
+	}
+
+	require.Equal(t, int32(groups), atomic.LoadInt32(&man.Stats.NonCachedFiles))
+	require.Equal(t, int32(groups*(linksPerFile-1)), atomic.LoadInt32(&man.Stats.CachedFiles))
+	require.Equal(t, int64(groups*linksPerFile), man.RootEntry.DirSummary.TotalFileCount)
+}
+
+func mustChild(ctx context.Context, t *testing.T, dir fs.Directory, name string) fs.Entry {
+	t.Helper()
+
+	e, err := dir.Child(ctx, name)
+	require.NoError(t, err)
+
+	return e
+}
+
+func objectIDOfEntry(t *testing.T, e fs.Entry) object.ID {
+	t.Helper()
+
+	return testutil.EnsureType[object.HasObjectID](t, e).ObjectID()
+}
+
 func TestUploadWithCheckpointing(t *testing.T) {
 	t.Parallel()
 

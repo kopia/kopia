@@ -55,11 +55,20 @@ func hardlinkSource(t *testing.T) string {
 func snapshotWithHardlinks(ctx context.Context, t *testing.T, env *repotesting.Environment, src string, track bool) fs.Entry {
 	t.Helper()
 
+	root, _ := snapshotWithHardlinksAndStats(ctx, t, env, src, track, false)
+
+	return root
+}
+
+func snapshotWithHardlinksAndStats(ctx context.Context, t *testing.T, env *repotesting.Environment, src string, track, reuse bool) (fs.Entry, snapshot.Stats) {
+	t.Helper()
+
 	srcDir, err := localfs.Directory(src)
 	require.NoError(t, err)
 
 	pol := *policy.DefaultPolicy
 	pol.FilesPolicy.TrackHardlinks = policy.NewOptionalBool(policy.OptionalBool(track))
+	pol.UploadPolicy.ReuseHardlinkContent = policy.NewOptionalBool(policy.OptionalBool(reuse))
 
 	u := upload.NewUploader(env.RepositoryWriter)
 	man, err := u.Upload(ctx, srcDir, policy.BuildTree(nil, &pol), snapshot.SourceInfo{})
@@ -68,7 +77,7 @@ func snapshotWithHardlinks(ctx context.Context, t *testing.T, env *repotesting.E
 	root, err := snapshotfs.SnapshotRoot(env.RepositoryWriter, man)
 	require.NoError(t, err)
 
-	return root
+	return root, man.Stats
 }
 
 func inodeOf(t *testing.T, path string) uint64 {
@@ -143,6 +152,36 @@ func TestRestoreHardlinks(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, os.FileMode(0o600), st.Mode().Perm())
 	}
+}
+
+// TestRestoreHardlinksReusedContent covers the full round trip on a real
+// filesystem: reuse content of hardlinks at upload time, then recreate the
+// links at restore time.
+func TestRestoreHardlinksReusedContent(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	src := hardlinkSource(t)
+	root, stats := snapshotWithHardlinksAndStats(ctx, t, env, src, true, true)
+
+	// a, sub/b, sub/deep/c share one inode; pair1/pair2 share another.
+	require.Equal(t, int32(3), stats.CachedFiles, "two 3-link + one 2-link members must be reused")
+	require.Equal(t, int32(4), stats.NonCachedFiles)
+
+	target := testutil.TempDirectory(t)
+	restoreToDir(ctx, t, env, root, target, restore.Options{Parallel: 8, RestoreDirEntryAtDepth: math.MaxInt32}, &restore.FilesystemOutput{})
+
+	for _, name := range []string{"a", "sub/b", "sub/deep/c", "twin", "pair1", "pair2", "solo"} {
+		want, err := os.ReadFile(filepath.Join(src, name))
+		require.NoError(t, err)
+
+		got, err := os.ReadFile(filepath.Join(target, name))
+		require.NoError(t, err)
+		require.Equal(t, want, got, name)
+	}
+
+	require.Equal(t, uint64(3), nlinkOf(t, filepath.Join(target, "a")))
+	require.Equal(t, uint64(2), nlinkOf(t, filepath.Join(target, "pair1")))
+	require.Equal(t, uint64(1), nlinkOf(t, filepath.Join(target, "twin")))
 }
 
 func TestRestoreHardlinksSkipped(t *testing.T) {
