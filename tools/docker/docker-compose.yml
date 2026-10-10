@@ -18,8 +18,8 @@ services:
         - --tls-cert-file=/data/home/XXX/ssl-certs/fullchain.pem
         - --tls-key-file=/data/home/XXX/ssl-certs/privkey.pem
         - --address=0.0.0.0:51515
-        - --server-username=XXX
-        - --server-password=XXX
+        - --server-username=$WEB_USER
+        - --server-password=$WEB_PASS
       volumes:
         - /mnt/kopia:/tmp:shared
         - /home/XXX/docker/Kopia-Ubuntu/config:/app/config
@@ -27,7 +27,8 @@ services:
         - /home/XXX/docker/Kopia-Ubuntu/logs:/app/logs
         - /:/data:ro
       environment:
-        KOPIA_PASSWORD: XXX
+        #Sets repository password
+        KOPIA_PASSWORD: $KOPIA_PASSWORD
         TZ: Europe/Berlin
         USER: XXX
         
