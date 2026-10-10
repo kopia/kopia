@@ -473,6 +473,29 @@ func newDirEntry(md fs.Entry, fname string, oid object.ID) (*snapshot.DirEntry, 
 	}, nil
 }
 
+// maybeSetHardLinkInfo records hardlink identity on the directory entry when
+// the policy enables it and the source entry has more than one link.
+// Directories are never tracked: their link count reflects subdirectories,
+// not hardlinks.
+func maybeSetHardLinkInfo(de *snapshot.DirEntry, src fs.Entry, pol *policy.Policy) {
+	if de == nil || de.Type == snapshot.EntryTypeDirectory {
+		return
+	}
+
+	if !pol.FilesPolicy.TrackHardlinks.OrDefault(false) {
+		return
+	}
+
+	hli := src.HardLinkInfo()
+	if hli.NLink <= 1 || hli.UniqID == 0 {
+		return
+	}
+
+	de.Dev = src.Device().Dev
+	de.Ino = hli.UniqID
+	de.NLink = hli.NLink
+}
+
 // newCachedDirEntry makes DirEntry objects for entries that are also in
 // previous snapshots. It ensures file sizes are populated correctly for
 // StreamingFiles.
@@ -863,6 +886,8 @@ func (u *Uploader) processSingle(
 				return errors.Wrap(err, "unable to create dir entry")
 			}
 
+			maybeSetHardLinkInfo(cachedDirEntry, entry, policyTree.EffectivePolicy())
+
 			return u.processEntryUploadResult(ctx, cachedDirEntry, nil, entryRelativePath, parentDirBuilder,
 				false,
 				u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.CacheHit.OrDefault(policy.LogDetailNone)),
@@ -908,6 +933,8 @@ func (u *Uploader) processSingle(
 		compressor := policyTree.Child(entry.Name()).EffectivePolicy().MetadataCompressionPolicy.MetadataCompressor()
 		de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry, compressor)
 
+		maybeSetHardLinkInfo(de, entry, policyTree.EffectivePolicy())
+
 		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),
 			u.OverrideEntryLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Entries.Snapshotted.OrDefault(policy.LogDetailNone)),
@@ -917,6 +944,8 @@ func (u *Uploader) processSingle(
 		atomic.AddInt32(&u.stats.NonCachedFiles, 1)
 
 		de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy())
+
+		maybeSetHardLinkInfo(de, entry, policyTree.EffectivePolicy())
 
 		return u.processEntryUploadResult(ctx, de, err, entryRelativePath, parentDirBuilder,
 			policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrors.OrDefault(false),

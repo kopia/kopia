@@ -839,6 +839,110 @@ func TestUpload_SymlinkStats(t *testing.T) {
 	require.Equal(t, int64(2), man2.RootEntry.DirSummary.TotalFileCount, "Directory summary TotalSymlinkCount")
 }
 
+func TestUpload_Hardlinks(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	dev := fs.DeviceInfo{Dev: 42}
+	linked := fs.HardLinkInfo{UniqID: 1001, NLink: 2}
+
+	root := mockfs.NewDirectory()
+	root.AddFile("link-a", []byte{1, 2, 3}, defaultPermissions).SetHardLinkInfo(dev, linked)
+	root.AddDir("d1", defaultPermissions)
+	root.AddFile("d1/link-b", []byte{1, 2, 3}, defaultPermissions).SetHardLinkInfo(dev, linked)
+	// same content and device but a single link: must not be marked.
+	root.AddFile("single", []byte{1, 2, 3}, defaultPermissions).SetHardLinkInfo(dev, fs.HardLinkInfo{UniqID: 1002, NLink: 1})
+
+	u := NewUploader(th.repo)
+
+	readEntries := func(t *testing.T, man *snapshot.Manifest) map[string]*snapshot.DirEntry {
+		t.Helper()
+
+		result := map[string]*snapshot.DirEntry{}
+
+		var walk func(dir fs.Directory, prefix string)
+
+		walk = func(dir fs.Directory, prefix string) {
+			require.NoError(t, fs.IterateEntries(ctx, dir, func(_ context.Context, e fs.Entry) error {
+				de := testutil.EnsureType[snapshot.HasDirEntry](t, e).DirEntry()
+				result[prefix+e.Name()] = de
+
+				if sub, ok := e.(fs.Directory); ok {
+					walk(sub, prefix+e.Name()+"/")
+				}
+
+				return nil
+			}))
+		}
+
+		walk(testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry)), "")
+
+		return result
+	}
+
+	t.Run("policy off by default", func(t *testing.T) {
+		man, err := u.Upload(ctx, root, policy.BuildTree(nil, policy.DefaultPolicy), snapshot.SourceInfo{})
+		require.NoError(t, err)
+
+		for name, de := range readEntries(t, man) {
+			require.False(t, de.HasHardLinkInfo(), "entry %q should not carry hardlink info", name)
+			require.Zero(t, de.Dev, name)
+			require.Zero(t, de.Ino, name)
+			require.Zero(t, de.NLink, name)
+		}
+	})
+
+	pol := *policy.DefaultPolicy
+	pol.FilesPolicy.TrackHardlinks = policy.NewOptionalBool(true)
+	policyTree := policy.BuildTree(nil, &pol)
+
+	var man1 *snapshot.Manifest
+
+	t.Run("policy on", func(t *testing.T) {
+		var err error
+
+		man1, err = u.Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+		require.NoError(t, err)
+
+		entries := readEntries(t, man1)
+
+		for _, name := range []string{"link-a", "d1/link-b"} {
+			de := entries[name]
+			require.True(t, de.HasHardLinkInfo(), name)
+			require.Equal(t, uint64(42), de.Dev, name)
+			require.Equal(t, uint64(1001), de.Ino, name)
+			require.Equal(t, uint64(2), de.NLink, name)
+		}
+
+		require.Equal(t, entries["link-a"].ObjectID, entries["d1/link-b"].ObjectID)
+
+		require.False(t, entries["single"].HasHardLinkInfo())
+		require.False(t, entries["d1"].HasHardLinkInfo())
+
+		// entries read back from the repository must expose the same info via fs.Entry.
+		dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man1.RootEntry))
+		e, err := dir.Child(ctx, "link-a")
+		require.NoError(t, err)
+		require.Equal(t, fs.HardLinkInfo{UniqID: 1001, NLink: 2}, e.HardLinkInfo())
+		require.Equal(t, fs.DeviceInfo{Dev: 42}, e.Device())
+	})
+
+	t.Run("cached entries keep hardlink info", func(t *testing.T) {
+		man2, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{}, man1)
+		require.NoError(t, err)
+		require.Equal(t, int32(0), atomic.LoadInt32(&man2.Stats.TotalFileCount), "all files should be cached")
+
+		entries := readEntries(t, man2)
+		require.True(t, entries["link-a"].HasHardLinkInfo())
+		require.True(t, entries["d1/link-b"].HasHardLinkInfo())
+		require.False(t, entries["single"].HasHardLinkInfo())
+
+		require.Equal(t, man1.RootEntry.ObjectID, man2.RootEntry.ObjectID, "identical input must produce identical root object")
+	})
+}
+
 func TestUploadWithCheckpointing(t *testing.T) {
 	t.Parallel()
 
