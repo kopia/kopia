@@ -149,19 +149,16 @@ func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Pol
 }
 
 func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add, remove []string, clearList bool, changeCount *int) {
+	entries := map[string]bool{}
+
 	if clearList {
 		log(ctx).Infof(" - removing all from %q", desc)
 
 		*changeCount++
-
-		*val = nil
-
-		return
-	}
-
-	entries := map[string]bool{}
-	for _, b := range *val {
-		entries[b] = true
+	} else {
+		for _, b := range *val {
+			entries[b] = true
+		}
 	}
 
 	for _, b := range add {
