@@ -32,7 +32,7 @@ require (
 	github.com/klauspost/reedsolomon v1.14.2
 	github.com/kopia/htmluibuild v0.0.1-0.20261001060656-aae90e4f0385
 	github.com/kylelemons/godebug v1.1.0
-	github.com/mattn/go-colorable v0.1.15
+	github.com/mattn/go-colorable v0.1.16
 	github.com/minio/minio-go/v7 v7.3.0
 	github.com/mocktools/go-smtp-mock/v2 v2.5.4
 	github.com/mxk/go-vss v1.2.1
