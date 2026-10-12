@@ -13,8 +13,8 @@ import (
 )
 
 func (s *Server) getMountController(ctx context.Context, rep repo.Repository, oid object.ID, createIfNotFound bool) (mount.Controller, error) {
-	s.serverMutex.Lock()
-	defer s.serverMutex.Unlock()
+	s.ServerMutex.Lock()
+	defer s.ServerMutex.Unlock()
 
 	c := s.mounts[oid]
 	if c != nil {
@@ -38,20 +38,20 @@ func (s *Server) getMountController(ctx context.Context, rep repo.Repository, oi
 }
 
 func (s *Server) listMounts() map[object.ID]mount.Controller {
-	s.serverMutex.RLock()
-	defer s.serverMutex.RUnlock()
+	s.ServerMutex.RLock()
+	defer s.ServerMutex.RUnlock()
 
 	return maps.Clone(s.mounts)
 }
 
 func (s *Server) deleteMount(oid object.ID) {
-	s.serverMutex.Lock()
-	defer s.serverMutex.Unlock()
+	s.ServerMutex.Lock()
+	defer s.ServerMutex.Unlock()
 
 	delete(s.mounts, oid)
 }
 
-// +checklocks:s.serverMutex
+// +checklocks:s.ServerMutex
 func (s *Server) unmountAllLocked(ctx context.Context) {
 	for oid, c := range s.mounts {
 		if err := c.Unmount(ctx); err != nil {

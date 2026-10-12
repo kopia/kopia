@@ -1,4 +1,4 @@
-package server
+package apiserver
 
 import (
 	"context"
@@ -71,7 +71,7 @@ func (s *Server) authenticateGRPCSession(ctx context.Context, rep repo.Repositor
 		username := u[0] + "@" + h[0]
 		password := p[0]
 
-		if s.authenticator.IsValid(ctx, rep, username, password) {
+		if s.Authenticator.IsValid(ctx, rep, username, password) {
 			return username, nil
 		}
 
@@ -85,9 +85,9 @@ func (s *Server) authenticateGRPCSession(ctx context.Context, rep repo.Repositor
 func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 	ctx := srv.Context()
 
-	s.serverMutex.RLock()
-	dr, ok := s.rep.(repo.DirectRepository)
-	s.serverMutex.RUnlock()
+	s.ServerMutex.RLock()
+	dr, ok := s.Rep.(repo.DirectRepository)
+	s.ServerMutex.RUnlock()
 
 	if !ok {
 		return status.Errorf(codes.Unavailable, "not connected to a direct repository")
@@ -101,7 +101,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return err
 	}
 
-	authz := s.authorizer.Authorize(ctx, dr, usernameAtHostname)
+	authz := s.Authorizer.Authorize(ctx, dr, usernameAtHostname)
 	if authz == nil {
 		authz = auth.NoAccess()
 	}
@@ -525,7 +525,7 @@ func (s *Server) handleSendNotificationRequest(ctx context.Context, rep repo.Rep
 		req.GetTemplateName(),
 		eventArgs,
 		notification.Severity(req.GetSeverity()),
-		s.options.NotifyTemplateOptions); err != nil {
+		s.notifyTemplateOptions); err != nil {
 		return errorResponse(err)
 	}
 
