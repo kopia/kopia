@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -199,38 +200,60 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 // CheckIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
 func CheckIndexInfo(i0, i1 content.Info) []string {
-	var q []string
+	var b strings.Builder
 
-	switch {
-	case i0.FormatVersion != i1.FormatVersion:
-		q = append(q, fmt.Sprintf("mismatched FormatVersions: %v %v", i0.FormatVersion, i1.FormatVersion))
-	case i0.OriginalLength != i1.OriginalLength:
-		q = append(q, fmt.Sprintf("mismatched OriginalLengths: %v %v", i0.OriginalLength, i1.OriginalLength))
-	case i0.PackBlobID != i1.PackBlobID:
-		q = append(q, fmt.Sprintf("mismatched PackBlobIDs: %v %v", i0.PackBlobID, i1.PackBlobID))
-	case i0.PackedLength != i1.PackedLength:
-		q = append(q, fmt.Sprintf("mismatched PackedLengths: %v %v", i0.PackedLength, i1.PackedLength))
-	case i0.PackOffset != i1.PackOffset:
-		q = append(q, fmt.Sprintf("mismatched PackOffsets: %v %v", i0.PackOffset, i1.PackOffset))
-	case i0.EncryptionKeyID != i1.EncryptionKeyID:
-		q = append(q, fmt.Sprintf("mismatched EncryptionKeyIDs: %v %v", i0.EncryptionKeyID, i1.EncryptionKeyID))
-	case i0.CompressionHeaderID != i1.CompressionHeaderID:
-		q = append(q, fmt.Sprintf("mismatched GetCompressionHeaderID: %v %v", i0.CompressionHeaderID, i1.CompressionHeaderID))
-	case i0.Deleted != i1.Deleted:
-		q = append(q, fmt.Sprintf("mismatched Deleted flags: %v %v", i0.Deleted, i1.Deleted))
-	case i0.TimestampSeconds != i1.TimestampSeconds:
-		q = append(q, fmt.Sprintf("mismatched TimestampSeconds: %v %v", i0.TimestampSeconds, i1.TimestampSeconds))
+	foundMismatch := false
+	addMismatch := func(fieldName string, v0, v1 any) {
+		if !foundMismatch {
+			fmt.Fprintf(&b, "content info mismatch ID %q ~ %q", i0.ContentID, i1.ContentID)
+
+			foundMismatch = true
+		}
+
+		fmt.Fprintf(&b, ", %s: %v != %v", fieldName, v0, v1)
 	}
 
-	if len(q) == 0 {
-		return nil
+	if i0.FormatVersion != i1.FormatVersion {
+		addMismatch("FormatVersion", i0.FormatVersion, i1.FormatVersion)
 	}
 
-	for i := range q {
-		q[i] = fmt.Sprintf("index blobs do not match: %q, %q: %s", i0.PackBlobID, i1.PackBlobID, q[i])
+	if i0.OriginalLength != i1.OriginalLength {
+		addMismatch("OriginalLength", i0.OriginalLength, i1.OriginalLength)
 	}
 
-	return q
+	if i0.PackBlobID != i1.PackBlobID {
+		addMismatch("PackBlobID", i0.PackBlobID, i1.PackBlobID)
+	}
+
+	if i0.PackedLength != i1.PackedLength {
+		addMismatch("PackedLength", i0.PackedLength, i1.PackedLength)
+	}
+
+	if i0.PackOffset != i1.PackOffset {
+		addMismatch("PackOffset", i0.PackOffset, i1.PackOffset)
+	}
+
+	if i0.EncryptionKeyID != i1.EncryptionKeyID {
+		addMismatch("EncryptionKeyID", i0.EncryptionKeyID, i1.EncryptionKeyID)
+	}
+
+	if i0.CompressionHeaderID != i1.CompressionHeaderID {
+		addMismatch("GetCompressionHeaderID", i0.CompressionHeaderID, i1.CompressionHeaderID)
+	}
+
+	if i0.Deleted != i1.Deleted {
+		addMismatch("Deleted flag", i0.Deleted, i1.Deleted)
+	}
+
+	if i0.TimestampSeconds != i1.TimestampSeconds {
+		addMismatch("TimestampSeconds", i0.TimestampSeconds, i1.TimestampSeconds)
+	}
+
+	if foundMismatch {
+		return []string{b.String()}
+	}
+
+	return nil
 }
 
 func (c *commandRepositoryUpgrade) forceRollbackAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
