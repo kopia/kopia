@@ -186,14 +186,15 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 	}
 
 	// otherwise there's a problem somewhere ... log the problems
-	log(ctx).Error("inconsistencies found in migrated index:")
+	err = errors.New("found inconsistencies upgraded index blobs, repository will remain locked until index differences are resolved")
+
+	log(ctx).Error(err)
 
 	for _, m := range msgs {
 		log(ctx).Error(m)
 	}
 
-	// and return an error that states something's wrong.
-	return errors.Wrap(err, "repository will remain locked until index differences are resolved")
+	return err
 }
 
 // CheckIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
