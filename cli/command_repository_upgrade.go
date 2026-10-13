@@ -145,7 +145,6 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 	}
 
 	// load index blobs into their appropriate positions inside the indexEntries map
-
 	if err = loadIndexBlobs(ctx, indexEntries, sm, 0, indexBlobInfos0); err != nil {
 		return errors.Wrapf(err, "failed to load index entries for v0 index entry")
 	}
@@ -154,7 +153,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 		return errors.Wrapf(err, "failed to load index entries for new index")
 	}
 
-	var msgs []string // a place to keep messages from the index comparison process
+	foundError := false
 
 	// both indexes will have matching contentIDs with matching indexInfo structures.
 	//nolint:gocritic
@@ -164,36 +163,32 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 		switch {
 		case iep0 == content.Info{}:
-			msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep1.PackBlobID))
+			foundError = true
+
+			log(ctx).Errorf("lop-sided index entries for contentID %q at blob %q", contentID, iep1.PackBlobID)
 		case iep1 == content.Info{}:
-			msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep0.PackBlobID))
+			foundError = true
+
+			log(ctx).Errorf("lop-sided index entries for contentID %q at blob %q", contentID, iep0.PackBlobID)
 		default:
 			// both iep0 and iep1 contain info, that is, they are not the zero-value,
 			// check that both the new and old indexes have entries for the same content,
 			// this is the common case, CheckIndexInfo checks for field mismatches
 			if err := CheckIndexInfo(iep0, iep1); err != nil {
-				msgs = append(msgs, err.Error())
+				foundError = true
+
+				log(ctx).Error(err)
 			}
 		}
 	}
 
-	// no msgs means the check passed without finding anything wrong
-	if len(msgs) == 0 {
-		log(ctx).Info("index validation succeeded")
-
-		return nil
+	if foundError {
+		return errors.New("found inconsistencies in upgraded index blobs, repository will remain locked until index differences are resolved")
 	}
 
-	// otherwise there's a problem somewhere ... log the problems
-	err = errors.New("found inconsistencies in upgraded index blobs, repository will remain locked until index differences are resolved")
+	log(ctx).Info("index validation succeeded")
 
-	log(ctx).Error(err)
-
-	for _, m := range msgs {
-		log(ctx).Error(m)
-	}
-
-	return err
+	return nil
 }
 
 // CheckIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
