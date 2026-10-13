@@ -134,23 +134,23 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 	indexBlobInfos1, err := sm.IndexReaderV1().ListIndexBlobInfos(ctx)
 	if err != nil {
 		log(ctx).Errorf("failed to list index blobs for new index. upgrade may have failed.: %v", err)
+
 		return nil
 	}
 
 	if len(indexBlobInfos0) == 0 && len(indexBlobInfos1) > 0 {
 		log(ctx).Info("old index is empty (possibly due to upgrade), nothing to compare against")
+
 		return nil
 	}
 
 	// load index blobs into their appropriate positions inside the indexEntries map
 
-	err = loadIndexBlobs(ctx, indexEntries, sm, 0, indexBlobInfos0)
-	if err != nil {
+	if err = loadIndexBlobs(ctx, indexEntries, sm, 0, indexBlobInfos0); err != nil {
 		return errors.Wrapf(err, "failed to load index entries for v0 index entry")
 	}
 
-	err = loadIndexBlobs(ctx, indexEntries, sm, 1, indexBlobInfos1)
-	if err != nil {
+	if err = loadIndexBlobs(ctx, indexEntries, sm, 1, indexBlobInfos1); err != nil {
 		return errors.Wrapf(err, "failed to load index entries for new index")
 	}
 
