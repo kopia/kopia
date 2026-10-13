@@ -174,7 +174,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 			// both iep0 and iep1 contain info, that is, they are not the zero-value,
 			// check that both the new and old indexes have entries for the same content,
 			// this is the common case, CheckIndexInfo checks for field mismatches
-			if err := CheckIndexInfo(iep0, iep1); err != nil {
+			if err := checkIndexInfo(iep0, iep1); err != nil {
 				foundError = true
 
 				log(ctx).Error(err)
@@ -192,7 +192,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 }
 
 // CheckIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
-func CheckIndexInfo(i0, i1 content.Info) error {
+func checkIndexInfo(i0, i1 content.Info) error {
 	var b strings.Builder
 
 	foundMismatch := false
