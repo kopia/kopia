@@ -296,28 +296,76 @@ func (s *formatSpecificTestSuite) TestRepositoryUpgradeStatusWhileLocked(t *test
 	require.Contains(t, out, "Format version:      3")
 }
 
-func TestRepositoryUpgrade_checkIndexInfo(t *testing.T) {
+func TestRepositoryUpgrade_checkIndexInfo_match(t *testing.T) {
+	tcs := []struct {
+		indexInfo0 content.Info
+		indexInfo1 content.Info
+	}{
+		{
+			// trivial case with zero-value content infos
+		},
+		{
+			indexInfo0: content.Info{PackBlobID: "a"},
+			indexInfo1: content.Info{PackBlobID: "a"},
+		},
+		{
+			indexInfo0: content.Info{TimestampSeconds: 1},
+			indexInfo1: content.Info{TimestampSeconds: 1},
+		},
+		{
+			indexInfo0: content.Info{OriginalLength: 1},
+			indexInfo1: content.Info{OriginalLength: 1},
+		},
+		{
+			indexInfo0: content.Info{PackedLength: 1},
+			indexInfo1: content.Info{PackedLength: 1},
+		},
+		{
+			indexInfo0: content.Info{PackOffset: 1},
+			indexInfo1: content.Info{PackOffset: 1},
+		},
+		{
+			indexInfo0: content.Info{Deleted: true},
+			indexInfo1: content.Info{Deleted: true},
+		},
+		{
+			indexInfo0: content.Info{Deleted: false},
+			indexInfo1: content.Info{Deleted: false},
+		},
+		{
+			indexInfo0: content.Info{FormatVersion: 1},
+			indexInfo1: content.Info{FormatVersion: 1},
+		},
+		{
+			indexInfo0: content.Info{CompressionHeaderID: 1},
+			indexInfo1: content.Info{CompressionHeaderID: 1},
+		},
+		{
+			indexInfo0: content.Info{EncryptionKeyID: 1},
+			indexInfo1: content.Info{EncryptionKeyID: 1},
+		},
+	}
+	for i, tc := range tcs {
+		t.Run(strconv.Itoa(i), func(t *testing.T) {
+			res := cli.CheckIndexInfo(tc.indexInfo0, tc.indexInfo1)
+
+			require.Nil(t, res)
+		})
+	}
+}
+
+func TestRepositoryUpgrade_checkIndexInfo_mismatch(t *testing.T) {
 	tcs := []struct {
 		indexInfo0   content.Info
 		indexInfo1   content.Info
 		expectRegexs []string
 	}{
 		{
-			indexInfo0:   content.Info{PackBlobID: "a"},
-			indexInfo1:   content.Info{PackBlobID: "a"},
-			expectRegexs: []string{},
-		},
-		{
 			indexInfo0: content.Info{PackBlobID: "a"},
 			indexInfo1: content.Info{PackBlobID: "b"},
 			expectRegexs: []string{
 				`do not match: "a", "b".*PackBlobID`,
 			},
-		},
-		{
-			indexInfo0:   content.Info{TimestampSeconds: 1},
-			indexInfo1:   content.Info{TimestampSeconds: 1},
-			expectRegexs: []string{},
 		},
 		{
 			indexInfo0: content.Info{TimestampSeconds: 1},
@@ -327,21 +375,11 @@ func TestRepositoryUpgrade_checkIndexInfo(t *testing.T) {
 			},
 		},
 		{
-			indexInfo0:   content.Info{OriginalLength: 1},
-			indexInfo1:   content.Info{OriginalLength: 1},
-			expectRegexs: []string{},
-		},
-		{
 			indexInfo0: content.Info{OriginalLength: 1},
 			indexInfo1: content.Info{OriginalLength: 2},
 			expectRegexs: []string{
 				"do not match.*OriginalLength",
 			},
-		},
-		{
-			indexInfo0:   content.Info{PackedLength: 1},
-			indexInfo1:   content.Info{PackedLength: 1},
-			expectRegexs: []string{},
 		},
 		{
 			indexInfo0: content.Info{PackedLength: 1},
@@ -351,11 +389,6 @@ func TestRepositoryUpgrade_checkIndexInfo(t *testing.T) {
 			},
 		},
 		{
-			indexInfo0:   content.Info{PackOffset: 1},
-			indexInfo1:   content.Info{PackOffset: 1},
-			expectRegexs: []string{},
-		},
-		{
 			indexInfo0: content.Info{PackOffset: 1},
 			indexInfo1: content.Info{PackOffset: 2},
 			expectRegexs: []string{
@@ -363,27 +396,11 @@ func TestRepositoryUpgrade_checkIndexInfo(t *testing.T) {
 			},
 		},
 		{
-			indexInfo0:   content.Info{Deleted: true},
-			indexInfo1:   content.Info{Deleted: true},
-			expectRegexs: []string{},
-		},
-		{
 			indexInfo0: content.Info{Deleted: false},
 			indexInfo1: content.Info{Deleted: true},
 			expectRegexs: []string{
 				"do not match.*Deleted",
 			},
-		},
-		// simple logic error can make result of this false... so check
-		{
-			indexInfo0:   content.Info{Deleted: false},
-			indexInfo1:   content.Info{Deleted: false},
-			expectRegexs: []string{},
-		},
-		{
-			indexInfo0:   content.Info{FormatVersion: 1},
-			indexInfo1:   content.Info{FormatVersion: 1},
-			expectRegexs: []string{},
 		},
 		{
 			indexInfo0: content.Info{FormatVersion: 1},
@@ -393,21 +410,11 @@ func TestRepositoryUpgrade_checkIndexInfo(t *testing.T) {
 			},
 		},
 		{
-			indexInfo0:   content.Info{CompressionHeaderID: 1},
-			indexInfo1:   content.Info{CompressionHeaderID: 1},
-			expectRegexs: []string{},
-		},
-		{
 			indexInfo0: content.Info{CompressionHeaderID: 1},
 			indexInfo1: content.Info{CompressionHeaderID: 2},
 			expectRegexs: []string{
 				"do not match.*CompressionHeaderID",
 			},
-		},
-		{
-			indexInfo0:   content.Info{EncryptionKeyID: 1},
-			indexInfo1:   content.Info{EncryptionKeyID: 1},
-			expectRegexs: []string{},
 		},
 		{
 			indexInfo0: content.Info{EncryptionKeyID: 1},
@@ -419,11 +426,11 @@ func TestRepositoryUpgrade_checkIndexInfo(t *testing.T) {
 	}
 	for i, tc := range tcs {
 		t.Run(strconv.Itoa(i), func(t *testing.T) {
-			report := cli.CheckIndexInfo(tc.indexInfo0, tc.indexInfo1)
-			require.Len(t, tc.expectRegexs, len(report), "unexpected report length")
+			res := cli.CheckIndexInfo(tc.indexInfo0, tc.indexInfo1)
+			require.Len(t, tc.expectRegexs, len(res), "unexpected report length")
 
 			for i := range tc.expectRegexs {
-				require.Regexp(t, tc.expectRegexs[i], report[i], "report does not match regular expression")
+				require.Regexp(t, tc.expectRegexs[i], res[i], "report does not match regular expression")
 			}
 		})
 	}
