@@ -409,6 +409,9 @@ func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur tim
 func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	for {
 		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
+		if err != nil {
+			return errors.Wrap(err, "failed to refresh upgrade lock intent after the intent was placed")
+		}
 
 		upgradeTime := l.UpgradeTime()
 		now := rep.Time()
