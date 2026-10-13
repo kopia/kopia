@@ -186,7 +186,7 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 	}
 
 	// otherwise there's a problem somewhere ... log the problems
-	err = errors.New("found inconsistencies upgraded index blobs, repository will remain locked until index differences are resolved")
+	err = errors.New("found inconsistencies in upgraded index blobs, repository will remain locked until index differences are resolved")
 
 	log(ctx).Error(err)
 
