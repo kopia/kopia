@@ -425,7 +425,7 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 				break
 			}
 		} else {
-			return errors.Wrap(err, "upgrade lock got revoked after the intent was placed, giving up")
+			return errors.New("upgrade lock got revoked after the intent was placed, giving up")
 		}
 
 		// TODO: this can get stuck
