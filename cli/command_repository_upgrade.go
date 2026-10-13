@@ -156,33 +156,29 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 
 	var msgs []string // a place to keep messages from the index comparison process
 
-	var zeroInfo content.Info
-
 	// both indexes will have matching contentIDs with matching indexInfo structures.
 	//nolint:gocritic
 	for contentID, indexEntryPairs := range indexEntries {
 		iep0 := indexEntryPairs[0] // first entry of index entry pair
 		iep1 := indexEntryPairs[1] // second entry of index entry pair
 
-		// check that both the new and old indexes have entries for the same content
-		if iep0 != zeroInfo && iep1 != zeroInfo {
-			// this is the happy-path, check the entries.  any problems found will be added to msgs
-			msgs = append(msgs, CheckIndexInfo(iep0, iep1)...)
-			continue
-		}
-
-		// one of iep0 or iep1 are nil .. find out which one and add an appropriate message.
-		if iep0 != zeroInfo {
+		switch {
+		case iep0 == content.Info{}:
+			msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep1.PackBlobID))
+		case iep1 == content.Info{}:
 			msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep0.PackBlobID))
-			continue
+		default:
+			// both iep0 and iep1 contain info, that is, they are not the zero-value,
+			// check that both the new and old indexes have entries for the same content,
+			// this is the common case, CheckIndexInfo checks for field mismatches
+			msgs = append(msgs, CheckIndexInfo(iep0, iep1)...)
 		}
-
-		msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep1.PackBlobID))
 	}
 
 	// no msgs means the check passed without finding anything wrong
 	if len(msgs) == 0 {
 		log(ctx).Info("index validation succeeded")
+
 		return nil
 	}
 
