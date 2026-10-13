@@ -138,7 +138,8 @@ func TestUploadEstimator(t *testing.T) {
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 		estimator := upload.NewEstimator(
 			dir1, policyTree, upload.EstimationParameters{Type: upload.EstimationTypeRough}, logger,
-			withVolumeSizeInfo(uint64(expectedNumberOfFiles), uint64(expectedDataSize), 3000))
+			withVolumeSizeInfo(uint64(expectedNumberOfFiles), uint64(expectedDataSize), 3000),
+		)
 
 		estimationCtx := context.Background()
 
@@ -150,7 +151,8 @@ func TestUploadEstimator(t *testing.T) {
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 		estimator := upload.NewEstimator(
 			dir1, policyTree, upload.EstimationParameters{Type: upload.EstimationTypeRough}, logger,
-			withFailedVolumeSizeInfo(errSimulated))
+			withFailedVolumeSizeInfo(errSimulated),
+		)
 
 		estimationCtx := context.Background()
 
@@ -168,7 +170,8 @@ func TestUploadEstimator(t *testing.T) {
 		estimator := upload.NewEstimator(
 			dir1, policyTree,
 			upload.EstimationParameters{Type: upload.EstimationTypeAdaptive, AdaptiveThreshold: 100}, logger,
-			withVolumeSizeInfo(uint64(expectedNumberOfFiles), uint64(expectedDataSize), 3000))
+			withVolumeSizeInfo(uint64(expectedNumberOfFiles), uint64(expectedDataSize), 3000),
+		)
 
 		estimationCtx := context.Background()
 
@@ -181,7 +184,8 @@ func TestUploadEstimator(t *testing.T) {
 		estimator := upload.NewEstimator(
 			dir1, policyTree,
 			upload.EstimationParameters{Type: upload.EstimationTypeAdaptive, AdaptiveThreshold: 10000}, logger,
-			withVolumeSizeInfo(uint64(1000), uint64(2000), 3000))
+			withVolumeSizeInfo(uint64(1000), uint64(2000), 3000),
+		)
 
 		estimationCtx := context.Background()
 
@@ -193,7 +197,8 @@ func TestUploadEstimator(t *testing.T) {
 		policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 		estimator := upload.NewEstimator(
 			dir1, policyTree, upload.EstimationParameters{Type: upload.EstimationTypeAdaptive, AdaptiveThreshold: 1}, logger,
-			withFailedVolumeSizeInfo(errSimulated))
+			withFailedVolumeSizeInfo(errSimulated),
+		)
 
 		estimationCtx := context.Background()
 

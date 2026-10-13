@@ -68,10 +68,8 @@ func TestShardedFileStorage(t *testing.T) {
 				path := testutil.TempDirectory(t)
 
 				r, err := filesystem.New(ctx, &filesystem.Options{
-					Path: path,
-					Options: sharded.Options{
-						DirectoryShards: shardSpec,
-					},
+					Path:            path,
+					DirectoryShards: shardSpec,
 				}, true)
 
 				os.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0o600)

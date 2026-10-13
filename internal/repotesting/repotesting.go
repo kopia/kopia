@@ -15,7 +15,6 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/format"
 	"github.com/kopia/kopia/snapshot"
@@ -221,9 +220,7 @@ func (e *Environment) MustConnectOpenAnother(tb testing.TB, openOpts ...func(*re
 
 	config := filepath.Join(testutil.TempDirectory(tb), "kopia.config")
 	connOpts := &repo.ConnectOptions{
-		CachingOptions: content.CachingOptions{
-			CacheDirectory: testutil.TempDirectory(tb),
-		},
+		CacheDirectory: testutil.TempDirectory(tb),
 	}
 
 	err := repo.Connect(ctx, config, e.st, e.Password, connOpts)

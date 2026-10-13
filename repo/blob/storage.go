@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob/blob"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
@@ -119,7 +118,7 @@ const (
 	Compliance RetentionMode = "COMPLIANCE"
 
 	// Locked - Locked policy mode for Azure.
-	Locked RetentionMode = RetentionMode(blob.ImmutabilityPolicyModeLocked)
+	Locked RetentionMode = "Locked"
 )
 
 func (r RetentionMode) String() string {

@@ -430,7 +430,8 @@ func getAZService(opt *Options, storageHostname string) (*azblob.Client, error) 
 	// shared access signature
 	case opt.SASToken != "":
 		service, serviceErr = azblob.NewClientWithNoCredential(
-			fmt.Sprintf("%s://%s?%s", protocol, storageHostname, opt.SASToken), clientOptions)
+			fmt.Sprintf("%s://%s?%s", protocol, storageHostname, opt.SASToken), clientOptions,
+		)
 	// storage account access key
 	case opt.StorageKey != "":
 		// create a credentials object.

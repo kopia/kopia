@@ -12,10 +12,14 @@ linters:
             - pkg: "github.com/aws/aws-sdk-go-v2"
               desc: "use github.com/minio/minio-go"
     exhaustive:
+      check:
+        - map
+        - switch
       # indicates that switch statements are to be considered exhaustive if a
       # 'default' case is present, even if all enum members aren't listed in the
       # switch
       default-signifies-exhaustive: true
+      explicit-exhaustive-map: true
     forbidigo:
       forbid:
         - pattern: filepath.IsAbs   # use ospath.IsAbs which supports windows UNC paths
@@ -28,21 +32,26 @@ linters:
       statements: 60
     gocognit:
       min-complexity: 40
-    gomodguard:
+    gomodguard_v2:
       blocked:
-        modules:
-          - github.com/aws/aws-sdk-go:
-              recommendations:
-                - github.com/minio/minio-go
-              reason: "github.com/aws/aws-sdk-go is not actively developed any longer"
-          - github.com/rs/zerolog/log:
-              recommendations:
-                - "use kopia's logging packages"
-              reason: "zerolog not currently use"
-          - go.uber.org/multierr:
-              recommendations:
-                - errors
-              reason: "multierr.Append() can be replaced by native errors.Join()"
+        - module: "github.com/aws/aws-sdk-go"
+          match-type:  prefix
+          reason: "github.com/aws/aws-sdk-go is deprecated, kopia uses minio-go to access S3"
+          recommendations:
+            - github.com/minio/minio-go
+        - module: "github.com/aws/aws-sdk-go-v2"
+          match-type:  prefix
+          reason: "kopia uses minio-go to access S3"
+          recommendations:
+            - github.com/minio/minio-go
+        - module: github.com/rs/zerolog/log
+          reason: "zerolog not currently use"
+          recommendations:
+            - "use kopia's logging packages"
+        - module: go.uber.org/multierr
+          reason: "multierr.Append() can be replaced by native errors.Join()"
+          recommendations:
+            - errors
     goconst:
       min-len: 5
       min-occurrences: 3
@@ -90,9 +99,11 @@ linters:
   disable:
     - embeddedstructfieldcheck
     - exhaustruct
+    - exhaustruct_v5
     - funcorder
     - gochecknoglobals
     - gochecknoinits
+    - gomodguard # replaced with gomodguard_v2
     - gosmopolitan
     - importas
     - ireturn # this one may be interesting to control allocations
@@ -192,7 +203,10 @@ formatters:
         - default
         - localmodule
     gofumpt:
-      extra-rules: true
+      extra:
+        group-params: true
+        clothe-returns: true
+        balance-calls: true
 
 output:
   show-stats: false

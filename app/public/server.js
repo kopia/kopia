@@ -73,6 +73,8 @@ function newServerForRepo(repoID) {
 
       const pollInterval = 3000;
 
+      let statusPollInProgress = false;
+
       function pollOnce() {
         if (
           !runningServerAddress ||
@@ -82,6 +84,14 @@ function newServerForRepo(repoID) {
         ) {
           return;
         }
+
+        // Wait for previous poll request. If the request hangs, it will time out
+        // eventually and sockets shouldn't be exhausted by trying all the time.
+        if (statusPollInProgress) {
+          return;
+        }
+
+        statusPollInProgress = true;
 
         const req = https.request(
           {
@@ -117,11 +127,20 @@ function newServerForRepo(repoID) {
               });
             } else {
               log.warn("error fetching status", resp.statusMessage);
+              resp.resume();
             }
           },
         );
+        req.on("timeout", () => {
+          req.destroy(
+            new Error(`status request timed out after ${pollInterval}ms`),
+          );
+        });
         req.on("error", (e) => {
           log.info("error fetching status", e);
+        });
+        req.on("close", () => {
+          statusPollInProgress = false;
         });
         req.end();
       }

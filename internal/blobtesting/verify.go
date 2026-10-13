@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"testing"
 	"time"
 
@@ -13,6 +12,7 @@ import (
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/providervalidation"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -48,7 +48,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage, opts blob.
 	}
 
 	initialAddConcurrency := 2
-	if os.Getenv("CI") != "" {
+	if testutil.IsCI() {
 		initialAddConcurrency = 4
 	}
 

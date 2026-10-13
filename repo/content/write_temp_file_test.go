@@ -217,22 +217,16 @@ func TestWriteTempFileAtomic_NoTempFilesLeftOnError(t *testing.T) {
 		description string
 	}{
 		{
-			description: "write-error",
-			mockfs: mockfs{
-				createWrapper: func(f file) file { return mockFileWriteError{file: f} },
-			},
+			description:   "write-error",
+			createWrapper: func(f file) file { return mockFileWriteError{file: f} },
 		},
 		{
-			description: "sync-error",
-			mockfs: mockfs{
-				createWrapper: func(f file) file { return mockFileSyncError{file: f} },
-			},
+			description:   "sync-error",
+			createWrapper: func(f file) file { return mockFileSyncError{file: f} },
 		},
 		{
-			description: "close-error",
-			mockfs: mockfs{
-				createWrapper: func(f file) file { return mockFileCloseError{file: f} },
-			},
+			description:   "close-error",
+			createWrapper: func(f file) file { return mockFileCloseError{file: f} },
 		},
 	}
 

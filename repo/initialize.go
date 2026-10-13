@@ -77,24 +77,18 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) (*format.Repos
 	}
 
 	f := &format.RepositoryConfig{
-		ContentFormat: format.ContentFormat{
-			Hash:               applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
-			Encryption:         applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
-			ECC:                applyDefaultString(opt.BlockFormat.ECC, ecc.DefaultAlgorithm),
-			ECCOverheadPercent: applyDefaultIntRange(opt.BlockFormat.ECCOverheadPercent, 0, 100), //nolint:mnd
-			HMACSecret:         applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
-			MasterKey:          applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
-			MutableParameters: format.MutableParameters{
-				Version:         fv,
-				MaxPackSize:     applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:mnd
-				IndexVersion:    applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
-				EpochParameters: opt.BlockFormat.EpochParameters,
-			},
-			EnablePasswordChange: opt.BlockFormat.EnablePasswordChange,
-		},
-		ObjectFormat: format.ObjectFormat{
-			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, splitter.DefaultAlgorithm),
-		},
+		Hash:                 applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
+		Encryption:           applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
+		ECC:                  applyDefaultString(opt.BlockFormat.ECC, ecc.DefaultAlgorithm),
+		ECCOverheadPercent:   applyDefaultIntRange(opt.BlockFormat.ECCOverheadPercent, 0, 100), //nolint:mnd
+		HMACSecret:           applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
+		MasterKey:            applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
+		Version:              fv,
+		MaxPackSize:          applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:mnd
+		IndexVersion:         applyDefaultInt(opt.BlockFormat.IndexVersion, content.DefaultIndexVersion),
+		EpochParameters:      opt.BlockFormat.EpochParameters,
+		EnablePasswordChange: opt.BlockFormat.EnablePasswordChange,
+		Splitter:             applyDefaultString(opt.ObjectFormat.Splitter, splitter.DefaultAlgorithm),
 	}
 
 	if opt.DisableHMAC {

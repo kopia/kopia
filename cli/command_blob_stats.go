@@ -61,7 +61,8 @@ func (c *commandBlobStats) run(ctx context.Context, rep repo.DirectRepository) e
 			}
 
 			return nil
-		}); err != nil {
+		},
+	); err != nil {
 		return errors.Wrap(err, "error listing blobs")
 	}
 
