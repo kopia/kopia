@@ -25,7 +25,6 @@ import (
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
-	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
@@ -445,10 +444,8 @@ func newCacheBackingStorage(ctx context.Context, caching *CachingOptions, subdir
 
 	//nolint:wrapcheck
 	return filesystem.New(ctx, &filesystem.Options{
-		Path: blobListCacheDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{},
-		},
+		Path:            blobListCacheDir,
+		DirectoryShards: []int{},
 	}, false)
 }
 

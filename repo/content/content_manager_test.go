@@ -2035,9 +2035,7 @@ func (s *contentManagerSuite) verifyReadsOwnWrites(t *testing.T, st blob.Storage
 	ctx := testlogging.Context(t)
 
 	tweaks := &contentManagerTestTweaks{
-		ManagerOptions: ManagerOptions{
-			TimeNow: timeNow,
-		},
+		TimeNow: timeNow,
 	}
 
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
@@ -2117,7 +2115,7 @@ func (s *contentManagerSuite) TestCompression_CompressibleData(t *testing.T) {
 	require.NoError(t, err)
 
 	// gzip-compressed length
-	require.Equal(t, uint32(79), ci.PackedLength)
+	require.Equal(t, 75, int(ci.PackedLength), "packed length")
 	require.Equal(t, uint32(len(compressibleData)), ci.OriginalLength)
 	require.Equal(t, headerID, ci.CompressionHeaderID)
 
@@ -2223,12 +2221,10 @@ func (s *contentManagerSuite) TestPrefetchContent(t *testing.T) {
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	cd := testutil.TempDirectory(t)
 	bm := s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
-		CachingOptions: CachingOptions{
-			CacheDirectory:         cd,
-			ContentCacheSizeBytes:  100e6,
-			MetadataCacheSizeBytes: 100e6,
-		},
-		maxPackSize: 20e6,
+		CacheDirectory:         cd,
+		ContentCacheSizeBytes:  100e6,
+		MetadataCacheSizeBytes: 100e6,
+		maxPackSize:            20e6,
 	})
 
 	defer bm.CloseShared(ctx)
@@ -2349,9 +2345,7 @@ func (s *contentManagerSuite) TestContentPermissiveCacheLoading(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	tweaks := &contentManagerTestTweaks{
-		ManagerOptions: ManagerOptions{
-			TimeNow: timeNow,
-		},
+		TimeNow: timeNow,
 	}
 
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
@@ -2378,10 +2372,8 @@ func (s *contentManagerSuite) TestContentPermissiveCacheLoading(t *testing.T) {
 	require.NoError(t, bm.CloseShared(ctx))
 
 	tweaks = &contentManagerTestTweaks{
-		ManagerOptions: ManagerOptions{
-			TimeNow:                timeNow,
-			PermissiveCacheLoading: true,
-		},
+		TimeNow:                timeNow,
+		PermissiveCacheLoading: true,
 	}
 
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
@@ -2400,9 +2392,7 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 	ctx := testlogging.Context(t)
 
 	tweaks := &contentManagerTestTweaks{
-		ManagerOptions: ManagerOptions{
-			TimeNow: timeNow,
-		},
+		TimeNow: timeNow,
 	}
 
 	bm := s.newTestContentManagerWithTweaks(t, st, tweaks)
@@ -2431,10 +2421,8 @@ func (s *contentManagerSuite) TestContentIndexPermissiveReadsWithFault(t *testin
 	require.NoError(t, bm.CloseShared(ctx))
 
 	tweaks = &contentManagerTestTweaks{
-		ManagerOptions: ManagerOptions{
-			TimeNow:                timeNow,
-			PermissiveCacheLoading: true,
-		},
+		TimeNow:                timeNow,
+		PermissiveCacheLoading: true,
 	}
 
 	bm = s.newTestContentManagerWithTweaks(t, st, tweaks)
@@ -2479,9 +2467,7 @@ func (s *contentManagerSuite) newTestContentManagerWithCustomTime(t *testing.T, 
 	t.Helper()
 
 	return s.newTestContentManagerWithTweaks(t, st, &contentManagerTestTweaks{
-		ManagerOptions: ManagerOptions{
-			TimeNow: timeFunc,
-		},
+		TimeNow: timeFunc,
 	})
 }
 

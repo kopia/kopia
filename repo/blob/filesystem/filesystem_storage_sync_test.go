@@ -12,7 +12,6 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 type verifySyncBeforeCloseFile struct {
@@ -104,14 +103,12 @@ func TestPutBlob_SyncBeforeClose(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 	osi := &mockOSForSyncTest{
-		mockOS: mockOS{
-			osInterface: realOS{},
-		},
+		osInterface: realOS{},
 	}
 
 	st, err := New(ctx, &Options{
-		Path:    testutil.TempDirectory(t),
-		Options: sharded.Options{DirectoryShards: []int{1}},
+		Path:            testutil.TempDirectory(t),
+		DirectoryShards: []int{1},
 
 		osInterfaceOverride: osi,
 	}, true)
@@ -142,8 +139,8 @@ func TestPutBlob_FailsOnSyncError(t *testing.T) {
 	osi := newMockOS()
 
 	st, err := New(ctx, &Options{
-		Path:    dataDir,
-		Options: sharded.Options{DirectoryShards: []int{1}},
+		Path:            dataDir,
+		DirectoryShards: []int{1},
 
 		osInterfaceOverride: osi,
 	}, true)

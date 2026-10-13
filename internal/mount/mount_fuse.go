@@ -23,12 +23,10 @@ var cacheTimeout = 30 * time.Second
 
 func (mo *Options) toFuseMountOptions() *gofusefs.Options {
 	o := &gofusefs.Options{
-		MountOptions: fuse.MountOptions{
-			AllowOther: mo.FuseAllowOther,
-			Name:       "kopia",
-			FsName:     "kopia",
-			Debug:      envflag.Bool("KOPIA_DEBUG_FUSE"),
-		},
+		AllowOther:      mo.FuseAllowOther,
+		Name:            "kopia",
+		FsName:          "kopia",
+		Debug:           envflag.Bool("KOPIA_DEBUG_FUSE"),
 		EntryTimeout:    &cacheTimeout,
 		AttrTimeout:     &cacheTimeout,
 		NegativeTimeout: &cacheTimeout,

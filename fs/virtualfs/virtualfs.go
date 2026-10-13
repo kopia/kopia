@@ -89,10 +89,8 @@ func (sd *staticDirectory) SupportsMultipleIterations() bool {
 // NewStaticDirectory returns a virtual static directory.
 func NewStaticDirectory(name string, entries []fs.Entry) fs.Directory {
 	return &staticDirectory{
-		virtualEntry: virtualEntry{
-			name: name,
-			mode: defaultPermissions | os.ModeDir,
-		},
+		name:    name,
+		mode:    defaultPermissions | os.ModeDir,
 		entries: entries,
 	}
 }
@@ -139,10 +137,8 @@ func NewStreamingDirectory(
 	iter fs.DirectoryIterator,
 ) fs.Directory {
 	return &streamingDirectory{
-		virtualEntry: virtualEntry{
-			name: name,
-			mode: defaultPermissions | os.ModeDir,
-		},
+		name: name,
+		mode: defaultPermissions | os.ModeDir,
 		iter: iter,
 	}
 }
@@ -178,12 +174,10 @@ func StreamingFileFromReader(name string, reader io.ReadCloser) fs.StreamingFile
 // StreamingFileWithModTimeFromReader returns a streaming file with given name, modified time, and reader.
 func StreamingFileWithModTimeFromReader(name string, t time.Time, reader io.ReadCloser) fs.StreamingFile {
 	return &virtualFile{
-		virtualEntry: virtualEntry{
-			name:    name,
-			mode:    defaultPermissions,
-			modTime: t,
-		},
-		reader: reader,
+		name:    name,
+		mode:    defaultPermissions,
+		modTime: t,
+		reader:  reader,
 	}
 }
 
