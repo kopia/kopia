@@ -434,14 +434,11 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 
 		log(ctx).Infof("Waiting for %s to allow all other kopia clients to drain ...", upgradeTime.Sub(rep.Time()).Round(time.Second))
 
-		locked, writersDrained := l.IsLocked(now)
-		if locked {
-			if writersDrained {
-				// we have the lock now
-				break
-			}
-		} else {
+		if locked, writersDrained := l.IsLocked(now); !locked {
 			return errors.New("upgrade lock got revoked after the intent was placed, giving up")
+		} else if writersDrained { // locked == true
+			// we have the lock now
+			break
 		}
 
 		// TODO: this can get stuck
