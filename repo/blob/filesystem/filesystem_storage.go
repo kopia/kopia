@@ -156,7 +156,6 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 	}, fs.isRetriable)
 }
 
-//nolint:wrapcheck
 func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes, opts blob.PutOptions) error {
 	_ = dirPath
 
@@ -181,7 +180,6 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 				log(ctx).Errorf("can't remove temp file: %v", removeErr)
 			}
 
-			//nolint:wrapcheck
 			return err
 		}
 
