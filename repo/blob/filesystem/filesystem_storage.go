@@ -228,7 +228,9 @@ func renameBlob(ctx context.Context, osi osInterface, oldPath, newPath string) e
 		func() error {
 			return osi.Rename(oldPath, newPath)
 		},
-		retry.Always)
+		func(err error) bool {
+			return isRetriable(osi, err)
+		})
 }
 
 // createTempFileWithData creates a temporary file, writes data to it, syncs and closes it.
