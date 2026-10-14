@@ -51,6 +51,7 @@ func TestShardedOpenLatestFileStorage(t *testing.T) {
 
 func TestShardedFileStorage(t *testing.T) {
 	t.Parallel()
+	t.Setenv("KOPIA_FS_RETRY_BLOB_RENAME", "true")
 
 	ctx := testlogging.Context(t)
 
