@@ -134,9 +134,9 @@ jobs:
         fetch-depth: 0
         persist-credentials: false
     - name: Set up QEMU
-      uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4.2.0
+      uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+      uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
     - name: Install Linux-specific packages
       run: "sudo apt-get install -y createrepo-c"
     - name: Download Artifacts
@@ -189,7 +189,7 @@ jobs:
         DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     - name: Bump Homebrew formula
-      uses: dawidd6/action-homebrew-bump-formula@a0e064e08103c01870c6d1b05168d1b726aab119 # v8
+      uses: dawidd6/action-homebrew-bump-formula@b12d2bc99c46444125e606142f28200ec71a1214 # v10
       # only bump formula for tags which don't contain '-'
       # this excludes vx.y.z-rc1
       if: github.ref_type == 'tag' && !contains(github.ref_name, '-')

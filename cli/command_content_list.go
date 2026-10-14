@@ -72,7 +72,8 @@ func (c *commandContentList) run(ctx context.Context, rep repo.DirectRepository)
 			}
 
 			return nil
-		})
+		},
+	)
 	if err != nil {
 		return errors.Wrap(err, "error iterating")
 	}

@@ -12,7 +12,6 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 func TestFileStorage_ESTALE_ErrorHandling(t *testing.T) {
@@ -25,10 +24,8 @@ func TestFileStorage_ESTALE_ErrorHandling(t *testing.T) {
 	osi := newMockOS()
 
 	st, err := New(ctx, &Options{
-		Path: dataDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		Path:            dataDir,
+		DirectoryShards: []int{5, 2},
 	}, true)
 	require.NoError(t, err)
 

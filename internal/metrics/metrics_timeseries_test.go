@@ -156,7 +156,8 @@ func TestCounterTimeSeries(t *testing.T) {
 			snapshots: []*metrics.Snapshot{
 				// 3-month-long aggregation
 				user1host1Snapshot(
-					monthOf(2021, 1), monthOf(2021, 4), 300),
+					monthOf(2021, 1), monthOf(2021, 4), 300,
+				),
 			},
 			want: map[string]metrics.TimeSeries[int64]{
 				// 300 will be proportionally attributed to 3 months it spans

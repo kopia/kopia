@@ -26,7 +26,8 @@ func CreateAutoDelete() (*os.File, error) {
 		nil,
 		syscall.OPEN_ALWAYS,
 		uint32(windows.FILE_FLAG_DELETE_ON_CLOSE),
-		0)
+		0,
+	)
 	if err != nil {
 		return nil, err //nolint:wrapcheck
 	}

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -179,7 +178,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 
 	localTimeDeadline = clock.Now().Add(30 * time.Second)
 
-	if os.Getenv("CI") != "" {
+	if testutil.IsCI() {
 		// when running on CI, simulate 4 hours, this takes about ~15-20 seconds.
 		deadline = fakeTimeFunc().Add(4 * time.Hour)
 	} else {

@@ -3,12 +3,12 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/epoch"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
@@ -50,7 +50,7 @@ func (c *commandRepositoryUpgrade) setup(svc advancedAppServices, parent command
 	// override the parent, the upgrade sub-command becomes the new parent here-onwards
 	parent = parent.Command("upgrade", "Upgrade repository format.\n\n"+warningColor.Sprint(experimentalWarning)).Hidden().
 		Validate(func(_ *kingpin.CmdClause) error {
-			if v := os.Getenv(c.svc.EnvName(upgradeLockFeatureEnv)); v == "" {
+			if !envflag.Bool(c.svc.EnvName(upgradeLockFeatureEnv)) {
 				return errors.Errorf("please set %q env variable to use this feature", upgradeLockFeatureEnv)
 			}
 
@@ -186,14 +186,15 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 	}
 
 	// otherwise there's a problem somewhere ... log the problems
-	log(ctx).Error("inconsistencies found in migrated index:")
+	err = errors.New("found inconsistencies in upgraded index blobs, repository will remain locked until index differences are resolved")
+
+	log(ctx).Error(err)
 
 	for _, m := range msgs {
 		log(ctx).Error(m)
 	}
 
-	// and return an error that states something's wrong.
-	return errors.Wrap(err, "repository will remain locked until index differences are resolved")
+	return err
 }
 
 // CheckIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
@@ -408,6 +409,9 @@ func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur tim
 func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	for {
 		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
+		if err != nil {
+			return errors.Wrap(err, "failed to refresh upgrade lock intent after the intent was placed")
+		}
 
 		upgradeTime := l.UpgradeTime()
 		now := rep.Time()
@@ -421,7 +425,7 @@ func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo
 				break
 			}
 		} else {
-			return errors.Wrap(err, "upgrade lock got revoked after the intent was placed, giving up")
+			return errors.New("upgrade lock got revoked after the intent was placed, giving up")
 		}
 
 		// TODO: this can get stuck

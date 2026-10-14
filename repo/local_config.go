@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/atomicfile"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/throttling"
@@ -153,7 +154,7 @@ func LoadConfigFromFile(fileName string) (*LocalConfig, error) {
 		}
 	}
 
-	if lc.PermissiveCacheLoading && os.Getenv("KOPIA_UPGRADE_LOCK_ENABLED") == "" {
+	if lc.PermissiveCacheLoading && !envflag.Bool("KOPIA_UPGRADE_LOCK_ENABLED") {
 		return nil, errors.New("must have set KOPIA_UPGRADE_LOCK_ENABLED when connecting to repository with permissive cache loading")
 	}
 

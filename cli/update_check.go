@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 
 	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -158,11 +158,8 @@ func verifyGitHubReleaseIsComplete(ctx context.Context, releaseName string) erro
 }
 
 func (c *App) maybeCheckForUpdates(ctx context.Context) (string, error) {
-	if v := os.Getenv(c.EnvName(checkForUpdatesEnvar)); v != "" {
-		// see if environment variable is set to false.
-		if b, err := strconv.ParseBool(v); err == nil && !b {
-			return "", errors.New("update check disabled")
-		}
+	if !envflag.BoolDefault(c.EnvName(checkForUpdatesEnvar), true) {
+		return "", errors.New("update check disabled")
 	}
 
 	us, err := c.getUpdateState()
