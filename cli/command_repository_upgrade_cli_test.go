@@ -74,48 +74,48 @@ func TestRepositoryUpgrade_checkIndexInfo_mismatch(t *testing.T) {
 		{
 			indexInfo0:         content.Info{PackBlobID: "a"},
 			indexInfo1:         content.Info{PackBlobID: "b"},
-			expectErrorMessage: `PackBlobID: a != b`,
+			expectErrorMessage: ` PackBlobID: a != b`,
 		},
 		{
 			indexInfo0:         content.Info{TimestampSeconds: 1},
 			indexInfo1:         content.Info{TimestampSeconds: 2},
-			expectErrorMessage: "TimestampSeconds: 1 != 2",
+			expectErrorMessage: " TimestampSeconds: 1 != 2",
 		},
 		{
 			indexInfo0:         content.Info{OriginalLength: 1},
 			indexInfo1:         content.Info{OriginalLength: 2},
-			expectErrorMessage: "OriginalLength: 1 != 2",
+			expectErrorMessage: " OriginalLength: 1 != 2",
 		},
 		{
 			indexInfo0:         content.Info{PackedLength: 1},
 			indexInfo1:         content.Info{PackedLength: 2},
-			expectErrorMessage: "PackedLength: 1 != 2",
+			expectErrorMessage: " PackedLength: 1 != 2",
 		},
 		{
 			indexInfo0:         content.Info{PackOffset: 1},
 			indexInfo1:         content.Info{PackOffset: 2},
-			expectErrorMessage: "PackOffset: 1 != 2",
+			expectErrorMessage: " PackOffset: 1 != 2",
 		},
 		{
 			indexInfo0:         content.Info{Deleted: false},
 			indexInfo1:         content.Info{Deleted: true},
-			expectErrorMessage: "Deleted flag: false != true",
+			expectErrorMessage: " Deleted flag: false != true",
 		},
 		{
 			indexInfo0:         content.Info{FormatVersion: 1},
 			indexInfo1:         content.Info{FormatVersion: 2},
-			expectErrorMessage: "FormatVersion: 1 != 2",
+			expectErrorMessage: " FormatVersion: 1 != 2",
 		},
 		{
 			indexInfo0:         content.Info{CompressionHeaderID: 1},
 			indexInfo1:         content.Info{CompressionHeaderID: 2},
-			expectErrorMessage: "CompressionHeaderID: 1 != 2",
+			expectErrorMessage: " CompressionHeaderID: 1 != 2",
 		},
 
 		{
 			indexInfo0:         content.Info{EncryptionKeyID: 1},
 			indexInfo1:         content.Info{EncryptionKeyID: 2},
-			expectErrorMessage: "EncryptionKeyID: 1 != 2",
+			expectErrorMessage: " EncryptionKeyID: 1 != 2",
 		},
 	}
 	for i, tc := range tcs {
