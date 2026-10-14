@@ -127,3 +127,21 @@ func TestRepositoryUpgrade_checkIndexInfo_mismatch(t *testing.T) {
 		})
 	}
 }
+
+func TestRepositoryUpgrade_checkIndexInfo_multiMismatch(t *testing.T) {
+	indexInfo0 := content.Info{
+		EncryptionKeyID:     1,
+		CompressionHeaderID: 1,
+	}
+
+	indexInfo1 := content.Info{
+		EncryptionKeyID:     2,
+		CompressionHeaderID: 2,
+	}
+
+	err := checkIndexInfo(indexInfo0, indexInfo1)
+
+	require.Error(t, err)
+	require.ErrorContains(t, err, " EncryptionKeyID: 1 != 2")
+	require.ErrorContains(t, err, " CompressionHeaderID: 1 != 2")
+}
