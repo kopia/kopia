@@ -50,13 +50,14 @@ func TestShardedOpenLatestFileStorage(t *testing.T) {
 }
 
 func TestShardedFileStorage(t *testing.T) {
-	t.Parallel()
 	t.Setenv("KOPIA_FS_RETRY_BLOB_RENAME", "true")
 
 	ctx := testlogging.Context(t)
 
 	for _, parallel := range []int{0, 1, 4, 16} {
 		t.Run(fmt.Sprintf("parallel-%v", parallel), func(t *testing.T) {
+			t.Parallel()
+
 			for _, shardSpec := range [][]int{
 				{0},
 				{1},
