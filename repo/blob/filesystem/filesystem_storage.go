@@ -211,13 +211,16 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 }
 
 func renameBlob(ctx context.Context, osi osInterface, oldPath, newPath string) error {
+	var attemptDelay time.Duration // zero delay when not retrying
+
 	count := 1
 
 	if envflag.Bool("KOPIA_FS_RETRY_BLOB_RENAME") {
 		count = 10
+		attemptDelay = time.Second
 	}
 
-	return retry.PeriodicallyNoValue(ctx, time.Second, count, "rename blob",
+	return retry.PeriodicallyNoValue(ctx, attemptDelay, count, "rename blob",
 		func() error {
 			return osi.Rename(oldPath, newPath)
 		},
