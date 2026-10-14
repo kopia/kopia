@@ -48,31 +48,35 @@ type fsImpl struct {
 var errRetriableInvalidLength = errors.New("invalid length (retriable)")
 
 func (fs *fsImpl) isRetriable(err error) bool {
+	return isRetriable(fs.osi, err)
+}
+
+func isRetriable(osi osInterface, err error) bool {
 	if err == nil {
 		return false
 	}
 
 	err = errors.Cause(err)
 
-	if fs.osi.IsStale(err) {
+	if osi.IsStale(err) {
 		// errors indicative of stale resource handle or invalid
 		// descriptors should not be retried
 		return false
 	}
 
-	if fs.osi.IsNotExist(err) {
+	if osi.IsNotExist(err) {
 		return false
 	}
 
-	if fs.osi.IsExist(err) {
+	if osi.IsExist(err) {
 		return false
 	}
 
-	if fs.osi.IsPathError(err) {
+	if osi.IsPathError(err) {
 		return true
 	}
 
-	if fs.osi.IsLinkError(err) {
+	if osi.IsLinkError(err) {
 		return true
 	}
 
