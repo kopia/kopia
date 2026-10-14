@@ -54,36 +54,35 @@ func TestShardedFileStorage(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	for _, parallel := range []int{0, 1, 4, 16} {
-		t.Run(fmt.Sprintf("parallel-%v", parallel), func(t *testing.T) {
+	shardSpecs := [][]int{
+		{0},
+		{1},
+		{3, 3},
+		{2},
+		{1, 1},
+		{1, 2},
+		{2, 2, 2},
+	}
+	for _, shardSpec := range shardSpecs {
+		t.Run(fmt.Sprintf("shardSpec:%v", shardSpec), func(t *testing.T) {
 			t.Parallel()
 
-			for _, shardSpec := range [][]int{
-				{0},
-				{1},
-				{3, 3},
-				{2},
-				{1, 1},
-				{1, 2},
-				{2, 2, 2},
-			} {
-				path := testutil.TempDirectory(t)
+			path := testutil.TempDirectory(t)
 
-				r, err := filesystem.New(ctx, &filesystem.Options{
-					Path:            path,
-					DirectoryShards: shardSpec,
-				}, true)
+			r, err := filesystem.New(ctx, &filesystem.Options{
+				Path:            path,
+				DirectoryShards: shardSpec,
+			}, true)
 
-				os.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0o600)
+			os.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0o600)
 
-				require.NoError(t, err)
-				require.NotNil(t, r)
+			require.NoError(t, err)
+			require.NotNil(t, r)
 
-				blobtesting.VerifyStorage(ctx, t, r, blob.PutOptions{})
-				blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
+			blobtesting.VerifyStorage(ctx, t, r, blob.PutOptions{})
+			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
 
-				require.NoError(t, r.Close(testlogging.ContextForCleanup(t)))
-			}
+			require.NoError(t, r.Close(testlogging.ContextForCleanup(t)))
 		})
 	}
 }
