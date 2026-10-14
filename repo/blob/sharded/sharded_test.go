@@ -76,16 +76,13 @@ func TestShardedFileStorage(t *testing.T) {
 
 				os.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0o600)
 
-				if r == nil || err != nil {
-					t.Errorf("unexpected result: %v %v", r, err)
-				}
+				require.NoError(t, err)
+				require.NotNil(t, r)
 
 				blobtesting.VerifyStorage(ctx, t, r, blob.PutOptions{})
 				blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
 
-				if err := r.Close(ctx); err != nil {
-					t.Fatalf("err: %v", err)
-				}
+				require.NoError(t, r.Close(testlogging.ContextForCleanup(t)))
 			}
 		})
 	}
