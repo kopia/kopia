@@ -231,7 +231,7 @@ func checkIndexInfo(i0, i1 content.Info) error {
 	}
 
 	if i0.CompressionHeaderID != i1.CompressionHeaderID {
-		addMismatch("GetCompressionHeaderID", i0.CompressionHeaderID, i1.CompressionHeaderID)
+		addMismatch("CompressionHeaderID", i0.CompressionHeaderID, i1.CompressionHeaderID)
 	}
 
 	if i0.Deleted != i1.Deleted {
