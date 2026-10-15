@@ -3,6 +3,8 @@ package endtoend_test
 import (
 	"os"
 	"path/filepath"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -125,4 +127,89 @@ func writeCompressibleFile(fname string) error {
 	}
 
 	return nil
+}
+
+func (s *formatSpecificTestSuite) TestSnapshotMigrateFailsWhenSourceIsCorrupt(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	sourceEnv := testenv.NewCLITest(t, s.formatFlags, runner)
+	defer sourceEnv.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	sourceEnv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", sourceEnv.RepoDir)
+
+	sourceDir := testutil.TempDirectory(t)
+	require.NoError(t, os.WriteFile(filepath.Join(sourceDir, "file.txt"), []byte("migration source data"), 0o600))
+
+	beforeBlobList := sourceEnv.RunAndExpectSuccess(t, "blob", "list")
+	sourceEnv.RunAndExpectSuccess(t, "snapshot", "create", sourceDir)
+	afterBlobList := sourceEnv.RunAndExpectSuccess(t, "blob", "list")
+
+	newBlobIDs := getNewBlobIDs(beforeBlobList, afterBlobList)
+	sort.Strings(newBlobIDs)
+	blobIDToDelete := findPackBlob(newBlobIDs)
+	require.NotEmpty(t, blobIDToDelete)
+	sourceEnv.RunAndExpectSuccess(t, "cache", "clear")
+	sourceEnv.RunAndExpectSuccess(t, "blob", "delete", blobIDToDelete)
+
+	destEnv := testenv.NewCLITest(t, s.formatFlags, runner)
+	destEnv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", destEnv.RepoDir)
+
+	migrateArgs := []string{
+		"snapshot", "migrate",
+		"--source-config", filepath.Join(sourceEnv.ConfigDir, ".kopia.config"),
+		"--all",
+		"--no-policies",
+	}
+
+	destEnv.RunAndExpectFailure(t, migrateArgs...)
+	require.Empty(t, destEnv.RunAndExpectSuccess(t, "snapshot", "list", "-a"))
+	destEnv.RunAndExpectFailure(t, migrateArgs...)
+}
+
+func (s *formatSpecificTestSuite) TestSnapshotMigrateContinuesAfterSourceFailure(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	sourceEnv := testenv.NewCLITest(t, s.formatFlags, runner)
+	defer sourceEnv.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	sourceEnv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", sourceEnv.RepoDir)
+
+	corruptDir := testutil.TempDirectory(t)
+	require.NoError(t, os.WriteFile(filepath.Join(corruptDir, "corrupt.txt"), []byte("corrupt source data"), 0o600))
+
+	beforeBlobList := sourceEnv.RunAndExpectSuccess(t, "blob", "list")
+	sourceEnv.RunAndExpectSuccess(t, "snapshot", "create", corruptDir)
+	afterBlobList := sourceEnv.RunAndExpectSuccess(t, "blob", "list")
+
+	newBlobIDs := getNewBlobIDs(beforeBlobList, afterBlobList)
+	sort.Strings(newBlobIDs)
+	blobIDToDelete := findPackBlob(newBlobIDs)
+	require.NotEmpty(t, blobIDToDelete)
+
+	healthyDir := testutil.TempDirectory(t)
+	require.NoError(t, os.WriteFile(filepath.Join(healthyDir, "healthy.txt"), []byte("healthy source data"), 0o600))
+	sourceEnv.RunAndExpectSuccess(t, "snapshot", "create", healthyDir)
+
+	sourceEnv.RunAndExpectSuccess(t, "cache", "clear")
+	sourceEnv.RunAndExpectSuccess(t, "blob", "delete", blobIDToDelete)
+
+	destEnv := testenv.NewCLITest(t, s.formatFlags, runner)
+	destEnv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", destEnv.RepoDir)
+
+	_, stderr, err := destEnv.Run(
+		t, true,
+		"snapshot", "migrate",
+		"--source-config", filepath.Join(sourceEnv.ConfigDir, ".kopia.config"),
+		"--sources", corruptDir,
+		"--sources", healthyDir,
+		"--no-policies",
+		"--parallel=1",
+	)
+	require.Error(t, err)
+
+	output := strings.Join(stderr, "\n")
+	require.Contains(t, output, corruptDir)
+	require.Contains(t, output, healthyDir)
 }
