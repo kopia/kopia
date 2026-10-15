@@ -34,6 +34,7 @@ import {
   traySummary,
   trayTitle,
   trayToolTip,
+  withFailures,
 } from "./tray-status.js";
 import {
   loadConfigs,
@@ -704,10 +705,10 @@ function updateTrayContextMenu() {
 
   allConfigs().forEach((repoID) => {
     const sd = serverForRepo(repoID).getServerStatusDetails();
-    const failures = sourceFailures[repoID] || {};
-    const sourceStatuses = serverForRepo(repoID)
-      .getSourceStatuses()
-      .map((s) => ({ ...s, failure: failures[s.path] }));
+    const sourceStatuses = withFailures(
+      serverForRepo(repoID).getSourceStatuses(),
+      sourceFailures[repoID] || {},
+    );
     allSourceStatuses = allSourceStatuses.concat(sourceStatuses);
     let desc = "";
 

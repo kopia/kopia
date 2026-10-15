@@ -107,6 +107,23 @@ export function applySnapshotReport(failures, results) {
 }
 
 /**
+ * Adds each source's last snapshot failure. Reports identify sources by path
+ * only, so a path snapshotted by several users is left without one rather
+ * than showing another user's result.
+ */
+export function withFailures(statuses, failures) {
+  const counts = {};
+  for (const s of statuses) {
+    counts[s.path] = (counts[s.path] || 0) + 1;
+  }
+
+  return statuses.map((s) => ({
+    ...s,
+    failure: counts[s.path] === 1 ? failures[s.path] : undefined,
+  }));
+}
+
+/**
  * Drops failures for repositories and sources that no longer exist.
  * knownSources maps repoID to its current source paths, or null when the
  * list is not known yet (starting up, not connected), which keeps them.

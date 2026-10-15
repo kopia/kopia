@@ -69,6 +69,8 @@ function newServerForRepo(repoID) {
       this.raiseStatusUpdatedEvent();
 
       runningServerProcess.stdout.on("data", this.appendToLog.bind(this));
+      // decode as a stream so a UTF-8 character split across reads stays intact.
+      runningServerProcess.stderr.setEncoding("utf8");
       const stderrLines = lineBuffer();
       runningServerProcess.stderr.on("data", (data) =>
         this.detectServerParam(data, stderrLines(data + "")),

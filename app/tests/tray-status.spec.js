@@ -12,6 +12,7 @@ import {
   trayTitle,
   trayToolTip,
   uploadPercent,
+  withFailures,
 } from "../public/tray-status.js";
 
 function sourceStatus(path, status, upload, userName = "me", host = "box") {
@@ -224,6 +225,23 @@ test("pruneFailures drops removed sources and repositories", () => {
   expect(pruneFailures(failures, { repo1: [], repo2: null })).toStrictEqual({
     repo2: { "/b": "fatal" },
   });
+});
+
+test("withFailures skips paths shared by several users", () => {
+  const statuses = [
+    { path: "/home/me/docs", otherUser: null },
+    { path: "/shared", otherUser: null },
+    { path: "/shared", otherUser: "other" },
+  ];
+
+  expect(
+    withFailures(statuses, { "/home/me/docs": "fatal", "/shared": "warnings" }),
+  ).toStrictEqual([
+    { path: "/home/me/docs", otherUser: null, failure: "fatal" },
+    // reports name the path only, so the result can't be attributed
+    { path: "/shared", otherUser: null, failure: undefined },
+    { path: "/shared", otherUser: "other", failure: undefined },
+  ]);
 });
 
 test("applySnapshotReport does not modify its input", () => {
