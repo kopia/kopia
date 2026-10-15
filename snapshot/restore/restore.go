@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"runtime"
+	"strings"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
@@ -377,6 +378,20 @@ func (c *copier) deleteExtraFilesInDir(ctx context.Context, o *FilesystemOutput,
 	return nil
 }
 
+// validateEntryName ensures that a directory entry name read from a snapshot
+// can be safely joined to the restore target path and cannot escape it.
+func validateEntryName(name string) error {
+	if name == "" || name == "." || name == ".." {
+		return errors.Errorf("invalid entry name %q", name)
+	}
+
+	if strings.ContainsRune(name, '/') || strings.ContainsRune(name, os.PathSeparator) {
+		return errors.Errorf("invalid entry name %q: must not contain a path separator", name)
+	}
+
+	return nil
+}
+
 func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc) error {
 	entries, err := fs.GetAllEntries(ctx, d)
 	if err != nil {
@@ -385,6 +400,14 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 
 	if len(entries) == 0 {
 		return onCompletion()
+	}
+
+	// Reject unsafe names before anything is enqueued, so that no entry of a
+	// crafted directory is written outside of the restore target.
+	for _, e := range entries {
+		if err := validateEntryName(e.Name()); err != nil {
+			return errors.Wrapf(err, "error restoring directory %q", targetPath)
+		}
 	}
 
 	onItemCompletion := parallelwork.OnNthCompletion(len(entries), onCompletion)
