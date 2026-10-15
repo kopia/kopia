@@ -27,16 +27,13 @@ export function uploadPercent(doneBytes, estimatedBytes) {
 }
 
 /**
- * Reduces a /api/v1/control/sources response to the sources owned by the
- * local user and host, keeping only the fields the tray displays.
+ * Reduces a /api/v1/control/sources response to the sources on the local
+ * host, keeping only the fields the tray displays. The server snapshots every
+ * user's sources on its host, so other users' sources are kept and named.
  */
 export function localSourceStatuses(resp) {
   return (resp?.sources || [])
-    .filter(
-      (s) =>
-        s.source?.host === resp.localHost &&
-        s.source?.userName === resp.localUsername,
-    )
+    .filter((s) => s.source?.host === resp.localHost)
     .map((s) => {
       const u = s.upload;
       const doneBytes = u ? (u.hashedBytes || 0) + (u.cachedBytes || 0) : 0;
@@ -44,6 +41,8 @@ export function localSourceStatuses(resp) {
 
       return {
         path: s.source.path,
+        otherUser:
+          s.source.userName === resp.localUsername ? null : s.source.userName,
         status: s.status,
         doneBytes,
         estimatedBytes,

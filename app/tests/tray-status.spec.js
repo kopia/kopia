@@ -65,7 +65,7 @@ test("uploadPercent", () => {
   expect(uploadPercent(300, 200)).toBeNull();
 });
 
-test("localSourceStatuses keeps only local sources", () => {
+test("localSourceStatuses keeps only sources on the local host", () => {
   const resp = {
     localUsername: "me",
     localHost: "box",
@@ -76,7 +76,7 @@ test("localSourceStatuses keeps only local sources", () => {
         estimatedBytes: 200,
       }),
       sourceStatus("/home/me/pics", "IDLE"),
-      sourceStatus("/home/other", "REMOTE", undefined, "other"),
+      sourceStatus("/home/other", "UPLOADING", undefined, "other"),
       sourceStatus("/home/me/docs", "REMOTE", undefined, "me", "laptop"),
     ],
   };
@@ -84,6 +84,7 @@ test("localSourceStatuses keeps only local sources", () => {
   expect(localSourceStatuses(resp)).toStrictEqual([
     {
       path: "/home/me/docs",
+      otherUser: null,
       status: "UPLOADING",
       doneBytes: 50,
       estimatedBytes: 200,
@@ -91,7 +92,17 @@ test("localSourceStatuses keeps only local sources", () => {
     },
     {
       path: "/home/me/pics",
+      otherUser: null,
       status: "IDLE",
+      doneBytes: 0,
+      estimatedBytes: 0,
+      percent: null,
+    },
+    // the server also snapshots other users' sources on this host
+    {
+      path: "/home/other",
+      otherUser: "other",
+      status: "UPLOADING",
       doneBytes: 0,
       estimatedBytes: 0,
       percent: null,

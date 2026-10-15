@@ -4,6 +4,7 @@ const https = await import("https");
 
 import { defaultServerBinary } from "./utils.js";
 import { localSourceStatuses } from "./tray-status.js";
+import { lineBuffer } from "./line-buffer.js";
 import { spawn } from "child_process";
 import log from "electron-log";
 import { configDir, isPortableConfig } from "./config.js";
@@ -68,7 +69,10 @@ function newServerForRepo(repoID) {
       this.raiseStatusUpdatedEvent();
 
       runningServerProcess.stdout.on("data", this.appendToLog.bind(this));
-      runningServerProcess.stderr.on("data", this.detectServerParam.bind(this));
+      const stderrLines = lineBuffer();
+      runningServerProcess.stderr.on("data", (data) =>
+        this.detectServerParam(data, stderrLines(data + "")),
+      );
 
       const p = runningServerProcess;
 
@@ -219,8 +223,7 @@ function newServerForRepo(repoID) {
       });
     },
 
-    detectServerParam(data) {
-      let lines = (data + "").split("\n");
+    detectServerParam(data, lines) {
       for (let i = 0; i < lines.length; i++) {
         const p = lines[i].indexOf(": ");
         if (p < 0) {

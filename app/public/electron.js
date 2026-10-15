@@ -688,10 +688,17 @@ function updateTrayContextMenu() {
   const knownSources = {};
   allConfigs().forEach((repoID) => {
     const s = serverForRepo(repoID);
-    knownSources[repoID] =
-      s.getSourcesFetchedAt() > (lastReportAt[repoID] || 0)
-        ? s.getSourceStatuses().map((st) => st.path)
-        : null;
+    const sd = s.getServerStatusDetails();
+    if (!sd.startingUp && !sd.connected && !sd.initTaskID) {
+      // nothing is configured in this slot (disconnected), so failures must
+      // not carry over to the next repository connected here. An unreachable
+      // repository keeps retrying with an initTaskID and keeps its failures.
+      knownSources[repoID] = [];
+    } else if (s.getSourcesFetchedAt() > (lastReportAt[repoID] || 0)) {
+      knownSources[repoID] = s.getSourceStatuses().map((st) => st.path);
+    } else {
+      knownSources[repoID] = null;
+    }
   });
   setSourceFailures(pruneFailures(sourceFailures, knownSources));
 
@@ -733,6 +740,7 @@ function updateTrayContextMenu() {
         label: escapeMenuLabel(
           "    " +
             shortenPath(s.path, homeDirAlias) +
+            (s.otherUser ? " (" + s.otherUser + ")" : "") +
             " - " +
             sourceStatusLabel(s),
         ),
