@@ -890,16 +890,28 @@ func (c grpcCreds) RequireTransportSecurity() bool {
 // openGRPCAPIRepository opens the Repository based on remote GRPC server.
 // The APIServerInfo must have the address of the repository as 'https://host:port'
 func openGRPCAPIRepository(ctx context.Context, si *APIServerInfo, password string, par *immutableServerRepositoryParameters) (Repository, error) {
+	if err := si.validate(); err != nil {
+		return nil, err
+	}
+
 	var transportCreds credentials.TransportCredentials
 
-	if si.TrustedServerCertificateFingerprint != "" {
+	switch {
+	case len(si.TrustedServerCACertificate) > 0:
+		cfg, err := tlsutil.TLSConfigTrustingCA(si.TrustedServerCACertificate)
+		if err != nil {
+			return nil, errors.Wrap(err, "invalid server CA certificate")
+		}
+
+		transportCreds = credentials.NewTLS(cfg)
+	case si.TrustedServerCertificateFingerprint != "":
 		c, err := tlsutil.TLSConfigTrustingSingleCertificate(si.TrustedServerCertificateFingerprint)
 		if err != nil {
 			return nil, errors.Wrap(err, "creating TLS config")
 		}
 
 		transportCreds = credentials.NewTLS(c)
-	} else {
+	default:
 		transportCreds = credentials.NewClientTLSFromCert(nil, "")
 	}
 

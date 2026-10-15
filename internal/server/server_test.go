@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -62,6 +63,91 @@ func TestServer(t *testing.T) {
 
 	remoteRepositoryTest(ctx, t, rep)
 	remoteRepositoryNotificationTest(t, ctx, rep, env.RepositoryWriter)
+}
+
+func TestServerTrustedServerCACertificate(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	ca, caKey := testutil.CreateServerRootCA(t)
+	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
+
+	tlsCert := tls.Certificate{
+		Certificate: [][]byte{leaf.Raw},
+		PrivateKey:  leafKey,
+		Leaf:        leaf,
+	}
+
+	apiServerInfo := servertesting.StartServerContextWithCertificate(ctx, t, env, &tlsCert)
+	apiServerInfo.TrustedServerCACertificate = testutil.CertPEM(t, ca)
+
+	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory:        testutil.TempDirectory(t),
+		ContentCacheSizeBytes: maxCacheSizeBytes,
+	}, servertesting.TestPassword, &repo.Options{})
+	require.NoError(t, err)
+	rep.Close(ctx) //nolint:errcheck
+}
+
+func TestServerTrustedServerCACertificateWrongCA(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	ca, caKey := testutil.CreateServerRootCA(t)
+	otherCA, _ := testutil.CreateServerRootCA(t)
+	leaf, leafKey := testutil.CreateAndSignServerCertificate(t, ca, caKey, "127.0.0.1")
+
+	tlsCert := tls.Certificate{
+		Certificate: [][]byte{leaf.Raw},
+		PrivateKey:  leafKey,
+		Leaf:        leaf,
+	}
+
+	apiServerInfo := servertesting.StartServerContextWithCertificate(ctx, t, env, &tlsCert)
+	apiServerInfo.TrustedServerCACertificate = testutil.CertPEM(t, otherCA)
+
+	_, err := servertesting.ConnectAndOpenAPIServer(t, ctx, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory:        testutil.TempDirectory(t),
+		ContentCacheSizeBytes: maxCacheSizeBytes,
+	}, servertesting.TestPassword, &repo.Options{})
+	require.Error(t, err)
+}
+
+func TestServerTrustedServerCACertificateAndFingerprintMutuallyExclusive(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	apiServerInfo := servertesting.StartServer(t, env, true)
+	apiServerInfo.TrustedServerCACertificate = []byte("some-ca-pem")
+
+	_, err := servertesting.ConnectAndOpenAPIServer(t, ctx, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory:        testutil.TempDirectory(t),
+		ContentCacheSizeBytes: maxCacheSizeBytes,
+	}, servertesting.TestPassword, &repo.Options{})
+	require.Error(t, err)
+	require.ErrorContains(t, err, "mutually exclusive")
+}
+
+func TestServerTrustedServerCACertificateEmpty(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+
+	apiServerInfo := servertesting.StartServer(t, env, false)
+	apiServerInfo.TrustedServerCACertificate = []byte{}
+
+	_, err := servertesting.ConnectAndOpenAPIServer(t, ctx, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory:        testutil.TempDirectory(t),
+		ContentCacheSizeBytes: maxCacheSizeBytes,
+	}, servertesting.TestPassword, &repo.Options{})
+	require.ErrorContains(t, err, "serverCertCA is empty")
 }
 
 func TestGRPCServer_AuthenticationError(t *testing.T) {
