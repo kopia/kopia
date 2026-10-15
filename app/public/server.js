@@ -76,13 +76,14 @@ function newServerForRepo(repoID) {
 
       const statusUpdated = this.raiseStatusUpdatedEvent.bind(this);
 
-      // byte counters feed the overall percent, so any change is raised.
+      // byte counters feed the overall percent, and each fresh list may allow
+      // pruning that an earlier snapshot report deferred, so both are raised.
       // The tray skips rebuilding its menu when the labels are unchanged.
       function setSourceStatuses(statuses, fetchedAt) {
         const changed =
           JSON.stringify(statuses) !=
             JSON.stringify(runningServerSourceStatuses) ||
-          (fetchedAt === 0) !== (runningServerSourcesFetchedAt === 0);
+          fetchedAt !== runningServerSourcesFetchedAt;
 
         runningServerSourceStatuses = statuses;
         runningServerSourcesFetchedAt = fetchedAt;
