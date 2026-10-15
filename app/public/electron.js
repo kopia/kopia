@@ -25,9 +25,13 @@ import {
 } from "./notifications.js";
 import { serverForRepo } from "./server.js";
 import {
-  overallProgress,
+  applySnapshotReport,
+  parseSnapshotReport,
+  pruneFailures,
   shortenPath,
   sourceStatusLabel,
+  trayIconState,
+  traySummary,
   trayTitle,
   trayToolTip,
 } from "./tray-status.js";
@@ -508,16 +512,7 @@ app.on("ready", () => {
   // re-check for updates every 24 hours
   setInterval(checkForUpdates, 86400000);
 
-  tray = new Tray(
-    path.join(
-      iconsPath(),
-      selectByOS({
-        mac: "kopiaTrayTemplate.png",
-        win: "kopia-tray.ico",
-        linux: "kopia-tray.png",
-      }),
-    ),
-  );
+  tray = new Tray(trayIconPath(trayIcon));
 
   // hooks exposed to tests
   if (process.env["KOPIA_UI_TESTING"]) {
@@ -599,11 +594,72 @@ function showRepoNotification(e) {
 ipcMain.addListener("config-list-updated-event", () => updateTrayContextMenu());
 ipcMain.addListener("status-updated-event", () => updateTrayContextMenu());
 ipcMain.addListener("repo-notification-event", showRepoNotification);
+ipcMain.addListener("repo-notification-event", recordSnapshotReport);
 
 function addAnotherRepository() {
   const repoID = addNewConfig();
   serverForRepo(repoID).actuateServer();
   showRepoWindow(repoID);
+}
+
+const trayIcons = {
+  idle: {
+    mac: "kopiaTrayTemplate.png",
+    win: "kopia-tray.ico",
+    linux: "kopia-tray.png",
+  },
+  busy: {
+    mac: "kopiaTrayBusyTemplate.png",
+    win: "kopia-tray-busy.ico",
+    linux: "kopia-tray-busy.png",
+  },
+  error: {
+    // not a template image so it stays red in the macOS menu bar.
+    mac: "kopiaTrayError.png",
+    win: "kopia-tray-error.ico",
+    linux: "kopia-tray-error.png",
+  },
+};
+
+let trayIcon = "idle";
+
+function trayIconPath(state) {
+  return path.join(iconsPath(), selectByOS(trayIcons[state]));
+}
+
+// repoID -> source path -> "fatal" | "warnings", persisted so failures remain
+// visible after a restart until that source's next successful snapshot.
+let sourceFailures = store.get("sourceFailures", {});
+
+function setSourceFailures(updated) {
+  if (JSON.stringify(updated) === JSON.stringify(sourceFailures)) {
+    return false;
+  }
+
+  sourceFailures = updated;
+  store.set("sourceFailures", sourceFailures);
+  return true;
+}
+
+function recordSnapshotReport(e) {
+  const results = parseSnapshotReport(e.notification?.body);
+  if (!results.length) {
+    if (/snapshot/i.test(e.notification?.subject)) {
+      log.warn(
+        "snapshot report has no Path/Status lines, customised template?",
+        e.notification.subject,
+      );
+    }
+    return;
+  }
+
+  const updated = {
+    ...sourceFailures,
+    [e.repoID]: applySnapshotReport(sourceFailures[e.repoID] || {}, results),
+  };
+  if (setSourceFailures(updated)) {
+    updateTrayContextMenu();
+  }
 }
 
 // "~" is not a familiar shorthand for the home directory on Windows.
@@ -623,9 +679,19 @@ function updateTrayContextMenu() {
   let additionalReposTemplates = [];
   let allSourceStatuses = [];
 
+  const knownSources = {};
+  allConfigs().forEach((repoID) => {
+    const statuses = serverForRepo(repoID).getSourceStatuses();
+    knownSources[repoID] = statuses.length ? statuses.map((s) => s.path) : null;
+  });
+  setSourceFailures(pruneFailures(sourceFailures, knownSources));
+
   allConfigs().forEach((repoID) => {
     const sd = serverForRepo(repoID).getServerStatusDetails();
-    const sourceStatuses = serverForRepo(repoID).getSourceStatuses();
+    const failures = sourceFailures[repoID] || {};
+    const sourceStatuses = serverForRepo(repoID)
+      .getSourceStatuses()
+      .map((s) => ({ ...s, failure: failures[s.path] }));
     allSourceStatuses = allSourceStatuses.concat(sourceStatuses);
     let desc = "";
 
@@ -673,10 +739,15 @@ function updateTrayContextMenu() {
     );
   }
 
-  const progress = overallProgress(allSourceStatuses);
-  tray.setToolTip(trayToolTip(progress));
+  const summary = traySummary(allSourceStatuses);
+  const icon = trayIconState(summary);
+  if (icon !== trayIcon) {
+    trayIcon = icon;
+    tray.setImage(trayIconPath(icon));
+  }
+  tray.setToolTip(trayToolTip(summary));
   if (process.platform === "darwin") {
-    tray.setTitle(trayTitle(progress), { fontType: "monospacedDigit" });
+    tray.setTitle(trayTitle(summary), { fontType: "monospacedDigit" });
   }
 
   let autoUpdateMenuItems = [];

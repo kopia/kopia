@@ -52,12 +52,89 @@ export function localSourceStatuses(resp) {
     });
 }
 
+// labels for an idle source whose last snapshot report was not successful.
+const failureLabels = {
+  fatal: "Failed",
+  warnings: "Errors",
+};
+
 export function sourceStatusLabel(s) {
   if (s.status === "UPLOADING" && s.percent !== null) {
     return s.percent + "%";
   }
 
+  if (s.status === "IDLE" && s.failure) {
+    return failureLabels[s.failure];
+  }
+
   return statusLabels[s.status] || s.status;
+}
+
+/**
+ * Extracts per-source results from the plain text body of a snapshot report
+ * notification. The server only reports failures this way, so this relies on
+ * the default "Path:" and "Status:" lines of the snapshot-report template.
+ * Repositories with a customised template, or KopiaUI connected to a
+ * repository server (which receives the notifications instead), report none.
+ */
+export function parseSnapshotReport(body) {
+  const results = [];
+  const re = /^Path: (.+)\n\s*\n\s+Status:\s+(\w+)/gm;
+
+  for (const m of (body || "").matchAll(re)) {
+    results.push({ path: m[1], status: m[2] });
+  }
+
+  return results;
+}
+
+/**
+ * Returns failures (path to "fatal" or "warnings") updated with snapshot
+ * report results. Only a successful snapshot of the same path clears it;
+ * incomplete (cancelled) snapshots leave it unchanged.
+ */
+export function applySnapshotReport(failures, results) {
+  const updated = { ...failures };
+
+  for (const r of results) {
+    if (r.status === "success") {
+      delete updated[r.path];
+    } else if (failureLabels[r.status]) {
+      updated[r.path] = r.status;
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * Drops failures for repositories and sources that no longer exist.
+ * knownSources maps repoID to its current source paths, or null when the
+ * list is not known yet (starting up, not connected), which keeps them.
+ */
+export function pruneFailures(failures, knownSources) {
+  const pruned = {};
+
+  for (const [repoID, paths] of Object.entries(knownSources)) {
+    const f = failures[repoID];
+    if (!f) {
+      continue;
+    }
+
+    if (paths === null) {
+      pruned[repoID] = f;
+      continue;
+    }
+
+    const kept = Object.fromEntries(
+      Object.entries(f).filter(([p]) => paths.includes(p)),
+    );
+    if (Object.keys(kept).length) {
+      pruned[repoID] = kept;
+    }
+  }
+
+  return pruned;
 }
 
 /**
@@ -79,10 +156,10 @@ export function shortenPath(p, homeDir, maxLength = 40) {
 }
 
 /**
- * Summarises uploads across all sources. Percent is weighted by estimated
- * size and is null when no running upload has an estimate yet.
+ * Summarises uploads and failures across all sources. Percent is weighted by
+ * estimated size and is null when no running upload has an estimate yet.
  */
-export function overallProgress(statuses) {
+export function traySummary(statuses) {
   const uploading = statuses.filter((s) => s.status === "UPLOADING");
   const estimated = uploading.filter((s) => s.percent !== null);
 
@@ -95,31 +172,51 @@ export function overallProgress(statuses) {
   return {
     uploading: uploading.length,
     percent: uploadPercent(doneBytes, estimatedBytes),
+    failed: statuses.filter((s) => s.failure).length,
   };
 }
 
-export function trayTitle(progress) {
-  if (!progress.uploading) {
+// icon variant: an upload in progress takes priority over earlier failures.
+export function trayIconState(summary) {
+  if (summary.uploading) {
+    return "busy";
+  }
+
+  return summary.failed ? "error" : "idle";
+}
+
+// the busy icon already shows an upload is running, the title adds the percent once known.
+export function trayTitle(summary) {
+  if (!summary.uploading || summary.percent === null) {
     return "";
   }
 
-  return progress.percent === null ? "..." : progress.percent + "%";
+  return summary.percent + "%";
 }
 
-export function trayToolTip(progress) {
-  if (!progress.uploading) {
-    return "Kopia";
+export function trayToolTip(summary) {
+  const parts = [];
+
+  if (summary.uploading) {
+    let p =
+      summary.uploading +
+      (summary.uploading === 1 ? " snapshot" : " snapshots") +
+      " in progress";
+
+    if (summary.percent !== null) {
+      p += " (" + summary.percent + "%)";
+    }
+
+    parts.push(p);
   }
 
-  let tip =
-    "Kopia - " +
-    progress.uploading +
-    (progress.uploading === 1 ? " snapshot" : " snapshots") +
-    " in progress";
-
-  if (progress.percent !== null) {
-    tip += " (" + progress.percent + "%)";
+  if (summary.failed) {
+    parts.push(
+      summary.failed +
+        (summary.failed === 1 ? " source" : " sources") +
+        " with errors",
+    );
   }
 
-  return tip;
+  return parts.length ? "Kopia - " + parts.join(", ") : "Kopia";
 }
