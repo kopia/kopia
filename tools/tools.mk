@@ -164,7 +164,7 @@ install-linter: $(linter)
 gocover_cobertura_dir=$(TOOLS_DIR)$(slash)gocover-cobertura-$(GOCOVER_COBERTURA_VERSION)
 gocover_cobertura=$(gocover_cobertura_dir)$(slash)gocover-cobertura$(exe_suffix)
 
-$(gocover_cobertura): export GOPATH=$(gocover_cobertura_dir)
+$(gocover_cobertura): export GOBIN=$(gocover_cobertura_dir)
 $(gocover_cobertura):
 	go install github.com/boumenot/gocover-cobertura@v$(GOCOVER_COBERTURA_VERSION)
 
