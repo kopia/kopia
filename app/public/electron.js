@@ -622,6 +622,7 @@ const trayIcons = {
 };
 
 let trayIcon = "idle";
+let trayMenuSignature = "";
 
 function trayIconPath(state) {
   return path.join(iconsPath(), selectByOS(trayIcons[state]));
@@ -641,6 +642,10 @@ function setSourceFailures(updated) {
   return true;
 }
 
+// repoID -> when its last snapshot report arrived. Source lists fetched before
+// then may not include a new source yet, so they aren't used for pruning.
+const lastReportAt = {};
+
 function recordSnapshotReport(e) {
   const results = parseSnapshotReport(e.notification?.body);
   if (!results.length) {
@@ -653,6 +658,7 @@ function recordSnapshotReport(e) {
     return;
   }
 
+  lastReportAt[e.repoID] = Date.now();
   const updated = {
     ...sourceFailures,
     [e.repoID]: applySnapshotReport(sourceFailures[e.repoID] || {}, results),
@@ -681,8 +687,11 @@ function updateTrayContextMenu() {
 
   const knownSources = {};
   allConfigs().forEach((repoID) => {
-    const statuses = serverForRepo(repoID).getSourceStatuses();
-    knownSources[repoID] = statuses.length ? statuses.map((s) => s.path) : null;
+    const s = serverForRepo(repoID);
+    knownSources[repoID] =
+      s.getSourcesFetchedAt() > (lastReportAt[repoID] || 0)
+        ? s.getSourceStatuses().map((st) => st.path)
+        : null;
   });
   setSourceFailures(pruneFailures(sourceFailures, knownSources));
 
@@ -831,5 +840,12 @@ function updateTrayContextMenu() {
       },
       { label: "Quit", role: "quit" },
     ]);
-  tray.setContextMenu(Menu.buildFromTemplate(template));
+
+  // progress polls update the title and tooltip every few seconds, the menu
+  // is only rebuilt when its contents change.
+  const menuSignature = JSON.stringify(template);
+  if (menuSignature !== trayMenuSignature) {
+    trayMenuSignature = menuSignature;
+    tray.setContextMenu(Menu.buildFromTemplate(template));
+  }
 }

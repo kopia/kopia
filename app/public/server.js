@@ -21,6 +21,9 @@ function newServerForRepo(repoID) {
     startingUp: true,
   };
   let runningServerSourceStatuses = [];
+  // start time of the request that returned runningServerSourceStatuses,
+  // 0 while the list is unknown (starting up, not connected).
+  let runningServerSourcesFetchedAt = 0;
   let serverLog = [];
 
   const maxLogLines = 100;
@@ -73,17 +76,17 @@ function newServerForRepo(repoID) {
 
       const statusUpdated = this.raiseStatusUpdatedEvent.bind(this);
 
-      // byte counters change on every poll during an upload, so only compare
-      // what the tray displays to avoid rebuilding the menu each time.
-      const displayedFields = (statuses) =>
-        JSON.stringify(statuses.map((s) => [s.path, s.status, s.percent]));
+      // byte counters feed the overall percent, so any change is raised.
+      // The tray skips rebuilding its menu when the labels are unchanged.
+      function setSourceStatuses(statuses, fetchedAt) {
+        const changed =
+          JSON.stringify(statuses) !=
+            JSON.stringify(runningServerSourceStatuses) ||
+          (fetchedAt === 0) !== (runningServerSourcesFetchedAt === 0);
 
-      function setSourceStatuses(statuses) {
-        if (
-          displayedFields(statuses) !=
-          displayedFields(runningServerSourceStatuses)
-        ) {
-          runningServerSourceStatuses = statuses;
+        runningServerSourceStatuses = statuses;
+        runningServerSourcesFetchedAt = fetchedAt;
+        if (changed) {
           statusUpdated();
         }
       }
@@ -100,6 +103,7 @@ function newServerForRepo(repoID) {
         }
 
         pollInProgress[apiPath] = true;
+        const startedAt = Date.now();
 
         const req = https.request(
           {
@@ -144,7 +148,7 @@ function newServerForRepo(repoID) {
                 return;
               }
 
-              onResult(result);
+              onResult(result, startedAt);
             });
           },
         );
@@ -184,12 +188,12 @@ function newServerForRepo(repoID) {
 
         // sources API fails until the repository is connected.
         if (!runningServerStatusDetails.connected) {
-          setSourceStatuses([]);
+          setSourceStatuses([], 0);
           return;
         }
 
-        pollControlAPI("/api/v1/control/sources", (resp) => {
-          setSourceStatuses(localSourceStatuses(resp));
+        pollControlAPI("/api/v1/control/sources", (resp, startedAt) => {
+          setSourceStatuses(localSourceStatuses(resp), startedAt);
         });
       }
 
@@ -207,6 +211,7 @@ function newServerForRepo(repoID) {
           runningServerControlPassword = "";
           runningServerCertSHA256 = "";
           runningServerSourceStatuses = [];
+          runningServerSourcesFetchedAt = 0;
           runningServerProcess = null;
           this.raiseStatusUpdatedEvent();
         }
@@ -289,6 +294,7 @@ function newServerForRepo(repoID) {
       runningServerCertSHA256 = "";
       runningServerCertificate = "";
       runningServerSourceStatuses = [];
+      runningServerSourcesFetchedAt = 0;
       runningServerProcess = null;
       this.raiseStatusUpdatedEvent();
     },
@@ -311,6 +317,10 @@ function newServerForRepo(repoID) {
 
     getSourceStatuses() {
       return runningServerSourceStatuses;
+    },
+
+    getSourcesFetchedAt() {
+      return runningServerSourcesFetchedAt;
     },
 
     getServerStatus() {

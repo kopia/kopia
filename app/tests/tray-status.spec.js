@@ -208,6 +208,11 @@ test("pruneFailures drops removed sources and repositories", () => {
   });
 
   expect(pruneFailures(failures, { repo1: ["/other"] })).toStrictEqual({});
+
+  // last source removed: a known empty list clears the repository's failures
+  expect(pruneFailures(failures, { repo1: [], repo2: null })).toStrictEqual({
+    repo2: { "/b": "fatal" },
+  });
 });
 
 test("applySnapshotReport does not modify its input", () => {
