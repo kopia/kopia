@@ -25,6 +25,13 @@ import {
 } from "./notifications.js";
 import { serverForRepo } from "./server.js";
 import {
+  overallProgress,
+  shortenPath,
+  sourceStatusLabel,
+  trayTitle,
+  trayToolTip,
+} from "./tray-status.js";
+import {
   loadConfigs,
   allConfigs,
   deleteConfigIfDisconnected,
@@ -38,6 +45,7 @@ import Store from "electron-store";
 import log from "electron-log";
 import path from "path";
 import crypto from "crypto";
+import os from "os";
 
 // Store to save parameters
 const store = new Store();
@@ -511,8 +519,6 @@ app.on("ready", () => {
     ),
   );
 
-  tray.setToolTip("Kopia");
-
   // hooks exposed to tests
   if (process.env["KOPIA_UI_TESTING"]) {
     app.testHooks = {
@@ -600,6 +606,14 @@ function addAnotherRepository() {
   showRepoWindow(repoID);
 }
 
+// "~" is not a familiar shorthand for the home directory on Windows.
+const homeDirAlias = process.platform === "win32" ? "" : os.homedir();
+
+// Windows and Linux treat "&" in menu labels as an accelerator prefix.
+function escapeMenuLabel(label) {
+  return process.platform === "darwin" ? label : label.replace(/&/g, "&&");
+}
+
 function updateTrayContextMenu() {
   if (!tray) {
     return;
@@ -607,9 +621,12 @@ function updateTrayContextMenu() {
 
   let defaultReposTemplates = [];
   let additionalReposTemplates = [];
+  let allSourceStatuses = [];
 
   allConfigs().forEach((repoID) => {
     const sd = serverForRepo(repoID).getServerStatusDetails();
+    const sourceStatuses = serverForRepo(repoID).getSourceStatuses();
+    allSourceStatuses = allSourceStatuses.concat(sourceStatuses);
     let desc = "";
 
     if (sd.startingUp) {
@@ -630,15 +647,36 @@ function updateTrayContextMenu() {
         ? defaultReposTemplates
         : additionalReposTemplates;
 
-    collection.push({
-      label: desc,
-      click: () => showRepoWindow(repoID),
-      toolTip: desc + " (" + repoID + ")",
-    });
+    // each repository is followed by its snapshot sources, so sort as a group.
+    collection.push([
+      {
+        label: desc,
+        click: () => showRepoWindow(repoID),
+        toolTip: desc + " (" + repoID + ")",
+      },
+      ...sourceStatuses.map((s) => ({
+        label: escapeMenuLabel(
+          "    " +
+            shortenPath(s.path, homeDirAlias) +
+            " - " +
+            sourceStatusLabel(s),
+        ),
+        click: () => showRepoWindow(repoID),
+        toolTip: s.path,
+      })),
+    ]);
   });
 
   if (additionalReposTemplates.length > 0) {
-    additionalReposTemplates.sort((a, b) => a.label.localeCompare(b.label));
+    additionalReposTemplates.sort((a, b) =>
+      a[0].label.localeCompare(b[0].label),
+    );
+  }
+
+  const progress = overallProgress(allSourceStatuses);
+  tray.setToolTip(trayToolTip(progress));
+  if (process.platform === "darwin") {
+    tray.setTitle(trayTitle(progress), { fontType: "monospacedDigit" });
   }
 
   let autoUpdateMenuItems = [];
@@ -677,6 +715,7 @@ function updateTrayContextMenu() {
 
   let template = defaultReposTemplates
     .concat(additionalReposTemplates)
+    .flat()
     .concat([
       { type: "separator" },
       {
