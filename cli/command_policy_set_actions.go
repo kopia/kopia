@@ -62,7 +62,7 @@ func (c *policyActionFlags) setActionCommandFromFlags(ctx context.Context, actio
 		return nil
 	}
 
-	if value == "" {
+	if value == "" || value == "none" || value == inheritPolicyString {
 		log(ctx).Infof(" - removing %v action", actionName)
 
 		*changeCount++
