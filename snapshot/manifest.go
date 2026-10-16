@@ -128,6 +128,19 @@ type DirEntry struct {
 	GroupID     uint32               `json:"gid,omitempty"`
 	ObjectID    object.ID            `json:"obj"`
 	DirSummary  *fs.DirectorySummary `json:"summ,omitempty"`
+
+	// Hardlink identity, only populated for entries with more than one link
+	// when the files.trackHardlinks policy is enabled. Dev and Ino together
+	// identify the underlying file on the source machine; entries sharing both
+	// within a single snapshot are hardlinks of each other.
+	Dev   uint64 `json:"dev,omitempty"`
+	Ino   uint64 `json:"ino,omitempty"`
+	NLink uint64 `json:"nlink,omitempty"`
+}
+
+// HasHardLinkInfo returns true if the entry carries hardlink identity.
+func (e *DirEntry) HasHardLinkInfo() bool {
+	return e.Ino != 0 && e.NLink > 1
 }
 
 // Clone returns a clone of the entry.
