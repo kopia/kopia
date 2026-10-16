@@ -254,8 +254,11 @@ func (s *s3Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func
 
 	defer cancel()
 
+	// Recursive must be set, otherwise minio-go defaults the delimiter to "/" and the
+	// listing also yields CommonPrefixes, which are indistinguishable from objects here.
 	oi := s.cli.ListObjects(ctx, s.BucketName, minio.ListObjectsOptions{
-		Prefix: s.getObjectNameString(prefix),
+		Prefix:    s.getObjectNameString(prefix),
+		Recursive: true,
 	})
 	for o := range oi {
 		if err := o.Err; err != nil {
@@ -264,6 +267,13 @@ func (s *s3Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func
 			}
 
 			return err
+		}
+
+		// Defense in depth: a directory prefix is never a valid blob, since blob IDs
+		// never contain the delimiter. Some S3 implementations surface in-flight
+		// objects as prefixes.
+		if strings.HasSuffix(o.Key, "/") {
+			continue
 		}
 
 		bm := blob.Metadata{
