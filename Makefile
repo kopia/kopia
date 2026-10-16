@@ -411,6 +411,9 @@ coverage: test-with-coverage coverage-html
 coverage-html:
 	go tool cover -html=coverage.txt
 
+coverage-cobertura: $(gocover_cobertura) test-with-coverage
+	GOFLAGS="$(GOFLAGS) -tags=testing" $(gocover_cobertura) < coverage.txt > coverage.xml
+
 official-release:
 	git tag $(RELEASE_VERSION) -m $(RELEASE_VERSION)
 	git push -u upstream $(RELEASE_VERSION)
