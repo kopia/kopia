@@ -3,6 +3,8 @@ const path = await import("path");
 const https = await import("https");
 
 import { defaultServerBinary } from "./utils.js";
+import { localSourceStatuses } from "./tray-status.js";
+import { lineBuffer } from "./line-buffer.js";
 import { spawn } from "child_process";
 import log from "electron-log";
 import { configDir, isPortableConfig } from "./config.js";
@@ -19,6 +21,10 @@ function newServerForRepo(repoID) {
   let runningServerStatusDetails = {
     startingUp: true,
   };
+  let runningServerSourceStatuses = [];
+  // start time of the request that returned runningServerSourceStatuses,
+  // 0 while the list is unknown (starting up, not connected).
+  let runningServerSourcesFetchedAt = 0;
   let serverLog = [];
 
   const maxLogLines = 100;
@@ -63,7 +69,12 @@ function newServerForRepo(repoID) {
       this.raiseStatusUpdatedEvent();
 
       runningServerProcess.stdout.on("data", this.appendToLog.bind(this));
-      runningServerProcess.stderr.on("data", this.detectServerParam.bind(this));
+      // decode as a stream so a UTF-8 character split across reads stays intact.
+      runningServerProcess.stderr.setEncoding("utf8");
+      const stderrLines = lineBuffer();
+      runningServerProcess.stderr.on("data", (data) =>
+        this.detectServerParam(data, stderrLines(data + "")),
+      );
 
       const p = runningServerProcess;
 
@@ -71,9 +82,96 @@ function newServerForRepo(repoID) {
 
       const statusUpdated = this.raiseStatusUpdatedEvent.bind(this);
 
+      // byte counters feed the overall percent, and each fresh list may allow
+      // pruning that an earlier snapshot report deferred, so both are raised.
+      // The tray skips rebuilding its menu when the labels are unchanged.
+      function setSourceStatuses(statuses, fetchedAt) {
+        const changed =
+          JSON.stringify(statuses) !=
+            JSON.stringify(runningServerSourceStatuses) ||
+          fetchedAt !== runningServerSourcesFetchedAt;
+
+        runningServerSourceStatuses = statuses;
+        runningServerSourcesFetchedAt = fetchedAt;
+        if (changed) {
+          statusUpdated();
+        }
+      }
+
       const pollInterval = 3000;
 
-      let statusPollInProgress = false;
+      const pollInProgress = {};
+
+      function pollControlAPI(apiPath, onResult) {
+        // Wait for previous poll request. If the request hangs, it will time out
+        // eventually and sockets shouldn't be exhausted by trying all the time.
+        if (pollInProgress[apiPath]) {
+          return;
+        }
+
+        pollInProgress[apiPath] = true;
+        const startedAt = Date.now();
+
+        const req = https.request(
+          {
+            ca: [runningServerCertificate],
+            host: "127.0.0.1",
+            port: parseInt(new URL(runningServerAddress).port),
+            method: "GET",
+            path: apiPath,
+            timeout: pollInterval,
+            headers: {
+              Authorization:
+                "Basic " +
+                Buffer.from(
+                  "server-control" + ":" + runningServerControlPassword,
+                ).toString("base64"),
+            },
+          },
+          (resp) => {
+            if (resp.statusCode !== 200) {
+              log.warn(`error fetching ${apiPath}`, resp.statusMessage);
+              resp.resume();
+              return;
+            }
+
+            // responses larger than one chunk must be buffered before parsing.
+            let body = "";
+            resp.setEncoding("utf8");
+            resp.on("data", (x) => {
+              body += x;
+            });
+            resp.on("end", () => {
+              // ignore responses that arrive after this server was stopped.
+              if (runningServerProcess !== p) {
+                return;
+              }
+
+              let result;
+              try {
+                result = JSON.parse(body);
+              } catch (e) {
+                log.warn(`unable to parse ${apiPath} JSON`, e);
+                return;
+              }
+
+              onResult(result, startedAt);
+            });
+          },
+        );
+        req.on("timeout", () => {
+          req.destroy(
+            new Error(`${apiPath} request timed out after ${pollInterval}ms`),
+          );
+        });
+        req.on("error", (e) => {
+          log.info(`error fetching ${apiPath}`, e);
+        });
+        req.on("close", () => {
+          pollInProgress[apiPath] = false;
+        });
+        req.end();
+      }
 
       function pollOnce() {
         if (
@@ -85,64 +183,25 @@ function newServerForRepo(repoID) {
           return;
         }
 
-        // Wait for previous poll request. If the request hangs, it will time out
-        // eventually and sockets shouldn't be exhausted by trying all the time.
-        if (statusPollInProgress) {
+        pollControlAPI("/api/v1/control/status", (newDetails) => {
+          if (
+            JSON.stringify(newDetails) !=
+            JSON.stringify(runningServerStatusDetails)
+          ) {
+            runningServerStatusDetails = newDetails;
+            statusUpdated();
+          }
+        });
+
+        // sources API fails until the repository is connected.
+        if (!runningServerStatusDetails.connected) {
+          setSourceStatuses([], 0);
           return;
         }
 
-        statusPollInProgress = true;
-
-        const req = https.request(
-          {
-            ca: [runningServerCertificate],
-            host: "127.0.0.1",
-            port: parseInt(new URL(runningServerAddress).port),
-            method: "GET",
-            path: "/api/v1/control/status",
-            timeout: pollInterval,
-            headers: {
-              Authorization:
-                "Basic " +
-                Buffer.from(
-                  "server-control" + ":" + runningServerControlPassword,
-                ).toString("base64"),
-            },
-          },
-          (resp) => {
-            if (resp.statusCode === 200) {
-              resp.on("data", (x) => {
-                try {
-                  const newDetails = JSON.parse(x);
-                  if (
-                    JSON.stringify(newDetails) !=
-                    JSON.stringify(runningServerStatusDetails)
-                  ) {
-                    runningServerStatusDetails = newDetails;
-                    statusUpdated();
-                  }
-                } catch (e) {
-                  log.warn("unable to parse status JSON", e);
-                }
-              });
-            } else {
-              log.warn("error fetching status", resp.statusMessage);
-              resp.resume();
-            }
-          },
-        );
-        req.on("timeout", () => {
-          req.destroy(
-            new Error(`status request timed out after ${pollInterval}ms`),
-          );
+        pollControlAPI("/api/v1/control/sources", (resp, startedAt) => {
+          setSourceStatuses(localSourceStatuses(resp), startedAt);
         });
-        req.on("error", (e) => {
-          log.info("error fetching status", e);
-        });
-        req.on("close", () => {
-          statusPollInProgress = false;
-        });
-        req.end();
       }
 
       const statusPollInterval = setInterval(pollOnce, pollInterval);
@@ -158,14 +217,15 @@ function newServerForRepo(repoID) {
           runningServerPassword = "";
           runningServerControlPassword = "";
           runningServerCertSHA256 = "";
+          runningServerSourceStatuses = [];
+          runningServerSourcesFetchedAt = 0;
           runningServerProcess = null;
           this.raiseStatusUpdatedEvent();
         }
       });
     },
 
-    detectServerParam(data) {
-      let lines = (data + "").split("\n");
+    detectServerParam(data, lines) {
       for (let i = 0; i < lines.length; i++) {
         const p = lines[i].indexOf(": ");
         if (p < 0) {
@@ -239,6 +299,8 @@ function newServerForRepo(repoID) {
       runningServerPassword = "";
       runningServerCertSHA256 = "";
       runningServerCertificate = "";
+      runningServerSourceStatuses = [];
+      runningServerSourcesFetchedAt = 0;
       runningServerProcess = null;
       this.raiseStatusUpdatedEvent();
     },
@@ -257,6 +319,14 @@ function newServerForRepo(repoID) {
 
     getServerStatusDetails() {
       return runningServerStatusDetails;
+    },
+
+    getSourceStatuses() {
+      return runningServerSourceStatuses;
+    },
+
+    getSourcesFetchedAt() {
+      return runningServerSourcesFetchedAt;
     },
 
     getServerStatus() {
