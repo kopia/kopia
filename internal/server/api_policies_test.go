@@ -55,7 +55,7 @@ func TestPolicies(t *testing.T) {
 
 	mustSetPolicy(t, cli, si2, &policy.Policy{
 		CompressionPolicy: policy.CompressionPolicy{
-			NeverCompress: []string{"a", "b"},
+			NeverCompress: *policy.NewExtensionSet("a", "b"),
 		},
 		SchedulingPolicy: policy.SchedulingPolicy{
 			IntervalSeconds: 60,
@@ -73,7 +73,7 @@ func TestPolicies(t *testing.T) {
 		updates                         *policy.Policy
 		wantCompressorName              compression.Name
 		wantCompressorNameSource        snapshot.SourceInfo
-		wantNeverCompress               []string
+		wantNeverCompress               policy.ExtensionSet
 		wantNeverCompressSource         snapshot.SourceInfo
 		wantUpcomingSnapshotTimesLength int
 		wantSchedulingError             string
@@ -107,7 +107,7 @@ func TestPolicies(t *testing.T) {
 		{
 			si:                              si2,
 			wantCompressorName:              compression.Name("some-compressor"), // inherited
-			wantNeverCompress:               []string{"a", "b"},
+			wantNeverCompress:               *policy.NewExtensionSet("a", "b"),
 			wantCompressorNameSource:        si1,
 			wantNeverCompressSource:         si2,
 			wantUpcomingSnapshotTimesLength: 3,
@@ -115,7 +115,7 @@ func TestPolicies(t *testing.T) {
 		{
 			si:                              si3,
 			wantCompressorName:              compression.Name("some-compressor3"),
-			wantNeverCompress:               []string{"a", "b"},
+			wantNeverCompress:               *policy.NewExtensionSet("a", "b"),
 			wantCompressorNameSource:        si3,
 			wantNeverCompressSource:         si2,
 			wantUpcomingSnapshotTimesLength: 3,
@@ -123,7 +123,7 @@ func TestPolicies(t *testing.T) {
 		{
 			si:                              si4,
 			wantCompressorName:              compression.Name("some-compressor3"),
-			wantNeverCompress:               []string{"a", "b"},
+			wantNeverCompress:               *policy.NewExtensionSet("a", "b"),
 			wantCompressorNameSource:        si3,
 			wantNeverCompressSource:         si2,
 			wantUpcomingSnapshotTimesLength: 3,
@@ -131,7 +131,7 @@ func TestPolicies(t *testing.T) {
 		{
 			si:                       si4,
 			wantCompressorName:       compression.Name("some-compressor-updated"),
-			wantNeverCompress:        []string{"a", "b"},
+			wantNeverCompress:        *policy.NewExtensionSet("a", "b"),
 			wantCompressorNameSource: si4,
 			wantNeverCompressSource:  si2,
 			updates: &policy.Policy{
