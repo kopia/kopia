@@ -11,6 +11,10 @@ type FilesPolicy struct {
 	IgnoreCacheDirectories *OptionalBool `json:"ignoreCacheDirs,omitempty"`
 	MaxFileSize            int64         `json:"maxFileSize,omitempty"`
 	OneFileSystem          *OptionalBool `json:"oneFileSystem,omitempty"`
+
+	// IgnoreRecord, when true, records the files/directories excluded by ignore rules in the snapshot
+	// manifest. Default is false (not recorded).
+	IgnoreRecord *OptionalBool `json:"ignoreRecord,omitempty"`
 }
 
 // FilesPolicyDefinition specifies which policy definition provided the value of a particular field.
@@ -22,6 +26,7 @@ type FilesPolicyDefinition struct {
 	IgnoreCacheDirectories snapshot.SourceInfo `json:"ignoreCacheDirs,omitempty"`
 	MaxFileSize            snapshot.SourceInfo `json:"maxFileSize,omitempty"`
 	OneFileSystem          snapshot.SourceInfo `json:"oneFileSystem,omitempty"`
+	IgnoreRecord           snapshot.SourceInfo `json:"ignoreRecord,omitempty"`
 }
 
 // Merge applies default values from the provided policy.
@@ -33,4 +38,5 @@ func (p *FilesPolicy) Merge(src FilesPolicy, def *FilesPolicyDefinition, si snap
 	mergeOptionalBool(&p.IgnoreCacheDirectories, src.IgnoreCacheDirectories, &def.IgnoreCacheDirectories, si)
 	mergeInt64(&p.MaxFileSize, src.MaxFileSize, &def.MaxFileSize, si)
 	mergeOptionalBool(&p.OneFileSystem, src.OneFileSystem, &def.OneFileSystem, si)
+	mergeOptionalBool(&p.IgnoreRecord, src.IgnoreRecord, &def.IgnoreRecord, si)
 }
