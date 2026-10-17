@@ -53,7 +53,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetention(t *testing.T) {
 	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
 	require.NoError(t, err)
 
-	if got, want := len(blobsBefore), 4; got != want {
+	if got, want := len(blobsBefore), 5; got != want {
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
 	}
 
@@ -116,7 +116,7 @@ func (s *formatSpecificTestSuite) TestExtendBlobRetentionUnsupported(t *testing.
 		t.Fatal(err)
 	}
 
-	if got, want := len(blobsBefore), 4; got != want {
+	if got, want := len(blobsBefore), 5; got != want {
 		t.Fatalf("unexpected number of blobs after writing: %v", blobsBefore)
 	}
 
