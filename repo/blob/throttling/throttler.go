@@ -25,11 +25,12 @@ type tokenBucketBasedThrottler struct {
 	// +checklocks:mu
 	limits Limits
 
-	readOps  *tokenBucket
-	writeOps *tokenBucket
-	listOps  *tokenBucket
-	upload   *tokenBucket
-	download *tokenBucket
+	readOps      *tokenBucket
+	writeOps     *tokenBucket
+	listOps      *tokenBucket
+	uploadStart  *tokenBucket
+	uploadDuring *tokenBucket
+	download     *tokenBucket
 
 	concurrentReads  *semaphore
 	concurrentWrites *semaphore
@@ -71,7 +72,11 @@ func (t *tokenBucketBasedThrottler) ReturnUnusedDownloadBytes(ctx context.Contex
 }
 
 func (t *tokenBucketBasedThrottler) BeforeUpload(ctx context.Context, numBytes int64) {
-	t.upload.Take(ctx, float64(numBytes))
+	t.uploadStart.Take(ctx, float64(numBytes))
+}
+
+func (t *tokenBucketBasedThrottler) DuringUpload(ctx context.Context, numBytes int64) {
+	t.uploadDuring.Take(ctx, float64(numBytes))
 }
 
 func (t *tokenBucketBasedThrottler) Limits() Limits {
@@ -115,8 +120,12 @@ func (t *tokenBucketBasedThrottler) setLimits(limits Limits) error {
 		return errors.Wrap(err, "ListsPerSecond")
 	}
 
-	if err := t.upload.SetLimit(limits.UploadBytesPerSecond * t.window.Seconds()); err != nil {
-		return errors.Wrap(err, "UploadBytesPerSecond")
+	if err := t.uploadStart.SetLimit(limits.UploadBytesPerSecond * t.window.Seconds()); err != nil {
+		return errors.Wrap(err, "UploadBytesPerSecond - Start")
+	}
+
+	if err := t.uploadDuring.SetLimit(limits.UploadBytesPerSecond * t.window.Seconds()); err != nil {
+		return errors.Wrap(err, "UploadBytesPerSecond - During")
 	}
 
 	if err := t.download.SetLimit(limits.DownloadBytesPerSecond * t.window.Seconds()); err != nil {
@@ -157,7 +166,8 @@ func NewThrottler(limits Limits, window time.Duration, initialFillRatio float64)
 		readOps:          newTokenBucket("read-ops", initialFillRatio*limits.ReadsPerSecond*window.Seconds(), 0, window),
 		writeOps:         newTokenBucket("write-ops", initialFillRatio*limits.WritesPerSecond*window.Seconds(), 0, window),
 		listOps:          newTokenBucket("list-ops", initialFillRatio*limits.ListsPerSecond*window.Seconds(), 0, window),
-		upload:           newTokenBucket("upload-bytes", initialFillRatio*limits.UploadBytesPerSecond*window.Seconds(), 0, window),
+		uploadStart:      newTokenBucket("upload-start-bytes", initialFillRatio*limits.UploadBytesPerSecond*window.Seconds(), 0, window),
+		uploadDuring:     newTokenBucket("upload-during-bytes", initialFillRatio*limits.UploadBytesPerSecond*window.Seconds(), 0, window),
 		download:         newTokenBucket("download-bytes", initialFillRatio*limits.DownloadBytesPerSecond*window.Seconds(), 0, window),
 		concurrentReads:  newSemaphore(),
 		concurrentWrites: newSemaphore(),

@@ -40,9 +40,17 @@ func TestThrottler(t *testing.T) {
 
 	th, err = NewThrottler(limits, window, 0.0 /* start empty */)
 	require.NoError(t, err)
-	testRateLimiting(t, "UploadBytesPerSecond", limits.UploadBytesPerSecond, func(total *int64) {
+	testRateLimiting(t, "UploadBytesPerSecond (Before)", limits.UploadBytesPerSecond, func(total *int64) {
 		numBytes := rand.Int63n(1500)
 		th.BeforeUpload(ctx, numBytes)
+		atomic.AddInt64(total, numBytes)
+	})
+
+	th, err = NewThrottler(limits, window, 0.0 /* start empty */)
+	require.NoError(t, err)
+	testRateLimiting(t, "UploadBytesPerSecond (During)", limits.UploadBytesPerSecond, func(total *int64) {
+		numBytes := rand.Int63n(1500)
+		th.DuringUpload(ctx, numBytes)
 		atomic.AddInt64(total, numBytes)
 	})
 
