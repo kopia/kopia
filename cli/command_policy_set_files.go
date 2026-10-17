@@ -25,6 +25,8 @@ type policyFilesFlags struct {
 	policyOneFileSystem string
 
 	policyIgnoreCacheDirs string
+
+	policySkipEmptyDirs string
 }
 
 func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
@@ -43,6 +45,8 @@ func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("one-file-system", "Stay in parent filesystem when finding files ('true', 'false', 'inherit')").EnumVar(&c.policyOneFileSystem, booleanEnumValues...)
 
 	cmd.Flag("ignore-cache-dirs", "Ignore cache directories ('true', 'false', 'inherit')").EnumVar(&c.policyIgnoreCacheDirs, booleanEnumValues...)
+
+	cmd.Flag("skip-empty-dirs", "Skip directories that are empty after applying ignore rules ('true', 'false', 'inherit')").EnumVar(&c.policySkipEmptyDirs, booleanEnumValues...)
 }
 
 func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, changeCount *int) error {
@@ -57,5 +61,9 @@ func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *poli
 		return err
 	}
 
-	return applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, c.policyOneFileSystem, changeCount)
+	if err := applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, c.policyOneFileSystem, changeCount); err != nil {
+		return err
+	}
+
+	return applyPolicyBoolPtr(ctx, "skip empty directories", &fp.SkipEmptyDirectories, c.policySkipEmptyDirs, changeCount)
 }

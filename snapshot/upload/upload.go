@@ -887,7 +887,8 @@ func (u *Uploader) processSingle(
 			return err
 		}
 
-		if err != nil {
+		switch {
+		case err != nil:
 			// Note: This only catches errors in subdirectories of the snapshot root, not on the snapshot
 			// root itself. The intention is to always fail if the top level directory can't be read,
 			// otherwise a meaningless, empty snapshot is created that can't be restored.
@@ -898,7 +899,16 @@ func (u *Uploader) processSingle(
 			} else {
 				return errors.Wrapf(err, "unable to process directory %q", entry.Name())
 			}
-		} else {
+		case shouldSkipEmptyDirectory(childTree.EffectivePolicy(), childDirBuilder, de, u.DisableIgnoreRules):
+			maybeLogEntryProcessed(uploadLog(ctx), childTree.EffectivePolicy().LoggingPolicy.Directories.Ignored.OrDefault(policy.LogDetailNone),
+				"ignored empty directory", entryRelativePath, nil, nil, t0)
+			atomic.AddInt32(&u.stats.TotalDirectoryCount, -1)
+
+			if !ignorefs.IsSkippedCacheDirectory(entry) {
+				u.Progress.ExcludedDir(entryRelativePath)
+				u.stats.AddExcluded(entry)
+			}
+		default:
 			parentDirBuilder.AddEntry(de)
 		}
 
@@ -971,6 +981,15 @@ func (u *Uploader) processSingle(
 	default:
 		return errors.Errorf("unexpected entry type: %T %v", entry, entry.Mode())
 	}
+}
+
+func shouldSkipEmptyDirectory(pol *policy.Policy, b *snapshotfs.DirManifestBuilder, de *snapshot.DirEntry, disableIgnoreRules bool) bool {
+	return !disableIgnoreRules && pol.FilesPolicy.SkipEmptyDirectories.OrDefault(false) && b.IsEmpty() &&
+		de.DirSummary != nil && de.DirSummary.TotalFileCount == 0 &&
+		de.DirSummary.TotalSymlinkCount == 0 && de.DirSummary.TotalDirCount <= 1 &&
+		de.DirSummary.FatalErrorCount == 0 && de.DirSummary.IgnoredErrorCount == 0 &&
+		len(de.DirSummary.FailedEntries) == 0 &&
+		de.DirSummary.IncompleteReason == ""
 }
 
 func (u *Uploader) processEntryUploadResult(
