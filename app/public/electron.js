@@ -24,6 +24,7 @@ import {
   LevelWarningsAndErrors,
 } from "./notifications.js";
 import { serverForRepo } from "./server.js";
+import { setLocale, t } from "./localization.js";
 import {
   loadConfigs,
   allConfigs,
@@ -45,6 +46,7 @@ const store = new Store();
 app.name = "KopiaUI";
 
 let tray = null;
+let trayMenuTemplate = [];
 let repositoryWindows = {};
 let repoIDForWebContents = {};
 
@@ -98,7 +100,7 @@ function showRepoWindow(repositoryID) {
   }
 
   let windowOptions = {
-    title: "KopiaUI is Loading...",
+    title: t("window.loading"),
     // default width
     width: 1000,
     // default height
@@ -274,8 +276,18 @@ ipcMain.on("server-status-updated", updateTrayContextMenu);
 ipcMain.on("launch-at-startup-updated", updateTrayContextMenu);
 ipcMain.on("notification-config-updated", updateTrayContextMenu);
 
+function updateUILanguage(language) {
+  const locale = setLocale(language);
+  store.set("uiLanguage", locale);
+  updateTrayContextMenu();
+}
+
+ipcMain.on("ui-language-updated", (_event, language) =>
+  updateUILanguage(language),
+);
+
 let updateAvailableInfo = null;
-let updateDownloadStatusInfo = "";
+let updateDownloadStatusInfo = null;
 let updateFailed = false;
 let checkForUpdatesTriggeredFromUI = false;
 
@@ -293,18 +305,15 @@ autoUpdater.on("update-available", (a) => {
   log.info("update available " + a.version);
 
   updateAvailableInfo = a;
-  updateDownloadStatusInfo = "";
+  updateDownloadStatusInfo = null;
   updateTrayContextMenu();
 
   // do not notify more than once for a particular version.
   if (checkForUpdatesTriggeredFromUI) {
     dialog
       .showMessageBox({
-        buttons: ["Yes", "No"],
-        message:
-          "An updated KopiaUI v" +
-          a.version +
-          " is available.\n\nDo you want to install it now?",
+        buttons: [t("common.yes"), t("common.no")],
+        message: t("updates.availablePrompt", { version: a.version }),
       })
       .then((r) => {
         if (r.response == 0) {
@@ -318,11 +327,8 @@ autoUpdater.on("update-available", (a) => {
     lastNotifiedVersion = a.version;
 
     const notification = new Notification({
-      title: "New version of KopiaUI",
-      body:
-        "Version v" +
-        a.version +
-        " is available.\n\nClick here to download and install it.",
+      title: t("updates.notificationTitle"),
+      body: t("updates.notificationBody", { version: a.version }),
     });
 
     notification.on("click", () => installUpdate());
@@ -332,13 +338,13 @@ autoUpdater.on("update-available", (a) => {
 
 autoUpdater.on("update-not-available", () => {
   updateAvailableInfo = null;
-  updateDownloadStatusInfo = "";
+  updateDownloadStatusInfo = null;
   updateFailed = false;
   updateTrayContextMenu();
   if (checkForUpdatesTriggeredFromUI) {
     dialog.showMessageBox({
-      buttons: ["OK"],
-      message: "No updates available.",
+      buttons: [t("common.ok")],
+      message: t("updates.none"),
     });
     checkForUpdatesTriggeredFromUI = false;
   }
@@ -346,19 +352,22 @@ autoUpdater.on("update-not-available", () => {
 
 autoUpdater.on("download-progress", (progress) => {
   if (updateAvailableInfo) {
-    updateDownloadStatusInfo =
-      "Downloading Update: v" +
-      updateAvailableInfo.version +
-      " (" +
-      Math.round(progress.percent * 10) / 10.0 +
-      "%) ...";
+    updateDownloadStatusInfo = {
+      key: "updates.downloading",
+      replacements: {
+        version: updateAvailableInfo.version,
+        percent: Math.round(progress.percent * 10) / 10.0,
+      },
+    };
     updateTrayContextMenu();
   }
 });
 
 autoUpdater.on("update-downloaded", (_info) => {
-  updateDownloadStatusInfo =
-    "Installing Update: v" + updateAvailableInfo.version + " ...";
+  updateDownloadStatusInfo = {
+    key: "updates.installing",
+    replacements: { version: updateAvailableInfo.version },
+  };
   updateTrayContextMenu();
 
   setTimeout(() => {
@@ -376,20 +385,17 @@ autoUpdater.on("update-downloaded", (_info) => {
 
 autoUpdater.on("error", (a) => {
   updateAvailableInfo = null;
-  updateDownloadStatusInfo = "Error checking for updates.";
+  updateDownloadStatusInfo = { key: "updates.errorStatus" };
   log.info("error checking for updates", a);
   updateTrayContextMenu();
   if (checkForUpdatesTriggeredFromUI) {
-    dialog.showErrorBox(
-      "Error checking for updates.",
-      "There was an error checking for updates, try again later.",
-    );
+    dialog.showErrorBox(t("updates.errorStatus"), t("updates.errorMessage"));
     checkForUpdatesTriggeredFromUI = false;
   }
 });
 
 function checkForUpdates() {
-  updateDownloadStatusInfo = "Checking for update...";
+  updateDownloadStatusInfo = { key: "updates.checking" };
   updateAvailableInfo = null;
   updateTrayContextMenu();
 
@@ -402,7 +408,7 @@ function checkForUpdatesNow() {
 }
 
 function installUpdate() {
-  updateDownloadStatusInfo = "Downloading and installing update...";
+  updateDownloadStatusInfo = { key: "updates.downloadingAndInstalling" };
   autoUpdater.downloadUpdate();
 }
 
@@ -438,9 +444,8 @@ function maybeMoveToApplicationsFolder() {
 
   dialog
     .showMessageBox({
-      buttons: ["Yes", "No"],
-      message:
-        "For best experience, Kopia needs to be installed in Applications folder.\n\nDo you want to move it now?",
+      buttons: [t("common.yes"), t("common.no")],
+      message: t("mac.movePrompt"),
     })
     .then((r) => {
       if (r.response == 0) {
@@ -485,6 +490,7 @@ function safeTrayHandler(ev, h) {
 
 app.on("ready", () => {
   loadConfigs();
+  setLocale(store.get("uiLanguage", app.getLocale()));
 
   if (isPortableConfig()) {
     const logDir = path.join(configDir(), "logs");
@@ -519,6 +525,22 @@ app.on("ready", () => {
       tray: tray,
       showRepoWindow: showRepoWindow,
       allConfigs: allConfigs,
+      updateUILanguage: updateUILanguage,
+      getTrayMenuLabels: () => {
+        const labels = [];
+        const appendLabels = (items) => {
+          for (const item of items) {
+            if (item.label) {
+              labels.push(item.label);
+            }
+            if (Array.isArray(item.submenu)) {
+              appendLabels(item.submenu);
+            }
+          }
+        };
+        appendLabels(trayMenuTemplate);
+        return labels;
+      },
     };
   }
 
@@ -539,8 +561,8 @@ app.on("ready", () => {
     // on Windows, also show the notification.
     if (process.platform === "win32") {
       tray.displayBalloon({
-        title: "Kopia is running in the background",
-        content: "Click on the system tray icon to open the menu",
+        title: t("tray.backgroundTitle"),
+        content: t("tray.backgroundContent"),
       });
     }
   }
@@ -613,12 +635,12 @@ function updateTrayContextMenu() {
     let desc = "";
 
     if (sd.startingUp) {
-      desc = "<starting up>";
+      desc = t("tray.startingUp");
     } else if (!sd.connected) {
       if (sd.initTaskID) {
-        desc = "<initializing>";
+        desc = t("tray.initializing");
       } else {
-        desc = "<not connected>";
+        desc = t("tray.notConnected");
       }
     } else {
       desc = sd.description;
@@ -645,30 +667,35 @@ function updateTrayContextMenu() {
 
   if (updateDownloadStatusInfo) {
     autoUpdateMenuItems.push({
-      label: updateDownloadStatusInfo,
+      label: t(
+        updateDownloadStatusInfo.key,
+        updateDownloadStatusInfo.replacements,
+      ),
       enabled: false,
     });
   } else if (updateAvailableInfo) {
     if (updateFailed) {
       autoUpdateMenuItems.push({
-        label:
-          "Update Failed, click to manually download and install v" +
-          updateAvailableInfo.version,
+        label: t("updates.failedManual", {
+          version: updateAvailableInfo.version,
+        }),
         click: viewReleaseNotes,
       });
     } else {
       autoUpdateMenuItems.push({
-        label: "Update Available: v" + updateAvailableInfo.version,
+        label: t("updates.available", {
+          version: updateAvailableInfo.version,
+        }),
         click: viewReleaseNotes,
       });
       autoUpdateMenuItems.push({
-        label: "Download And Install...",
+        label: t("updates.downloadAndInstall"),
         click: installUpdate,
       });
     }
   } else {
     autoUpdateMenuItems.push({
-      label: "KopiaUI is up-to-date: " + app.getVersion(),
+      label: t("updates.upToDate", { version: app.getVersion() }),
       enabled: false,
     });
   }
@@ -680,46 +707,47 @@ function updateTrayContextMenu() {
     .concat([
       { type: "separator" },
       {
-        label: "Connect To Another Repository...",
+        label: t("tray.connectAnotherRepository"),
         click: addAnotherRepository,
       },
       { type: "separator" },
-      { label: "Check For Updates Now", click: checkForUpdatesNow },
+      { label: t("tray.checkForUpdates"), click: checkForUpdatesNow },
     ])
     .concat(autoUpdateMenuItems)
     .concat([
       { type: "separator" },
       {
-        label: "Launch At Startup",
+        label: t("tray.launchAtStartup"),
         type: "checkbox",
         click: toggleLaunchAtStartup,
         checked: willLaunchAtStartup(),
       },
       {
-        label: "Notifications",
+        label: t("tray.notifications"),
         type: "submenu",
         submenu: [
           {
-            label: "Enabled",
+            label: t("tray.enabled"),
             type: "radio",
             click: () => setNotificationLevel(2),
             checked: nl === 2,
           },
           {
-            label: "Warnings And Errors",
+            label: t("tray.warningsAndErrors"),
             type: "radio",
             click: () => setNotificationLevel(1),
             checked: nl === 1,
           },
           {
-            label: "Disabled",
+            label: t("tray.disabled"),
             type: "radio",
             click: () => setNotificationLevel(0),
             checked: nl === 0,
           },
         ],
       },
-      { label: "Quit", role: "quit" },
+      { label: t("tray.quit"), role: "quit" },
     ]);
+  trayMenuTemplate = template;
   tray.setContextMenu(Menu.buildFromTemplate(template));
 }

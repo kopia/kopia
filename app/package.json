@@ -140,7 +140,8 @@
   "scripts": {
     "start": "react-scripts start",
     "build-html": "react-scripts build",
-    "e2e": "playwright test",
+    "test-localization": "node --test tests/localization.test.js",
+    "e2e": "npm run test-localization && playwright test",
     "eject": "react-scripts eject",
     "start-electron": "electron .",
     "build-electron": "electron-builder",
