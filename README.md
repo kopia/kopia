@@ -29,6 +29,7 @@ Pick the Cloud Storage Provider You Want
 Kopia supports saving your [encrypted](https://kopia.io/docs/features/#user-controlled-end-to-end-encryption) and [compressed](https://kopia.io/docs/features/#compression) snapshots to all of the following [storage locations](https://kopia.io/docs/features/#save-snapshots-to-cloud-network-or-local-storage):
 
 * **Amazon S3** and any **cloud storage that is compatible with S3**
+* **Cloudflare R2**
 * **Azure Blob Storage**
 * **Backblaze B2**
 * **Google Cloud Storage**
