@@ -62,6 +62,8 @@ When you want to restore your files/directories from a snapshot, you can do so f
 
 You can restore files/directories using either of these options.
 
+Restore operations, including individual file downloads, appear on the `Tasks` page while they are running. The task status shows the completion percentage and can be used to cancel the restore.
+
 #### Video Tutorial
 
 Here is a video tutorial on how to use `KopiaUI` (note that the video is of an older version of `KopiaUI` and the interface is different in the current version of `KopiaUI`, but the main principles of how to use `KopiaUI` are the same):
