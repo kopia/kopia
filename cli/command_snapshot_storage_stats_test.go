@@ -75,47 +75,18 @@ func TestSnapshotStorageStats(t *testing.T) {
 		},
 	}, manifests[1].StorageStats)
 
+	firstStats := *manifests[0].StorageStats
+	latestStats := *manifests[1].StorageStats
+
 	// same but in reverse order
 	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "snapshot", "ls", "--storage-stats", dir1, "--reverse", "--json"), &manifests)
 	require.Len(t, manifests, 2)
+	require.Equal(t, &latestStats, manifests[0].StorageStats)
+	require.Equal(t, &firstStats, manifests[1].StorageStats)
 
-	require.Equal(t, &snapshot.StorageStats{
-		NewData: snapshot.StorageUsageDetails{
-			ObjectBytes:          23,
-			OriginalContentBytes: 23,
-			PackedContentBytes:   135,
-			FileObjectCount:      4,
-			DirObjectCount:       2,
-			ContentCount:         6,
-		},
-		RunningTotal: snapshot.StorageUsageDetails{
-			ObjectBytes:          23,
-			OriginalContentBytes: 23,
-			PackedContentBytes:   135,
-			FileObjectCount:      4,
-			DirObjectCount:       2,
-			ContentCount:         6,
-		},
-	}, manifests[0].StorageStats)
-
-	require.Equal(t, &snapshot.StorageStats{
-		NewData: snapshot.StorageUsageDetails{
-			ObjectBytes:          0, // all file data was already present
-			OriginalContentBytes: 0,
-			PackedContentBytes:   0,
-			FileObjectCount:      0,
-			DirObjectCount:       2, // new directories only
-			ContentCount:         2,
-		},
-		RunningTotal: snapshot.StorageUsageDetails{
-			ObjectBytes:          23,
-			OriginalContentBytes: 23,
-			PackedContentBytes:   135,
-			FileObjectCount:      4,
-			DirObjectCount:       4,
-			ContentCount:         8,
-		},
-	}, manifests[1].StorageStats)
+	testutil.MustParseJSONLines(t, env.RunAndExpectSuccess(t, "snapshot", "ls", "--storage-stats", dir1, "--max-results=1", "--json"), &manifests)
+	require.Len(t, manifests, 1)
+	require.Equal(t, &latestStats, manifests[0].StorageStats)
 
 	out := env.RunAndExpectSuccess(t, "snapshot", "ls", "--storage-stats")
 	require.Len(t, out, 3)
@@ -128,10 +99,14 @@ func TestSnapshotStorageStats(t *testing.T) {
 
 	out = env.RunAndExpectSuccess(t, "snapshot", "ls", "--storage-stats", "--reverse")
 	require.Len(t, out, 3)
-	require.Contains(t, out[1], "new-data:135 B ")
-	require.Contains(t, out[1], "new-files:4 ")
+	require.Contains(t, out[1], "new-data:36 B ")
+	require.Contains(t, out[1], "new-files:1 ")
 	require.Contains(t, out[1], "new-dirs:2 ")
-	require.Contains(t, out[2], "new-data:0 B ")
-	require.Contains(t, out[2], "new-files:0 ")
+	require.Contains(t, out[2], "new-data:99 B ")
+	require.Contains(t, out[2], "new-files:3 ")
 	require.Contains(t, out[2], "new-dirs:2 ")
+
+	out = env.RunAndExpectSuccess(t, "snapshot", "ls", "--storage-stats", "--max-results=1")
+	require.Len(t, out, 2)
+	require.Contains(t, out[1], "new-data:36 B ")
 }
