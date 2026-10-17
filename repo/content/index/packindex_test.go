@@ -194,7 +194,7 @@ func testPackIndex(t *testing.T, version int) {
 func verifyPackedIndexes(t *testing.T, infos []Info, infoMap map[ID]Info, version int, packed []byte) {
 	t.Helper()
 
-	ndx, err := Open(packed, nil, func() int { return fakeEncryptionOverhead })
+	ndx, err := Open(SliceIndexSource(packed), nil, func() int { return fakeEncryptionOverhead })
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}
@@ -295,7 +295,7 @@ func TestPackIndexPerContentLimits(t *testing.T) {
 		if tc.errMsg == "" {
 			require.NoError(t, buildV2(b.sortedContents(), &result))
 
-			pi, err := Open(result.Bytes(), nil, func() int { return fakeEncryptionOverhead })
+			pi, err := Open(SliceIndexSource(result.Bytes()), nil, func() int { return fakeEncryptionOverhead })
 			require.NoError(t, err)
 
 			var got Info
@@ -420,7 +420,7 @@ func fuzzTestIndexOpen(originalData []byte) {
 	rnd := rand.New(rand.NewSource(12345))
 
 	fuzzTest(rnd, originalData, 50000, func(d []byte) {
-		ndx, err := Open(d, nil, func() int { return 0 })
+		ndx, err := Open(SliceIndexSource(d), nil, func() int { return 0 })
 		if err != nil {
 			return
 		}

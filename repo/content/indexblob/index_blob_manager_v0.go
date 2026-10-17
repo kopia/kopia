@@ -582,7 +582,7 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, addEntr
 		return errors.Wrapf(err, "error getting index %q", indexBlobID)
 	}
 
-	ndx, err := index.Open(data.ToByteSlice(), nil, enc.crypter.Encryptor().Overhead)
+	ndx, err := index.Open(index.SliceIndexSource(data.ToByteSlice()), nil, enc.crypter.Encryptor().Overhead)
 	if err != nil {
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}
