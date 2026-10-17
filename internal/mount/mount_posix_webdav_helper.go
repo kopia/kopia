@@ -18,8 +18,8 @@ type posixWedavController struct {
 }
 
 // Directory mounts the given directory using WebDav on macos.
-func newPosixWedavController(ctx context.Context, entry fs.Directory, mountPoint string, isTempDir bool) (Controller, error) {
-	c, err := DirectoryWebDAV(ctx, entry)
+func newPosixWedavController(ctx context.Context, entry fs.Directory, mountPoint string, isTempDir bool, port int) (Controller, error) {
+	c, err := DirectoryWebDAV(ctx, entry, port)
 	if err != nil {
 		return nil, err
 	}
