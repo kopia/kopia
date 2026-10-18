@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/indexblob"
 )
 
 // GetCachingOptions reads caching configuration for a given repository.
@@ -38,9 +39,12 @@ func SetCachingOptions(ctx context.Context, configFile string, opt *content.Cach
 
 func setupCachingOptionsWithDefaults(ctx context.Context, configPath string, lc *LocalConfig, opt *content.CachingOptions, uniqueID []byte) error {
 	opt = opt.CloneOrDefault()
+	if v := opt.IndexCompactionMemoryLimitBytes; v != 0 && v < indexblob.MinimumEpochCompactionMemoryLimit {
+		return errors.New("index compaction memory budget must be zero (default) or at least 1 MiB")
+	}
 
 	if opt.ContentCacheSizeBytes == 0 {
-		lc.Caching = &content.CachingOptions{}
+		lc.Caching = &content.CachingOptions{IndexCompactionMemoryLimitBytes: opt.IndexCompactionMemoryLimitBytes}
 		return nil
 	}
 
@@ -75,6 +79,7 @@ func setupCachingOptionsWithDefaults(ctx context.Context, configPath string, lc 
 	lc.Caching.MinContentSweepAge = opt.MinContentSweepAge
 	lc.Caching.MinMetadataSweepAge = opt.MinMetadataSweepAge
 	lc.Caching.MinIndexSweepAge = opt.MinIndexSweepAge
+	lc.Caching.IndexCompactionMemoryLimitBytes = opt.IndexCompactionMemoryLimitBytes
 
 	log(ctx).Debugf("Creating cache directory '%v' with max size %v", lc.Caching.CacheDirectory, lc.Caching.ContentCacheSizeBytes)
 
