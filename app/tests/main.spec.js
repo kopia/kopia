@@ -181,6 +181,54 @@ test("opens repository window on first start", async () => {
   });
 });
 
+test("update checks respect KOPIA_CHECK_FOR_UPDATES", async () => {
+  electronApp = await launchApp(tmpAppDataDir);
+
+  await waitForKopiaToStartup();
+
+  const enabled = await electronApp.evaluate(async ({ app }) => {
+    const saved = process.env.KOPIA_CHECK_FOR_UPDATES;
+
+    const check = (value) => {
+      if (value === undefined) {
+        delete process.env.KOPIA_CHECK_FOR_UPDATES;
+      } else {
+        process.env.KOPIA_CHECK_FOR_UPDATES = value;
+      }
+
+      return app.testHooks.updateChecksEnabled();
+    };
+
+    const result = {
+      unset: check(undefined),
+      0: check("0"),
+      f: check("f"),
+      false: check("false"),
+      False: check("False"),
+      1: check("1"),
+      true: check("true"),
+    };
+
+    if (saved === undefined) {
+      delete process.env.KOPIA_CHECK_FOR_UPDATES;
+    } else {
+      process.env.KOPIA_CHECK_FOR_UPDATES = saved;
+    }
+
+    return result;
+  });
+
+  expect(enabled).toStrictEqual({
+    unset: true,
+    0: false,
+    f: false,
+    false: false,
+    False: false,
+    1: true,
+    true: true,
+  });
+});
+
 test("adds default repository if no repository is configured", async () => {
   electronApp = await launchApp(tmpAppDataDir);
 
