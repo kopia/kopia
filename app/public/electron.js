@@ -94,6 +94,7 @@ function showRepoWindow(repositoryID) {
   let primaryScreenBounds = screen.getPrimaryDisplay().bounds;
   if (repositoryWindows[repositoryID]) {
     repositoryWindows[repositoryID].focus();
+    serverForRepo(repositoryID).pollNow();
     return;
   }
 
@@ -171,6 +172,11 @@ function showRepoWindow(repositoryID) {
    */
   repositoryWindow.once("ready-to-show", function () {
     repositoryWindow.show();
+    serverForRepo(repositoryID).pollNow();
+  });
+
+  repositoryWindow.on("focus", function () {
+    serverForRepo(repositoryID).pollNow();
   });
 
   /**
