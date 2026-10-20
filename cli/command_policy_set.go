@@ -189,6 +189,77 @@ func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add,
 	*val = s
 }
 
+// applyPolicyOrderedStringList updates a list whose order is part of its
+// meaning. Ignore rules are matched in order, so a broad exclude followed by
+// a negation has to stay in that order. A policy set that does not add or
+// remove rules leaves the existing order alone.
+func applyPolicyOrderedStringList(ctx context.Context, desc string, val *[]string, add, remove []string, clearList bool, changeCount *int) {
+	if clearList {
+		log(ctx).Infof(" - removing all from %q", desc)
+
+		*changeCount++
+
+		*val = nil
+
+		return
+	}
+
+	if len(add) == 0 && len(remove) == 0 {
+		return
+	}
+
+	seen := map[string]bool{}
+	ordered := make([]string, 0, len(*val)+len(add))
+
+	for _, b := range *val {
+		if seen[b] {
+			continue
+		}
+
+		seen[b] = true
+		ordered = append(ordered, b)
+	}
+
+	for _, b := range add {
+		*changeCount++
+
+		log(ctx).Infof(" - adding %q to %q", b, desc)
+
+		if seen[b] {
+			continue
+		}
+
+		seen[b] = true
+		ordered = append(ordered, b)
+	}
+
+	if len(remove) > 0 {
+		drop := map[string]bool{}
+
+		for _, b := range remove {
+			*changeCount++
+
+			log(ctx).Infof(" - removing %q from %q", b, desc)
+
+			drop[b] = true
+		}
+
+		kept := make([]string, 0, len(ordered))
+
+		for _, b := range ordered {
+			if drop[b] {
+				continue
+			}
+
+			kept = append(kept, b)
+		}
+
+		ordered = kept
+	}
+
+	*val = ordered
+}
+
 func applyOptionalInt(ctx context.Context, desc string, val **policy.OptionalInt, str string, changeCount *int) error {
 	if str == "" {
 		// not changed
