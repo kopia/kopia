@@ -74,6 +74,9 @@ func (c *App) getPasswordFromFlags(ctx context.Context, isCreate, allowPersisten
 	case c.password != "":
 		// password provided via --password flag or KOPIA_PASSWORD environment variable
 		return strings.TrimSpace(c.password), nil
+	case c.passwordFile != "":
+		// file containing password provided via --password-file flag or KOPIA_PASSWORD_FILE environment variable
+		return passwordFromFile(c.passwordFile)
 	case isCreate:
 		// this is a new repository, ask for password
 		return askForNewRepositoryPassword(c.stdoutWriter)
@@ -91,6 +94,22 @@ func (c *App) getPasswordFromFlags(ctx context.Context, isCreate, allowPersisten
 
 	// fall back to asking for existing password
 	return askForExistingRepositoryPassword(c.stdoutWriter)
+}
+
+// passwordFromFile reads the password from the given file
+// strips surrounding whitespace including a trailing newline.
+func passwordFromFile(fname string) (string, error) {
+	data, err := os.ReadFile(fname) //nolint:gosec
+	if err != nil {
+		return "", errors.Wrap(err, "unable to read password file")
+	}
+
+	password := strings.TrimSpace(string(data))
+	if password == "" {
+		return "", errors.Errorf("password file %q is empty", fname)
+	}
+
+	return password, nil
 }
 
 // askPass presents a given prompt and asks the user for password.
