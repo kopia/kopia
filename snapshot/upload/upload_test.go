@@ -9,7 +9,9 @@ import (
 	"io"
 	"maps"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -28,6 +30,7 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/virtualfs"
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/cachedir"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/mockfs"
@@ -357,6 +360,383 @@ func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
 	// - once during estimation and once during upload.
 	require.EqualValues(t, 1, cup.counters.TotalExcludedFiles)
 	require.EqualValues(t, 1, cup.counters.TotalExcludedDirs)
+}
+
+func TestUpload_SkipEmptyDirectories(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name               string
+		skip               *policy.OptionalBool
+		childOverride      bool
+		excludeAll         bool
+		disableIgnoreRules bool
+		wantPaths          []string
+		wantDirs           int32
+		wantFiles          int32
+		wantTotalDirs      int32
+	}{
+		{
+			name: "unset",
+			wantPaths: []string{
+				"a.txt", "bar/", "bar/a.txt", "bar/subbar/", "bar/subbar/a.txt",
+				"empty/", "foo/", "foo/subfoo/", "onlyignored/",
+			},
+			wantFiles:     3,
+			wantTotalDirs: 7,
+		},
+		{
+			name: "enabled",
+			skip: policy.NewOptionalBool(true),
+			wantPaths: []string{
+				"a.txt", "bar/", "bar/a.txt", "bar/subbar/", "bar/subbar/a.txt",
+			},
+			wantDirs:      4,
+			wantFiles:     3,
+			wantTotalDirs: 3,
+		},
+		{
+			name:          "child override",
+			skip:          policy.NewOptionalBool(true),
+			childOverride: true,
+			wantPaths: []string{
+				"a.txt", "bar/", "bar/a.txt", "bar/subbar/", "bar/subbar/a.txt", "foo/", "foo/subfoo/",
+			},
+			wantDirs:      2,
+			wantFiles:     3,
+			wantTotalDirs: 5,
+		},
+		{
+			name:          "empty root is kept",
+			skip:          policy.NewOptionalBool(true),
+			excludeAll:    true,
+			wantDirs:      6,
+			wantFiles:     6,
+			wantTotalDirs: 1,
+		},
+		{
+			name:               "ignore rules disabled",
+			skip:               policy.NewOptionalBool(true),
+			disableIgnoreRules: true,
+			wantPaths: []string{
+				".kopiaignore", "a.txt", "bar/", "bar/a.txt", "bar/a.bmp", "bar/subbar/", "bar/subbar/a.txt",
+				"empty/", "foo/", "foo/subfoo/", "onlyignored/", "onlyignored/x.png",
+			},
+			wantTotalDirs: 7,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testlogging.Context(t)
+			th := newUploadTestHarness(ctx, t)
+			t.Cleanup(th.cleanup)
+
+			root := mockfs.NewDirectory()
+			root.AddDir("empty", defaultPermissions)
+			root.AddDir("foo", defaultPermissions)
+			root.AddDir("foo/subfoo", defaultPermissions)
+			root.AddDir("bar", defaultPermissions)
+			root.AddDir("bar/subbar", defaultPermissions)
+			root.AddDir("onlyignored", defaultPermissions)
+
+			for _, name := range []string{"a.txt", "bar/a.txt", "bar/a.bmp", "bar/subbar/a.txt", "onlyignored/x.png"} {
+				root.AddFile(name, []byte("content"), defaultPermissions)
+			}
+
+			rules := []string{"*", "!*/"}
+			if !tc.excludeAll {
+				rules = append(rules, "!*.txt")
+			}
+
+			root.AddFileLines(".kopiaignore", rules, defaultPermissions)
+
+			policies := map[string]*policy.Policy{
+				".": {FilesPolicy: policy.FilesPolicy{
+					SkipEmptyDirectories: tc.skip,
+					DotIgnoreFiles:       []string{".kopiaignore"},
+				}},
+			}
+			if tc.childOverride {
+				policies["./foo"] = &policy.Policy{
+					FilesPolicy: policy.FilesPolicy{SkipEmptyDirectories: policy.NewOptionalBool(false)},
+				}
+			}
+
+			u := NewUploader(th.repo)
+			u.DisableIgnoreRules = tc.disableIgnoreRules
+			progress := &CountingUploadProgress{}
+			u.Progress = progress
+
+			man, err := u.Upload(ctx, root, policy.BuildTree(policies, policy.DefaultPolicy), snapshot.SourceInfo{})
+			require.NoError(t, err)
+			require.NotNil(t, man.RootEntry)
+
+			dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry))
+			defer dir.Close()
+
+			paths := uploadedEntryPaths(t, ctx, dir)
+			require.ElementsMatch(t, tc.wantPaths, paths)
+
+			dirCount := int32(1) // Include the snapshot root.
+			for _, p := range paths {
+				if strings.HasSuffix(p, "/") {
+					dirCount++
+				}
+			}
+
+			require.Equal(t, tc.wantTotalDirs, atomic.LoadInt32(&man.Stats.TotalDirectoryCount))
+			require.Equal(t, dirCount, atomic.LoadInt32(&man.Stats.TotalDirectoryCount))
+			require.Equal(t, tc.wantDirs, atomic.LoadInt32(&man.Stats.ExcludedDirCount))
+			require.Equal(t, tc.wantFiles, atomic.LoadInt32(&man.Stats.ExcludedFileCount))
+			require.Equal(t, tc.wantDirs, atomic.LoadInt32(&progress.counters.TotalExcludedDirs))
+			require.Equal(t, tc.wantFiles, atomic.LoadInt32(&progress.counters.TotalExcludedFiles))
+		})
+	}
+}
+
+func TestUpload_SkipEmptyCacheDirectory(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+	t.Cleanup(th.cleanup)
+
+	root := mockfs.NewDirectory()
+	cache := root.AddDir("cache", defaultPermissions)
+	cache.AddFile(cachedir.CacheDirMarkerFile, []byte(cachedir.CacheDirMarkerHeader), defaultPermissions)
+	cache.AddFile("cached-file", []byte("content"), defaultPermissions)
+
+	pol := policy.BuildTree(map[string]*policy.Policy{
+		".": {FilesPolicy: policy.FilesPolicy{SkipEmptyDirectories: policy.NewOptionalBool(true)}},
+	}, policy.DefaultPolicy)
+	u := NewUploader(th.repo)
+	progress := &CountingUploadProgress{}
+	u.Progress = progress
+
+	man, err := u.Upload(ctx, root, pol, snapshot.SourceInfo{})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, atomic.LoadInt32(&man.Stats.TotalDirectoryCount))
+	require.EqualValues(t, 1, atomic.LoadInt32(&man.Stats.ExcludedDirCount))
+	require.Zero(t, atomic.LoadInt32(&man.Stats.ExcludedFileCount))
+	require.EqualValues(t, 1, atomic.LoadInt32(&progress.counters.TotalExcludedDirs))
+	require.Zero(t, atomic.LoadInt32(&progress.counters.TotalExcludedFiles))
+
+	dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry))
+	defer dir.Close()
+
+	require.Empty(t, uploadedEntryPaths(t, ctx, dir))
+}
+
+func uploadedEntryPaths(t *testing.T, ctx context.Context, dir fs.Directory) []string {
+	t.Helper()
+
+	var paths []string
+
+	require.NoError(t, fs.IterateEntries(ctx, dir, func(ctx context.Context, e fs.Entry) error {
+		defer e.Close()
+
+		if e.IsDir() {
+			paths = append(paths, e.Name()+"/")
+
+			for _, childPath := range uploadedEntryPaths(t, ctx, testutil.EnsureType[fs.Directory](t, e)) {
+				paths = append(paths, e.Name()+"/"+childPath)
+			}
+		} else {
+			paths = append(paths, e.Name())
+		}
+
+		return nil
+	}))
+
+	return paths
+}
+
+func TestUpload_SkipEmptyDirectoriesWithIgnoredReadError(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+	t.Cleanup(th.cleanup)
+
+	root := mockfs.NewDirectory()
+	root.AddDir("parent", defaultPermissions)
+	root.AddDir("parent/child", defaultPermissions)
+	root.AddFileWithSource("parent/child/unreadable", defaultPermissions, func() (mockfs.ReaderSeekerCloser, error) {
+		return nil, errTest
+	})
+
+	policyTree := policy.BuildTree(map[string]*policy.Policy{
+		".": {
+			FilesPolicy:         policy.FilesPolicy{SkipEmptyDirectories: policy.NewOptionalBool(true)},
+			ErrorHandlingPolicy: policy.ErrorHandlingPolicy{IgnoreFileErrors: policy.NewOptionalBool(true)},
+		},
+	}, policy.DefaultPolicy)
+
+	man, err := NewUploader(th.repo).Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+	verifyErrors(t, man, 0, 1, entryPathToError{"parent/child/unreadable": errTest})
+	require.Zero(t, atomic.LoadInt32(&man.Stats.ExcludedDirCount))
+
+	dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry))
+	defer dir.Close()
+
+	require.ElementsMatch(t, []string{"parent/", "parent/child/"}, uploadedEntryPaths(t, ctx, dir))
+}
+
+func TestUpload_SkipEmptyStreamingDirectories(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+	t.Cleanup(th.cleanup)
+
+	const fileContent = "streaming file content"
+
+	root := virtualfs.NewStaticDirectory("root", []fs.Entry{
+		virtualfs.NewStreamingDirectory("populated", fs.StaticIterator([]fs.Entry{
+			virtualfs.StreamingFileFromReader("file", io.NopCloser(strings.NewReader(fileContent))),
+		}, nil)),
+		virtualfs.NewStreamingDirectory("empty", fs.StaticIterator(nil, nil)),
+	})
+	policyTree := policy.BuildTree(map[string]*policy.Policy{
+		".": {FilesPolicy: policy.FilesPolicy{SkipEmptyDirectories: policy.NewOptionalBool(true)}},
+	}, policy.DefaultPolicy)
+
+	man, err := NewUploader(th.repo).Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+	require.Zero(t, atomic.LoadInt32(&man.Stats.ErrorCount))
+	require.EqualValues(t, 1, atomic.LoadInt32(&man.Stats.ExcludedDirCount))
+
+	dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry))
+	defer dir.Close()
+
+	require.ElementsMatch(t, []string{"populated/", "populated/file"}, uploadedEntryPaths(t, ctx, dir))
+	child, err := dir.Child(ctx, "populated")
+	require.NoError(t, err)
+
+	defer child.Close()
+
+	file, err := testutil.EnsureType[fs.Directory](t, child).Child(ctx, "file")
+	require.NoError(t, err)
+
+	defer file.Close()
+
+	r, err := testutil.EnsureType[fs.File](t, file).Open(ctx)
+	require.NoError(t, err)
+
+	defer r.Close() //nolint:errcheck
+
+	data, err := io.ReadAll(r)
+	require.NoError(t, err)
+	require.Equal(t, fileContent, string(data))
+}
+
+func TestUpload_SkipEmptyDirectoriesWithBeforeFolderAction(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("action scripts require a Unix shell")
+	}
+
+	if _, err := exec.LookPath("sh"); err != nil {
+		t.Skip("sh is not available")
+	}
+
+	for _, tc := range []struct {
+		name       string
+		script     string
+		wantPruned bool
+	}{
+		{
+			name:   "generated content",
+			script: `printf content > "$KOPIA_SOURCE_PATH/generated.txt"`,
+		},
+		{
+			name: "redirected content",
+			script: `mkdir "$KOPIA_SOURCE_PATH/../../redirected"
+printf content > "$KOPIA_SOURCE_PATH/../../redirected/generated.txt"
+printf 'KOPIA_SNAPSHOT_PATH=%s/../../redirected\n' "$KOPIA_SOURCE_PATH"`,
+		},
+		{
+			name:       "no included content",
+			script:     ":",
+			wantPruned: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testlogging.Context(t)
+			th := newUploadTestHarness(ctx, t)
+			t.Cleanup(th.cleanup)
+
+			rootPath := filepath.Join(t.TempDir(), "root")
+			require.NoError(t, os.MkdirAll(filepath.Join(rootPath, "child"), defaultPermissions))
+			root, err := localfs.Directory(rootPath)
+			require.NoError(t, err)
+
+			defer root.Close()
+
+			policyTree := policy.BuildTree(map[string]*policy.Policy{
+				".": {FilesPolicy: policy.FilesPolicy{SkipEmptyDirectories: policy.NewOptionalBool(true)}},
+				"./child": {
+					FilesPolicy: policy.FilesPolicy{SkipEmptyDirectories: policy.NewOptionalBool(true)},
+					Actions:     policy.ActionsPolicy{BeforeFolder: &policy.ActionCommand{Script: tc.script, Mode: "essential"}},
+				},
+			}, policy.DefaultPolicy)
+
+			u := NewUploader(th.repo)
+			u.EnableActions = true
+
+			man, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+			require.NoError(t, err)
+			require.Zero(t, atomic.LoadInt32(&man.Stats.ErrorCount))
+			require.Zero(t, atomic.LoadInt32(&man.Stats.ExcludedFileCount))
+
+			dir := testutil.EnsureType[fs.Directory](t, snapshotfs.EntryFromDirEntry(th.repo, man.RootEntry))
+			defer dir.Close()
+
+			entries, err := fs.GetAllEntries(ctx, dir)
+			require.NoError(t, err)
+
+			if tc.wantPruned {
+				require.Empty(t, entries)
+				require.EqualValues(t, 1, atomic.LoadInt32(&man.Stats.ExcludedDirCount))
+
+				return
+			}
+
+			require.Zero(t, atomic.LoadInt32(&man.Stats.ExcludedDirCount))
+			require.Len(t, entries, 1)
+
+			defer entries[0].Close()
+
+			child := testutil.EnsureType[fs.Directory](t, entries[0])
+			require.Equal(t, []string{"generated.txt"}, uploadedEntryPaths(t, ctx, child))
+		})
+	}
+}
+
+func TestShouldSkipEmptyDirectory_Summary(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name    string
+		summary *fs.DirectorySummary
+		want    bool
+	}{
+		{name: "missing summary"},
+		{name: "empty", summary: &fs.DirectorySummary{TotalDirCount: 1}, want: true},
+		{name: "files", summary: &fs.DirectorySummary{TotalFileCount: 1}},
+		{name: "symlinks", summary: &fs.DirectorySummary{TotalSymlinkCount: 1}},
+		{name: "subdirectories", summary: &fs.DirectorySummary{TotalDirCount: 2}},
+		{name: "fatal errors", summary: &fs.DirectorySummary{FatalErrorCount: 1}},
+		{name: "ignored errors", summary: &fs.DirectorySummary{IgnoredErrorCount: 1}},
+		{name: "failed entries", summary: &fs.DirectorySummary{FailedEntries: []*fs.EntryWithError{{EntryPath: "failed", Error: "read failure"}}}},
+		{name: "incomplete", summary: &fs.DirectorySummary{IncompleteReason: IncompleteReasonCheckpoint}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			pol := &policy.Policy{FilesPolicy: policy.FilesPolicy{SkipEmptyDirectories: policy.NewOptionalBool(true)}}
+			require.Equal(t, tc.want, shouldSkipEmptyDirectory(pol, &snapshotfs.DirManifestBuilder{}, &snapshot.DirEntry{DirSummary: tc.summary}, false))
+		})
+	}
 }
 
 func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {

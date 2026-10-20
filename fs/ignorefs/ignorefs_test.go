@@ -11,8 +11,10 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/internal/cachedir"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -555,6 +557,66 @@ var cases = []struct {
 		},
 		ignoredFiles: []string{},
 	},
+}
+
+func TestIsSkippedCacheDirectory(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name        string
+		marker      string
+		ignoreCache *policy.OptionalBool
+		wantSkipped bool
+	}{
+		{name: "ordinary directory"},
+		{name: "cache directory", marker: cachedir.CacheDirMarkerHeader, wantSkipped: true},
+		{name: "invalid marker", marker: "invalid signature"},
+		{name: "cache included", marker: cachedir.CacheDirMarkerHeader, ignoreCache: policy.NewOptionalBool(false)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testlogging.Context(t)
+			root := mockfs.NewDirectory()
+			child := root.AddDir("child", 0)
+			child.AddFile("file", dummyFileContents, 0)
+
+			if tc.marker != "" {
+				child.AddFile(cachedir.CacheDirMarkerFile, []byte(tc.marker), 0)
+			}
+
+			require.False(t, ignorefs.IsSkippedCacheDirectory(child))
+
+			pol := policy.BuildTree(map[string]*policy.Policy{
+				".": {FilesPolicy: policy.FilesPolicy{IgnoreCacheDirectories: tc.ignoreCache}},
+			}, policy.DefaultPolicy)
+
+			wrapped := ignorefs.New(root, pol)
+			defer wrapped.Close()
+
+			e, err := wrapped.Child(ctx, "child")
+			require.NoError(t, err)
+
+			dir := testutil.EnsureType[fs.Directory](t, e)
+			require.False(t, ignorefs.IsSkippedCacheDirectory(dir))
+
+			entries, err := fs.GetAllEntries(ctx, dir)
+			require.NoError(t, err)
+			require.Equal(t, tc.wantSkipped, ignorefs.IsSkippedCacheDirectory(dir))
+			require.Equal(t, tc.wantSkipped, len(entries) == 0)
+
+			for _, entry := range entries {
+				entry.Close()
+			}
+
+			dir.Close()
+
+			e, err = wrapped.Child(ctx, "child")
+			require.NoError(t, err)
+
+			defer e.Close()
+
+			require.False(t, ignorefs.IsSkippedCacheDirectory(testutil.EnsureType[fs.Directory](t, e)))
+		})
+	}
 }
 
 func TestIgnoreFS(t *testing.T) {
