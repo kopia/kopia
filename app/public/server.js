@@ -1,4 +1,4 @@
-import { ipcMain } from "electron";
+import { ipcMain, BrowserWindow } from "electron";
 const path = await import("path");
 const https = await import("https");
 
@@ -20,6 +20,8 @@ function newServerForRepo(repoID) {
     startingUp: true,
   };
   let serverLog = [];
+  let statusPollTimer = null;
+  let pollNowFn = null;
 
   const maxLogLines = 100;
 
@@ -71,7 +73,24 @@ function newServerForRepo(repoID) {
 
       const statusUpdated = this.raiseStatusUpdatedEvent.bind(this);
 
-      const pollInterval = 3000;
+      // The poll only feeds the tray menu, so keep it fast while the user can
+      // observe a change and back off otherwise.
+      const fastPollInterval = 3000;
+      const idlePollInterval = 300000;
+      const statusRequestTimeout = 3000;
+
+      function pollDelay() {
+        const windowVisible = BrowserWindow.getAllWindows().some((w) =>
+          w.isVisible(),
+        );
+        const repoStarting =
+          runningServerStatusDetails.startingUp ||
+          !!runningServerStatusDetails.initTaskID;
+
+        return windowVisible || repoStarting
+          ? fastPollInterval
+          : idlePollInterval;
+      }
 
       let statusPollInProgress = false;
 
@@ -100,7 +119,7 @@ function newServerForRepo(repoID) {
             port: parseInt(new URL(runningServerAddress).port),
             method: "GET",
             path: "/api/v1/control/status",
-            timeout: pollInterval,
+            timeout: statusRequestTimeout,
             headers: {
               Authorization:
                 "Basic " +
@@ -120,6 +139,7 @@ function newServerForRepo(repoID) {
                   ) {
                     runningServerStatusDetails = newDetails;
                     statusUpdated();
+                    schedulePoll();
                   }
                 } catch (e) {
                   log.warn("unable to parse status JSON", e);
@@ -133,7 +153,9 @@ function newServerForRepo(repoID) {
         );
         req.on("timeout", () => {
           req.destroy(
-            new Error(`status request timed out after ${pollInterval}ms`),
+            new Error(
+              `status request timed out after ${statusRequestTimeout}ms`,
+            ),
           );
         });
         req.on("error", (e) => {
@@ -145,14 +167,29 @@ function newServerForRepo(repoID) {
         req.end();
       }
 
-      const statusPollInterval = setInterval(pollOnce, pollInterval);
+      function schedulePoll() {
+        clearTimeout(statusPollTimer);
+        statusPollTimer = setTimeout(() => {
+          pollOnce();
+          schedulePoll();
+        }, pollDelay());
+      }
+
+      function pollNow() {
+        pollOnce();
+        schedulePoll();
+      }
+
+      pollNowFn = pollNow;
+      schedulePoll();
 
       runningServerProcess.on("close", (code, signal) => {
         this.appendToLog(
           `child process exited with code ${code} and signal ${signal}`,
         );
         if (runningServerProcess === p) {
-          clearInterval(statusPollInterval);
+          clearTimeout(statusPollTimer);
+          pollNowFn = null;
 
           runningServerAddress = "";
           runningServerPassword = "";
@@ -235,6 +272,8 @@ function newServerForRepo(repoID) {
       }
 
       runningServerProcess.kill();
+      clearTimeout(statusPollTimer);
+      pollNowFn = null;
       runningServerAddress = "";
       runningServerPassword = "";
       runningServerCertSHA256 = "";
@@ -245,6 +284,12 @@ function newServerForRepo(repoID) {
 
     getServerAddress() {
       return runningServerAddress;
+    },
+
+    pollNow() {
+      if (pollNowFn) {
+        pollNowFn();
+      }
     },
 
     getServerCertSHA256() {
