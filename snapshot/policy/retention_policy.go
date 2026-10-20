@@ -133,7 +133,10 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 
 	var zeroTime time.Time
 
-	yyyy, wk := s.StartTime.ToTime().ISOWeek()
+	// Compute the ISO week in UTC to stay consistent with the other time
+	// periods below, which use s.StartTime.Format() (UTC). Using local time
+	// here would bucket weekly snapshots differently than daily/monthly ones.
+	yyyy, wk := s.StartTime.ToTime().UTC().ISOWeek()
 
 	effectiveKeepLatest := r.EffectiveKeepLatest()
 
