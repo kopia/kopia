@@ -133,6 +133,8 @@ See the [Kopia Repository Server help docs](../repository-server) for more infor
 
 #### KopiaUI and Multiple Repositories
 
+You can add additional Repositories with the `Connect To Another Repository...` option at the Kopia icon in the taskbar system tray.
+
 When KopiaUI starts up, it will look for configuration files in Kopia's configuration directory (`%APPDATA%\kopia` on Windows; `$HOME/.config/kopia` on linux; `$HOME/Library/Application Support/kopia` on macOS).  KopiaUI will look for all files ending in `*.config` and use these configurations to determine the set of repositories to connect to.
 
 KopiaUI will always look for a `repository.config` file,  even if that file does not exist, in which case it will try to start up a connection which will never succeed.
