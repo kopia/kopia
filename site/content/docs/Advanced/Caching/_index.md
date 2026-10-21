@@ -33,6 +33,8 @@ Kopia maintains several different types of caches for different purposes:
 
 * `indexes` (non-encrypted) - contains locally-cached index information (mapping of contents to their location in blobs) in a format that can be directly memory-mapped for efficient access.
 
+* `index-compaction` (non-encrypted) - temporary index metadata used during epoch index compaction. Files are removed when compaction finishes, including on cancellation or errors; forced termination can leave files behind. If required temporary files disappear, the affected compaction retries from its original inputs with exponential backoff, up to 10 attempts including the initial attempt.
+
 * `own-writes` (non-encrypted) - keeps track of names and timestamps of index blobs written by local Kopia to ensure it can see its own writes, even if the underlying storage list mechanism is eventually consistent and written files show up after some delay.
 
 * `blob-list` (non-encrypted) - short-lived cache (by default 30 seconds) to avoid frequent listing of blobs in the underlying storage
@@ -65,9 +67,39 @@ $ kopia cache set --content-cache-size-limit-mb=30000
 $ kopia cache set --metadata-cache-size-limit-mb=20000
 ```
 
+### Index Compaction Memory
+
+With a local cache directory configured, epoch index compaction uses a 512 MiB
+working-memory budget by default. Larger inputs are sorted and merged using
+temporary files under `index-compaction` in that cache directory. Temporary space
+can exceed the stored size of the input indexes. This budget excludes input blob
+decryption, repository caches, runtime overhead, and concurrent work; it is not a
+limit on total process memory.
+
+Save a budget for both manual and automatic maintenance in this client's local
+configuration:
+
+```sh
+kopia cache set --index-compaction-memory=256MB
+```
+
+Use `kopia cache info` to see the effective budget. Override it for one manual run
+with `kopia maintenance run --index-compaction-memory=1GB` (also supported with
+`--full`). The minimum is 1 MiB; `MB` and `GB` on this option use binary units.
+
+When no local cache directory is configured, compaction uses the previous
+in-memory implementation without a working-memory budget, even if an override
+is supplied. No compaction temporary files are created. An unavailable configured
+cache directory causes an error instead of a fallback to the OS temporary directory.
+
 ### Clearing Cache
 
 Cache can be cleared on demand by `kopia cache clear` or by simply removing appropriate files. It is always safe to remove files from cache.
+
+Clearing temporary files during index compaction may restart the affected
+compaction from its original inputs, with up to 10 attempts including the
+initial attempt. If these attempts are exhausted, maintenance reports an error
+and can be rerun.
 
 
 
