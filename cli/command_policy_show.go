@@ -209,6 +209,12 @@ func appendFilesPolicyValue(items []policyTableRow, p *policy.Policy, def *polic
 		definitionPointToString(p.Target(), def.FilesPolicy.OneFileSystem),
 	})
 
+	items = append(items, policyTableRow{
+		"  Ignore record:",
+		boolToString(p.FilesPolicy.IgnoreRecord.OrDefault(false)),
+		definitionPointToString(p.Target(), def.FilesPolicy.IgnoreRecord),
+	})
+
 	return items
 }
 
