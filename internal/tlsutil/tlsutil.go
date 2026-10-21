@@ -159,6 +159,35 @@ func TransportTrustingSingleCertificate(sha256Fingerprint string) (http.RoundTri
 	return t2, nil
 }
 
+// TLSConfigTrustingCA returns tls.Config which verifies the server certificate
+// chains to one of the CAs in caPEM, using standard chain and hostname
+// verification.
+func TLSConfigTrustingCA(caPEM []byte) (*tls.Config, error) {
+	rootCAs := x509.NewCertPool()
+
+	if ok := rootCAs.AppendCertsFromPEM(caPEM); !ok {
+		return nil, errors.New("cannot parse provided CA")
+	}
+
+	return &tls.Config{
+		RootCAs: rootCAs,
+	}, nil
+}
+
+// TransportTrustingCA returns http.RoundTripper which verifies the server
+// certificate chains to one of the CAs in caPEM.
+func TransportTrustingCA(caPEM []byte) (http.RoundTripper, error) {
+	cfg, err := TLSConfigTrustingCA(caPEM)
+	if err != nil {
+		return nil, err
+	}
+
+	t := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+	t.TLSClientConfig = cfg
+
+	return t, nil
+}
+
 func verifyConnectionFunction(sha256FingerprintBytes []byte) func(s tls.ConnectionState) error {
 	return func(s tls.ConnectionState) error {
 		return verifyConnection(sha256FingerprintBytes, &s)

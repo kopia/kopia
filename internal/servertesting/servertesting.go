@@ -4,6 +4,7 @@ package servertesting
 import (
 	"context"
 	"crypto/sha256"
+	cryptotls "crypto/tls"
 	"encoding/hex"
 	"net/http/httptest"
 	"path/filepath"
@@ -83,6 +84,53 @@ func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Envi
 		hs.Start()
 		asi.BaseURL = hs.URL
 	}
+
+	t.Cleanup(hs.Close)
+
+	return asi
+}
+
+// StartServerContextWithCertificate starts a test server using the given TLS
+// certificate, e.g. one signed by a CA the client is expected to trust via
+// APIServerInfo.TrustedServerCACertificate. Unlike StartServerContext, the
+// fingerprint is not set on the returned APIServerInfo.
+func StartServerContextWithCertificate(
+	ctx context.Context, t *testing.T, env *repotesting.Environment, cert *cryptotls.Certificate,
+) *repo.APIServerInfo {
+	t.Helper()
+
+	s, err := server.New(ctx, &server.Options{
+		ConfigFile:      env.ConfigFile(),
+		PasswordPersist: passwordpersist.File(),
+		Authorizer:      auth.LegacyAuthorizer(),
+		Authenticator: auth.CombineAuthenticators(
+			auth.AuthenticateSingleUser(TestUsername+"@"+TestHostname, TestPassword),
+			auth.AuthenticateSingleUser(TestUIUsername, TestUIPassword),
+		),
+		RefreshInterval:   1 * time.Minute,
+		UIUser:            TestUIUsername,
+		UIPreferencesFile: filepath.Join(testutil.TempDirectory(t), "ui-pref.json"),
+	})
+
+	require.NoError(t, err)
+
+	s.SetRepository(ctx, env.Repository)
+
+	// ensure we disconnect the repository before shutting down the server.
+	t.Cleanup(func() { s.SetRepository(testlogging.ContextForCleanup(t), nil) })
+
+	asi := &repo.APIServerInfo{}
+
+	m := mux.NewRouter()
+	s.SetupHTMLUIAPIHandlers(m)
+	s.SetupControlAPIHandlers(m)
+	s.ServeStaticFiles(m, server.AssetFile())
+
+	hs := httptest.NewUnstartedServer(s.GRPCRouterHandler(m))
+	hs.EnableHTTP2 = true
+	hs.TLS = &cryptotls.Config{Certificates: []cryptotls.Certificate{*cert}}
+	hs.StartTLS()
+	asi.BaseURL = hs.URL
 
 	t.Cleanup(hs.Close)
 
