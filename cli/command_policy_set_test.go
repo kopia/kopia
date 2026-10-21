@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testlogging"
@@ -472,6 +473,172 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.expResult, tc.startingPolicy)
 			require.Equal(t, tc.expChangeCount, changeCount)
+		})
+	}
+}
+
+func TestApplyPolicyStringList(t *testing.T) {
+	t.Parallel()
+
+	type args struct {
+		add    []string
+		remove []string
+		clear  bool
+	}
+
+	for _, tt := range []struct {
+		name      string
+		startList []string
+		args      args
+		wantList  []string
+	}{
+		{
+			name:      "add to empty",
+			startList: nil,
+			args: args{
+				add: []string{"jkl"},
+			},
+			wantList: []string{"jkl"},
+		},
+		{
+			name:      "add in middle",
+			startList: []string{"abc", "xyz"},
+			args: args{
+				add: []string{"jkl"},
+			},
+			wantList: []string{"abc", "jkl", "xyz"},
+		},
+		{
+			name:      "add with duplicates",
+			startList: []string{"abc", "xyz"},
+			args: args{
+				add: []string{"abc"},
+			},
+			wantList: []string{"abc", "xyz"},
+		},
+		{
+			name:      "clear",
+			startList: []string{"abc", "def", "xyz"},
+			args: args{
+				clear: true,
+			},
+			wantList: nil,
+		},
+		{
+			name:      "remove from empty",
+			startList: nil,
+			args: args{
+				remove: []string{"abc"},
+			},
+			wantList: nil,
+		},
+		{
+			name:      "remove existing",
+			startList: []string{"abc", "def", "xyz"},
+			args: args{
+				remove: []string{"def"},
+			},
+			wantList: []string{"abc", "xyz"},
+		},
+		{
+			name:      "remove non existing",
+			startList: []string{"abc", "xyz"},
+			args: args{
+				remove: []string{"def"},
+			},
+			wantList: []string{"abc", "xyz"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			changeCount := 0
+			applyPolicyStringList(t.Context(), "list", &tt.startList, tt.args.add, tt.args.remove, tt.args.clear, &changeCount)
+
+			assert.Equal(t, tt.wantList, tt.startList)
+		})
+	}
+}
+
+func TestApplyPolicyExtensionSet(t *testing.T) {
+	t.Parallel()
+
+	type args struct {
+		add    []string
+		remove []string
+		clear  bool
+	}
+
+	for _, tt := range []struct {
+		name     string
+		startSet *policy.ExtensionSet
+		args     args
+		wantSet  *policy.ExtensionSet
+	}{
+		{
+			name:     "add to empty",
+			startSet: policy.NewExtensionSet(),
+			args: args{
+				add: []string{"jkl"},
+			},
+			wantSet: policy.NewExtensionSet("jkl"),
+		},
+		{
+			name:     "add in middle",
+			startSet: policy.NewExtensionSet("abc", "xyz"),
+			args: args{
+				add: []string{"jkl"},
+			},
+			wantSet: policy.NewExtensionSet("abc", "jkl", "xyz"),
+		},
+		{
+			name:     "add with duplicates",
+			startSet: policy.NewExtensionSet("abc", "xyz"),
+			args: args{
+				add: []string{"abc"},
+			},
+			wantSet: policy.NewExtensionSet("abc", "xyz"),
+		},
+		{
+			name:     "clear",
+			startSet: policy.NewExtensionSet("abc", "def", "xyz"),
+			args: args{
+				clear: true,
+			},
+			wantSet: policy.NewExtensionSet(),
+		},
+		{
+			name:     "remove from empty",
+			startSet: policy.NewExtensionSet(),
+			args: args{
+				remove: []string{"abc"},
+			},
+			wantSet: policy.NewExtensionSet(),
+		},
+		{
+			name:     "remove existing",
+			startSet: policy.NewExtensionSet("abc", "def", "xyz"),
+			args: args{
+				remove: []string{"def"},
+			},
+			wantSet: policy.NewExtensionSet("abc", "xyz"),
+		},
+		{
+			name:     "remove non existing",
+			startSet: policy.NewExtensionSet("abc", "xyz"),
+			args: args{
+				remove: []string{"def"},
+			},
+			wantSet: policy.NewExtensionSet("abc", "xyz"),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			changeCount := 0
+			applyPolicyExtensionSet(t.Context(), "extension set", tt.startSet, tt.args.add, tt.args.remove, tt.args.clear, &changeCount)
+
+			assert.Equal(t, tt.wantSet, tt.startSet)
 		})
 	}
 }

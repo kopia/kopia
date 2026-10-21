@@ -140,7 +140,7 @@ func (c *commandPolicySet) setPolicyFromFlags(ctx context.Context, p *policy.Pol
 
 	// It's not really a list, just optional boolean, last one wins.
 	for _, inherit := range c.inherit {
-		*changeCount++
+		(*changeCount)++
 
 		p.NoParent = !inherit
 	}
@@ -152,7 +152,7 @@ func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add,
 	if clearList {
 		log(ctx).Infof(" - removing all from %q", desc)
 
-		*changeCount++
+		(*changeCount)++
 
 		*val = nil
 
@@ -187,6 +187,40 @@ func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add,
 	sort.Strings(s)
 
 	*val = s
+}
+
+func applyPolicyExtensionSet(
+	ctx context.Context,
+	desc string,
+	val *policy.ExtensionSet,
+	add, remove []string,
+	clearList bool,
+	changeCount *int,
+) {
+	if clearList {
+		log(ctx).Infof(" - removing all from %q", desc)
+
+		*changeCount++
+		*val = policy.ExtensionSet{}
+
+		return
+	}
+
+	for _, ext := range add {
+		*changeCount++
+
+		log(ctx).Infof(" - adding %q to %q", ext, desc)
+
+		val.Add(ext)
+	}
+
+	for _, ext := range remove {
+		*changeCount++
+
+		log(ctx).Infof(" - removing %q from %q", ext, desc)
+
+		val.Remove(ext)
+	}
 }
 
 func applyOptionalInt(ctx context.Context, desc string, val **policy.OptionalInt, str string, changeCount *int) error {
