@@ -283,6 +283,99 @@ func TestSnapshotFix(t *testing.T) {
 				"large-file2",
 			},
 		},
+		// The following three cases demonstrate the behavioral difference
+		// introduced by full-path matching (matchPathPattern): patterns
+		// containing "/" now match against the entry's full path relative to
+		// the snapshot root, while single-segment patterns keep the original
+		// basename-only behavior (see the validation matrix in
+		// kopia_remove_files_validation.md, kept locally outside the repo).
+		{
+			name:                    "FixRemoveFiles_AnchoredFullPath",
+			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {},
+			// "dir1/small-file1" only matches the dir1 entry; the root-level
+			// "small-file1" survives. (Before the fix, this pattern matched
+			// nothing because basename-only matching never matches a pattern
+			// containing "/".)
+			flags: []string{"remove-files", "--filename=dir1/small-file1"},
+			wantRecoveredFiles: []string{
+				"dir1",
+				"dir1/large-file1",
+				"dir1/large-file1-dup",
+				"dir1/large-file2",
+				"dir1/small-file1-dup",
+				"dir1/small-file2",
+				"dir2",
+				"dir2/large-file1",
+				"dir2/large-file1-dup",
+				"dir2/large-file2",
+				"dir2/small-file1",
+				"dir2/small-file1-dup",
+				"dir2/small-file2",
+				"large-file1",
+				"large-file1-dup",
+				"large-file2",
+				"small-file1",
+				"small-file1-dup",
+				"small-file2",
+			},
+		},
+		{
+			name:                    "FixRemoveFiles_AnchoredMultiSegmentWildcard",
+			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {},
+			// "dir1/*-dup" removes only the dups inside dir1; the root-level
+			// "small-file1-dup" and "large-file1-dup" survive, unlike the
+			// basename-only "*-dup" pattern of FixRemoveFiles_ByWildcard.
+			flags: []string{"remove-files", "--filename=dir1/*-dup"},
+			wantRecoveredFiles: []string{
+				"dir1",
+				"dir1/large-file1",
+				"dir1/large-file2",
+				"dir1/small-file1",
+				"dir1/small-file2",
+				"dir2",
+				"dir2/large-file1",
+				"dir2/large-file1-dup",
+				"dir2/large-file2",
+				"dir2/small-file1",
+				"dir2/small-file1-dup",
+				"dir2/small-file2",
+				"large-file1",
+				"large-file1-dup",
+				"large-file2",
+				"small-file1",
+				"small-file1-dup",
+				"small-file2",
+			},
+		},
+		{
+			name:                    "FixRemoveFiles_TrailingSlashNoop",
+			modifyRepoAfterSnapshot: func(env *testenv.CLITest, man *snapshot.Manifest, fileMap map[string]*snapshot.DirEntry) {},
+			// A trailing slash yields an empty final pattern segment, so the
+			// pattern can never match; nothing is removed.
+			flags: []string{"remove-files", "--filename=dir1/small-file1/"},
+			wantRecoveredFiles: []string{
+				"dir1",
+				"dir1/large-file1",
+				"dir1/large-file1-dup",
+				"dir1/large-file2",
+				"dir1/small-file1",
+				"dir1/small-file1-dup",
+				"dir1/small-file2",
+				"dir2",
+				"dir2/large-file1",
+				"dir2/large-file1-dup",
+				"dir2/large-file2",
+				"dir2/small-file1",
+				"dir2/small-file1-dup",
+				"dir2/small-file2",
+				"large-file1",
+				"large-file1-dup",
+				"large-file2",
+				"small-file1",
+				"small-file1-dup",
+				"small-file2",
+			},
+		},
 	}
 
 	for _, tc := range cases {
