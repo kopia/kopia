@@ -910,6 +910,101 @@ func TestUploadWithCheckpointing(t *testing.T) {
 	}
 }
 
+func TestPeriodicCheckpointCancelWaitsForCheckpointInProgress(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
+
+	u := NewUploader(th.repo)
+
+	fakeTicker := make(chan time.Time)
+
+	u.getTicker = func(d time.Duration) <-chan time.Time {
+		return fakeTicker
+	}
+
+	started := make(chan struct{})
+	release := make(chan struct{})
+
+	var cp checkpointRegistry
+
+	cp.addCheckpointCallback("root", func() (*snapshot.DirEntry, error) {
+		close(started)
+		<-release
+
+		return nil, nil
+	})
+
+	cancel := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{})
+
+	fakeTicker <- clock.Now()
+
+	<-started
+
+	canceled := make(chan struct{})
+
+	go func() {
+		cancel()
+		close(canceled)
+	}()
+
+	select {
+	case <-canceled:
+		t.Fatal("cancel returned while a checkpoint was in progress")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(release)
+
+	select {
+	case <-canceled:
+	case <-time.After(10 * time.Second):
+		t.Fatal("cancel did not return after the checkpoint finished")
+	}
+}
+
+func TestPeriodicCheckpointCancelDoesNotWaitForUnreadTestHook(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
+
+	u := NewUploader(th.repo)
+
+	fakeTicker := make(chan time.Time)
+
+	u.getTicker = func(d time.Duration) <-chan time.Time {
+		return fakeTicker
+	}
+
+	// nobody reads checkpointFinished, so the checkpointer blocks after the checkpoint.
+	u.checkpointFinished = make(chan struct{})
+
+	var cp checkpointRegistry
+
+	cancel := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{})
+
+	fakeTicker <- clock.Now()
+
+	canceled := make(chan struct{})
+
+	go func() {
+		cancel()
+		close(canceled)
+	}()
+
+	select {
+	case <-canceled:
+	case <-time.After(10 * time.Second):
+		t.Fatal("cancel did not return")
+	}
+}
+
 func TestParallelUploadUploadsBlobsInParallel(t *testing.T) {
 	t.Parallel()
 

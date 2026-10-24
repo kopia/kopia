@@ -554,12 +554,16 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 }
 
 // periodicallyCheckpoint periodically (every CheckpointInterval) invokes checkpointRoot until the
-// returned cancellation function has been called.
+// returned cancellation function has been called. The cancellation function waits for a checkpoint
+// in progress to finish, so that it cannot be saved after the final snapshot.
 func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) (cancelFunc func()) {
 	shutdown := make(chan struct{})
+	done := make(chan struct{})
 	ch := u.getTicker(u.CheckpointInterval)
 
 	go func() {
+		defer close(done)
+
 		for {
 			select {
 			case <-shutdown:
@@ -575,7 +579,11 @@ func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointReg
 
 				// test action
 				if u.checkpointFinished != nil {
-					u.checkpointFinished <- struct{}{}
+					select {
+					case u.checkpointFinished <- struct{}{}:
+					case <-shutdown:
+						return
+					}
 				}
 			}
 		}
@@ -583,6 +591,7 @@ func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointReg
 
 	return func() {
 		close(shutdown)
+		<-done
 	}
 }
 
