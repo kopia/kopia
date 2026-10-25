@@ -75,8 +75,12 @@ func (o *ZipOutput) WriteFile(ctx context.Context, relativePath string, f fs.Fil
 		return errors.Wrap(err, "error creating zip entry")
 	}
 
-	if _, err := io.Copy(w, r); err != nil {
+	n, err := io.Copy(w, r)
+	if err != nil {
 		return errors.Wrap(err, "error copying data to zip")
+	}
+	if n != f.Size() {
+		return errors.Errorf("zip content length mismatch for %q: snapshot declares %d bytes, copied %d", relativePath, f.Size(), n)
 	}
 
 	return nil
