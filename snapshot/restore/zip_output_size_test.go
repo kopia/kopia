@@ -19,6 +19,7 @@ type zipSizeOverrideFile struct {
 func (f zipSizeOverrideFile) Size() int64 { return f.size }
 
 type zipMemoryWriter struct{ *bytes.Buffer }
+
 func (w zipMemoryWriter) Close() error { return nil }
 
 func TestZipOutputDetectsSnapshotLengthMismatch(t *testing.T) {
