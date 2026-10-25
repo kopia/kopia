@@ -752,7 +752,8 @@ func findCachedEntry(ctx context.Context, entryRelativePath string, entry fs.Ent
 				"path", entryRelativePath,
 				"mode", missedEntry.Mode().String(),
 				"size", missedEntry.Size(),
-				"mtime", missedEntry.ModTime())
+				"mtime", missedEntry.ModTime(),
+			)
 		}
 	}
 
@@ -978,7 +979,6 @@ func (u *Uploader) processSingle(
 	}
 }
 
-//nolint:unparam
 func (u *Uploader) processEntryUploadResult(
 	ctx context.Context,
 	de *snapshot.DirEntry,
@@ -999,7 +999,8 @@ func (u *Uploader) processEntryUploadResult(
 	maybeLogEntryProcessed(
 		uploadLog(ctx),
 		logDetail,
-		logMessage, entryRelativePath, de, err, t0)
+		logMessage, entryRelativePath, de, err, t0,
+	)
 
 	return nil
 }
@@ -1147,7 +1148,8 @@ func uploadDirInternal(
 		maybeLogEntryProcessed(
 			uploadLog(ctx),
 			u.OverrideDirLogDetail.OrDefault(policyTree.EffectivePolicy().LoggingPolicy.Directories.Snapshotted.OrDefault(policy.LogDetailNone)),
-			"snapshotted directory", dirRelativePath, resultDE, resultErr, t0)
+			"snapshotted directory", dirRelativePath, resultDE, resultErr, t0,
+		)
 	}()
 
 	u.Progress.StartedDirectory(dirRelativePath)
@@ -1417,7 +1419,8 @@ func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, polic
 			maybeLogEntryProcessed(
 				logger,
 				policyTree.EffectivePolicy().LoggingPolicy.Directories.Ignored.OrDefault(policy.LogDetailNone),
-				"ignored directory", fname, nil, nil, timetrack.StartTimer())
+				"ignored directory", fname, nil, nil, timetrack.StartTimer(),
+			)
 
 			if reportIgnoreStats {
 				u.Progress.ExcludedDir(fname)
@@ -1426,7 +1429,8 @@ func (u *Uploader) wrapIgnorefs(logger logging.Logger, entry fs.Directory, polic
 			maybeLogEntryProcessed(
 				logger,
 				policyTree.EffectivePolicy().LoggingPolicy.Entries.Ignored.OrDefault(policy.LogDetailNone),
-				"ignored", fname, nil, nil, timetrack.StartTimer())
+				"ignored", fname, nil, nil, timetrack.StartTimer(),
+			)
 
 			if reportIgnoreStats {
 				u.Progress.ExcludedFile(fname, md.Size())

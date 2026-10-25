@@ -25,7 +25,6 @@ import (
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
-	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content/indexblob"
 	"github.com/kopia/kopia/repo/format"
@@ -205,7 +204,8 @@ func (sm *SharedManager) attemptReadPackFileLocalIndex(ctx context.Context, pack
 
 	return errors.Wrap(
 		sm.decryptAndVerify(encryptedLocalIndexBytes.Bytes(), postamble.localIndexIV, output),
-		"unable to decrypt local index")
+		"unable to decrypt local index",
+	)
 }
 
 // +checklocks:sm.indexesLock
@@ -338,7 +338,8 @@ func (sm *SharedManager) decryptContentAndVerify(payload gather.Bytes, bi Info, 
 	if h == 0 {
 		return errors.Wrapf(
 			sm.decryptAndVerify(payload, iv, output),
-			"invalid checksum at %v offset %v length %v/%v", bi.PackBlobID, bi.PackOffset, bi.PackedLength, payload.Length())
+			"invalid checksum at %v offset %v length %v/%v", bi.PackBlobID, bi.PackOffset, bi.PackedLength, payload.Length(),
+		)
 	}
 
 	var tmp gather.WriteBuffer
@@ -443,10 +444,8 @@ func newCacheBackingStorage(ctx context.Context, caching *CachingOptions, subdir
 
 	//nolint:wrapcheck
 	return filesystem.New(ctx, &filesystem.Options{
-		Path: blobListCacheDir,
-		Options: sharded.Options{
-			DirectoryShards: []int{},
-		},
+		Path:            blobListCacheDir,
+		DirectoryShards: []int{},
 	}, false)
 }
 
@@ -527,7 +526,8 @@ func (sm *SharedManager) setupCachesAndIndexManagers(ctx context.Context, cachin
 		cachedSt,
 		sm.format,
 		indexBlobCache,
-		sm.namedLogger("encrypted-blob-manager"))
+		sm.namedLogger("encrypted-blob-manager"),
+	)
 
 	// set up legacy index blob manager
 	sm.indexBlobManagerV0 = indexblob.NewManagerV0(

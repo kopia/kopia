@@ -145,13 +145,13 @@ func (c *onDiskCache) Remove(ctx context.Context, ids []blob.ID) {
 	}
 }
 
-// NewDiskCache returns on-disk blob cache.
-func NewDiskCache(cacheDir string) blobCache {
+// newDiskCache returns on-disk blob cache.
+func newDiskCache(cacheDir string) blobCache {
 	return &onDiskCache{cacheDir}
 }
 
-// NewMemoryBlobCache returns in-memory blob cache.
-func NewMemoryBlobCache(timeNow func() time.Time) blobCache {
+// newMemoryBlobCache returns in-memory blob cache.
+func newMemoryBlobCache(timeNow func() time.Time) blobCache {
 	return &inMemoryCache{
 		timeNow: timeNow,
 		data:    map[blob.ID][]byte{},
@@ -159,14 +159,14 @@ func NewMemoryBlobCache(timeNow func() time.Time) blobCache {
 	}
 }
 
-// NewFormatBlobCache creates an implementation of blobCache for particular cache settings.
-func NewFormatBlobCache(cacheDir string, validDuration time.Duration, timeNow func() time.Time) blobCache {
+// newFormatBlobCache creates an implementation of blobCache for particular cache settings.
+func newFormatBlobCache(cacheDir string, validDuration time.Duration, timeNow func() time.Time) blobCache {
 	if cacheDir != "" {
-		return NewDiskCache(cacheDir)
+		return newDiskCache(cacheDir)
 	}
 
 	if validDuration > 0 {
-		return NewMemoryBlobCache(timeNow)
+		return newMemoryBlobCache(timeNow)
 	}
 
 	return &nullCache{}

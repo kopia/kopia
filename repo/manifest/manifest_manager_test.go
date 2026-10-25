@@ -130,7 +130,8 @@ func TestManifest(t *testing.T) {
 		func(ci content.Info) error {
 			foundContents++
 			return nil
-		}); err != nil {
+		},
+	); err != nil {
 		t.Errorf("unable to list manifest content: %v", err)
 	}
 
@@ -154,12 +155,10 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
 	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
-		Hash:       hashing.DefaultAlgorithm,
-		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: format.MutableParameters{
-			Version:     1,
-			MaxPackSize: 100000,
-		},
+		Hash:        hashing.DefaultAlgorithm,
+		Encryption:  encryption.DefaultAlgorithm,
+		Version:     1,
+		MaxPackSize: 100000,
 	}, nil)
 	require.NoError(t, err)
 
@@ -321,12 +320,10 @@ func newContentManagerForTesting(ctx context.Context, tb testing.TB, data blobte
 	}
 
 	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
-		Hash:       hashing.DefaultAlgorithm,
-		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: format.MutableParameters{
-			Version:     1,
-			MaxPackSize: 100000,
-		},
+		Hash:        hashing.DefaultAlgorithm,
+		Encryption:  encryption.DefaultAlgorithm,
+		Version:     1,
+		MaxPackSize: 100000,
 	}, nil)
 
 	require.NoError(tb, err)
@@ -452,7 +449,8 @@ func getManifestContentCount(ctx context.Context, t *testing.T, mgr *Manager) in
 		func(ci content.Info) error {
 			foundContents++
 			return nil
-		}); err != nil {
+		},
+	); err != nil {
 		t.Errorf("unable to list manifest content: %v", err)
 	}
 

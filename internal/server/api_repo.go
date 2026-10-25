@@ -336,7 +336,8 @@ func (s *Server) getConnectOptions(cliOpts repo.ClientOptions) *repo.ConnectOpti
 func connectAPIServerAndOpen(ctx context.Context, si *repo.APIServerInfo, password string, connectOpts *repo.ConnectOptions, opts *Options) (repo.Repository, error) {
 	if err := passwordpersist.OnSuccess(
 		ctx, repo.ConnectAPIServer(ctx, opts.ConfigFile, si, password, connectOpts),
-		opts.PasswordPersist, opts.ConfigFile, password); err != nil {
+		opts.PasswordPersist, opts.ConfigFile, password,
+	); err != nil {
 		return nil, errors.Wrap(err, "error connecting to API server")
 	}
 
@@ -353,7 +354,8 @@ func connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password stri
 
 	if err = passwordpersist.OnSuccess(
 		ctx, repo.Connect(ctx, opts.ConfigFile, st, password, connectOpts),
-		opts.PasswordPersist, opts.ConfigFile, password); err != nil {
+		opts.PasswordPersist, opts.ConfigFile, password,
+	); err != nil {
 		return nil, errors.Wrap(err, "error connecting")
 	}
 

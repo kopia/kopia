@@ -214,7 +214,8 @@ func findContentWithFormatVersion(ctx context.Context, rep repo.DirectRepository
 			}
 
 			return nil
-		})
+		},
+	)
 }
 
 func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch chan contentInfoOrError, threshold int64, opt *RewriteContentsOptions) {

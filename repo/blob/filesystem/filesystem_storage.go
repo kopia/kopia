@@ -16,6 +16,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/dirutil"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
@@ -47,31 +48,35 @@ type fsImpl struct {
 var errRetriableInvalidLength = errors.New("invalid length (retriable)")
 
 func (fs *fsImpl) isRetriable(err error) bool {
+	return isRetriable(fs.osi, err)
+}
+
+func isRetriable(osi osInterface, err error) bool {
 	if err == nil {
 		return false
 	}
 
 	err = errors.Cause(err)
 
-	if fs.osi.IsStale(err) {
+	if osi.IsStale(err) {
 		// errors indicative of stale resource handle or invalid
 		// descriptors should not be retried
 		return false
 	}
 
-	if fs.osi.IsNotExist(err) {
+	if osi.IsNotExist(err) {
 		return false
 	}
 
-	if fs.osi.IsExist(err) {
+	if osi.IsExist(err) {
 		return false
 	}
 
-	if fs.osi.IsPathError(err) {
+	if osi.IsPathError(err) {
 		return true
 	}
 
-	if fs.osi.IsLinkError(err) {
+	if osi.IsLinkError(err) {
 		return true
 	}
 
@@ -155,7 +160,6 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 	}, fs.isRetriable)
 }
 
-//nolint:wrapcheck
 func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes, opts blob.PutOptions) error {
 	_ = dirPath
 
@@ -174,13 +178,12 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 			return err
 		}
 
-		err = fs.osi.Rename(tempFile, path)
+		err = renameBlob(ctx, fs.osi, tempFile, path)
 		if err != nil {
 			if removeErr := fs.osi.Remove(tempFile); removeErr != nil {
 				log(ctx).Errorf("can't remove temp file: %v", removeErr)
 			}
 
-			//nolint:wrapcheck
 			return err
 		}
 
@@ -209,6 +212,25 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 	}), fs.isRetriable)
 
 	return err
+}
+
+func renameBlob(ctx context.Context, osi osInterface, oldPath, newPath string) error {
+	var attemptDelay time.Duration // zero delay when not retrying
+
+	count := 1
+
+	if envflag.Bool("KOPIA_FS_RETRY_BLOB_RENAME") {
+		count = 10
+		attemptDelay = time.Second
+	}
+
+	return retry.PeriodicallyNoValue(ctx, attemptDelay, count, "rename blob",
+		func() error {
+			return osi.Rename(oldPath, newPath)
+		},
+		func(err error) bool {
+			return isRetriable(osi, err)
+		})
 }
 
 // createTempFileWithData creates a temporary file, writes data to it, syncs and closes it.

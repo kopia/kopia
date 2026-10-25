@@ -142,8 +142,8 @@ func TestCompareIdenticalDirectories(t *testing.T) {
 	oid1 := oidForString(t, "k", "sdkjfn")
 	oid2 := oidForString(t, "k", "dfjlgn")
 
-	file1 := &testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"}
-	file2 := &testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"}
+	file1 := &testFile{modtime: fileModTime, name: "file1.txt", content: "abcdefghij"}
+	file2 := &testFile{modtime: fileModTime, name: "file2.txt", content: "klmnopqrstuvwxyz"}
 
 	dir1 := createTestDirectory(
 		"testDir1",
@@ -199,8 +199,8 @@ func TestCompareDifferentDirectories(t *testing.T) {
 		dirOwnerInfo,
 		dirMode,
 		oid1,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"},
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
+		&testFile{modtime: fileModTime, name: "file1.txt", content: "abcdefghij"},
+		&testFile{modtime: fileModTime, name: "file2.txt", content: "klmnopqrstuvwxyz"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
@@ -208,8 +208,8 @@ func TestCompareDifferentDirectories(t *testing.T) {
 		dirOwnerInfo,
 		dirMode,
 		oid2,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file3.txt"}, content: "abcdefghij1"},
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file4.txt"}, content: "klmnopqrstuvwxyz2"},
+		&testFile{modtime: fileModTime, name: "file3.txt", content: "abcdefghij1"},
+		&testFile{modtime: fileModTime, name: "file4.txt", content: "klmnopqrstuvwxyz2"},
 	)
 
 	c, err := diff.NewComparer(&buf, statsOnly)
@@ -254,8 +254,8 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 		dirOwnerInfo,
 		dirMode,
 		oid1,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"},
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
+		&testFile{modtime: fileModTime, name: "file1.txt", content: "abcdefghij"},
+		&testFile{modtime: fileModTime, name: "file2.txt", content: "klmnopqrstuvwxyz"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
@@ -263,8 +263,8 @@ func TestCompareDifferentDirectories_DirTimeDiff(t *testing.T) {
 		dirOwnerInfo,
 		dirMode,
 		oid2,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file1.txt"}, content: "abcdefghij"},
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime, name: "file2.txt"}, content: "klmnopqrstuvwxyz"},
+		&testFile{modtime: fileModTime, name: "file1.txt", content: "abcdefghij"},
+		&testFile{modtime: fileModTime, name: "file2.txt", content: "klmnopqrstuvwxyz"},
 	)
 
 	expectedStats := diff.Stats{}
@@ -305,7 +305,7 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 		dirOwnerInfo,
 		dirMode,
 		oid1,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime1, name: "file1.txt", oid: oid1}, content: "abcdefghij"},
+		&testFile{modtime: fileModTime1, name: "file1.txt", oid: oid1, content: "abcdefghij"},
 	)
 	dir2 := createTestDirectory(
 		"testDir2",
@@ -313,7 +313,7 @@ func TestCompareDifferentDirectories_FileTimeDiff(t *testing.T) {
 		dirOwnerInfo,
 		dirMode,
 		oid2,
-		&testFile{testBaseEntry: testBaseEntry{modtime: fileModTime2, name: "file1.txt", oid: oid2}, content: "abcdefghij"},
+		&testFile{modtime: fileModTime2, name: "file1.txt", oid: oid2, content: "abcdefghij"},
 	)
 
 	c, err := diff.NewComparer(&buf, statsOnly)
@@ -359,7 +359,7 @@ func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
 		dirOwnerInfo,
 		dirMode,
 		oid1,
-		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime1, oid: object.ID{}, owner: fileOwnerinfo1, mode: 0o700}, content: "abcdefghij"},
+		&testFile{name: "file1.txt", modtime: fileModTime1, oid: object.ID{}, owner: fileOwnerinfo1, mode: 0o700, content: "abcdefghij"},
 	)
 
 	dir2 := createTestDirectory(
@@ -368,7 +368,7 @@ func TestCompareFileWithIdenticalContentsButDiffFileMetadata(t *testing.T) {
 		dirOwnerInfo,
 		dirMode,
 		oid2,
-		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime2, oid: object.ID{}, owner: fileOwnerinfo2, mode: 0o777}, content: "abcdefghij"},
+		&testFile{name: "file1.txt", modtime: fileModTime2, oid: object.ID{}, owner: fileOwnerinfo2, mode: 0o777, content: "abcdefghij"},
 	)
 
 	c, err := diff.NewComparer(&buf, statsOnly)
@@ -419,7 +419,7 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 		dirOwnerInfo1,
 		dirMode1,
 		oid,
-		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime}, content: "abcdefghij"},
+		&testFile{name: "file1.txt", modtime: fileModTime, content: "abcdefghij"},
 	)
 
 	dir2 := createTestDirectory(
@@ -428,7 +428,7 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 		dirOwnerInfo2,
 		dirMode2,
 		oid,
-		&testFile{testBaseEntry: testBaseEntry{name: "file1.txt", modtime: fileModTime}, content: "abcdefghij"},
+		&testFile{name: "file1.txt", modtime: fileModTime, content: "abcdefghij"},
 	)
 	c, err := diff.NewComparer(&buf, statsOnly)
 	require.NoError(t, err)
@@ -455,7 +455,7 @@ func TestCompareIdenticalDirectoriesWithDiffDirectoryMetadata(t *testing.T) {
 }
 
 func createTestDirectory(name string, modtime time.Time, owner fs.OwnerInfo, mode os.FileMode, oid object.ID, files ...fs.Entry) *testDirectory {
-	return &testDirectory{testBaseEntry: testBaseEntry{modtime: modtime, name: name, owner: owner, mode: mode, oid: oid}, files: files}
+	return &testDirectory{modtime: modtime, name: name, owner: owner, mode: mode, oid: oid, files: files}
 }
 
 func getManifests(t *testing.T) map[string]*snapshot.Manifest {

@@ -30,7 +30,6 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/blob/rclone"
-	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 const cleanupAge = 4 * time.Hour
@@ -158,11 +157,9 @@ func TestRCloneStorageDirectoryShards(t *testing.T) {
 
 	st, err := rclone.New(ctx, &rclone.Options{
 		// pass local file as remote path.
-		RemotePath: dataDir,
-		RCloneExe:  rcloneExe,
-		Options: sharded.Options{
-			DirectoryShards: []int{5, 2},
-		},
+		RemotePath:      dataDir,
+		RCloneExe:       rcloneExe,
+		DirectoryShards: []int{5, 2},
 	}, true)
 	if err != nil {
 		t.Fatalf("unable to connect to rclone backend: %v", err)
@@ -258,15 +255,13 @@ func TestRCloneProviders(t *testing.T) {
 
 	for name, rp := range rcloneExternalProviders {
 		opt := &rclone.Options{
-			RemotePath:     rp,
-			RCloneExe:      rcloneExe,
-			RCloneArgs:     rcloneArgs,
-			EmbeddedConfig: embeddedConfig,
-			Debug:          true,
-			Options: sharded.Options{
-				ListParallelism: 16,
-			},
-			AtomicWrites: true,
+			RemotePath:      rp,
+			RCloneExe:       rcloneExe,
+			RCloneArgs:      rcloneArgs,
+			EmbeddedConfig:  embeddedConfig,
+			Debug:           true,
+			ListParallelism: 16,
+			AtomicWrites:    true,
 		}
 
 		t.Run("Cleanup-"+name, func(t *testing.T) {

@@ -6,26 +6,37 @@ on:
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+permissions:
+  contents: read
 jobs:
+
   tests:
     name: Code Coverage Tests
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      code-quality: write
     steps:
     - name: Check out repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         fetch-depth: 0
         persist-credentials: false
+        # head commit, not merge commit in the case of PRs
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
     - name: Set up Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version-file: 'go.mod'
-    - name: Run Tests
-      run: make test-with-coverage
-    - name: Upload Coverage
-      uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
+    - name: Test Coverage
+      run: make coverage-cobertura
+    - name: Upload coverage report
+      if: github.event_name != 'pull_request' || (github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]')
+      uses: actions/upload-code-coverage@2b21a77928be8d5168c2b9581a67f2adbebacc52 # v1.4.4
       with:
-        files: coverage.txt
+        file: coverage.xml
+        language: Go
+        label: code-coverage/go-test
     - name: Upload Logs
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
