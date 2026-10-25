@@ -144,6 +144,11 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	c.out.printStderr("\r\n")
 
 	if migrationErr != nil {
+		// Persist snapshots from healthy sources before returning the failure.
+		// The repository write session does not flush when its action fails.
+		if err := destRepo.Flush(ctx); err != nil {
+			return errors.Wrapf(err, "unable to flush successful snapshots after migration failure: %v", migrationErr)
+		}
 		return errors.Wrap(migrationErr, "unable to migrate one or more sources")
 	}
 

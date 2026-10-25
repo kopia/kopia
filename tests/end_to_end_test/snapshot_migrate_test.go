@@ -212,4 +212,9 @@ func (s *formatSpecificTestSuite) TestSnapshotMigrateContinuesAfterSourceFailure
 	output := strings.Join(stderr, "\n")
 	require.Contains(t, output, corruptDir)
 	require.Contains(t, output, healthyDir)
+
+	// Healthy snapshots must remain durable even when another source fails.
+	listing := destEnv.RunAndExpectSuccess(t, "snapshot", "list", "-a")
+	require.Contains(t, strings.Join(listing, "\n"), healthyDir)
+	require.NotContains(t, strings.Join(listing, "\n"), corruptDir)
 }
