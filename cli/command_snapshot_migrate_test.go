@@ -67,6 +67,28 @@ func TestSnapshotMigrateMatchTags(t *testing.T) {
 	// object IDs differ across repositories, compare the directory contents instead
 	require.EqualValues(t, 1, sourceSnapshots[0].RootEntry.DirSummary.TotalFileCount)
 	require.Equal(t, sourceSnapshots[0].RootEntry.DirSummary.TotalFileCount, destSnapshots[0].RootEntry.DirSummary.TotalFileCount)
+
+	latestEnv := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+	defer latestEnv.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	latestEnv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", latestEnv.RepoDir)
+
+	// the latest snapshot is env:dev, so --latest-only picks the second one
+	latestEnv.RunAndExpectSuccess(
+		t,
+		"snapshot", "migrate",
+		"--all",
+		"--latest-only",
+		"--match-tags", "env:prod",
+		"--source-config", filepath.Join(sourceEnv.ConfigDir, ".kopia.config"),
+	)
+
+	var latestSnapshots []*cli.SnapshotManifest
+
+	testutil.MustParseJSONLines(t, latestEnv.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &latestSnapshots)
+	require.Len(t, latestSnapshots, 1)
+	require.EqualValues(t, 2, sourceSnapshots[1].RootEntry.DirSummary.TotalFileCount)
+	require.Equal(t, sourceSnapshots[1].RootEntry.DirSummary.TotalFileCount, latestSnapshots[0].RootEntry.DirSummary.TotalFileCount)
 }
 
 func TestSnapshotMigrateMatchTagsInvalid(t *testing.T) {
