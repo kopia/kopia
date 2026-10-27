@@ -3,6 +3,7 @@ package cli_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -78,16 +79,28 @@ func TestSnapshotMigrateMatchTagsInvalid(t *testing.T) {
 
 	sourceEnv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", sourceEnv.RepoDir)
 
+	srcdir := testutil.TempDirectory(t)
+	require.NoError(t, os.WriteFile(filepath.Join(srcdir, "file"), []byte{1}, 0o755))
+
+	sourceEnv.RunAndExpectSuccess(t, "snapshot", "create", "--tags", "env:prod", srcdir)
+
 	destEnv := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
 	defer destEnv.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	destEnv.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", destEnv.RepoDir)
 
-	destEnv.RunAndExpectFailure(
+	_, stderr := destEnv.RunAndExpectFailure(
 		t,
 		"snapshot", "migrate",
 		"--all",
 		"--match-tags", "env",
 		"--source-config", filepath.Join(sourceEnv.ConfigDir, ".kopia.config"),
 	)
+	require.Contains(t, strings.Join(stderr, "\n"), "invalid --match-tags")
+
+	// nothing is copied before the value is rejected
+	var destSnapshots []*cli.SnapshotManifest
+
+	testutil.MustParseJSONLines(t, destEnv.RunAndExpectSuccess(t, "snapshot", "list", "--json"), &destSnapshots)
+	require.Empty(t, destSnapshots)
 }
