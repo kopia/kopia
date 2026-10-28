@@ -131,6 +131,10 @@ func (az *azPointInTimeStorage) listBlobVersions(ctx context.Context, prefix blo
 			return translateError(err)
 		}
 
+		if page.Segment == nil {
+			return errNoBlobList
+		}
+
 		for _, it := range page.Segment.BlobItems {
 			vm, err := az.getVersionedBlobMeta(it)
 			if err != nil {

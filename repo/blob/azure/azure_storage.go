@@ -194,6 +194,9 @@ func (az *azStorage) getObjectNameString(b blob.ID) string {
 	return az.Prefix + string(b)
 }
 
+// errNoBlobList is returned when the endpoint replies without a list of blobs, e.g. when it is not a blob storage service.
+var errNoBlobList = errors.New("unexpected response from Azure: no list of blobs returned, check that the endpoint is a blob storage service and not a queue or table")
+
 // ListBlobs list azure blobs with given prefix.
 func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
 	prefixStr := az.getObjectNameString(prefix)
@@ -209,6 +212,10 @@ func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return translateError(err)
+		}
+
+		if page.Segment == nil {
+			return errNoBlobList
 		}
 
 		for _, it := range page.Segment.BlobItems {
