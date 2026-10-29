@@ -24,6 +24,8 @@ env:
   ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
   # set (to any value other than false) to trigger very long filenames testing
   ENABLE_LONG_FILENAMES: ${{ secrets.ENABLE_LONG_FILENAMES }}
+permissions:
+  contents: read
 jobs:
   build:
     strategy:

@@ -21,6 +21,8 @@ env:
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+permissions:
+  contents: read
 jobs:
   end-to-end-test:
     name: E2E Test
