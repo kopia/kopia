@@ -9,7 +9,6 @@ concurrency:
 permissions:
   contents: read
 jobs:
-
   tests:
     name: Code Coverage Tests
     runs-on: ubuntu-latest
