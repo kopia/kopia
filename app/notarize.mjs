@@ -1,7 +1,5 @@
 import "dotenv/config";
 import { notarize } from "@electron/notarize";
-import fs from "fs";
-import crypto from "crypto";
 
 export default async function notarizing(context) {
   const { electronPlatformName, appOutDir } = context;

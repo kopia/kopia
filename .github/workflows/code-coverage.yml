@@ -9,7 +9,6 @@ concurrency:
 permissions:
   contents: read
 jobs:
-
   tests:
     name: Code Coverage Tests
     runs-on: ubuntu-latest
@@ -22,6 +21,8 @@ jobs:
       with:
         fetch-depth: 0
         persist-credentials: false
+        # head commit, not merge commit in the case of PRs
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
     - name: Set up Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
