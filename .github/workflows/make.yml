@@ -26,6 +26,8 @@ env:
   NON_TAG_RELEASE_REPO: ${{ secrets.NON_TAG_RELEASE_REPO }}
   # RPM and APT packages GCS bucket/hostname.
   PACKAGES_HOST: ${{ secrets.PACKAGES_HOST }}
+permissions:
+  contents: read
 jobs:
   build:
     strategy:

@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
@@ -133,29 +134,26 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 	indexBlobInfos1, err := sm.IndexReaderV1().ListIndexBlobInfos(ctx)
 	if err != nil {
 		log(ctx).Errorf("failed to list index blobs for new index. upgrade may have failed.: %v", err)
+
 		return nil
 	}
 
 	if len(indexBlobInfos0) == 0 && len(indexBlobInfos1) > 0 {
 		log(ctx).Info("old index is empty (possibly due to upgrade), nothing to compare against")
+
 		return nil
 	}
 
 	// load index blobs into their appropriate positions inside the indexEntries map
-
-	err = loadIndexBlobs(ctx, indexEntries, sm, 0, indexBlobInfos0)
-	if err != nil {
+	if err = loadIndexBlobs(ctx, indexEntries, sm, 0, indexBlobInfos0); err != nil {
 		return errors.Wrapf(err, "failed to load index entries for v0 index entry")
 	}
 
-	err = loadIndexBlobs(ctx, indexEntries, sm, 1, indexBlobInfos1)
-	if err != nil {
+	if err = loadIndexBlobs(ctx, indexEntries, sm, 1, indexBlobInfos1); err != nil {
 		return errors.Wrapf(err, "failed to load index entries for new index")
 	}
 
-	var msgs []string // a place to keep messages from the index comparison process
-
-	var zeroInfo content.Info
+	foundError := false
 
 	// both indexes will have matching contentIDs with matching indexInfo structures.
 	//nolint:gocritic
@@ -163,73 +161,92 @@ func (c *commandRepositoryUpgrade) validateAction(ctx context.Context, rep repo.
 		iep0 := indexEntryPairs[0] // first entry of index entry pair
 		iep1 := indexEntryPairs[1] // second entry of index entry pair
 
-		// check that both the new and old indexes have entries for the same content
-		if iep0 != zeroInfo && iep1 != zeroInfo {
-			// this is the happy-path, check the entries.  any problems found will be added to msgs
-			msgs = append(msgs, CheckIndexInfo(iep0, iep1)...)
-			continue
+		switch {
+		case iep0 == content.Info{}:
+			foundError = true
+
+			log(ctx).Errorf("lop-sided index entries for contentID %q at blob %q", contentID, iep1.PackBlobID)
+		case iep1 == content.Info{}:
+			foundError = true
+
+			log(ctx).Errorf("lop-sided index entries for contentID %q at blob %q", contentID, iep0.PackBlobID)
+		default:
+			// both iep0 and iep1 contain info, that is, they are not the zero-value,
+			// check that both the new and old indexes have entries for the same content,
+			// this is the common case, CheckIndexInfo checks for field mismatches
+			if err := checkIndexInfo(iep0, iep1); err != nil {
+				foundError = true
+
+				log(ctx).Error(err)
+			}
 		}
-
-		// one of iep0 or iep1 are nil .. find out which one and add an appropriate message.
-		if iep0 != zeroInfo {
-			msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep0.PackBlobID))
-			continue
-		}
-
-		msgs = append(msgs, fmt.Sprintf("lop-sided index entries for contentID %q at blob %q", contentID, iep1.PackBlobID))
 	}
 
-	// no msgs means the check passed without finding anything wrong
-	if len(msgs) == 0 {
-		log(ctx).Info("index validation succeeded")
-		return nil
+	if foundError {
+		return errors.New("found inconsistencies in upgraded index blobs, repository will remain locked until index differences are resolved")
 	}
 
-	// otherwise there's a problem somewhere ... log the problems
-	log(ctx).Error("inconsistencies found in migrated index:")
+	log(ctx).Info("index validation succeeded")
 
-	for _, m := range msgs {
-		log(ctx).Error(m)
-	}
-
-	// and return an error that states something's wrong.
-	return errors.Wrap(err, "repository will remain locked until index differences are resolved")
+	return nil
 }
 
 // CheckIndexInfo compare two index infos.  If a mismatch exists, return an error with diagnostic information.
-func CheckIndexInfo(i0, i1 content.Info) []string {
-	var q []string
+func checkIndexInfo(i0, i1 content.Info) error {
+	var b strings.Builder
 
-	switch {
-	case i0.FormatVersion != i1.FormatVersion:
-		q = append(q, fmt.Sprintf("mismatched FormatVersions: %v %v", i0.FormatVersion, i1.FormatVersion))
-	case i0.OriginalLength != i1.OriginalLength:
-		q = append(q, fmt.Sprintf("mismatched OriginalLengths: %v %v", i0.OriginalLength, i1.OriginalLength))
-	case i0.PackBlobID != i1.PackBlobID:
-		q = append(q, fmt.Sprintf("mismatched PackBlobIDs: %v %v", i0.PackBlobID, i1.PackBlobID))
-	case i0.PackedLength != i1.PackedLength:
-		q = append(q, fmt.Sprintf("mismatched PackedLengths: %v %v", i0.PackedLength, i1.PackedLength))
-	case i0.PackOffset != i1.PackOffset:
-		q = append(q, fmt.Sprintf("mismatched PackOffsets: %v %v", i0.PackOffset, i1.PackOffset))
-	case i0.EncryptionKeyID != i1.EncryptionKeyID:
-		q = append(q, fmt.Sprintf("mismatched EncryptionKeyIDs: %v %v", i0.EncryptionKeyID, i1.EncryptionKeyID))
-	case i0.CompressionHeaderID != i1.CompressionHeaderID:
-		q = append(q, fmt.Sprintf("mismatched GetCompressionHeaderID: %v %v", i0.CompressionHeaderID, i1.CompressionHeaderID))
-	case i0.Deleted != i1.Deleted:
-		q = append(q, fmt.Sprintf("mismatched Deleted flags: %v %v", i0.Deleted, i1.Deleted))
-	case i0.TimestampSeconds != i1.TimestampSeconds:
-		q = append(q, fmt.Sprintf("mismatched TimestampSeconds: %v %v", i0.TimestampSeconds, i1.TimestampSeconds))
+	foundMismatch := false
+	addMismatch := func(fieldName string, v0, v1 any) {
+		if !foundMismatch {
+			fmt.Fprintf(&b, "content info mismatch ID %q ~ %q", i0.ContentID, i1.ContentID)
+
+			foundMismatch = true
+		}
+
+		fmt.Fprintf(&b, ", %s: %v != %v", fieldName, v0, v1)
 	}
 
-	if len(q) == 0 {
-		return nil
+	if i0.FormatVersion != i1.FormatVersion {
+		addMismatch("FormatVersion", i0.FormatVersion, i1.FormatVersion)
 	}
 
-	for i := range q {
-		q[i] = fmt.Sprintf("index blobs do not match: %q, %q: %s", i0.PackBlobID, i1.PackBlobID, q[i])
+	if i0.OriginalLength != i1.OriginalLength {
+		addMismatch("OriginalLength", i0.OriginalLength, i1.OriginalLength)
 	}
 
-	return q
+	if i0.PackBlobID != i1.PackBlobID {
+		addMismatch("PackBlobID", i0.PackBlobID, i1.PackBlobID)
+	}
+
+	if i0.PackedLength != i1.PackedLength {
+		addMismatch("PackedLength", i0.PackedLength, i1.PackedLength)
+	}
+
+	if i0.PackOffset != i1.PackOffset {
+		addMismatch("PackOffset", i0.PackOffset, i1.PackOffset)
+	}
+
+	if i0.EncryptionKeyID != i1.EncryptionKeyID {
+		addMismatch("EncryptionKeyID", i0.EncryptionKeyID, i1.EncryptionKeyID)
+	}
+
+	if i0.CompressionHeaderID != i1.CompressionHeaderID {
+		addMismatch("CompressionHeaderID", i0.CompressionHeaderID, i1.CompressionHeaderID)
+	}
+
+	if i0.Deleted != i1.Deleted {
+		addMismatch("Deleted flag", i0.Deleted, i1.Deleted)
+	}
+
+	if i0.TimestampSeconds != i1.TimestampSeconds {
+		addMismatch("TimestampSeconds", i0.TimestampSeconds, i1.TimestampSeconds)
+	}
+
+	if foundMismatch {
+		return errors.New(b.String())
+	}
+
+	return nil
 }
 
 func (c *commandRepositoryUpgrade) forceRollbackAction(ctx context.Context, rep repo.DirectRepositoryWriter) error {
@@ -408,20 +425,20 @@ func (c *commandRepositoryUpgrade) sleepWithContext(ctx context.Context, dur tim
 func (c *commandRepositoryUpgrade) drainAllClients(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	for {
 		l, err := rep.FormatManager().GetUpgradeLockIntent(ctx)
+		if err != nil {
+			return errors.Wrap(err, "failed to refresh upgrade lock intent after the intent was placed")
+		}
 
 		upgradeTime := l.UpgradeTime()
 		now := rep.Time()
 
 		log(ctx).Infof("Waiting for %s to allow all other kopia clients to drain ...", upgradeTime.Sub(rep.Time()).Round(time.Second))
 
-		locked, writersDrained := l.IsLocked(now)
-		if locked {
-			if writersDrained {
-				// we have the lock now
-				break
-			}
-		} else {
-			return errors.Wrap(err, "upgrade lock got revoked after the intent was placed, giving up")
+		if locked, writersDrained := l.IsLocked(now); !locked {
+			return errors.New("upgrade lock got revoked after the intent was placed, giving up")
+		} else if writersDrained { // locked == true
+			// we have the lock now
+			break
 		}
 
 		// TODO: this can get stuck
