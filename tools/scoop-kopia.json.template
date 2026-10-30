@@ -1,0 +1,16 @@
+{
+    "version": "VERSION",
+    "description": "Fast and secure open source backup.",
+    "homepage": "https://kopia.io/",
+    "license": "Apache-2.0",
+    "architecture": {
+        "64bit": {
+            "url": "https://github.com/SOURCE_REPO/releases/download/vVERSION/kopia-VERSION-windows-x64.zip",
+            "bin": [
+                "kopia.exe"
+            ],
+            "hash": "HASH_WINDOWS_AMD64",
+            "extract_dir": "kopia-VERSION-windows-x64"
+        }
+    }
+}

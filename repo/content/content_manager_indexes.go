@@ -1,0 +1,95 @@
+package content
+
+import (
+	"context"
+
+	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/blobcrypto"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/timetrack"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content/index"
+	"github.com/kopia/kopia/repo/content/indexblob"
+	"github.com/kopia/kopia/repo/maintenancestats"
+)
+
+// Refresh reloads the committed content indexes.
+func (sm *SharedManager) Refresh(ctx context.Context) error {
+	sm.indexesLock.Lock()
+	defer sm.indexesLock.Unlock()
+
+	timer := timetrack.StartTimer()
+
+	ibm, err := sm.indexBlobManager(ctx)
+	if err != nil {
+		return err
+	}
+
+	ibm.Invalidate()
+
+	err = sm.loadPackIndexesLocked(ctx)
+
+	contentlog.Log2(ctx, sm.log, "refreshIndexes",
+		logparam.Duration("latency", timer.Elapsed()),
+		logparam.Error("error", err))
+
+	return err
+}
+
+// CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
+func (sm *SharedManager) CompactIndexes(ctx context.Context, opt indexblob.CompactOptions) (*maintenancestats.CompactIndexesStats, error) {
+	// we must hold the lock here to avoid the race with Refresh() which can reload the
+	// current set of indexes while we process them.
+	sm.indexesLock.Lock()
+	defer sm.indexesLock.Unlock()
+
+	contentlog.Log4(ctx, sm.log, "CompactIndexes",
+		logparam.Bool("allIndexes", opt.AllIndexes),
+		logparam.Int64("maxSmallBlobs", int64(opt.MaxSmallBlobs)),
+		logparam.Time("dropDeletedBefore", opt.DropDeletedBefore),
+		logparam.Bool("disableEventualConsistencySafety", opt.DisableEventualConsistencySafety))
+
+	ibm, err := sm.indexBlobManager(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	stats, err := ibm.Compact(ctx, opt)
+	if err != nil {
+		return nil, errors.Wrap(err, "error performing compaction")
+	}
+
+	// reload indexes after compaction.
+	if err := sm.loadPackIndexesLocked(ctx); err != nil {
+		return nil, errors.Wrap(err, "error re-loading indexes")
+	}
+
+	return stats, nil
+}
+
+// ParseIndexBlob loads entries in a given index blob and returns them.
+func ParseIndexBlob(blobID blob.ID, encrypted gather.Bytes, crypter blobcrypto.Crypter) ([]Info, error) {
+	var data gather.WriteBuffer
+	defer data.Close()
+
+	if err := blobcrypto.Decrypt(crypter, encrypted, blobID, &data); err != nil {
+		return nil, errors.Wrap(err, "unable to decrypt index blob")
+	}
+
+	ndx, err := index.Open(data.Bytes().ToByteSlice(), nil, crypter.Encryptor().Overhead)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to open index blob")
+	}
+
+	var results []Info
+
+	err = ndx.Iterate(index.AllIDs, func(i index.Info) error {
+		results = append(results, i)
+		return nil
+	})
+
+	return results, errors.Wrap(err, "error iterating index entries")
+}

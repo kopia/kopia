@@ -1,0 +1,180 @@
+// Package testutil contains test utilities.
+package testutil
+
+import (
+	"encoding/json"
+	"log"
+	"os"
+	"path/filepath"
+	"reflect"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/kopia/kopia/internal/envflag"
+	"github.com/kopia/kopia/internal/releasable"
+)
+
+// ProviderTest marks the test method so that it only runs in provider-tests suite.
+func ProviderTest(t *testing.T) {
+	t.Helper()
+
+	if !envflag.Bool("KOPIA_PROVIDER_TEST") {
+		t.Skip("skipping because KOPIA_PROVIDER_TEST is not set to true")
+	}
+}
+
+// SkipNonDeterministicTestUnderCodeCoverage skips the non-deterministic test for a code coverage run.
+func SkipNonDeterministicTestUnderCodeCoverage(t *testing.T) {
+	t.Helper()
+
+	if envflag.Bool("KOPIA_COVERAGE_TEST") {
+		t.Skip("Skipping non-deterministic test in code coverage run")
+	}
+}
+
+// SkipTestUnlessLinux skips the current test if the test environment is not Linux.
+func SkipTestUnlessLinux(tb testing.TB) {
+	tb.Helper()
+
+	if runtime.GOOS != "linux" {
+		tb.Skip("test not supported in this environment.")
+	}
+}
+
+// SkipTestOnCIUnlessLinuxAMD64 skips the current test if running on CI unless the environment is Linux/AMD64.
+func SkipTestOnCIUnlessLinuxAMD64(tb testing.TB) {
+	tb.Helper()
+
+	if IsCI() && runtime.GOOS+"/"+runtime.GOARCH != "linux/amd64" {
+		tb.Skip("test not supported in this environment.")
+	}
+}
+
+// ShouldReduceTestComplexity returns true if test complexity should be reduced on the current machine.
+func ShouldReduceTestComplexity() bool {
+	if isRaceDetector {
+		return true
+	}
+
+	return strings.Contains(runtime.GOARCH, "arm") && runtime.GOOS != "darwin"
+}
+
+// ShouldSkipUnicodeFilenames returns true if:
+// an environmental variable is unset, set to false, test is running on ARM, or if running race detection.
+func ShouldSkipUnicodeFilenames() bool {
+	if isRaceDetector || !envflag.Bool("ENABLE_UNICODE_FILENAMES") {
+		return true
+	}
+
+	return strings.Contains(runtime.GOARCH, "arm")
+}
+
+// ShouldSkipLongFilenames returns true if:
+// an environmental variable is unset, set to false, test is running on ARM, or if running race detection.
+func ShouldSkipLongFilenames() bool {
+	if isRaceDetector || !envflag.Bool("ENABLE_LONG_FILENAMES") {
+		return true
+	}
+
+	return strings.Contains(runtime.GOARCH, "arm")
+}
+
+// IsCI returns whether the (test) execution is happening as part of a
+// continuous integration job based on whether or not the "CI" environment
+// variable is set.
+func IsCI() bool {
+	return os.Getenv("CI") != ""
+}
+
+// MyTestMain runs tests and verifies some post-run invariants.
+func MyTestMain(m *testing.M, cleanups ...func()) {
+	releasable.EnableTracking("persistent-cache")
+
+	v := m.Run()
+
+	if v == 0 {
+		if err := releasable.Verify(); err != nil {
+			log.Printf("found leaks: %v", err)
+
+			v = 1
+		}
+	}
+
+	for _, c := range cleanups {
+		c()
+	}
+
+	os.Exit(v)
+}
+
+// MustParseJSONLines parses the lines containing JSON into the provided object.
+func MustParseJSONLines(t *testing.T, lines []string, v any) {
+	t.Helper()
+
+	allJSON := strings.Join(lines, "\n")
+	dec := json.NewDecoder(strings.NewReader(allJSON))
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(v); err != nil {
+		t.Fatalf("failed to parse JSON %v: %v", allJSON, err)
+	}
+}
+
+// RunAllTestsWithParam uses reflection to run all test methods starting with 'Test' on the provided object.
+//
+//nolint:thelper
+func RunAllTestsWithParam(t *testing.T, v any) {
+	m := reflect.ValueOf(v)
+	typ := m.Type()
+
+	for i := range typ.NumMethod() {
+		meth := typ.Method(i)
+
+		if strings.HasPrefix(meth.Name, "Test") {
+			t.Run(meth.Name, func(t *testing.T) {
+				m.Method(i).Call([]reflect.Value{reflect.ValueOf(t)})
+			})
+		}
+	}
+}
+
+// MustGetTotalDirSize computes the total size of a directory.
+func MustGetTotalDirSize(t *testing.T, dirpath string) int64 {
+	t.Helper()
+
+	ent, err := os.ReadDir(dirpath)
+	require.NoError(t, err)
+
+	var total int64
+
+	for _, e := range ent {
+		fi, err := e.Info()
+
+		require.NoError(t, err)
+
+		if !fi.IsDir() {
+			total += fi.Size()
+		} else {
+			total += MustGetTotalDirSize(t, filepath.Join(dirpath, e.Name()))
+		}
+	}
+
+	return total
+}
+
+// EnsureType asserts that v of type E.
+func EnsureType[E any](tb testing.TB, v any) E {
+	tb.Helper()
+
+	var e E
+
+	// require.IsType would not elide the forced type assertion
+	e, ok := v.(E)
+
+	require.Truef(tb, ok, "%T is not of type %T", v, e)
+
+	return e
+}

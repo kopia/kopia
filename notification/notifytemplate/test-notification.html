@@ -1,0 +1,9 @@
+Subject: Test notification from Kopia at {{ .EventTime | formatTime }}
+
+<p>This is a test notification from Kopia.</p>
+
+<li>Kopia Version: <b>{{ .KopiaBuildVersion }}</b></li>
+<li>Build Info:    <b>{{ .KopiaBuildInfo }}</b></li>
+<li>Github Repo:   <b>{{ .KopiaRepo }}</b></li>
+
+If you received this, your notification configuration on {{ .Hostname }} is correct.

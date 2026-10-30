@@ -1,0 +1,276 @@
+package maintenance
+
+import (
+	"context"
+	"runtime"
+	"strings"
+	"sync"
+	"sync/atomic"
+
+	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/blobparam"
+	"github.com/kopia/kopia/internal/contentlog"
+	"github.com/kopia/kopia/internal/contentlog/logparam"
+	"github.com/kopia/kopia/internal/contentparam"
+	"github.com/kopia/kopia/internal/envflag"
+	"github.com/kopia/kopia/internal/stats"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/maintenancestats"
+)
+
+const parallelContentRewritesCPUMultiplier = 2
+
+// RewriteContentsOptions provides options for RewriteContents.
+type RewriteContentsOptions struct {
+	Parallel       int
+	ContentIDs     []content.ID
+	ContentIDRange content.IDRange
+	PackPrefix     blob.ID
+	ShortPacks     bool
+	FormatVersion  int
+	DryRun         bool
+}
+
+const shortPackThresholdPercent = 60 // blocks below 60% of max block size are considered to be 'short
+
+type contentInfoOrError struct {
+	content.Info
+	err error
+}
+
+// RewriteContents rewrites contents according to provided criteria and creates new
+// blobs and index entries to point at them.
+//
+//nolint:funlen
+func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) (*maintenancestats.RewriteContentsStats, error) {
+	ctx = contentlog.WithParams(ctx,
+		logparam.String("span:content-rewrite", contentlog.RandomSpanID()))
+
+	log := rep.LogManager().NewLogger("maintenance-content-rewrite")
+
+	if opt == nil {
+		return nil, errors.New("missing options")
+	}
+
+	if opt.ShortPacks {
+		contentlog.Log(ctx, log, "Rewriting contents from short packs...")
+	} else {
+		contentlog.Log(ctx, log, "Rewriting contents...")
+	}
+
+	cnt := getContentToRewrite(ctx, rep, opt)
+
+	var (
+		toRewrite, retained, rewritten stats.CountSum
+		failedCount                    atomic.Uint64
+	)
+
+	if opt.Parallel == 0 {
+		opt.Parallel = runtime.NumCPU() * parallelContentRewritesCPUMultiplier
+	}
+
+	var wg sync.WaitGroup
+
+	for range opt.Parallel {
+		wg.Go(func() {
+			for c := range cnt {
+				if c.err != nil {
+					failedCount.Add(1)
+
+					return
+				}
+
+				age := rep.Time().Sub(c.Timestamp())
+				if age < safety.RewriteMinAge {
+					contentlog.Log5(ctx, log,
+						"Not rewriting content",
+						contentparam.ContentID("contentID", c.ContentID),
+						logparam.UInt32("bytes", c.PackedLength),
+						blobparam.BlobID("packBlobID", c.PackBlobID),
+						logparam.Bool("deleted", c.Deleted),
+						logparam.Duration("age", age))
+
+					retained.Add(int64(c.PackedLength))
+
+					continue
+				}
+
+				contentlog.Log5(ctx, log,
+					"Rewriting content",
+					contentparam.ContentID("contentID", c.ContentID),
+					logparam.UInt32("bytes", c.PackedLength),
+					blobparam.BlobID("packBlobID", c.PackBlobID),
+					logparam.Bool("deleted", c.Deleted),
+					logparam.Duration("age", age))
+
+				toRewrite.Add(int64(c.PackedLength))
+
+				if opt.DryRun {
+					continue
+				}
+
+				if err := rep.ContentManager().RewriteContent(ctx, c.ContentID); err != nil {
+					// provide option to ignore failures when rewriting deleted contents during maintenance
+					// this is for advanced use only
+					if envflag.Bool("KOPIA_IGNORE_MAINTENANCE_REWRITE_ERROR") && c.Deleted {
+						contentlog.Log2(ctx, log,
+							"IGNORED: unable to rewrite deleted content",
+							contentparam.ContentID("contentID", c.ContentID),
+							logparam.Error("error", err))
+					} else {
+						contentlog.Log2(ctx, log,
+							"unable to rewrite content",
+							contentparam.ContentID("contentID", c.ContentID),
+							logparam.Error("error", err))
+
+						failedCount.Add(1)
+					}
+				} else {
+					rewritten.Add(int64(c.PackedLength))
+				}
+			}
+		})
+	}
+
+	wg.Wait()
+
+	toRewriteCount, toRewriteBytes := toRewrite.Approximate()
+	retainedCount, retainedBytes := retained.Approximate()
+	rewrittenCount, rewrittenBytes := rewritten.Approximate()
+
+	result := &maintenancestats.RewriteContentsStats{
+		ToRewriteContentCount: uint64(toRewriteCount),
+		ToRewriteContentSize:  maintenancestats.ToUint64(toRewriteBytes),
+		RewrittenContentCount: uint64(rewrittenCount),
+		RewrittenContentSize:  maintenancestats.ToUint64(rewrittenBytes),
+		RetainedContentCount:  uint64(retainedCount),
+		RetainedContentSize:   maintenancestats.ToUint64(retainedBytes),
+	}
+
+	contentlog.Log1(ctx, log, "Rewritten contents", result)
+
+	if failedCount.Load() == 0 {
+		if err := rep.ContentManager().Flush(ctx); err != nil {
+			return nil, errors.Wrap(err, "error flushing repo")
+		}
+
+		return result, nil
+	}
+
+	return nil, errors.Errorf("failed to rewrite %v contents", failedCount.Load())
+}
+
+func getContentToRewrite(ctx context.Context, rep repo.DirectRepository, opt *RewriteContentsOptions) <-chan contentInfoOrError {
+	ch := make(chan contentInfoOrError)
+
+	go func() {
+		defer close(ch)
+
+		// get content IDs listed on command line
+		findContentInfos(ctx, rep, ch, opt.ContentIDs)
+
+		// add all content IDs from short packs
+		if opt.ShortPacks {
+			mp, mperr := rep.ContentReader().ContentFormat().GetMutableParameters(ctx)
+			if mperr == nil {
+				threshold := int64(mp.MaxPackSize * shortPackThresholdPercent / 100) //nolint:mnd
+				findContentInShortPacks(ctx, rep, ch, threshold, opt)
+			}
+		}
+
+		// add all blocks with given format version
+		if opt.FormatVersion != 0 {
+			findContentWithFormatVersion(ctx, rep, ch, opt)
+		}
+	}()
+
+	return ch
+}
+
+func findContentInfos(ctx context.Context, rep repo.DirectRepository, ch chan contentInfoOrError, contentIDs []content.ID) {
+	for _, contentID := range contentIDs {
+		i, err := rep.ContentInfo(ctx, contentID)
+		if err != nil {
+			ch <- contentInfoOrError{err: errors.Wrapf(err, "unable to get info for content %q", contentID)}
+		} else {
+			ch <- contentInfoOrError{Info: i}
+		}
+	}
+}
+
+func findContentWithFormatVersion(ctx context.Context, rep repo.DirectRepository, ch chan contentInfoOrError, opt *RewriteContentsOptions) {
+	_ = rep.ContentReader().IterateContents(
+		ctx,
+		content.IterateOptions{
+			Range:          opt.ContentIDRange,
+			IncludeDeleted: true,
+		},
+		func(b content.Info) error {
+			if int(b.FormatVersion) == opt.FormatVersion && strings.HasPrefix(string(b.PackBlobID), string(opt.PackPrefix)) {
+				ch <- contentInfoOrError{Info: b}
+			}
+
+			return nil
+		},
+	)
+}
+
+func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch chan contentInfoOrError, threshold int64, opt *RewriteContentsOptions) {
+	var prefixes []blob.ID
+
+	if opt.PackPrefix != "" {
+		prefixes = append(prefixes, opt.PackPrefix)
+	}
+
+	var (
+		packCountByPrefix = map[blob.ID]int{}
+		firstPackByPrefix = map[blob.ID]content.PackInfo{}
+	)
+
+	err := rep.ContentReader().IteratePacks(
+		ctx,
+		content.IteratePackOptions{
+			Prefixes:                           prefixes,
+			IncludePacksWithOnlyDeletedContent: true,
+			IncludeContentInfos:                true,
+		},
+		func(pi content.PackInfo) error {
+			if pi.TotalSize >= threshold {
+				return nil
+			}
+
+			prefix := pi.PackID[0:1]
+
+			packCountByPrefix[prefix]++
+
+			if packCountByPrefix[prefix] == 1 {
+				// do not immediately compact the first pack, in case it's the only pack.
+				firstPackByPrefix[prefix] = pi
+				return nil
+			}
+
+			//nolint:mnd
+			if packCountByPrefix[prefix] == 2 {
+				// when we encounter the 2nd pack, emit contents from the first one too.
+				for _, ci := range firstPackByPrefix[prefix].ContentInfos {
+					ch <- contentInfoOrError{Info: ci}
+				}
+
+				firstPackByPrefix[prefix] = content.PackInfo{}
+			}
+
+			for _, ci := range pi.ContentInfos {
+				ch <- contentInfoOrError{Info: ci}
+			}
+
+			return nil
+		},
+	)
+	if err != nil {
+		ch <- contentInfoOrError{err: err}
+		return
+	}
+}

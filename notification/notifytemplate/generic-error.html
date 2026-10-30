@@ -1,0 +1,20 @@
+Subject: Kopia has encountered an error during {{ .EventArgs.Operation }} on {{.Hostname}}
+
+<!doctype html>
+<html>
+<head>
+</head>
+<body>
+
+<p><b>Operation:</b> {{ .EventArgs.OperationDetails }}</p>
+<p><b>Started:</b> {{ .EventArgs.StartTimestamp | formatTime }}</p>
+<p><b>Finished:</b> {{ .EventArgs.EndTimestamp | formatTime }} ({{ .EventArgs.Duration }})</p>
+
+<p><b>Message:</b> {{ .EventArgs.ErrorMessage }}</p>
+
+<pre>{{ .EventArgs.ErrorDetails }}</pre>
+
+<p>Generated at {{ .EventTime | formatTime }} by <a href="https://kopia.io">Kopia {{ .KopiaBuildVersion }}</a>.</p>
+
+</body>
+</html>

@@ -1,0 +1,11 @@
+Subject: Kopia has encountered an error during {{ .EventArgs.Operation }} on {{.Hostname}}
+
+Operation: {{ .EventArgs.OperationDetails }}
+Started:   {{ .EventArgs.StartTimestamp | formatTime }}
+Finished:  {{ .EventArgs.EndTimestamp | formatTime }} ({{ .EventArgs.Duration }})
+
+{{ .EventArgs.ErrorDetails }}
+
+Generated at {{ .EventTime | formatTime }} by Kopia {{ .KopiaBuildVersion }}.
+
+https://kopia.io/

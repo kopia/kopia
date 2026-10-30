@@ -1,0 +1,211 @@
+package epoch
+
+import (
+	"cmp"
+	"iter"
+	"maps"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+	"unicode"
+
+	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/blob"
+)
+
+// epochNumberFromBlobID extracts the epoch number from a string formatted as
+// <prefix><epochNumber>_<remainder>.
+func epochNumberFromBlobID(blobID blob.ID) (int, bool) {
+	s := string(blobID)
+
+	if p := strings.IndexByte(s, '_'); p >= 0 {
+		s = s[0:p]
+	}
+
+	for s != "" && !unicode.IsDigit(rune(s[0])) {
+		s = s[1:]
+	}
+
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, false
+	}
+
+	return n, true
+}
+
+// epochRangeFromBlobID extracts the range epoch numbers from a string formatted as
+// <prefix><epochNumber>_<epochNumber2>_<remainder>.
+func epochRangeFromBlobID(blobID blob.ID) (minEpoch, maxEpoch int, ok bool) {
+	parts := strings.Split(string(blobID), "_")
+
+	//nolint:mnd
+	if len(parts) < 3 {
+		return 0, 0, false
+	}
+
+	first := parts[0]
+	second := parts[1]
+
+	for first != "" && !unicode.IsDigit(rune(first[0])) {
+		first = first[1:]
+	}
+
+	n1, err1 := strconv.Atoi(first)
+	n2, err2 := strconv.Atoi(second)
+
+	return n1, n2, err1 == nil && err2 == nil
+}
+
+func groupByEpochNumber(bms []blob.Metadata) map[int][]blob.Metadata {
+	result := map[int][]blob.Metadata{}
+
+	for _, bm := range bms {
+		if n, ok := epochNumberFromBlobID(bm.BlobID); ok {
+			result[n] = append(result[n], bm)
+		}
+	}
+
+	return result
+}
+
+func groupByEpochRanges(bms []blob.Metadata) map[int]map[int][]blob.Metadata {
+	result := map[int]map[int][]blob.Metadata{}
+
+	for _, bm := range bms {
+		if n1, n2, ok := epochRangeFromBlobID(bm.BlobID); ok {
+			if result[n1] == nil {
+				result[n1] = make(map[int][]blob.Metadata)
+			}
+
+			result[n1][n2] = append(result[n1][n2], bm)
+		}
+	}
+
+	return result
+}
+
+func deletionWatermarkFromBlobID(blobID blob.ID) (time.Time, bool) {
+	str := strings.TrimPrefix(string(blobID), string(DeletionWatermarkBlobPrefix))
+
+	unixSeconds, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return time.Time{}, false
+	}
+
+	return time.Unix(unixSeconds, 0), true
+}
+
+// closedIntRange represents a discrete closed-closed [lo, hi] range for ints.
+// That is, the range includes both lo and hi.
+type closedIntRange struct {
+	lo, hi int
+}
+
+func (r closedIntRange) length() uint {
+	// any range where lo > hi is empty. The canonical empty representation
+	// is {lo:0, hi: -1}
+	if r.lo > r.hi {
+		return 0
+	}
+
+	return uint(r.hi - r.lo + 1)
+}
+
+func (r closedIntRange) isEmpty() bool {
+	return r.length() == 0
+}
+
+// constants from the standard math package.
+const (
+	//nolint:mnd
+	intSize = 32 << (^uint(0) >> 63) // 32 or 64
+
+	maxInt = 1<<(intSize-1) - 1
+	minInt = -1 << (intSize - 1)
+)
+
+var errInvalidCompactedRange = errors.New("invalid compacted epoch range")
+
+func getRangeCompactedRange(cs CurrentSnapshot) closedIntRange {
+	rangeSetsLen := len(cs.LongestRangeCheckpointSets)
+
+	if rangeSetsLen == 0 {
+		return closedIntRange{lo: 0, hi: -1}
+	}
+
+	return closedIntRange{
+		lo: cs.LongestRangeCheckpointSets[0].MinEpoch,
+		hi: cs.LongestRangeCheckpointSets[rangeSetsLen-1].MaxEpoch,
+	}
+}
+
+func oldestUncompactedEpoch(cs CurrentSnapshot) (int, error) {
+	rangeCompacted := getRangeCompactedRange(cs)
+
+	var oldestUncompacted int
+
+	if !rangeCompacted.isEmpty() {
+		if rangeCompacted.lo != 0 {
+			// range compactions are expected to cover the 0 epoch
+			return -1, errors.Wrapf(errInvalidCompactedRange, "Epoch 0 not included in range compaction, lowest epoch in range compactions: %v", rangeCompacted.lo)
+		}
+
+		oldestUncompacted = rangeCompacted.hi + 1
+	}
+
+	oldestUncompacted = getOldestUncompactedAfterEpoch(maps.Keys(cs.SingleEpochCompactionSets), oldestUncompacted)
+
+	return oldestUncompacted, nil
+}
+
+// filterLowerThan returns a sequence with the elements from s that are greater
+// or equal than threshold, that is it omits the elements that are strictly less
+// than threshold.
+// For example, if s = {0, 3, 5} and threshold is 3, then the resulting sequence
+// yields {3, 5}.
+func filterLowerThan[V cmp.Ordered](threshold V, s iter.Seq[V]) iter.Seq[V] {
+	return func(yield func(V) bool) {
+		s(func(v V) bool { // this is the filtering function
+			if v >= threshold {
+				return yield(v) // only yield values >= threshold
+			}
+
+			return true
+		})
+	}
+}
+
+// getOldestUncompactedAfterEpoch finds the oldest uncompacted epoch given a
+// sequence of known (single-epoch) compacted epochs. The returned epoch is
+// greater or equal than the uncompactedCandidateEpoch. For example, suppose
+// that compacted epochs has { 3, 5, 6, 8 } then the following are the returned
+// values for uncompactedCandidateEpoch
+// uncompactedCandidateEpoch < 3 => uncompactedCandidateEpoch
+// uncompactedCandidateEpoch == 3 => 4
+// uncompactedCandidateEpoch == 4 => 4
+// uncompactedCandidateEpoch == 5 or 6 => 7
+// uncompactedCandidateEpoch == 7 => 7
+// uncompactedCandidateEpoch == 8 => 9
+// uncompactedCandidateEpoch > 8 => uncompactedCandidateEpoch.
+//
+//nolint:dupword
+func getOldestUncompactedAfterEpoch(compactedEpochs iter.Seq[int], uncompactedCandidateEpoch int) int {
+	s := slices.Sorted(filterLowerThan(uncompactedCandidateEpoch, compactedEpochs))
+	if len(s) == 0 || uncompactedCandidateEpoch < s[0] {
+		return uncompactedCandidateEpoch
+	}
+
+	prev := s[0]
+	for _, v := range s[1:] {
+		if v != prev+1 {
+			break
+		}
+
+		prev = v
+	}
+
+	return prev + 1
+}

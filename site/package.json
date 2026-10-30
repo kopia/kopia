@@ -1,0 +1,13 @@
+{
+  "name": "site",
+  "version": "0.0.1",
+  "description": "Kopia site.",
+  "main": "none.js",
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "autoprefixer": "^10.4.14",
+    "postcss": "^8.5.25",
+    "postcss-cli": "^10.1.0"
+  }
+}

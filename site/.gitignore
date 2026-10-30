@@ -1,0 +1,7 @@
+public/
+resources/
+node_modules/
+tech-doc-hugo
+.tools/
+*.deb
+.hugo_build.lock

@@ -1,0 +1,51 @@
+name: HTMLUI
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    # ci-sandbox is a branch dedicated to testing post-submit code.
+    branches: [ master, artifacts-pr ]
+    tags:
+      - v*
+env:
+  # environment variables shared between build steps
+  # do not include sensitive credentials and tokens here, instead pass them
+  # directly to tools that need them to limit the blast radius in case one of them
+  # becomes compromised and leaks credentials to external sites.
+  # required by Makefile
+  UNIX_SHELL_ON_WINDOWS: true
+  # set (to any value other than false) to trigger random unicode filenames testing (logs may be difficult to read)
+  ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
+  # disable long filenames since they sometimes get messed up when simulating input keystrokes
+  ENABLE_LONG_FILENAMES: false
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  end-to-end-test:
+    name: E2E Test
+    runs-on: macos-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - name: Set up Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: 'go.mod'
+        check-latest: true
+      id: go
+    - name: Install gotestsum
+      run: make install-gotestsum
+    - name: Run Tests
+      run: make htmlui-e2e-test
+    - name: Upload Screenshots
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        path: .screenshots/**/*.png
+        if-no-files-found: ignore
+      if: ${{ always() }}

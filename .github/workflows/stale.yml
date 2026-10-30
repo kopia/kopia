@@ -1,0 +1,29 @@
+name: 'Manage stale issues and pull requests'
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    # Sundays and Wednesdays at 8:17 p.m. UTC
+    - cron: '17 20 * * 0,3'
+  workflow_dispatch:
+
+jobs:
+  stale:
+    permissions:
+      issues: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@4391f3da665fdf50b6810c1a66712fb9ba21aa93 # v11.0.0
+        with:
+          # process older PRs first
+          ascending: true
+          operations-per-run: 100
+          stale-issue-label: 'stale'
+          stale-pr-label: 'stale'
+          exempt-issue-labels: 'bug,keep-open'
+          exempt-pr-labels: 'keep-open'
+          close-issue-message: 'Closed due to inactivity. Re-open and remove "stale" label if it should remain open for an additional period of time'
+          close-pr-message: 'Closed due to inactivity. Re-open and remove "stale" label if it should remain open for an additional period of time'

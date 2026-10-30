@@ -1,0 +1,19 @@
+---
+denylist:
+  - GPL-2.0
+  - GPL-3.0
+  - AGPL-1.0
+  - AGPL-2.0
+  - AGPL-3.0
+
+allowlist:
+  - Apache-2.0
+  - MIT
+  - BSD-3-Clause
+  - BSD-2-Clause
+  - MPL-2.0
+  - CC0-1.0
+  - ISC
+
+exceptions:
+ - github.com/Azure/azure-sdk-for-go/sdk/internal/...

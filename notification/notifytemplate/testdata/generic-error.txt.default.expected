@@ -1,0 +1,11 @@
+Subject: Kopia has encountered an error during Some Operation on some-host
+
+Operation: Some Operation Details
+Started:   Thu, 02 Jan 2020 03:04:05 +0000
+Finished:  Thu, 02 Jan 2020 03:04:06 +0000 (1s)
+
+error details
+
+Generated at Thu, 02 Jan 2020 03:04:05 +0000 by Kopia v0-unofficial.
+
+https://kopia.io/

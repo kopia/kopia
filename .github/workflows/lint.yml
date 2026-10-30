@@ -1,0 +1,62 @@
+name: Lint
+on:
+  pull_request:
+    branches: [ master ]
+concurrency: 
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  # environment variables shared between build steps
+  # do not include sensitive credentials and tokens here, instead pass them
+  # directly to tools that need them to limit the blast radius in case one of them
+  # becomes compromised and leaks credentials to external sites.
+  # required by Makefile
+  UNIX_SHELL_ON_WINDOWS: true
+  # set (to any value other than false) to trigger random unicode filenames testing (logs may be difficult to read)
+  ENABLE_UNICODE_FILENAMES: ${{ secrets.ENABLE_UNICODE_FILENAMES }}
+  # set (to any value other than false) to trigger very long filenames testing
+  ENABLE_LONG_FILENAMES: ${{ secrets.ENABLE_LONG_FILENAMES }}
+permissions:
+  contents: read
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    name: Lint
+    runs-on: ${{ matrix.os }}
+    permissions:
+      security-events: write
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        fetch-depth: 0
+        persist-credentials: false
+    - name: Set up Go
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      with:
+        go-version-file: 'go.mod'
+    - id: govulncheck
+      name: govulncheck
+      # generate report and then fail if issues are found
+      run: |
+        go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
+        govulncheck -format sarif ./... > govulncheck.sarif
+        govulncheck ./...
+    - id: govulncheck-results
+      if: ${{ always() }}
+      name: "Upload govulncheck results to dashboard"
+      uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v3.29.5
+      with:
+        sarif_file: govulncheck.sarif
+    - name: Lint
+      run: make lint
+    - name: Lint Windows
+      if: ${{ contains(matrix.os, 'ubuntu') }}
+      run: make lint-windows
+    - name: Check Locks
+      run: make check-locks
+    - name: Prettier
+      run: make check-prettier

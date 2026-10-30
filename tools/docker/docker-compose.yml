@@ -1,0 +1,52 @@
+services:
+  kopia:
+      image: kopia/kopia:latest
+      container_name: Kopia
+      user: "0:0"
+      restart: "unless-stopped"
+      privileged: true
+      cap_add:
+        - SYS_ADMIN
+      security_opt:
+        - apparmor:unconfined
+      devices:
+        - /dev/fuse:/dev/fuse:rwm
+      command:
+        - server
+        - start
+        - --disable-csrf-token-checks
+        - --tls-cert-file=/data/home/XXX/ssl-certs/fullchain.pem
+        - --tls-key-file=/data/home/XXX/ssl-certs/privkey.pem
+        - --address=0.0.0.0:51515
+        - --server-username=XXX
+        - --server-password=XXX
+      volumes:
+        - /mnt/kopia:/tmp:shared
+        - /home/XXX/docker/Kopia-Ubuntu/config:/app/config
+        - /home/XXX/docker/Kopia-Ubuntu/cache:/app/cache
+        - /home/XXX/docker/Kopia-Ubuntu/logs:/app/logs
+        - /:/data:ro
+      environment:
+        KOPIA_PASSWORD: XXX
+        TZ: Europe/Berlin
+        USER: XXX
+        
+### IF you would like to assign hostname and domain name to your server.       
+#      hostname: "XXX"
+#      domainname: "XXX"
+
+### If you want to assign ip to your container with an existing Docker Network.
+### Existing networks name is "Docker" in below example. Just change it with your own.
+#      networks:
+#        Docker:
+#          ipv4_address: aaa.bbb.ccc.ddd
+
+#### If you would like to assign DNS Server
+#      dns:
+#        - 8.8.8.8
+#
+
+### Existing Networks should be defined as external.
+#networks:
+#  Docker:
+#    external: true
