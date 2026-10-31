@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # create various resolutions from source 1024x1024 PNG
 
 set -e
