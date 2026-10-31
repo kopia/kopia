@@ -12,9 +12,13 @@ Kopia functionality is organized into [Common Commands](common/) for typical use
 
 The following environment variables can be used to configure how Kopia runs:
 
-| Variable Name               | Default | Description                                                                                              |
-| --------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
-| `KOPIA_BYTES_STRING_BASE_2` | `false` | If set to `true`, Kopia will output storage values in binary (base-2). The default is decimal (base-10). |
+| Variable Name               | Default | Description                                                                                                                         |
+|-----------------------------|---------|-------------------------------------------------------------------------------------------------------------------------------------|
+| `KOPIA_BYTES_STRING_BASE_2` | `false` | If set to `true`, Kopia will output storage values in binary (base-2). The default is decimal (base-10).                            |
+| `KOPIA_PASSWORD`            |         | When `--password` is not provided on the command line and the value is not empty, Kopia will use it as the password.               |
+| `KOPIA_PASSWORD_FILE`[^1]   |         | When `--password-file` is not provided on the command line and the value is not empty, Kopia will read the password from this path. |
+
+[^1]: `--password`/`KOPIA_PASSWORD` will always win over `--password-file`/`KOPIA_PASSWORD_FILE`.
 
 ### Global Flags
 
