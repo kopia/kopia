@@ -10,11 +10,13 @@ Kopia functionality is organized into [Common Commands](common/) for typical use
 
 ### Environment Variables
 
-The following environment variables can be used to configure how Kopia runs:
+Many flags can be set via environment variables instead of the command line (recommended for secrets and container workloads). See the full list in [Environment Variables](../environment-variables/).
 
 | Variable Name               | Default | Description                                                                                              |
 | --------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
 | `KOPIA_BYTES_STRING_BASE_2` | `false` | If set to `true`, Kopia will output storage values in binary (base-2). The default is decimal (base-10). |
+| `KOPIA_PASSWORD`            |         | Repository password (alternative to `--password`)                                                        |
+| `KOPIA_CONFIG_PATH`         |         | Path to the repository config file (alternative to `--config-file`)                                      |
 
 ### Global Flags
 
