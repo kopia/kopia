@@ -41,6 +41,7 @@ import crypto from "crypto";
 
 // Store to save parameters
 const store = new Store();
+const windowsServerIOPriorityKey = "windowsServerIOPriority";
 
 app.name = "KopiaUI";
 
@@ -598,6 +599,15 @@ function addAnotherRepository() {
   showRepoWindow(repoID);
 }
 
+function setWindowsServerIOPriority(value) {
+  if (store.get(windowsServerIOPriorityKey, "normal") === value) {
+    return;
+  }
+
+  store.set(windowsServerIOPriorityKey, value);
+  updateTrayContextMenu();
+}
+
 function updateTrayContextMenu() {
   if (!tray) {
     return;
@@ -672,6 +682,36 @@ function updateTrayContextMenu() {
   }
 
   const nl = getNotificationLevel();
+  const windowsServerIOPriority = store.get(windowsServerIOPriorityKey, "normal");
+  const windowsServerIOPriorityItems =
+    process.platform === "win32"
+      ? [
+          {
+            label: "Server Priority",
+            type: "submenu",
+            submenu: [
+              {
+                label: "Normal (Default)",
+                type: "radio",
+                click: () => setWindowsServerIOPriority("normal"),
+                checked: windowsServerIOPriority === "normal",
+              },
+              {
+                label: "Low",
+                type: "radio",
+                click: () => setWindowsServerIOPriority("low"),
+                checked: windowsServerIOPriority === "low",
+              },
+              {
+                label: "Very Low",
+                type: "radio",
+                click: () => setWindowsServerIOPriority("very-low"),
+                checked: windowsServerIOPriority === "very-low",
+              },
+            ],
+          },
+        ]
+      : [];
 
   let template = defaultReposTemplates
     .concat(additionalReposTemplates)
@@ -693,6 +733,9 @@ function updateTrayContextMenu() {
         click: toggleLaunchAtStartup,
         checked: willLaunchAtStartup(),
       },
+    ])
+    .concat(windowsServerIOPriorityItems)
+    .concat([
       {
         label: "Notifications",
         type: "submenu",
