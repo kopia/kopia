@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/indexblob"
 )
 
 type commandCacheInfo struct {
@@ -44,6 +45,11 @@ func (c *commandCacheInfo) run(ctx context.Context, _ repo.Repository) error {
 
 	if c.onlyShowPath {
 		c.out.printStdout("%v\n", opts.CacheDirectory)
+		return nil
+	}
+
+	if opts.CacheDirectory == "" {
+		c.out.printStdout("Local caching is disabled; index compaction runs in memory without a working-memory budget.\n")
 		return nil
 	}
 
@@ -106,6 +112,13 @@ func (c *commandCacheInfo) run(ctx context.Context, _ repo.Repository) error {
 
 		c.out.printStdout("%v: %v files %v%v\n", subdir, fileCount, units.BytesString(totalFileSize), maybeLimit)
 	}
+
+	budget := opts.IndexCompactionMemoryLimitBytes
+	if budget == 0 {
+		budget = indexblob.DefaultEpochCompactionMemoryLimit
+	}
+
+	c.out.printStdout("Index compaction working-memory budget: %v (excludes input blobs, repository caches and runtime overhead)\n", units.BytesString(budget))
 
 	c.out.printStderr("To adjust cache sizes use 'kopia cache set'.\n")
 	c.out.printStderr("To clear caches use 'kopia cache clear'.\n")

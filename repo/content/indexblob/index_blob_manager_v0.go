@@ -574,6 +574,19 @@ func (m *ManagerV0) dropContentsFromBuilder(ctx context.Context, bld index.Build
 }
 
 func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, addEntry func(index.Info), indexBlobID blob.ID) error {
+	return iterateIndexBlob(ctx, enc, indexBlobID, func(i index.Info) error {
+		addEntry(i)
+		return nil
+	})
+}
+
+// iterateIndexBlob propagates decoding and callback errors, so failed reads or
+// spills cannot be published as a successfully compacted index.
+func iterateIndexBlob(ctx context.Context, enc *EncryptionManager, indexBlobID blob.ID, cb func(index.Info) error) error {
+	if err := ctx.Err(); err != nil {
+		return errors.Wrap(err, "reading index blob canceled")
+	}
+
 	var data gather.WriteBuffer
 	defer data.Close()
 
@@ -587,12 +600,17 @@ func addIndexBlobsToBuilder(ctx context.Context, enc *EncryptionManager, addEntr
 		return errors.Wrapf(err, "unable to open index blob %q", indexBlobID)
 	}
 
-	_ = ndx.Iterate(index.AllIDs, func(i index.Info) error {
-		addEntry(i)
-		return nil
+	defer ndx.Close() //nolint:errcheck
+
+	err = ndx.Iterate(index.AllIDs, func(i index.Info) error {
+		if err := ctx.Err(); err != nil {
+			return errors.Wrap(err, "iterating index blob canceled")
+		}
+
+		return cb(i)
 	})
 
-	return nil
+	return errors.Wrapf(err, "unable to iterate index blob %q", indexBlobID)
 }
 
 func blobsOlderThan(m []blob.Metadata, cutoffTime time.Time) []blob.Metadata {

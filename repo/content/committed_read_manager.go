@@ -552,6 +552,8 @@ func (sm *SharedManager) setupCachesAndIndexManagers(ctx context.Context, cachin
 		sm.timeNow,
 		sm.format,
 		sm.namedLogger("index-blob-manager"),
+		caching.CacheDirectory,
+		caching.IndexCompactionMemoryLimitBytes,
 	)
 
 	// once everything is ready, set it up

@@ -5,11 +5,13 @@ import (
 	"time"
 
 	"github.com/alecthomas/kingpin/v2"
+	atunits "github.com/alecthomas/units"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/content/indexblob"
 )
 
 type cacheSizeFlags struct {
@@ -39,7 +41,9 @@ func (c *cacheSizeFlags) setup(cmd *kingpin.CmdClause) {
 }
 
 type commandCacheSetParams struct {
-	directory string
+	directory                string
+	indexCompactionMemory    atunits.Base2Bytes
+	indexCompactionMemorySet bool
 
 	cacheSizeFlags
 
@@ -60,6 +64,7 @@ func (c *commandCacheSetParams) setup(svc appServices, parent commandParent) {
 	c.cacheSizeFlags.setup(cmd)
 
 	cmd.Flag("cache-directory", "Directory where to store cache files").StringVar(&c.directory)
+	cmd.Flag("index-compaction-memory", "Local index compaction working-memory budget for manual and automatic maintenance (minimum 1MB; default 512MB; requires local caching)").IsSetByUser(&c.indexCompactionMemorySet).BytesVar(&c.indexCompactionMemory)
 
 	cmd.Action(svc.repositoryWriterAction(c.run))
 	c.svc = svc
@@ -72,6 +77,16 @@ func (c *commandCacheSetParams) run(ctx context.Context, _ repo.RepositoryWriter
 	}
 
 	changed := 0
+	if c.indexCompactionMemorySet {
+		if int64(c.indexCompactionMemory) < indexblob.MinimumEpochCompactionMemoryLimit {
+			return errors.New("index-compaction-memory must be at least 1MB")
+		}
+
+		opts.IndexCompactionMemoryLimitBytes = int64(c.indexCompactionMemory)
+		log(ctx).Infof("changing index compaction working-memory budget to %v", units.BytesString(opts.IndexCompactionMemoryLimitBytes))
+
+		changed++
+	}
 
 	if v := c.directory; v != "" {
 		log(ctx).Infof("setting cache directory to %v", v)
