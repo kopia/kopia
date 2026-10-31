@@ -168,6 +168,10 @@ function newServerForRepo(repoID) {
       }
 
       function schedulePoll() {
+        // a late response from a stopped or restarted server must not rearm this timer
+        if (runningServerProcess !== p) {
+          return;
+        }
         clearTimeout(statusPollTimer);
         statusPollTimer = setTimeout(() => {
           pollOnce();
