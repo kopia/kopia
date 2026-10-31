@@ -192,6 +192,23 @@ test("adds default repository if no repository is configured", async () => {
   expect(configs).toStrictEqual([DEFAULT_REPO_ID]);
 });
 
+test("updates the tray menu when the UI language changes", async () => {
+  electronApp = await launchApp(tmpAppDataDir);
+
+  await waitForKopiaToStartup();
+
+  const labels = await electronApp.evaluate(async ({ app }) => {
+    app.testHooks.updateUILanguage("pt-BR");
+    return app.testHooks.getTrayMenuLabels();
+  });
+
+  expect(labels).toContain("Conectar a outro repositório...");
+  expect(labels).toContain("Verificar atualizações agora");
+  expect(labels).toContain("Iniciar com o sistema");
+  expect(labels).toContain("Notificações");
+  expect(labels).toContain("Sair");
+});
+
 test("doesn't open repository window if the default repository config exists", async () => {
   fs.writeFileSync(
     path.join(tmpAppDataDir, "kopia", `${DEFAULT_REPO_ID}.config`),
