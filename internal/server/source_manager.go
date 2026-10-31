@@ -131,13 +131,6 @@ func (s *sourceManager) setCurrentTaskID(taskID string) {
 	s.currentTask = taskID
 }
 
-func (s *sourceManager) setNextSnapshotTime(t time.Time) {
-	s.sourceMutex.Lock()
-	defer s.sourceMutex.Unlock()
-
-	s.nextSnapshotTime = &t
-}
-
 func (s *sourceManager) currentUploader() *upload.Uploader {
 	s.sourceMutex.RLock()
 	defer s.sourceMutex.RUnlock()
@@ -214,11 +207,15 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 }
 
 func (s *sourceManager) backoffBeforeNextSnapshot() {
-	if _, ok := s.getNextSnapshotTime(); !ok {
+	s.sourceMutex.Lock()
+	defer s.sourceMutex.Unlock()
+
+	if s.paused || s.findClosestNextSnapshotTimeReadLocked() == nil {
 		return
 	}
 
-	s.setNextSnapshotTime(clock.Now().Add(failedSnapshotRetryInterval))
+	t := clock.Now().Add(failedSnapshotRetryInterval)
+	s.nextSnapshotTime = &t
 }
 
 func (s *sourceManager) isRunningReadOnly() bool {
