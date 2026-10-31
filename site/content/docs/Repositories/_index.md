@@ -11,6 +11,7 @@ Kopia allows you to save your [encrypted](../features/#user-controlled-end-to-en
 * [Amazon S3 and S3-compatible Cloud Storage](#amazon-s3-and-s3-compatible-cloud-storage)
   * Kopia supports all cloud storage platforms that support the S3 API
   * Kopia supports object locking and [hot, cold, and archive storage classes](../advanced/amazon-s3/) for any cloud storage that supports the features using the S3 API
+* [Cloudflare R2](#cloudflare-r2)
 * [Azure Blob Storage](#azure-blob-storage)
 * [Backblaze B2](#backblaze-b2)
 * [Google Cloud Storage](#google-cloud-storage)
@@ -65,6 +66,44 @@ You will be asked to enter the repository password that you want. Remember, this
 #### Connecting to Repository
 
 After you have created the `repository`, you connect to it using the [`kopia repository connect s3` command](../reference/command-line/common/repository-connect-s3/). Read the [help docs](../reference/command-line/common/repository-connect-s3/) for more information on the options available for this command.
+
+## Cloudflare R2
+
+Creating a Cloudflare R2 `repository` is done differently depending on if you use Kopia GUI or Kopia CLI.
+
+Cloudflare R2 uses an S3-compatible API, but Kopia exposes it as a dedicated `r2` storage type so Kopia can use R2 defaults automatically. Kopia derives the R2 endpoint from your Cloudflare account ID by default, using the form `<account-id>.r2.cloudflarestorage.com`. If your bucket uses a jurisdiction-specific endpoint, pass `--jurisdiction=eu` or `--jurisdiction=fedramp`. You can also pass an explicit `--endpoint` when you need to override endpoint derivation.
+
+> NOTE: Cloudflare R2 does not support S3 Object Lock headers. Kopia therefore does not support repository blob-retention options, such as `--retention-mode` and `--retention-period`, for R2 repositories.
+
+### Kopia GUI
+
+Select the `Cloudflare R2` option in the `Repository` tab in `KopiaUI`. Then, follow on-screen instructions. You will need to enter your `Account ID`, `Bucket` name, `Access Key ID`, and `Secret Access Key`. You can optionally enter an `Endpoint`, `Jurisdiction`, `Prefix`, and `Session Token`.
+
+You will next need to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password! At this same password screen, you have the option to change the `Encryption` algorithm, `Hash` algorithm, `Splitter` algorithm, `Repository Format`, `Username`, and `Hostname`. Click the `Show Advanced Options` button to access these settings. If you do not understand what these settings are, do not change them because the default settings are the best settings.
+
+Once you do all that, your repository should be created and you can start backing up your data!
+
+### Kopia CLI
+
+#### Creating a Repository
+
+You must use the [`kopia repository create r2` command](../reference/command-line/common/repository-create-r2/) to create a `repository`:
+
+```shell
+$ kopia repository create r2 \
+        --account-id=... \
+        --bucket=... \
+        --access-key=... \
+        --secret-access-key=...
+```
+
+You can also provide credentials with the `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_SESSION_TOKEN` environment variables. If you provide `--account-id` and omit `--endpoint`, Kopia derives the endpoint and signs requests with the R2-required `auto` region.
+
+You will be asked to enter the repository password that you want. Remember, this [password is used to encrypt your data](../faqs/#how-do-i-enable-encryption), so make sure it is a secure password!
+
+#### Connecting to Repository
+
+After you have created the `repository`, you connect to it using the [`kopia repository connect r2` command](../reference/command-line/common/repository-connect-r2/). Read the [help docs](../reference/command-line/common/repository-connect-r2/) for more information on the options available for this command.
 
 ## Azure Blob Storage
 

@@ -56,6 +56,7 @@ Policies can be applied at multiple different levels:
 Kopia performs all its operations locally on your machine, meaning that you do not need to have any dedicated server to run your backups and you can save your snapshots to a variety of storage locations. Kopia supports network and local storage locations, of course, but also many cloud or remote storage locations:
 
 * **Amazon S3** and any **cloud storage that is compatible with S3**
+* **Cloudflare R2**
 * **Azure Blob Storage**
 * **Backblaze B2**
 * **Google Cloud Storage**
