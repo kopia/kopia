@@ -35,60 +35,72 @@ type Output interface {
 	Close(ctx context.Context) error
 }
 
+// HardlinkReporter is implemented by outputs that may restore a file as a
+// hardlink to a previously restored file instead of writing its content.
+type HardlinkReporter interface {
+	WasHardlinked(relativePath string) bool
+}
+
 // Stats represents restore statistics.
 type Stats struct {
-	RestoredTotalFileSize int64
-	EnqueuedTotalFileSize int64
-	SkippedTotalFileSize  int64
+	RestoredTotalFileSize         int64
+	RestoredHardlinkTotalFileSize int64
+	EnqueuedTotalFileSize         int64
+	SkippedTotalFileSize          int64
 
-	RestoredFileCount    int32
-	RestoredDirCount     int32
-	RestoredSymlinkCount int32
-	EnqueuedFileCount    int32
-	EnqueuedDirCount     int32
-	EnqueuedSymlinkCount int32
-	SkippedCount         int32
-	DeletedFilesCount    int32
-	DeletedSymlinkCount  int32
-	DeletedDirCount      int32
-	IgnoredErrorCount    int32
+	RestoredFileCount     int32
+	RestoredDirCount      int32
+	RestoredSymlinkCount  int32
+	RestoredHardlinkCount int32
+	EnqueuedFileCount     int32
+	EnqueuedDirCount      int32
+	EnqueuedSymlinkCount  int32
+	SkippedCount          int32
+	DeletedFilesCount     int32
+	DeletedSymlinkCount   int32
+	DeletedDirCount       int32
+	IgnoredErrorCount     int32
 }
 
 // stats represents restore statistics.
 type statsInternal struct {
-	RestoredTotalFileSize atomic.Int64
-	EnqueuedTotalFileSize atomic.Int64
-	SkippedTotalFileSize  atomic.Int64
+	RestoredTotalFileSize         atomic.Int64
+	RestoredHardlinkTotalFileSize atomic.Int64
+	EnqueuedTotalFileSize         atomic.Int64
+	SkippedTotalFileSize          atomic.Int64
 
-	RestoredFileCount    atomic.Int32
-	RestoredDirCount     atomic.Int32
-	RestoredSymlinkCount atomic.Int32
-	EnqueuedFileCount    atomic.Int32
-	EnqueuedDirCount     atomic.Int32
-	EnqueuedSymlinkCount atomic.Int32
-	SkippedCount         atomic.Int32
-	DeletedFilesCount    atomic.Int32
-	DeletedSymlinkCount  atomic.Int32
-	DeletedDirCount      atomic.Int32
-	IgnoredErrorCount    atomic.Int32
+	RestoredFileCount     atomic.Int32
+	RestoredDirCount      atomic.Int32
+	RestoredSymlinkCount  atomic.Int32
+	RestoredHardlinkCount atomic.Int32
+	EnqueuedFileCount     atomic.Int32
+	EnqueuedDirCount      atomic.Int32
+	EnqueuedSymlinkCount  atomic.Int32
+	SkippedCount          atomic.Int32
+	DeletedFilesCount     atomic.Int32
+	DeletedSymlinkCount   atomic.Int32
+	DeletedDirCount       atomic.Int32
+	IgnoredErrorCount     atomic.Int32
 }
 
 func (s *statsInternal) clone() Stats {
 	return Stats{
-		RestoredTotalFileSize: s.RestoredTotalFileSize.Load(),
-		EnqueuedTotalFileSize: s.EnqueuedTotalFileSize.Load(),
-		SkippedTotalFileSize:  s.SkippedTotalFileSize.Load(),
-		RestoredFileCount:     s.RestoredFileCount.Load(),
-		RestoredDirCount:      s.RestoredDirCount.Load(),
-		RestoredSymlinkCount:  s.RestoredSymlinkCount.Load(),
-		EnqueuedFileCount:     s.EnqueuedFileCount.Load(),
-		EnqueuedDirCount:      s.EnqueuedDirCount.Load(),
-		EnqueuedSymlinkCount:  s.EnqueuedSymlinkCount.Load(),
-		SkippedCount:          s.SkippedCount.Load(),
-		DeletedFilesCount:     s.DeletedFilesCount.Load(),
-		DeletedSymlinkCount:   s.DeletedSymlinkCount.Load(),
-		DeletedDirCount:       s.DeletedDirCount.Load(),
-		IgnoredErrorCount:     s.IgnoredErrorCount.Load(),
+		RestoredTotalFileSize:         s.RestoredTotalFileSize.Load(),
+		RestoredHardlinkTotalFileSize: s.RestoredHardlinkTotalFileSize.Load(),
+		EnqueuedTotalFileSize:         s.EnqueuedTotalFileSize.Load(),
+		SkippedTotalFileSize:          s.SkippedTotalFileSize.Load(),
+		RestoredFileCount:             s.RestoredFileCount.Load(),
+		RestoredDirCount:              s.RestoredDirCount.Load(),
+		RestoredSymlinkCount:          s.RestoredSymlinkCount.Load(),
+		RestoredHardlinkCount:         s.RestoredHardlinkCount.Load(),
+		EnqueuedFileCount:             s.EnqueuedFileCount.Load(),
+		EnqueuedDirCount:              s.EnqueuedDirCount.Load(),
+		EnqueuedSymlinkCount:          s.EnqueuedSymlinkCount.Load(),
+		SkippedCount:                  s.SkippedCount.Load(),
+		DeletedFilesCount:             s.DeletedFilesCount.Load(),
+		DeletedSymlinkCount:           s.DeletedSymlinkCount.Load(),
+		DeletedDirCount:               s.DeletedDirCount.Load(),
+		IgnoredErrorCount:             s.IgnoredErrorCount.Load(),
 	}
 }
 
@@ -238,18 +250,22 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 			c.reportProgress(ctx)
 		}
 
+		output := c.output
 		if currentdepth > maxdepth {
-			if err := c.shallowoutput.WriteFile(ctx, targetPath, e, progressCallback); err != nil {
-				return errors.Wrap(err, "copy file")
-			}
-		} else {
-			if err := c.output.WriteFile(ctx, targetPath, e, progressCallback); err != nil {
-				return errors.Wrap(err, "copy file")
-			}
+			output = c.shallowoutput
+		}
+
+		if err := output.WriteFile(ctx, targetPath, e, progressCallback); err != nil {
+			return errors.Wrap(err, "copy file")
 		}
 
 		c.stats.RestoredFileCount.Add(1)
 		c.stats.RestoredTotalFileSize.Add(bytesExpected - bytesWritten)
+
+		if hr, ok := output.(HardlinkReporter); ok && hr.WasHardlinked(targetPath) {
+			c.stats.RestoredHardlinkCount.Add(1)
+			c.stats.RestoredHardlinkTotalFileSize.Add(bytesExpected)
+		}
 
 		return onCompletion()
 
