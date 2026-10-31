@@ -134,6 +134,23 @@ function showRepoWindow(repositoryID) {
   repositoryWindows[repositoryID] = repositoryWindow;
   repoIDForWebContents[webContentsID] = repositoryID;
 
+  const loadRepositoryWindow = () => {
+    if (!repositoryWindows[repositoryID]) {
+      return;
+    }
+
+    const serverAddress = serverForRepo(repositoryID).getServerAddress();
+
+    if (!serverAddress) {
+      setTimeout(loadRepositoryWindow, 100);
+      return;
+    }
+
+    repositoryWindows[repositoryID].loadURL(
+      serverAddress + "/?ts=" + new Date().valueOf(),
+    );
+  };
+
   // Failed to load the content, retry
   repositoryWindow.webContents.on("did-fail-load", () => {
     log.error("failed to load content");
@@ -142,20 +159,12 @@ function showRepoWindow(repositoryID) {
     if (repositoryWindows[repositoryID]) {
       setTimeout(() => {
         log.info("reloading");
-        repositoryWindows[repositoryID].loadURL(
-          serverForRepo(repositoryID).getServerAddress() +
-            "/?ts=" +
-            new Date().valueOf(),
-        );
+        loadRepositoryWindow();
       }, 500);
     }
   });
 
-  repositoryWindow.loadURL(
-    serverForRepo(repositoryID).getServerAddress() +
-      "/?ts=" +
-      new Date().valueOf(),
-  );
+  loadRepositoryWindow();
   updateDockIcon();
 
   /**
@@ -519,6 +528,7 @@ app.on("ready", () => {
       tray: tray,
       showRepoWindow: showRepoWindow,
       allConfigs: allConfigs,
+      serverForRepo: serverForRepo,
     };
   }
 
