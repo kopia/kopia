@@ -353,8 +353,8 @@ func appendCompressionPolicyRows(rows []policyTableRow, p *policy.Policy, def *p
 			definitionPointToString(p.Target(), def.CompressionPolicy.OnlyCompress),
 		})
 
-		for _, rule := range p.CompressionPolicy.OnlyCompress {
-			rows = append(rows, policyTableRow{"     - " + rule, "", ""})
+		for ext := range p.CompressionPolicy.OnlyCompress {
+			rows = append(rows, policyTableRow{"     - " + ext, "", ""})
 		}
 
 	case len(p.CompressionPolicy.NeverCompress) > 0:
@@ -363,8 +363,8 @@ func appendCompressionPolicyRows(rows []policyTableRow, p *policy.Policy, def *p
 			definitionPointToString(p.Target(), def.CompressionPolicy.NeverCompress),
 		})
 
-		for _, rule := range p.CompressionPolicy.NeverCompress {
-			rows = append(rows, policyTableRow{"    " + rule, "", ""})
+		for ext := range p.CompressionPolicy.NeverCompress {
+			rows = append(rows, policyTableRow{"    " + ext, "", ""})
 		}
 
 	default:
