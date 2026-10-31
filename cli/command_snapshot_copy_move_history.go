@@ -9,12 +9,14 @@ import (
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 type commandSnapshotCopyMoveHistory struct {
-	snapshotCopyOrMoveDryRun      bool
-	snapshotCopyOrMoveSource      string
-	snapshotCopyOrMoveDestination string
+	snapshotCopyOrMoveDryRun        bool
+	snapshotCopyOrMoveMigratePolicy bool
+	snapshotCopyOrMoveSource        string
+	snapshotCopyOrMoveDestination   string
 }
 
 func (c *commandSnapshotCopyMoveHistory) setup(svc appServices, parent commandParent, isMove bool) {
@@ -26,12 +28,21 @@ func (c *commandSnapshotCopyMoveHistory) setup(svc appServices, parent commandPa
 	}
 
 	cmd.Flag("dry-run", "Do not actually copy snapshots, only print what would happen").Short('n').BoolVar(&c.snapshotCopyOrMoveDryRun)
+	cmd.Flag("migrate-policy", migratePolicyHelp(isMove)).BoolVar(&c.snapshotCopyOrMoveMigratePolicy)
 	cmd.Arg("source", "Source (user@host or user@host:path)").Required().StringVar(&c.snapshotCopyOrMoveSource)
 	cmd.Arg("destination", "Destination (defaults to current user@host)").StringVar(&c.snapshotCopyOrMoveDestination)
 
 	cmd.Action(svc.repositoryWriterActionWithMaintenance(func(ctx context.Context, rep repo.RepositoryWriter) error {
 		return c.run(ctx, rep, isMove)
 	}))
+}
+
+func migratePolicyHelp(isMove bool) string {
+	if isMove {
+		return "Also move the policy defined directly on each source to the destination; removes source policy after a successful copy. No-op when no policy is defined on a source. Respects --dry-run."
+	}
+
+	return "Also copy the policy defined directly on each source to the destination; leaves source policy in place. No-op when no policy is defined on a source. Respects --dry-run."
 }
 
 func snapshotCopyMoveHelp(verb string) string {
@@ -98,46 +109,128 @@ func (c *commandSnapshotCopyMoveHistory) run(ctx context.Context, rep repo.Repos
 		return errors.Wrap(err, "error listing destination snapshots")
 	}
 
-	for _, manifest := range srcSnapshots {
-		dstSource := getCopyDestination(manifest.Source, di)
+	// policyMigrations tracks unique (srcSource -> dstSource) pairs encountered
+	// during snapshot processing. Used when --migrate-policy is set.
+	policyMigrations := map[snapshot.SourceInfo]snapshot.SourceInfo{}
 
-		if dstSource == manifest.Source {
-			log(ctx).Debugf("%v is the same as destination, ignoring", dstSource)
-			continue
+	for _, manifest := range srcSnapshots {
+		srcSource := manifest.Source
+
+		dstSource, skip, err := c.copyOrMoveManifest(ctx, rep, manifest, di, dstSnapshots, isMoveCommand)
+		if err != nil {
+			return err
 		}
 
-		if snapshotExists(dstSnapshots, dstSource, manifest) {
-			if isMoveCommand && !c.snapshotCopyOrMoveDryRun {
-				log(ctx).Infof("%v (%v) already exists - deleting source", dstSource, formatTimestamp(manifest.StartTime.ToTime()))
+		if !skip {
+			policyMigrations[srcSource] = dstSource
+		}
+	}
 
-				if err := rep.DeleteManifest(ctx, manifest.ID); err != nil {
-					return errors.Wrap(err, "unable to delete source manifest")
-				}
-			} else {
-				log(ctx).Infof("%v (%v) already exists", dstSource, formatTimestamp(manifest.StartTime.ToTime()))
+	if c.snapshotCopyOrMoveMigratePolicy {
+		if err := c.migratePolicies(ctx, rep, policyMigrations, isMoveCommand); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// copyOrMoveManifest processes a single snapshot manifest: it skips same-source and already-existing
+// snapshots (deleting the source when moving), and otherwise saves the manifest at the destination
+// (deleting the source when moving). It returns the destination SourceInfo and skip=true when the
+// manifest was not actually transferred (so callers can omit such pairs from policy migration).
+func (c *commandSnapshotCopyMoveHistory) copyOrMoveManifest(
+	ctx context.Context,
+	rep repo.RepositoryWriter,
+	manifest *snapshot.Manifest,
+	di snapshot.SourceInfo,
+	dstSnapshots []*snapshot.Manifest,
+	isMoveCommand bool,
+) (dstSource snapshot.SourceInfo, skip bool, err error) {
+	dstSource = getCopyDestination(manifest.Source, di)
+
+	if dstSource == manifest.Source {
+		log(ctx).Debugf("%v is the same as destination, ignoring", dstSource)
+
+		return dstSource, true, nil
+	}
+
+	if snapshotExists(dstSnapshots, dstSource, manifest) {
+		if isMoveCommand && !c.snapshotCopyOrMoveDryRun {
+			log(ctx).Infof("%v (%v) already exists - deleting source", dstSource, formatTimestamp(manifest.StartTime.ToTime()))
+
+			if err := rep.DeleteManifest(ctx, manifest.ID); err != nil {
+				return dstSource, false, errors.Wrap(err, "unable to delete source manifest")
+			}
+		} else {
+			log(ctx).Infof("%v (%v) already exists", dstSource, formatTimestamp(manifest.StartTime.ToTime()))
+		}
+
+		return dstSource, false, nil
+	}
+
+	srcID := manifest.ID
+
+	log(ctx).Infof("%v %v (%v) => %v", c.getCopySnapshotAction(isMoveCommand), manifest.Source, formatTimestamp(manifest.StartTime.ToTime()), dstSource)
+
+	if c.snapshotCopyOrMoveDryRun {
+		return dstSource, false, nil
+	}
+
+	manifest.ID = ""
+	manifest.Source = dstSource
+
+	if _, err := snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {
+		return dstSource, false, errors.Wrap(err, "unable to save snapshot")
+	}
+
+	if isMoveCommand {
+		if err := rep.DeleteManifest(ctx, srcID); err != nil {
+			return dstSource, false, errors.Wrap(err, "unable to delete source manifest")
+		}
+	}
+
+	return dstSource, false, nil
+}
+
+// migratePolicies copies or moves the policy from each source SourceInfo to the
+// corresponding destination SourceInfo. When isMoveCommand is true, the source
+// policy is removed after a successful copy (mirroring snapshot move semantics).
+// If no policy is defined on a source, a debug message is logged and the pair is skipped.
+func (c *commandSnapshotCopyMoveHistory) migratePolicies(ctx context.Context, rep repo.RepositoryWriter, migrations map[snapshot.SourceInfo]snapshot.SourceInfo, isMoveCommand bool) error {
+	verb := "copying"
+	if isMoveCommand {
+		verb = "moving"
+	}
+
+	if c.snapshotCopyOrMoveDryRun {
+		verb += " (dry run)"
+	}
+
+	for srcSource, dstSource := range migrations {
+		pol, err := policy.GetDefinedPolicy(ctx, rep, srcSource)
+		if err != nil {
+			if errors.Is(err, policy.ErrPolicyNotFound) {
+				log(ctx).Debugf("no policy defined for %v, skipping policy migration", srcSource)
+				continue
 			}
 
-			continue
+			return errors.Wrapf(err, "unable to get policy for %v", srcSource)
 		}
 
-		srcID := manifest.ID
-
-		log(ctx).Infof("%v %v (%v) => %v", c.getCopySnapshotAction(isMoveCommand), manifest.Source, formatTimestamp(manifest.StartTime.ToTime()), dstSource)
+		log(ctx).Infof("%v policy %v => %v", verb, srcSource, dstSource)
 
 		if c.snapshotCopyOrMoveDryRun {
 			continue
 		}
 
-		manifest.ID = ""
-		manifest.Source = dstSource
-
-		if _, err := snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {
-			return errors.Wrap(err, "unable to save snapshot")
+		if err := policy.SetPolicy(ctx, rep, dstSource, pol); err != nil {
+			return errors.Wrapf(err, "unable to set policy for %v", dstSource)
 		}
 
 		if isMoveCommand {
-			if err := rep.DeleteManifest(ctx, srcID); err != nil {
-				return errors.Wrap(err, "unable to delete source manifest")
+			if err := policy.RemovePolicy(ctx, rep, srcSource); err != nil {
+				return errors.Wrapf(err, "unable to remove policy for %v", srcSource)
 			}
 		}
 	}
