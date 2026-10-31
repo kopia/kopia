@@ -4,6 +4,7 @@ package email
 import (
 	"context"
 	"fmt"
+	"net/mail"
 	"net/smtp"
 	"strings"
 
@@ -53,10 +54,39 @@ func (p *emailProvider) Send(_ context.Context, msg *sender.Message) error {
 	return smtp.SendMail(
 		fmt.Sprintf("%v:%d", p.opt.SMTPServer, p.opt.SMTPPort),
 		auth,
-		p.opt.From,
-		strings.Split(p.opt.To, ","),
+		envelopeAddress(p.opt.From),
+		envelopeAddresses(p.opt.To),
 		msgPayload,
 	)
+}
+
+// envelopeAddress returns the bare address to use in the SMTP envelope (MAIL FROM, RCPT TO)
+// for a value that may also contain a display name, such as "Name <user@example.com>".
+// If the value can't be parsed it is returned unchanged.
+func envelopeAddress(s string) string {
+	a, err := mail.ParseAddress(s)
+	if err != nil {
+		return s
+	}
+
+	return a.Address
+}
+
+// envelopeAddresses returns the bare addresses to use in the SMTP envelope for a comma-separated
+// list of addresses that may contain display names.
+// If the list can't be parsed it is split on commas without any other processing.
+func envelopeAddresses(s string) []string {
+	list, err := mail.ParseAddressList(s)
+	if err != nil {
+		return strings.Split(s, ",")
+	}
+
+	result := make([]string, 0, len(list))
+	for _, a := range list {
+		result = append(result, a.Address)
+	}
+
+	return result
 }
 
 func (p *emailProvider) Summary() string {
