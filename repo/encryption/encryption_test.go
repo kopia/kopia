@@ -86,10 +86,10 @@ func TestRoundTrip(t *testing.T) {
 			require.Error(t, e.Decrypt(cipherText2.Bytes(), contentID1, &plainText2))
 
 			// flip some bits in the cipherText
-			b := cipherText2.Bytes()
-			b.Slices[0][mathrand.Intn(b.Length())] ^= byte(1 + mathrand.Intn(254))
+			b := cipherText2.Bytes().ToByteSlice()
+			b[mathrand.Intn(len(b))] ^= byte(1 + mathrand.Intn(254))
 
-			require.Error(t, e.Decrypt(b, contentID1, &plainText2))
+			require.Error(t, e.Decrypt(gather.FromSlice(b), contentID1, &plainText2))
 		})
 	}
 }
