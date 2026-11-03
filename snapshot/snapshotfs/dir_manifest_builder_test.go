@@ -1,6 +1,7 @@
 package snapshotfs
 
 import (
+	"io"
 	"testing"
 	"time"
 
@@ -9,6 +10,38 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/snapshot"
 )
+
+func TestDirManifestBuilder_IsEmpty(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		entry   *snapshot.DirEntry
+		failure bool
+		ignored bool
+		want    bool
+	}{
+		{name: "new builder", want: true},
+		{name: "file", entry: &snapshot.DirEntry{Type: snapshot.EntryTypeFile}},
+		{name: "symlink", entry: &snapshot.DirEntry{Type: snapshot.EntryTypeSymlink}},
+		{name: "empty directory", entry: &snapshot.DirEntry{Type: snapshot.EntryTypeDirectory}},
+		{name: "fatal error", failure: true},
+		{name: "ignored error", failure: true, ignored: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := &DirManifestBuilder{}
+			if tc.entry != nil {
+				b.AddEntry(tc.entry)
+			}
+
+			if tc.failure {
+				b.AddFailedEntry("failed", tc.ignored, io.ErrUnexpectedEOF)
+			}
+
+			require.Equal(t, tc.want, b.IsEmpty())
+			b.Build(0, "")
+			require.Equal(t, tc.want, b.IsEmpty())
+		})
+	}
+}
 
 func TestAddEntry(t *testing.T) {
 	now := time.Date(2020, 1, 2, 3, 4, 5, 6, time.UTC)
