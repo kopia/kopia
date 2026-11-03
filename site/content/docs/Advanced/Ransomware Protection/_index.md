@@ -68,7 +68,7 @@ Some cloud storage solutions provide the ability to generate restricted access k
     * Set the following environment variables from your Master API key
       * B2_APPLICATION_KEY_ID=xxxxxxxxxxxxxxxxxxxxxxxxx
       * B2_APPLICATION_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    * Run: `b2 create-key --bucket <bucket-name> <key-name> listBuckets,readBuckets,listFiles,readFiles,writeFiles,readBucketEncryption,readBucketReplications,readBucketRetentions,readFileRetentions,writeFileRetentions,readFileLegalHolds`
+    * Run: `b2 key create --bucket <bucket-name> <key-name> listBuckets,readBuckets,listFiles,readFiles,writeFiles,readBucketEncryption,readBucketReplications,readBucketRetentions,readFileRetentions,writeFileRetentions,readFileLegalHolds`
     * The resulting string contains the restricted application key and password...you will need this for Kopia
     * Disconnect and reconnect your existing Kopia repo using the new key (or create a new bucket using this key)
     * Re-generate your API master API key (to deactivate the one you just used)
