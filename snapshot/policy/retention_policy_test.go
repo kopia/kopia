@@ -243,3 +243,77 @@ func TestCompactRetentionReasons(t *testing.T) {
 		require.Equal(t, tc.want, CompactRetentionReasons(tc.input))
 	}
 }
+
+func TestRetentionBucketsKeepWeekOneAlongsideJanuary(t *testing.T) {
+	r := RetentionPolicy{
+		KeepLatest:  newOptionalInt(0),
+		KeepWeekly:  newOptionalInt(4),
+		KeepMonthly: newOptionalInt(2),
+	}
+	var manifests []*snapshot.Manifest
+	for _, day := range []string{"2026-01-01", "2026-01-08", "2026-01-15", "2026-01-22"} {
+		stamp, err := time.Parse("2006-01-02", day)
+		require.NoError(t, err)
+		manifests = append(manifests, &snapshot.Manifest{
+			Description: day,
+			StartTime:   fs.UTCTimestampFromTime(stamp),
+		})
+	}
+	r.ComputeRetentionReasons(manifests)
+	for i, want := range []string{"weekly-4", "weekly-3", "weekly-2", "weekly-1"} {
+		require.Contains(t, manifests[i].RetentionReasons, want,
+			"week %v lost its weekly retention tag", i+1)
+	}
+	require.Contains(t, manifests[3].RetentionReasons, "monthly-1")
+}
+
+func TestRetentionBucketsAcrossYearBoundaries(t *testing.T) {
+	cases := []struct {
+		name        string
+		year        int
+		days        int
+		weeklyByDay map[int]string
+	}{
+		{"2022", 2022, 8, map[int]string{2: "weekly-2", 8: "weekly-1"}},
+		{"2023", 2023, 8, map[int]string{1: "weekly-2", 8: "weekly-1"}},
+		{"2023-after-next-snapshot", 2023, 9, map[int]string{1: "weekly-3", 8: "weekly-2", 9: "weekly-1"}},
+		{"2024", 2024, 8, map[int]string{7: "weekly-2", 8: "weekly-1"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := RetentionPolicy{
+				KeepLatest:  newOptionalInt(10),
+				KeepHourly:  newOptionalInt(48),
+				KeepDaily:   newOptionalInt(7),
+				KeepWeekly:  newOptionalInt(4),
+				KeepMonthly: newOptionalInt(24),
+				KeepAnnual:  newOptionalInt(3),
+			}
+			var manifests []*snapshot.Manifest
+			for day := 1; day <= tc.days; day++ {
+				stamp := time.Date(tc.year, time.January, day, 12, 0, 0, 0, time.UTC)
+				manifests = append(manifests, &snapshot.Manifest{
+					Description: stamp.Format("2006-01-02"),
+					StartTime:   fs.UTCTimestampFromTime(stamp),
+				})
+			}
+			r.ComputeRetentionReasons(manifests)
+			for i, m := range manifests {
+				var weekly []string
+				for _, reason := range m.RetentionReasons {
+					if strings.HasPrefix(reason, "weekly-") {
+						weekly = append(weekly, reason)
+					}
+				}
+				if want := tc.weeklyByDay[i+1]; want != "" {
+					require.Equal(t, []string{want}, weekly, "%s: %v", m.Description, m.RetentionReasons)
+				} else {
+					require.Empty(t, weekly, "%s: %v", m.Description, m.RetentionReasons)
+				}
+			}
+			last := manifests[len(manifests)-1].RetentionReasons
+			require.Contains(t, last, "monthly-1")
+			require.Contains(t, last, "annual-1")
+		})
+	}
+}
