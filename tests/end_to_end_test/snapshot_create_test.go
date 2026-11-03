@@ -1,6 +1,10 @@
 package endtoend_test
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -642,6 +646,86 @@ func TestSnapshotCreateWithStdinStream(t *testing.T) {
 
 	if !reflect.DeepEqual(gotContent, content) {
 		t.Fatalf("did not get expected file contents: (actual) %v != %v (expected)", gotContent, content)
+	}
+}
+
+func TestSnapshotCreateWithTarFile(t *testing.T) {
+	// not parallel: the temp directory is redirected so the spool cleanup can be asserted.
+	spoolDir := testutil.TempDirectory(t)
+	t.Setenv("TMPDIR", spoolDir)
+	t.Setenv("TMP", spoolDir)
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	want := map[string]string{
+		"top.txt":          "top level",
+		"dir/nested.txt":   "nested file",
+		"dir/deeper/x.txt": "deeper, with no directory header",
+	}
+
+	var buf bytes.Buffer
+
+	tw := tar.NewWriter(&buf)
+
+	require.NoError(t, tw.WriteHeader(&tar.Header{Name: "dir/", Typeflag: tar.TypeDir, Mode: 0o755}))
+
+	for _, name := range []string{"top.txt", "dir/nested.txt", "dir/deeper/x.txt"} {
+		require.NoError(t, tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(want[name]))}))
+
+		_, err := io.WriteString(tw, want[name])
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, tw.Close())
+
+	// archive from stdin
+	runner.SetNextStdin(bytes.NewReader(buf.Bytes()))
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", "from-stdin", "--tar-file=-")
+
+	// gzip-compressed archive from a file
+	tarPath := filepath.Join(testutil.TempDirectory(t), "archive.tar.gz")
+
+	var gz bytes.Buffer
+
+	gw := gzip.NewWriter(&gz)
+	_, err := gw.Write(buf.Bytes())
+	require.NoError(t, err)
+	require.NoError(t, gw.Close())
+	require.NoError(t, os.WriteFile(tarPath, gz.Bytes(), 0o600))
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", "from-file", "--tar-file", tarPath)
+
+	// both flags together is an error
+	e.RunAndExpectFailure(t, "snapshot", "create", "both", "--tar-file", tarPath, "--stdin-file", "x")
+
+	// the tar-file snapshots are manual, like stdin-file ones
+	e.RunAndVerifyOutputLineCount(t, 3, "policy", "list")
+
+	// the spooled archives are removed once each snapshot is done
+	leftovers, err := filepath.Glob(filepath.Join(spoolDir, "kopia-tar-*"))
+	require.NoError(t, err)
+	require.Empty(t, leftovers)
+
+	si := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
+	require.Len(t, si, 2)
+
+	for _, source := range si {
+		require.Len(t, source.Snapshots, 1)
+
+		restoreDir := testutil.TempDirectory(t)
+		e.RunAndExpectSuccess(t, "snapshot", "restore", source.Snapshots[0].ObjectID, restoreDir)
+
+		for name, content := range want {
+			got, err := os.ReadFile(filepath.Join(restoreDir, filepath.FromSlash(name)))
+			require.NoError(t, err, name)
+			require.Equal(t, content, string(got), name)
+		}
 	}
 }
 
