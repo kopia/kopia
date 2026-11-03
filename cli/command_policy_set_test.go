@@ -475,3 +475,29 @@ func TestSetSchedulingPolicyFromFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestSetFilesPolicyKeepsIgnoreRuleOrder(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	flags := policyFilesFlags{
+		policySetAddIgnore:    []string{"/*", "!/data"},
+		policySetAddDotIgnore: []string{"b", "a"},
+	}
+	fp := &policy.FilesPolicy{}
+	changes := 0
+	require.NoError(t, flags.setFilesPolicyFromFlags(ctx, fp, &changes))
+	require.Equal(t, []string{"/*", "!/data"}, fp.IgnoreRules)
+	require.Equal(t, []string{"a", "b"}, fp.DotIgnoreFiles)
+
+	flags = policyFilesFlags{policySetAddIgnore: []string{"!/keep"}}
+	require.NoError(t, flags.setFilesPolicyFromFlags(ctx, fp, &changes))
+	require.Equal(t, []string{"/*", "!/data", "!/keep"}, fp.IgnoreRules)
+
+	flags = policyFilesFlags{policySetRemoveIgnore: []string{"!/data"}}
+	require.NoError(t, flags.setFilesPolicyFromFlags(ctx, fp, &changes))
+	require.Equal(t, []string{"/*", "!/keep"}, fp.IgnoreRules)
+
+	flags = policyFilesFlags{}
+	require.NoError(t, flags.setFilesPolicyFromFlags(ctx, fp, &changes))
+	require.Equal(t, []string{"/*", "!/keep"}, fp.IgnoreRules)
+}
