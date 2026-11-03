@@ -139,6 +139,44 @@ func TestEmailProvider_Text(t *testing.T) {
 		"- c\r\n", msg.MsgRequest())
 }
 
+func TestEmailProvider_DisplayNames(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	srv := smtpmock.New(smtpmock.ConfigurationAttr{
+		LogServerActivity: true,
+		LogToStdout:       true,
+	})
+
+	require.NoError(t, srv.Start())
+	defer srv.Stop()
+
+	p, err := sender.GetSender(ctx, "my-profile", "email", &email.Options{
+		SMTPServer: "localhost",
+		SMTPPort:   srv.PortNumber(),
+		From:       "Kopia <some-user@example.com>",
+		To:         "Another User <another-user@example.com>, third-user@example.com",
+		Format:     sender.FormatPlainText,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, p.Send(ctx, &sender.Message{Subject: "Test", Body: "test"}))
+
+	require.Eventually(t, func() bool {
+		return len(srv.Messages()) == 1
+	}, 10*time.Second, time.Second)
+
+	msg := srv.Messages()[0]
+
+	// the envelope must only contain bare addresses, the headers keep the display names.
+	require.Equal(t, "MAIL FROM:<some-user@example.com>", msg.MailfromRequest())
+	// the mock server only records the last recipient.
+	require.Equal(t, [][]string{
+		{"RCPT TO:<third-user@example.com>", "250 Received"},
+	}, msg.RcpttoRequestResponse())
+	require.Contains(t, msg.MsgRequest(), "From: Kopia <some-user@example.com>\r\n")
+	require.Contains(t, msg.MsgRequest(), "To: Another User <another-user@example.com>, third-user@example.com\r\n")
+}
+
 func TestEmailProvider_AUTH(t *testing.T) {
 	ctx := testlogging.Context(t)
 
