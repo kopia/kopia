@@ -214,10 +214,10 @@ func (s *objectLockingMap) ExtendBlobRetention(ctx context.Context, id blob.ID, 
 	// future. Note that we do not bump the existing time on the element `e.mtime`
 	// by the given delta because we'd like to align with the S3 storage's current
 	// time and the S3 storage code extends retention periods based off the
-	// current time, not object mod time.
-	if !e.retentionTime.IsZero() {
-		e.retentionTime = s.timeNow().Add(opts.RetentionPeriod)
-	}
+	// current time, not object mod time. Mirroring S3 PutObjectRetention, this
+	// also places retention on a version that previously had none.
+	e.retentionMode = opts.RetentionMode
+	e.retentionTime = s.timeNow().Add(opts.RetentionPeriod)
 
 	return nil
 }

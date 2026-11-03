@@ -1,7 +1,10 @@
 package endtoend_test
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/clitestutil"
@@ -35,6 +38,12 @@ func TestRepositorySync(t *testing.T) {
 	// synchronizing to empty directory fails with --must-exist
 	dir3 := testutil.TempDirectory(t)
 	e.RunAndExpectFailure(t, "repo", "sync-to", "filesystem", "--path", dir3, "--must-exist")
+
+	// object-lock retention flags require an object-lock capable destination.
+	dir4 := testutil.TempDirectory(t)
+	_, stderr := e.RunAndExpectFailure(t, "repo", "sync-to", "filesystem", "--path", dir4,
+		"--retention-mode", "GOVERNANCE", "--retention-period", "24h")
+	require.Contains(t, strings.Join(stderr, "\n"), "does not support object-lock retention")
 
 	// now connect to the new repository in new location
 	e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", dir2)
