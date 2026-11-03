@@ -2,6 +2,7 @@ package restore
 
 import (
 	"archive/zip"
+	"os"
 	"context"
 	"io"
 
@@ -24,9 +25,21 @@ func (o *ZipOutput) Parallelizable() bool {
 }
 
 // BeginDirectory implements restore.Output interface.
-//
-//nolint:revive
-func (o *ZipOutput) BeginDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
+func (o *ZipOutput) BeginDirectory(_ context.Context, relativePath string, e fs.Directory) error {
+	if relativePath == "" {
+		return nil
+	}
+
+	// ZIP directory names must end in /, including empty directories which
+	// cannot otherwise be inferred from regular-file paths in the archive.
+	h := &zip.FileHeader{Name: relativePath + "/", Method: zip.Store}
+	h.Modified = e.ModTime()
+	h.SetMode(e.Mode() | os.ModeDir)
+
+	if _, err := o.zf.CreateHeader(h); err != nil {
+		return errors.Wrap(err, "error creating zip directory entry")
+	}
+
 	return nil
 }
 
@@ -90,10 +103,31 @@ func (o *ZipOutput) FileExists(ctx context.Context, relativePath string, l fs.Fi
 }
 
 // CreateSymlink implements restore.Output interface.
-//
-//nolint:revive
 func (o *ZipOutput) CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error {
-	log(ctx).Debug("create symlink not implemented yet")
+	target, err := e.Readlink(ctx)
+	if err != nil {
+		return errors.Wrap(err, "error reading zip symlink target")
+	}
+
+	// In ZIP's Unix convention symlinks carry ModeSymlink and the link target
+	// as file contents. Never resolve or follow the link while exporting it.
+	h := &zip.FileHeader{Name: relativePath, Method: zip.Store}
+	h.Modified = e.ModTime()
+	h.SetMode(e.Mode() | os.ModeSymlink)
+
+	w, err := o.zf.CreateHeader(h)
+	if err != nil {
+		return errors.Wrap(err, "error creating zip symlink entry")
+	}
+
+	n, err := io.WriteString(w, target)
+	if err != nil {
+		return errors.Wrap(err, "error writing zip symlink target")
+	}
+	if n != len(target) {
+		return io.ErrShortWrite
+	}
+
 	return nil
 }
 
