@@ -59,6 +59,12 @@ Getting Started
 ---
 See [Kopia Documentation](https://kopia.io/docs/) for more information. Also check out the [users forum](https://kopia.discourse.group).
 
+One-Click Deploy
+---
+
+<a href="https://repocloud.io/details/Kopia/"><img src="https://d16t0pc4846x52.cloudfront.net/deploylobe.svg" alt="Deploy on RepoCloud" height="42"></a>
+<a href="https://railway.com/deploy/kopia"><img src="https://railway.com/button.svg" alt="Deploy on Railway" height="42"></a>
+
 Licensing
 ---
 Kopia is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full license text.
