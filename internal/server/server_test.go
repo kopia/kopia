@@ -472,3 +472,69 @@ func mustGetCapacityNotAVolume(ctx context.Context, t *testing.T, rep repo.Repos
 	_, err := rep.GetCapacity(ctx)
 	require.ErrorIs(t, err, blob.ErrNotAVolume, "expected 'not a volume' error")
 }
+
+func TestServer_WriteContentRewritesDeletedContent(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	apiServerInfo := servertesting.StartServer(t, env, true)
+
+	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx, apiServerInfo, repo.ClientOptions{
+		Username: servertesting.TestUsername,
+		Hostname: servertesting.TestHostname,
+	}, content.CachingOptions{
+		CacheDirectory:        testutil.TempDirectory(t),
+		ContentCacheSizeBytes: maxCacheSizeBytes,
+	}, servertesting.TestPassword, &repo.Options{})
+	require.NoError(t, err)
+
+	defer rep.Close(ctx)
+
+	// large enough for the client to check whether the server already has the content.
+	data := make([]byte, 100_000)
+	for i := range data {
+		data[i] = byte(i * 7 % 251)
+	}
+
+	writeObject := func(purpose string) object.ID {
+		var oid object.ID
+
+		require.NoError(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{Purpose: purpose}, func(ctx context.Context, w repo.RepositoryWriter) error {
+			ow := w.NewObjectWriter(ctx, object.WriterOptions{})
+			defer ow.Close()
+
+			if _, err := ow.Write(data); err != nil {
+				return err
+			}
+
+			var err error
+
+			oid, err = ow.Result()
+
+			return err
+		}))
+
+		return oid
+	}
+
+	oid := writeObject("write")
+	cid, _, ok := oid.ContentID()
+	require.True(t, ok)
+
+	// mark the content deleted, the way snapshot GC does.
+	cm := env.RepositoryWriter.ContentManager()
+	require.NoError(t, env.RepositoryWriter.Refresh(ctx))
+	require.NoError(t, cm.DeleteContent(ctx, cid))
+	require.NoError(t, env.RepositoryWriter.Flush(ctx))
+
+	info, err := cm.ContentInfo(ctx, cid)
+	require.NoError(t, err)
+	require.True(t, info.Deleted)
+
+	// writing the same data again through the server must undelete the content.
+	require.Equal(t, oid, writeObject("rewrite"))
+
+	require.NoError(t, env.RepositoryWriter.Refresh(ctx))
+
+	info, err = cm.ContentInfo(ctx, cid)
+	require.NoError(t, err)
+	require.False(t, info.Deleted, "content written through the server must not stay deleted")
+}
