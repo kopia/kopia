@@ -364,3 +364,7 @@ export function serverForRepo(repoID) {
   servers[repoID] = s;
   return s;
 }
+
+export function pollAllServers() {
+  Object.values(servers).forEach((s) => s.pollNow());
+}

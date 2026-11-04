@@ -23,7 +23,7 @@ import {
   LevelDisabled,
   LevelWarningsAndErrors,
 } from "./notifications.js";
-import { serverForRepo } from "./server.js";
+import { pollAllServers, serverForRepo } from "./server.js";
 import {
   loadConfigs,
   allConfigs,
@@ -94,7 +94,7 @@ function showRepoWindow(repositoryID) {
   let primaryScreenBounds = screen.getPrimaryDisplay().bounds;
   if (repositoryWindows[repositoryID]) {
     repositoryWindows[repositoryID].focus();
-    serverForRepo(repositoryID).pollNow();
+    pollAllServers();
     return;
   }
 
@@ -172,11 +172,11 @@ function showRepoWindow(repositoryID) {
    */
   repositoryWindow.once("ready-to-show", function () {
     repositoryWindow.show();
-    serverForRepo(repositoryID).pollNow();
+    pollAllServers();
   });
 
   repositoryWindow.on("focus", function () {
-    serverForRepo(repositoryID).pollNow();
+    pollAllServers();
   });
 
   /**
