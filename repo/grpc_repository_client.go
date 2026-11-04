@@ -761,8 +761,9 @@ func (r *grpcRepositoryClient) doWriteAsync(ctx context.Context, contentID conte
 	// for small contents we skip the check, since the server-side existence
 	// check is fast and we avoid double round trip.
 	if len(data) >= writeContentCheckExistenceAboveSize {
-		if _, err := r.ContentInfo(ctx, contentID); err == nil {
-			// content already exists
+		if ci, err := r.ContentInfo(ctx, contentID); err == nil && !ci.Deleted {
+			// content already exists and is not deleted; if it is deleted, write it again
+			// as a direct writer would, so that it is undeleted.
 			return nil
 		}
 	}
