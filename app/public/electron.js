@@ -578,8 +578,6 @@ function showRepoNotification(e) {
   } else if (severity >= 10) {
     // warnings and errors
     urgency = "critical";
-  } else {
-    urgency = "normal";
   }
 
   const notification = new Notification({

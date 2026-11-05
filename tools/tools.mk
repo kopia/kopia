@@ -108,6 +108,7 @@ GOLANGCI_LINT_VERSION=2.14.0
 CHECKLOCKS_VERSION=release-20260928.0
 NODE_VERSION=24.16.0
 HUGO_VERSION=0.113.0
+GOCOVER_COBERTURA_VERSION=1.5.0
 GOTESTSUM_VERSION=1.13.0
 GORELEASER_VERSION=v0.176.0
 RCLONE_VERSION=1.68.2
@@ -158,6 +159,16 @@ $(linter):
 	go run github.com/kopia/kopia/tools/gettool --tool linter:$(GOLANGCI_LINT_VERSION) --output-dir $(linter_dir)
 
 install-linter: $(linter)
+
+# gocover-cobertura
+gocover_cobertura_dir=$(TOOLS_DIR)$(slash)gocover-cobertura-$(GOCOVER_COBERTURA_VERSION)
+gocover_cobertura=$(gocover_cobertura_dir)$(slash)gocover-cobertura$(exe_suffix)
+
+$(gocover_cobertura): export GOBIN=$(gocover_cobertura_dir)
+$(gocover_cobertura):
+	go install github.com/boumenot/gocover-cobertura@v$(GOCOVER_COBERTURA_VERSION)
+
+install-gocover-cobertura: $(gocover_cobertura)
 
 # checklocks
 checklocks_dir=$(TOOLS_DIR)$(slash)checklocks-$(CHECKLOCKS_VERSION)
