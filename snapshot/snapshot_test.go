@@ -5,7 +5,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -192,6 +194,16 @@ func TestParseSourceInfo(t *testing.T) {
 		got2, err := snapshot.ParseSourceInfo(got.String(), "default-host", "default-user")
 		require.NoErrorf(t, err, "error parsing %q", tc.path)
 		require.Equal(t, got, got2, "unexpected parsed value")
+	}
+
+	if runtime.GOOS == "windows" {
+		volume := filepath.VolumeName(cwd)
+		if len(volume) == 2 && volume[1] == ':' {
+			lowerDrivePath := strings.ToLower(volume[:1]) + cwd[1:]
+			got, err := snapshot.ParseSourceInfo(lowerDrivePath, "default-host", "default-user")
+			require.NoError(t, err)
+			require.Equal(t, cwd, got.Path)
+		}
 	}
 }
 

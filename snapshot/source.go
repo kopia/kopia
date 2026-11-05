@@ -3,6 +3,7 @@ package snapshot
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -61,6 +62,15 @@ func ParseSourceInfo(path, hostname, username string) (SourceInfo, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return SourceInfo{}, errors.Errorf("invalid directory: '%s': %s", path, err)
+	}
+	if runtime.GOOS == "windows" {
+		// Drive letters are case-insensitive on Windows. Normalize only the
+		// drive letter so differently-cased spellings share source policies,
+		// while preserving path component case for case-sensitive directories.
+		volume := filepath.VolumeName(absPath)
+		if len(volume) == 2 && volume[1] == ':' {
+			absPath = strings.ToUpper(absPath[:1]) + absPath[1:]
+		}
 	}
 
 	return SourceInfo{
