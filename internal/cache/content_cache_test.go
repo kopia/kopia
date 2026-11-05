@@ -226,10 +226,10 @@ func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage cache.
 		require.NoError(t, cacheStorage.GetBlob(ctx, cacheKey, 0, -1, &tmp))
 
 		// corrupt the data and write back
-		b := tmp.Bytes()
-		b.Slices[0][0] ^= 1
+		b := tmp.Bytes().ToByteSlice()
+		b[0] ^= 1
 
-		require.NoError(t, cacheStorage.PutBlob(ctx, cacheKey, b, blob.PutOptions{}))
+		require.NoError(t, cacheStorage.PutBlob(ctx, cacheKey, gather.FromSlice(b), blob.PutOptions{}))
 
 		err := cc.GetContent(ctx, "xf0f0f1", "content-1", 1, 5, &tmp)
 		require.NoError(t, err, "error in getContent")
