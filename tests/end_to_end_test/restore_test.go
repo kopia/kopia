@@ -937,6 +937,37 @@ func TestSnapshotRestoreByPath(t *testing.T) {
 	compareDirs(t, source, restoreDir)
 }
 
+func TestRestoreSingleFileByPathPreservesAttributes(t *testing.T) {
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, runner)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	sourceDir := testutil.TempDirectory(t)
+	sourceFile := filepath.Join(sourceDir, "single-file")
+
+	require.NoError(t, os.WriteFile(sourceFile, []byte("some-data"), 0o600))
+	require.NoError(t, os.Chmod(sourceFile, 0o653))
+
+	modTime := time.Date(2020, 1, 2, 3, 4, 5, 0, time.UTC)
+	require.NoError(t, os.Chtimes(sourceFile, modTime, modTime))
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", sourceDir)
+
+	restoredFile := filepath.Join(testutil.TempDirectory(t), "restored-file")
+	e.RunAndExpectSuccess(t, "snapshot", "restore", sourceFile, restoredFile, "--snapshot-time=latest")
+
+	verifyFileMode(t, restoredFile, os.FileMode(0o653))
+
+	s, err := os.Stat(restoredFile)
+	require.NoError(t, err)
+	require.True(t, modTime.Equal(s.ModTime()), "invalid mtime on %v: %v, want %v", restoredFile, s.ModTime(), modTime)
+}
+
 func TestRestoreByPathWithoutTarget(t *testing.T) {
 	t.Parallel()
 

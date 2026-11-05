@@ -519,7 +519,9 @@ func (c *commandRestore) tryToConvertPathToID(ctx context.Context, rep repo.Repo
 		"   Relative path: %v\n"+
 		"   Object ID: %v", m.Source, formatTimestamp(m.StartTime.ToTime()), relPath, ohid)
 
-	return ohid.String(), nil
+	// The object holds only the content; mode, mtime and ownership live in the parent
+	// directory entry, so the caller has to descend to it from the snapshot root.
+	return filepath.Join(string(m.ID), relPath), nil
 }
 
 func createSnapshotTimeFilter(timespec string) (func(*snapshot.Manifest, int, int) bool, error) {
