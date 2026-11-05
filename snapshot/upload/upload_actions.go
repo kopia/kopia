@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -195,16 +196,81 @@ func parseCaptures(v []byte, captures map[string]string) error {
 }
 
 func (u *Uploader) executeBeforeFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) (fs.Directory, error) {
-	if h == nil {
-		return nil, nil
+	p, err := u.executeBeforeAction(ctx, actionType, h, dirPathOrEmpty, hc)
+	if err != nil || p == "" {
+		return nil, err
 	}
 
-	if err := hc.ensureInitialized(ctx, actionType, dirPathOrEmpty, u.EnableActions); err != nil {
-		return nil, errors.Wrap(err, "error initializing action context")
+	d, err := localfs.Directory(p)
+
+	return d, errors.Wrap(err, "error getting local directory specified in KOPIA_SNAPSHOT_PATH")
+}
+
+func (u *Uploader) executeBeforeFileAction(ctx context.Context, h *policy.ActionCommand, file fs.File, hc *actionContext) (fs.File, error) {
+	p, err := u.executeBeforeAction(ctx, "before-snapshot-root", h, file.LocalFilesystemPath(), hc)
+	if err != nil || p == "" {
+		return nil, err
+	}
+
+	e, err := localfs.NewEntry(p)
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting local file specified in KOPIA_SNAPSHOT_PATH")
+	}
+
+	f, ok := e.(fs.File)
+	if !ok {
+		e.Close()
+
+		return nil, errors.Errorf("not a file specified in KOPIA_SNAPSHOT_PATH: %v", p)
+	}
+
+	return f, nil
+}
+
+func refreshFileEntry(ctx context.Context, file fs.File) (fs.File, error) {
+	if pf, ok := file.(snapshot.HasDirEntryOrNil); ok {
+		de, err := pf.DirEntryOrNil(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't read placeholder")
+		}
+
+		if de != nil {
+			return nil, nil
+		}
+	}
+
+	r, err := file.Open(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to open file after before-snapshot-root action")
+	}
+	defer r.Close() //nolint:errcheck
+
+	e, err := r.Entry()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to refresh file after before-snapshot-root action")
+	}
+
+	f, ok := e.(fs.File)
+	if !ok {
+		e.Close()
+
+		return nil, errors.New("not a file after before-snapshot-root action")
+	}
+
+	return f, nil
+}
+
+func (u *Uploader) executeBeforeAction(ctx context.Context, actionType string, h *policy.ActionCommand, pathOrEmpty string, hc *actionContext) (string, error) {
+	if h == nil {
+		return "", nil
+	}
+
+	if err := hc.ensureInitialized(ctx, actionType, pathOrEmpty, u.EnableActions); err != nil {
+		return "", errors.Wrap(err, "error initializing action context")
 	}
 
 	if !hc.ActionsEnabled {
-		return nil, nil
+		return "", nil
 	}
 
 	uploadLog(ctx).Debugf("running action %v on %v %#v", actionType, hc.SourcePath, *h)
@@ -214,17 +280,16 @@ func (u *Uploader) executeBeforeFolderAction(ctx context.Context, actionType str
 	}
 
 	if err := runActionCommand(ctx, actionType, h, hc.envars(actionType), captures, hc.WorkDir); err != nil {
-		return nil, errors.Wrapf(err, "error running '%v' action", actionType)
+		return "", errors.Wrapf(err, "error running '%v' action", actionType)
 	}
 
 	if p := captures["KOPIA_SNAPSHOT_PATH"]; p != "" {
 		hc.SnapshotPath = p
-		d, err := localfs.Directory(hc.SnapshotPath)
 
-		return d, errors.Wrap(err, "error getting local directory specified in KOPIA_SNAPSHOT_PATH")
+		return p, nil
 	}
 
-	return nil, nil
+	return "", nil
 }
 
 func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) {

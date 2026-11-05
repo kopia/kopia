@@ -496,6 +496,33 @@ func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath
 	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, prototypeManifest)
 	defer cancelCheckpointer()
 
+	var hc actionContext
+	defer cleanupActionContext(ctx, &hc)
+
+	localFilePathOrEmpty := file.LocalFilesystemPath()
+
+	overrideFile, err := u.executeBeforeFileAction(ctx, pol.Actions.BeforeSnapshotRoot, file, &hc)
+	if err != nil {
+		return nil, errors.Wrap(err, "error executing before-snapshot-root action")
+	}
+
+	defer u.executeAfterFolderAction(ctx, "after-snapshot-root", pol.Actions.AfterSnapshotRoot, localFilePathOrEmpty, &hc)
+
+	if overrideFile != nil {
+		file = overrideFile
+		defer file.Close()
+	} else if hc.ActionsEnabled && pol.Actions.BeforeSnapshotRoot != nil && pol.Actions.BeforeSnapshotRoot.Mode != "async" {
+		refreshedFile, err := refreshFileEntry(ctx, file)
+		if err != nil {
+			return nil, err
+		}
+
+		if refreshedFile != nil {
+			file = refreshedFile
+			defer file.Close()
+		}
+	}
+
 	res, err := u.uploadFileInternal(ctx, &cp, relativePath, file, pol)
 	if err != nil {
 		return nil, err
