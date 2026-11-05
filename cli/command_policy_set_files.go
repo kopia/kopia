@@ -25,6 +25,8 @@ type policyFilesFlags struct {
 	policyOneFileSystem string
 
 	policyIgnoreCacheDirs string
+
+	policyTrackHardlinks string
 }
 
 func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
@@ -43,6 +45,8 @@ func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("one-file-system", "Stay in parent filesystem when finding files ('true', 'false', 'inherit')").EnumVar(&c.policyOneFileSystem, booleanEnumValues...)
 
 	cmd.Flag("ignore-cache-dirs", "Ignore cache directories ('true', 'false', 'inherit')").EnumVar(&c.policyIgnoreCacheDirs, booleanEnumValues...)
+
+	cmd.Flag("track-hardlinks", "Record hardlink identity so hardlinks can be recreated on restore ('true', 'false', 'inherit')").EnumVar(&c.policyTrackHardlinks, booleanEnumValues...)
 }
 
 func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, changeCount *int) error {
@@ -57,5 +61,9 @@ func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *poli
 		return err
 	}
 
-	return applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, c.policyOneFileSystem, changeCount)
+	if err := applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, c.policyOneFileSystem, changeCount); err != nil {
+		return err
+	}
+
+	return applyPolicyBoolPtr(ctx, "track hardlinks", &fp.TrackHardlinks, c.policyTrackHardlinks, changeCount)
 }

@@ -76,7 +76,14 @@ func (e *repositoryEntry) Owner() fs.OwnerInfo {
 }
 
 func (e *repositoryEntry) Device() fs.DeviceInfo {
-	return fs.DeviceInfo{}
+	return fs.DeviceInfo{Dev: e.metadata.Dev}
+}
+
+func (e *repositoryEntry) HardLinkInfo() fs.HardLinkInfo {
+	return fs.HardLinkInfo{
+		UniqID: e.metadata.Ino,
+		NLink:  e.metadata.NLink,
+	}
 }
 
 func (e *repositoryEntry) DirEntry() *snapshot.DirEntry {
