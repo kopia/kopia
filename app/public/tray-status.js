@@ -95,7 +95,8 @@ export function parseSnapshotReport(body) {
  * the start times of the rest in lastStarts. The server sends each report from
  * its own goroutine through any configured senders first, so a slow sender can
  * deliver a failure after the report of a later successful retry. Results with
- * an unknown start can't be ordered, so they are kept.
+ * an unknown start can't be ordered, so they are kept. Incomplete (cancelled)
+ * snapshots leave failures unchanged, so they don't make earlier results stale.
  */
 export function dropStaleResults(results, lastStarts) {
   return results.filter((r) => {
@@ -103,7 +104,7 @@ export function dropStaleResults(results, lastStarts) {
       return false;
     }
 
-    if (!Number.isNaN(r.start)) {
+    if (r.status !== "incomplete" && !Number.isNaN(r.start)) {
       lastStarts[r.path] = r.start;
     }
 

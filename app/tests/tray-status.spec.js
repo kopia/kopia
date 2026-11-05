@@ -250,6 +250,19 @@ test("dropStaleResults ignores a failure delivered after a newer success", () =>
   expect(lastStarts).toStrictEqual({ "/a": 3000, "/b": 1000 });
 });
 
+test("dropStaleResults keeps a failure delivered after a newer cancelled snapshot", () => {
+  const lastStarts = {};
+
+  dropStaleResults(
+    [{ path: "/a", status: "incomplete", start: 2000 }],
+    lastStarts,
+  );
+  expect(lastStarts).toStrictEqual({});
+
+  const failure = [{ path: "/a", status: "fatal", start: 1000 }];
+  expect(dropStaleResults(failure, lastStarts)).toStrictEqual(failure);
+});
+
 test("dropStaleResults applies results with an unknown start", () => {
   const lastStarts = { "/a": 2000 };
   const results = [{ path: "/a", status: "fatal", start: NaN }];
