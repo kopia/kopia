@@ -25,6 +25,20 @@ import {
 } from "./notifications.js";
 import { serverForRepo } from "./server.js";
 import {
+  applySnapshotReport,
+  dropStaleResults,
+  knownSourcePaths,
+  parseSnapshotReport,
+  pruneFailures,
+  shortenPath,
+  sourceStatusLabel,
+  trayIconState,
+  traySummary,
+  trayTitle,
+  trayToolTip,
+  withFailures,
+} from "./tray-status.js";
+import {
   loadConfigs,
   allConfigs,
   deleteConfigIfDisconnected,
@@ -38,6 +52,7 @@ import Store from "electron-store";
 import log from "electron-log";
 import path from "path";
 import crypto from "crypto";
+import os from "os";
 
 // Store to save parameters
 const store = new Store();
@@ -500,18 +515,7 @@ app.on("ready", () => {
   // re-check for updates every 24 hours
   setInterval(checkForUpdates, 86400000);
 
-  tray = new Tray(
-    path.join(
-      iconsPath(),
-      selectByOS({
-        mac: "kopiaTrayTemplate.png",
-        win: "kopia-tray.ico",
-        linux: "kopia-tray.png",
-      }),
-    ),
-  );
-
-  tray.setToolTip("Kopia");
+  tray = new Tray(trayIconPath(trayIcon));
 
   // hooks exposed to tests
   if (process.env["KOPIA_UI_TESTING"]) {
@@ -591,11 +595,94 @@ function showRepoNotification(e) {
 ipcMain.addListener("config-list-updated-event", () => updateTrayContextMenu());
 ipcMain.addListener("status-updated-event", () => updateTrayContextMenu());
 ipcMain.addListener("repo-notification-event", showRepoNotification);
+ipcMain.addListener("repo-notification-event", recordSnapshotReport);
 
 function addAnotherRepository() {
   const repoID = addNewConfig();
   serverForRepo(repoID).actuateServer();
   showRepoWindow(repoID);
+}
+
+const trayIcons = {
+  idle: {
+    mac: "kopiaTrayTemplate.png",
+    win: "kopia-tray.ico",
+    linux: "kopia-tray.png",
+  },
+  busy: {
+    mac: "kopiaTrayBusyTemplate.png",
+    win: "kopia-tray-busy.ico",
+    linux: "kopia-tray-busy.png",
+  },
+  error: {
+    // not a template image so it stays red in the macOS menu bar.
+    mac: "kopiaTrayError.png",
+    win: "kopia-tray-error.ico",
+    linux: "kopia-tray-error.png",
+  },
+};
+
+let trayIcon = "idle";
+let trayMenuSignature = "";
+
+function trayIconPath(state) {
+  return path.join(iconsPath(), selectByOS(trayIcons[state]));
+}
+
+// repoID -> source path -> "fatal" | "warnings", persisted so failures remain
+// visible after a restart until that source's next successful snapshot.
+let sourceFailures = store.get("sourceFailures", {});
+
+function setSourceFailures(updated) {
+  if (JSON.stringify(updated) === JSON.stringify(sourceFailures)) {
+    return false;
+  }
+
+  sourceFailures = updated;
+  store.set("sourceFailures", sourceFailures);
+  return true;
+}
+
+// repoID -> when its last snapshot report arrived. Status and source lists
+// fetched before then may be out of date, so they aren't used for pruning.
+const lastReportAt = {};
+
+// repoID -> source path -> start time of the newest snapshot result applied.
+// Kept in memory, as late reports can't outlive the server process sending them.
+const lastSnapshotStarts = {};
+
+function recordSnapshotReport(e) {
+  const results = parseSnapshotReport(e.notification?.body);
+  if (!results.length) {
+    if (/snapshot/i.test(e.notification?.subject)) {
+      log.warn(
+        "snapshot report has no Path/Status lines, customised template?",
+        e.notification.subject,
+      );
+    }
+    return;
+  }
+
+  lastReportAt[e.repoID] = Date.now();
+  lastSnapshotStarts[e.repoID] ??= {};
+  const updated = {
+    ...sourceFailures,
+    [e.repoID]: applySnapshotReport(
+      sourceFailures[e.repoID] || {},
+      dropStaleResults(results, lastSnapshotStarts[e.repoID]),
+    ),
+  };
+  if (setSourceFailures(updated)) {
+    updateTrayContextMenu();
+  }
+}
+
+// "~" is not a familiar shorthand for the home directory on Windows.
+const homeDirAlias = process.platform === "win32" ? "" : os.homedir();
+
+// Windows and Linux treat "&" in menu labels as an accelerator prefix.
+function escapeMenuLabel(label) {
+  return process.platform === "darwin" ? label : label.replace(/&/g, "&&");
 }
 
 function updateTrayContextMenu() {
@@ -605,9 +692,24 @@ function updateTrayContextMenu() {
 
   let defaultReposTemplates = [];
   let additionalReposTemplates = [];
+  let allSourceStatuses = [];
+
+  const knownSources = {};
+  allConfigs().forEach((repoID) => {
+    knownSources[repoID] = knownSourcePaths(
+      serverForRepo(repoID),
+      lastReportAt[repoID],
+    );
+  });
+  setSourceFailures(pruneFailures(sourceFailures, knownSources));
 
   allConfigs().forEach((repoID) => {
     const sd = serverForRepo(repoID).getServerStatusDetails();
+    const sourceStatuses = withFailures(
+      serverForRepo(repoID).getSourceStatuses(),
+      sourceFailures[repoID] || {},
+    );
+    allSourceStatuses = allSourceStatuses.concat(sourceStatuses);
     let desc = "";
 
     if (sd.startingUp) {
@@ -628,15 +730,42 @@ function updateTrayContextMenu() {
         ? defaultReposTemplates
         : additionalReposTemplates;
 
-    collection.push({
-      label: desc,
-      click: () => showRepoWindow(repoID),
-      toolTip: desc + " (" + repoID + ")",
-    });
+    // each repository is followed by its snapshot sources, so sort as a group.
+    collection.push([
+      {
+        label: desc,
+        click: () => showRepoWindow(repoID),
+        toolTip: desc + " (" + repoID + ")",
+      },
+      ...sourceStatuses.map((s) => ({
+        label: escapeMenuLabel(
+          "    " +
+            shortenPath(s.path, homeDirAlias) +
+            (s.otherUser ? " (" + s.otherUser + ")" : "") +
+            " - " +
+            sourceStatusLabel(s),
+        ),
+        click: () => showRepoWindow(repoID),
+        toolTip: s.path,
+      })),
+    ]);
   });
 
   if (additionalReposTemplates.length > 0) {
-    additionalReposTemplates.sort((a, b) => a.label.localeCompare(b.label));
+    additionalReposTemplates.sort((a, b) =>
+      a[0].label.localeCompare(b[0].label),
+    );
+  }
+
+  const summary = traySummary(allSourceStatuses);
+  const icon = trayIconState(summary);
+  if (icon !== trayIcon) {
+    trayIcon = icon;
+    tray.setImage(trayIconPath(icon));
+  }
+  tray.setToolTip(trayToolTip(summary));
+  if (process.platform === "darwin") {
+    tray.setTitle(trayTitle(summary), { fontType: "monospacedDigit" });
   }
 
   let autoUpdateMenuItems = [];
@@ -675,6 +804,7 @@ function updateTrayContextMenu() {
 
   let template = defaultReposTemplates
     .concat(additionalReposTemplates)
+    .flat()
     .concat([
       { type: "separator" },
       {
@@ -719,5 +849,12 @@ function updateTrayContextMenu() {
       },
       { label: "Quit", role: "quit" },
     ]);
-  tray.setContextMenu(Menu.buildFromTemplate(template));
+
+  // progress polls update the title and tooltip every few seconds, the menu
+  // is only rebuilt when its contents change.
+  const menuSignature = JSON.stringify(template);
+  if (menuSignature !== trayMenuSignature) {
+    trayMenuSignature = menuSignature;
+    tray.setContextMenu(Menu.buildFromTemplate(template));
+  }
 }

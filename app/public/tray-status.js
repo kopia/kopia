@@ -1,0 +1,291 @@
+// Helpers that turn server source status into tray labels.
+// Kept free of Electron imports so they can be unit tested.
+
+const statusLabels = {
+  IDLE: "Idle",
+  PENDING: "Pending",
+  UPLOADING: "Uploading",
+  PAUSED: "Paused",
+  FAILED: "Failed",
+};
+
+/**
+ * Returns whole-number percent complete for upload counters, or null when
+ * the estimate is unknown or has been exceeded (same rule as the HTML UI).
+ */
+export function uploadPercent(doneBytes, estimatedBytes) {
+  if (!estimatedBytes) {
+    return null;
+  }
+
+  const percent = Math.floor((doneBytes * 100) / estimatedBytes);
+  if (percent > 100) {
+    return null;
+  }
+
+  return percent;
+}
+
+/**
+ * Reduces a /api/v1/control/sources response to the sources on the local
+ * host, keeping only the fields the tray displays. The server snapshots every
+ * user's sources on its host, so other users' sources are kept and named.
+ */
+export function localSourceStatuses(resp) {
+  return (resp?.sources || [])
+    .filter((s) => s.source?.host === resp.localHost)
+    .map((s) => {
+      const u = s.upload;
+      const doneBytes = u ? (u.hashedBytes || 0) + (u.cachedBytes || 0) : 0;
+      const estimatedBytes = u?.estimatedBytes || 0;
+
+      return {
+        path: s.source.path,
+        otherUser:
+          s.source.userName === resp.localUsername ? null : s.source.userName,
+        status: s.status,
+        doneBytes,
+        estimatedBytes,
+        percent: uploadPercent(doneBytes, estimatedBytes),
+      };
+    });
+}
+
+// labels for an idle source whose last snapshot report was not successful.
+const failureLabels = {
+  fatal: "Failed",
+  warnings: "Errors",
+};
+
+export function sourceStatusLabel(s) {
+  if (s.status === "UPLOADING" && s.percent !== null) {
+    return s.percent + "%";
+  }
+
+  if (s.status === "IDLE" && s.failure) {
+    return failureLabels[s.failure];
+  }
+
+  return statusLabels[s.status] || s.status;
+}
+
+/**
+ * Extracts per-source results from the plain text body of a snapshot report
+ * notification. The server only reports failures this way, so this relies on
+ * the default "Path:" and "Status:" lines of the snapshot-report template.
+ * Repositories with a customised template, or KopiaUI connected to a
+ * repository server (which receives the notifications instead), report none.
+ * start is NaN when unknown: the "Start:" line is missing or unreadable, or
+ * holds the zero time older servers report for a failed upload.
+ */
+export function parseSnapshotReport(body) {
+  const results = [];
+  const re = /^Path: (.+)\n\s*\n\s+Status:\s+(\w+)(?:\n\s+Start:\s+(.+))?/gm;
+
+  for (const m of (body || "").matchAll(re)) {
+    const start = Date.parse(m[3]);
+    results.push({ path: m[1], status: m[2], start: start > 0 ? start : NaN });
+  }
+
+  return results;
+}
+
+/**
+ * Removes results older than the last one applied for their path, and records
+ * the start times of the rest in lastStarts. The server sends each report from
+ * its own goroutine through any configured senders first, so a slow sender can
+ * deliver a failure after the report of a later successful retry. Results with
+ * an unknown start can't be ordered, so they are kept. Incomplete (cancelled)
+ * snapshots leave failures unchanged, so they don't make earlier results stale.
+ */
+export function dropStaleResults(results, lastStarts) {
+  return results.filter((r) => {
+    if (r.start < lastStarts[r.path]) {
+      return false;
+    }
+
+    if (r.status !== "incomplete" && !Number.isNaN(r.start)) {
+      lastStarts[r.path] = r.start;
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Returns failures (path to "fatal" or "warnings") updated with snapshot
+ * report results. Only a successful snapshot of the same path clears it;
+ * incomplete (cancelled) snapshots leave it unchanged.
+ */
+export function applySnapshotReport(failures, results) {
+  const updated = { ...failures };
+
+  for (const r of results) {
+    if (r.status === "success") {
+      delete updated[r.path];
+    } else if (failureLabels[r.status]) {
+      updated[r.path] = r.status;
+    }
+  }
+
+  return updated;
+}
+
+/**
+ * Adds each source's last snapshot failure. Reports identify sources by path
+ * only, so a path snapshotted by several users is left without one rather
+ * than showing another user's result.
+ */
+export function withFailures(statuses, failures) {
+  const counts = {};
+  for (const s of statuses) {
+    counts[s.path] = (counts[s.path] || 0) + 1;
+  }
+
+  return statuses.map((s) => ({
+    ...s,
+    failure: counts[s.path] === 1 ? failures[s.path] : undefined,
+  }));
+}
+
+/**
+ * Returns a server's source paths for pruning failures, or null when they
+ * aren't known. Anything fetched before the last snapshot report (at
+ * lastReportAt) is ignored, because it may predate the connection or source
+ * that report is for. A disconnected server has nothing configured in its
+ * slot, so its failures must not carry over to the next repository connected
+ * there. An unreachable repository keeps retrying with an initTaskID and keeps
+ * its failures.
+ */
+export function knownSourcePaths(server, lastReportAt = 0) {
+  const sd = server.getServerStatusDetails();
+
+  if (!sd.startingUp && !sd.connected && !sd.initTaskID) {
+    return server.getStatusFetchedAt() > lastReportAt ? [] : null;
+  }
+
+  if (server.getSourcesFetchedAt() > lastReportAt) {
+    return server.getSourceStatuses().map((st) => st.path);
+  }
+
+  return null;
+}
+
+/**
+ * Drops failures for repositories and sources that no longer exist.
+ * knownSources maps repoID to its current source paths, or null when the
+ * list is not known yet (starting up, not connected), which keeps them.
+ * Failures on a path listed more than once are dropped too. Reports name the
+ * path only, so if one user's source was later removed, the failure would
+ * otherwise pass to the remaining user.
+ */
+export function pruneFailures(failures, knownSources) {
+  const pruned = {};
+
+  for (const [repoID, paths] of Object.entries(knownSources)) {
+    const f = failures[repoID];
+    if (!f) {
+      continue;
+    }
+
+    if (paths === null) {
+      pruned[repoID] = f;
+      continue;
+    }
+
+    const kept = Object.fromEntries(
+      Object.entries(f).filter(
+        ([p]) => paths.filter((known) => known === p).length === 1,
+      ),
+    );
+    if (Object.keys(kept).length) {
+      pruned[repoID] = kept;
+    }
+  }
+
+  return pruned;
+}
+
+/**
+ * Replaces the home directory prefix with "~" and trims the middle of long
+ * paths so tray menus stay narrow.
+ */
+export function shortenPath(p, homeDir, maxLength = 40) {
+  if (homeDir && (p === homeDir || p.startsWith(homeDir + "/"))) {
+    p = "~" + p.substring(homeDir.length);
+  }
+
+  if (p.length <= maxLength) {
+    return p;
+  }
+
+  const keep = maxLength - 3;
+  const head = Math.ceil(keep / 2);
+  return p.substring(0, head) + "..." + p.substring(p.length - (keep - head));
+}
+
+/**
+ * Summarises uploads and failures across all sources. Percent is weighted by
+ * estimated size and is null when no running upload has an estimate yet.
+ */
+export function traySummary(statuses) {
+  const uploading = statuses.filter((s) => s.status === "UPLOADING");
+  const estimated = uploading.filter((s) => s.percent !== null);
+
+  const doneBytes = estimated.reduce((sum, s) => sum + s.doneBytes, 0);
+  const estimatedBytes = estimated.reduce(
+    (sum, s) => sum + s.estimatedBytes,
+    0,
+  );
+
+  return {
+    uploading: uploading.length,
+    percent: uploadPercent(doneBytes, estimatedBytes),
+    failed: statuses.filter((s) => s.failure).length,
+  };
+}
+
+// icon variant: an upload in progress takes priority over earlier failures.
+export function trayIconState(summary) {
+  if (summary.uploading) {
+    return "busy";
+  }
+
+  return summary.failed ? "error" : "idle";
+}
+
+// the busy icon already shows an upload is running, the title adds the percent once known.
+export function trayTitle(summary) {
+  if (!summary.uploading || summary.percent === null) {
+    return "";
+  }
+
+  return summary.percent + "%";
+}
+
+export function trayToolTip(summary) {
+  const parts = [];
+
+  if (summary.uploading) {
+    let p =
+      summary.uploading +
+      (summary.uploading === 1 ? " snapshot" : " snapshots") +
+      " in progress";
+
+    if (summary.percent !== null) {
+      p += " (" + summary.percent + "%)";
+    }
+
+    parts.push(p);
+  }
+
+  if (summary.failed) {
+    parts.push(
+      summary.failed +
+        (summary.failed === 1 ? " source" : " sources") +
+        " with errors",
+    );
+  }
+
+  return parts.length ? "Kopia - " + parts.join(", ") : "Kopia";
+}
