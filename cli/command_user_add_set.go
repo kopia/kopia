@@ -33,7 +33,7 @@ func (c *commandServerUserAddSet) setup(svc appServices, parent commandParent, i
 	}
 
 	cmd.Flag("ask-password", "Ask for user password").BoolVar(&c.userAskPassword)
-	cmd.Flag("user-password", "Password").StringVar(&c.userSetPassword)
+	cmd.Flag("user-password", "Password").Envar(svc.EnvName("KOPIA_USER_PASSWORD")).StringVar(&c.userSetPassword)
 	cmd.Flag("user-password-hash", "Password hash").StringVar(&c.userSetPasswordHash)
 	cmd.Arg("username", "Username").Required().StringVar(&c.userSetName)
 	cmd.Action(svc.repositoryWriterAction(c.runServerUserAddSet))
