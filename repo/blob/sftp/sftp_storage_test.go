@@ -366,6 +366,41 @@ func TestInvalidServerFailsFast(t *testing.T) {
 	}
 }
 
+// TestUnreachableServerConnectTimeout ensures an SSH connection to an unreachable host
+// fails within Options.ConnectTimeout instead of hanging for the duration of kernel TCP retries.
+func TestUnreachableServerConnectTimeout(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	tmpDir := mustGetLocalTmpDir(t)
+	idRSA := filepath.Join(tmpDir, "id_rsa")
+	knownHostsFile := filepath.Join(tmpDir, "known_hosts")
+
+	mustRunCommand(t, "ssh-keygen", "-t", "rsa", "-P", "", "-f", idRSA)
+	os.WriteFile(knownHostsFile, nil, 0o600)
+
+	timer := timetrack.StartTimer()
+
+	// 192.0.2.1 (TEST-NET-1) is not routable, so the TCP connection attempt blackholes.
+	if _, err := createSFTPStorage(ctx, t, sftp.Options{
+		Path:           "/upload",
+		Host:           "192.0.2.1",
+		Username:       sftpUsernameWithKeyAuth,
+		Port:           22,
+		Keyfile:        idRSA,
+		KnownHostsFile: knownHostsFile,
+		ConnectTimeout: 2 * time.Second,
+	}, false); err == nil {
+		t.Fatalf("unexpected success connecting to unreachable host")
+	}
+
+	//nolint:forbidigo
+	if dt := timer.Elapsed(); dt > 30*time.Second {
+		t.Fatalf("opening storage took too long (%v), connect timeout was not respected", dt)
+	}
+}
+
 func TestSFTPStorageRelativeKeyFile(t *testing.T) {
 	t.Parallel()
 
