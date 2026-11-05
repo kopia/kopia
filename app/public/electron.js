@@ -26,6 +26,8 @@ import {
 import { serverForRepo } from "./server.js";
 import {
   applySnapshotReport,
+  dropStaleResults,
+  knownSourcePaths,
   parseSnapshotReport,
   pruneFailures,
   shortenPath,
@@ -641,9 +643,13 @@ function setSourceFailures(updated) {
   return true;
 }
 
-// repoID -> when its last snapshot report arrived. Source lists fetched before
-// then may not include a new source yet, so they aren't used for pruning.
+// repoID -> when its last snapshot report arrived. Status and source lists
+// fetched before then may be out of date, so they aren't used for pruning.
 const lastReportAt = {};
+
+// repoID -> source path -> start time of the newest snapshot result applied.
+// Kept in memory, as late reports can't outlive the server process sending them.
+const lastSnapshotStarts = {};
 
 function recordSnapshotReport(e) {
   const results = parseSnapshotReport(e.notification?.body);
@@ -658,9 +664,13 @@ function recordSnapshotReport(e) {
   }
 
   lastReportAt[e.repoID] = Date.now();
+  lastSnapshotStarts[e.repoID] ??= {};
   const updated = {
     ...sourceFailures,
-    [e.repoID]: applySnapshotReport(sourceFailures[e.repoID] || {}, results),
+    [e.repoID]: applySnapshotReport(
+      sourceFailures[e.repoID] || {},
+      dropStaleResults(results, lastSnapshotStarts[e.repoID]),
+    ),
   };
   if (setSourceFailures(updated)) {
     updateTrayContextMenu();
@@ -686,18 +696,10 @@ function updateTrayContextMenu() {
 
   const knownSources = {};
   allConfigs().forEach((repoID) => {
-    const s = serverForRepo(repoID);
-    const sd = s.getServerStatusDetails();
-    if (!sd.startingUp && !sd.connected && !sd.initTaskID) {
-      // nothing is configured in this slot (disconnected), so failures must
-      // not carry over to the next repository connected here. An unreachable
-      // repository keeps retrying with an initTaskID and keeps its failures.
-      knownSources[repoID] = [];
-    } else if (s.getSourcesFetchedAt() > (lastReportAt[repoID] || 0)) {
-      knownSources[repoID] = s.getSourceStatuses().map((st) => st.path);
-    } else {
-      knownSources[repoID] = null;
-    }
+    knownSources[repoID] = knownSourcePaths(
+      serverForRepo(repoID),
+      lastReportAt[repoID],
+    );
   });
   setSourceFailures(pruneFailures(sourceFailures, knownSources));
 

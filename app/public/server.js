@@ -21,6 +21,9 @@ function newServerForRepo(repoID) {
   let runningServerStatusDetails = {
     startingUp: true,
   };
+  // start time of the request that returned runningServerStatusDetails,
+  // 0 until the running server has answered.
+  let runningServerStatusFetchedAt = 0;
   let runningServerSourceStatuses = [];
   // start time of the request that returned runningServerSourceStatuses,
   // 0 while the list is unknown (starting up, not connected).
@@ -183,12 +186,17 @@ function newServerForRepo(repoID) {
           return;
         }
 
-        pollControlAPI("/api/v1/control/status", (newDetails) => {
-          if (
+        pollControlAPI("/api/v1/control/status", (newDetails, startedAt) => {
+          const changed =
             JSON.stringify(newDetails) !=
-            JSON.stringify(runningServerStatusDetails)
-          ) {
-            runningServerStatusDetails = newDetails;
+            JSON.stringify(runningServerStatusDetails);
+
+          runningServerStatusDetails = newDetails;
+          runningServerStatusFetchedAt = startedAt;
+
+          // while disconnected there are no source polls, so each fresh status
+          // is raised to allow pruning that an earlier snapshot report deferred.
+          if (changed || !newDetails.connected) {
             statusUpdated();
           }
         });
@@ -217,6 +225,7 @@ function newServerForRepo(repoID) {
           runningServerPassword = "";
           runningServerControlPassword = "";
           runningServerCertSHA256 = "";
+          runningServerStatusFetchedAt = 0;
           runningServerSourceStatuses = [];
           runningServerSourcesFetchedAt = 0;
           runningServerProcess = null;
@@ -299,6 +308,7 @@ function newServerForRepo(repoID) {
       runningServerPassword = "";
       runningServerCertSHA256 = "";
       runningServerCertificate = "";
+      runningServerStatusFetchedAt = 0;
       runningServerSourceStatuses = [];
       runningServerSourcesFetchedAt = 0;
       runningServerProcess = null;
@@ -319,6 +329,10 @@ function newServerForRepo(repoID) {
 
     getServerStatusDetails() {
       return runningServerStatusDetails;
+    },
+
+    getStatusFetchedAt() {
+      return runningServerStatusFetchedAt;
     },
 
     getSourceStatuses() {

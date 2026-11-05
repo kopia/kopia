@@ -2,6 +2,8 @@ import { test, expect } from "@playwright/test";
 
 import {
   applySnapshotReport,
+  dropStaleResults,
+  knownSourcePaths,
   localSourceStatuses,
   parseSnapshotReport,
   pruneFailures,
@@ -155,10 +157,10 @@ test("sourceStatusLabel shows last snapshot failure while idle", () => {
 
 test("parseSnapshotReport", () => {
   expect(parseSnapshotReport(snapshotReportBody)).toStrictEqual([
-    { path: "/home/me/docs", status: "fatal" },
-    { path: "/home/me/pics", status: "success" },
-    { path: "/home/me/music", status: "warnings" },
-    { path: "/home/me/video", status: "incomplete" },
+    { path: "/home/me/docs", status: "fatal", start: NaN },
+    { path: "/home/me/pics", status: "success", start: 1577934245000 },
+    { path: "/home/me/music", status: "warnings", start: 1577934245000 },
+    { path: "/home/me/video", status: "incomplete", start: 1577934245000 },
   ]);
   // other notifications, such as maintenance errors, have no per-source results
   expect(parseSnapshotReport("Operation: Maintenance\nError: boom")).toEqual(
@@ -195,6 +197,100 @@ test("applySnapshotReport records failures until that source succeeds", () => {
   expect(failures).toStrictEqual({ "/home/me/music": "warnings" });
 });
 
+test("a failed upload reported with the zero time is not treated as stale", () => {
+  const report = (status, start) =>
+    parseSnapshotReport(
+      `Path: /a\n\n  Status:      ${status}\n  Start:       ${start}\n`,
+    );
+  const lastStarts = {};
+
+  let failures = applySnapshotReport(
+    {},
+    dropStaleResults(
+      report("success", "Thu, 02 Jan 2020 03:04:05 +0000"),
+      lastStarts,
+    ),
+  );
+  failures = applySnapshotReport(
+    failures,
+    dropStaleResults(
+      report("fatal", "Thu, 01 Jan 1970 00:00:00 +0000"),
+      lastStarts,
+    ),
+  );
+
+  expect(failures).toStrictEqual({ "/a": "fatal" });
+});
+
+test("parseSnapshotReport leaves start unknown when it can't be read", () => {
+  const missing = "Path: /a\n\n  Status:      fatal\n";
+  const customFormat =
+    "Path: /a\n\n  Status:      fatal\n  Start:       noon\n";
+
+  expect(parseSnapshotReport(missing)[0].start).toBeNaN();
+  expect(parseSnapshotReport(customFormat)[0].start).toBeNaN();
+});
+
+test("dropStaleResults ignores a failure delivered after a newer success", () => {
+  const lastStarts = {};
+
+  const success = [{ path: "/a", status: "success", start: 2000 }];
+  expect(dropStaleResults(success, lastStarts)).toStrictEqual(success);
+
+  const stale = [{ path: "/a", status: "fatal", start: 1000 }];
+  expect(dropStaleResults(stale, lastStarts)).toStrictEqual([]);
+  expect(lastStarts).toStrictEqual({ "/a": 2000 });
+
+  // other paths and newer snapshots of the same path still apply
+  const newer = [
+    { path: "/a", status: "fatal", start: 3000 },
+    { path: "/b", status: "fatal", start: 1000 },
+  ];
+  expect(dropStaleResults(newer, lastStarts)).toStrictEqual(newer);
+  expect(lastStarts).toStrictEqual({ "/a": 3000, "/b": 1000 });
+});
+
+test("dropStaleResults applies results with an unknown start", () => {
+  const lastStarts = { "/a": 2000 };
+  const results = [{ path: "/a", status: "fatal", start: NaN }];
+
+  expect(dropStaleResults(results, lastStarts)).toStrictEqual(results);
+  expect(lastStarts).toStrictEqual({ "/a": 2000 });
+});
+
+test("knownSourcePaths needs a list fetched after the last report", () => {
+  const server = (sourcesFetchedAt) => ({
+    getServerStatusDetails: () => ({ connected: true }),
+    getStatusFetchedAt: () => 5000,
+    getSourcesFetchedAt: () => sourcesFetchedAt,
+    getSourceStatuses: () => [{ path: "/a" }, { path: "/b" }],
+  });
+
+  expect(knownSourcePaths(server(2000), 1000)).toStrictEqual(["/a", "/b"]);
+  expect(knownSourcePaths(server(1000), 2000)).toBeNull();
+  expect(knownSourcePaths(server(0), 0)).toBeNull();
+});
+
+test("knownSourcePaths trusts a disconnected status only if fetched after the last report", () => {
+  const server = (details, statusFetchedAt) => ({
+    getServerStatusDetails: () => details,
+    getStatusFetchedAt: () => statusFetchedAt,
+    getSourcesFetchedAt: () => 0,
+    getSourceStatuses: () => [],
+  });
+  const disconnected = { connected: false };
+
+  expect(knownSourcePaths(server(disconnected, 2000), 1000)).toStrictEqual([]);
+  // connected and finished a snapshot since this status was fetched
+  expect(knownSourcePaths(server(disconnected, 1000), 2000)).toBeNull();
+  expect(knownSourcePaths(server(disconnected, 0), 0)).toBeNull();
+
+  // not disconnected, the list just isn't available yet
+  const retrying = { connected: false, initTaskID: "task" };
+  expect(knownSourcePaths(server(retrying, 2000), 1000)).toBeNull();
+  expect(knownSourcePaths(server({ startingUp: true }, 0), 0)).toBeNull();
+});
+
 test("parseSnapshotReport finds nothing in a customised template", () => {
   expect(parseSnapshotReport("Source: /home/me/docs\nResult: fatal\n")).toEqual(
     [],
@@ -225,6 +321,14 @@ test("pruneFailures drops removed sources and repositories", () => {
   expect(pruneFailures(failures, { repo1: [], repo2: null })).toStrictEqual({
     repo2: { "/b": "fatal" },
   });
+});
+
+test("pruneFailures drops failures on paths shared by several users", () => {
+  const failures = { repo1: { "/shared": "fatal", "/a": "warnings" } };
+
+  expect(
+    pruneFailures(failures, { repo1: ["/shared", "/shared", "/a"] }),
+  ).toStrictEqual({ repo1: { "/a": "warnings" } });
 });
 
 test("withFailures skips paths shared by several users", () => {

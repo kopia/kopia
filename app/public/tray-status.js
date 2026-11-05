@@ -75,16 +75,40 @@ export function sourceStatusLabel(s) {
  * the default "Path:" and "Status:" lines of the snapshot-report template.
  * Repositories with a customised template, or KopiaUI connected to a
  * repository server (which receives the notifications instead), report none.
+ * start is NaN when unknown: the "Start:" line is missing or unreadable, or
+ * holds the zero time older servers report for a failed upload.
  */
 export function parseSnapshotReport(body) {
   const results = [];
-  const re = /^Path: (.+)\n\s*\n\s+Status:\s+(\w+)/gm;
+  const re = /^Path: (.+)\n\s*\n\s+Status:\s+(\w+)(?:\n\s+Start:\s+(.+))?/gm;
 
   for (const m of (body || "").matchAll(re)) {
-    results.push({ path: m[1], status: m[2] });
+    const start = Date.parse(m[3]);
+    results.push({ path: m[1], status: m[2], start: start > 0 ? start : NaN });
   }
 
   return results;
+}
+
+/**
+ * Removes results older than the last one applied for their path, and records
+ * the start times of the rest in lastStarts. The server sends each report from
+ * its own goroutine through any configured senders first, so a slow sender can
+ * deliver a failure after the report of a later successful retry. Results with
+ * an unknown start can't be ordered, so they are kept.
+ */
+export function dropStaleResults(results, lastStarts) {
+  return results.filter((r) => {
+    if (r.start < lastStarts[r.path]) {
+      return false;
+    }
+
+    if (!Number.isNaN(r.start)) {
+      lastStarts[r.path] = r.start;
+    }
+
+    return true;
+  });
 }
 
 /**
@@ -124,9 +148,35 @@ export function withFailures(statuses, failures) {
 }
 
 /**
+ * Returns a server's source paths for pruning failures, or null when they
+ * aren't known. Anything fetched before the last snapshot report (at
+ * lastReportAt) is ignored, because it may predate the connection or source
+ * that report is for. A disconnected server has nothing configured in its
+ * slot, so its failures must not carry over to the next repository connected
+ * there. An unreachable repository keeps retrying with an initTaskID and keeps
+ * its failures.
+ */
+export function knownSourcePaths(server, lastReportAt = 0) {
+  const sd = server.getServerStatusDetails();
+
+  if (!sd.startingUp && !sd.connected && !sd.initTaskID) {
+    return server.getStatusFetchedAt() > lastReportAt ? [] : null;
+  }
+
+  if (server.getSourcesFetchedAt() > lastReportAt) {
+    return server.getSourceStatuses().map((st) => st.path);
+  }
+
+  return null;
+}
+
+/**
  * Drops failures for repositories and sources that no longer exist.
  * knownSources maps repoID to its current source paths, or null when the
  * list is not known yet (starting up, not connected), which keeps them.
+ * Failures on a path listed more than once are dropped too. Reports name the
+ * path only, so if one user's source was later removed, the failure would
+ * otherwise pass to the remaining user.
  */
 export function pruneFailures(failures, knownSources) {
   const pruned = {};
@@ -143,7 +193,9 @@ export function pruneFailures(failures, knownSources) {
     }
 
     const kept = Object.fromEntries(
-      Object.entries(f).filter(([p]) => paths.includes(p)),
+      Object.entries(f).filter(
+        ([p]) => paths.filter((known) => known === p).length === 1,
+      ),
     );
     if (Object.keys(kept).length) {
       pruned[repoID] = kept;
