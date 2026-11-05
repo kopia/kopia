@@ -397,11 +397,12 @@ func getSigner(opt *Options) (ssh.Signer, error) {
 	} else {
 		var err error
 
-		if f := opt.Keyfile; !ospath.IsAbs(f) {
+		f := os.ExpandEnv(opt.Keyfile)
+		if !ospath.IsAbs(f) {
 			return nil, errors.New("key file path must be absolute")
 		}
 
-		privateKeyData, err = os.ReadFile(opt.Keyfile)
+		privateKeyData, err = os.ReadFile(f) //nolint:gosec
 		if err != nil {
 			return nil, errors.Wrap(err, "error reading private key file")
 		}
