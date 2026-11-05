@@ -28,6 +28,10 @@ type Manifest struct {
 
 	RootEntry *DirEntry `json:"rootEntry"`
 
+	// IgnoredEntries is a list of files/directories excluded from this snapshot by ignore rules.
+	// A directory entry implies that everything under it was also excluded.
+	IgnoredEntries []*fs.EntryWithIgnore `json:"ignoredEntries,omitempty"`
+
 	RetentionReasons []string `json:"-"`
 
 	Tags map[string]string `json:"tags,omitempty"`
