@@ -128,7 +128,9 @@ func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src bl
 		case !exists:
 			blobsToCopy = append(blobsToCopy, srcmd)
 			totalCopyBytes += srcmd.Length
-		case srcmd.Timestamp.After(dstmd.Timestamp) && c.repositorySyncUpdate:
+		// SFTP and some filesystems only keep whole seconds, so a blob copied with
+		// --times would otherwise always look older than its source.
+		case srcmd.Timestamp.Truncate(time.Second).After(dstmd.Timestamp) && c.repositorySyncUpdate:
 			blobsToCopy = append(blobsToCopy, srcmd)
 			totalCopyBytes += srcmd.Length
 		default:
