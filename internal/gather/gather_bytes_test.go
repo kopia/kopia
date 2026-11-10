@@ -36,13 +36,13 @@ func TestGatherBytes(t *testing.T) {
 		},
 		{
 			whole: []byte{},
-			sliced: Bytes{Slices: [][]byte{
+			sliced: Bytes{slices: [][]byte{
 				nil,
 			}},
 		},
 		{
 			whole: []byte{},
-			sliced: Bytes{Slices: [][]byte{
+			sliced: Bytes{slices: [][]byte{
 				nil,
 				{},
 				nil,
@@ -54,7 +54,7 @@ func TestGatherBytes(t *testing.T) {
 		},
 		{
 			whole: sample1,
-			sliced: Bytes{Slices: [][]byte{
+			sliced: Bytes{slices: [][]byte{
 				nil,
 				sample1,
 				nil,
@@ -62,14 +62,14 @@ func TestGatherBytes(t *testing.T) {
 		},
 		{
 			whole: sample1,
-			sliced: Bytes{Slices: [][]byte{
+			sliced: Bytes{slices: [][]byte{
 				sample1[0:20],
 				sample1[20:],
 			}},
 		},
 		{
 			whole: sample1,
-			sliced: Bytes{Slices: [][]byte{
+			sliced: Bytes{slices: [][]byte{
 				sample1[0:20],
 				nil, // zero-length
 				{},  // zero-length
@@ -78,7 +78,7 @@ func TestGatherBytes(t *testing.T) {
 		},
 		{
 			whole: sample1,
-			sliced: Bytes{Slices: [][]byte{
+			sliced: Bytes{slices: [][]byte{
 				sample1[0:10],
 				sample1[10:25],
 				sample1[25:30],
