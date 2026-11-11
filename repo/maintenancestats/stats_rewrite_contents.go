@@ -11,12 +11,14 @@ const rewriteContentsStatsKind = "rewriteContentsStats"
 
 // RewriteContentsStats are the stats for rewriting contents.
 type RewriteContentsStats struct {
-	ToRewriteContentCount uint64 `json:"toRewriteContentCount"`
-	ToRewriteContentSize  uint64 `json:"toRewriteContentSize"`
-	RewrittenContentCount uint64 `json:"rewrittenContentCount"`
-	RewrittenContentSize  uint64 `json:"rewrittenContentSize"`
-	RetainedContentCount  uint64 `json:"retainedContentCount"`
-	RetainedContentSize   uint64 `json:"retainedContentSize"`
+	ToRewriteContentCount      uint64 `json:"toRewriteContentCount"`
+	ToRewriteContentSize       uint64 `json:"toRewriteContentSize"`
+	RewrittenContentCount      uint64 `json:"rewrittenContentCount"`
+	RewrittenContentSize       uint64 `json:"rewrittenContentSize"`
+	RetainedContentCount       uint64 `json:"retainedContentCount"`
+	RetainedContentSize        uint64 `json:"retainedContentSize"`
+	SkippedDeletedContentCount uint64 `json:"skippedDeletedContentCount"`
+	SkippedDeletedContentSize  uint64 `json:"skippedDeletedContentSize"`
 }
 
 // WriteValueTo writes the stats to JSONWriter.
@@ -28,13 +30,16 @@ func (rs *RewriteContentsStats) WriteValueTo(jw *contentlog.JSONWriter) {
 	jw.UInt64Field("rewrittenContentSize", rs.RewrittenContentSize)
 	jw.UInt64Field("retainedContentCount", rs.RetainedContentCount)
 	jw.UInt64Field("retainedContentSize", rs.RetainedContentSize)
+	jw.UInt64Field("skippedDeletedContentCount", rs.SkippedDeletedContentCount)
+	jw.UInt64Field("skippedDeletedContentSize", rs.SkippedDeletedContentSize)
 	jw.EndObject()
 }
 
 // Summary generates a human readable summary for the stats.
 func (rs *RewriteContentsStats) Summary() string {
-	return fmt.Sprintf("Found %v(%v) contents to rewrite and rewrote %v(%v). Retained %v(%v) contents from rewrite",
-		rs.ToRewriteContentCount, units.BytesString(rs.ToRewriteContentSize), rs.RewrittenContentCount, units.BytesString(rs.RewrittenContentSize), rs.RetainedContentCount, units.BytesString(rs.RetainedContentSize))
+	return fmt.Sprintf("Found %v(%v) contents to rewrite and rewrote %v(%v). Retained %v(%v) contents from rewrite. Skipped %v(%v) deleted contents that could not be rewritten",
+		rs.ToRewriteContentCount, units.BytesString(rs.ToRewriteContentSize), rs.RewrittenContentCount, units.BytesString(rs.RewrittenContentSize), rs.RetainedContentCount, units.BytesString(rs.RetainedContentSize),
+		rs.SkippedDeletedContentCount, units.BytesString(rs.SkippedDeletedContentSize))
 }
 
 // Kind returns the kind name for the stats.

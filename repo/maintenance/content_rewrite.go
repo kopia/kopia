@@ -13,7 +13,6 @@ import (
 	"github.com/kopia/kopia/internal/contentlog"
 	"github.com/kopia/kopia/internal/contentlog/logparam"
 	"github.com/kopia/kopia/internal/contentparam"
-	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -64,8 +63,8 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	cnt := getContentToRewrite(ctx, rep, opt)
 
 	var (
-		toRewrite, retained, rewritten stats.CountSum
-		failedCount                    atomic.Uint64
+		toRewrite, retained, rewritten, skippedDeleted stats.CountSum
+		failedCount                                    atomic.Uint64
 	)
 
 	if opt.Parallel == 0 {
@@ -113,13 +112,16 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 				}
 
 				if err := rep.ContentManager().RewriteContent(ctx, c.ContentID); err != nil {
-					// provide option to ignore failures when rewriting deleted contents during maintenance
-					// this is for advanced use only
-					if envflag.Bool("KOPIA_IGNORE_MAINTENANCE_REWRITE_ERROR") && c.Deleted {
+					if c.Deleted {
+						// a content that is already marked deleted is garbage - its index
+						// entry will be dropped by a later maintenance task, so a failed
+						// rewrite must not fail the entire cycle.
 						contentlog.Log2(ctx, log,
-							"IGNORED: unable to rewrite deleted content",
+							"unable to rewrite deleted content, skipping",
 							contentparam.ContentID("contentID", c.ContentID),
 							logparam.Error("error", err))
+
+						skippedDeleted.Add(int64(c.PackedLength))
 					} else {
 						contentlog.Log2(ctx, log,
 							"unable to rewrite content",
@@ -140,14 +142,17 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 	toRewriteCount, toRewriteBytes := toRewrite.Approximate()
 	retainedCount, retainedBytes := retained.Approximate()
 	rewrittenCount, rewrittenBytes := rewritten.Approximate()
+	skippedDeletedCount, skippedDeletedBytes := skippedDeleted.Approximate()
 
 	result := &maintenancestats.RewriteContentsStats{
-		ToRewriteContentCount: uint64(toRewriteCount),
-		ToRewriteContentSize:  maintenancestats.ToUint64(toRewriteBytes),
-		RewrittenContentCount: uint64(rewrittenCount),
-		RewrittenContentSize:  maintenancestats.ToUint64(rewrittenBytes),
-		RetainedContentCount:  uint64(retainedCount),
-		RetainedContentSize:   maintenancestats.ToUint64(retainedBytes),
+		ToRewriteContentCount:      uint64(toRewriteCount),
+		ToRewriteContentSize:       maintenancestats.ToUint64(toRewriteBytes),
+		RewrittenContentCount:      uint64(rewrittenCount),
+		RewrittenContentSize:       maintenancestats.ToUint64(rewrittenBytes),
+		RetainedContentCount:       uint64(retainedCount),
+		RetainedContentSize:        maintenancestats.ToUint64(retainedBytes),
+		SkippedDeletedContentCount: uint64(skippedDeletedCount),
+		SkippedDeletedContentSize:  maintenancestats.ToUint64(skippedDeletedBytes),
 	}
 
 	contentlog.Log1(ctx, log, "Rewritten contents", result)
