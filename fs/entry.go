@@ -178,6 +178,14 @@ type EntryWithError struct {
 	Error     string `json:"error"`
 }
 
+// EntryWithIgnore describes a file or directory that was excluded (ignored) from a snapshot
+// due to ignore rules (policy FilesToIgnore / .kopiaignore). If IsDir is true, the entire
+// subtree under EntryPath was also excluded.
+type EntryWithIgnore struct {
+	EntryPath string `json:"path"`
+	IsDir     bool   `json:"dir,omitempty"`
+}
+
 // DirectorySummary represents summary information about a directory.
 type DirectorySummary struct {
 	TotalFileSize     int64        `json:"size"`

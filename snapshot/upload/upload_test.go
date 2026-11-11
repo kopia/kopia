@@ -359,6 +359,84 @@ func TestUploadDoesNotReportProgressForIgnoredFilesTwice(t *testing.T) {
 	require.EqualValues(t, 1, cup.counters.TotalExcludedDirs)
 }
 
+func TestUploadRecordsIgnoredEntries(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
+
+	sourceDir := mockfs.NewDirectory()
+	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, defaultPermissions)
+
+	sourceDir.AddDir("d1", defaultPermissions)
+	sourceDir.AddFile("d1/f1", []byte{1, 2, 3}, defaultPermissions)
+
+	sourceDir.AddDir("d2", defaultPermissions)
+	sourceDir.AddFile("d2/f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("d2/f2", []byte{1, 2, 3, 4}, defaultPermissions)
+
+	u := NewUploader(th.repo)
+
+	policyTree := policy.BuildTree(map[string]*policy.Policy{
+		".": {
+			FilesPolicy: policy.FilesPolicy{
+				IgnoreRules:  []string{"d2", "f2"},
+				IgnoreRecord: policy.NewOptionalBool(true),
+			},
+		},
+	}, policy.DefaultPolicy)
+
+	man, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	// The ignored file f2 and the ignored directory d2 are recorded. d2's children are not
+	// listed individually: an ignored directory implies its whole subtree was excluded.
+	require.Len(t, man.IgnoredEntries, 2)
+
+	byPath := map[string]*fs.EntryWithIgnore{}
+	for _, e := range man.IgnoredEntries {
+		byPath[e.EntryPath] = e
+	}
+
+	require.NotNil(t, byPath["f2"])
+	require.False(t, byPath["f2"].IsDir)
+
+	require.NotNil(t, byPath["d2"])
+	require.True(t, byPath["d2"].IsDir)
+}
+
+func TestUploadDoesNotRecordIgnoredByDefault(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	t.Cleanup(th.cleanup)
+
+	sourceDir := mockfs.NewDirectory()
+	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, defaultPermissions)
+
+	u := NewUploader(th.repo)
+
+	policyTree := policy.BuildTree(map[string]*policy.Policy{
+		".": {
+			FilesPolicy: policy.FilesPolicy{
+				IgnoreRules: []string{"f2"},
+			},
+		},
+	}, policy.DefaultPolicy)
+
+	man, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	// Recording of ignored entries is off by default.
+	require.Empty(t, man.IgnoredEntries)
+}
+
 func TestUpload_SubDirectoryReadFailureFailFast(t *testing.T) {
 	t.Parallel()
 
