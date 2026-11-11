@@ -52,7 +52,7 @@ Once you do all that, your repository should be created and you can start backin
 You must use the [`kopia repository create s3` command](../reference/command-line/common/repository-create-s3/) to create a `repository`:
 
 ```shell
-$ kopia repository create s3 \
+kopia repository create s3 \
         --bucket=... \
         --access-key=... \
         --secret-access-key=...
@@ -87,7 +87,7 @@ Once you do all that, your repository should be created and you can start backin
 You must use the [`kopia repository create azure` command](../reference/command-line/common/repository-create-azure/) to create a `repository`:
 
 ```shell
-$ kopia repository create azure \
+kopia repository create azure \
         --container=... \
         --storage-account=... \
         --storage-key=...
@@ -96,7 +96,7 @@ $ kopia repository create azure \
 OR
 
 ```shell
-$ kopia repository create azure \
+kopia repository create azure \
         --container=... \
         --storage-account=... \
         --sas-token=...
@@ -133,7 +133,7 @@ Once you do all that, your repository should be created and you can start backin
 You must use the [`kopia repository create b2` command](../reference/command-line/common/repository-create-b2/) to create a `repository`:
 
 ```shell
-$ kopia repository create b2 \
+kopia repository create b2 \
         --bucket=... \
         --key-id=... \
         --key=...
@@ -173,13 +173,13 @@ There are three methods to create a `repository` for Google Cloud Storage: one t
 3. Log in with credentials that have permissions to the bucket
 
 ```shell
-$ gcloud auth application-default login
+gcloud auth application-default login
 ```
 
 After these preparations, we can create a Kopia `repository` (assuming bucket named `kopia-test-123`) using the [`kopia repository create gcs` command](../reference/command-line/common/repository-connect-gcs/):
 
 ```shell
-$ kopia repository create gcs --bucket kopia-test-123
+kopia repository create gcs --bucket kopia-test-123
 ```
 
 There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gcs/) for more information.
@@ -194,7 +194,7 @@ You will be asked to enter the repository password that you want. Remember, this
 After these preparations, we can create a Kopia `repository` (assuming bucket named `kopia-test-123`) using the [`kopia repository create gcs` command](../reference/command-line/common/repository-connect-gcs/):
 
 ```shell
-$ kopia repository create gcs --credentials-file="/path/to/your/credentials/file.json" --bucket kopia-test-123
+kopia repository create gcs --credentials-file="/path/to/your/credentials/file.json" --bucket kopia-test-123
 ```
 
 There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-gcs/) for more information.
@@ -210,7 +210,7 @@ You will be asked to enter the repository password that you want. Remember, this
 After these preparations, we can create a Kopia `repository` (assuming bucket named `kopia-test-123`) using the [`kopia repository create s3` command](../reference/command-line/common/repository-connect-s3/):
 
 ```shell
-$ kopia repository create s3 --endpoint="storage.googleapis.com" --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
+kopia repository create s3 --endpoint="storage.googleapis.com" --bucket="kopia-test-123" --access-key="access/key/here" --secret-access-key="secret/key/here"
 ```
 
 There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-s3/) for more information.
@@ -281,7 +281,7 @@ Ready? Here are the step-by-step instructions:
 After these preparations, we can create a Kopia `repository` (assuming the folder ID is `z63ZZ1Npv3OFvDPwU3dX0w`) using the [`kopia repository create gdrive` command](../reference/command-line/common/repository-connect-gdrive/):
 
 ```shell
-$ kopia repository create gdrive \
+kopia repository create gdrive \
         --folder-id z63ZZ1Npv3OFvDPwU3dX0w \
         --credentials-file="<where-you-have-stored-the-json-key-file>"
 ```
@@ -317,7 +317,7 @@ Once you do all that, your repository should be created and you can start backin
 You must use the [`kopia repository create webdav` command](../reference/command-line/common/repository-create-webdav/) to create a `repository`:
 
 ```shell
-$ kopia repository create webdav \
+kopia repository create webdav \
         --url=... \
         --webdav-password=... \
         --webdav-username=...
@@ -355,7 +355,7 @@ Once you do all that, your repository should be created and you can start backin
 You must use the [`kopia repository create sftp` command](../reference/command-line/common/repository-create-sftp/) to create a `repository`:
 
 ```shell
-$ kopia repository create sftp \
+kopia repository create sftp \
         --path=... \
         --host=... \
         --username=... \
@@ -365,7 +365,7 @@ $ kopia repository create sftp \
 OR
 
 ```shell
-$ kopia repository create sftp \
+kopia repository create sftp \
         --path=... \
         --host=... \
         --username=... \
@@ -410,7 +410,7 @@ Once you do all that, your repository should be created and you can start backin
 You must use the [`kopia repository create rclone` command](../reference/command-line/common/repository-create-rclone/) to create a `repository` (assuming `my-remote` is the name of the Rclone `remote` you created earlier and `/some/path` is the directory on the cloud storage where you want Kopia to save your snapshots):
 
 ```shell
-$ kopia repository create rclone --rclone-exe=/path/to/rclone/executable --remote-path=my-remote:/some/path
+kopia repository create rclone --rclone-exe=/path/to/rclone/executable --remote-path=my-remote:/some/path
 ```
 
 There are also various other options (such as [actions](../advanced/actions/) and arguments to Rclone) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-rclone/) for more information.
@@ -446,7 +446,7 @@ Once you do all that, your repository should be created and you can start backin
 You must use the [`kopia repository create filesystem` command](../reference/command-line/common/repository-create-filesystem/) to create a `repository`:
 
 ```shell
-$ kopia repository create filesystem --path=...
+kopia repository create filesystem --path=...
 ```
 
 There are also various other options (such as [actions](../advanced/actions/)) you can change or enable -- see the [help docs](../reference/command-line/common/repository-create-filesystem/) for more information.

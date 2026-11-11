@@ -33,7 +33,7 @@ Most commands require a [Repository](../../advanced/architecture/) to be connect
 Creating a repository is as simple as:
 
 ```shell
-$ kopia repository create <provider> <flags>
+kopia repository create <provider> <flags>
 ```
 
 Examples:
@@ -45,13 +45,13 @@ Examples:
 To connect to an existing repository use the same flags but instead of `create` use `connect`:
 
 ```shell
-$ kopia repository connect <provider> <flags>
+kopia repository connect <provider> <flags>
 ```
 
 To disconnect:
 
 ```shell
-$ kopia repository disconnect
+kopia repository disconnect
 ```
 
 ### Quick Reconnection To Repository
@@ -61,12 +61,12 @@ To quickly reconnect to the repository on another machine, you can use `kopia re
 Such command can be stored long-term in a secure location, such as password manager for easy recovery.
 
 ```shell
-$ kopia repository status -t -s
+kopia repository status -t -s
 ...
 
 To reconnect to the repository use:
 
-$ kopia repository connect from-config --token 03Fy598cYIqbMlNNDz9VLU0K6Pk9alC...BNeazLBdRzP2MHo0MS83zRb
+kopia repository connect from-config --token 03Fy598cYIqbMlNNDz9VLU0K6Pk9alC...BNeazLBdRzP2MHo0MS83zRb
 
 NOTICE: The token printed above can be trivially decoded to reveal the repository password. Do not store it in an unsecured place.
 ```

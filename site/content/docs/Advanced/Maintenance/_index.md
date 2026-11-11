@@ -92,7 +92,7 @@ Kopia 0.8 adds a new flag that can be used to speed up full maintenance if the u
 Example of running full maintenance with safety disabled:
 
 ```shell
-$ kopia maintenance run --full --safety=none
+kopia maintenance run --full --safety=none
 ```
 
 ### Viewing Maintenance History

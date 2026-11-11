@@ -28,7 +28,7 @@ Starting in Kopia v0.8, allowed repository users can be configured using `kopia 
 To add a user:
 
 ```shell
-$ kopia server user add myuser@mylaptop
+kopia server user add myuser@mylaptop
 Enter new password for user myuser@mylaptop: 
 Re-enter new password for verification: 
 
@@ -72,7 +72,7 @@ If a user has obtained a custom certificate (for example, from LetsEncrypt or an
 To get the SHA256 digest of an existing certificate file, use:
 
 ```shell
-$ openssl x509 -in ~/my.cert -noout -fingerprint -sha256 | sed 's/://g' | cut -f 2 -d =
+openssl x509 -in ~/my.cert -noout -fingerprint -sha256 | sed 's/://g' | cut -f 2 -d =
 48537CCE585FED39FB26C639EB8EF38143592BA4B4E7677A84A31916398D40F7
 ```
 
@@ -88,13 +88,13 @@ kopia repository connect server --url https://<address>:51515 \
 Once connected, all snapshot and policy `kopia` commands should work for the current user, but low-level commands such as `repo status` will fail:
 
 ```shell
-$ kopia repository status
+kopia repository status
 kopia: error: operation supported only on direct repository, try --help
 ```
 
 You can override username and hostname with this command :
 ```shell
-$ kopia repo connect server --url=http://11.222.111.222:51515 --override-username=johndoe --override-hostname=my-laptop
+kopia repo connect server --url=http://11.222.111.222:51515 --override-username=johndoe --override-hostname=my-laptop
 ```
 
 ## Server Access Control (ACL)
@@ -132,13 +132,13 @@ Sometimes, we want to be able to customize those rules, for example, to allow so
 To enable ACL mode, run:
 
 ```shell
-$ kopia server acl enable
+kopia server acl enable
 ```
  
 This will install ACL entries matching the default rules. Let's take a look at the rules installed:
 
 ```shell
-$ kopia server acl list
+kopia server acl list
 id:c95e5a13b0b0fc874e550677f5e89262 user:*@* access:APPEND target:type=content
 id:633f998af93e00c715e6417cb41df0af user:*@* access:READ target:type=policy,policyType=global
 id:de21ac7a55ec1d9cf939b4cb158cc85a user:*@* access:READ target:type=policy,hostname=OWN_HOST,policyType=host
@@ -174,7 +174,7 @@ Only labels specified will be matched. The label values can be literals or one o
 
 To define an ACL rule use: 
 ```shell
-$ kopia server acl add --user U --access A --target T
+kopia server acl add --user U --access A --target T
 ```
 
 For example:
@@ -182,33 +182,33 @@ For example:
 1. To grant user `alice@wonderland` the ability to modify global policy:
 
 ```shell
-$ kopia server acl add --user alice@wonderland \
+kopia server acl add --user alice@wonderland \
       --access FULL --target type=policy,policyType=global
 ```
 
 2. To allow all users to see all snapshots in the system:
 
 ```shell
-$ kopia server acl add --user "*@*" --access READ --target type=snapshot
+kopia server acl add --user "*@*" --access READ --target type=snapshot
 ```
 
 3. To give `princess@tall-tower` the ability to modify that hosts' policy:
 
 ```shell
-$ kopia server acl add --user "princess@tall-tower" --access FULL \
+kopia server acl add --user "princess@tall-tower" --access FULL \
     --target type=policy,policyType=host,hostname=tall-tower
 ```
 
 4. To give `admin@somehost` the ability to add new user accounts and change passwords for existing users:
 
 ```shell
-$ kopia server acl add --user "admin@somehost" --access FULL --target type=user
+kopia server acl add --user "admin@somehost" --access FULL --target type=user
 ```
 
 5. To give `superadmin@somehost` the ability to define new ACLs:
 
 ```shell
-$ kopia server acl add --user "superadmin@somehost" \
+kopia server acl add --user "superadmin@somehost" \
     --access FULL --target type=acl
 ```
 ### Deleting ACL rules
@@ -216,13 +216,13 @@ $ kopia server acl add --user "superadmin@somehost" \
 To delete a single ACL rule, use `kopia server acl remove` passing the identifier of the entry:
 
 ```shell
-$ kopia server acl remove 77fb0a5706ddbd9848294b36aae47079
+kopia server acl remove 77fb0a5706ddbd9848294b36aae47079
 ```
 
 To delete all ACL rules and revert to default set of rules, use:
 
 ```shell
-$ kopia server acl remove --all
+kopia server acl remove --all
 ```
 
 Both commands default to preview mode and must be confirmed by passing `--delete` for safety.
@@ -232,7 +232,7 @@ Both commands default to preview mode and must be confirmed by passing `--delete
 Kopia server will refresh its configuration by fetching it from repository periodically. To speed up this process after changing access control rules, adding or modifying users or to simply force server to discover new snapshots or policies, you may want to run:
 
 ```shell
-$ kopia server refresh \
+kopia server refresh \
   --address=https://server:port [--server-cert-fingerprint=FINGERPRINT] \
   --server-username=control \
   --server-password=PASSWORD_HERE
@@ -243,10 +243,10 @@ To authenticate, pass any valid username and password configured on the server.
 Alternatively on Linux/macOS you can send `SIGHUP` signal to a running Kopia process to trigger a refresh.
 
 ```shell
-$ ps awx | grep kopia
+ps awx | grep kopia
 74189 s003  U+     0:19.19 kopia server start ...
 
-$ kill -SIGHUP 74189
+kill -SIGHUP 74189
 ```
 
 or simply:
@@ -341,12 +341,12 @@ WantedBy=sockets.target
 Prior to Kopia v0.8, the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. This method is still supported in v0.8, but it's recommended to use `kopia server user` to manage users instead.
 To create password file for two users: 
 ```shell
-$ htpasswd -c password.txt user1@host1
+htpasswd -c password.txt user1@host1
 New password: 
 Re-type new password: 
 Adding password for user user1@host1
 
-$ htpasswd password.txt user2@host1
+htpasswd password.txt user2@host1
 New password: 
 Re-type new password: 
 Adding password for user user2@host1
