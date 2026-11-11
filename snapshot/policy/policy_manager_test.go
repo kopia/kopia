@@ -478,3 +478,118 @@ func TestPolicySetInvalidPath_Invalid(t *testing.T) {
 		require.Error(t, validatePolicyPath(v), v)
 	}
 }
+
+func TestNestedPolicyInheritsGlobalDuringParentSnapshot(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	root := snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/some/path"}
+	child := root
+	child.Path = "/some/path/child"
+
+	require.NoError(t, SetPolicy(ctx, env.RepositoryWriter, GlobalPolicySourceInfo, &Policy{
+		FilesPolicy:       FilesPolicy{DotIgnoreFiles: []string{".customignore"}, IgnoreCacheDirectories: NewOptionalBool(false)},
+		CompressionPolicy: CompressionPolicy{CompressorName: "zstd"},
+	}))
+	require.NoError(t, SetPolicy(ctx, env.RepositoryWriter, child, &Policy{}))
+	tree, err := TreeForSource(ctx, env.RepositoryWriter, root)
+	require.NoError(t, err)
+	require.Equal(t, "zstd", string(tree.EffectivePolicy().CompressionPolicy.CompressorName))
+	effective := tree.Child("child").EffectivePolicy()
+	require.Equal(t, "zstd", string(effective.CompressionPolicy.CompressorName), "child compression must inherit")
+	require.Equal(t, []string{".customignore"}, effective.FilesPolicy.DotIgnoreFiles)
+	require.False(t, effective.FilesPolicy.IgnoreCacheDirectories.OrDefault(true))
+}
+
+func TestSubdirectoryPolicyTreeInheritance(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	root := snapshot.SourceInfo{Host: "example", UserName: "backup", Path: "/data"}
+
+	require.NoError(t, SetPolicy(ctx, env.RepositoryWriter, GlobalPolicySourceInfo, &Policy{
+		CompressionPolicy: CompressionPolicy{CompressorName: "zstd"},
+		FilesPolicy: FilesPolicy{
+			DotIgnoreFiles:         []string{".customignore"},
+			IgnoreRules:            []string{"/root-only.txt"},
+			IgnoreCacheDirectories: NewOptionalBool(false),
+		},
+	}))
+
+	for path, pol := range map[string]*Policy{
+		"/data/child":      {},
+		"/data/child/deep": {CompressionPolicy: CompressionPolicy{CompressorName: "zstd-fastest"}},
+		"/data/other":      {},
+		"/data/isolated": {
+			NoParent:          true,
+			CompressionPolicy: CompressionPolicy{CompressorName: "none"},
+			Actions:           ActionsPolicy{BeforeFolder: &ActionCommand{Script: "echo isolated"}},
+		},
+		"/data/isolated/leaf": {},
+		"/data/clear":         {FilesPolicy: FilesPolicy{NoParentDotIgnoreFiles: true}},
+		"/data/clear/leaf":    {},
+		"/data/clear/own":     {FilesPolicy: FilesPolicy{DotIgnoreFiles: []string{".ownignore"}}},
+	} {
+		require.NoError(t, SetPolicy(ctx, env.RepositoryWriter,
+			snapshot.SourceInfo{Host: root.Host, UserName: root.UserName, Path: path}, pol))
+	}
+
+	tree, err := TreeForSource(ctx, env.RepositoryWriter, root)
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name        string
+		path        string
+		compressor  string
+		dotIgnore   []string
+		cacheIgnore bool
+	}{
+		{"root", ".", "zstd", []string{".customignore"}, false},
+		{"empty child", "child", "zstd", []string{".customignore"}, false},
+		{"deep override", "child/deep", "zstd-fastest", []string{".customignore"}, false},
+		{"deep descendant", "child/deep/more", "zstd-fastest", []string{".customignore"}, false},
+		{"sibling", "other", "zstd", []string{".customignore"}, false},
+		{"no parent policy", "isolated", "none", nil, true},
+		{"child of no parent policy", "isolated/leaf", "none", nil, true},
+		{"disable inherited ignore filenames", "clear", "zstd", nil, false},
+		{"descendant of disabled ignore filenames", "clear/leaf", "zstd", nil, false},
+		{"explicit filenames after disabling inheritance", "clear/own", "zstd", []string{".ownignore"}, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			p := tree.Child(test.path).EffectivePolicy()
+			require.Equal(t, test.compressor, string(p.CompressionPolicy.CompressorName))
+			require.Equal(t, test.dotIgnore, p.FilesPolicy.DotIgnoreFiles)
+			require.Equal(t, test.cacheIgnore, p.FilesPolicy.IgnoreCacheDirectories.OrDefault(true))
+		})
+	}
+
+	// Global patterns are anchored at the source root and must not be
+	// recompiled relative to each directory with its own policy.
+	require.Equal(t, []string{"/root-only.txt"}, tree.EffectivePolicy().FilesPolicy.IgnoreRules)
+	require.Empty(t, tree.Child("child").EffectivePolicy().FilesPolicy.IgnoreRules)
+	require.Empty(t, tree.Child("child/deep").EffectivePolicy().FilesPolicy.IgnoreRules)
+
+	// Folder actions run only where they were configured.
+	require.Equal(t, "echo isolated", tree.Child("isolated").DefinedPolicy().Actions.BeforeFolder.Script)
+	require.Nil(t, tree.Child("isolated/leaf").DefinedPolicy().Actions.BeforeFolder)
+}
+
+// A source policy with NoParent must also stop defaults from being reintroduced
+// when an explicitly configured child is merged into the snapshot policy tree.
+func TestNestedPolicyRespectsSourceNoParent(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant)
+	source := snapshot.SourceInfo{Host: "example", UserName: "backup", Path: "/source"}
+	child := source
+	child.Path += "/child"
+
+	require.NoError(t, SetPolicy(ctx, env.RepositoryWriter, GlobalPolicySourceInfo, &Policy{
+		FilesPolicy: FilesPolicy{DotIgnoreFiles: []string{".inherited"}},
+	}))
+	require.NoError(t, SetPolicy(ctx, env.RepositoryWriter, source, &Policy{
+		NoParent:          true,
+		CompressionPolicy: CompressionPolicy{CompressorName: "zstd"},
+	}))
+	require.NoError(t, SetPolicy(ctx, env.RepositoryWriter, child, &Policy{}))
+
+	tree, err := TreeForSource(ctx, env.RepositoryWriter, source)
+	require.NoError(t, err)
+	require.Nil(t, tree.EffectivePolicy().FilesPolicy.DotIgnoreFiles)
+	require.Nil(t, tree.Child("child").EffectivePolicy().FilesPolicy.DotIgnoreFiles)
+	require.Equal(t, "zstd", string(tree.Child("child").EffectivePolicy().CompressionPolicy.CompressorName))
+}
