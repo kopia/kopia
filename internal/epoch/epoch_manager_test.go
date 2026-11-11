@@ -946,6 +946,74 @@ func TestMaybeAdvanceEpoch(t *testing.T) {
 	te.verifyCurrentWriteEpoch(t, 1)
 }
 
+// The cached epoch state is empty on a new manager and after Invalidate. Advancing must
+// refresh it first, otherwise it sees no blobs and epoch advancement never happens.
+func TestMaybeAdvanceEpoch_AfterInvalidate(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	te := newTestEnv(t)
+
+	te.mgr.compact = func(context.Context, []blob.ID, blob.ID) error {
+		return nil
+	}
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+	for i := range idxCount {
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
+	}
+
+	te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(idxCount))
+	require.NoError(t, te.mgr.Refresh(ctx))
+	te.verifyCurrentWriteEpoch(t, 0)
+
+	te.mgr.Invalidate()
+
+	stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
+	require.NoError(t, err)
+	require.True(t, stats.WasAdvanced, "epoch must advance from refreshed state, not from the invalidated cache")
+	require.EqualValues(t, 1, stats.CurrentEpoch)
+
+	require.NoError(t, te.mgr.Refresh(ctx))
+	te.verifyCurrentWriteEpoch(t, 1)
+}
+
+// Guards against the refresh in MaybeAdvanceWriteEpoch advancing regardless of the blob count.
+func TestMaybeAdvanceEpoch_AfterInvalidateBelowThreshold(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	te := newTestEnv(t)
+
+	te.mgr.compact = func(context.Context, []blob.ID, blob.ID) error {
+		return nil
+	}
+
+	p, err := te.mgr.getParameters(ctx)
+	require.NoError(t, err)
+
+	for i := range p.GetEpochAdvanceOnCountThreshold() - 1 {
+		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
+	}
+
+	te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+	require.NoError(t, te.mgr.Refresh(ctx))
+
+	te.mgr.Invalidate()
+
+	stats, err := te.mgr.MaybeAdvanceWriteEpoch(ctx)
+	require.NoError(t, err)
+	require.False(t, stats.WasAdvanced)
+	require.EqualValues(t, 0, stats.CurrentEpoch)
+
+	te.verifyCurrentWriteEpoch(t, 0)
+}
+
 type faultyParamsProvider struct {
 	err error
 }

@@ -21,6 +21,8 @@ env:
 concurrency: 
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+permissions:
+  contents: read
 jobs:
   end-to-end-test:
     name: E2E Test
@@ -42,7 +44,7 @@ jobs:
     - name: Run Tests
       run: make htmlui-e2e-test
     - name: Upload Screenshots
-      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         path: .screenshots/**/*.png
         if-no-files-found: ignore
