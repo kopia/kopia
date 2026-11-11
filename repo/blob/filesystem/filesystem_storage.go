@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -312,6 +313,10 @@ func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) er
 }
 
 func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
+	return fs.ReadDirWithPrefix(ctx, dirname, "")
+}
+
+func (fs *fsImpl) ReadDirWithPrefix(ctx context.Context, dirname, filePrefix string) ([]os.FileInfo, error) {
 	entries, err := retry.WithExponentialBackoff(ctx, "ReadDir:"+dirname, func() ([]os.DirEntry, error) {
 		v, err := fs.osi.ReadDir(dirname)
 		//nolint:wrapcheck
@@ -324,6 +329,10 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 	fileInfos := make([]os.FileInfo, 0, len(entries))
 
 	for _, e := range entries {
+		if filePrefix != "" && !e.IsDir() && !strings.HasPrefix(e.Name(), filePrefix) {
+			continue
+		}
+
 		fi, err := e.Info()
 
 		if fs.osi.IsNotExist(err) {
