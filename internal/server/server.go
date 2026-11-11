@@ -19,11 +19,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/mount"
 	"github.com/kopia/kopia/internal/passwordpersist"
+	"github.com/kopia/kopia/internal/reposerver"
 	"github.com/kopia/kopia/internal/scheduler"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
@@ -114,7 +116,7 @@ type Server struct {
 	// +checklocks:nextRefreshTimeLock
 	nextRefreshTime time.Time
 
-	grpcServerState
+	grpc *reposerver.Server
 }
 
 // SetupHTMLUIAPIHandlers registers API requests required by the HTMLUI.
@@ -1142,7 +1144,6 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 		options:              *options,
 		sourceManagers:       map[snapshot.SourceInfo]*sourceManager{},
 		maxParallelSnapshots: 1,
-		grpcServerState:      makeGRPCServerState(options.MaxConcurrency),
 		authenticator:        options.Authenticator,
 		authorizer:           options.Authorizer,
 		taskmgr:              uitask.NewManager(options.PersistentLogs),
@@ -1153,6 +1154,48 @@ func New(ctx context.Context, options *Options) (*Server, error) {
 	}
 
 	s.parallelSnapshotsChanged = sync.NewCond(&s.parallelSnapshotsMutex)
+	s.grpc = reposerver.New(s, reposerver.Options{
+		MaxConcurrency: options.MaxConcurrency,
+	})
 
 	return s, nil
+}
+
+// Repository returns the repository the server is currently connected to, or nil.
+func (s *Server) Repository() repo.Repository {
+	s.serverMutex.RLock()
+	defer s.serverMutex.RUnlock()
+
+	return s.rep
+}
+
+// Authenticator returns the authenticator used by the server.
+func (s *Server) Authenticator() auth.Authenticator {
+	return s.authenticator
+}
+
+// Authorizer returns the authorizer used by the server.
+func (s *Server) Authorizer() auth.Authorizer {
+	return s.authorizer
+}
+
+// NotificationTemplateOptions returns the notification template options used by the server.
+func (s *Server) NotificationTemplateOptions() notifytemplate.Options {
+	return s.options.NotifyTemplateOptions
+}
+
+// RegisterGRPCHandlers registers server gRPC handler.
+func (s *Server) RegisterGRPCHandlers(r grpc.ServiceRegistrar) {
+	s.grpc.RegisterGRPCHandlers(r)
+}
+
+// GRPCRouterHandler returns HTTP handler that supports GRPC services and
+// routes non-GRPC calls to the provided handler.
+func (s *Server) GRPCRouterHandler(handler http.Handler) http.Handler {
+	return s.grpc.GRPCRouterHandler(handler)
+}
+
+// ShutdownGRPCServer shuts down the GRPC server.
+func (s *Server) ShutdownGRPCServer() {
+	s.grpc.ShutdownGRPCServer()
 }

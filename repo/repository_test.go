@@ -21,8 +21,8 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/metricid"
 	"github.com/kopia/kopia/internal/releasable"
+	"github.com/kopia/kopia/internal/reposervertesting"
 	"github.com/kopia/kopia/internal/repotesting"
-	"github.com/kopia/kopia/internal/servertesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
@@ -656,19 +656,19 @@ func TestWriteSessionFlushOnSuccess(t *testing.T) {
 func TestWriteSessionFlushOnSuccessClient(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{})
 
-	apiServerInfo := servertesting.StartServer(t, env, true)
+	apiServerInfo := reposervertesting.Start(t, env)
 
 	var beforeFlushCount, afterFlushCount atomic.Int32
 
 	ctx2, cancel := context.WithCancel(testlogging.Context(t))
 	defer cancel()
 
-	rep, err := servertesting.ConnectAndOpenAPIServer(t, ctx2, apiServerInfo, repo.ClientOptions{
-		Username: servertesting.TestUsername,
-		Hostname: servertesting.TestHostname,
+	rep, err := reposervertesting.ConnectAndOpen(t, ctx2, apiServerInfo, repo.ClientOptions{
+		Username: reposervertesting.TestUsername,
+		Hostname: reposervertesting.TestHostname,
 	}, content.CachingOptions{
 		CacheDirectory: testutil.TempDirectory(t),
-	}, servertesting.TestPassword, &repo.Options{
+	}, reposervertesting.TestPassword, &repo.Options{
 		BeforeFlush: []repo.RepositoryWriterCallback{
 			func(ctx context.Context, w repo.RepositoryWriter) error {
 				beforeFlushCount.Add(1)
@@ -724,14 +724,14 @@ func TestWriteSessionFlushOnSuccessClient(t *testing.T) {
 func TestConnectAPIServerInvalidPasswordDoesNotLeakPersistentCache(t *testing.T) {
 	ctx, env := repotesting.NewEnvironment(t, repotesting.FormatNotImportant, repotesting.Options{})
 
-	apiServerInfo := servertesting.StartServer(t, env, true)
+	apiServerInfo := reposervertesting.Start(t, env)
 
 	baselinePersistentCacheCount := len(releasable.Active()["persistent-cache"])
 	configFile := filepath.Join(t.TempDir(), "repo.config")
 
 	err := repo.ConnectAPIServer(ctx, configFile, apiServerInfo, "invalid-password", &repo.ConnectOptions{
-		Username:              servertesting.TestUsername,
-		Hostname:              servertesting.TestHostname,
+		Username:              reposervertesting.TestUsername,
+		Hostname:              reposervertesting.TestHostname,
 		CacheDirectory:        testutil.TempDirectory(t),
 		ContentCacheSizeBytes: 1 << 20,
 	})
