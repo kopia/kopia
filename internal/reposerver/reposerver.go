@@ -1,4 +1,5 @@
-package server
+// Package reposerver implements the gRPC repository server.
+package reposerver
 
 import (
 	"context"
@@ -25,26 +26,61 @@ import (
 	"github.com/kopia/kopia/internal/grpcapi"
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifydata"
+	"github.com/kopia/kopia/notification/notifytemplate"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-type grpcServerState struct {
-	sendMutex sync.RWMutex
+var userLog = logging.Module("kopia/reposerver")
 
+// Provider is the small surface the gRPC server needs from its host.
+type Provider interface {
+	Repository() repo.Repository // may return nil when disconnected
+	Authenticator() auth.Authenticator
+	Authorizer() auth.Authorizer
+	NotificationTemplateOptions() notifytemplate.Options
+}
+
+// Options encompasses the gRPC server options.
+type Options struct {
+	MaxConcurrency int // 0 => 2 * runtime.NumCPU()
+}
+
+// Server implements the gRPC repository service.
+type Server struct {
 	grpcapi.UnimplementedKopiaRepositoryServer
+
+	provider Provider
+	options  Options
+
+	sendMutex sync.RWMutex
 
 	sem *semaphore.Weighted
 
 	// GRPC server instance for graceful shutdown
 	grpcServer *grpc.Server
 	grpcMutex  sync.RWMutex
+}
+
+// New creates a new gRPC repository server.
+func New(p Provider, opt Options) *Server {
+	maxConcurrency := opt.MaxConcurrency
+	if maxConcurrency == 0 {
+		maxConcurrency = 2 * runtime.NumCPU() //nolint:mnd
+	}
+
+	return &Server{
+		provider: p,
+		options:  opt,
+		sem:      semaphore.NewWeighted(int64(maxConcurrency)),
+	}
 }
 
 // send sends the provided session response with the provided request ID.
@@ -71,7 +107,7 @@ func (s *Server) authenticateGRPCSession(ctx context.Context, rep repo.Repositor
 		username := u[0] + "@" + h[0]
 		password := p[0]
 
-		if s.authenticator.IsValid(ctx, rep, username, password) {
+		if s.provider.Authenticator().IsValid(ctx, rep, username, password) {
 			return username, nil
 		}
 
@@ -85,10 +121,7 @@ func (s *Server) authenticateGRPCSession(ctx context.Context, rep repo.Repositor
 func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 	ctx := srv.Context()
 
-	s.serverMutex.RLock()
-	dr, ok := s.rep.(repo.DirectRepository)
-	s.serverMutex.RUnlock()
-
+	dr, ok := s.provider.Repository().(repo.DirectRepository)
 	if !ok {
 		return status.Errorf(codes.Unavailable, "not connected to a direct repository")
 	}
@@ -101,7 +134,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return err
 	}
 
-	authz := s.authorizer.Authorize(ctx, dr, usernameAtHostname)
+	authz := s.provider.Authorizer().Authorize(ctx, dr, usernameAtHostname)
 	if authz == nil {
 		authz = auth.NoAccess()
 	}
@@ -525,7 +558,7 @@ func (s *Server) handleSendNotificationRequest(ctx context.Context, rep repo.Rep
 		req.GetTemplateName(),
 		eventArgs,
 		notification.Severity(req.GetSeverity()),
-		s.options.NotifyTemplateOptions); err != nil {
+		s.provider.NotificationTemplateOptions()); err != nil {
 		return errorResponse(err)
 	}
 
@@ -653,16 +686,6 @@ func (s *Server) handleInitialSessionHandshake(srv grpcapi.KopiaRepository_Sessi
 // RegisterGRPCHandlers registers server gRPC handler.
 func (s *Server) RegisterGRPCHandlers(r grpc.ServiceRegistrar) {
 	grpcapi.RegisterKopiaRepositoryServer(r, s)
-}
-
-func makeGRPCServerState(maxConcurrency int) grpcServerState {
-	if maxConcurrency == 0 {
-		maxConcurrency = 2 * runtime.NumCPU() //nolint:mnd
-	}
-
-	return grpcServerState{
-		sem: semaphore.NewWeighted(int64(maxConcurrency)),
-	}
 }
 
 // GRPCRouterHandler returns HTTP handler that supports GRPC services and
