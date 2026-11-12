@@ -6,6 +6,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/ospath"
 )
 
 // SourceInfo represents the information about snapshot source.
@@ -30,6 +32,7 @@ func (ssi SourceInfo) String() string {
 // ParseSourceInfo parses a given path in the context of given hostname and username and returns
 // SourceInfo. The path may be bare (in which case it's interpreted as local path and canonicalized)
 // or may be 'username@host:path' where path, username and host are not processed.
+// Absolute paths are always interpreted as local paths.
 func ParseSourceInfo(path, hostname, username string) (SourceInfo, error) {
 	if path == "(global)" {
 		return SourceInfo{}, nil
@@ -37,8 +40,9 @@ func ParseSourceInfo(path, hostname, username string) (SourceInfo, error) {
 
 	p1 := strings.Index(path, "@")
 	p2 := strings.Index(path, ":")
+	isAbs := ospath.IsAbs(path)
 
-	if p1 > 0 && p2 > 0 && p1 < p2 && p2 < len(path) {
+	if !isAbs && p1 > 0 && p2 > 0 && p1 < p2 && p2 < len(path) {
 		return SourceInfo{
 			UserName: path[0:p1],
 			Host:     path[p1+1 : p2],
@@ -46,7 +50,7 @@ func ParseSourceInfo(path, hostname, username string) (SourceInfo, error) {
 		}, nil
 	}
 
-	if p1 >= 0 && p2 < 0 {
+	if !isAbs && p1 >= 0 && p2 < 0 {
 		if p1+1 < len(path) {
 			// support @host and user@host without path
 			return SourceInfo{
