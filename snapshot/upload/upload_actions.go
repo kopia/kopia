@@ -23,8 +23,10 @@ import (
 )
 
 const (
-	actionCommandTimeout    = 3 * time.Minute
-	actionScriptPermissions = 0o700
+	actionCommandTimeout     = 3 * time.Minute
+	actionScriptPermissions  = 0o700
+	beforeSnapshotRootAction = "before-snapshot-root"
+	afterSnapshotRootAction  = "after-snapshot-root"
 )
 
 // actionContext carries state between before/after actions.
@@ -194,12 +196,71 @@ func parseCaptures(v []byte, captures map[string]string) error {
 	return s.Err()
 }
 
-func (u *Uploader) executeBeforeFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) (fs.Directory, error) {
+// PreparedRootActions holds the state of root-level snapshot actions prepared
+// ahead of Uploader.Upload so callers can gate repository write sessions on
+// before-snapshot-root without executing root actions twice.
+type PreparedRootActions struct {
+	overrideDir   fs.Directory
+	hc            actionContext
+	sourcePath    string
+	after         *policy.ActionCommand
+	enableActions bool
+}
+
+// OverrideDir returns the replacement snapshot root directory emitted via
+// KOPIA_SNAPSHOT_PATH by before-snapshot-root, or nil if none was emitted.
+func (p *PreparedRootActions) OverrideDir() fs.Directory {
+	if p == nil {
+		return nil
+	}
+
+	return p.overrideDir
+}
+
+// Cleanup runs any configured after-snapshot-root action and removes the
+// temporary working directory created for the root action pair.
+func (p *PreparedRootActions) Cleanup(ctx context.Context) {
+	if p == nil {
+		return
+	}
+
+	executeAfterAction(ctx, afterSnapshotRootAction, p.after, p.sourcePath, p.enableActions, &p.hc)
+	cleanupActionContext(ctx, &p.hc)
+}
+
+// PrepareRootActions executes the before-snapshot-root action (when configured
+// and enabled) for sourcePath and returns a PreparedRootActions whose Cleanup
+// method executes after-snapshot-root and removes the temporary working directory.
+func PrepareRootActions(
+	ctx context.Context,
+	actions policy.ActionsPolicy,
+	sourcePath string,
+	enableActions bool,
+) (*PreparedRootActions, error) {
+	p := &PreparedRootActions{
+		sourcePath:    sourcePath,
+		after:         actions.AfterSnapshotRoot,
+		enableActions: enableActions,
+	}
+
+	overrideDir, err := executeBeforeAction(ctx, beforeSnapshotRootAction, actions.BeforeSnapshotRoot, sourcePath, enableActions, &p.hc)
+	if err != nil {
+		cleanupActionContext(ctx, &p.hc)
+
+		return nil, err
+	}
+
+	p.overrideDir = overrideDir
+
+	return p, nil
+}
+
+func executeBeforeAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, enableActions bool, hc *actionContext) (fs.Directory, error) {
 	if h == nil {
 		return nil, nil
 	}
 
-	if err := hc.ensureInitialized(ctx, actionType, dirPathOrEmpty, u.EnableActions); err != nil {
+	if err := hc.ensureInitialized(ctx, actionType, dirPathOrEmpty, enableActions); err != nil {
 		return nil, errors.Wrap(err, "error initializing action context")
 	}
 
@@ -227,12 +288,12 @@ func (u *Uploader) executeBeforeFolderAction(ctx context.Context, actionType str
 	return nil, nil
 }
 
-func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) {
+func executeAfterAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, enableActions bool, hc *actionContext) {
 	if h == nil {
 		return
 	}
 
-	if err := hc.ensureInitialized(ctx, actionType, dirPathOrEmpty, u.EnableActions); err != nil {
+	if err := hc.ensureInitialized(ctx, actionType, dirPathOrEmpty, enableActions); err != nil {
 		uploadLog(ctx).Errorf("error initializing action context: %v", err)
 	}
 
@@ -243,6 +304,14 @@ func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType stri
 	if err := runActionCommand(ctx, actionType, h, hc.envars(actionType), nil, hc.WorkDir); err != nil {
 		uploadLog(ctx).Errorf("error running '%v' action: %v", actionType, err)
 	}
+}
+
+func (u *Uploader) executeBeforeFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) (fs.Directory, error) {
+	return executeBeforeAction(ctx, actionType, h, dirPathOrEmpty, u.EnableActions, hc)
+}
+
+func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) {
+	executeAfterAction(ctx, actionType, h, dirPathOrEmpty, u.EnableActions, hc)
 }
 
 func cleanupActionContext(ctx context.Context, hc *actionContext) {
