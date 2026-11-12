@@ -245,6 +245,10 @@ func TestCompactRetentionReasons(t *testing.T) {
 }
 
 func TestRetentionBucketsKeepWeekOneAlongsideJanuary(t *testing.T) {
+	oldLocal := time.Local
+	time.Local = time.UTC
+	t.Cleanup(func() { time.Local = oldLocal })
+
 	r := RetentionPolicy{
 		KeepLatest:  newOptionalInt(0),
 		KeepWeekly:  newOptionalInt(4),
@@ -268,6 +272,10 @@ func TestRetentionBucketsKeepWeekOneAlongsideJanuary(t *testing.T) {
 }
 
 func TestRetentionBucketsAcrossYearBoundaries(t *testing.T) {
+	oldLocal := time.Local
+	time.Local = time.UTC
+	t.Cleanup(func() { time.Local = oldLocal })
+
 	cases := []struct {
 		name        string
 		year        int
