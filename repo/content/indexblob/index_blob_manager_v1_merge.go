@@ -22,7 +22,8 @@ import (
 
 const (
 	// DefaultMergeMaxEntriesPerPartition bounds the number of index entries held in memory during a merge.
-	DefaultMergeMaxEntriesPerPartition = 1_000_000
+	// It is also the size of the output shards, which bounds the memory needed to read them in the next merge.
+	DefaultMergeMaxEntriesPerPartition = 500_000
 
 	// estimated encoded size of an index entry, used to choose the number of partitions before reading the input.
 	estimatedBytesPerIndexEntry = 30
@@ -90,21 +91,6 @@ func (m *ManagerV1) MergeRangeCheckpoints(ctx context.Context, opt MergeRangeOpt
 		return nil, err
 	}
 
-	laterOld, err := m.entriesNotNewerThan(ctx, laterBlobs, watermark)
-	if err != nil {
-		return nil, err
-	}
-
-	stats.LaterBlobs = len(laterBlobs)
-	stats.LaterOldEntries = len(laterOld)
-
-	opt.Progress("read %v later index blobs, %v entries not newer than the watermark", len(laterBlobs), len(laterOld))
-
-	mp, err := m.formattingOptions.GetMutableParameters(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "mutable parameters")
-	}
-
 	spoolDir, err := os.MkdirTemp(opt.TempDir, "kopia-merge-ranges-")
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create temporary directory")
@@ -112,19 +98,24 @@ func (m *ManagerV1) MergeRangeCheckpoints(ctx context.Context, opt MergeRangeOpt
 
 	defer os.RemoveAll(spoolDir) //nolint:errcheck
 
-	sp := &mergeSpool{
-		dir:          spoolDir,
-		partitions:   stats.Partitions,
-		indexVersion: mp.IndexVersion,
-		overhead:     m.enc.crypter.Encryptor().Overhead,
-		flushAt:      opt.MaxEntriesPerPartition,
+	sp, laterSp, err := m.newMergeSpools(ctx, spoolDir, stats.Partitions, opt.MaxEntriesPerPartition)
+	if err != nil {
+		return nil, err
 	}
+
+	if stats.LaterOldEntries, err = m.spoolEntriesNotNewerThan(ctx, laterSp, laterBlobs, watermark); err != nil {
+		return nil, err
+	}
+
+	stats.LaterBlobs = len(laterBlobs)
+
+	opt.Progress("read %v later index blobs, %v entries not newer than the watermark", len(laterBlobs), stats.LaterOldEntries)
 
 	if err := m.spoolByPartition(ctx, sp, rangeBlobList, stats, opt.Progress); err != nil {
 		return nil, err
 	}
 
-	shardFiles, err := mergePartitions(sp, stats, laterOld, watermark, opt)
+	shardFiles, err := mergePartitions(sp, laterSp, stats, watermark, opt)
 	if err != nil {
 		return nil, err
 	}
@@ -221,21 +212,83 @@ func newMergeRangeStats(ranges []*epoch.RangeMetadata, watermark time.Time, opt 
 	return stats, rangeBlobs, rangeBlobList
 }
 
-// entriesNotNewerThan returns the entries of the given index blobs that are not newer than the watermark.
-func (m *ManagerV1) entriesNotNewerThan(ctx context.Context, blobs []blob.Metadata, watermark time.Time) (index.Builder, error) {
-	result := index.Builder{}
+// newMergeSpools returns the spools for the range checkpoint entries and for the later entries not newer than the watermark.
+func (m *ManagerV1) newMergeSpools(ctx context.Context, dir string, partitions, flushAt int) (rangeSpool, laterSpool *mergeSpool, err error) {
+	mp, err := m.formattingOptions.GetMutableParameters(ctx)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "mutable parameters")
+	}
 
-	for _, bm := range blobs {
-		if err := addIndexBlobsToBuilder(ctx, m.enc, func(i index.Info) {
-			if !i.Timestamp().After(watermark) {
-				result.Add(i)
-			}
-		}, bm.BlobID); err != nil {
-			return nil, errors.Wrapf(err, "error reading later index blob %v", bm.BlobID)
+	newSpool := func(name string) *mergeSpool {
+		return &mergeSpool{
+			dir:          dir,
+			name:         name,
+			partitions:   partitions,
+			indexVersion: mp.IndexVersion,
+			overhead:     m.enc.crypter.Encryptor().Overhead,
+			flushAt:      flushAt,
 		}
 	}
 
-	return result, nil
+	return newSpool("range"), newSpool("later"), nil
+}
+
+// spoolEntriesNotNewerThan spools the entries of the given index blobs that are not newer than the watermark
+// and returns their number.
+func (m *ManagerV1) spoolEntriesNotNewerThan(ctx context.Context, sp *mergeSpool, blobs []blob.Metadata, watermark time.Time) (int, error) {
+	count := 0
+
+	for _, bm := range blobs {
+		var addErr error
+
+		if err := m.iterateIndexBlob(ctx, bm.BlobID, func(i index.Info) {
+			if addErr != nil || i.Timestamp().After(watermark) {
+				return
+			}
+
+			count++
+			addErr = sp.add(i)
+		}); err != nil {
+			return 0, errors.Wrapf(err, "error reading later index blob %v", bm.BlobID)
+		}
+
+		if addErr != nil {
+			return 0, addErr
+		}
+	}
+
+	return count, sp.flush()
+}
+
+// iterateIndexBlob calls cb for every entry of the index blob.
+// Only one decrypted copy of the blob is held while iterating, which matters for large range checkpoints.
+func (m *ManagerV1) iterateIndexBlob(ctx context.Context, blobID blob.ID, cb func(index.Info)) error {
+	data, err := m.decryptedIndexBlob(ctx, blobID)
+	if err != nil {
+		return err
+	}
+
+	ndx, err := index.Open(data, nil, m.enc.crypter.Encryptor().Overhead)
+	if err != nil {
+		return errors.Wrap(err, "unable to open index blob")
+	}
+
+	return errors.Wrap(ndx.Iterate(index.AllIDs, func(i index.Info) error {
+		cb(i)
+		return nil
+	}), "error iterating index blob")
+}
+
+// decryptedIndexBlob returns the decrypted index blob as one slice and releases the chunked buffer it was read into.
+func (m *ManagerV1) decryptedIndexBlob(ctx context.Context, blobID blob.ID) ([]byte, error) {
+	var buf gather.WriteBuffer
+	defer buf.Close()
+
+	if err := m.enc.GetEncryptedBlob(ctx, blobID, &buf); err != nil {
+		return nil, errors.Wrap(err, "error getting index blob")
+	}
+
+	return buf.ToByteSlice(), nil
 }
 
 // partitionsForInput estimates the number of partitions so that each one holds about maxEntriesPerPartition entries.
@@ -277,6 +330,7 @@ func (m *ManagerV1) laterIndexBlobs(ctx context.Context, rangeBlobs map[blob.ID]
 // mergeSpool stores the input entries in one file per partition, as a sequence of encoded index chunks.
 type mergeSpool struct {
 	dir          string
+	name         string
 	partitions   int
 	indexVersion int
 	overhead     func() int
@@ -287,7 +341,7 @@ type mergeSpool struct {
 }
 
 func (s *mergeSpool) partitionFile(partition int) string {
-	return filepath.Join(s.dir, fmt.Sprintf("p%05d.spool", partition))
+	return filepath.Join(s.dir, fmt.Sprintf("%v%05d.spool", s.name, partition))
 }
 
 func (s *mergeSpool) add(i index.Info) error {
@@ -358,6 +412,19 @@ func (s *mergeSpool) appendChunk(partition int, b index.Builder) error {
 	return errors.Wrap(err, "unable to write spool file")
 }
 
+// readPartition returns the newest spooled entry of every content in the partition and removes the spool file.
+func (s *mergeSpool) readPartition(partition int) (index.Builder, error) {
+	result := index.Builder{}
+
+	if err := s.iteratePartition(partition, result.Add); err != nil {
+		return nil, err
+	}
+
+	os.Remove(s.partitionFile(partition)) //nolint:errcheck
+
+	return result, nil
+}
+
 // iteratePartition calls cb for every spooled entry of the partition.
 func (s *mergeSpool) iteratePartition(partition int, cb func(index.Info)) error {
 	f, err := os.Open(s.partitionFile(partition))
@@ -409,13 +476,13 @@ func (m *ManagerV1) spoolByPartition(ctx context.Context, sp *mergeSpool, blobs 
 	for n, bm := range blobs {
 		var addErr error
 
-		if err := addIndexBlobsToBuilder(ctx, m.enc, func(i index.Info) {
+		if err := m.iterateIndexBlob(ctx, bm.BlobID, func(i index.Info) {
 			stats.InputEntries++
 
 			if addErr == nil {
 				addErr = sp.add(i)
 			}
-		}, bm.BlobID); err != nil {
+		}); err != nil {
 			return errors.Wrapf(err, "error reading range checkpoint blob %v", bm.BlobID)
 		}
 
@@ -433,17 +500,20 @@ func (m *ManagerV1) spoolByPartition(ctx context.Context, sp *mergeSpool, blobs 
 
 // mergePartitions picks the winner of every content, drops the deleted ones below the watermark
 // and writes the result into encoded index shard files.
-func mergePartitions(sp *mergeSpool, stats *MergeRangeStats, laterOld index.Builder, watermark time.Time, opt MergeRangeOptions) ([]string, error) {
+func mergePartitions(sp, laterSp *mergeSpool, stats *MergeRangeStats, watermark time.Time, opt MergeRangeOptions) ([]string, error) {
 	out := &mergeOutput{dir: sp.dir, indexVersion: sp.indexVersion, stats: stats, dryRun: opt.DryRun, entries: index.Builder{}}
 
 	for partition := range sp.partitions {
-		partitionBuilder := index.Builder{}
-
-		if err := sp.iteratePartition(partition, partitionBuilder.Add); err != nil {
+		partitionBuilder, err := sp.readPartition(partition)
+		if err != nil {
 			return nil, err
 		}
 
-		os.Remove(sp.partitionFile(partition)) //nolint:errcheck
+		// a content always maps to the same partition, so this holds every later entry the guard needs
+		laterOld, err := laterSp.readPartition(partition)
+		if err != nil {
+			return nil, err
+		}
 
 		for _, winner := range partitionBuilder {
 			stats.UniqueContents++
@@ -616,11 +686,11 @@ func (m *ManagerV1) ensureIndexUnchanged(ctx context.Context, maxEpoch int, rang
 
 		oldEntries := 0
 
-		if err := addIndexBlobsToBuilder(ctx, m.enc, func(i index.Info) {
+		if err := m.iterateIndexBlob(ctx, bm.BlobID, func(i index.Info) {
 			if !i.Timestamp().After(watermark) {
 				oldEntries++
 			}
-		}, bm.BlobID); err != nil {
+		}); err != nil {
 			return errors.Wrapf(err, "error reading new index blob %v", bm.BlobID)
 		}
 

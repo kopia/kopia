@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"runtime"
+	"strconv"
 	"time"
 
 	"github.com/pkg/errors"
@@ -24,7 +25,7 @@ type commandIndexEpochMergeRanges struct {
 func (c *commandIndexEpochMergeRanges) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("merge-ranges", "Merge all range checkpoints into one and drop deleted entries below the deletion watermark.")
 	cmd.Flag("partitions", "Number of partitions (0: derived from the index size)").Default("0").IntVar(&c.partitions)
-	cmd.Flag("max-entries-per-partition", "Maximum number of index entries held in memory").Default("1000000").IntVar(&c.maxEntriesPerPartition)
+	cmd.Flag("max-entries-per-partition", "Maximum number of index entries held in memory").Default(strconv.Itoa(indexblob.DefaultMergeMaxEntriesPerPartition)).IntVar(&c.maxEntriesPerPartition)
 	cmd.Flag("temp-dir", "Directory for the decrypted index during the merge (default: system temp)").StringVar(&c.tempDir)
 	cmd.Flag("dry-run", "Only compute statistics, do not write anything").BoolVar(&c.dryRun)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
