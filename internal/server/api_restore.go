@@ -19,6 +19,7 @@ func restoreCounters(s restore.Stats) map[string]uitask.CounterValue {
 		"Restored Files":       uitask.SimpleCounter(int64(s.RestoredFileCount)),
 		"Restored Directories": uitask.SimpleCounter(int64(s.RestoredDirCount)),
 		"Restored Symlinks":    uitask.SimpleCounter(int64(s.RestoredSymlinkCount)),
+		"Restored Hardlinks":   uitask.SimpleCounter(int64(s.RestoredHardlinkCount)),
 		"Restored Bytes":       uitask.BytesCounter(s.RestoredTotalFileSize),
 		"Ignored Errors":       uitask.SimpleCounter(int64(s.IgnoredErrorCount)),
 		"Skipped Files":        uitask.SimpleCounter(int64(s.SkippedCount)),
