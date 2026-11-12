@@ -30,6 +30,7 @@ type commandRepositorySyncTo struct {
 	repositorySyncParallelism          uint
 	repositorySyncDestinationMustExist bool
 	repositorySyncTimes                bool
+	repositorySyncBlobPrefixes         []string
 
 	lastSyncProgress  string
 	syncProgressMutex sync.Mutex
@@ -46,6 +47,7 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 	cmd.Flag("parallel", "Copy parallelism.").Default("1").UintVar(&c.repositorySyncParallelism)
 	cmd.Flag("must-exist", "Fail if destination does not have repository format blob.").BoolVar(&c.repositorySyncDestinationMustExist)
 	cmd.Flag("times", "Synchronize blob times if supported.").BoolVar(&c.repositorySyncTimes)
+	cmd.Flag("blob-prefix", "Only synchronize blobs starting with one of these prefixes.").Hidden().StringsVar(&c.repositorySyncBlobPrefixes)
 
 	c.out.setup(svc)
 	c.progress = svc.getProgress()
@@ -81,6 +83,20 @@ func (c *commandRepositorySyncTo) setup(svc advancedAppServices, parent commandP
 }
 
 const syncProgressInterval = 300 * time.Millisecond
+
+func (c *commandRepositorySyncTo) matchesBlobPrefix(id blob.ID) bool {
+	if len(c.repositorySyncBlobPrefixes) == 0 {
+		return true
+	}
+
+	for _, prefix := range c.repositorySyncBlobPrefixes {
+		if strings.HasPrefix(string(id), prefix) {
+			return true
+		}
+	}
+
+	return false
+}
 
 func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src blob.Reader, dst blob.Storage) error {
 	log(ctx).Info("Synchronizing repositories:")
@@ -119,6 +135,11 @@ func (c *commandRepositorySyncTo) runSyncWithStorage(ctx context.Context, src bl
 	c.beginSyncProgress()
 
 	if err := src.ListBlobs(ctx, "", func(srcmd blob.Metadata) error {
+		if !c.matchesBlobPrefix(srcmd.BlobID) {
+			delete(dstMetadata, srcmd.BlobID)
+			return nil
+		}
+
 		totalSrcSize += srcmd.Length
 
 		dstmd, exists := dstMetadata[srcmd.BlobID]
