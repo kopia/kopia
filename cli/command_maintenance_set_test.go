@@ -60,6 +60,28 @@ func TestMaintenanceSetListParallelism(t *testing.T) {
 	require.NotContains(t, e.RunAndExpectSuccess(t, "maintenance", "info"), "List parallelism: 0")
 }
 
+func TestMaintenanceSetRangeCheckpointConsolidation(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	var mi cli.MaintenanceInfo
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	require.Contains(t, e.RunAndExpectSuccess(t, "maintenance", "info"), "Range Checkpoint Consolidation: disabled")
+
+	e.RunAndExpectSuccess(t, "maintenance", "set", "--consolidate-range-checkpoints", "true", "--consolidate-range-checkpoints-min-count", "6")
+	require.Contains(t, e.RunAndExpectSuccess(t, "maintenance", "info"), "Range Checkpoint Consolidation: enabled (at 6 range checkpoints)")
+	testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "maintenance", "info", "--json"), &mi)
+	require.True(t, mi.RangeCheckpointConsolidation.Enabled)
+	require.Equal(t, 6, mi.RangeCheckpointConsolidation.MinRangeCheckpoints)
+
+	e.RunAndExpectSuccess(t, "maintenance", "set", "--consolidate-range-checkpoints", "false")
+	require.Contains(t, e.RunAndExpectSuccess(t, "maintenance", "info"), "Range Checkpoint Consolidation: disabled")
+}
+
 func (s *formatSpecificTestSuite) TestInvalidExtendRetainOptions(t *testing.T) {
 	var mi cli.MaintenanceInfo
 

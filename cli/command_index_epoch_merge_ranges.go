@@ -84,7 +84,7 @@ func (c *commandIndexEpochMergeRanges) run(ctx context.Context, rep repo.DirectR
 	runtime.ReadMemStats(&memStats)
 
 	c.out.printStdout("Duration:              %v\n", time.Since(started).Round(time.Second)) //nolint:forbidigo
-	c.out.printStdout("Memory from OS:        %v\n", units.BytesString(int64(memStats.Sys)))  //nolint:gosec
+	c.out.printStdout("Memory from OS:        %v\n", units.BytesString(int64(memStats.Sys))) //nolint:gosec
 
 	return nil
 }
