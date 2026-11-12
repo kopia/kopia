@@ -95,6 +95,26 @@ Example of running full maintenance with safety disabled:
 $ kopia maintenance run --full --safety=none
 ```
 
+### Range Checkpoint Consolidation
+
+Repositories with an epoch-based index periodically combine the index of many epochs into range checkpoints (`xr` blobs). Range checkpoints keep deleted index entries, so after large deletions (for example the first snapshot GC after a long time) they can hold many more deleted entries than live ones. Every client loads them, which increases memory usage and the time to open the repository.
+
+Full maintenance can optionally merge the chain of range checkpoints into one and drop the deleted entries that are older than the deletion watermark. Readers already ignore those entries, so the visible contents of the repository do not change. Range checkpoints that were replaced by a consolidation are deleted by a later full maintenance run, after the cleanup safety margin has passed.
+
+The consolidation is disabled by default. To enable it:
+
+```shell
+$ kopia maintenance set --consolidate-range-checkpoints=true
+```
+
+By default a consolidation happens when the chain has 4 range checkpoints. To change that:
+
+```shell
+$ kopia maintenance set --consolidate-range-checkpoints-min-count=2
+```
+
+`kopia maintenance info` shows whether the consolidation is enabled. The merge stores the decrypted range checkpoints in the system temporary directory, which needs about as much free space as the range checkpoints take in the repository. Its memory usage is bounded by the number of index entries per partition (500,000 by default) plus about twice the size of the largest range checkpoint blob.
+
 ### Viewing Maintenance History
 
 To view the history of maintenance operations, use the `kopia maintenance info` command, which will display the history of the last 5 maintenance runs.

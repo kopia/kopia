@@ -78,6 +78,12 @@ func (c *commandMaintenanceInfo) run(ctx context.Context, rep repo.DirectReposit
 		c.out.printStdout("List parallelism: %v\n", p.ListParallelism)
 	}
 
+	if rc := p.RangeCheckpointConsolidation; rc.Enabled {
+		c.out.printStdout("Range Checkpoint Consolidation: enabled (at %v range checkpoints)\n", rc.GetMinRangeCheckpoints())
+	} else {
+		c.out.printStdout("Range Checkpoint Consolidation: disabled\n")
+	}
+
 	c.out.printStdout("Recent Maintenance Runs:\n")
 
 	for run, timings := range s.Runs {

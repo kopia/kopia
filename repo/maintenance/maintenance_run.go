@@ -55,6 +55,8 @@ const (
 	TaskEpochCleanupMarkers          = "cleanup-epoch-markers"
 	TaskEpochGenerateRange           = "generate-epoch-range-index"
 	TaskEpochCompactSingle           = "compact-single-epoch"
+	TaskEpochConsolidateRanges       = "consolidate-epoch-range-indexes"
+	TaskEpochDeleteSupersededRanges  = "delete-superseded-epoch-range-indexes"
 )
 
 // shouldRun returns Mode if repository is due for periodic maintenance.
@@ -406,6 +408,13 @@ func runTaskEpochMaintenanceFull(ctx context.Context, runParams RunParameters, s
 		return stats, errors.Wrap(err, "error creating epoch range indexes")
 	}); err != nil {
 		return err
+	}
+
+	// opt-in: consolidate the range checkpoint chain and drop entries deleted before the watermark
+	if runParams.Params.RangeCheckpointConsolidation.Enabled {
+		if err := runTaskConsolidateRangeCheckpoints(ctx, em, runParams, s); err != nil {
+			return err
+		}
 	}
 
 	// clean up epoch markers
