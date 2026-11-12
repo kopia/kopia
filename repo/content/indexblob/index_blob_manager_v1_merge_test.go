@@ -317,6 +317,14 @@ func hasPrefixOf(prefixes ...blob.ID) func(blob.ID) bool {
 	}
 }
 
+// mergeResult returns the statistics that must not depend on the partitioning.
+func mergeResult(s *indexblob.MergeRangeStats) []int64 {
+	return []int64{
+		int64(s.MinEpoch), int64(s.MaxEpoch), s.InputEntries, s.UniqueContents,
+		s.DroppedDeleted, s.KeptDeletedRecent, s.KeptDeletedGuard, s.OutputEntries,
+	}
+}
+
 func requireSameState(t *testing.T, want, got visibleState) {
 	t.Helper()
 
@@ -353,16 +361,21 @@ func TestMergeRangeCheckpoints(t *testing.T) {
 	dry1, err := e.merge(indexblob.MergeRangeOptions{Partitions: 1, DryRun: true})
 	require.NoError(t, err)
 
-	dry7, err := e.merge(indexblob.MergeRangeOptions{Partitions: 7, DryRun: true})
+	// small limits spill several chunks per partition and write several output shards
+	dry7, err := e.merge(indexblob.MergeRangeOptions{Partitions: 7, MaxEntriesPerPartition: 50, DryRun: true})
 	require.NoError(t, err)
 
 	require.Equal(t, blobsBefore, e.blobCount(), "dry run must not write blobs")
-	require.Equal(t, dry1, dry7)
+	require.Equal(t, 1, dry1.OutputShards)
+	require.Greater(t, dry7.OutputShards, 1)
+	require.Equal(t, mergeResult(dry1), mergeResult(dry7))
 
-	stats, err := e.merge(indexblob.MergeRangeOptions{Partitions: 4})
+	stats, err := e.merge(indexblob.MergeRangeOptions{MaxEntriesPerPartition: 100})
 	require.NoError(t, err)
 
 	t.Logf("merge stats: %+v", stats)
+	require.Equal(t, mergeResult(dry1), mergeResult(stats))
+	require.Len(t, stats.OutputBlobs, stats.OutputShards)
 
 	// readers use the merged checkpoint now and must see exactly the same contents as before
 	rangesAfter := e.currentRanges()

@@ -13,16 +13,18 @@ import (
 )
 
 type commandIndexEpochMergeRanges struct {
-	partitions int
-	dryRun     bool
-	tempDir    string
+	partitions             int
+	maxEntriesPerPartition int
+	dryRun                 bool
+	tempDir                string
 
 	out textOutput
 }
 
 func (c *commandIndexEpochMergeRanges) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("merge-ranges", "Merge all range checkpoints into one and drop deleted entries below the deletion watermark.")
-	cmd.Flag("partitions", "Number of passes over the index (more passes need less memory)").Default("32").IntVar(&c.partitions)
+	cmd.Flag("partitions", "Number of partitions (0: derived from the index size)").Default("0").IntVar(&c.partitions)
+	cmd.Flag("max-entries-per-partition", "Maximum number of index entries held in memory").Default("1000000").IntVar(&c.maxEntriesPerPartition)
 	cmd.Flag("temp-dir", "Directory for the decrypted index during the merge (default: system temp)").StringVar(&c.tempDir)
 	cmd.Flag("dry-run", "Only compute statistics, do not write anything").BoolVar(&c.dryRun)
 	cmd.Action(svc.directRepositoryReadAction(c.run))
@@ -45,9 +47,10 @@ func (c *commandIndexEpochMergeRanges) run(ctx context.Context, rep repo.DirectR
 	started := time.Now() //nolint:forbidigo
 
 	stats, err := provider.IndexBlobManagerV1().MergeRangeCheckpoints(ctx, indexblob.MergeRangeOptions{
-		Partitions: c.partitions,
-		DryRun:     c.dryRun,
-		TempDir:    c.tempDir,
+		Partitions:             c.partitions,
+		MaxEntriesPerPartition: c.maxEntriesPerPartition,
+		DryRun:                 c.dryRun,
+		TempDir:                c.tempDir,
 		Progress: func(format string, args ...any) {
 			log(ctx).Infof(format, args...)
 		},
@@ -65,7 +68,8 @@ func (c *commandIndexEpochMergeRanges) run(ctx context.Context, rep repo.DirectR
 	c.out.printStdout("Kept deleted (recent): %v\n", stats.KeptDeletedRecent)
 	c.out.printStdout("Kept deleted (guard):  %v\n", stats.KeptDeletedGuard)
 	c.out.printStdout("Later index blobs:     %v (%v entries not newer than the watermark)\n", stats.LaterBlobs, stats.LaterOldEntries)
-	c.out.printStdout("Output entries:        %v (%v)\n", stats.OutputEntries, units.BytesString(stats.OutputBytes))
+	c.out.printStdout("Partitions:            %v\n", stats.Partitions)
+	c.out.printStdout("Output entries:        %v (%v in %v shard(s))\n", stats.OutputEntries, units.BytesString(stats.OutputBytes), stats.OutputShards)
 
 	for _, b := range stats.OutputBlobs {
 		c.out.printStdout("Written:               %v\n", b)
