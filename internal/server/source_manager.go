@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -54,6 +56,8 @@ type sourceManager struct {
 	uploader *upload.Uploader
 	// +checklocks:sourceMutex
 	pol policy.SchedulingPolicy
+	// +checklocks:sourceMutex
+	actions policy.ActionsPolicy
 	// +checklocks:sourceMutex
 	state string
 	// +checklocks:sourceMutex
@@ -311,6 +315,52 @@ func (s *sourceManager) waitUntilStopped() {
 	s.wg.Wait()
 }
 
+func hasRootActions(actions policy.ActionsPolicy) bool {
+	return actions.BeforeSnapshotRoot != nil || actions.AfterSnapshotRoot != nil
+}
+
+func isExistingNonDirectory(path string) bool {
+	fi, err := os.Lstat(filepath.Clean(path))
+
+	return err == nil && !fi.IsDir()
+}
+
+func (s *sourceManager) prepareSnapshotSource(
+	ctx context.Context,
+	ctrl uitask.Controller,
+	cachedActions policy.ActionsPolicy,
+) (fs.Entry, *upload.PreparedRootActions, error) {
+	var prepared *upload.PreparedRootActions
+
+	if hasRootActions(cachedActions) && !isExistingNonDirectory(s.src.Path) {
+		beforeCtx, cancelBefore := context.WithCancel(ctx)
+		ctrl.OnCancel(cancelBefore)
+
+		var err error
+
+		prepared, err = upload.PrepareRootActions(beforeCtx, cachedActions, s.src.Path, s.rep.ClientOptions().EnableActions)
+
+		cancelBefore()
+
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "error executing before-snapshot-root action")
+		}
+	}
+
+	localEntry, err := localfs.NewEntry(s.src.Path)
+	if err != nil {
+		if overrideDir := prepared.OverrideDir(); overrideDir != nil {
+			return overrideDir, prepared, nil
+		}
+
+		prepared.Cleanup(ctx)
+
+		return nil, nil, errors.Wrap(err, "unable to create local filesystem")
+	}
+
+	return localEntry, prepared, nil
+}
+
 func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Controller, result *notifydata.ManifestWithError) error {
 	s.setStatus("UPLOADING")
 
@@ -326,21 +376,24 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 	default:
 	}
 
-	localEntry, err := localfs.NewEntry(s.src.Path)
-	if err != nil {
-		return errors.Wrap(err, "unable to create local filesystem")
-	}
-
 	onUpload := func(int64) {}
 
 	s.sourceMutex.Lock()
 	manifestsSinceLastCompleteSnapshot := append([]*snapshot.Manifest(nil), s.manifestsSinceLastCompleteSnapshot...)
+	cachedActions := s.actions
 	s.lastAttemptedSnapshotTime = fs.UTCTimestampFromTime(clock.Now())
 	s.sourceMutex.Unlock()
 
 	if len(manifestsSinceLastCompleteSnapshot) > 0 {
 		result.Previous = manifestsSinceLastCompleteSnapshot[0]
 	}
+
+	localEntry, preparedRootActions, err := s.prepareSnapshotSource(ctx, ctrl, cachedActions)
+	if err != nil {
+		return err
+	}
+
+	defer preparedRootActions.Cleanup(ctx)
 
 	//nolint:wrapcheck
 	return repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
@@ -354,6 +407,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		userLog(ctx).Debugf("uploading %v", s.src)
 
 		u := upload.NewUploader(w)
+		u.PreparedRootActions = preparedRootActions
 
 		ctrl.OnCancel(u.Cancel)
 
@@ -449,6 +503,7 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 	defer s.sourceMutex.Unlock()
 
 	s.pol = pol.SchedulingPolicy
+	s.actions = pol.Actions
 	s.manifestsSinceLastCompleteSnapshot = nil
 	s.lastCompleteSnapshot = nil
 

@@ -82,6 +82,10 @@ type Uploader struct {
 	// Enable snapshot actions
 	EnableActions bool
 
+	// Optional pre-executed root actions prepared before opening a write session.
+	// When set, Upload reuses the prepared result instead of executing root actions again.
+	PreparedRootActions *PreparedRootActions
+
 	// override the directory log level and entry log verbosity.
 	OverrideDirLogDetail   *policy.LogDetail
 	OverrideEntryLogDetail *policy.LogDetail
@@ -596,16 +600,26 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, prototypeManifest)
 	defer cancelCheckpointer()
 
-	var hc actionContext
-
 	localDirPathOrEmpty := rootDir.LocalFilesystemPath()
-
-	overrideDir, err := u.executeBeforeFolderAction(ctx, "before-snapshot-root", policyTree.EffectivePolicy().Actions.BeforeSnapshotRoot, localDirPathOrEmpty, &hc)
-	if err != nil {
-		return nil, dirReadError{errors.Wrap(err, "error executing before-snapshot-root action")}
+	if u.PreparedRootActions != nil && u.PreparedRootActions.sourcePath != "" {
+		localDirPathOrEmpty = u.PreparedRootActions.sourcePath
 	}
 
-	defer u.executeAfterFolderAction(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Actions.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
+	var overrideDir fs.Directory
+
+	if u.PreparedRootActions != nil {
+		u.PreparedRootActions.after = policyTree.EffectivePolicy().Actions.AfterSnapshotRoot
+		overrideDir = u.PreparedRootActions.OverrideDir()
+	} else {
+		prepared, err := PrepareRootActions(ctx, policyTree.EffectivePolicy().Actions, localDirPathOrEmpty, u.EnableActions)
+		if err != nil {
+			return nil, dirReadError{errors.Wrap(err, "error executing before-snapshot-root action")}
+		}
+
+		defer prepared.Cleanup(ctx)
+
+		overrideDir = prepared.OverrideDir()
+	}
 
 	p := &policyTree.EffectivePolicy().OSSnapshotPolicy
 
@@ -1354,7 +1368,12 @@ func (u *Uploader) uploadDir(
 		}
 	}
 
-	estimationCtl := u.startDataSizeEstimation(ctx, entry, policyTree)
+	estimationEntry := entry
+	if overrideDir := u.PreparedRootActions.OverrideDir(); overrideDir != nil {
+		estimationEntry = overrideDir
+	}
+
+	estimationCtl := u.startDataSizeEstimation(ctx, estimationEntry, policyTree)
 	defer func() {
 		estimationCtl.Cancel()
 		estimationCtl.Wait()
