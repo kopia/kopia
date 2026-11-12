@@ -1,0 +1,54 @@
+KOPIA STORAGE RECOVERY TEST LOGS - 2025-12-21
+==================================================
+
+1. REPOSITORY INITIALIZATION
+----------------------------
+Command: kopia repository create filesystem --path /Volumes/KopiaTest/my-repo
+Output:
+Initializing repository with:
+  block hash:          BLAKE2B-256-128
+  encryption:          AES256-GCM-HMAC-SHA256
+Creating storage reserve (524288000 bytes)...
+Connected to repository.
+
+2. FIRST SNAPSHOT (SUCCESS)
+---------------------------
+Command: kopia snapshot create ~/file1.bin
+Output:
+Snapshotting ... uploaded 1.1 GB
+Created snapshot with root Ix9ffa... and ID 37007b...
+
+3. SECOND SNAPSHOT (DISK EXHAUSTION)
+------------------------------------
+Command: kopia snapshot create ~/file2.bin
+Output:
+... no space left on device
+Disk Status: Avail 48Ki (100% full)
+
+4. RECOVERY PHASE 1: SNAPSHOT DELETION
+--------------------------------------
+Command: kopia snapshot delete 37007b... --delete
+Output:
+Could not ensure storage reserve, attempting to delete it to free up space: critical low space: insufficient space for storage reserve
+Deleting storage reserve...
+Deleting snapshot 37007b...
+Disk Status after delete: Avail 500Mi (Reserve sacrificed)
+
+5. RECOVERY PHASE 2: EMERGENCY MAINTENANCE
+------------------------------------------
+Command: kopia maintenance run --full --force
+Output:
+Insufficient space for storage reserve (725610496 required, 524320768 free). skipping.
+Could not ensure storage reserve due to low space, entering emergency mode: insufficient space for storage reserve
+Running full maintenance...
+Emergency mode detected: forcing safety=none to reclaim space immediately
+GC found 203 unused contents (1.1 GB)
+Creating storage reserve (524288000 bytes)...
+Finished full maintenance.
+
+6. FINAL STATUS (SUCCESS)
+-------------------------
+Disk Status: Avail 362Mi
+Reserve Blob: kopia.reserve exists (recreated)
+==================================================
+TEST PASSED: Repository recovered and self-healed automatically.
