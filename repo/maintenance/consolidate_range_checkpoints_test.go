@@ -48,43 +48,14 @@ func TestRangeCheckpointConsolidation(t *testing.T) {
 	safety := maintenance.SafetyNone
 	safety.RewriteMinAge = 365 * 24 * time.Hour
 
-	var (
-		written = map[content.ID][]byte{}
-		deleted = map[content.ID]bool{}
-		byEpoch [][]content.ID
-	)
+	cw := &contentWorkload{
+		written: map[content.ID][]byte{},
+		deleted: map[content.ID]bool{},
+	}
 
 	// the epoch advances about every second iteration
 	for epochIndex := range 80 {
-		var ids []content.ID
-
-		// 21 flushes create 21 index blobs, which advances the epoch
-		for round := range 21 {
-			for k := range 3 {
-				data := fmt.Appendf(nil, "content-%d-%d-%d", epochIndex, round, k)
-
-				id, err := w.ContentManager().WriteContent(ctx, gather.FromSlice(data), "", content.NoCompression)
-				require.NoError(t, err)
-
-				written[id] = data
-				ids = append(ids, id)
-			}
-
-			if round == 0 && epochIndex >= 3 {
-				for n, id := range byEpoch[epochIndex-3] {
-					if n%3 != 0 {
-						require.NoError(t, w.ContentManager().DeleteContent(ctx, id))
-
-						deleted[id] = true
-					}
-				}
-			}
-
-			require.NoError(t, w.Flush(ctx))
-			clock.Advance(time.Hour)
-		}
-
-		byEpoch = append(byEpoch, ids)
+		cw.simulateEpoch(ctx, t, w, clock, epochIndex)
 
 		clock.Advance(25 * time.Hour)
 
@@ -93,7 +64,7 @@ func TestRangeCheckpointConsolidation(t *testing.T) {
 		}))
 
 		if epochIndex%20 == 19 {
-			verifyContents(ctx, t, env, clock, written, deleted)
+			verifyContents(ctx, t, env, clock, cw)
 		}
 	}
 
@@ -102,17 +73,10 @@ func TestRangeCheckpointConsolidation(t *testing.T) {
 
 	var dropped, consolidations uint64
 
-	for _, run := range s.Runs[maintenance.TaskEpochConsolidateRanges] {
-		require.True(t, run.Success, run.Error)
-
-		for _, extra := range run.Extra {
-			summary, err := maintenancestats.BuildFromExtra(extra)
-			require.NoError(t, err)
-
-			if cs, ok := summary.(*maintenancestats.ConsolidateRangeCheckpointsStats); ok && cs.OutputBlobCount > 0 {
-				consolidations++
-				dropped += cs.DroppedDeletedEntries
-			}
+	for _, cs := range runStats[*maintenancestats.ConsolidateRangeCheckpointsStats](t, s.Runs[maintenance.TaskEpochConsolidateRanges]) {
+		if cs.OutputBlobCount > 0 {
+			consolidations++
+			dropped += cs.DroppedDeletedEntries
 		}
 	}
 
@@ -121,33 +85,100 @@ func TestRangeCheckpointConsolidation(t *testing.T) {
 
 	var deletedSuperseded uint64
 
-	for _, run := range s.Runs[maintenance.TaskEpochDeleteSupersededRanges] {
-		require.True(t, run.Success, run.Error)
-
-		for _, extra := range run.Extra {
-			summary, err := maintenancestats.BuildFromExtra(extra)
-			require.NoError(t, err)
-
-			if cs, ok := summary.(*maintenancestats.CleanupSupersededIndexesStats); ok {
-				deletedSuperseded += cs.DeletedBlobCount
-			}
-		}
+	for _, cs := range runStats[*maintenancestats.CleanupSupersededIndexesStats](t, s.Runs[maintenance.TaskEpochDeleteSupersededRanges]) {
+		deletedSuperseded += cs.DeletedBlobCount
 	}
 
 	require.Positive(t, deletedSuperseded, "superseded range checkpoints must have been deleted")
 
 	t.Logf("%v consolidations dropped %v deleted entries, %v superseded range checkpoint blobs deleted", consolidations, dropped, deletedSuperseded)
 
-	em, ok, err := w.ContentManager().EpochManager(ctx)
+	requireOnlyChainAndRecentRanges(ctx, t, env, clock, params.RangeCheckpointConsolidation.MinRangeCheckpoints)
+	verifyContents(ctx, t, env, clock, cw)
+}
+
+// contentWorkload writes contents and deletes most of them 3 epochs later.
+type contentWorkload struct {
+	written map[content.ID][]byte
+	deleted map[content.ID]bool
+	byEpoch [][]content.ID
+}
+
+func (cw *contentWorkload) simulateEpoch(ctx context.Context, t *testing.T, w repo.DirectRepositoryWriter, clock *faketime.ClockTimeWithOffset, epochIndex int) {
+	t.Helper()
+
+	var ids []content.ID
+
+	// 21 flushes create 21 index blobs, which advances the epoch
+	for round := range 21 {
+		for k := range 3 {
+			data := fmt.Appendf(nil, "content-%d-%d-%d", epochIndex, round, k)
+
+			id, err := w.ContentManager().WriteContent(ctx, gather.FromSlice(data), "", content.NoCompression)
+			require.NoError(t, err)
+
+			cw.written[id] = data
+			ids = append(ids, id)
+		}
+
+		if round == 0 && epochIndex >= 3 {
+			cw.deleteMost(ctx, t, w, cw.byEpoch[epochIndex-3])
+		}
+
+		require.NoError(t, w.Flush(ctx))
+		clock.Advance(time.Hour)
+	}
+
+	cw.byEpoch = append(cw.byEpoch, ids)
+}
+
+func (cw *contentWorkload) deleteMost(ctx context.Context, t *testing.T, w repo.DirectRepositoryWriter, ids []content.ID) {
+	t.Helper()
+
+	for n, id := range ids {
+		if n%3 != 0 {
+			require.NoError(t, w.ContentManager().DeleteContent(ctx, id))
+
+			cw.deleted[id] = true
+		}
+	}
+}
+
+// runStats returns the statistics of type T recorded by the given maintenance runs, which must all have succeeded.
+func runStats[T maintenancestats.Summarizer](t *testing.T, runs []maintenance.RunInfo) []T {
+	t.Helper()
+
+	var result []T
+
+	for _, run := range runs {
+		require.True(t, run.Success, run.Error)
+
+		for _, extra := range run.Extra {
+			summary, err := maintenancestats.BuildFromExtra(extra)
+			require.NoError(t, err)
+
+			if s, ok := summary.(T); ok {
+				result = append(result, s)
+			}
+		}
+	}
+
+	return result
+}
+
+// requireOnlyChainAndRecentRanges checks that the chain is short and that superseded range checkpoints were deleted.
+func requireOnlyChainAndRecentRanges(ctx context.Context, t *testing.T, env *repotesting.Environment, clock *faketime.ClockTimeWithOffset, minRangeCheckpoints int) {
+	t.Helper()
+
+	em, ok, err := env.RepositoryWriter.ContentManager().EpochManager(ctx)
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.NoError(t, em.Refresh(ctx))
 
 	cs, err := em.Current(ctx)
 	require.NoError(t, err)
-	require.Less(t, len(cs.LongestRangeCheckpointSets), params.RangeCheckpointConsolidation.MinRangeCheckpoints)
+	require.Less(t, len(cs.LongestRangeCheckpointSets), minRangeCheckpoints)
 
-	// only the chain and range checkpoints within the safety margin may remain
 	chainBlobs := map[blob.ID]bool{}
 
 	for _, r := range cs.LongestRangeCheckpointSets {
@@ -159,17 +190,16 @@ func TestRangeCheckpointConsolidation(t *testing.T) {
 	allRangeBlobs, err := blob.ListAllBlobs(ctx, env.RootStorage(), epoch.RangeCheckpointIndexBlobPrefix)
 	require.NoError(t, err)
 
+	// only range checkpoints superseded within the safety margin may remain
 	for _, bm := range allRangeBlobs {
 		if !chainBlobs[bm.BlobID] {
 			require.Less(t, clock.NowFunc()().Sub(bm.Timestamp), 4*24*time.Hour, "superseded range checkpoint %v was not deleted", bm.BlobID)
 		}
 	}
-
-	verifyContents(ctx, t, env, clock, written, deleted)
 }
 
 // verifyContents opens the repository like a new client and checks every content ever written.
-func verifyContents(ctx context.Context, t *testing.T, env *repotesting.Environment, clock *faketime.ClockTimeWithOffset, written map[content.ID][]byte, deleted map[content.ID]bool) {
+func verifyContents(ctx context.Context, t *testing.T, env *repotesting.Environment, clock *faketime.ClockTimeWithOffset, cw *contentWorkload) {
 	t.Helper()
 
 	rep, err := repo.Open(ctx, env.ConfigFile(), env.Password, &repo.Options{TimeNowFunc: clock.NowFunc()})
@@ -180,10 +210,10 @@ func verifyContents(ctx context.Context, t *testing.T, env *repotesting.Environm
 	dr, ok := rep.(repo.DirectRepository)
 	require.True(t, ok)
 
-	for id, data := range written {
+	for id, data := range cw.written {
 		info, err := dr.ContentInfo(ctx, id)
 
-		if deleted[id] {
+		if cw.deleted[id] {
 			if err == nil {
 				require.True(t, info.Deleted, "content %v must not be visible", id)
 			} else {

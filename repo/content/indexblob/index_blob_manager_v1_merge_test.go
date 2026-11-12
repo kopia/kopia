@@ -29,7 +29,7 @@ const roundsPerEpoch = 21 // the epoch advances after 20 index blobs
 
 type mergeTestEnv struct {
 	t     *testing.T
-	ctx   context.Context
+	ctx   context.Context //nolint:containedctx
 	env   *repotesting.Environment
 	clock *faketime.ClockTimeWithOffset
 	rnd   *rand.Rand

@@ -69,66 +69,18 @@ type MergeRangeStats struct {
 // MergeRangeCheckpoints merges the longest chain of range checkpoints into a single range checkpoint
 // covering the same epochs, dropping deleted entries that readers already ignore because of the deletion watermark.
 func (m *ManagerV1) MergeRangeCheckpoints(ctx context.Context, opt MergeRangeOptions) (*MergeRangeStats, error) {
-	progress := opt.Progress
-	if progress == nil {
-		progress = func(string, ...any) {}
+	if err := opt.normalize(); err != nil {
+		return nil, err
 	}
 
-	if opt.MaxEntriesPerPartition == 0 {
-		opt.MaxEntriesPerPartition = DefaultMergeMaxEntriesPerPartition
-	}
-
-	if opt.Partitions < 0 || opt.Partitions > index.MaxPartitions || opt.MaxEntriesPerPartition < 1 {
-		return nil, errors.Errorf("invalid merge options: %v partitions, %v entries per partition", opt.Partitions, opt.MaxEntriesPerPartition)
-	}
-
-	if err := m.epochMgr.Refresh(ctx); err != nil {
-		return nil, errors.Wrap(err, "refresh")
-	}
-
-	cs, err := m.epochMgr.Current(ctx)
+	ranges, watermark, err := m.rangeChainToMerge(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "current epoch state")
+		return nil, err
 	}
 
-	ranges := cs.LongestRangeCheckpointSets
-	if len(ranges) < 2 { //nolint:mnd
-		return nil, errors.Errorf("nothing to merge: the longest range checkpoint chain has %v element(s)", len(ranges))
-	}
+	stats, rangeBlobs, rangeBlobList := newMergeRangeStats(ranges, watermark, opt)
 
-	if ranges[0].MinEpoch != epoch.FirstEpoch {
-		return nil, errors.Errorf("range checkpoint chain does not start at epoch %v", epoch.FirstEpoch)
-	}
-
-	stats := &MergeRangeStats{
-		MinEpoch:          ranges[0].MinEpoch,
-		MaxEpoch:          ranges[len(ranges)-1].MaxEpoch,
-		InputRanges:       len(ranges),
-		DeletionWatermark: cs.DeletionWatermark,
-	}
-
-	watermark := cs.DeletionWatermark
-
-	rangeBlobs := map[blob.ID]blob.Metadata{}
-
-	var rangeBlobList []blob.Metadata
-
-	for _, r := range ranges {
-		for _, bm := range r.Blobs {
-			rangeBlobs[bm.BlobID] = bm
-			rangeBlobList = append(rangeBlobList, bm)
-			stats.InputBytes += bm.Length
-		}
-	}
-
-	stats.InputBlobs = len(rangeBlobList)
-	stats.Partitions = opt.Partitions
-
-	if stats.Partitions == 0 {
-		stats.Partitions = partitionsForInput(stats.InputBytes, opt.MaxEntriesPerPartition)
-	}
-
-	progress("merging %v range checkpoints (epochs %v..%v, %v blobs, %v bytes) in %v partition(s), deletion watermark %v",
+	opt.Progress("merging %v range checkpoints (epochs %v..%v, %v blobs, %v bytes) in %v partition(s), deletion watermark %v",
 		len(ranges), stats.MinEpoch, stats.MaxEpoch, len(rangeBlobList), stats.InputBytes, stats.Partitions, watermark.UTC().Format(time.RFC3339))
 
 	// Index blobs of the epochs after the range checkpoints. Entries there that are not newer than the
@@ -138,23 +90,15 @@ func (m *ManagerV1) MergeRangeCheckpoints(ctx context.Context, opt MergeRangeOpt
 		return nil, err
 	}
 
-	stats.LaterBlobs = len(laterBlobs)
-
-	laterOld := index.Builder{}
-
-	for _, bm := range laterBlobs {
-		if err := addIndexBlobsToBuilder(ctx, m.enc, func(i index.Info) {
-			if !i.Timestamp().After(watermark) {
-				laterOld.Add(i)
-			}
-		}, bm.BlobID); err != nil {
-			return nil, errors.Wrapf(err, "error reading later index blob %v", bm.BlobID)
-		}
+	laterOld, err := m.entriesNotNewerThan(ctx, laterBlobs, watermark)
+	if err != nil {
+		return nil, err
 	}
 
+	stats.LaterBlobs = len(laterBlobs)
 	stats.LaterOldEntries = len(laterOld)
 
-	progress("read %v later index blobs, %v entries not newer than the watermark", len(laterBlobs), len(laterOld))
+	opt.Progress("read %v later index blobs, %v entries not newer than the watermark", len(laterBlobs), len(laterOld))
 
 	mp, err := m.formattingOptions.GetMutableParameters(ctx)
 	if err != nil {
@@ -176,17 +120,17 @@ func (m *ManagerV1) MergeRangeCheckpoints(ctx context.Context, opt MergeRangeOpt
 		flushAt:      opt.MaxEntriesPerPartition,
 	}
 
-	if err := m.spoolByPartition(ctx, sp, rangeBlobList, stats, progress); err != nil {
+	if err := m.spoolByPartition(ctx, sp, rangeBlobList, stats, opt.Progress); err != nil {
 		return nil, err
 	}
 
-	shardFiles, err := mergePartitions(sp, stats, laterOld, watermark, opt, progress)
+	shardFiles, err := mergePartitions(sp, stats, laterOld, watermark, opt)
 	if err != nil {
 		return nil, err
 	}
 
 	if opt.DryRun {
-		progress("dry run: would write %v shard(s), %v entries, %v bytes", stats.OutputShards, stats.OutputEntries, stats.OutputBytes)
+		opt.Progress("dry run: would write %v shard(s), %v entries, %v bytes", stats.OutputShards, stats.OutputEntries, stats.OutputBytes)
 		return stats, nil
 	}
 
@@ -194,18 +138,104 @@ func (m *ManagerV1) MergeRangeCheckpoints(ctx context.Context, opt MergeRangeOpt
 		return nil, err
 	}
 
-	written, err := m.writeShardFiles(ctx, shardFiles, epoch.RangeCheckpointBlobPrefix(stats.MinEpoch, stats.MaxEpoch))
-	if err != nil {
+	outputPrefix := epoch.RangeCheckpointBlobPrefix(stats.MinEpoch, stats.MaxEpoch)
+
+	if stats.OutputBlobs, err = m.writeShardFiles(ctx, shardFiles, outputPrefix); err != nil {
 		return nil, err
 	}
 
-	stats.OutputBlobs = written
-
-	progress("wrote %v blob(s) with prefix %v", len(written), epoch.RangeCheckpointBlobPrefix(stats.MinEpoch, stats.MaxEpoch))
+	opt.Progress("wrote %v blob(s) with prefix %v", len(stats.OutputBlobs), outputPrefix)
 
 	m.epochMgr.Invalidate()
 
 	return stats, nil
+}
+
+func (opt *MergeRangeOptions) normalize() error {
+	if opt.Progress == nil {
+		opt.Progress = func(string, ...any) {}
+	}
+
+	if opt.MaxEntriesPerPartition == 0 {
+		opt.MaxEntriesPerPartition = DefaultMergeMaxEntriesPerPartition
+	}
+
+	if opt.Partitions < 0 || opt.Partitions > index.MaxPartitions || opt.MaxEntriesPerPartition < 1 {
+		return errors.Errorf("invalid merge options: %v partitions, %v entries per partition", opt.Partitions, opt.MaxEntriesPerPartition)
+	}
+
+	return nil
+}
+
+// rangeChainToMerge returns the current range checkpoint chain and deletion watermark, if the chain can be merged.
+func (m *ManagerV1) rangeChainToMerge(ctx context.Context) ([]*epoch.RangeMetadata, time.Time, error) {
+	if err := m.epochMgr.Refresh(ctx); err != nil {
+		return nil, time.Time{}, errors.Wrap(err, "refresh")
+	}
+
+	cs, err := m.epochMgr.Current(ctx)
+	if err != nil {
+		return nil, time.Time{}, errors.Wrap(err, "current epoch state")
+	}
+
+	ranges := cs.LongestRangeCheckpointSets
+	if len(ranges) < 2 { //nolint:mnd
+		return nil, time.Time{}, errors.Errorf("nothing to merge: the longest range checkpoint chain has %v element(s)", len(ranges))
+	}
+
+	if ranges[0].MinEpoch != epoch.FirstEpoch {
+		return nil, time.Time{}, errors.Errorf("range checkpoint chain does not start at epoch %v", epoch.FirstEpoch)
+	}
+
+	return ranges, cs.DeletionWatermark, nil
+}
+
+// newMergeRangeStats returns the initial statistics and the blobs of the range checkpoint chain.
+func newMergeRangeStats(ranges []*epoch.RangeMetadata, watermark time.Time, opt MergeRangeOptions) (*MergeRangeStats, map[blob.ID]blob.Metadata, []blob.Metadata) {
+	stats := &MergeRangeStats{
+		MinEpoch:          ranges[0].MinEpoch,
+		MaxEpoch:          ranges[len(ranges)-1].MaxEpoch,
+		InputRanges:       len(ranges),
+		DeletionWatermark: watermark,
+	}
+
+	rangeBlobs := map[blob.ID]blob.Metadata{}
+
+	var rangeBlobList []blob.Metadata
+
+	for _, r := range ranges {
+		for _, bm := range r.Blobs {
+			rangeBlobs[bm.BlobID] = bm
+			rangeBlobList = append(rangeBlobList, bm)
+			stats.InputBytes += bm.Length
+		}
+	}
+
+	stats.InputBlobs = len(rangeBlobList)
+	stats.Partitions = opt.Partitions
+
+	if stats.Partitions == 0 {
+		stats.Partitions = partitionsForInput(stats.InputBytes, opt.MaxEntriesPerPartition)
+	}
+
+	return stats, rangeBlobs, rangeBlobList
+}
+
+// entriesNotNewerThan returns the entries of the given index blobs that are not newer than the watermark.
+func (m *ManagerV1) entriesNotNewerThan(ctx context.Context, blobs []blob.Metadata, watermark time.Time) (index.Builder, error) {
+	result := index.Builder{}
+
+	for _, bm := range blobs {
+		if err := addIndexBlobsToBuilder(ctx, m.enc, func(i index.Info) {
+			if !i.Timestamp().After(watermark) {
+				result.Add(i)
+			}
+		}, bm.BlobID); err != nil {
+			return nil, errors.Wrapf(err, "error reading later index blob %v", bm.BlobID)
+		}
+	}
+
+	return result, nil
 }
 
 // partitionsForInput estimates the number of partitions so that each one holds about maxEntriesPerPartition entries.
@@ -307,7 +337,7 @@ func (s *mergeSpool) appendChunk(partition int, b index.Builder) error {
 		return errors.Wrap(err, "unable to encode spool chunk")
 	}
 
-	f, err := os.OpenFile(s.partitionFile(partition), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) //nolint:gosec,mnd
+	f, err := os.OpenFile(s.partitionFile(partition), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600) //nolint:mnd
 	if err != nil {
 		return errors.Wrap(err, "unable to open spool file")
 	}
@@ -330,7 +360,7 @@ func (s *mergeSpool) appendChunk(partition int, b index.Builder) error {
 
 // iteratePartition calls cb for every spooled entry of the partition.
 func (s *mergeSpool) iteratePartition(partition int, cb func(index.Info)) error {
-	f, err := os.Open(s.partitionFile(partition)) //nolint:gosec
+	f, err := os.Open(s.partitionFile(partition))
 	if os.IsNotExist(err) {
 		return nil
 	}
@@ -403,45 +433,8 @@ func (m *ManagerV1) spoolByPartition(ctx context.Context, sp *mergeSpool, blobs 
 
 // mergePartitions picks the winner of every content, drops the deleted ones below the watermark
 // and writes the result into encoded index shard files.
-func mergePartitions(sp *mergeSpool, stats *MergeRangeStats, laterOld index.Builder, watermark time.Time, opt MergeRangeOptions, progress func(string, ...any)) ([]string, error) {
-	var (
-		shardFiles []string
-		output     = index.Builder{}
-	)
-
-	flushOutput := func() error {
-		if len(output) == 0 {
-			return nil
-		}
-
-		shards, cleanup, err := output.BuildShards(sp.indexVersion, true, DefaultIndexShardSize)
-		if err != nil {
-			return errors.Wrap(err, "unable to build index shards")
-		}
-
-		defer cleanup()
-
-		for _, shard := range shards {
-			stats.OutputBytes += int64(shard.Length())
-			stats.OutputShards++
-
-			if opt.DryRun {
-				continue
-			}
-
-			fileName := filepath.Join(sp.dir, fmt.Sprintf("out%05d.idx", len(shardFiles)))
-
-			if err := writeFile(fileName, shard); err != nil {
-				return err
-			}
-
-			shardFiles = append(shardFiles, fileName)
-		}
-
-		output = index.Builder{}
-
-		return nil
-	}
+func mergePartitions(sp *mergeSpool, stats *MergeRangeStats, laterOld index.Builder, watermark time.Time, opt MergeRangeOptions) ([]string, error) {
+	out := &mergeOutput{dir: sp.dir, indexVersion: sp.indexVersion, stats: stats, dryRun: opt.DryRun, entries: index.Builder{}}
 
 	for partition := range sp.partitions {
 		partitionBuilder := index.Builder{}
@@ -452,66 +445,127 @@ func mergePartitions(sp *mergeSpool, stats *MergeRangeStats, laterOld index.Buil
 
 		os.Remove(sp.partitionFile(partition)) //nolint:errcheck
 
-		for contentID, winner := range partitionBuilder {
+		for _, winner := range partitionBuilder {
 			stats.UniqueContents++
 
-			if winner.Deleted {
-				if winner.Timestamp().After(watermark) {
-					stats.KeptDeletedRecent++
-				} else if laterEntry, ok := laterOld[contentID]; ok && !index.InfoGreaterThan(&laterEntry, &winner) {
-					stats.KeptDeletedGuard++
-				} else {
-					stats.DroppedDeleted++
-					continue
-				}
-			}
+			if keepMergedEntry(winner, laterOld, watermark, stats) {
+				out.entries.Add(winner)
 
-			output.Add(winner)
-			stats.OutputEntries++
+				stats.OutputEntries++
+			}
 		}
 
-		if len(output) >= opt.MaxEntriesPerPartition {
-			if err := flushOutput(); err != nil {
+		if len(out.entries) >= opt.MaxEntriesPerPartition {
+			if err := out.flush(); err != nil {
 				return nil, err
 			}
 		}
 
 		if (partition+1)%16 == 0 || partition+1 == sp.partitions {
-			progress("partition %v/%v done: %v unique contents so far, %v dropped, %v kept",
+			opt.Progress("partition %v/%v done: %v unique contents so far, %v dropped, %v kept",
 				partition+1, sp.partitions, stats.UniqueContents, stats.DroppedDeleted, stats.OutputEntries)
 		}
 	}
 
-	if err := flushOutput(); err != nil {
+	return out.finish()
+}
+
+// keepMergedEntry decides whether the winning entry of a content goes into the merged checkpoint.
+func keepMergedEntry(winner index.Info, laterOld index.Builder, watermark time.Time, stats *MergeRangeStats) bool {
+	if !winner.Deleted {
+		return true
+	}
+
+	if winner.Timestamp().After(watermark) {
+		stats.KeptDeletedRecent++
+		return true
+	}
+
+	// an older entry in a later epoch would become visible if the deleted entry was dropped
+	if laterEntry, ok := laterOld[winner.ContentID]; ok && !index.InfoGreaterThan(&laterEntry, &winner) {
+		stats.KeptDeletedGuard++
+		return true
+	}
+
+	stats.DroppedDeleted++
+
+	return false
+}
+
+// mergeOutput collects the merged entries and writes them into encoded index shard files.
+type mergeOutput struct {
+	dir          string
+	indexVersion int
+	stats        *MergeRangeStats
+	dryRun       bool
+
+	entries    index.Builder
+	shardFiles []string
+}
+
+func (o *mergeOutput) flush() error {
+	if len(o.entries) == 0 {
+		return nil
+	}
+
+	shards, cleanup, err := o.entries.BuildShards(o.indexVersion, true, DefaultIndexShardSize)
+	if err != nil {
+		return errors.Wrap(err, "unable to build index shards")
+	}
+
+	defer cleanup()
+
+	for _, shard := range shards {
+		if err := o.writeShard(shard); err != nil {
+			return err
+		}
+	}
+
+	o.entries = index.Builder{}
+
+	return nil
+}
+
+func (o *mergeOutput) writeShard(data gather.Bytes) error {
+	o.stats.OutputBytes += int64(data.Length())
+	o.stats.OutputShards++
+
+	if o.dryRun {
+		return nil
+	}
+
+	fileName := filepath.Join(o.dir, fmt.Sprintf("out%05d.idx", len(o.shardFiles)))
+
+	if err := writeFile(fileName, data); err != nil {
+		return err
+	}
+
+	o.shardFiles = append(o.shardFiles, fileName)
+
+	return nil
+}
+
+// finish writes the remaining entries and returns the shard files.
+func (o *mergeOutput) finish() ([]string, error) {
+	if err := o.flush(); err != nil {
 		return nil, err
 	}
 
-	if stats.OutputShards == 0 {
+	if o.stats.OutputShards == 0 {
 		// everything was dropped: an empty checkpoint still has to replace the chain
-		return writeEmptyShard(sp, stats, opt.DryRun)
+		var buf gather.WriteBuffer
+		defer buf.Close()
+
+		if err := (index.Builder{}).Build(&buf, o.indexVersion); err != nil {
+			return nil, errors.Wrap(err, "unable to build empty index")
+		}
+
+		if err := o.writeShard(buf.Bytes()); err != nil {
+			return nil, err
+		}
 	}
 
-	return shardFiles, nil
-}
-
-func writeEmptyShard(sp *mergeSpool, stats *MergeRangeStats, dryRun bool) ([]string, error) {
-	var buf gather.WriteBuffer
-	defer buf.Close()
-
-	if err := (index.Builder{}).Build(&buf, sp.indexVersion); err != nil {
-		return nil, errors.Wrap(err, "unable to build empty index")
-	}
-
-	stats.OutputBytes += int64(buf.Length())
-	stats.OutputShards++
-
-	if dryRun {
-		return nil, nil
-	}
-
-	fileName := filepath.Join(sp.dir, "out-empty.idx")
-
-	return []string{fileName}, writeFile(fileName, buf.Bytes())
+	return o.shardFiles, nil
 }
 
 func writeFile(fileName string, data gather.Bytes) error {
