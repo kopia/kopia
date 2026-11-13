@@ -80,27 +80,21 @@ func (s *srvMaintenance) refresh(ctx context.Context, notify bool) {
 		defer s.srv.refreshScheduler("maintenance schedule changed")
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err := s.refreshLocked(ctx); err != nil {
-		userLog(ctx).Debugw("unable to refresh maintenance manager", "err", err)
-	}
-}
-
-func (s *srvMaintenance) refreshLocked(ctx context.Context) error {
+	// read the schedule without holding s.mu, which the scheduler needs while holding the server lock.
 	nmt, err := maintenance.TimeToAttemptNextMaintenance(ctx, s.dr)
 	if err != nil {
-		return errors.Wrap(err, "unable to get next maintenance time")
+		userLog(ctx).Debugw("unable to refresh maintenance manager", "err", errors.Wrap(err, "unable to get next maintenance time"))
+		return
 	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	if nmt.Before(s.nextMaintenanceNoEarlierThan) {
 		nmt = s.nextMaintenanceNoEarlierThan
 	}
 
 	s.cachedNextMaintenanceTime = nmt
-
-	return nil
 }
 
 func (s *srvMaintenance) nextMaintenanceTime() time.Time {
