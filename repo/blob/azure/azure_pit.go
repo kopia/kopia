@@ -2,7 +2,6 @@ package azure
 
 import (
 	"context"
-	"sort"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/storage/azblob"
@@ -69,8 +68,6 @@ func (az *azPointInTimeStorage) GetBlob(ctx context.Context, blobID blob.ID, off
 
 // newestAtUnlessDeleted returns the last version in the list older than the PIT.
 func newestAtUnlessDeleted(vs []versionMetadata, t time.Time) (v versionMetadata, found bool) {
-	sortVersions(vs)
-
 	vs = getOlderThan(vs, t)
 
 	if len(vs) == 0 {
@@ -115,17 +112,6 @@ func getOlderThan(vs []versionMetadata, t time.Time) []versionMetadata {
 	}
 
 	return vs
-}
-
-// sortVersions orders versions by Timestamp, with a delete marker after the versions it shares a Timestamp with.
-func sortVersions(vs []versionMetadata) {
-	sort.SliceStable(vs, func(i, j int) bool {
-		if !vs[i].Timestamp.Equal(vs[j].Timestamp) {
-			return vs[i].Timestamp.Before(vs[j].Timestamp)
-		}
-
-		return !vs[i].IsDeleteMarker && vs[j].IsDeleteMarker
-	})
 }
 
 // listBlobVersions returns a list of blob versions but the blob is deleted, it returns Azure's delete marker version but excludes
