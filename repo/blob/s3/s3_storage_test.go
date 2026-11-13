@@ -5,10 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -734,6 +738,77 @@ func testPutBlobWithInvalidRetention(t *testing.T, options Options, opts blob.Pu
 		st.PutBlob(ctx, blob.ID("abcdbbf4f0507d054ed5a80a5b65086f602b"), gather.FromSlice([]byte{}), opts))
 
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+}
+
+func TestCustomTransportReusesConnections(t *testing.T) {
+	t.Parallel()
+
+	const (
+		concurrency = 32
+		rounds      = 5
+	)
+
+	var (
+		newConns atomic.Int32
+		inFlight sync.WaitGroup
+	)
+
+	// each request waits until all requests of its round have arrived, so that
+	// every round needs exactly 'concurrency' connections at the same time.
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		inFlight.Done()
+		inFlight.Wait()
+		fmt.Fprint(w, "ok")
+	}))
+	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			newConns.Add(1)
+		}
+	}
+	server.Start()
+	t.Cleanup(server.Close)
+
+	transport, err := getCustomTransport(&Options{})
+	require.NoError(t, err)
+	t.Cleanup(transport.CloseIdleConnections)
+
+	client := &http.Client{Transport: transport}
+
+	for range rounds {
+		inFlight.Add(concurrency)
+
+		errs := make(chan error, concurrency)
+
+		for range concurrency {
+			go func() {
+				errs <- getAndDiscard(testlogging.Context(t), client, server.URL)
+			}()
+		}
+
+		for range concurrency {
+			require.NoError(t, <-errs)
+		}
+	}
+
+	require.EqualValues(t, concurrency, newConns.Load(), "connections must be reused between rounds")
+}
+
+func getAndDiscard(ctx context.Context, client *http.Client, url string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+	if err != nil {
+		return err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close() //nolint:errcheck
+
+	_, err = io.Copy(io.Discard, resp.Body)
+
+	return err
 }
 
 func TestCustomTransportNoSSLVerify(t *testing.T) {
