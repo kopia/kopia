@@ -79,7 +79,15 @@ type ignoreDirectory struct {
 	parentContext *ignoreContext
 	policyTree    *policy.Tree
 
+	skippedCacheDirectory bool
+
 	fs.Directory
+}
+
+// IsSkippedCacheDirectory returns true if the directory is an ignorefs wrapper whose contents were hidden because it is a cache directory.
+func IsSkippedCacheDirectory(d fs.Directory) bool {
+	id, ok := d.(*ignoreDirectory)
+	return ok && id.skippedCacheDirectory
 }
 
 func isCorrectCacheDirSignature(ctx context.Context, f fs.File) error {
@@ -184,6 +192,8 @@ func (i *ignoreDirIterator) Close() {
 
 func (d *ignoreDirectory) Iterate(ctx context.Context) (fs.DirectoryIterator, error) {
 	if d.skipCacheDirectory(ctx, d.relativePath, d.policyTree) {
+		d.skippedCacheDirectory = true
+
 		return fs.StaticIterator(nil, nil), nil
 	}
 
@@ -244,6 +254,7 @@ func (d *ignoreDirectory) maybeWrappedChildEntry(ctx context.Context, ic *ignore
 		id.relativePath = s
 		id.parentContext = ic
 		id.policyTree = d.policyTree.Child(e.Name())
+		id.skippedCacheDirectory = false
 		id.Directory = dir
 
 		return id, true
@@ -474,7 +485,12 @@ func New(dir fs.Directory, policyTree *policy.Tree, options ...Option) fs.Direct
 		opt(rootContext)
 	}
 
-	return &ignoreDirectory{".", rootContext, policyTree, dir}
+	return &ignoreDirectory{
+		relativePath:  ".",
+		parentContext: rootContext,
+		policyTree:    policyTree,
+		Directory:     dir,
+	}
 }
 
 var _ fs.Directory = &ignoreDirectory{}

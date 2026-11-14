@@ -18,6 +18,15 @@ type DirManifestBuilder struct {
 	entries []*snapshot.DirEntry
 }
 
+// IsEmpty returns true if no entries or failed entries have been added to the builder.
+func (b *DirManifestBuilder) IsEmpty() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return len(b.entries) == 0 && b.summary.FatalErrorCount == 0 &&
+		b.summary.IgnoredErrorCount == 0 && len(b.summary.FailedEntries) == 0
+}
+
 // Clone clones the current state of dirManifestBuilder.
 func (b *DirManifestBuilder) Clone() *DirManifestBuilder {
 	b.mu.Lock()

@@ -104,3 +104,25 @@ The following table provides some example rules related to our [example](#kopiai
 | `[a-z]*tmp.db`		| Matches files beginning with characters between `a` and `z`, followed by zero or multiple characters, ending with `tmp.db`	| thesis/abtmp.db </br> thesis/atmp.db </br> thesis/logs/tmp.db	| 0 directories, 3 files				|
 
 >NOTE Make sure that you have tested your `.kopiaignore` file and the resulting snapshot for correctness. If a file or folder is missing, you will need to adjust the rules to your needs.
+
+### Skipping Empty Directories
+
+By default, `Kopia` keeps directories in a snapshot even when all of their contents are excluded by ignore rules. This is consistent with backing up the directory structure, but rules that only include a few file types, such as:
+
+```shell
+*
+!*/
+!*.txt
+```
+
+can leave many empty directories in the snapshot. To omit directories that are empty after the ignore rules are applied, enable the `skipEmptyDirs` files policy option:
+
+```shell
+kopia policy set <path> --skip-empty-dirs=true
+```
+
+When enabled, a directory is skipped if it contains no included entries, including directories that only contain other skipped empty directories. The snapshot root itself is always kept. Folder actions run before this decision is made, so included content created by a `before-folder` action is kept. Directories containing read errors are kept so those errors are still reported. The option is disabled by default.
+
+Directories that are already empty on disk are also omitted and will not be recreated on restore. `kopia snapshot estimate` does not account for this option, so estimated directory counts may include directories that end up omitted. `kopia snapshot migrate` applies it only when `--apply-ignore-rules` is used.
+
+The setting can be overridden per directory with `kopia policy set <path> --skip-empty-dirs=false`, or reset to the inherited value with `kopia policy set <path> --skip-empty-dirs=inherit`.
