@@ -150,7 +150,7 @@ func TestBlobVersionsSequence(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
-	t.Logf("pitSt: %v, %#v", st, st)
+	t.Logf("pitSt: %T", st)
 
 	pitSt, isPIT := st.(*azPointInTimeStorage)
 	require.True(t, isPIT, "is not point-in-time store")
@@ -175,6 +175,7 @@ func TestBlobVersionsSequence(t *testing.T) {
 	listBlobVersions(ctx, t, blobID, pitSt)
 
 	t.Log("--- delete blob")
+	time.Sleep(2 * time.Second)
 
 	err = st.DeleteBlob(ctx, blobID)
 	require.NoError(t, err)
@@ -190,6 +191,7 @@ func TestBlobVersionsSequence(t *testing.T) {
 	listBlobVersions(ctx, t, blobID, pitSt)
 
 	t.Log("--- delete blob")
+	time.Sleep(2 * time.Second)
 
 	err = st.DeleteBlob(ctx, blobID)
 	require.NoError(t, err)
