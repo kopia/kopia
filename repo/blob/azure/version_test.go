@@ -196,14 +196,31 @@ func TestBlobVersionsSequence(t *testing.T) {
 	err = st.DeleteBlob(ctx, blobID)
 	require.NoError(t, err)
 
+	vms := listBlobVersions(ctx, t, blobID, pitSt)
+	require.Len(t, vms, 4)
+
+	bc, err := pitSt.service.ServiceClient().
+		NewContainerClient(pitSt.container).
+		NewBlobClient(pitSt.getObjectNameString(blobID)).
+		WithVersionID(vms[2].Version)
+	require.NoError(t, err)
+
+	_, err = bc.Delete(ctx, nil)
+	require.NoError(t, err)
+
 	listBlobVersions(ctx, t, blobID, pitSt)
 }
 
-func listBlobVersions(ctx context.Context, tb testing.TB, prefix blob.ID, pit *azPointInTimeStorage) {
+func listBlobVersions(ctx context.Context, tb testing.TB, prefix blob.ID, pit *azPointInTimeStorage) []versionMetadata {
 	tb.Helper()
 
+	var vms []versionMetadata
+
 	pit.listBlobVersions(ctx, prefix, func(vm versionMetadata) error {
+		vms = append(vms, vm)
 		tb.Logf("blob version: %v | %v | %q", vm.IsDeleteMarker, vm.Timestamp, vm.Version)
 		return nil
 	})
+
+	return vms
 }
