@@ -22,7 +22,6 @@ import (
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/timestampmeta"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/blob/retrying"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -388,7 +387,9 @@ func New(ctx context.Context, opt *Options, isCreate bool) (blob.Storage, error)
 		return nil, err
 	}
 
-	az := retrying.NewWrapper(st)
+	// az := retrying.NewWrapper(st)
+
+	az := st
 
 	// verify Azure connection is functional by listing blobs in a bucket, which will fail if the container
 	// does not exist. We list with a prefix that will not exist, to avoid iterating through any objects.
