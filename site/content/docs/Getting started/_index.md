@@ -85,7 +85,7 @@ To create a repository, use one of the [subcommands](../reference/command-line/c
 As an example, if you want to create a repository in a locally-mounted or network-attached filesystem, you would run the following command:
 
 ```shell
-$ kopia repository create filesystem --path /tmp/my-repository
+kopia repository create filesystem --path /tmp/my-repository
 ```
 You can read more about all the supported `kopia repository create` commands for different repositories from the [repositories page](../repositories).
 
@@ -100,7 +100,7 @@ To connect to a repository after you have created it or to connect to an existin
 For example:
 
 ```shell
-$ kopia repository connect filesystem --path /tmp/my-repository
+kopia repository connect filesystem --path /tmp/my-repository
 ```
 
 #### Creating Initial Snapshot
@@ -108,7 +108,7 @@ $ kopia repository connect filesystem --path /tmp/my-repository
 Let's create our first snapshot. That's as simple as pointing `kopia snapshot create` to the directory that contains the files/directories you want to backup, but note you need to make sure to be connected to a repository first (see above). We will create the snapshot of the source code of Kopia itself:
 
 ```shell
-$ kopia snapshot create $HOME/Projects/github.com/kopia/kopia
+kopia snapshot create $HOME/Projects/github.com/kopia/kopia
 ```
 
 After completion, Kopia prints the identifier of the root of the snapshot, which starts with `k`:
@@ -123,7 +123,7 @@ uploaded snapshot 9a622e33ab134ef440f76ed755f79c2f
 Let's take the snapshot of the same files/directories again. To do so, just rerun the same `kopia snapshot create` command...
 
 ```shell
-$ kopia snapshot create $HOME/Projects/github.com/kopia/kopia
+kopia snapshot create $HOME/Projects/github.com/kopia/kopia
 ```
 ...and Kopia will rescan the file/directories and [only upload the file content that has changed](../features/#backup-files-and-directories-using-snapshots). Assuming we did not make any changes to the files/directories, the snapshot root will be identical, because all object identifiers in Kopia are derived from contents of the underlying data:
 
@@ -186,13 +186,13 @@ For each file/directory in a directory, Kopia stores its name, size, attributes 
 To examine contents of files, use `kopia show` while passing the object identifier of the file or directory you want to examine:
 
 ```shell
-$ kopia show 8c9e27bed2f577b31b07b07da4bdfffb
+kopia show 8c9e27bed2f577b31b07b07da4bdfffb
 ```
 
 Directories are stored as JSON objects, so it's possible to see their contents as if they were regular files using `kopia content show` along with the the directory's object identifier (the `-j` option displays pretty-printed JSON):
 
 ```shell
-$ kopia content show -j kb9a8420bf6b8ea280d6637ad1adbd4c5
+kopia content show -j kb9a8420bf6b8ea280d6637ad1adbd4c5
 ```
 
 This command returns:
@@ -242,9 +242,9 @@ This command returns:
 We can [mount](../mounting/) the contents of a snapshot as a local filesystem and examine it using regular file commands to examine the contents using the `kopia mount` command:
 
 ```shell
-$ mkdir /tmp/mnt
-$ kopia mount kb9a8420bf6b8ea280d6637ad1adbd4c5 /tmp/mnt &
-$ ls -l /tmp/mnt/
+mkdir /tmp/mnt
+kopia mount kb9a8420bf6b8ea280d6637ad1adbd4c5 /tmp/mnt &
+ls -l /tmp/mnt/
 total 119992
 -rw-r--r--  1 jarek  staff      1101 May  9 22:33 CONTRIBUTING.md
 -rw-r--r--  1 jarek  staff     11357 May  9 22:33 LICENSE
@@ -262,7 +262,7 @@ drwxr-xr-x  1 jarek  staff  13682567 Jun 22 18:57 node_modules
 drwxr-xr-x  1 jarek  staff   7104710 Jun 22 19:01 public
 drwxr-xr-x  1 jarek  staff    904965 Jun 22 20:13 resources
 drwxr-xr-x  1 jarek  staff  38701570 Jun  1 20:11 themes
-$ umount /tmp/mnt
+umount /tmp/mnt
 ```
 Mounting is currently the recommended way of restoring files/directories from snapshots. However, you can also use the [`kopia snapshot restore` command](../reference/command-line/common/snapshot-restore/) to restore files/directories from snapshots.
 
@@ -436,7 +436,7 @@ pfbaba06c70b6aed2c0ed3aa9c709dc47     22823458 2019-06-22 20:04:50 PDT
 To list individual contents stored in a repository, use [`kopia content list`](../reference/command-line/advanced/content-list/):
 
 ```shell
-$ kopia content list
+kopia content list
 00020136867452b90a3c65a029e7d08c
 00029ee689919a13dbf2d588c0986530
 00075db1b05e83ba529bc0e06de76ca0
@@ -486,7 +486,7 @@ a1646120c7a2450cd9e77fd98369d260        761 2019-06-22 20:21:43 PDT type:snapsho
 To examine individual manifests, use [`kopia manifest show`](../reference/command-line/advanced/manifest-show/):
 
 ```shell
-$ kopia manifest show 2d73b31af65d4ac7196641eeea9c475c
+kopia manifest show 2d73b31af65d4ac7196641eeea9c475c
 ```
 ```json
 // id: 2d73b31af65d4ac7196641eeea9c475c

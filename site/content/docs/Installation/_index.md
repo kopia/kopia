@@ -59,8 +59,8 @@ On Windows, Kopia CLI is available as a [Scoop](https://scoop.sh) package, which
 Using Scoop, installing Kopia is as easy as:
 
 ```shell 
-> scoop bucket add kopia https://github.com/kopia/scoop-bucket.git
-> scoop install kopia
+scoop bucket add kopia https://github.com/kopia/scoop-bucket.git
+scoop install kopia
 ```
 
 See the [Scoop Website](https://scoop.sh) for more information.
@@ -68,13 +68,13 @@ See the [Scoop Website](https://scoop.sh) for more information.
 Alternatively, to install the latest unreleased version of Kopia use the following bucket instead:
 
 ```shell
-> scoop bucket add kopia https://github.com/kopia/scoop-test-builds.git
+scoop bucket add kopia https://github.com/kopia/scoop-test-builds.git
 ```
 
 You can also install Kopia CLI with `winget`. `winget` comes preinstalled with Windows 11 (21H2 and later), and is also available on Windows 10 via [the Microsoft Store](https://apps.microsoft.com/detail/9nblggh4nns1).
 
 ```shell
-> winget install Kopia.KopiaCLI
+winget install Kopia.KopiaCLI
 ```
 
 ### Windows GUI installation
@@ -84,7 +84,7 @@ The installer of `KopiaUI` is available on the [releases page](https://github.co
 You can also install `KopiaUI` with `winget`. See the CLI installation above for `winget`.
 
 ```shell
-> winget install Kopia.KopiaUI
+winget install Kopia.KopiaUI
 ```
 
 ### macOS CLI using Homebrew
@@ -94,19 +94,19 @@ On macOS, you can use [Homebrew](https://brew.sh) to install and keep Kopia up-t
 To install:
 
 ```shell
-$ brew install kopia
+brew install kopia
 ```
 
 To upgrade Kopia:
 
 ```shell
-$ brew upgrade kopia
+brew upgrade kopia
 ```
 
 Alternatively, to install the latest unreleased version of Kopia use the following TAP instead:
 
 ```shell
-$ brew install kopia/test-builds/kopia
+brew install kopia/test-builds/kopia
 ```
 
 ### macOS GUI using Homebrew
@@ -116,13 +116,13 @@ On macOS, you can use [Homebrew](https://brew.sh) to install and keep Kopia up-t
 To install:
 
 ```shell
-$ brew install kopiaui
+brew install kopiaui
 ```
 
 To upgrade Kopia:
 
 ```shell
-$ brew upgrade kopiaui
+brew upgrade kopiaui
 ```
 
 ### macOS GUI installer
@@ -277,8 +277,8 @@ In order to run Kopia in a docker container, you must:
 Invocation of `kopia/kopia` in a container will be similar to the following minimal example: 
 
 ```shell
-$ docker pull kopia/kopia:latest
-$ docker run -e KOPIA_PASSWORD \
+docker pull kopia/kopia:latest
+docker run -e KOPIA_PASSWORD \
     -v /path/to/config/dir:/app/config \
     -v /path/to/cache/dir:/app/cache \
     -v /path/to/logs/dir:/app/logs \
@@ -336,13 +336,13 @@ When downloading from GitHub it's recommended to verify SHA256 checksum of the b
 
 ```shell
 # Import official signing key
-$ curl https://kopia.io/signing-key | gpg --import -
+curl https://kopia.io/signing-key | gpg --import -
 
 # Verify that file checksums are ok
-$ sha256sum --check checksums.txt
+sha256sum --check checksums.txt
 
 # Verify signature file
-$ gpg --verify checksums.txt.sig 
+gpg --verify checksums.txt.sig 
 gpg: assuming signed data in 'checksums.txt'
 gpg: Signature made Thu Apr 15 22:02:31 2021 PDT
 gpg:                using RSA key 7FB99DFD47809F0D5339D7D92273699AFD56A556
@@ -354,9 +354,9 @@ You need to make the download binary executable (Linux/macOS only) and move it t
 On Linux/macOS run:
 ```shell
 # make the file executable
-$ chmod u+x path/to/kopia
+chmod u+x path/to/kopia
 # move to a location in system path
-$ sudo mv path/to/kopia /usr/local/bin/kopia
+sudo mv path/to/kopia /usr/local/bin/kopia
 ```
 
 ### Compilation From Source
@@ -364,13 +364,13 @@ $ sudo mv path/to/kopia /usr/local/bin/kopia
 If you have [Go 1.16](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler and [git](https://git-scm.com/). You can simply run:
 
 ```shell
-$ go install github.com/kopia/kopia@latest
+go install github.com/kopia/kopia@latest
 ```
 
 The resulting binary will be available in `$HOME/go/bin`. Note that this will produce basic binary that has all the features except support for HTML-based UI. To build full binary, download the source from GitHub and run:
 
 ```shell
-$ make install
+make install
 ```
 
 Additional information about building Kopia from source is available at https://github.com/kopia/kopia/blob/master/BUILD.md
