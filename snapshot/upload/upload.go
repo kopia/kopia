@@ -501,11 +501,21 @@ func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath
 		return nil, err
 	}
 
-	return newDirEntryWithSummary(file, res.ObjectID, &fs.DirectorySummary{
+	de, err := newDirEntryWithSummary(file, res.ObjectID, &fs.DirectorySummary{
 		TotalFileCount: 1,
 		TotalFileSize:  res.FileSize,
 		MaxModTime:     res.ModTime,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	// use the exact number of bytes written — file.Size() may be stale when
+	// the file changed while being read; this matches the semantics of the
+	// multi-part concatenation path and of uploadFileData itself.
+	de.FileSize = res.FileSize
+
+	return de, nil
 }
 
 // checkpointRoot invokes checkpoints on the provided registry and if a checkpoint entry was generated,
