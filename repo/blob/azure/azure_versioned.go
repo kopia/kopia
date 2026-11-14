@@ -13,7 +13,7 @@ import (
 type versionMetadata struct {
 	blob.Metadata
 
-	// Version has the format of time.RFC3339Nano
+	// Version has the format of time.RFC3339Nano, it is empty for delete markers that Azure returns without a VersionID.
 	Version        string
 	IsDeleteMarker bool
 }
@@ -21,7 +21,10 @@ type versionMetadata struct {
 type versionMetadataCallback func(versionMetadata) error
 
 func (az *azPointInTimeStorage) getVersionedBlobMeta(it *azblobmodels.BlobItem) (*versionMetadata, error) {
-	if it.VersionID == nil {
+	isDeleteMarker := az.isAzureDeleteMarker(it)
+
+	// Azure no longer returns a VersionID for delete markers.
+	if it.VersionID == nil && !isDeleteMarker {
 		return nil, errors.New("versionID is nil. Versioning must be enabled on the container for PIT")
 	}
 
@@ -29,8 +32,8 @@ func (az *azPointInTimeStorage) getVersionedBlobMeta(it *azblobmodels.BlobItem) 
 
 	return &versionMetadata{
 		Metadata:       bm,
-		Version:        *it.VersionID,
-		IsDeleteMarker: az.isAzureDeleteMarker(it),
+		Version:        stringDefault(it.VersionID, ""),
+		IsDeleteMarker: isDeleteMarker,
 	}, nil
 }
 
