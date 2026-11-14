@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/fs/tarfs"
 	"github.com/kopia/kopia/fs/virtualfs"
 	"github.com/kopia/kopia/notification"
 	"github.com/kopia/kopia/notification/notifydata"
@@ -39,6 +41,7 @@ type commandSnapshotCreate struct {
 	snapshotCreateForceEnableActions      bool
 	snapshotCreateForceDisableActions     bool
 	snapshotCreateStdinFileName           string
+	snapshotCreateTarFile                 string
 	snapshotCreateCheckpointUploadLimitMB int64
 	snapshotCreateTags                    []string
 	flushPerSource                        bool
@@ -73,6 +76,7 @@ func (c *commandSnapshotCreate) setup(svc appServices, parent commandParent) {
 	cmd.Flag("force-enable-actions", "Enable snapshot actions even if globally disabled on this client").Hidden().BoolVar(&c.snapshotCreateForceEnableActions)
 	cmd.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().BoolVar(&c.snapshotCreateForceDisableActions)
 	cmd.Flag("stdin-file", "File path to be used for stdin data snapshot.").StringVar(&c.snapshotCreateStdinFileName)
+	cmd.Flag("tar-file", "Snapshot the contents of a tar archive (optionally gzip-compressed) as if it were the source directory. Use --tar-file=- to read the archive from stdin.").PlaceHolder("PATH").StringVar(&c.snapshotCreateTarFile)
 	cmd.Flag("tags", "Tags applied on the snapshot. Must be provided in the <key>:<value> format.").StringsVar(&c.snapshotCreateTags)
 	cmd.Flag("pin", "Create a pinned snapshot that will not expire automatically").StringsVar(&c.pins)
 	cmd.Flag("flush-per-source", "Flush writes at the end of each source").Hidden().BoolVar(&c.flushPerSource)
@@ -153,6 +157,11 @@ func (c *commandSnapshotCreate) run(ctx context.Context, rep repo.RepositoryWrit
 
 		if err := c.snapshotSingleSource(ctx, fsEntry, setManual, rep, u, sourceInfo, tags, &st); err != nil {
 			finalErrors = append(finalErrors, err.Error())
+		}
+
+		if fsEntry != nil {
+			// releases anything the source holds, such as the spool file behind --tar-file.
+			fsEntry.Close()
 		}
 	}
 
@@ -487,14 +496,26 @@ func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir st
 		}
 	}
 
-	if c.snapshotCreateStdinFileName != "" {
+	if c.snapshotCreateStdinFileName != "" && c.snapshotCreateTarFile != "" {
+		return nil, info, false, errors.New("--stdin-file and --tar-file cannot be used together")
+	}
+
+	switch {
+	case c.snapshotCreateTarFile != "":
+		fsEntry, err = c.tarFileEntry(ctx, absDir)
+		if err != nil {
+			return nil, info, false, err
+		}
+
+		setManual = true
+	case c.snapshotCreateStdinFileName != "":
 		// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
 		// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
 		fsEntry = virtualfs.NewStaticDirectory(absDir, []fs.Entry{
 			virtualfs.StreamingFileFromReader(c.snapshotCreateStdinFileName, io.NopCloser(c.svc.stdin())),
 		})
 		setManual = true
-	} else {
+	default:
 		fsEntry, err = getLocalFSEntry(ctx, absDir, opts)
 		if err != nil {
 			return nil, info, false, errors.Wrap(err, "unable to get local filesystem entry")
@@ -502,6 +523,30 @@ func (c *commandSnapshotCreate) getContentToSnapshot(ctx context.Context, dir st
 	}
 
 	return fsEntry, info, setManual, nil
+}
+
+// tarFileEntry exposes the archive named by --tar-file (or stdin for "-") as a
+// directory tree rooted at absDir, so its files are snapshotted individually.
+func (c *commandSnapshotCreate) tarFileEntry(ctx context.Context, absDir string) (fs.Entry, error) {
+	r := c.svc.stdin()
+
+	if c.snapshotCreateTarFile != "-" {
+		f, err := os.Open(c.snapshotCreateTarFile)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to open tar file")
+		}
+
+		defer f.Close() //nolint:errcheck
+
+		r = f
+	}
+
+	root, err := tarfs.NewDirectory(ctx, absDir, r)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to read tar file")
+	}
+
+	return root, nil
 }
 
 func parseFullSource(str, hostname, username string) (snapshot.SourceInfo, error) {
