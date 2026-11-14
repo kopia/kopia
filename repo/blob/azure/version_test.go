@@ -201,7 +201,7 @@ func listBlobVersions(ctx context.Context, tb testing.TB, prefix blob.ID, pit *a
 	tb.Helper()
 
 	pit.listBlobVersions(ctx, prefix, func(vm versionMetadata) error {
-		tb.Log("blob version:", vm.IsDeleteMarker, vm.Version, vm.Timestamp)
+		tb.Logf("blob version: %v | %v | %q", vm.IsDeleteMarker, vm.Timestamp, vm.Version)
 		return nil
 	})
 }
