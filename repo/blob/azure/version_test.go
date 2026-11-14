@@ -144,9 +144,11 @@ func TestGetBlobVersions(t *testing.T) {
 
 	now := time.Now().Add(time.Second) // ensure kopia.repository blob is included
 	opts.PointInTime = &now
+	newctx, cancel = context.WithCancel(ctx)
 	st, err = New(newctx, opts, false)
 
 	require.NoError(t, err)
+	cancel()
 
 	pitSt, isPIT := st.(*azPointInTimeStorage)
 	require.True(t, isPIT)
