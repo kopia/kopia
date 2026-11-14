@@ -111,7 +111,7 @@ func cleanupTestDataAndClose(tb testing.TB, st blob.Storage) {
 	require.NoError(tb, st.Close(ctx))
 }
 
-func TestGetBlobVersions(t *testing.T) {
+func TestBlobVersionsSequence(t *testing.T) {
 	t.Parallel()
 	testutil.ProviderTest(t)
 
