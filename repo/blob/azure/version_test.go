@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/format"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -125,18 +126,27 @@ func TestGetBlobVersions(t *testing.T) {
 	// use context that gets canceled after opening storage to ensure it's not used beyond New().
 	newctx, cancel := context.WithCancel(ctx)
 
-	now := time.Now()
 	opts := &Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
 		Prefix:         storagePrefixForTest(),
-		PointInTime:    &now,
 	}
 	st, err := New(newctx, opts, false)
 	require.NoError(t, err)
 
 	cancel()
+
+	// required for PIT versioning check
+	err = st.PutBlob(ctx, format.KopiaRepositoryBlobID, gather.FromSlice([]byte(nil)), blob.PutOptions{})
+	require.NoError(t, err)
+	require.NoError(t, st.Close(ctx))
+
+	now := time.Now()
+	opts.PointInTime = &now
+	st, err = New(newctx, opts, false)
+
+	require.NoError(t, err)
 
 	pitSt, isPIT := st.(*azPointInTimeStorage)
 	require.True(t, isPIT)
