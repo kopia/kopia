@@ -11,6 +11,8 @@ repository storage credentials.
 
 In repository server mode, each user is limited to seeing their own snapshots and policy manifest without being able to access those from another user account. 
 
+>NOTE: IMPORTANT: The server mode comes with an important caveat: **the backup server can decrypt all backups** since the encryption key of the repository is stored on the backup server itself, contrary with all other modes where the key is stored only on the client. Hence, it should never be used if you don't trust the backup server, or if you care about the fact that the backup server may have vulnerabilities that could be exploited by malicious actors that will then be able to read all your data. The server mode is rather useful for companies that want to backup their employee computers while benefiting from deduplication between users, and want to protect employees from reading data encrypted by other employees. But in this setting the company can access in clear the data of all employees.
+
 >NOTE: Only snapshot and policy manifests are access-controlled, not the underlying contents. If two users share the same file, it will be backed using identical content IDs. The consequence is that if a third user can guess the content ID of files in the repository, they can access the files. Because content IDs are one-way salted hashes of contents, it should be impossible to guess content ID without possessing original content.
 
 ## Starting Repository Server
