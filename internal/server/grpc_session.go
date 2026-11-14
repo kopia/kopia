@@ -120,8 +120,24 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return err
 	}
 
-	//nolint:wrapcheck
-	return repo.DirectWriteSession(ctx, dr, opt, func(ctx context.Context, dw repo.DirectRepositoryWriter) error {
+	streamCtx := ctx
+
+	// The stream context is canceled as soon as the client disconnects, but the write session is
+	// flushed after that. Flushing with a canceled context fails and silently discards every content
+	// and manifest the client wrote since its last explicit flush, so flush with a context that is
+	// not canceled when the stream ends.
+	err = repo.DirectWriteSession(context.WithoutCancel(ctx), dr, opt, func(writerCtx context.Context, dw repo.DirectRepositoryWriter) error {
+		// request handlers are still canceled when the stream ends.
+		ctx, cancel := context.WithCancel(writerCtx)
+		defer cancel()
+
+		stopCancelOnStreamEnd := context.AfterFunc(streamCtx, cancel)
+		defer stopCancelOnStreamEnd()
+
+		// wait for requests in flight before the session is flushed.
+		var handlers sync.WaitGroup
+		defer handlers.Wait()
+
 		// channel to which workers will be sending errors, only holds 1 slot and sends are non-blocking.
 		lastErr := make(chan error, 1)
 
@@ -145,7 +161,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 				return errors.Wrap(err, "unable to acquire semaphore")
 			}
 
-			go func() {
+			handlers.Go(func() {
 				defer s.sem.Release(1)
 
 				s.handleSessionRequest(ctx, dw, authz, usernameAtHostname, req, func(resp *grpcapi.SessionResponse) {
@@ -156,11 +172,18 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 						}
 					}
 				})
-			}()
+			})
 		}
 
 		return nil
 	})
+	if err != nil && streamCtx.Err() != nil {
+		// the client is gone and will never see this error.
+		userLog(ctx).Errorf("error finishing session for user %q from %v: %v", usernameAtHostname, p.Addr, err)
+	}
+
+	//nolint:wrapcheck
+	return err
 }
 
 var tracer = otel.Tracer("kopia/grpc")

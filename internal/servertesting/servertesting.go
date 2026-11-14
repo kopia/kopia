@@ -43,6 +43,16 @@ func StartServer(t *testing.T, env *repotesting.Environment, tls bool) *repo.API
 func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Environment, tls bool) *repo.APIServerInfo {
 	t.Helper()
 
+	asi, _ := StartServerWithHTTPServer(ctx, t, env, tls)
+
+	return asi
+}
+
+// StartServerWithHTTPServer starts a test server with a given root context and returns APIServerInfo
+// together with the underlying HTTP server, so tests can manipulate client connections.
+func StartServerWithHTTPServer(ctx context.Context, t *testing.T, env *repotesting.Environment, tls bool) (*repo.APIServerInfo, *httptest.Server) {
+	t.Helper()
+
 	s, err := server.New(ctx, &server.Options{
 		ConfigFile:      env.ConfigFile(),
 		PasswordPersist: passwordpersist.File(),
@@ -86,7 +96,7 @@ func StartServerContext(ctx context.Context, t *testing.T, env *repotesting.Envi
 
 	t.Cleanup(hs.Close)
 
-	return asi
+	return asi, hs
 }
 
 // ConnectAndOpenAPIServer creates temporary config file and to and opens API server for testing.

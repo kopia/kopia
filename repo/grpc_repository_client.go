@@ -3,11 +3,13 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/url"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -48,9 +50,29 @@ const (
 
 	// number of manifests to fetch in a single batch.
 	defaultFindManifestsPageSize = 1000
+
+	// maximum number of content IDs written since the last flush that a write session tracks
+	// so that it can resume on a new inner session after the previous one broke.
+	// Beyond this number the write session cannot resume and fails as before.
+	maxUnflushedWritesToTrack = 100_000
+
+	// number of attempts to find contents written on a broken inner session in the repository,
+	// with exponential backoff (about one minute in total). The server flushes a broken session
+	// only once it notices that the connection is gone.
+	resumeVerificationAttempts = 14
 )
 
-var errShouldRetry = errors.New("should retry")
+var (
+	errShouldRetry = errors.New("should retry")
+
+	// errRequestNotSent is returned when a request could not be sent because the stream
+	// had already ended, so it is safe to send it again on a new session.
+	errRequestNotSent = errors.New("request not sent")
+
+	// errContentsNotDurable is returned when contents written on a broken inner session
+	// are not (yet) visible in the repository.
+	errContentsNotDurable = errors.New("contents written before the session broke are not in the repository")
+)
 
 func errNoSessionResponse() error {
 	return errors.New("did not receive response from the server")
@@ -75,6 +97,19 @@ type grpcRepositoryClient struct {
 	// how many times we tried to establish inner session
 	// +checklocks:innerSessionMutex
 	innerSessionAttemptCount int
+
+	// set when a write session lost its inner session and could not resume safely,
+	// all further requests fail with this error.
+	// +checklocks:innerSessionMutex
+	writeSessionLostErr error
+
+	// set when a write session discarded a broken inner session and the next one must be
+	// verified before use.
+	// +checklocks:innerSessionMutex
+	needsResumeVerification bool
+
+	// what the write session wrote since its last successful flush.
+	writes writeTracker
 
 	asyncWritesWG *errgroup.Group
 
@@ -101,6 +136,10 @@ type grpcInnerSession struct {
 
 	cli        apipb.KopiaRepository_SessionClient
 	repoParams *apipb.RepositoryParameters
+
+	// set when the stream is known to be unusable, because the read loop terminated
+	// or a request could not be sent.
+	broken atomic.Bool
 
 	wg sync.WaitGroup
 }
@@ -130,6 +169,8 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 
 	log(ctx).Debugf("GRPC stream read loop terminated with %v", err)
 
+	r.broken.Store(true)
+
 	// when a read loop error occurs, close all pending client channels with an artificial error.
 	r.activeRequestsMutex.Lock()
 	defer r.activeRequestsMutex.Unlock()
@@ -142,8 +183,23 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 }
 
 // sendRequest sends the provided request to the server and returns a channel on which the
-// caller can receive session response(s).
+// caller can receive session response(s). If the request cannot be sent, the channel
+// receives a STREAM_BROKEN error response.
 func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRequest) chan *apipb.SessionResponse {
+	ch, err := r.trySendRequest(ctx, req)
+	if err != nil {
+		ch = make(chan *apipb.SessionResponse, 1)
+		r.sendStreamBrokenAndClose(ch, err)
+	}
+
+	return ch
+}
+
+// trySendRequest sends the provided request to the server and returns a channel on which the
+// caller can receive session response(s). If the request cannot be sent, it returns an error
+// wrapping errRequestNotSent and the session is marked as broken. gRPC reports a send error only
+// for a stream that has already ended, so the server did not process the request on this session.
+func (r *grpcInnerSession) trySendRequest(ctx context.Context, req *apipb.SessionRequest) (chan *apipb.SessionResponse, error) {
 	_ = ctx
 
 	// allocate request ID and create channel to which we're forwarding the responses.
@@ -171,17 +227,17 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 	r.sendMutex.Lock()
 	defer r.sendMutex.Unlock()
 
-	// try sending the request and if unable to do so, stuff an error response to the channel
-	// to simplify client code.
 	if err := r.cli.Send(req); err != nil {
+		r.broken.Store(true)
+
 		r.activeRequestsMutex.Lock()
-		ch2 := r.getAndDeleteResponseChannelLocked(rid)
+		r.getAndDeleteResponseChannelLocked(rid)
 		r.activeRequestsMutex.Unlock()
 
-		r.sendStreamBrokenAndClose(ch2, err)
+		return nil, fmt.Errorf("%w: %w", errRequestNotSent, err)
 	}
 
-	return ch
+	return ch, nil
 }
 
 // +checklocks:r.activeRequestsMutex
@@ -299,8 +355,14 @@ func decodeManifestEntryMetadata(md *apipb.ManifestEntryMetadata) *manifest.Entr
 }
 
 func (r *grpcRepositoryClient) PutManifest(ctx context.Context, labels map[string]string, payload any) (manifest.ID, error) {
-	return inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (manifest.ID, error) {
-		return sess.PutManifest(ctx, labels, payload)
+	// not idempotent: only resend when the server did not receive the request.
+	return inSessionWithResume(ctx, r, false, func(ctx context.Context, sess *grpcInnerSession) (manifest.ID, error) {
+		r.writes.beginManifestMutation()
+
+		id, err := sess.PutManifest(ctx, labels, payload)
+		r.writes.manifestMutationDone(err)
+
+		return id, err
 	})
 }
 
@@ -315,14 +377,19 @@ func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]st
 		return "", errors.Wrap(err, "unable to marshal JSON")
 	}
 
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	ch, err := r.trySendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_PutManifest{
 			PutManifest: &apipb.PutManifestRequest{
 				JsonData: v,
 				Labels:   labels,
 			},
 		},
-	}) {
+	})
+	if err != nil {
+		return "", err
+	}
+
+	for resp := range ch {
 		switch rr := resp.GetResponse().(type) {
 		case *apipb.SessionResponse_PutManifest:
 			return manifest.ID(rr.PutManifest.GetManifestId()), nil
@@ -373,21 +440,31 @@ func (r *grpcInnerSession) FindManifests(ctx context.Context, labels map[string]
 }
 
 func (r *grpcRepositoryClient) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	_, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (bool, error) {
-		return false, sess.DeleteManifest(ctx, id)
+	_, err := inSessionWithResume(ctx, r, false, func(ctx context.Context, sess *grpcInnerSession) (bool, error) {
+		r.writes.beginManifestMutation()
+
+		err := sess.DeleteManifest(ctx, id)
+		r.writes.manifestMutationDone(err)
+
+		return false, err
 	})
 
 	return err
 }
 
 func (r *grpcInnerSession) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
+	ch, err := r.trySendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_DeleteManifest{
 			DeleteManifest: &apipb.DeleteManifestRequest{
 				ManifestId: string(id),
 			},
 		},
-	}) {
+	})
+	if err != nil {
+		return err
+	}
+
+	for resp := range ch {
 		switch resp.GetResponse().(type) {
 		case *apipb.SessionResponse_DeleteManifest:
 			return nil
@@ -444,7 +521,16 @@ func (r *grpcInnerSession) PrefetchContents(ctx context.Context, contentIDs []co
 
 func (r *grpcRepositoryClient) ApplyRetentionPolicy(ctx context.Context, sourcePath string, reallyDelete bool) ([]manifest.ID, error) {
 	return inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) ([]manifest.ID, error) {
-		return sess.ApplyRetentionPolicy(ctx, sourcePath, reallyDelete)
+		if !reallyDelete {
+			return sess.ApplyRetentionPolicy(ctx, sourcePath, reallyDelete)
+		}
+
+		r.writes.beginManifestMutation()
+
+		ids, err := sess.ApplyRetentionPolicy(ctx, sourcePath, reallyDelete)
+		r.writes.manifestMutationDone(err)
+
+		return ids, err
 	})
 }
 
@@ -546,11 +632,16 @@ func (r *grpcRepositoryClient) Flush(ctx context.Context) error {
 		return errors.Wrap(err, "before flush")
 	}
 
-	if _, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (bool, error) {
+	epoch := r.writes.startFlush()
+
+	// flush is idempotent, so it can be resent even if the server may have received it.
+	if _, err := inSessionWithResume(ctx, r, true, func(ctx context.Context, sess *grpcInnerSession) (bool, error) {
 		return false, sess.Flush(ctx)
 	}); err != nil {
 		return err
 	}
+
+	r.writes.flushSucceeded(epoch)
 
 	if err := invokeCallbacks(ctx, r, r.afterFlush); err != nil {
 		return errors.Wrap(err, "after flush")
@@ -598,10 +689,33 @@ func (r *grpcRepositoryClient) ConcatenateObjects(ctx context.Context, objectIDs
 // the grpcRepositoryClient is configured.
 func maybeRetry[T any](ctx context.Context, r *grpcRepositoryClient, attempt func(ctx context.Context, sess *grpcInnerSession) (T, error)) (T, error) {
 	if !r.transparentRetries {
-		return inSessionWithoutRetry(ctx, r, attempt)
+		return inSessionWithResume(ctx, r, true, attempt)
 	}
 
 	return doRetry(ctx, r, attempt)
+}
+
+// inSessionWithResume executes the provided callback in the inner session.
+//
+// In a write session (no transparent retries), if the inner session broke, the callback is run once more
+// on a new inner session when it is safe to do so: always when the request was never sent to the server,
+// and also when the response was lost if the callback is idempotent. The new inner session is only
+// established after all contents written since the last flush are verified to be in the repository
+// (see getOrEstablishInnerSession), so a resumed session never references contents that were lost
+// with the broken one.
+func inSessionWithResume[T any](ctx context.Context, r *grpcRepositoryClient, idempotent bool, attempt func(ctx context.Context, sess *grpcInnerSession) (T, error)) (T, error) {
+	v, err := inSessionWithoutRetry(ctx, r, attempt)
+	if err == nil || r.transparentRetries {
+		return v, err
+	}
+
+	if !errors.Is(err, errRequestNotSent) && (!idempotent || !errors.Is(err, io.EOF)) {
+		return v, err
+	}
+
+	log(ctx).Debugf("GRPC streaming session (purpose=%v) broke, resuming on a new session: %v", r.opt.Purpose, err)
+
+	return inSessionWithoutRetry(ctx, r, attempt)
 }
 
 // retry executes the provided callback and provides it with *grpcInnerSession.
@@ -769,8 +883,22 @@ func (r *grpcRepositoryClient) doWriteAsync(ctx context.Context, contentID conte
 
 	r.opt.OnUpload(int64(len(data)))
 
-	if _, err := inSessionWithoutRetry(ctx, r, func(ctx context.Context, sess *grpcInnerSession) (content.ID, error) {
-		sess.writeContentAsyncAndVerify(ctx, contentID, data, prefix, comp, r.asyncWritesWG)
+	// writes are content-addressed, but the response is processed asynchronously,
+	// so only resend when the server did not receive the request.
+	if _, err := inSessionWithResume(ctx, r, false, func(ctx context.Context, sess *grpcInnerSession) (content.ID, error) {
+		// track before sending, so that a concurrent resume never misses a write in flight.
+		kind := r.writes.beginContentWrite(contentID)
+
+		if err := sess.writeContentAsyncAndVerify(ctx, contentID, data, prefix, comp, r.asyncWritesWG, func() {
+			r.writes.contentWriteAcked(contentID, kind)
+		}); err != nil {
+			if errors.Is(err, errRequestNotSent) {
+				r.writes.contentWriteNotSent(contentID, kind)
+			}
+
+			return content.EmptyID, err
+		}
+
 		return contentID, nil
 	}); err != nil {
 		return err
@@ -815,8 +943,8 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data gather.Byt
 	return contentID, nil
 }
 
-func (r *grpcInnerSession) writeContentAsyncAndVerify(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID, eg *errgroup.Group) {
-	ch := r.sendRequest(ctx, &apipb.SessionRequest{
+func (r *grpcInnerSession) writeContentAsyncAndVerify(ctx context.Context, contentID content.ID, data []byte, prefix content.IDPrefix, comp compression.HeaderID, eg *errgroup.Group, onAck func()) error {
+	ch, err := r.trySendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_WriteContent{
 			WriteContent: &apipb.WriteContentRequest{
 				Data:        data,
@@ -825,6 +953,9 @@ func (r *grpcInnerSession) writeContentAsyncAndVerify(ctx context.Context, conte
 			},
 		},
 	})
+	if err != nil {
+		return err
+	}
 
 	eg.Go(func() error {
 		for resp := range ch {
@@ -839,6 +970,8 @@ func (r *grpcInnerSession) writeContentAsyncAndVerify(ctx context.Context, conte
 					return errors.Errorf("unexpected content ID: %v, wanted %v", got, contentID)
 				}
 
+				onAck()
+
 				return nil
 
 			default:
@@ -848,6 +981,8 @@ func (r *grpcInnerSession) writeContentAsyncAndVerify(ctx context.Context, conte
 
 		return errNoSessionResponse()
 	})
+
+	return nil
 }
 
 // UpdateDescription updates the description of a connected repository.
@@ -953,55 +1088,152 @@ func baseURLToURI(baseURL string) (uri string, err error) {
 	return uri, nil
 }
 
+// verifyUnflushedWrites checks on the provided (new) inner session that every content written since
+// the last flush is in the repository. When an inner session breaks, the server flushes what it received
+// once it notices the end of the session, which may happen after the client reconnects,
+// so missing contents are checked again with backoff before giving up.
+func (r *grpcRepositoryClient) verifyUnflushedWrites(ctx context.Context, sess *grpcInnerSession) error {
+	verified := map[content.ID]bool{}
+
+	_, err := retry.WithExponentialBackoffMaxRetries(ctx, resumeVerificationAttempts, "verifying contents written before the session broke", func() (bool, error) {
+		// re-read on every attempt, writes that were never sent are no longer tracked.
+		ids, err := r.writes.contentsToVerify()
+		if err != nil {
+			return false, err
+		}
+
+		missing := 0
+
+		for _, cid := range ids {
+			if verified[cid] {
+				continue
+			}
+
+			if _, err := sess.contentInfo(ctx, cid); err != nil {
+				if errors.Is(err, content.ErrContentNotFound) {
+					missing++
+					continue
+				}
+
+				return false, errors.Wrapf(err, "unable to verify content %v", cid)
+			}
+
+			verified[cid] = true
+		}
+
+		if missing > 0 {
+			return false, errors.Wrapf(errContentsNotDurable, "%v of %v contents missing", missing, len(ids))
+		}
+
+		return true, nil
+	}, func(err error) bool {
+		return errors.Is(err, errContentsNotDurable)
+	})
+
+	return err
+}
+
+// verifyResumedSessionLocked verifies that a write session can safely continue on the new inner session.
+// If it cannot, the new inner session is closed. When contents are known to be lost, or the session cannot
+// prove they are not, the write session fails permanently; other errors (for example a canceled context
+// or another broken stream) leave the verification pending for the next attempt.
+//
+// The inner session mutex is held on purpose: no request may use the write session until it is verified.
+//
+// +checklocks:r.innerSessionMutex
+func (r *grpcRepositoryClient) verifyResumedSessionLocked(ctx context.Context, sess *grpcInnerSession) error {
+	if err := r.verifyUnflushedWrites(ctx, sess); err != nil {
+		sess.cli.CloseSend() //nolint:errcheck
+		sess.wg.Wait()
+
+		err = errors.Wrap(err, "unable to resume write session after its connection broke")
+
+		if errors.Is(err, errContentsNotDurable) || errors.Is(err, errCannotResume) {
+			// the write session cannot continue without risking references to lost contents or manifests.
+			r.writeSessionLostErr = err
+		}
+
+		return err
+	}
+
+	r.needsResumeVerification = false
+
+	log(ctx).Debugf("resumed GRPC streaming session (purpose=%v)", r.opt.Purpose)
+
+	return nil
+}
+
 func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (*grpcInnerSession, error) {
 	r.innerSessionMutex.Lock()
 	defer r.innerSessionMutex.Unlock()
 
-	if r.innerSession == nil {
-		cli := apipb.NewKopiaRepositoryClient(r.conn)
-
-		log(ctx).Debugf("establishing new GRPC streaming session (purpose=%v)", r.opt.Purpose)
-
-		retryPolicy := retry.Always
-		if r.transparentRetries && r.innerSessionAttemptCount == 0 {
-			// the first time the read-only session is established, don't do retries
-			// to avoid spinning in place while the server is not connectable.
-			retryPolicy = retry.Never
-		}
-
-		r.innerSessionAttemptCount++
-
-		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
-			sess, err := cli.Session(context.WithoutCancel(ctx))
-			if err != nil {
-				return nil, errors.Wrap(err, "Session()")
-			}
-
-			newSess := &grpcInnerSession{
-				cli:            sess,
-				activeRequests: make(map[int64]chan *apipb.SessionResponse),
-				nextRequestID:  1,
-			}
-
-			newSess.wg.Add(1)
-
-			go newSess.readLoop(ctx)
-
-			newSess.repoParams, err = newSess.initializeSession(ctx, r.opt.Purpose, r.isReadOnly)
-			if err != nil {
-				return nil, errors.Wrap(err, "unable to initialize session")
-			}
-
-			return newSess, nil
-		}, retryPolicy)
-		if err != nil {
-			return nil, errors.Wrap(err, "error establishing session")
-		}
-
-		r.innerSession = v
+	if r.writeSessionLostErr != nil {
+		return nil, r.writeSessionLostErr
 	}
 
-	return r.innerSession, nil
+	if r.innerSession != nil && !r.transparentRetries && r.innerSession.broken.Load() {
+		// a write session whose inner session broke; read-only sessions are handled by doRetry().
+		log(ctx).Debugf("GRPC streaming session (purpose=%v) is broken, establishing a new one", r.opt.Purpose)
+
+		r.innerSession.cli.CloseSend() //nolint:errcheck
+		r.innerSession.wg.Wait()
+		r.innerSession = nil
+		r.needsResumeVerification = true
+	}
+
+	if r.innerSession != nil {
+		return r.innerSession, nil
+	}
+
+	cli := apipb.NewKopiaRepositoryClient(r.conn)
+
+	log(ctx).Debugf("establishing new GRPC streaming session (purpose=%v)", r.opt.Purpose)
+
+	retryPolicy := retry.Always
+	if r.transparentRetries && r.innerSessionAttemptCount == 0 {
+		// the first time the read-only session is established, don't do retries
+		// to avoid spinning in place while the server is not connectable.
+		retryPolicy = retry.Never
+	}
+
+	r.innerSessionAttemptCount++
+
+	v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (*grpcInnerSession, error) {
+		sess, err := cli.Session(context.WithoutCancel(ctx))
+		if err != nil {
+			return nil, errors.Wrap(err, "Session()")
+		}
+
+		newSess := &grpcInnerSession{
+			cli:            sess,
+			activeRequests: make(map[int64]chan *apipb.SessionResponse),
+			nextRequestID:  1,
+		}
+
+		newSess.wg.Add(1)
+
+		go newSess.readLoop(ctx)
+
+		newSess.repoParams, err = newSess.initializeSession(ctx, r.opt.Purpose, r.isReadOnly)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to initialize session")
+		}
+
+		return newSess, nil
+	}, retryPolicy)
+	if err != nil {
+		return nil, errors.Wrap(err, "error establishing session")
+	}
+
+	if r.needsResumeVerification {
+		if err := r.verifyResumedSessionLocked(ctx, v); err != nil {
+			return nil, err
+		}
+	}
+
+	r.innerSession = v
+
+	return v, nil
 }
 
 func (r *grpcRepositoryClient) killInnerSession() {
