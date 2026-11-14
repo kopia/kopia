@@ -150,8 +150,9 @@ func TestBlobVersionsSequence(t *testing.T) {
 	require.NoError(t, err)
 	cancel()
 
+	t.Logf("pitSt: %v, %#v", st, st)
+
 	pitSt, isPIT := st.(*azPointInTimeStorage)
-	t.Logf("pitSt: %v, %#v", pitSt, pitSt)
 	require.True(t, isPIT, "is not point-in-time store")
 
 	cSt := st // grab reference to prevent clobbering that results in SIGSEV during t.Cleanup
