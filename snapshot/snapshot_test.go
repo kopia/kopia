@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"slices"
 	"testing"
 	"time"
@@ -178,6 +179,8 @@ func TestParseSourceInfo(t *testing.T) {
 		{".", snapshot.SourceInfo{UserName: "default-user", Host: "default-host", Path: cwd}},
 		{"..", snapshot.SourceInfo{UserName: "default-user", Host: "default-host", Path: filepath.Clean(filepath.Join(cwd, ".."))}},
 		{"foo@bar:/some/path", snapshot.SourceInfo{UserName: "foo", Host: "bar", Path: "/some/path"}},
+		{"foo@bar:/some/name@example.com", snapshot.SourceInfo{UserName: "foo", Host: "bar", Path: "/some/name@example.com"}},
+		{`foo@bar:C:\some\name@example.com`, snapshot.SourceInfo{UserName: "foo", Host: "bar", Path: `C:\some\name@example.com`}},
 		{"/some/path", snapshot.SourceInfo{UserName: "default-user", Host: "default-host", Path: mustAbs(t, "/some/path")}},
 		{"/some/path/../other-path", snapshot.SourceInfo{UserName: "default-user", Host: "default-host", Path: mustAbs(t, "/some/other-path")}},
 		{"@some-host", snapshot.SourceInfo{Host: "some-host"}},
@@ -192,6 +195,37 @@ func TestParseSourceInfo(t *testing.T) {
 		got2, err := snapshot.ParseSourceInfo(got.String(), "default-host", "default-user")
 		require.NoErrorf(t, err, "error parsing %q", tc.path)
 		require.Equal(t, got, got2, "unexpected parsed value")
+	}
+}
+
+func TestParseSourceInfo_AbsolutePathWithAt(t *testing.T) {
+	paths := []string{
+		mustAbs(t, "/home/user/Backups/name@example.com"),
+		mustAbs(t, "/home/user/Backups/name@"),
+	}
+
+	if runtime.GOOS == "windows" {
+		paths = append(paths, `\\some-host\share\name@example.com`)
+	} else {
+		paths = append(paths, "/home/user/Backups/name@example.com:backup")
+	}
+
+	for _, path := range paths {
+		t.Run(path, func(t *testing.T) {
+			want := snapshot.SourceInfo{
+				Host:     "default-host",
+				UserName: "default-user",
+				Path:     filepath.Clean(path),
+			}
+
+			got, err := snapshot.ParseSourceInfo(path, want.Host, want.UserName)
+			require.NoError(t, err)
+			require.Equal(t, want, got)
+
+			roundTrip, err := snapshot.ParseSourceInfo(got.String(), want.Host, want.UserName)
+			require.NoError(t, err)
+			require.Equal(t, got, roundTrip)
+		})
 	}
 }
 

@@ -3,15 +3,44 @@ package cli_test
 import (
 	"os"
 	"path"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/tests/testenv"
 )
+
+func TestSetPolicyForAbsolutePathWithAt(t *testing.T) {
+	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-username=user", "--override-hostname=host")
+
+	for _, name := range []string{"name@example.com", "name@"} {
+		t.Run(name, func(t *testing.T) {
+			dir := filepath.Join(testutil.TempDirectory(t), name)
+			target := snapshot.SourceInfo{
+				Host:     "host",
+				UserName: "user",
+				Path:     dir,
+			}.String()
+
+			e.RunAndExpectSuccess(t, "policy", "set", dir, "--after-snapshot-root-action=on-success")
+
+			var policies map[string]*policy.Policy
+
+			testutil.MustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "export"), &policies)
+			require.Contains(t, policies, target)
+			require.NotNil(t, policies[target].Actions.AfterSnapshotRoot)
+			require.Equal(t, "on-success", policies[target].Actions.AfterSnapshotRoot.Command)
+		})
+	}
+}
 
 func TestExportPolicy(t *testing.T) {
 	e := testenv.NewCLITest(t, testenv.RepoFormatNotImportant, testenv.NewInProcRunner(t))
