@@ -131,6 +131,13 @@ func (s *sourceManager) setCurrentTaskID(taskID string) {
 	s.currentTask = taskID
 }
 
+func (s *sourceManager) markSnapshotAttempted() {
+	s.sourceMutex.Lock()
+	defer s.sourceMutex.Unlock()
+
+	s.lastAttemptedSnapshotTime = fs.UTCTimestampFromTime(clock.Now())
+}
+
 func (s *sourceManager) setNextSnapshotTime(t time.Time) {
 	s.sourceMutex.Lock()
 	defer s.sourceMutex.Unlock()
@@ -195,6 +202,11 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 			}
 
 			s.setStatus("PENDING")
+
+			// Record the attempt before waiting for an upload slot, so that a concurrent
+			// refreshStatus() computes the next snapshot time from this attempt rather than
+			// from the previous one, which would make the scheduler queue this snapshot again.
+			s.markSnapshotAttempted()
 
 			userLog(ctx).Debugw("snapshotting", "source", s.src)
 
@@ -592,7 +604,7 @@ func (t *uitaskProgress) EstimationParameters() upload.EstimationParameters {
 	return t.p.EstimationParameters()
 }
 
-func newSourceManager(src snapshot.SourceInfo, server *Server, rep repo.Repository) *sourceManager {
+func newSourceManager(src snapshot.SourceInfo, server sourceManagerServerInterface, rep repo.Repository) *sourceManager {
 	m := &sourceManager{
 		src:              src,
 		rep:              rep,
