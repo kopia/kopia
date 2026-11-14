@@ -96,26 +96,6 @@ func TestGetOlderThan_DeleteMarkerWithUnparsableVersionKeepsEarlierVersions(t *t
 	require.Len(t, got, 2)
 }
 
-func TestSortVersions(t *testing.T) {
-	t.Parallel()
-
-	ts := time.Date(2026, 10, 13, 14, 0, 4, 0, time.UTC)
-
-	vs := []versionMetadata{
-		testDeleteMarker(ts, ""),
-		testVersion(ts.Add(time.Minute), "v3"),
-		testVersion(ts, "v1"),
-		testVersion(ts.Add(-time.Minute), "v0"),
-	}
-
-	sortVersions(vs)
-
-	require.Equal(t, "v0", vs[0].Version)
-	require.Equal(t, "v1", vs[1].Version)
-	require.True(t, vs[2].IsDeleteMarker, "marker after the version with the same timestamp")
-	require.Equal(t, "v3", vs[3].Version)
-}
-
 func TestGetVersionedBlobMeta(t *testing.T) {
 	t.Parallel()
 
