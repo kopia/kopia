@@ -299,8 +299,19 @@ func (s *s3Storage) DisplayName() string {
 	return fmt.Sprintf("S3: %v %v", s.Endpoint, s.BucketName)
 }
 
+// maxIdleConns is the number of idle connections kept for reuse. All requests go
+// to a single endpoint, so the per-host limit is set to the same value.
+const maxIdleConns = 256
+
 func getCustomTransport(opt *Options) (*http.Transport, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+
+	// http.DefaultTransport keeps only http.DefaultMaxIdleConnsPerHost (2) idle
+	// connections per host. With more than 2 concurrent requests every other
+	// connection is closed after its response and the next request has to dial
+	// and perform a TLS handshake again.
+	transport.MaxIdleConns = maxIdleConns
+	transport.MaxIdleConnsPerHost = maxIdleConns
 
 	if opt.DoNotVerifyTLS {
 		//nolint:gosec
