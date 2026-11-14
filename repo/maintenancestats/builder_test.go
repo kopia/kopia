@@ -132,7 +132,7 @@ func TestBuildExtraSuccess(t *testing.T) {
 			},
 			expected: Extra{
 				Kind: rewriteContentsStatsKind,
-				Data: []byte(`{"toRewriteContentCount":30,"toRewriteContentSize":3092,"rewrittenContentCount":10,"rewrittenContentSize":1024,"retainedContentCount":20,"retainedContentSize":2048}`),
+				Data: []byte(`{"toRewriteContentCount":30,"toRewriteContentSize":3092,"rewrittenContentCount":10,"rewrittenContentSize":1024,"retainedContentCount":20,"retainedContentSize":2048,"skippedDeletedContentCount":0,"skippedDeletedContentSize":0}`),
 			},
 		},
 		{
