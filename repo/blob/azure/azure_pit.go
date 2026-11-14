@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/blob/readonly"
 	"github.com/kopia/kopia/repo/format"
 )
 
@@ -199,5 +198,6 @@ func maybePointInTimeStore(ctx context.Context, s *azStorage, pointInTime *time.
 		return nil, errors.Wrap(err, "versioning must be enabled and a Kopia repository must exist")
 	}
 
-	return readonly.NewWrapper(pit), nil
+	//return readonly.NewWrapper(pit), nil
+	return pit, nil
 }
