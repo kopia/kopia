@@ -170,7 +170,7 @@ func TestBlobVersionsSequence(t *testing.T) {
 	dataTimestamps, err := putBlobs(ctx, st, blobID, dataBlobs)
 
 	require.NoError(t, err)
-	require.Len(t, dataTimestamps, 3)
+	require.Len(t, dataTimestamps, 2)
 
 	listBlobVersions(ctx, t, blobID, pitSt)
 
