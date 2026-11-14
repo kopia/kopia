@@ -142,7 +142,7 @@ func TestGetBlobVersions(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, st.Close(ctx))
 
-	now := time.Now()
+	now := time.Now().Add(time.Second) // ensure kopia.repository blob is included
 	opts.PointInTime = &now
 	st, err = New(newctx, opts, false)
 
