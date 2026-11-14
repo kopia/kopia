@@ -997,11 +997,14 @@ func TestMaybeAdvanceEpoch_AfterInvalidateBelowThreshold(t *testing.T) {
 	p, err := te.mgr.getParameters(ctx)
 	require.NoError(t, err)
 
-	for i := range p.GetEpochAdvanceOnCountThreshold() - 1 {
+	idxCount := p.GetEpochAdvanceOnCountThreshold()
+	for i := range idxCount - 2 {
 		te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(i))
 	}
 
 	te.ft.Advance(p.MinEpochDuration + 1*time.Hour)
+
+	te.mustWriteIndexFiles(ctx, t, newFakeIndexWithEntries(idxCount-2))
 	require.NoError(t, te.mgr.Refresh(ctx))
 
 	te.mgr.Invalidate()
