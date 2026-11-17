@@ -3,6 +3,7 @@ package policy
 
 import (
 	"context"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -253,9 +254,17 @@ func TreeForSourceWithOverride(ctx context.Context, rep repo.Repository, si snap
 func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo, optionalPolicyOverride *Policy) (map[string]*Policy, error) {
 	result := map[string]*Policy{}
 
-	pol, _, _, err := GetEffectivePolicyWithOverride(ctx, rep, si, optionalPolicyOverride)
+	pol, _, sources, err := GetEffectivePolicyWithOverride(ctx, rep, si, optionalPolicyOverride)
 	if err != nil {
 		return nil, err
+	}
+
+	// Preserve a NoParent boundary at the snapshot root when merging children.
+	for _, source := range sources {
+		if source.NoParent {
+			pol.NoParent = true
+			break
+		}
 	}
 
 	result["."] = pol
@@ -290,6 +299,54 @@ func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si sn
 		log(ctx).Debugw("found applicable child policy", "target", si, "policyPath", policyPath, "rel", rel)
 
 		result[rel] = pol
+	}
+
+	// A subdirectory policy is stored as an override, not a complete policy.
+	// Merge each one with its nearest effective parent before building the tree.
+	paths := make([]string, 0, len(result))
+	for rel := range result {
+		if rel != "." {
+			paths = append(paths, rel)
+		}
+	}
+
+	sort.Slice(paths, func(i, j int) bool {
+		return strings.Count(paths[i], "/") < strings.Count(paths[j], "/")
+	})
+
+	for _, rel := range paths {
+		parent := rel
+		for {
+			parent = parent[:strings.LastIndex(parent, "/")]
+			if _, ok := result[parent]; ok {
+				break
+			}
+		}
+
+		child := result[rel]
+		ancestor := result[parent]
+		merged, _ := MergePolicies([]*Policy{child, ancestor}, child.Target())
+
+		// Ignore rules are relative to the policy directory; ignorefs already
+		// retains ancestor matchers, so they must not be applied a second time.
+		merged.FilesPolicy.IgnoreRules = child.FilesPolicy.IgnoreRules
+		merged.FilesPolicy.NoParentIgnoreRules = child.FilesPolicy.NoParentIgnoreRules
+		merged.FilesPolicy.NoParentDotIgnoreFiles = child.FilesPolicy.NoParentDotIgnoreFiles
+		if child.NoParent || child.FilesPolicy.NoParentDotIgnoreFiles {
+			merged.FilesPolicy.DotIgnoreFiles = child.FilesPolicy.DotIgnoreFiles
+		} else if len(child.FilesPolicy.DotIgnoreFiles) == 0 {
+			// Keep an intentionally empty inherited list from being replaced
+			// by Kopia's default ignore filename on deeper directories.
+			merged.FilesPolicy.DotIgnoreFiles = ancestor.FilesPolicy.DotIgnoreFiles
+		}
+
+		// Non-inheritable folder hooks are not copied by MergePolicies when
+		// NoParent is set, and must stay attached only to their own directory.
+		merged.Actions.MergeNonInheritable(child.Actions)
+
+		// Keep the inheritance boundary for any deeper configured policies.
+		merged.NoParent = child.NoParent || ancestor.NoParent
+		result[rel] = merged
 	}
 
 	return result, nil
