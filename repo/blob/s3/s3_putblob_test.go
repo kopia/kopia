@@ -140,5 +140,5 @@ func TestPutBlob_GetModTime(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int32(1), f.putCount.Load())
 	require.Equal(t, int32(1), f.statCount.Load())
-	require.True(t, lastModified.Equal(modTime), "got mod time %v, want %v", modTime, lastModified)
+	require.Equal(t, lastModified, modTime)
 }
