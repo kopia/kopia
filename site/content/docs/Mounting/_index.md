@@ -11,9 +11,9 @@ Mounting can be done repository-wise or content-wise.
 When the special path `all` is used, the whole repository with its latest snapshot version is mounted:
 
 ```shell
-$ mkdir /tmp/mnt
-$ kopia mount all /tmp/mnt &
-$ ls -l /tmp/mnt/
+mkdir /tmp/mnt
+kopia mount all /tmp/mnt &
+ls -l /tmp/mnt/
 total 119992
 -rw-r--r--  1 jarek  staff      1101 May  9 22:33 CONTRIBUTING.md
 -rw-r--r--  1 jarek  staff     11357 May  9 22:33 LICENSE
@@ -31,21 +31,21 @@ drwxr-xr-x  1 jarek  staff  13682567 Jun 22 18:57 node_modules
 drwxr-xr-x  1 jarek  staff   7104710 Jun 22 19:01 public
 drwxr-xr-x  1 jarek  staff    904965 Jun 22 20:13 resources
 drwxr-xr-x  1 jarek  staff  38701570 Jun  1 20:11 themes
-$ umount /tmp/mnt
+umount /tmp/mnt
 ```
 
 If the whole repository is not needed, you could mount a specific directory only:
 
 ```shell
-$ kopia snapshot list
+kopia snapshot list
 foo@bar:/home/foo/kopia
   2020-05-01 00:00:00 UTC kb9a8420bf6b8ea280d6637ad1adbd4c5 85.2 MB drwxrwxrwx files:75 dirs:2 (daily-3)
   + 2 identical snapshots until 2020-05-01 00:00:00 UTC
 ...
 
-$ mkdir /tmp/mnt
-$ kopia mount kb9a8420bf6b8ea280d6637ad1adbd4c5 /tmp/mnt &
-$ ls -l /tmp/mnt/
+mkdir /tmp/mnt
+kopia mount kb9a8420bf6b8ea280d6637ad1adbd4c5 /tmp/mnt &
+ls -l /tmp/mnt/
 total 119992
 -rw-r--r--  1 foo  staff      1101 May  9 22:33 CONTRIBUTING.md
 -rw-r--r--  1 foo  staff     11357 May  9 22:33 LICENSE
@@ -63,7 +63,7 @@ drwxr-xr-x  1 foo  staff  13682567 Jun 22 18:57 node_modules
 drwxr-xr-x  1 foo  staff   7104710 Jun 22 19:01 public
 drwxr-xr-x  1 foo  staff    904965 Jun 22 20:13 resources
 drwxr-xr-x  1 foo  staff  38701570 Jun  1 20:11 themes
-$ umount /tmp/mnt
+umount /tmp/mnt
 ```
 
 ## Windows
