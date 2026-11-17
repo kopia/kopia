@@ -43,12 +43,20 @@ In the from-snapshot mode:
 
 First list snapshots in the connected repository:
 
-kopia snapshot list --all
+kopia snapshot list --all --manifest-id --show-identical
 
 The output groups snapshots by source (user@host:path) and shows each snapshot's
-time and root directory or file ID. To restore the latest snapshot for a source,
-select its newest entry and use that ID below. --all includes snapshots made
-by other users or hosts.
+time, root directory or file ID, and manifest ID. --all includes snapshots made
+by other users or hosts, and --show-identical lists snapshots with identical
+contents separately. To restore the latest snapshot for a source, select its
+newest entry and use the manifest ID, without the 'manifest:' prefix:
+
+kopia snapshot restore 9d4e2f60b8c54a89bd9763e13dbb5c21 "restored files"
+
+A manifest ID identifies one snapshot, including its root ownership and
+permissions. Multiple snapshots can share a root object ID while having
+different root attributes; restoring that object ID uses the attributes of
+the latest matching snapshot if they differ.
 
 The source to be restored can be specified as a directory or file ID and
 optionally a sub-directory path.
@@ -65,12 +73,16 @@ directory named 'sd2'
 
 'restore kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2 sd2'
 
-To select the latest snapshot by its full source label from the listing:
+To restore from the latest snapshot containing a path for a given user and host:
 
 kopia snapshot restore "user@host:/my files" "new dir" --snapshot-time=latest
 
 Copy the username, hostname and path exactly as listed, and quote paths that
-contain spaces. --snapshot-time does not replace the required source argument.
+contain spaces. This also searches snapshots of ancestor directories, so it can
+select a newer ancestor snapshot instead of the snapshot of the listed source.
+The selected path is resolved to an object ID, which may match multiple
+snapshots. Use a manifest ID as above to restore a particular snapshot.
+--snapshot-time does not replace the required source argument.
 
 When restoring to a target path that already has existing data, by default
 the restore will attempt to overwrite, unless one or more of the following flags
@@ -106,8 +118,13 @@ directory ID and optionally a sub-directory path. For example,
 'kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2'
 followed by the path of the directory for the contents to be restored.
 
+Use a snapshot manifest ID from 'snapshot list --manifest-id' instead of a
+root object ID to restore that exact snapshot, including its root attributes.
+Omit the 'manifest:' prefix shown in the listing.
+
 A full snapshot source in the form 'user@host:path' may also be used, with
---snapshot-time selecting the snapshot (default: latest).
+--snapshot-time selecting a snapshot containing the path (default: latest).
+This also searches snapshots of ancestor directories.
 
 2. one or more placeholder files of the form path.kopia-entry
 `
