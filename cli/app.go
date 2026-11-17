@@ -17,6 +17,7 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/passwordpersist"
 	"github.com/kopia/kopia/internal/releasable"
 	"github.com/kopia/kopia/notification"
@@ -190,7 +191,7 @@ type App struct {
 }
 
 func (c *App) enableTestOnlyFlags() bool {
-	return c.isInProcessTest || os.Getenv("KOPIA_TESTONLY_FLAGS") != ""
+	return c.isInProcessTest || envflag.Bool("KOPIA_TESTONLY_FLAGS")
 }
 
 func (c *App) getProgress() *cliProgress {
@@ -366,7 +367,7 @@ func (c *App) Attach(app *kingpin.Application) {
 
 // safetyFlagVar defines c --safety=none|full flag that sets the SafetyParameters.
 func safetyFlagVar(cmd *kingpin.CmdClause, result *maintenance.SafetyParameters) {
-	var str string
+	str := "full"
 
 	*result = maintenance.SafetyFull
 
@@ -462,7 +463,8 @@ func (c *App) repositoryWriterAction(act func(ctx context.Context, rep repo.Repo
 				Purpose:  "cli:" + c.currentActionName(),
 				OnUpload: c.progress.UploadedBytes,
 			}, act)
-		})
+		},
+	)
 }
 
 // repositoryWriterActionWithMaintenance runs act in a write session and
@@ -549,7 +551,8 @@ func (c *App) repositoryAction(act func(ctx context.Context, rep repo.Repository
 				c.currentActionName(),
 				t0,
 				clock.Now(),
-				err), notification.SeverityError,
+				err,
+			), notification.SeverityError,
 				c.notificationTemplateOptions(),
 			)
 		}

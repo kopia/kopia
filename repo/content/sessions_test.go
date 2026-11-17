@@ -127,16 +127,14 @@ func TestWriteSessionMarkerLockedWithoutClockSkew(t *testing.T) {
 	st := blobtesting.NewMapStorage(data, keyTime, ta.NowFunc())
 
 	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
-		Hash:       "HMAC-SHA256-128",
-		Encryption: "AES256-GCM-HMAC-SHA256",
-		HMACSecret: []byte("foo"),
-		MasterKey:  []byte("0123456789abcdef0123456789abcdef"),
-		MutableParameters: format.MutableParameters{
-			Version:         2,
-			MaxPackSize:     maxPackSize,
-			IndexVersion:    index.Version2,
-			EpochParameters: epoch.DefaultParameters(),
-		},
+		Hash:            "HMAC-SHA256-128",
+		Encryption:      "AES256-GCM-HMAC-SHA256",
+		HMACSecret:      []byte("foo"),
+		MasterKey:       []byte("0123456789abcdef0123456789abcdef"),
+		Version:         2,
+		MaxPackSize:     maxPackSize,
+		IndexVersion:    index.Version2,
+		EpochParameters: epoch.DefaultParameters(),
 	}), nil, &ManagerOptions{TimeNow: ta.NowFunc()}) // Use the same time advance for the manager's timeNow().
 	require.NoError(t, err, "can't create bm")
 
@@ -158,16 +156,14 @@ func TestWriteSessionMarkerLockedWithClockSkew(t *testing.T) {
 	st := blobtesting.NewMapStorage(data, keyTime, stTime.NowFunc())
 
 	bm, err := NewManagerForTesting(testlogging.Context(t), st, mustCreateFormatProvider(t, &format.ContentFormat{
-		Hash:       "HMAC-SHA256-128",
-		Encryption: "AES256-GCM-HMAC-SHA256",
-		HMACSecret: []byte("foo"),
-		MasterKey:  []byte("0123456789abcdef0123456789abcdef"),
-		MutableParameters: format.MutableParameters{
-			Version:         2,
-			MaxPackSize:     maxPackSize,
-			IndexVersion:    index.Version2,
-			EpochParameters: epoch.DefaultParameters(),
-		},
+		Hash:            "HMAC-SHA256-128",
+		Encryption:      "AES256-GCM-HMAC-SHA256",
+		HMACSecret:      []byte("foo"),
+		MasterKey:       []byte("0123456789abcdef0123456789abcdef"),
+		Version:         2,
+		MaxPackSize:     maxPackSize,
+		IndexVersion:    index.Version2,
+		EpochParameters: epoch.DefaultParameters(),
 	}), nil, &ManagerOptions{TimeNow: bmTime.NowFunc()})
 	require.NoError(t, err, "can't create bm")
 

@@ -139,18 +139,20 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 		return blob.ErrSetTimeUnsupported
 	}
 
-	_, err := s.putBlob(ctx, b, data, opts)
+	if _, err := s.putBlob(ctx, b, data, opts); err != nil {
+		return err
+	}
 
 	if opts.GetModTime != nil {
-		bm, err2 := s.GetMetadata(ctx, b)
-		if err2 != nil {
-			return err2
+		bm, err := s.GetMetadata(ctx, b)
+		if err != nil {
+			return err
 		}
 
 		*opts.GetModTime = bm.Timestamp
 	}
 
-	return err
+	return nil
 }
 
 func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opts blob.PutOptions) (versionMetadata, error) {
@@ -210,12 +212,10 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 	}
 
 	return versionMetadata{
-		Metadata: blob.Metadata{
-			BlobID:    b,
-			Length:    uploadInfo.Size,
-			Timestamp: uploadInfo.LastModified,
-		},
-		Version: uploadInfo.VersionID,
+		BlobID:    b,
+		Length:    uploadInfo.Size,
+		Timestamp: uploadInfo.LastModified,
+		Version:   uploadInfo.VersionID,
 	}, nil
 }
 
@@ -347,12 +347,10 @@ func newStorage(ctx context.Context, opt *Options) (*s3Storage, error) {
 	creds := credentials.NewChainCredentials(
 		[]credentials.Provider{
 			&credentials.Static{
-				Value: credentials.Value{
-					AccessKeyID:     opt.AccessKeyID,
-					SecretAccessKey: opt.SecretAccessKey,
-					SessionToken:    opt.SessionToken,
-					SignerType:      credentials.SignatureV4,
-				},
+				AccessKeyID:     opt.AccessKeyID,
+				SecretAccessKey: opt.SecretAccessKey,
+				SessionToken:    opt.SessionToken,
+				SignerType:      credentials.SignatureV4,
 			},
 			&credentials.EnvAWS{},
 			&credentials.IAM{

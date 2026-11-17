@@ -378,7 +378,7 @@ func NewManager(
 	password string,
 	timeNow func() time.Time,
 ) (*Manager, error) {
-	return NewManagerWithCache(ctx, st, validDuration, password, timeNow, NewFormatBlobCache(cacheDir, validDuration, timeNow))
+	return NewManagerWithCache(ctx, st, validDuration, password, timeNow, newFormatBlobCache(cacheDir, validDuration, timeNow))
 }
 
 // NewManagerWithCache creates new format manager which automatically refreshes format blob on reads (in a blocking manner)

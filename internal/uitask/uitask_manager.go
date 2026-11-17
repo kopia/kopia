@@ -50,11 +50,9 @@ type TaskFunc func(ctx context.Context, ctrl Controller) error
 // Run executes the provided task in the current goroutine while allowing it to be externally examined and canceled.
 func (m *Manager) Run(ctx context.Context, kind, description string, task TaskFunc) error {
 	r := &runningTaskInfo{
-		Info: Info{
-			Kind:        kind,
-			Description: description,
-			Status:      StatusRunning,
-		},
+		Kind:           kind,
+		Description:    description,
+		Status:         StatusRunning,
 		maxLogMessages: m.MaxLogMessagesPerTask,
 	}
 

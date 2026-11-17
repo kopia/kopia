@@ -62,7 +62,8 @@ func (c *commandContentStats) run(ctx context.Context, rep repo.DirectRepository
 		c.out.printStdout(
 			"Total Packed: %v (compression %v)\n",
 			sizeToString(grandTotal.packedSize),
-			formatCompressionPercentage(grandTotal.originalSize, grandTotal.packedSize))
+			formatCompressionPercentage(grandTotal.originalSize, grandTotal.packedSize),
+		)
 	}
 
 	if len(byCompressionTotal) > 1 {
@@ -152,7 +153,8 @@ func (c *commandContentStats) calculateStats(ctx context.Context, rep repo.Direc
 			}
 
 			return nil
-		})
+		},
+	)
 
 	//nolint:wrapcheck
 	return grandTotal, byCompressionTotal, countMap, totalSizeOfContentsUnder, err

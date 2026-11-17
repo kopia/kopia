@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
@@ -13,8 +12,10 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
@@ -24,7 +25,7 @@ import (
 const goroutineCount = 16
 
 func TestStressBlockManager(t *testing.T) {
-	if os.Getenv("KOPIA_STRESS_TEST") == "" {
+	if !envflag.Bool("KOPIA_STRESS_TEST") {
 		t.Skip("skipping stress test")
 	}
 
@@ -37,7 +38,7 @@ func TestStressBlockManager(t *testing.T) {
 	memst := blobtesting.NewMapStorage(data, keyTimes, clock.Now)
 
 	duration := 3 * time.Second
-	if os.Getenv("CI") != "" {
+	if testutil.IsCI() {
 		duration = 30 * time.Second
 	}
 
@@ -49,13 +50,11 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 	ctx := testlogging.Context(t)
 
 	fop, err := format.NewFormattingOptionsProvider(&format.ContentFormat{
-		Hash:       "HMAC-SHA256-128",
-		Encryption: encryption.DefaultAlgorithm,
-		MutableParameters: format.MutableParameters{
-			Version:     1,
-			MaxPackSize: 20000000,
-		},
-		MasterKey: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+		Hash:        "HMAC-SHA256-128",
+		Encryption:  encryption.DefaultAlgorithm,
+		Version:     1,
+		MaxPackSize: 20000000,
+		MasterKey:   []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 	}, nil)
 	require.NoError(t, err)
 

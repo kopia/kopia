@@ -124,7 +124,8 @@ func (c *commandBlobShardsModify) applyParameterChangesFromFlags(p *sharded.Para
 			sharded.PrefixAndShards{
 				Prefix: blob.ID(parts[0]),
 				Shards: v,
-			})
+			},
+		)
 	}
 
 	if c.unshardedLength != -1 {

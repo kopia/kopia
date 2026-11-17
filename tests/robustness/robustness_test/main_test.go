@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
@@ -53,7 +54,7 @@ func TestMain(m *testing.M) {
 	}
 
 	// Upgrade the repository format version if the env var is set
-	if os.Getenv("UPGRADE_REPOSITORY_FORMAT_VERSION") == "ON" {
+	if envflag.Bool("UPGRADE_REPOSITORY_FORMAT_VERSION") {
 		log.Print("Upgrading the repository.")
 
 		rs, err := th.snapshotter.GetRepositoryStatus()

@@ -22,10 +22,10 @@ func TestFormatBlobCache(t *testing.T) {
 		fbc       blobCache
 		isDurable bool
 	}{
-		{"NullCache", NewFormatBlobCache("", -1, clock.Now), false},
-		{"DiskCache-Exists", NewFormatBlobCache(tempdir1, -1, clock.Now), true},
-		{"DiskCache-NotExists", NewFormatBlobCache(tempdir2, -1, clock.Now), true},
-		{"MemoryCache", NewFormatBlobCache("", 10*time.Second, clock.Now), true},
+		{"NullCache", newFormatBlobCache("", -1, clock.Now), false},
+		{"DiskCache-Exists", newFormatBlobCache(tempdir1, -1, clock.Now), true},
+		{"DiskCache-NotExists", newFormatBlobCache(tempdir2, -1, clock.Now), true},
+		{"MemoryCache", newFormatBlobCache("", 10*time.Second, clock.Now), true},
 	}
 
 	t.Run("Cases", func(t *testing.T) {
@@ -93,4 +93,9 @@ func TestFormatBlobCache(t *testing.T) {
 	require.NoFileExists(t, filepath.Join(tempdir2, "blob1"))
 	require.FileExists(t, filepath.Join(tempdir1, "blob2"))
 	require.FileExists(t, filepath.Join(tempdir2, "blob2"))
+}
+
+// NewMemoryBlobCache returns in-memory blob cache for testing.
+func NewMemoryBlobCache(timeNow func() time.Time) blobCache {
+	return newMemoryBlobCache(timeNow)
 }

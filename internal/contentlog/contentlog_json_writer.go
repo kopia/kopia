@@ -351,7 +351,8 @@ var freeJSONWriterPool = freepool.New(
 		jw.buf = jw.buf[:0]
 		jw.separatorStack = jw.separatorStack[:0]
 		jw.separator = nil
-	})
+	},
+)
 
 // Release releases the JSON writer back to the pool.
 func (jw *JSONWriter) Release() {

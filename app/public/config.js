@@ -1,7 +1,6 @@
 const fs = await import("fs");
 const path = await import("path");
 const Electron = await import("electron");
-const log = await import("electron-log");
 
 let configs = {};
 const configFileSuffix = ".config";

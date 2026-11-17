@@ -58,7 +58,7 @@ func callWithFd(f *os.File, op func(fd int) error) error {
 	var opErr error
 
 	if err := conn.Control(func(fd uintptr) {
-		opErr = op(int(fd)) //nolint:gosec
+		opErr = op(int(fd))
 	}); err != nil {
 		return errors.Wrap(err, "Control")
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/fusemount"
 )
 
@@ -22,12 +23,10 @@ var cacheTimeout = 30 * time.Second
 
 func (mo *Options) toFuseMountOptions() *gofusefs.Options {
 	o := &gofusefs.Options{
-		MountOptions: fuse.MountOptions{
-			AllowOther: mo.FuseAllowOther,
-			Name:       "kopia",
-			FsName:     "kopia",
-			Debug:      os.Getenv("KOPIA_DEBUG_FUSE") != "",
-		},
+		AllowOther:      mo.FuseAllowOther,
+		Name:            "kopia",
+		FsName:          "kopia",
+		Debug:           envflag.Bool("KOPIA_DEBUG_FUSE"),
 		EntryTimeout:    &cacheTimeout,
 		AttrTimeout:     &cacheTimeout,
 		NegativeTimeout: &cacheTimeout,

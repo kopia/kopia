@@ -3,11 +3,12 @@ package gather
 import (
 	"context"
 	"fmt"
-	"os"
 	"runtime"
 	"strings"
 	"sync"
 	"unsafe"
+
+	"github.com/kopia/kopia/internal/envflag"
 )
 
 const (
@@ -17,7 +18,7 @@ const (
 
 //nolint:gochecknoglobals
 var (
-	trackChunkAllocations = os.Getenv("KOPIA_TRACK_CHUNK_ALLOC") != ""
+	trackChunkAllocations = envflag.Bool("KOPIA_TRACK_CHUNK_ALLOC")
 
 	defaultAllocator = &chunkAllocator{
 		name:            "default",

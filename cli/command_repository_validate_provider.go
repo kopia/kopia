@@ -32,5 +32,6 @@ func (c *commandRepositoryValidateProvider) setup(svc advancedAppServices, paren
 func (c *commandRepositoryValidateProvider) run(ctx context.Context, dr repo.DirectRepositoryWriter) error {
 	return errors.Wrap(
 		providervalidation.ValidateProvider(ctx, dr.BlobStorage(), c.opt),
-		"provider validation error")
+		"provider validation error",
+	)
 }

@@ -8,7 +8,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"math/rand"
-	"os"
 	"sync"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/envflag"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
@@ -103,7 +103,7 @@ func openEquivalentStorageConnections(ctx context.Context, st blob.Storage, n in
 //
 //nolint:mnd,funlen,gocyclo,cyclop
 func ValidateProvider(ctx context.Context, st0 blob.Storage, opt Options) error {
-	if os.Getenv("KOPIA_SKIP_PROVIDER_VALIDATION") != "" {
+	if envflag.Bool("KOPIA_SKIP_PROVIDER_VALIDATION") {
 		return nil
 	}
 

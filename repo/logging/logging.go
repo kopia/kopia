@@ -32,5 +32,6 @@ func Module(module string) func(ctx context.Context) Logger {
 func ToWriter(w io.Writer) LoggerFactory {
 	return zap.New(zapcore.NewCore(
 		zaplogutil.NewStdConsoleEncoder(zaplogutil.StdConsoleEncoderConfig{}),
-		zapcore.AddSync(w), zap.DebugLevel), zap.WithClock(zaplogutil.Clock())).Sugar().Named
+		zapcore.AddSync(w), zap.DebugLevel,
+	), zap.WithClock(zaplogutil.Clock())).Sugar().Named
 }

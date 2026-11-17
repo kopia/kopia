@@ -50,43 +50,39 @@ func TestShardedOpenLatestFileStorage(t *testing.T) {
 }
 
 func TestShardedFileStorage(t *testing.T) {
-	t.Parallel()
+	t.Setenv("KOPIA_FS_RETRY_BLOB_RENAME", "true")
 
 	ctx := testlogging.Context(t)
 
-	for _, parallel := range []int{0, 1, 4, 16} {
-		t.Run(fmt.Sprintf("parallel-%v", parallel), func(t *testing.T) {
-			for _, shardSpec := range [][]int{
-				{0},
-				{1},
-				{3, 3},
-				{2},
-				{1, 1},
-				{1, 2},
-				{2, 2, 2},
-			} {
-				path := testutil.TempDirectory(t)
+	shardSpecs := [][]int{
+		{0},
+		{1},
+		{3, 3},
+		{2},
+		{1, 1},
+		{1, 2},
+		{2, 2, 2},
+	}
+	for _, shardSpec := range shardSpecs {
+		t.Run(fmt.Sprintf("shardSpec:%v", shardSpec), func(t *testing.T) {
+			t.Parallel()
 
-				r, err := filesystem.New(ctx, &filesystem.Options{
-					Path: path,
-					Options: sharded.Options{
-						DirectoryShards: shardSpec,
-					},
-				}, true)
+			path := testutil.TempDirectory(t)
 
-				os.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0o600)
+			r, err := filesystem.New(ctx, &filesystem.Options{
+				Path:            path,
+				DirectoryShards: shardSpec,
+			}, true)
 
-				if r == nil || err != nil {
-					t.Errorf("unexpected result: %v %v", r, err)
-				}
+			os.WriteFile(filepath.Join(path, "foreign-file"), []byte{1, 2, 3}, 0o600)
 
-				blobtesting.VerifyStorage(ctx, t, r, blob.PutOptions{})
-				blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
+			require.NoError(t, err)
+			require.NotNil(t, r)
 
-				if err := r.Close(ctx); err != nil {
-					t.Fatalf("err: %v", err)
-				}
-			}
+			blobtesting.VerifyStorage(ctx, t, r, blob.PutOptions{})
+			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
+
+			require.NoError(t, r.Close(testlogging.ContextForCleanup(t)))
 		})
 	}
 }

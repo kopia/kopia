@@ -20,31 +20,38 @@ func initMetricsStruct(mr *metrics.Registry, cacheID string) metricsStruct {
 	return metricsStruct{
 		metricHitCount: mr.CounterInt64(
 			"cache_hit",
-			"Number of time content was retrieved from the cache", labels),
+			"Number of time content was retrieved from the cache", labels,
+		),
 
 		metricHitBytes: mr.CounterInt64(
 			"cache_hit_bytes",
-			"Number of bytes retrieved from the cache", labels),
+			"Number of bytes retrieved from the cache", labels,
+		),
 
 		metricMissCount: mr.CounterInt64(
 			"cache_miss",
-			"Number of time content was not found in the cache and fetched from the storage", labels),
+			"Number of time content was not found in the cache and fetched from the storage", labels,
+		),
 
 		metricMalformedCacheDataCount: mr.CounterInt64(
 			"cache_malformed",
-			"Number of times malformed content was read from the cache", labels),
+			"Number of times malformed content was read from the cache", labels,
+		),
 
 		metricMissBytes: mr.CounterInt64(
 			"cache_miss_bytes",
-			"Number of bytes retrieved from the underlying storage", labels),
+			"Number of bytes retrieved from the underlying storage", labels,
+		),
 
 		metricMissErrors: mr.CounterInt64(
 			"cache_miss_errors",
-			"Number of time content could not be found in the underlying storage", labels),
+			"Number of time content could not be found in the underlying storage", labels,
+		),
 
 		metricStoreErrors: mr.CounterInt64(
 			"cache_store_errors",
-			"Number of time content could not be saved in the cache", labels),
+			"Number of time content could not be saved in the cache", labels,
+		),
 	}
 }
 

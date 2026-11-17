@@ -57,7 +57,8 @@ func (m *LogManager) NewLogger(name string) *contentlog.Logger {
 
 	return contentlog.NewLogger(
 		m.outputEntry,
-		append(append([]contentlog.ParamWriter(nil), m.params...), logparam.String("n", name))...)
+		append(append([]contentlog.ParamWriter(nil), m.params...), logparam.String("n", name))...,
+	)
 }
 
 // Enable enables writing log blobs to repository.

@@ -3,7 +3,6 @@ package testlogging
 
 import (
 	"context"
-	"testing"
 
 	"go.uber.org/zap/zapcore"
 
@@ -30,9 +29,7 @@ const (
 )
 
 // NewTestLogger returns logger bound to the provided testing.T.
-//
-//nolint:thelper
-func NewTestLogger(t *testing.T) logging.Logger {
+func NewTestLogger(t testingT) logging.Logger {
 	return Printf(t.Logf, "")
 }
 

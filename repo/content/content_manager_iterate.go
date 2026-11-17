@@ -215,7 +215,8 @@ func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOpt
 			}
 
 			return nil
-		}); err != nil {
+		},
+	); err != nil {
 		return errors.Wrap(err, "error iterating contents")
 	}
 
@@ -251,7 +252,8 @@ func (bm *WriteManager) IterateUnreferencedPacks(ctx context.Context, blobPrefix
 			}
 
 			return nil
-		}); err != nil {
+		},
+	); err != nil {
 		return errors.Wrap(err, "error iterating packs")
 	}
 

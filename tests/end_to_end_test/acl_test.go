@@ -56,7 +56,8 @@ func TestACL(t *testing.T) {
 
 	var sp testutil.ServerParameters
 
-	wait, kill := serverEnvironment.RunAndProcessStderr(t, sp.ProcessOutput,
+	wait, kill := serverEnvironment.RunAndProcessStderr(
+		t, sp.ProcessOutput,
 		"server", "start",
 		"--address=localhost:0",
 		"--server-control-username=admin-user",
@@ -78,7 +79,8 @@ func TestACL(t *testing.T) {
 	delete(foobarClientEnvironment.Environment, "KOPIA_PASSWORD")
 
 	// connect as foo@bar with password baz
-	foobarClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
+	foobarClientEnvironment.RunAndExpectSuccess(
+		t, "repo", "connect", "server",
 		"--url", sp.BaseURL+"/",
 		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 		"--override-username", "foo",
@@ -94,7 +96,8 @@ func TestACL(t *testing.T) {
 	delete(anotherBarClientEnvironment.Environment, "KOPIA_PASSWORD")
 
 	// connect as foo@bar with password baz
-	anotherBarClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
+	anotherBarClientEnvironment.RunAndExpectSuccess(
+		t, "repo", "connect", "server",
 		"--url", sp.BaseURL+"/",
 		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 		"--override-username", "another",
@@ -110,7 +113,8 @@ func TestACL(t *testing.T) {
 	delete(aliceInWonderlandClientEnvironment.Environment, "KOPIA_PASSWORD")
 
 	// connect as alice@wonderland with password baz
-	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
+	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(
+		t, "repo", "connect", "server",
 		"--url", sp.BaseURL+"/",
 		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 		"--override-username", "alice",
@@ -164,7 +168,8 @@ func TestACL(t *testing.T) {
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "server", "users", "set", "alice@wonderland", "--user-password", "new-password")
 
 	// refresh the auth cache using admin username/password.
-	serverEnvironment.RunAndExpectSuccess(t, "server", "refresh",
+	serverEnvironment.RunAndExpectSuccess(
+		t, "server", "refresh",
 		"--address", sp.BaseURL,
 		"--server-username", "admin-user",
 		"--server-password", "admin-pwd",
@@ -172,7 +177,8 @@ func TestACL(t *testing.T) {
 	)
 
 	// attempt to use foo@bar's credentials when refreshing, this will fail.
-	serverEnvironment.RunAndExpectFailure(t, "server", "refresh",
+	serverEnvironment.RunAndExpectFailure(
+		t, "server", "refresh",
 		"--address", sp.BaseURL,
 		"--server-username", "foo@bar",
 		"--server-password", "baz",
@@ -180,7 +186,8 @@ func TestACL(t *testing.T) {
 	)
 
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
-	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
+	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(
+		t, "repo", "connect", "server",
 		"--url", sp.BaseURL+"/",
 		"--server-cert-fingerprint", sp.SHA256Fingerprint,
 		"--override-username", "alice",

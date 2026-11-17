@@ -29,7 +29,8 @@ func TestSnapshotTreeWalker(t *testing.T) {
 				callbackCounter.Add(1)
 				return nil
 			},
-		})
+		},
+	)
 	require.NoError(t, err)
 
 	defer w.Close(ctx)
@@ -96,7 +97,8 @@ func TestSnapshotTreeWalker_Errors(t *testing.T) {
 
 				return nil
 			},
-		})
+		},
+	)
 	require.NoError(t, err)
 
 	defer w.Close(ctx)
@@ -143,7 +145,8 @@ func TestSnapshotTreeWalker_MultipleErrors(t *testing.T) {
 
 				return nil
 			},
-		})
+		},
+	)
 	require.NoError(t, err)
 
 	defer w.Close(ctx)
@@ -193,7 +196,8 @@ func TestSnapshotTreeWalker_MultipleErrorsSameOID(t *testing.T) {
 
 				return nil
 			},
-		})
+		},
+	)
 	require.NoError(t, err)
 
 	defer w.Close(ctx)

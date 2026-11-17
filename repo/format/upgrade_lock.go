@@ -89,7 +89,8 @@ func WriteLegacyIndexPoisonBlob(ctx context.Context, st blob.Storage) error {
 		ctx,
 		LegacyIndexPoisonBlobID,
 		gather.FromSlice([]byte("The format of this repository has been upgraded and cannot be read by old clients")),
-		blob.PutOptions{})
+		blob.PutOptions{},
+	)
 }
 
 // CommitUpgrade removes the upgrade lock from the from the repository format

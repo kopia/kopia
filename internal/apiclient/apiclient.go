@@ -207,13 +207,16 @@ type Options struct {
 
 // NewKopiaAPIClient creates a client for connecting to Kopia HTTP API.
 func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
-	var transport http.RoundTripper
+	transport := http.DefaultTransport
 
 	// override transport which trusts only one certificate
 	if f := options.TrustedServerCertificateFingerprint; f != "" {
-		transport = tlsutil.TransportTrustingSingleCertificate(f)
-	} else {
-		transport = http.DefaultTransport
+		tr, err := tlsutil.TransportTrustingSingleCertificate(f)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create transport")
+		}
+
+		transport = tr
 	}
 
 	uri := options.BaseURL
