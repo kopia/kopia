@@ -8,7 +8,8 @@ import (
 	"strings"
 )
 
-// GetDefaultUserName returns default username.
+// GetDefaultUserName returns the default username, lowercased so it can be
+// used as the user part of a repository server identity (user@hostname).
 func GetDefaultUserName(ctx context.Context) string {
 	currentUser, err := user.Current()
 	if err != nil {
@@ -16,16 +17,22 @@ func GetDefaultUserName(ctx context.Context) string {
 		return "nobody"
 	}
 
-	u := currentUser.Username
+	return normalizeDefaultUserName(currentUser.Username, runtime.GOOS == "windows")
+}
 
-	if runtime.GOOS == "windows" {
+// normalizeDefaultUserName lowercases the username and, on Windows, drops a
+// leading DOMAIN\ prefix. Repository server users must be lowercase
+// "user@hostname" (see user.ValidateUsername), so a mixed-case Windows login
+// would otherwise have to be overridden by hand.
+func normalizeDefaultUserName(u string, windows bool) string {
+	if windows {
 		if p := strings.Index(u, "\\"); p >= 0 {
 			// On Windows ignore domain name.
 			u = u[p+1:]
 		}
 	}
 
-	return u
+	return strings.ToLower(u)
 }
 
 // GetDefaultHostName returns default hostname.
