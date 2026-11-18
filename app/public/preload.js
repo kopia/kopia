@@ -9,4 +9,7 @@ contextBridge.exposeInMainWorld("kopiaUI", {
   browseDirectory: function (path) {
     ipcRenderer.invoke("browse-dir", path);
   },
+  setLanguage: function (language) {
+    ipcRenderer.send("ui-language-updated", language);
+  },
 });
