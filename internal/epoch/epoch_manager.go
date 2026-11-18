@@ -743,9 +743,10 @@ func (e *Manager) MaybeAdvanceWriteEpoch(ctx context.Context) (*maintenancestats
 		return nil, err
 	}
 
-	e.mu.Lock()
-	cs := e.lastKnownState
-	e.mu.Unlock()
+	cs, err := e.committedState(ctx, 0)
+	if err != nil {
+		return nil, err
+	}
 
 	result := &maintenancestats.AdvanceEpochStats{
 		CurrentEpoch: maintenancestats.ToUint64(cs.WriteEpoch),
