@@ -86,13 +86,15 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 	ctx, cancel := chromedp.NewContext(ctx)
 	defer cancel()
 
-	chromedp.ListenTarget(ctx, func(ev any) {
+	require.NoError(t, chromedp.Listen(ctx, func(ev any) {
 		if do, ok := ev.(*page.EventJavascriptDialogOpening); ok {
 			t.Logf("dialog opening: %v", do.Message)
 
 			go func() {
 				assert.Equal(t, tc.expectedDialogText, do.Message)
-				assert.NoError(t, chromedp.Run(ctx, page.HandleJavaScriptDialog(tc.dialogResponse)))
+				_, err := chromedp.Call(ctx, page.HandleJavaScriptDialog, page.HandleJavaScriptDialogParams{Accept: tc.dialogResponse})
+				assert.NoError(t, err)
+
 				tc.expectedDialogText = ""
 			}()
 		}
@@ -102,7 +104,7 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 				tc.downloadFinished <- ev.GUID
 			}
 		}
-	})
+	}))
 
 	run(ctx, &sp, &tc)
 
@@ -126,7 +128,8 @@ func createTestSnapshot(t *testing.T, ctx context.Context, sp *testutil.ServerPa
 	require.NoError(t, err)
 
 	// create test repository
-	require.NoError(t, chromedp.Run(ctx,
+	//nolint:gocritic // dupOption: repeated browser steps are intentional
+	require.NoError(t, chromedp.Do(ctx,
 		chromedp.Navigate(sp.BaseURL),
 		chromedp.WaitVisible("button[data-testid='provider-filesystem']"),
 		tc.captureScreenshot("initial"),
@@ -187,7 +190,7 @@ func TestEndToEndTest(t *testing.T) {
 		createTestSnapshot(t, ctx, sp, tc, repoPath, snap1Path)
 
 		// navigate to the base page, wait until we're redirected to 'Repository' page
-		require.NoError(t, chromedp.Run(ctx,
+		require.NoError(t, chromedp.Do(ctx,
 			tc.log("clicking on snapshot source"),
 			chromedp.Click(`a[href*='/snapshots/single-source']`),
 			tc.captureScreenshot("snapshot-source"),
@@ -197,9 +200,15 @@ func TestEndToEndTest(t *testing.T) {
 			tc.captureScreenshot("snapshot-dir"),
 
 			tc.log("clicking on snapshot file"),
-			browser.SetDownloadBehavior(browser.SetDownloadBehaviorBehaviorAllowAndName).
-				WithDownloadPath(downloadDir).
-				WithEventsEnabled(true),
+			chromedp.Func(func(ctx context.Context, target *chromedp.Target) error {
+				_, err := cdp.Call(ctx, target, browser.SetDownloadBehavior, browser.SetDownloadBehaviorParams{
+					Behavior:      browser.SetDownloadBehaviorBehaviorAllowAndName,
+					DownloadPath:  downloadDir,
+					EventsEnabled: new(true),
+				})
+
+				return err
+			}),
 			chromedp.Click(`a[href*='/api/v1/objects/']`),
 			tc.waitForDownload(5*time.Second),
 
@@ -207,7 +216,7 @@ func TestEndToEndTest(t *testing.T) {
 			chromedp.Click("a[data-testid='tab-repo']"),
 			tc.captureScreenshot("repository"),
 
-			chromedp.ActionFunc(func(context.Context) error {
+			chromedp.Func(func(context.Context, *chromedp.Target) error {
 				t.Skip("Disconnect times out, skipping for now to unblock CI")
 
 				return nil
@@ -234,7 +243,8 @@ func TestConnectDisconnectReconnect(t *testing.T) {
 		repoPath := testutil.TempDirectory(t)
 
 		// navigate to the base page, wait until we're redirected to 'Repository' page
-		require.NoError(t, chromedp.Run(ctx,
+		//nolint:gocritic // dupOption: repeated browser steps are intentional
+		require.NoError(t, chromedp.Do(ctx,
 			chromedp.Navigate(sp.BaseURL),
 			chromedp.WaitVisible("button[data-testid='provider-filesystem']"),
 			tc.captureScreenshot("initial"),
@@ -261,7 +271,7 @@ func TestConnectDisconnectReconnect(t *testing.T) {
 			chromedp.Click("a[data-testid='tab-repo']"),
 			tc.captureScreenshot("repository"),
 
-			chromedp.ActionFunc(func(context.Context) error {
+			chromedp.Func(func(context.Context, *chromedp.Target) error {
 				t.Skip("Disconnect times out, skipping for now to unblock CI")
 
 				return nil
@@ -285,18 +295,24 @@ func TestConnectDisconnectReconnect(t *testing.T) {
 
 func TestChangeTheme(t *testing.T) {
 	runInBrowser(t, func(ctx context.Context, sp *testutil.ServerParameters, tc *TestContext) {
-		var nodes []*cdp.Node
+		var nodes []*chromedp.Node
 
-		require.NoError(t, chromedp.Run(ctx,
+		require.NoError(t, chromedp.Do(ctx,
 			tc.log("navigating to base-url"),
 			chromedp.Navigate(sp.BaseURL),
 			chromedp.WaitVisible("button[data-testid='provider-filesystem']"),
 
 			tc.log("clicking on preference tab"),
-			chromedp.Click("a[data-testid='tab-preferences']", chromedp.BySearch),
+			chromedp.Click("a[data-testid='tab-preferences']"),
 			chromedp.Sleep(time.Second),
 
-			chromedp.Nodes("html", &nodes),
+			chromedp.Func(func(ctx context.Context, target *chromedp.Target) error {
+				var err error
+
+				nodes, err = chromedp.Nodes("html")(ctx, target)
+
+				return err
+			}),
 			tc.captureScreenshot("initial-theme"),
 		))
 
@@ -305,35 +321,36 @@ func TestChangeTheme(t *testing.T) {
 
 		// ensure we start with light mode
 		if theme != "light" {
-			require.NoError(t, chromedp.Run(ctx,
+			require.NoError(t, chromedp.Do(ctx,
 				tc.log("selecting light-theme before starting the test"),
-				chromedp.SetValue(`//select[@id="themeSelector"]`, "light", chromedp.BySearch),
+				chromedp.SetValue(`//select[@id="themeSelector"]`, "light"),
 			))
 		}
 
 		// select the theme, wait one second, take screenshot and select next theme
-		require.NoError(t, chromedp.Run(ctx,
+		//nolint:gocritic // dupOption: repeated browser steps are intentional
+		require.NoError(t, chromedp.Do(ctx,
 			chromedp.WaitVisible("html.light"),
 			tc.log("selecting pastel theme"),
-			chromedp.SetValue(`//select[@id="themeSelector"]`, "pastel", chromedp.BySearch),
+			chromedp.SetValue(`//select[@id="themeSelector"]`, "pastel"),
 			chromedp.Sleep(time.Second),
 			chromedp.WaitVisible("html.pastel"),
 			tc.captureScreenshot("theme-pastel"),
 
 			tc.log("selecting dark theme"),
-			chromedp.SetValue(`//select[@id="themeSelector"]`, "dark", chromedp.BySearch),
+			chromedp.SetValue(`//select[@id="themeSelector"]`, "dark"),
 			chromedp.WaitVisible("html.dark"),
 			chromedp.Sleep(time.Second),
 			tc.captureScreenshot("theme-dark"),
 
 			tc.log("selecting ocean theme"),
-			chromedp.SetValue(`//select[@id="themeSelector"]`, "ocean", chromedp.BySearch),
+			chromedp.SetValue(`//select[@id="themeSelector"]`, "ocean"),
 			chromedp.WaitVisible("html.ocean"),
 			chromedp.Sleep(time.Second),
 			tc.captureScreenshot("theme-ocean"),
 
 			tc.log("selecting light theme"),
-			chromedp.SetValue(`//select[@id="themeSelector"]`, "light", chromedp.BySearch),
+			chromedp.SetValue(`//select[@id="themeSelector"]`, "light"),
 			chromedp.WaitVisible("html.light"),
 			chromedp.Sleep(time.Second),
 			tc.captureScreenshot("theme-light"),
@@ -354,34 +371,47 @@ func TestByteRepresentation(t *testing.T) {
 		createTestSnapshot(t, ctx, sp, tc, repoPath, snap1Path)
 
 		// begin test
-		require.NoError(t, chromedp.Run(ctx,
+		//nolint:gocritic // dupOption: repeated browser steps are intentional
+		require.NoError(t, chromedp.Do(ctx,
 			tc.captureScreenshot("initial0"),
 
 			tc.log("navigating to preferences tab"),
-			chromedp.Click("a[data-testid='tab-preferences']", chromedp.BySearch),
+			chromedp.Click("a[data-testid='tab-preferences']"),
 			tc.captureScreenshot("initial"),
 
 			tc.log("selecting representation to base-2"),
-			chromedp.SetValue(`//select[@id="bytesBaseInput"]`, "true", chromedp.BySearch),
+			chromedp.SetValue(`//select[@id="bytesBaseInput"]`, "true"),
 			tc.captureScreenshot("base-2"),
 
 			tc.log("clicking on snapshots tab"),
-			chromedp.Click("a[data-testid='tab-snapshots']", chromedp.BySearch),
+			chromedp.Click("a[data-testid='tab-snapshots']"),
 			// getting text from the third column of the first row indicating the size of the snapshot
-			chromedp.Text(`#root table > tbody > tr:nth-child(1) > td:nth-child(3)`, &base2, chromedp.ByQuery),
+			chromedp.Func(func(ctx context.Context, target *chromedp.Target) error {
+				var err error
+
+				base2, err = chromedp.Text(chromedp.CSS(`#root table > tbody > tr:nth-child(1) > td:nth-child(3)`))(ctx, target)
+
+				return err
+			}),
 			tc.captureScreenshot("snapshot-base-2"),
 
 			tc.log("clicking on preferences tab"),
-			chromedp.Click("a[data-testid='tab-preferences']", chromedp.BySearch),
+			chromedp.Click("a[data-testid='tab-preferences']"),
 
 			tc.log("selecting representation to base-10"),
-			chromedp.SetValue(`//select[@id="bytesBaseInput"]`, "false", chromedp.BySearch),
+			chromedp.SetValue(`//select[@id="bytesBaseInput"]`, "false"),
 			tc.captureScreenshot("base-10"),
 
 			tc.log("clicking on snapshots tab"),
-			chromedp.Click("a[data-testid='tab-snapshots']", chromedp.BySearch),
+			chromedp.Click("a[data-testid='tab-snapshots']"),
 			// getting text from the third column of the first row indicating the size of the snapshot
-			chromedp.Text(`#root table > tbody > tr:nth-child(1) > td:nth-child(3)`, &base10, chromedp.BySearch),
+			chromedp.Func(func(ctx context.Context, target *chromedp.Target) error {
+				var err error
+
+				base10, err = chromedp.Text(`#root table > tbody > tr:nth-child(1) > td:nth-child(3)`)(ctx, target)
+
+				return err
+			}),
 			tc.captureScreenshot("snapshot-base-10"),
 		))
 
