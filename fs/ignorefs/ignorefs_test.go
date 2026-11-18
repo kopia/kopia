@@ -87,6 +87,42 @@ var rootAndSrcPolicy = policy.BuildTree(map[string]*policy.Policy{
 	},
 }, policy.DefaultPolicy)
 
+var noParentIgnoreRulesPolicy = policy.BuildTree(map[string]*policy.Policy{
+	".": {
+		FilesPolicy: policy.FilesPolicy{
+			IgnoreRules: []string{
+				"*.tmp",
+			},
+		},
+	},
+	"./src": {
+		FilesPolicy: policy.FilesPolicy{
+			NoParentIgnoreRules: true,
+			IgnoreRules: []string{
+				"*.cache",
+			},
+		},
+	},
+}, policy.DefaultPolicy)
+
+var noParentIgnoreRulesDotIgnorePolicy = policy.BuildTree(map[string]*policy.Policy{
+	".": {
+		FilesPolicy: policy.FilesPolicy{
+			DotIgnoreFiles: []string{
+				".kopiaignore",
+			},
+		},
+	},
+	"./src": {
+		FilesPolicy: policy.FilesPolicy{
+			DotIgnoreFiles: []string{
+				".kopiaignore",
+			},
+			NoParentIgnoreRules: true,
+		},
+	},
+}, policy.DefaultPolicy)
+
 var trueValue = policy.OptionalBool(true)
 
 var oneFileSystemPolicy = policy.BuildTree(map[string]*policy.Policy{
@@ -554,6 +590,62 @@ var cases = []struct {
 			"./B/AB/file.go",
 		},
 		ignoredFiles: []string{},
+	},
+	{
+		desc:             "no parent ignore rules, policy rules",
+		policyTree:       noParentIgnoreRulesPolicy,
+		skipDefaultFiles: true,
+		setup: func(root *mockfs.Directory) {
+			root.AddFile("root.tmp", dummyFileContents, 0)
+			root.AddFile("root.txt", dummyFileContents, 0)
+			root.AddDir("src", 0)
+			root.Subdir("src").AddFile("a.tmp", dummyFileContents, 0)
+			root.Subdir("src").AddFile("b.cache", dummyFileContents, 0)
+			root.Subdir("src").AddFile("c.txt", dummyFileContents, 0)
+			root.Subdir("src").AddDir("sub", 0)
+			root.Subdir("src").Subdir("sub").AddFile("d.tmp", dummyFileContents, 0)
+			root.Subdir("src").Subdir("sub").AddFile("e.cache", dummyFileContents, 0)
+		},
+		addedFiles: []string{
+			"./root.txt",
+			"./src/",
+			"./src/a.tmp",
+			"./src/c.txt",
+			"./src/sub/",
+			"./src/sub/d.tmp",
+		},
+		ignoredFiles: []string{
+			"./root.tmp",
+			"./src/b.cache",
+			"./src/sub/e.cache",
+		},
+	},
+	{
+		desc:             "no parent ignore rules, dot ignore files",
+		policyTree:       noParentIgnoreRulesDotIgnorePolicy,
+		skipDefaultFiles: true,
+		setup: func(root *mockfs.Directory) {
+			root.AddFileLines(".kopiaignore", []string{"*.log"}, 0)
+			root.AddFile("root.log", dummyFileContents, 0)
+			root.AddFile("keep.txt", dummyFileContents, 0)
+			root.AddDir("src", 0)
+			root.Subdir("src").AddFile("a.log", dummyFileContents, 0)
+			root.Subdir("src").AddFile("b.txt", dummyFileContents, 0)
+			root.Subdir("src").AddFileLines(".kopiaignore", []string{"*.bak"}, 0)
+			root.Subdir("src").AddFile("c.bak", dummyFileContents, 0)
+		},
+		addedFiles: []string{
+			"./.kopiaignore",
+			"./keep.txt",
+			"./src/",
+			"./src/.kopiaignore",
+			"./src/a.log",
+			"./src/b.txt",
+		},
+		ignoredFiles: []string{
+			"./root.log",
+			"./src/c.bak",
+		},
 	},
 }
 

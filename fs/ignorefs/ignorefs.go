@@ -29,6 +29,9 @@ type IgnoreCallback func(ctx context.Context, path string, metadata fs.Entry, po
 type ignoreContext struct {
 	parent *ignoreContext
 
+	// when set, ignore rules inherited from parent directories are not applied to this directory or its descendants
+	noParentIgnoreRules bool
+
 	onIgnore []IgnoreCallback
 
 	dotIgnoreFiles []string                  // which files to look for more ignore rules
@@ -41,9 +44,10 @@ type ignoreContext struct {
 func (c *ignoreContext) shouldIncludeByName(ctx context.Context, path string, e fs.Entry, policyTree *policy.Tree) bool {
 	shouldIgnore := false
 
-	// Start by checking with any ignores defined in a parent directory (if there is one).
+	// Start by checking with any ignores defined in a parent directory (if there is one), unless this
+	// directory's policy disables inheritance of ignore rules.
 	// Any matches here may be negated by .ignore-files in lower directories.
-	if c.parent != nil {
+	if c.parent != nil && !c.noParentIgnoreRules {
 		shouldIgnore = !c.parent.shouldIncludeByName(ctx, path, e, policyTree)
 	}
 
@@ -358,7 +362,7 @@ func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath strin
 	}
 
 	if fp.NoParentIgnoreRules {
-		c.matchers = nil
+		c.noParentIgnoreRules = true
 	}
 
 	c.dotIgnoreFiles = combineAndDedupe(c.dotIgnoreFiles, fp.DotIgnoreFiles)
