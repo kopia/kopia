@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/browser"
+	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/chromedp/kb"
@@ -93,6 +94,7 @@ func runInBrowser(t *testing.T, run func(ctx context.Context, sp *testutil.Serve
 				assert.Equal(t, tc.expectedDialogText, do.Message)
 				_, err := chromedp.Call(ctx, page.HandleJavaScriptDialog, page.HandleJavaScriptDialogParams{Accept: tc.dialogResponse})
 				assert.NoError(t, err)
+
 				tc.expectedDialogText = ""
 			}()
 		}
@@ -126,6 +128,7 @@ func createTestSnapshot(t *testing.T, ctx context.Context, sp *testutil.ServerPa
 	require.NoError(t, err)
 
 	// create test repository
+	//nolint:gocritic // dupOption: repeated browser steps are intentional
 	require.NoError(t, chromedp.Do(ctx,
 		chromedp.Navigate(sp.BaseURL),
 		chromedp.WaitVisible("button[data-testid='provider-filesystem']"),
@@ -197,12 +200,13 @@ func TestEndToEndTest(t *testing.T) {
 			tc.captureScreenshot("snapshot-dir"),
 
 			tc.log("clicking on snapshot file"),
-			chromedp.Func(func(ctx context.Context, _ *chromedp.Target) error {
-				_, err := chromedp.CallBrowser(ctx, browser.SetDownloadBehavior, browser.SetDownloadBehaviorParams{
+			chromedp.Func(func(ctx context.Context, target *chromedp.Target) error {
+				_, err := cdp.Call(ctx, target, browser.SetDownloadBehavior, browser.SetDownloadBehaviorParams{
 					Behavior:      browser.SetDownloadBehaviorBehaviorAllowAndName,
 					DownloadPath:  downloadDir,
 					EventsEnabled: new(true),
 				})
+
 				return err
 			}),
 			chromedp.Click(`a[href*='/api/v1/objects/']`),
@@ -239,6 +243,7 @@ func TestConnectDisconnectReconnect(t *testing.T) {
 		repoPath := testutil.TempDirectory(t)
 
 		// navigate to the base page, wait until we're redirected to 'Repository' page
+		//nolint:gocritic // dupOption: repeated browser steps are intentional
 		require.NoError(t, chromedp.Do(ctx,
 			chromedp.Navigate(sp.BaseURL),
 			chromedp.WaitVisible("button[data-testid='provider-filesystem']"),
@@ -303,7 +308,9 @@ func TestChangeTheme(t *testing.T) {
 
 			chromedp.Func(func(ctx context.Context, target *chromedp.Target) error {
 				var err error
+
 				nodes, err = chromedp.Nodes("html")(ctx, target)
+
 				return err
 			}),
 			tc.captureScreenshot("initial-theme"),
@@ -321,6 +328,7 @@ func TestChangeTheme(t *testing.T) {
 		}
 
 		// select the theme, wait one second, take screenshot and select next theme
+		//nolint:gocritic // dupOption: repeated browser steps are intentional
 		require.NoError(t, chromedp.Do(ctx,
 			chromedp.WaitVisible("html.light"),
 			tc.log("selecting pastel theme"),
@@ -363,6 +371,7 @@ func TestByteRepresentation(t *testing.T) {
 		createTestSnapshot(t, ctx, sp, tc, repoPath, snap1Path)
 
 		// begin test
+		//nolint:gocritic // dupOption: repeated browser steps are intentional
 		require.NoError(t, chromedp.Do(ctx,
 			tc.captureScreenshot("initial0"),
 
@@ -379,7 +388,9 @@ func TestByteRepresentation(t *testing.T) {
 			// getting text from the third column of the first row indicating the size of the snapshot
 			chromedp.Func(func(ctx context.Context, target *chromedp.Target) error {
 				var err error
+
 				base2, err = chromedp.Text(chromedp.CSS(`#root table > tbody > tr:nth-child(1) > td:nth-child(3)`))(ctx, target)
+
 				return err
 			}),
 			tc.captureScreenshot("snapshot-base-2"),
@@ -396,7 +407,9 @@ func TestByteRepresentation(t *testing.T) {
 			// getting text from the third column of the first row indicating the size of the snapshot
 			chromedp.Func(func(ctx context.Context, target *chromedp.Target) error {
 				var err error
+
 				base10, err = chromedp.Text(`#root table > tbody > tr:nth-child(1) > td:nth-child(3)`)(ctx, target)
+
 				return err
 			}),
 			tc.captureScreenshot("snapshot-base-10"),
