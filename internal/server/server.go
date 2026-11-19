@@ -20,6 +20,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/mount"
@@ -787,8 +788,8 @@ func (s *Server) patchIndexBytes(sessionID string, b []byte) []byte {
 	return b
 }
 
-func maybeReadIndexBytes(fs http.FileSystem) []byte {
-	rootFile, err := fs.Open("index.html")
+func maybeReadIndexBytes(fsys http.FileSystem) []byte {
+	rootFile, err := fsys.Open("index.html")
 	if err != nil {
 		return nil
 	}
@@ -804,11 +805,11 @@ func maybeReadIndexBytes(fs http.FileSystem) []byte {
 }
 
 // ServeStaticFiles configures HTTP handler that serves static files and dynamically patches index.html to embed CSRF token, etc.
-func (s *Server) ServeStaticFiles(m *mux.Router, fs http.FileSystem) {
-	h := http.FileServer(fs)
+func (s *Server) ServeStaticFiles(m *mux.Router, fsys http.FileSystem) {
+	h := http.FileServer(fsys)
 
 	// read bytes from 'index.html'.
-	indexBytes := maybeReadIndexBytes(fs)
+	indexBytes := maybeReadIndexBytes(fsys)
 
 	m.PathPrefix("/").HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.isKnownUIRoute(r.URL.Path) {
@@ -994,6 +995,9 @@ func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, i
 	var result notifydata.ManifestWithError
 
 	result.Manifest.Source = src
+	// a failed upload produces no manifest, but its report still needs real times
+	// so that KopiaUI can order it against other reports for this source.
+	result.Manifest.StartTime = fs.UTCTimestampFromTime(clock.Now())
 
 	defer s.endUpload(ctx, src, &result)
 
@@ -1007,6 +1011,10 @@ func (s *Server) runSnapshotTask(ctx context.Context, src snapshot.SourceInfo, i
 	), "snapshot task")
 	if err != nil {
 		result.Error = err.Error()
+	}
+
+	if result.Manifest.EndTime == 0 {
+		result.Manifest.EndTime = fs.UTCTimestampFromTime(clock.Now())
 	}
 
 	return err
