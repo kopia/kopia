@@ -168,7 +168,7 @@ func (s *s3Storage) putBlob(ctx context.Context, b blob.ID, data blob.Bytes, opt
 			return versionMetadata{}, errors.Errorf("invalid retention mode: %q", opts.RetentionMode)
 		}
 
-		retainUntilDate = clock.Now().Add(opts.RetentionPeriod).UTC()
+		retainUntilDate = clock.Now().Add(opts.RetentionPeriod + time.Second).UTC().Truncate(time.Second)
 	}
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), data.Reader(), int64(data.Length()), minio.PutObjectOptions{
@@ -234,7 +234,7 @@ func (s *s3Storage) ExtendBlobRetention(ctx context.Context, b blob.ID, opts blo
 		return errors.Errorf("invalid retention mode: %q", opts.RetentionMode)
 	}
 
-	retainUntilDate := clock.Now().Add(opts.RetentionPeriod).UTC()
+	retainUntilDate := clock.Now().Add(opts.RetentionPeriod + time.Second).UTC().Truncate(time.Second)
 
 	err := s.cli.PutObjectRetention(ctx, s.BucketName, s.getObjectNameString(b), minio.PutObjectRetentionOptions{
 		RetainUntilDate: &retainUntilDate,
