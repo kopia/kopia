@@ -56,3 +56,13 @@ updates:
       kopia-ui-npm-dependencies:
         patterns:
         - "*"
+  - package-ecosystem: docker
+    directory: "/tools/docker/"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 4
+    groups:
+      all:
+        patterns:
+        - "*"
