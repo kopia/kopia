@@ -8,7 +8,7 @@
     "electron-store": "^12.0.0",
     "electron-updater": "^6.8.11",
     "minimist": "^1.2.8",
-    "semver": "^7.8.5",
+    "semver": "^7.8.6",
     "uuid": "^14.0.3"
   },
   "type": "module",
@@ -123,15 +123,15 @@
   },
   "devDependencies": {
     "@electron/notarize": "^3.1.2",
-    "@playwright/test": "^1.64.1",
+    "@playwright/test": "^1.65.0",
     "asar": "^3.2.0",
-    "concurrently": "^10.0.6",
-    "dotenv": "^18.0.9",
-    "electron": "^45.0.0",
+    "concurrently": "^10.0.7",
+    "dotenv": "^18.0.10",
+    "electron": "^45.3.1",
     "electron-builder": "^26.18.0",
     "playwright": "^1.37.1",
     "playwright-core": "^1.35.1",
-    "prettier": "^3.9.10"
+    "prettier": "^3.10.1"
   },
   "homepage": "./",
   "description": "Fast and secure open source backup.",
