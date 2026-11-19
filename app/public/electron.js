@@ -396,6 +396,17 @@ function checkForUpdates() {
   autoUpdater.checkForUpdates();
 }
 
+function updateChecksEnabled() {
+  // KOPIA_CHECK_FOR_UPDATES uses the same false values as the CLI flag.
+  return !/^(0|f|false)$/i.test(process.env["KOPIA_CHECK_FOR_UPDATES"] ?? "");
+}
+
+function maybeCheckForUpdates() {
+  if (updateChecksEnabled()) {
+    checkForUpdates();
+  }
+}
+
 function checkForUpdatesNow() {
   checkForUpdatesTriggeredFromUI = true;
   checkForUpdates();
@@ -446,7 +457,7 @@ function maybeMoveToApplicationsFolder() {
       if (r.response == 0) {
         app.moveToApplicationsFolder();
       } else {
-        checkForUpdates();
+        maybeCheckForUpdates();
       }
     })
     .catch((e) => {
@@ -498,7 +509,7 @@ app.on("ready", () => {
   autoUpdater.logger = log;
 
   // re-check for updates every 24 hours
-  setInterval(checkForUpdates, 86400000);
+  setInterval(maybeCheckForUpdates, 86400000);
 
   tray = new Tray(
     path.join(
@@ -519,6 +530,7 @@ app.on("ready", () => {
       tray: tray,
       showRepoWindow: showRepoWindow,
       allConfigs: allConfigs,
+      updateChecksEnabled: updateChecksEnabled,
     };
   }
 
@@ -548,7 +560,7 @@ app.on("ready", () => {
   if (isOutsideOfApplicationsFolderOnMac()) {
     setTimeout(maybeMoveToApplicationsFolder, 1000);
   } else {
-    checkForUpdates();
+    maybeCheckForUpdates();
   }
 });
 
