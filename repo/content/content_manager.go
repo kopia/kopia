@@ -405,9 +405,11 @@ func (bm *WriteManager) verifyPackIndexBuilderLocked(mp format.MutableParameters
 	for k, cpi := range bm.packIndexBuilder {
 		assertInvariant(cpi.ContentID == k, "content ID entry has invalid key: %v %v", cpi.ContentID, k)
 
-		if cpi.Deleted {
-			assertInvariant(cpi.PackBlobID == "", "content can't be both deleted and have a pack content: %v", cpi.ContentID)
-		} else {
+		// deleted entries legitimately keep their original pack location so
+		// that deleted contents remain readable; they are moved into a new
+		// index rather than being written to a pack, so only non-deleted
+		// entries carry the assertions below.
+		if !cpi.Deleted {
 			assertInvariant(cpi.PackBlobID != "", "content that's not deleted must have a pack content: %+v", cpi)
 			assertInvariant(format.Version(cpi.FormatVersion) == mp.Version, "content that's not deleted must have a valid format version: %+v", cpi)
 		}
