@@ -8,6 +8,8 @@ updates:
       day: sunday
       # UTC
       time: "12:17"
+    allow:
+      - dependency-type: "all"
     cooldown:
       default-days: 4
     ignore:
