@@ -23,8 +23,8 @@ type TestContext struct {
 	downloadFinished chan string
 }
 
-func (tc *TestContext) expectDialogText(txt string, respond bool) chromedp.Action {
-	return chromedp.ActionFunc(func(c context.Context) error {
+func (tc *TestContext) expectDialogText(txt string, respond bool) chromedp.Action[chromedp.Void] {
+	return chromedp.Func(func(context.Context, *chromedp.Target) error {
 		tc.expectedDialogText = txt
 		tc.dialogResponse = respond
 
@@ -32,15 +32,15 @@ func (tc *TestContext) expectDialogText(txt string, respond bool) chromedp.Actio
 	})
 }
 
-func (tc *TestContext) log(msg string) chromedp.Action {
-	return chromedp.ActionFunc(func(c context.Context) error {
+func (tc *TestContext) log(msg string) chromedp.Action[chromedp.Void] {
+	return chromedp.Func(func(context.Context, *chromedp.Target) error {
 		tc.t.Log(msg)
 		return nil
 	})
 }
 
-func (tc *TestContext) waitForDownload(waitTime time.Duration) chromedp.Action {
-	return chromedp.ActionFunc(func(c context.Context) error {
+func (tc *TestContext) waitForDownload(waitTime time.Duration) chromedp.Action[chromedp.Void] {
+	return chromedp.Func(func(context.Context, *chromedp.Target) error {
 		// wait for download
 		select {
 		case <-tc.downloadFinished:
@@ -54,11 +54,10 @@ func (tc *TestContext) waitForDownload(waitTime time.Duration) chromedp.Action {
 	})
 }
 
-func (tc *TestContext) captureScreenshot(fname string) chromedp.Action {
-	return chromedp.ActionFunc(func(ctx context.Context) error {
-		var b []byte
-
-		if err := chromedp.CaptureScreenshot(&b).Do(ctx); err != nil {
+func (tc *TestContext) captureScreenshot(fname string) chromedp.Action[chromedp.Void] {
+	return chromedp.Func(func(ctx context.Context, target *chromedp.Target) error {
+		b, err := chromedp.CaptureScreenshot()(ctx, target)
+		if err != nil {
 			return err
 		}
 

@@ -3,6 +3,7 @@ package webdavmount
 
 import (
 	"context"
+	"io"
 	"os"
 	"strings"
 	"sync"
@@ -115,29 +116,31 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 
 	var fis []os.FileInfo
 
-	foundEntries := 0
-
-	e, err := d.iter.Next(ctx)
-	for e != nil {
-		if n > 0 && foundEntries >= n {
-			break
+	for n <= 0 || len(fis) < n {
+		e, err := d.iter.Next(ctx)
+		if err != nil {
+			return nil, errors.Wrap(err, "error reading directory")
 		}
 
-		foundEntries++
+		if e == nil {
+			break
+		}
 
 		if _, isSymlink := e.(fs.Symlink); isSymlink {
 			if atomic.AddInt32(symlinksAreUnsupportedLogged, 1) == 1 {
 				log(d.ctx).Errorf("Mounting directories containing symbolic links using WebDAV is not supported. The link entries will be skipped.")
 			}
-		} else {
-			fis = append(fis, &webdavFileInfo{e})
+
+			continue
 		}
 
-		e, err = d.iter.Next(ctx)
+		fis = append(fis, &webdavFileInfo{e})
 	}
 
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading directory")
+	// os.File.Readdir semantics, which webdav.File inherits via http.File: with a
+	// positive count, the end of the directory is reported as io.EOF.
+	if n > 0 && len(fis) == 0 {
+		return nil, io.EOF
 	}
 
 	return fis, nil
