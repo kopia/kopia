@@ -12,6 +12,7 @@ type commandSnapshot struct {
 	migrate     commandSnapshotMigrate
 	pin         commandSnapshotPin
 	restore     commandSnapshotRestore
+	search      commandSnapshotSearch
 	verify      commandSnapshotVerify
 }
 
@@ -28,5 +29,6 @@ func (c *commandSnapshot) setup(svc advancedAppServices, parent commandParent) {
 	c.migrate.setup(svc, cmd)
 	c.pin.setup(svc, cmd)
 	c.restore.setup(svc, cmd)
+	c.search.setup(svc, cmd)
 	c.verify.setup(svc, cmd)
 }
