@@ -7,7 +7,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -40,17 +39,17 @@ type fakeS3Server struct {
 	putCount  atomic.Int32
 	statCount atomic.Int32
 
-	mu sync.Mutex
 	// retainUntilDate is the raw object lock retain-until date received in the
 	// last PutObject header or PutObjectRetention request body.
-	retainUntilDate string
+	retainUntilDate atomic.Pointer[string]
 }
 
 func (f *fakeS3Server) lastRetainUntilDate() string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
+	if d := f.retainUntilDate.Load(); d != nil {
+		return *d
+	}
 
-	return f.retainUntilDate
+	return ""
 }
 
 func (f *fakeS3Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -68,9 +67,7 @@ func (f *fakeS3Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		f.mu.Lock()
-		f.retainUntilDate = retention.RetainUntilDate
-		f.mu.Unlock()
+		f.retainUntilDate.Store(&retention.RetainUntilDate)
 
 		w.WriteHeader(http.StatusOK)
 
@@ -85,9 +82,8 @@ func (f *fakeS3Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		f.mu.Lock()
-		f.retainUntilDate = r.Header.Get("X-Amz-Object-Lock-Retain-Until-Date")
-		f.mu.Unlock()
+		retainUntilDate := r.Header.Get("X-Amz-Object-Lock-Retain-Until-Date")
+		f.retainUntilDate.Store(&retainUntilDate)
 
 		w.Header().Set("ETag", `"d41d8cd98f00b204e9800998ecf8427e"`)
 		w.WriteHeader(http.StatusOK)
