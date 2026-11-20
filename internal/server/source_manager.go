@@ -155,6 +155,9 @@ func (s *sourceManager) setUploader(u *upload.Uploader) {
 func (s *sourceManager) start(ctx context.Context, isLocal bool) {
 	s.refreshStatus(ctx)
 
+	// counted before the goroutine starts, so that waitUntilStopped() waits for it.
+	s.wg.Add(1)
+
 	go s.run(ctx, isLocal)
 }
 
@@ -165,7 +168,6 @@ func (s *sourceManager) run(ctx context.Context, isLocal bool) {
 	s.setStatus("INITIALIZING")
 	defer s.setStatus("STOPPED")
 
-	s.wg.Add(1)
 	defer s.wg.Done()
 
 	if isLocal {
@@ -309,6 +311,15 @@ func (s *sourceManager) stop(ctx context.Context) {
 
 func (s *sourceManager) waitUntilStopped() {
 	s.wg.Wait()
+}
+
+func (s *sourceManager) isStopped() bool {
+	select {
+	case <-s.closed:
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Controller, result *notifydata.ManifestWithError) error {
