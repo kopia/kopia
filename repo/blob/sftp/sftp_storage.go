@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
@@ -38,6 +39,9 @@ const (
 	tempFileRandomSuffixLen = 8
 
 	packetSize = 1 << 15
+
+	// defaultConnectTimeout bounds the TCP connect when Options.ConnectTimeout is unset.
+	defaultConnectTimeout = 30 * time.Second
 )
 
 // sftpStorage implements blob.Storage on top of sftp.
@@ -436,10 +440,16 @@ func createSSHConfig(ctx context.Context, opt *Options) (*ssh.ClientConfig, erro
 		auth = append(auth, ssh.PublicKeys(signer))
 	}
 
+	timeout := defaultConnectTimeout
+	if opt.ConnectTimeout.Duration != 0 {
+		timeout = opt.ConnectTimeout.Duration
+	}
+
 	return &ssh.ClientConfig{
 		User:            opt.Username,
 		Auth:            auth,
 		HostKeyCallback: hostKeyCallback,
+		Timeout:         timeout,
 	}, nil
 }
 
