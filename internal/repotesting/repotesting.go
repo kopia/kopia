@@ -43,6 +43,8 @@ type Options struct {
 	// A non-zero StorageLimitBytes option limits the capacity of the underlying storage,
 	// otherwise it is unlimited.
 	StorageLimitBytes uint64
+	// WrapStorage, if set, wraps the underlying storage, for example to inject faults.
+	WrapStorage func(blob.Storage) blob.Storage
 }
 
 // RepositoryMetrics returns metrics.Registry associated with a repository.
@@ -111,6 +113,12 @@ func (e *Environment) setup(tb testing.TB, version format.Version, opts ...Optio
 	} else {
 		// use versioned mock storage when retention settings are specified
 		st = blobtesting.NewVersionedMapStorage(openOpt.TimeNowFunc)
+	}
+
+	for _, mod := range opts {
+		if mod.WrapStorage != nil {
+			st = mod.WrapStorage(st)
+		}
 	}
 
 	st = NewReconnectableStorage(tb, st)
