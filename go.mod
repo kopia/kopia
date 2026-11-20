@@ -124,7 +124,7 @@ require (
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7 // indirect
 	github.com/prometheus/procfs v0.23.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
-	github.com/spiffe/go-spiffe/v2 v2.8.1 // indirect
+	github.com/spiffe/go-spiffe/v2 v2.9.0 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/xhit/go-str2duration/v2 v2.2.0 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
