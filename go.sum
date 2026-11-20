@@ -336,8 +336,8 @@ google.golang.org/grpc v1.85.0/go.mod h1:0rQrOD58yjal/0EaVbGBANindixsCZNQPDV3VKt
 google.golang.org/protobuf v1.36.12 h1:pJOKDDOyeXErUroCihFAd5LQuwXBSpVnKGrj5o/fwxc=
 google.golang.org/protobuf v1.36.12/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
-gopkg.in/ini.v1 v1.67.3 h1:iM9Lhz5MRSGhHVGGwCuzG9KO8PoirCXj/m/qTmOJJQw=
-gopkg.in/ini.v1 v1.67.3/go.mod h1:x/cyOwCgZqOkJoDIJ3c1KNHMo10+nLGAhh+kn3Zizss=
+gopkg.in/ini.v1 v1.68.0 h1:Ml6Jlmf35dsiLcxJaRSjck7dxkxCOHd9T/E1f6jV9EE=
+gopkg.in/ini.v1 v1.68.0/go.mod h1:x/cyOwCgZqOkJoDIJ3c1KNHMo10+nLGAhh+kn3Zizss=
 gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216 h1:2TSTkQ8PMvGOD5eeqqRVv6Z9+BYI+bowK97RCr3W+9M=
 gopkg.in/kothar/go-backblaze.v0 v0.0.0-20210124194846-35409b867216/go.mod h1:zJ2QpyDCYo1KvLXlmdnFlQAyF/Qfth0fB8239Qg7BIE=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
