@@ -10,6 +10,7 @@ builds:
   goarch:
     - amd64
     - arm64
+    - s390x
   flags:
     - -trimpath
   ldflags:
