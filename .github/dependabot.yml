@@ -8,6 +8,8 @@ updates:
       day: sunday
       # UTC
       time: "12:17"
+    allow:
+      - dependency-type: "all"
     cooldown:
       default-days: 4
     ignore:
@@ -54,5 +56,15 @@ updates:
       # create once-per-week PR for all KopiaUI dependency bumps, that usually includes
       # electron, electron-builder, etc.
       kopia-ui-npm-dependencies:
+        patterns:
+        - "*"
+  - package-ecosystem: docker
+    directory: "/tools/docker/"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 4
+    groups:
+      all:
         patterns:
         - "*"
