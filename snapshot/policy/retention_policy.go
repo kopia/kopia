@@ -160,12 +160,14 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 			continue
 		}
 
-		if _, exists := ids[c.timePeriodID]; exists {
+		// Period IDs can overlap between types (e.g. January and ISO week 1).
+		periodKey := c.timePeriodType + ":" + c.timePeriodID
+		if _, exists := ids[periodKey]; exists {
 			continue
 		}
 
 		if idCounters[c.timePeriodType] < int(*c.max) {
-			ids[c.timePeriodID] = true
+			ids[periodKey] = true
 			idCounters[c.timePeriodType]++
 			keepReasons = append(keepReasons, fmt.Sprintf("%v-%v", c.timePeriodType, idCounters[c.timePeriodType]))
 		}
