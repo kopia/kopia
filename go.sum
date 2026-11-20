@@ -123,8 +123,8 @@ github.com/golang/protobuf v1.5.4 h1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek
 github.com/golang/protobuf v1.5.4/go.mod h1:lnTiLA8Wa4RWRcIUkrtSVa5nRhsEGBg48fD6rSs7xps=
 github.com/google/flatbuffers v25.12.19+incompatible h1:haMV2JRRJCe1998HeW/p0X9UaMTK6SDo0ffLn2+DbLs=
 github.com/google/flatbuffers v25.12.19+incompatible/go.mod h1:1AeVuKshWv4vARoZatz6mlQ0JxURH0Kv5+zNeJKJCa8=
-github.com/google/fswalker v0.3.3 h1:K2+d6cb3vNFjquVPRObIY+QaXJ6cbleVV6yZWLzkkQ8=
-github.com/google/fswalker v0.3.3/go.mod h1:9upMSscEE8oRi0WJ0rXZZYya1DmgUtJFhXAw7KNS3c4=
+github.com/google/fswalker v0.3.4 h1:PU4r0JVq2POH7FigeAnZFAkL5Yr4a4a2z1xXmFHxcVU=
+github.com/google/fswalker v0.3.4/go.mod h1:DG512jtB8akYj8IN4i5shs77sIZx9D6dgeKic1tWxWI=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
 github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
 github.com/google/martian/v3 v3.3.3 h1:DIhPTQrbPkgs2yJYdXU/eNACCG5DVQjySNRNlflZ9Fc=
