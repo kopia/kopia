@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/json"
+	"io"
 	"path"
 	"runtime"
 
@@ -75,9 +76,14 @@ func (rw *DirRewriter) processRequest(pool *workshare.Pool[*dirRewriterRequest],
 	req.result, req.err = rw.getCachedReplacement(req.ctx, req.parentPath, req.input, req.metadataCompression)
 }
 
-func (rw *DirRewriter) getCacheKey(input *snapshot.DirEntry) dirRewriterCacheKey {
-	// cache key = SHA1 hash of the input as JSON (20 bytes)
+func (rw *DirRewriter) getCacheKey(parentPath string, input *snapshot.DirEntry) dirRewriterCacheKey {
+	// cache key = SHA1 hash of the path and the input as JSON (20 bytes); the
+	// path is part of the key because a rewriter may decide by path.
 	h := sha1.New()
+
+	if _, err := io.WriteString(h, parentPath+"\x00"); err != nil {
+		impossible.PanicOnError(err)
+	}
 
 	if err := json.NewEncoder(h).Encode(input); err != nil {
 		impossible.PanicOnError(err)
@@ -91,7 +97,7 @@ func (rw *DirRewriter) getCacheKey(input *snapshot.DirEntry) dirRewriterCacheKey
 }
 
 func (rw *DirRewriter) getCachedReplacement(ctx context.Context, parentPath string, input *snapshot.DirEntry, metadataComp compression.Name) (*snapshot.DirEntry, error) {
-	key := rw.getCacheKey(input)
+	key := rw.getCacheKey(parentPath, input)
 
 	// see if we already processed this exact directory entry
 	cached, ok, err := rw.cache.Get(ctx, nil, key[:])
@@ -219,7 +225,7 @@ func (rw *DirRewriter) equalEntries(e1, e2 *snapshot.DirEntry) bool {
 		return false
 	}
 
-	return rw.getCacheKey(e1) == rw.getCacheKey(e2)
+	return rw.getCacheKey("", e1) == rw.getCacheKey("", e2)
 }
 
 // RewriteSnapshotManifest rewrites the directory tree starting at a given manifest.
