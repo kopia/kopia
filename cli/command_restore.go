@@ -122,6 +122,7 @@ type commandRestore struct {
 	restoreSkipTimes              bool
 	restoreSkipOwners             bool
 	restoreSkipPermissions        bool
+	restoreSkipHardlinks          bool
 	restoreIncremental            bool
 	restoreDeleteExtra            bool
 	restoreIgnoreErrors           bool
@@ -151,6 +152,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("skip-owners", "Skip owners during restore").BoolVar(&c.restoreSkipOwners)
 	cmd.Flag("skip-permissions", "Skip permissions during restore").BoolVar(&c.restoreSkipPermissions)
 	cmd.Flag("skip-times", "Skip times during restore").BoolVar(&c.restoreSkipTimes)
+	cmd.Flag("skip-hardlinks", "Restore hard-linked files as independent copies").BoolVar(&c.restoreSkipHardlinks)
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").Default(trueStr).BoolVar(&c.restoreIgnorePermissionErrors)
 	cmd.Flag("write-files-atomically", "Write files atomically to disk, ensuring they are either fully committed, or not written at all, preventing partially written files").Default(falseStr).BoolVar(&c.restoreWriteFilesAtomically)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
@@ -270,6 +272,7 @@ func (c *commandRestore) restoreOutput(ctx context.Context, rep repo.Repository)
 			SkipOwners:             c.restoreSkipOwners,
 			SkipPermissions:        c.restoreSkipPermissions,
 			SkipTimes:              c.restoreSkipTimes,
+			SkipHardlinks:          c.restoreSkipHardlinks,
 			WriteSparseFiles:       c.restoreWriteSparseFiles,
 			FlushFiles:             c.flushFiles,
 		}
@@ -339,7 +342,11 @@ func (c *commandRestore) detectRestoreMode(ctx context.Context, m, targetpath st
 }
 
 func printRestoreStats(ctx context.Context, st *restore.Stats) {
-	var maybeSkipped, maybeDeletedDirs, maybeDeletedFiles, maybeDeletedSymlinks, maybeErrors string
+	var maybeHardlinks, maybeSkipped, maybeDeletedDirs, maybeDeletedFiles, maybeDeletedSymlinks, maybeErrors string
+
+	if st.RestoredHardlinkCount > 0 {
+		maybeHardlinks = fmt.Sprintf(", including %v hard links (%v)", st.RestoredHardlinkCount, units.BytesString(st.RestoredHardlinkTotalFileSize))
+	}
 
 	if st.SkippedCount > 0 {
 		maybeSkipped = fmt.Sprintf(", skipped %v (%v)", st.SkippedCount, units.BytesString(st.SkippedTotalFileSize))
@@ -361,12 +368,12 @@ func printRestoreStats(ctx context.Context, st *restore.Stats) {
 		maybeErrors = fmt.Sprintf(", ignored %v errors", st.IgnoredErrorCount)
 	}
 
-	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)%v%v%v%v%v.\n",
+	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)%v%v%v%v%v%v.\n",
 		st.RestoredFileCount,
 		st.RestoredDirCount,
 		st.RestoredSymlinkCount,
 		units.BytesString(st.RestoredTotalFileSize),
-		maybeSkipped, maybeDeletedDirs, maybeDeletedFiles, maybeDeletedSymlinks, maybeErrors)
+		maybeHardlinks, maybeSkipped, maybeDeletedDirs, maybeDeletedFiles, maybeDeletedSymlinks, maybeErrors)
 }
 
 func (c *commandRestore) setupPlaceholderExpansion(ctx context.Context, rep repo.Repository, rstp restoreSourceTarget, output restore.Output) (fs.Entry, error) {

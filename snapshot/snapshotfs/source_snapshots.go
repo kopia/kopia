@@ -51,6 +51,10 @@ func (s *sourceSnapshots) Device() fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
 
+func (s *sourceSnapshots) HardLinkInfo() fs.HardLinkInfo {
+	return fs.HardLinkInfo{}
+}
+
 func (s *sourceSnapshots) LocalFilesystemPath() string {
 	return ""
 }
