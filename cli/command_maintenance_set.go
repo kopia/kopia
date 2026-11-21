@@ -27,6 +27,9 @@ type commandMaintenanceSet struct {
 	extendObjectLocks []bool // optional boolean
 
 	listParallelism int
+
+	consolidateRangeCheckpoints         []bool // optional boolean
+	consolidateRangeCheckpointsMinCount int
 }
 
 func (c *commandMaintenanceSet) setup(svc appServices, parent commandParent) {
@@ -42,6 +45,7 @@ func (c *commandMaintenanceSet) setup(svc appServices, parent commandParent) {
 	c.maxTotalRetainedLogSizeMB = -1
 
 	c.listParallelism = -1
+	c.consolidateRangeCheckpointsMinCount = -1
 
 	cmd.Flag("owner", "Set maintenance owner user@hostname").StringVar(&c.maintenanceSetOwner)
 
@@ -60,6 +64,9 @@ func (c *commandMaintenanceSet) setup(svc appServices, parent commandParent) {
 	cmd.Flag("extend-object-locks", "Extend retention period of locked objects as part of full maintenance.").BoolListVar(&c.extendObjectLocks)
 
 	cmd.Flag("list-parallelism", "Override list parallelism.").IntVar(&c.listParallelism)
+
+	cmd.Flag("consolidate-range-checkpoints", "Consolidate epoch range checkpoints and drop deleted index entries as part of full maintenance.").BoolListVar(&c.consolidateRangeCheckpoints)
+	cmd.Flag("consolidate-range-checkpoints-min-count", "Number of range checkpoints that triggers a consolidation.").IntVar(&c.consolidateRangeCheckpointsMinCount)
 
 	cmd.Action(svc.directRepositoryWriteAction(c.run))
 }
@@ -155,6 +162,29 @@ func (c *commandMaintenanceSet) setMaintenanceObjectLockExtendFromFlags(ctx cont
 	}
 }
 
+func (c *commandMaintenanceSet) setRangeCheckpointConsolidationFromFlags(ctx context.Context, p *maintenance.Params, changed *bool) {
+	// we use lists to distinguish between flag not set
+	// Zero elements == not set, more than zero - flag set, in which case we pick the last value
+	if len(c.consolidateRangeCheckpoints) > 0 {
+		lastVal := c.consolidateRangeCheckpoints[len(c.consolidateRangeCheckpoints)-1]
+		p.RangeCheckpointConsolidation.Enabled = lastVal
+		*changed = true
+
+		if lastVal {
+			log(ctx).Info("Range checkpoint consolidation enabled.")
+		} else {
+			log(ctx).Info("Range checkpoint consolidation disabled.")
+		}
+	}
+
+	if v := c.consolidateRangeCheckpointsMinCount; v != -1 {
+		p.RangeCheckpointConsolidation.MinRangeCheckpoints = v
+		*changed = true
+
+		log(ctx).Infof("Range checkpoint consolidation starts at %v range checkpoints.", p.RangeCheckpointConsolidation.GetMinRangeCheckpoints())
+	}
+}
+
 func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	p, err := maintenance.GetParams(ctx, rep)
 	if err != nil {
@@ -174,6 +204,7 @@ func (c *commandMaintenanceSet) run(ctx context.Context, rep repo.DirectReposito
 	c.setLogCleanupParametersFromFlags(ctx, p, &changedParams)
 	c.setListBlobsParallelismFromFlags(ctx, p, &changedParams)
 	c.setMaintenanceObjectLockExtendFromFlags(ctx, p, &changedParams)
+	c.setRangeCheckpointConsolidationFromFlags(ctx, p, &changedParams)
 
 	if pauseDuration := c.maintenanceSetPauseQuick; pauseDuration != -1 {
 		s.NextQuickMaintenanceTime = rep.Time().Add(pauseDuration)
