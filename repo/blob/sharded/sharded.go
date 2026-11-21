@@ -31,6 +31,12 @@ type Impl interface {
 	ReadDir(ctx context.Context, path string) ([]os.FileInfo, error)
 }
 
+// prefixDirReader can skip metadata reads for files outside the requested prefix.
+// Implementations must still return directories so the walker can visit matching shards.
+type prefixDirReader interface {
+	ReadDirWithPrefix(ctx context.Context, path, filePrefix string) ([]os.FileInfo, error)
+}
+
 // Storage provides common implementation of sharded storage.
 type Storage struct {
 	Impl Impl
@@ -86,7 +92,7 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 		default:
 		}
 
-		entries, err := s.Impl.ReadDir(ctx, directory)
+		entries, err := s.readDir(ctx, directory, currentPrefix, string(prefix))
 		if err != nil {
 			return errors.Wrap(err, "error reading directory")
 		}
@@ -163,6 +169,15 @@ func (s *Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(b
 
 	//nolint:wrapcheck
 	return eg.Wait()
+}
+
+func (s *Storage) readDir(ctx context.Context, directory, currentPrefix, prefix string) ([]os.FileInfo, error) {
+	filePrefix, narrower := strings.CutPrefix(prefix, currentPrefix)
+	if reader, ok := s.Impl.(prefixDirReader); ok && narrower && filePrefix != "" {
+		return reader.ReadDirWithPrefix(ctx, directory, filePrefix)
+	}
+
+	return s.Impl.ReadDir(ctx, directory)
 }
 
 // GetMetadata implements blob.Storage.
