@@ -1,6 +1,7 @@
 package s3
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -467,6 +468,58 @@ func TestS3StorageMinio(t *testing.T) {
 
 	createBucket(t, options)
 	testStorage(t, options, true, blob.PutOptions{})
+}
+
+// TestS3StorageMinioDirectoryPrefixNotListedAsBlob verifies that directory prefixes are
+// never surfaced as blobs. Without a recursive listing the S3 API returns CommonPrefixes,
+// which the client reports as objects whose key ends in "/", producing blob IDs that
+// cannot be fetched. Some S3 implementations transiently expose in-flight objects this way.
+func TestS3StorageMinioDirectoryPrefixNotListedAsBlob(t *testing.T) {
+	t.Parallel()
+	testutil.ProviderTest(t)
+
+	ctx := testlogging.Context(t)
+	minioEndpoint := startDockerMinioOrSkip(t, testutil.TempDirectory(t))
+
+	options := &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     minioRootAccessKeyID,
+		SecretAccessKey: minioRootSecretAccessKey,
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		Prefix:          uuid.NewString() + "/",
+		DoNotUseTLS:     true,
+	}
+
+	createBucket(t, options)
+
+	st, err := New(ctx, options, false)
+	require.NoError(t, err)
+
+	defer st.Close(ctx)
+
+	require.NoError(t, st.PutBlob(ctx, "someblob", gather.FromSlice([]byte{1, 2, 3}), blob.PutOptions{}))
+
+	// create a key nested under a blob-like name, which makes the S3 API report
+	// "nested/" as a CommonPrefix on any delimited listing.
+	cli := createClient(t, options)
+
+	_, err = cli.PutObject(ctx, options.BucketName, options.Prefix+"nested/child",
+		bytes.NewReader([]byte{1}), 1, minio.PutObjectOptions{})
+	require.NoError(t, err)
+
+	var got []blob.ID
+
+	require.NoError(t, st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+		got = append(got, bm.BlobID)
+		return nil
+	}))
+
+	for _, id := range got {
+		require.False(t, strings.HasSuffix(string(id), "/"), "directory prefix returned as blob ID: %q", id)
+	}
+
+	require.Contains(t, got, blob.ID("someblob"))
 }
 
 func TestS3StorageCustomCredentials(t *testing.T) {
