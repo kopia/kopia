@@ -249,6 +249,53 @@ kopia policy set <target_dir> --before-folder-action "powershell -WindowStyle Hi
 kopia policy set <target_dir> --after-folder-action  "powershell -WindowStyle Hidden -File <path_to_script>\after.ps1"
 ```
 
+### Heartbeat monitoring with Watchgoose
+
+[Watchgoose](https://watchgoose.com/) alerts you when a scheduled job does not report in on time, or reports a failure.
+You can use snapshot root actions to tell it when a snapshot starts and finishes. Replace the example URL with
+the ping URL of your own check.
+
+Before (`/usr/local/bin/kopia-watchgoose-start.sh`):
+
+```shell
+#!/bin/sh
+curl -fsS -m 10 --retry 3 -o /dev/null https://watchgoose.com/ping/your-check-uuid/start || true
+```
+
+After (`/usr/local/bin/kopia-watchgoose-done.sh`):
+
+```shell
+#!/bin/sh
+curl -fsS -m 10 --retry 3 -o /dev/null \
+  --data-raw "kopia $KOPIA_VERSION finished $KOPIA_SOURCE_PATH" \
+  https://watchgoose.com/ping/your-check-uuid || true
+```
+
+To install the actions:
+
+```shell
+kopia policy set <target_dir> --before-snapshot-root-action /usr/local/bin/kopia-watchgoose-start.sh
+kopia policy set <target_dir> --after-snapshot-root-action /usr/local/bin/kopia-watchgoose-done.sh
+```
+
+A few things to keep in mind:
+
+* Actions run only when they are enabled (see [Enabling Actions](#enabling-actions)).
+* The `|| true` keeps a monitoring outage from failing your backup, because actions are `essential` by default.
+* The after action does not know whether the snapshot succeeded. It runs when the upload finishes, even if some
+  files could not be read. It does not run if the snapshot stops before the upload starts, for example when the
+  source path is missing or another essential before action fails. Watchgoose then alerts you when the check is overdue.
+
+To report failures right away, add a webhook notification profile that only fires on errors:
+
+```shell
+kopia notification profile configure webhook --profile-name=watchgoose-fail \
+  --endpoint=https://watchgoose.com/ping/your-check-uuid/fail \
+  --method=POST --format=txt --min-severity=error
+```
+
+Kopia sends the snapshot report as the request body, and Watchgoose stores the first 10,000 bytes of it with the ping.
+
 ### Contributions Welcome
 
 Those are just some initial ideas, we're certain more interesting types of actions will be developed using this mechanism, including LVM snapshots, BTRFS Snapshots, notifications and more.
