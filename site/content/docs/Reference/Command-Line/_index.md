@@ -40,6 +40,7 @@ Examples:
 
 * [create repository in local filesystem](common/repository-create-filesystem/)
 * [create repository in Google Cloud Storage bucket](common/repository-create-google/)
+* [create repository in Cloudflare R2 bucket](common/repository-create-r2/)
 * [create repository in S3-compatible bucket](common/repository-create-s3/) (e.g. [Amazon S3](https://aws.amazon.com/s3/), [minio.io](https://minio.io/), [Wasabi](https://wasabi.com))
 
 To connect to an existing repository use the same flags but instead of `create` use `connect`:
