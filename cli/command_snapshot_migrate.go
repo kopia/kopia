@@ -64,6 +64,7 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 		wg              sync.WaitGroup
 		mu              sync.Mutex
 		canceled        bool
+		migrationErr    error
 		activeUploaders = map[snapshot.SourceInfo]*upload.Uploader{}
 	)
 
@@ -128,6 +129,12 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 
 			if err := c.migrateSingleSource(ctx, uploader, sourceRepo, destRepo, s); err != nil {
 				log(ctx).Errorf("unable to migrate source: %v", err)
+
+				mu.Lock()
+				if migrationErr == nil {
+					migrationErr = err
+				}
+				mu.Unlock()
 			}
 		}(s)
 	}
@@ -135,6 +142,16 @@ func (c *commandSnapshotMigrate) run(ctx context.Context, destRepo repo.Reposito
 	wg.Wait()
 	c.svc.getProgress().FinishShared()
 	c.out.printStderr("\r\n")
+
+	if migrationErr != nil {
+		// Persist snapshots from healthy sources before returning the failure.
+		// The repository write session does not flush when its action fails.
+		if err := destRepo.Flush(ctx); err != nil {
+			return errors.Wrapf(err, "unable to flush successful snapshots after migration failure: %v", migrationErr)
+		}
+		return errors.Wrap(migrationErr, "unable to migrate one or more sources")
+	}
+
 	log(ctx).Info("Migration finished.")
 
 	return nil
@@ -295,6 +312,12 @@ func (c *commandSnapshotMigrate) migrateSingleSourceSnapshot(ctx context.Context
 	newm.StartTime = m.StartTime
 	newm.EndTime = m.EndTime
 	newm.Description = m.Description
+
+	if newm.RootEntry != nil {
+		if ds := newm.RootEntry.DirSummary; ds != nil && ds.FatalErrorCount > 0 {
+			return errors.Errorf("found %v fatal error(s) while migrating %v", ds.FatalErrorCount, s)
+		}
+	}
 
 	if newm.IncompleteReason == "" {
 		if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
