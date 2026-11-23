@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/pkg/sftp"
@@ -39,6 +40,11 @@ const (
 
 	packetSize = 1 << 15
 )
+
+// defaultSSHConnectTimeout is the timeout used when establishing an SSH connection
+// if Options.ConnectTimeout is not set. Without it, a connection attempt to an
+// unreachable host falls back to kernel TCP retries which may take minutes.
+const defaultSSHConnectTimeout = 30 * time.Second
 
 // sftpStorage implements blob.Storage on top of sftp.
 type sftpStorage struct {
@@ -436,10 +442,16 @@ func createSSHConfig(ctx context.Context, opt *Options) (*ssh.ClientConfig, erro
 		auth = append(auth, ssh.PublicKeys(signer))
 	}
 
+	connectTimeout := opt.ConnectTimeout
+	if connectTimeout == 0 {
+		connectTimeout = defaultSSHConnectTimeout
+	}
+
 	return &ssh.ClientConfig{
 		User:            opt.Username,
 		Auth:            auth,
 		HostKeyCallback: hostKeyCallback,
+		Timeout:         connectTimeout,
 	}, nil
 }
 
