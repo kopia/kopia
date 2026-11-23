@@ -172,6 +172,30 @@ func TestDiskContentCache(t *testing.T) {
 	verifyContentCache(t, cc, cacheStorage)
 }
 
+// TestContentCacheZeroSizeWithDirectory is a regression test for #5406: a
+// configured cache directory combined with a zero cache size (cache disabled)
+// must fall back to a passthrough cache instead of building a nil-backed cache
+// that panics with a nil-pointer dereference when a blob is fetched.
+func TestContentCacheZeroSizeWithDirectory(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	cc, err := cache.NewContentCache(ctx, newUnderlyingStorageForContentCacheTesting(t), cache.Options{
+		BaseCacheDirectory: testutil.TempDirectory(t),
+		CacheSubDir:        "contents",
+		Sweep:              cache.SweepSettings{MaxSizeBytes: 0}, // cache disabled
+	}, nil)
+	require.NoError(t, err)
+
+	defer cc.Close(ctx)
+
+	var tmp gather.WriteBuffer
+	defer tmp.Close()
+
+	// Previously panicked here with a nil-pointer dereference on the nil persistent cache.
+	require.NoError(t, cc.GetContent(ctx, "content-1", "content-1", 0, -1, &tmp))
+	require.Equal(t, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, tmp.ToByteSlice())
+}
+
 func verifyContentCache(t *testing.T, cc cache.ContentCache, cacheStorage cache.Storage) {
 	t.Helper()
 
