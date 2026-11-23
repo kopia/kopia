@@ -10,6 +10,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -1818,4 +1819,92 @@ func verifyLogDetails(t *testing.T, desc string, wantDetailKeys []string, keysAn
 	sort.Strings(gotDetailKeys)
 	sort.Strings(wantDetailKeys)
 	require.Equal(t, wantDetailKeys, gotDetailKeys, "invalid details for "+desc)
+}
+
+func workDirScript(outFile string, fail bool) string {
+	if runtime.GOOS == "windows" {
+		script := "cd > \"" + outFile + "\""
+		if fail {
+			script += "\r\nexit /b 1"
+		}
+
+		return script
+	}
+
+	script := "pwd > '" + outFile + "'"
+	if fail {
+		script += "\nexit 1"
+	}
+
+	return script
+}
+
+func readActionWorkDir(t *testing.T, fname string) string {
+	t.Helper()
+
+	b, err := os.ReadFile(fname)
+	require.NoError(t, err)
+
+	wd := strings.TrimSpace(string(b))
+	require.NotEmpty(t, wd)
+
+	return wd
+}
+
+// uploadWithSnapshotRootActions snapshots a local directory with before/after-snapshot-root
+// inline scripts that record their working directory into beforeOut and afterOut.
+func uploadWithSnapshotRootActions(t *testing.T, failBefore bool) (beforeOut, afterOut string, err error) {
+	t.Helper()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+	t.Cleanup(th.cleanup)
+
+	srcDir := testutil.TempDirectory(t)
+	require.NoError(t, os.WriteFile(filepath.Join(srcDir, "f1"), []byte{1, 2, 3}, 0o600))
+
+	outDir := testutil.TempDirectory(t)
+	beforeOut = filepath.Join(outDir, "before.txt")
+	afterOut = filepath.Join(outDir, "after.txt")
+
+	pol := *policy.DefaultPolicy
+	pol.Actions.BeforeSnapshotRoot = &policy.ActionCommand{
+		Script: workDirScript(beforeOut, failBefore),
+		Mode:   "essential",
+	}
+	pol.Actions.AfterSnapshotRoot = &policy.ActionCommand{
+		Script: workDirScript(afterOut, false),
+	}
+
+	source, err := localfs.Directory(srcDir)
+	require.NoError(t, err)
+
+	u := NewUploader(th.repo)
+	u.EnableActions = true
+
+	_, err = u.Upload(ctx, source, policy.BuildTree(nil, &pol), snapshot.SourceInfo{Path: srcDir})
+
+	return beforeOut, afterOut, err
+}
+
+func TestUpload_SnapshotRootActionsRemoveWorkDir(t *testing.T) {
+	t.Parallel()
+
+	beforeOut, afterOut, err := uploadWithSnapshotRootActions(t, false)
+	require.NoError(t, err)
+
+	workDir := readActionWorkDir(t, beforeOut)
+
+	// the work dir must still exist when after-snapshot-root runs
+	require.Equal(t, workDir, readActionWorkDir(t, afterOut))
+	require.NoDirExists(t, workDir)
+}
+
+func TestUpload_SnapshotRootActionsRemoveWorkDirWhenBeforeActionFails(t *testing.T) {
+	t.Parallel()
+
+	beforeOut, afterOut, err := uploadWithSnapshotRootActions(t, true)
+	require.Error(t, err)
+	require.NoFileExists(t, afterOut)
+	require.NoDirExists(t, readActionWorkDir(t, beforeOut))
 }
