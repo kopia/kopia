@@ -328,3 +328,95 @@ func TestSortAndDedupeTimesOfDay(t *testing.T) {
 		})
 	}
 }
+
+func TestTimeOfDayParse(t *testing.T) {
+	// every hour, with and without a leading zero, must parse to the same value.
+	for hour := range 24 {
+		inputs := []string{fmt.Sprintf("%v:45", hour)}
+		if hour < 10 {
+			inputs = append(inputs, fmt.Sprintf("0%v:45", hour))
+		}
+
+		for _, input := range inputs {
+			t.Run("hour/"+input, func(t *testing.T) {
+				var tod policy.TimeOfDay
+
+				require.NoError(t, tod.Parse(input))
+				require.Equal(t, policy.TimeOfDay{Hour: hour, Minute: 45}, tod)
+			})
+		}
+	}
+
+	// every minute, with and without a leading zero, must parse to the same value.
+	for minute := range 60 {
+		inputs := []string{fmt.Sprintf("10:%v", minute)}
+		if minute < 10 {
+			inputs = append(inputs, fmt.Sprintf("10:0%v", minute))
+		}
+
+		for _, input := range inputs {
+			t.Run("minute/"+input, func(t *testing.T) {
+				var tod policy.TimeOfDay
+
+				require.NoError(t, tod.Parse(input))
+				require.Equal(t, policy.TimeOfDay{Hour: 10, Minute: minute}, tod)
+			})
+		}
+	}
+
+	cases := []struct {
+		input string
+		want  policy.TimeOfDay
+	}{
+		{input: "0:0", want: policy.TimeOfDay{Hour: 0, Minute: 0}},
+		{input: "00:00", want: policy.TimeOfDay{Hour: 0, Minute: 0}},
+		{input: "08:08", want: policy.TimeOfDay{Hour: 8, Minute: 8}},
+		{input: "09:09", want: policy.TimeOfDay{Hour: 9, Minute: 9}},
+		{input: "23:59", want: policy.TimeOfDay{Hour: 23, Minute: 59}},
+		{input: " 09:45 ", want: policy.TimeOfDay{Hour: 9, Minute: 45}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			var tod policy.TimeOfDay
+
+			require.NoError(t, tod.Parse(tc.input))
+			require.Equal(t, tc.want, tod)
+		})
+	}
+}
+
+func TestTimeOfDayParseInvalid(t *testing.T) {
+	cases := []string{
+		"",
+		"abc",
+		"10",
+		"10:",
+		":10",
+		"10:aa",
+		"1:2:3",
+		"10:30:00",
+		"10:30abc",
+		"10: 30",
+		"0x10:00",
+		"10:0x8",
+		"1_0:30",
+		"24:00",
+		"-1:30",
+		"10:60",
+		"99:99",
+	}
+
+	for _, input := range cases {
+		t.Run(input, func(t *testing.T) {
+			tod := policy.TimeOfDay{Hour: 3, Minute: 4}
+
+			err := tod.Parse(input)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), fmt.Sprintf("%q", input))
+
+			// invalid input must not modify the receiver.
+			require.Equal(t, policy.TimeOfDay{Hour: 3, Minute: 4}, tod)
+		})
+	}
+}
