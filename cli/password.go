@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -98,6 +99,15 @@ func askPass(out io.Writer, prompt string) (string, error) {
 	fd, err := intFd(os.Stdin)
 	if err != nil {
 		return "", errors.Wrap(err, "password input error")
+	}
+
+	if !term.IsTerminal(fd) {
+		reader := bufio.NewReader(os.Stdin)
+		pwd, err := reader.ReadString('\n')
+		if err != nil && err != io.EOF {
+			return "", err
+		}
+		return strings.TrimRight(pwd, "\r\n"), nil
 	}
 
 	for range 5 {
