@@ -29,6 +29,7 @@ func MergePolicies(policies []*Policy, si snapshot.SourceInfo) (*Policy, *Defini
 		merged.Actions.Merge(p.Actions, &def.Actions, p.Target())
 		merged.OSSnapshotPolicy.Merge(p.OSSnapshotPolicy, &def.OSSnapshotPolicy, p.Target())
 		merged.LoggingPolicy.Merge(p.LoggingPolicy, &def.LoggingPolicy, p.Target())
+		merged.MetricsPolicy.Merge(p.MetricsPolicy, &def.MetricsPolicy, p.Target())
 
 		if p.NoParent {
 			return &merged, &def
@@ -47,6 +48,7 @@ func MergePolicies(policies []*Policy, si snapshot.SourceInfo) (*Policy, *Defini
 	merged.Actions.Merge(defaultActionsPolicy, &def.Actions, GlobalPolicySourceInfo)
 	merged.OSSnapshotPolicy.Merge(defaultOSSnapshotPolicy, &def.OSSnapshotPolicy, GlobalPolicySourceInfo)
 	merged.LoggingPolicy.Merge(defaultLoggingPolicy, &def.LoggingPolicy, GlobalPolicySourceInfo)
+	merged.MetricsPolicy.Merge(defaultMetricsPolicy, &def.MetricsPolicy, GlobalPolicySourceInfo)
 
 	if len(policies) > 0 {
 		merged.Actions.MergeNonInheritable(policies[0].Actions)

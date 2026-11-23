@@ -33,6 +33,7 @@ type Policy struct {
 	OSSnapshotPolicy          OSSnapshotPolicy          `json:"osSnapshots,omitempty"`
 	LoggingPolicy             LoggingPolicy             `json:"logging,omitempty"`
 	UploadPolicy              UploadPolicy              `json:"upload,omitempty"`
+	MetricsPolicy             MetricsPolicy             `json:"metrics,omitempty"`
 	NoParent                  bool                      `json:"noParent,omitempty"`
 }
 
@@ -50,6 +51,7 @@ type Definition struct {
 	OSSnapshotPolicy          OSSnapshotPolicyDefinition          `json:"osSnapshots,omitempty"`
 	LoggingPolicy             LoggingPolicyDefinition             `json:"logging,omitempty"`
 	UploadPolicy              UploadPolicyDefinition              `json:"upload,omitempty"`
+	MetricsPolicy             MetricsPolicyDefinition             `json:"metrics,omitempty"`
 }
 
 func (p *Policy) String() string {
