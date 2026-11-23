@@ -409,12 +409,32 @@ func write(targetPath string, r fs.Reader, size int64, flush bool, c streamCopie
 	return nil
 }
 
+func prepareExistingFileForOverwrite(path string, mode os.FileMode) (func() error, error) {
+	if !isWindows() || mode == 0 || mode.Perm()&0o200 != 0 {
+		return nil, nil
+	}
+
+	// Windows refuses to truncate files with the read-only attribute set.
+	// Successful restores apply the snapshot mode after writing the contents.
+	if err := os.Chmod(path, mode|0o200); err != nil {
+		return nil, err
+	}
+
+	return func() error { return os.Chmod(path, mode) }, nil
+}
+
 func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File, progressCb FileWriteProgress) error {
-	switch _, err := os.Stat(targetPath); {
+	var existingMode os.FileMode
+
+	switch st, err := os.Stat(targetPath); {
 	case os.IsNotExist(err): // copy file below
 	case err == nil:
 		if !o.OverwriteFiles {
 			return errors.Errorf("unable to create %q, it already exists", targetPath)
+		}
+
+		if st.Mode().IsRegular() {
+			existingMode = st.Mode()
 		}
 
 		log(ctx).Debugf("Overwriting existing file: %v", targetPath)
@@ -436,12 +456,24 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
 	targetPath = ospath.SafeLongFilename(targetPath)
 
-	if o.WriteFilesAtomically {
-		//nolint:wrapcheck
-		return atomicfile.Write(targetPath, rr)
+	restoreMode, err := prepareExistingFileForOverwrite(targetPath, existingMode)
+	if err != nil {
+		return errors.Wrap(err, "unable to prepare existing file for overwrite")
 	}
 
-	return write(targetPath, rr, f.Size(), o.FlushFiles, o.copier)
+	var writeErr error
+
+	if o.WriteFilesAtomically {
+		writeErr = atomicfile.Write(targetPath, rr)
+	} else {
+		writeErr = write(targetPath, rr, f.Size(), o.FlushFiles, o.copier)
+	}
+
+	if writeErr != nil && restoreMode != nil {
+		writeErr = stderrors.Join(writeErr, errors.Wrap(restoreMode(), "unable to restore existing file mode"))
+	}
+
+	return writeErr
 }
 
 func isEmptyDirectory(name string) (bool, error) {
