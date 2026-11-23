@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"net/smtp"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/notification/sender"
 )
 
@@ -34,6 +36,7 @@ func (p *emailProvider) Send(_ context.Context, msg *sender.Message) error {
 		"Subject: " + msg.Subject,
 		"From: " + p.opt.From,
 		"To: " + p.opt.To,
+		"Date: " + clock.Now().Format(time.RFC1123Z),
 	}
 
 	if p.Format() == sender.FormatHTML {
