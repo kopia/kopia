@@ -42,6 +42,21 @@ func (s retryingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	}, isRetriable)
 }
 
+// EmptyDirectorySweeper is optionally implemented by blob.Storage backends
+// that use a sharded directory structure.
+type EmptyDirectorySweeper interface {
+	SweepEmptyDirectories(ctx context.Context) error
+}
+
+func (s retryingStorage) SweepEmptyDirectories(ctx context.Context) error {
+	if sweeper, ok := s.Storage.(EmptyDirectorySweeper); ok {
+		//nolint:wrapcheck
+		return sweeper.SweepEmptyDirectories(ctx)
+	}
+
+	return nil
+}
+
 // NewWrapper returns a Storage wrapper that adds retry loop around all operations of the underlying storage.
 func NewWrapper(wrapped blob.Storage) blob.Storage {
 	return &retryingStorage{Storage: wrapped}
