@@ -243,3 +243,42 @@ func TestCompactRetentionReasons(t *testing.T) {
 		require.Equal(t, tc.want, CompactRetentionReasons(tc.input))
 	}
 }
+
+// TestRetentionPolicyWeeklyTimezone is a regression test for
+// https://github.com/kopia/kopia/issues/5348: the weekly retention bucket was
+// computed in local time (s.StartTime.ToTime().ISOWeek()) while every other
+// period uses UTC (s.StartTime.Format(...)). In a non-UTC timezone this put
+// snapshots from the same UTC week into different weekly buckets.
+func TestRetentionPolicyWeeklyTimezone(t *testing.T) {
+	origLocal := time.Local
+	t.Cleanup(func() { time.Local = origLocal })
+	// UTC+4: the local week boundary (Mon 2020-01-06 00:00 local) falls at
+	// 2020-01-05T20:00Z, between the two snapshots below.
+	time.Local = time.FixedZone("UTC+4", 4*60*60)
+
+	// Both snapshots are Sunday 2020-01-05 in UTC, i.e. the same ISO week
+	// (UTC week boundary is Mon 2020-01-06T00:00Z). Under the buggy local-time
+	// computation they straddle the local week boundary and end up in two
+	// different weekly buckets.
+	newer, err := time.Parse(time.RFC3339, "2020-01-05T21:00:00Z")
+	require.NoError(t, err)
+	older, err := time.Parse(time.RFC3339, "2020-01-05T19:00:00Z")
+	require.NoError(t, err)
+
+	manifests := []*snapshot.Manifest{
+		{Description: "newer", StartTime: fs.UTCTimestampFromTime(newer)},
+		{Description: "older", StartTime: fs.UTCTimestampFromTime(older)},
+	}
+
+	(&RetentionPolicy{KeepWeekly: newOptionalInt(2)}).ComputeRetentionReasons(manifests)
+
+	got := map[string][]string{}
+	for _, m := range manifests {
+		got[m.Description] = m.RetentionReasons
+	}
+
+	// Same UTC week => only the most recent snapshot is retained as weekly;
+	// the older one shares the bucket and gets no weekly tag.
+	require.Equal(t, []string{"weekly-1"}, got["newer"])
+	require.Empty(t, got["older"])
+}
