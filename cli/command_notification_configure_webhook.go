@@ -28,6 +28,7 @@ func (c *commandNotificationConfigureWebhook) setup(svc appServices, parent comm
 	cmd.Flag("method", "HTTP Method").EnumVar(&c.opt.Method, http.MethodPost, http.MethodPut)
 	cmd.Flag("http-header", "HTTP Header (key:value)").StringsVar(&httpHeaders)
 	cmd.Flag("format", "Format of the message").EnumVar(&c.opt.Format, sender.FormatHTML, sender.FormatPlainText)
+	cmd.Flag("discord", "Discord webhook support").BoolVar(&c.opt.Discord)
 
 	act := configureNotificationAction(svc, &c.common, webhook.ProviderType, &c.opt, webhook.MergeOptions)
 
