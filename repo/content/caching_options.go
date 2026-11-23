@@ -29,6 +29,10 @@ type CachingOptions struct {
 	MinContentSweepAge          DurationSeconds `json:"minContentSweepAge,omitempty"`
 	MinIndexSweepAge            DurationSeconds `json:"minIndexSweepAge,omitempty"`
 	HMACSecret                  []byte          `json:"-"`
+
+	// IndexCompactionMemoryLimitBytes is the working-memory budget for epoch
+	// compaction when CacheDirectory is set. Zero selects the default budget.
+	IndexCompactionMemoryLimitBytes int64 `json:"indexCompactionMemoryLimitBytes,omitempty"`
 }
 
 // EffectiveMetadataCacheSizeBytes returns the effective metadata cache size.
