@@ -113,7 +113,7 @@ func (ac *aclCache) Authorize(ctx context.Context, rep repo.Repository, username
 	u := parts[0]
 	h := parts[1]
 
-	if rep == ac.lastRep {
+	if rep != ac.lastRep {
 		// the server switched to another repository, discard cache.
 		ac.aclEntries = nil
 		ac.lastRep = rep
