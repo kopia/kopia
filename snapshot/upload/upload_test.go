@@ -839,6 +839,67 @@ func TestUpload_SymlinkStats(t *testing.T) {
 	require.Equal(t, int64(2), man2.RootEntry.DirSummary.TotalFileCount, "Directory summary TotalSymlinkCount")
 }
 
+func TestUpload_FollowSymlinks(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	root := mockfs.NewDirectory()
+	root.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
+	root.AddDir("d1", defaultPermissions)
+	root.AddDir("d1/d1", defaultPermissions)
+	root.AddFile("d1/d1/f1", []byte{1, 2, 3}, defaultPermissions)
+	root.AddSymlink("s1", "d1/d1/f1", defaultPermissions)
+	root.AddSymlink("s2", "f1", defaultPermissions)
+	root.AddSymlink("s3", "d1", defaultPermissions)
+
+	followSymlinks := policy.OptionalBool(true)
+	policyTree := policy.BuildTree(map[string]*policy.Policy{
+		".": {FilesPolicy: policy.FilesPolicy{FollowSymlinks: &followSymlinks}},
+	}, policy.DefaultPolicy)
+
+	u := NewUploader(th.repo)
+
+	man1, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{})
+	require.NoError(t, err)
+
+	// f1, d1/d1/f1, s1, s2 and s3/d1/f1.
+	require.Equal(t, int64(0), man1.RootEntry.DirSummary.TotalSymlinkCount, "TotalSymlinkCount")
+	require.Equal(t, int64(5), man1.RootEntry.DirSummary.TotalFileCount, "TotalFileCount")
+	require.Equal(t, int32(5), atomic.LoadInt32(&man1.Stats.NonCachedFiles), "NonCachedFiles")
+
+	entries, err := fs.GetAllEntries(ctx, snapshotfs.DirectoryEntry(th.repo, man1.RootObjectID(), nil))
+	require.NoError(t, err)
+
+	types := map[string]snapshot.EntryType{}
+	for _, e := range entries {
+		switch e.(type) {
+		case fs.Directory:
+			types[e.Name()] = snapshot.EntryTypeDirectory
+		case fs.Symlink:
+			types[e.Name()] = snapshot.EntryTypeSymlink
+		default:
+			types[e.Name()] = snapshot.EntryTypeFile
+		}
+	}
+
+	require.Equal(t, map[string]snapshot.EntryType{
+		"d1": snapshot.EntryTypeDirectory,
+		"f1": snapshot.EntryTypeFile,
+		"s1": snapshot.EntryTypeFile,
+		"s2": snapshot.EntryTypeFile,
+		"s3": snapshot.EntryTypeDirectory,
+	}, types)
+
+	man2, err := u.Upload(ctx, root, policyTree, snapshot.SourceInfo{}, man1)
+	require.NoError(t, err)
+
+	require.Equal(t, int32(0), atomic.LoadInt32(&man2.Stats.NonCachedFiles), "NonCachedFiles")
+	require.Equal(t, int32(5), atomic.LoadInt32(&man2.Stats.CachedFiles), "CachedFiles")
+	require.Equal(t, man1.RootObjectID(), man2.RootObjectID())
+}
+
 func TestUploadWithCheckpointing(t *testing.T) {
 	t.Parallel()
 

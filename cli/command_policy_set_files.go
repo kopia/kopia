@@ -25,6 +25,8 @@ type policyFilesFlags struct {
 	policyOneFileSystem string
 
 	policyIgnoreCacheDirs string
+
+	policyFollowSymlinks string
 }
 
 func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
@@ -43,6 +45,8 @@ func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("one-file-system", "Stay in parent filesystem when finding files ('true', 'false', 'inherit')").EnumVar(&c.policyOneFileSystem, booleanEnumValues...)
 
 	cmd.Flag("ignore-cache-dirs", "Ignore cache directories ('true', 'false', 'inherit')").EnumVar(&c.policyIgnoreCacheDirs, booleanEnumValues...)
+
+	cmd.Flag("follow-symlinks", "Snapshot the files and directories symbolic links point to instead of the links ('true', 'false', 'inherit')").EnumVar(&c.policyFollowSymlinks, booleanEnumValues...)
 }
 
 func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, changeCount *int) error {
@@ -57,5 +61,9 @@ func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *poli
 		return err
 	}
 
-	return applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, c.policyOneFileSystem, changeCount)
+	if err := applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, c.policyOneFileSystem, changeCount); err != nil {
+		return err
+	}
+
+	return applyPolicyBoolPtr(ctx, "follow symlinks", &fp.FollowSymlinks, c.policyFollowSymlinks, changeCount)
 }
