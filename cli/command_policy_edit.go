@@ -41,6 +41,7 @@ const policyEditFilesHelpText = `
   #   "noParentDotFiles": true
   #   "noParentIgnore": true
   #   "oneFileSystem": false
+  #   "followSymlinks": false
 `
 
 const policyEditSchedulingHelpText = `
