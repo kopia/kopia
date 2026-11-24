@@ -36,6 +36,9 @@ type ignoreContext struct {
 	maxFileSize    int64                     // maximum size of file allowed
 
 	oneFileSystem bool // should we enter other mounted filesystems
+
+	// unlike oneFileSystem, not reset by a policy that does not set it.
+	followSymlinks bool
 }
 
 func (c *ignoreContext) shouldIncludeByName(ctx context.Context, path string, e fs.Entry, policyTree *policy.Tree) bool {
@@ -78,6 +81,7 @@ type ignoreDirectory struct {
 	relativePath  string
 	parentContext *ignoreContext
 	policyTree    *policy.Tree
+	followed      *followChain
 
 	fs.Directory
 }
@@ -224,6 +228,13 @@ func (d *ignoreDirectory) Close() {
 }
 
 func (d *ignoreDirectory) maybeWrappedChildEntry(ctx context.Context, ic *ignoreContext, e fs.Entry) (fs.Entry, bool) {
+	// resolved first so that the checks below see the target's type, size and device.
+	followed := d.followed
+
+	if sl, ok := e.(fs.Symlink); ok {
+		e, followed = d.followSymlinkIfEnabled(ctx, ic, sl)
+	}
+
 	s := d.relativePath + "/" + e.Name()
 
 	if !ic.shouldIncludeByName(ctx, s, e, d.policyTree) {
@@ -244,6 +255,7 @@ func (d *ignoreDirectory) maybeWrappedChildEntry(ctx context.Context, ic *ignore
 		id.relativePath = s
 		id.parentContext = ic
 		id.policyTree = d.policyTree.Child(e.Name())
+		id.followed = followed
 		id.Directory = dir
 
 		return id, true
@@ -276,27 +288,17 @@ func (d *ignoreDirectory) Child(ctx context.Context, name string) (fs.Entry, err
 }
 
 func resolveSymlink(ctx context.Context, entry fs.Symlink) (fs.File, error) {
-	const maxSymlinkFollow = 30
-
-	for range maxSymlinkFollow {
-		target, err := entry.Resolve(ctx)
-		if err != nil {
-			link, _ := entry.Readlink(ctx)
-			return nil, errors.Wrapf(err, "when resolving symlink %s of type %T, which points to %s", entry.Name(), entry, link)
-		}
-
-		switch t := target.(type) {
-		case fs.File:
-			return t, nil
-		case fs.Symlink:
-			entry = t
-			continue
-		default:
-			return nil, errors.Wrapf(errSymlinkNotAFile, "%s does not eventually link to a file", entry.Name())
-		}
+	target, err := resolveEntry(ctx, entry)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, errors.Wrapf(errTooManySymlinks, "cannot resolve '%q'", entry.Name())
+	f, ok := target.(fs.File)
+	if !ok {
+		return nil, errors.Wrapf(errSymlinkNotAFile, "%s does not eventually link to a file", entry.Name())
+	}
+
+	return f, nil
 }
 
 func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, error) {
@@ -337,6 +339,8 @@ func (d *ignoreDirectory) buildContext(ctx context.Context) (*ignoreContext, err
 		dotIgnoreFiles: effectiveDotIgnoreFiles,
 		maxFileSize:    d.parentContext.maxFileSize,
 		oneFileSystem:  d.parentContext.oneFileSystem,
+
+		followSymlinks: d.parentContext.followSymlinks,
 	}
 
 	if pol != nil {
@@ -367,6 +371,7 @@ func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath strin
 	}
 
 	c.oneFileSystem = fp.OneFileSystem.OrDefault(false)
+	c.followSymlinks = fp.FollowSymlinks.OrDefault(c.followSymlinks)
 
 	// append policy-level rules
 	for _, rule := range fp.IgnoreRules {
@@ -474,7 +479,7 @@ func New(dir fs.Directory, policyTree *policy.Tree, options ...Option) fs.Direct
 		opt(rootContext)
 	}
 
-	return &ignoreDirectory{".", rootContext, policyTree, dir}
+	return &ignoreDirectory{relativePath: ".", parentContext: rootContext, policyTree: policyTree, Directory: dir}
 }
 
 var _ fs.Directory = &ignoreDirectory{}
