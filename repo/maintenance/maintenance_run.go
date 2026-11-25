@@ -506,6 +506,12 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		return errors.Wrap(err, "unable to get schedule")
 	}
 
+	// Drop safely expired deleted entries before rewriting so missing or damaged
+	// packs containing those contents cannot block the rest of maintenance.
+	if err := runTaskDropDeletedContentsFull(ctx, runParams, s, safety); err != nil {
+		return errors.Wrap(err, "error dropping deleted contents")
+	}
+
 	if shouldFullRewriteContents(s, safety) {
 		// find packs that are less than 80% full and rewrite contents in them into
 		// new consolidated packs, orphaning old packs in the process.
@@ -514,12 +520,6 @@ func runFullMaintenance(ctx context.Context, runParams RunParameters, safety Saf
 		}
 	} else {
 		notRewritingContents(ctx, log)
-	}
-
-	// rewrite indexes by dropping content entries that have been marked
-	// as deleted for a long time
-	if err := runTaskDropDeletedContentsFull(ctx, runParams, s, safety); err != nil {
-		return errors.Wrap(err, "error dropping deleted contents")
 	}
 
 	if shouldDeleteOrphanedPacks(runParams.rep.Time(), s, safety) {
