@@ -597,6 +597,7 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 	defer cancelCheckpointer()
 
 	var hc actionContext
+	defer cleanupActionContext(ctx, &hc)
 
 	localDirPathOrEmpty := rootDir.LocalFilesystemPath()
 
