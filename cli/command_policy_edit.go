@@ -41,6 +41,7 @@ const policyEditFilesHelpText = `
   #   "noParentDotFiles": true
   #   "noParentIgnore": true
   #   "oneFileSystem": false
+  #   "trackHardlinks": false
 `
 
 const policyEditSchedulingHelpText = `

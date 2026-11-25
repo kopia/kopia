@@ -196,13 +196,14 @@ var _ os.FileInfo = (*filesystemEntry)(nil)
 
 func newEntry(basename string, fi os.FileInfo, prefix string, opts Options) filesystemEntry {
 	return filesystemEntry{
-		name:       TrimShallowSuffix(basename),
-		size:       fi.Size(),
-		mtimeNanos: fi.ModTime().UnixNano(),
-		mode:       fi.Mode(),
-		owner:      platformSpecificOwnerInfo(fi),
-		device:     platformSpecificDeviceInfo(fi),
-		prefix:     prefix,
-		opts:       opts,
+		name:         TrimShallowSuffix(basename),
+		size:         fi.Size(),
+		mtimeNanos:   fi.ModTime().UnixNano(),
+		mode:         fi.Mode(),
+		owner:        platformSpecificOwnerInfo(fi),
+		device:       platformSpecificDeviceInfo(fi),
+		hardLinkInfo: platformSpecificHardLinkInfo(fi),
+		prefix:       prefix,
+		opts:         opts,
 	}
 }
