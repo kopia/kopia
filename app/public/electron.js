@@ -23,7 +23,7 @@ import {
   LevelDisabled,
   LevelWarningsAndErrors,
 } from "./notifications.js";
-import { serverForRepo } from "./server.js";
+import { pollAllServers, serverForRepo } from "./server.js";
 import {
   loadConfigs,
   allConfigs,
@@ -94,6 +94,7 @@ function showRepoWindow(repositoryID) {
   let primaryScreenBounds = screen.getPrimaryDisplay().bounds;
   if (repositoryWindows[repositoryID]) {
     repositoryWindows[repositoryID].focus();
+    pollAllServers();
     return;
   }
 
@@ -171,6 +172,11 @@ function showRepoWindow(repositoryID) {
    */
   repositoryWindow.once("ready-to-show", function () {
     repositoryWindow.show();
+    pollAllServers();
+  });
+
+  repositoryWindow.on("focus", function () {
+    pollAllServers();
   });
 
   /**
@@ -396,6 +402,17 @@ function checkForUpdates() {
   autoUpdater.checkForUpdates();
 }
 
+function updateChecksEnabled() {
+  // KOPIA_CHECK_FOR_UPDATES uses the same false values as the CLI flag.
+  return !/^(0|f|false)$/i.test(process.env["KOPIA_CHECK_FOR_UPDATES"] ?? "");
+}
+
+function maybeCheckForUpdates() {
+  if (updateChecksEnabled()) {
+    checkForUpdates();
+  }
+}
+
 function checkForUpdatesNow() {
   checkForUpdatesTriggeredFromUI = true;
   checkForUpdates();
@@ -446,7 +463,7 @@ function maybeMoveToApplicationsFolder() {
       if (r.response == 0) {
         app.moveToApplicationsFolder();
       } else {
-        checkForUpdates();
+        maybeCheckForUpdates();
       }
     })
     .catch((e) => {
@@ -498,7 +515,7 @@ app.on("ready", () => {
   autoUpdater.logger = log;
 
   // re-check for updates every 24 hours
-  setInterval(checkForUpdates, 86400000);
+  setInterval(maybeCheckForUpdates, 86400000);
 
   tray = new Tray(
     path.join(
@@ -519,6 +536,7 @@ app.on("ready", () => {
       tray: tray,
       showRepoWindow: showRepoWindow,
       allConfigs: allConfigs,
+      updateChecksEnabled: updateChecksEnabled,
     };
   }
 
@@ -548,7 +566,7 @@ app.on("ready", () => {
   if (isOutsideOfApplicationsFolderOnMac()) {
     setTimeout(maybeMoveToApplicationsFolder, 1000);
   } else {
-    checkForUpdates();
+    maybeCheckForUpdates();
   }
 });
 
@@ -576,8 +594,6 @@ function showRepoNotification(e) {
   } else if (severity >= 10) {
     // warnings and errors
     urgency = "critical";
-  } else {
-    urgency = "normal";
   }
 
   const notification = new Notification({

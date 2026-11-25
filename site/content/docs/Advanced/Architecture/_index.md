@@ -80,18 +80,18 @@ For example large file object might have an identifier such as `Ixac47f7ce280fdd
 The [content list](/docs/reference/command-line/advanced/content-list/) command can be used to list CABS blocks in the repository:
 
 ```shell
-$ kopia content list
+kopia content list
 ```
 
 The [content show](/docs/reference/command-line/advanced/content-show/) command can be used to show the content of a specific CABS block:
 
 ```shell
 # Show the content of a directory listing
-$ kopia content show kfed1b0498dc54d07cd69f272fb347ca3
+kopia content show kfed1b0498dc54d07cd69f272fb347ca3
 # Show the indirect JSON content of a large file object
-$ kopia content show xac47f7ce280fdd81f04c670fec2353dc
+kopia content show xac47f7ce280fdd81f04c670fec2353dc
 # Show the actual content of a large file object
-$ kopia content show Ixac47f7ce280fdd81f04c670fec2353dc
+kopia content show Ixac47f7ce280fdd81f04c670fec2353dc
 ```
 
 Note that the example above shows that `I` is a virtual prefix. The actual CABS block does not content the `I` prefix but referencing the block with the `I` prefix tells Kopia to interpret the block as an indirect JSON object and return the resolved content instead of the raw content.
