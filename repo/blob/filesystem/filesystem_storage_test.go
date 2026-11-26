@@ -560,6 +560,47 @@ func TestFileStorage_ListBlobs_ErrorHandling(t *testing.T) {
 	}), errNonRetriable)
 }
 
+type failUnrelatedBlobMetadata struct{ osInterface }
+
+func (o failUnrelatedBlobMetadata) ReadDir(dirname string) ([]os.DirEntry, error) {
+	entries, err := o.osInterface.ReadDir(dirname)
+	for i, entry := range entries {
+		if strings.HasSuffix(entry.Name(), "_old-unrelated-blob.f") {
+			entries[i] = &mockDirEntryInfoError{entry, errNonRetriable}
+		}
+	}
+
+	return entries, err
+}
+
+func TestFileStorage_ListBlobs_SkipsUnrelatedMetadata(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	st, err := New(ctx, &Options{
+		Path: testutil.TempDirectory(t),
+		Options: sharded.Options{
+			DirectoryShards: []int{1, 2},
+		},
+		osInterfaceOverride: failUnrelatedBlobMetadata{newMockOS()},
+	}, true)
+	require.NoError(t, err)
+	defer st.Close(ctx)
+
+	for _, id := range []blob.ID{"xn104_old-unrelated-blob", "xn105_current-test-blob"} {
+		require.NoError(t, st.PutBlob(ctx, id, gather.FromSlice([]byte("data")), blob.PutOptions{}))
+	}
+
+	got, err := blob.ListAllBlobs(ctx, st, "xn105_")
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Equal(t, blob.ID("xn105_current-test-blob"), got[0].BlobID)
+	require.EqualValues(t, 4, got[0].Length)
+
+	_, err = blob.ListAllBlobs(ctx, st, "xn104_")
+	require.ErrorIs(t, err, errNonRetriable)
+}
+
 func TestFileStorage_TouchBlob_ErrorHandling(t *testing.T) {
 	t.Parallel()
 
