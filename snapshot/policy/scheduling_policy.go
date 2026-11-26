@@ -142,8 +142,6 @@ func (p *SchedulingPolicy) NextSnapshotTime(previousSnapshotTime, now time.Time)
 
 // Get next ToD snapshot.
 func (p *SchedulingPolicy) getNextTimeOfDaySnapshot(now time.Time) (time.Time, bool) {
-	const oneDay = 24 * time.Hour
-
 	var nextSnapshotTime time.Time
 
 	ok := false
@@ -153,7 +151,7 @@ func (p *SchedulingPolicy) getNextTimeOfDaySnapshot(now time.Time) (time.Time, b
 		localSnapshotTime := time.Date(nowLocalTime.Year(), nowLocalTime.Month(), nowLocalTime.Day(), tod.Hour, tod.Minute, 0, 0, time.Local)
 
 		if now.After(localSnapshotTime) {
-			localSnapshotTime = localSnapshotTime.Add(oneDay)
+			localSnapshotTime = time.Date(nowLocalTime.Year(), nowLocalTime.Month(), nowLocalTime.Day()+1, tod.Hour, tod.Minute, 0, 0, time.Local)
 		}
 
 		if !ok || localSnapshotTime.Before(nextSnapshotTime) {
