@@ -447,7 +447,12 @@ func getSFTPClientExternal(ctx context.Context, opt *Options) (*sftpConnection, 
 	var cmdArgs []string
 
 	if opt.SSHArguments != "" {
-		cmdArgs = append(cmdArgs, strings.Split(opt.SSHArguments, " ")...)
+		sshArgs, err := splitSSHArguments(opt.SSHArguments)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to parse SSH arguments")
+		}
+
+		cmdArgs = append(cmdArgs, sshArgs...)
 	}
 
 	cmdArgs = append(
@@ -578,4 +583,54 @@ func sftpClientFromConnection(conn connection.Connection) *sftp.Client {
 
 func init() {
 	blob.AddSupportedStorage(sftpStorageType, Options{}, New)
+}
+
+// splitSSHArguments splits an external SSH argument string on whitespace,
+// honoring single and double quotes and backslash escapes so that arguments
+// containing spaces (e.g. -i "/path/my key") survive intact. The arguments are
+// passed to the ssh binary directly without a shell, so nothing else would
+// interpret the quoting. An unbalanced quote is an error rather than silently
+// passing broken arguments to ssh.
+func splitSSHArguments(s string) ([]string, error) {
+	var (
+		args     []string
+		cur      strings.Builder
+		inSingle bool
+		inDouble bool
+		hasToken bool
+	)
+
+	for i := 0; i < len(s); i++ {
+		switch c := s[i]; {
+		case c == '\\' && i+1 < len(s) && !inSingle:
+			i++
+			cur.WriteByte(s[i])
+			hasToken = true
+		case c == '\'' && !inDouble:
+			inSingle = !inSingle
+			hasToken = true
+		case c == '"' && !inSingle:
+			inDouble = !inDouble
+			hasToken = true
+		case (c == ' ' || c == '\t') && !inSingle && !inDouble:
+			if hasToken {
+				args = append(args, cur.String())
+				cur.Reset()
+				hasToken = false
+			}
+		default:
+			cur.WriteByte(c)
+			hasToken = true
+		}
+	}
+
+	if inSingle || inDouble {
+		return nil, errors.Errorf("unbalanced quotes in SSH arguments: %q", s)
+	}
+
+	if hasToken {
+		args = append(args, cur.String())
+	}
+
+	return args, nil
 }
