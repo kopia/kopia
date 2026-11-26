@@ -27,6 +27,32 @@ type Params struct {
 	ExtendObjectLocks bool `json:"extendObjectLocks"`
 
 	ListParallelism int `json:"listParallelism"`
+
+	RangeCheckpointConsolidation RangeCheckpointConsolidationParams `json:"rangeCheckpointConsolidation,omitzero"`
+}
+
+// RangeCheckpointConsolidationParams controls the consolidation of epoch range checkpoints during full maintenance.
+// The consolidated checkpoint omits entries deleted before the deletion watermark, so the index no longer grows with every deletion.
+type RangeCheckpointConsolidationParams struct {
+	Enabled bool `json:"enabled"`
+
+	// MinRangeCheckpoints is the chain length that triggers a consolidation (0: DefaultMinRangeCheckpoints).
+	MinRangeCheckpoints int `json:"minRangeCheckpoints,omitempty"`
+
+	// MaxEntriesPerPartition bounds the index entries held in memory (0: indexblob.DefaultMergeMaxEntriesPerPartition).
+	MaxEntriesPerPartition int `json:"maxEntriesPerPartition,omitempty"`
+}
+
+// DefaultMinRangeCheckpoints is the default chain length that triggers a range checkpoint consolidation.
+const DefaultMinRangeCheckpoints = 4
+
+// GetMinRangeCheckpoints returns the chain length that triggers a consolidation.
+func (p RangeCheckpointConsolidationParams) GetMinRangeCheckpoints() int {
+	if p.MinRangeCheckpoints < 2 { //nolint:mnd
+		return DefaultMinRangeCheckpoints
+	}
+
+	return p.MinRangeCheckpoints
 }
 
 // isOwnedByByThisUser determines whether current user is the maintenance owner.

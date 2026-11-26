@@ -54,6 +54,8 @@ func BuildFromExtra(stats Extra) (Summarizer, error) {
 		result = &CleanupSupersededIndexesStats{}
 	case generateRangeCheckpointStatsKind:
 		result = &GenerateRangeCheckpointStats{}
+	case consolidateRangeCheckpointsStatsKind:
+		result = &ConsolidateRangeCheckpointsStats{}
 	case advanceEpochStatsKind:
 		result = &AdvanceEpochStats{}
 	case compactSingleEpochStatsKind:
