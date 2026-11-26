@@ -285,6 +285,7 @@ type ResolvePathResponse struct {
 // CLIInfo contains CLI information.
 type CLIInfo struct {
 	Executable string `json:"executable"`
+	OS         string `json:"os"` // operating system the server runs on (runtime.GOOS), used by the UI to show platform-specific settings
 }
 
 // UIPreferences represents JSON object storing UI preferences.
@@ -296,4 +297,11 @@ type UIPreferences struct {
 	PageSize               int    `json:"pageSize"`               // A page size; the actual possible values will only be provided by the frontend
 	Language               string `json:"language"`               // Specifies the language used by the UI
 	Locale                 string `json:"locale"`                 // Specifies the locale used by the UI for formatting numbers and dates
+	MountBackend           string `json:"mountBackend,omitempty"` // macOS only: mount backend used by "Mount as Local Filesystem" (MountBackendFUSE or MountBackendWebDAV; empty means FUSE)
 }
+
+// Supported values of UIPreferences.MountBackend.
+const (
+	MountBackendFUSE   = "fuse"
+	MountBackendWebDAV = "webdav"
+)

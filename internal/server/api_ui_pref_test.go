@@ -35,4 +35,14 @@ func TestUIPreferences(t *testing.T) {
 	require.NoError(t, cli.Put(ctx, "ui-preferences", &p, &serverapi.Empty{}))
 	require.NoError(t, cli.Get(ctx, "ui-preferences", nil, &p2))
 	require.Equal(t, p, p2)
+
+	p.MountBackend = serverapi.MountBackendWebDAV
+	require.NoError(t, cli.Put(ctx, "ui-preferences", &p, &serverapi.Empty{}))
+	require.NoError(t, cli.Get(ctx, "ui-preferences", nil, &p2))
+	require.Equal(t, serverapi.MountBackendWebDAV, p2.MountBackend)
+
+	p.MountBackend = "invalid"
+	require.Error(t, cli.Put(ctx, "ui-preferences", &p, &serverapi.Empty{}))
+	require.NoError(t, cli.Get(ctx, "ui-preferences", nil, &p2))
+	require.Equal(t, serverapi.MountBackendWebDAV, p2.MountBackend)
 }
