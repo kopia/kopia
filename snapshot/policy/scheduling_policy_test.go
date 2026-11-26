@@ -289,6 +289,35 @@ func TestNextSnapshotTime(t *testing.T) {
 	}
 }
 
+func TestNextSnapshotTimeAcrossDST(t *testing.T) {
+	loc, err := time.LoadLocation("America/New_York")
+	require.NoError(t, err)
+
+	originalLocal := time.Local
+	time.Local = loc
+	t.Cleanup(func() { time.Local = originalLocal })
+
+	p := policy.SchedulingPolicy{TimesOfDay: []policy.TimeOfDay{{Hour: 0, Minute: 30}}}
+
+	for _, tc := range []struct {
+		name  string
+		month time.Month
+		day   int
+	}{
+		{"spring forward", time.March, 8},
+		{"fall back", time.November, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			now := time.Date(2026, tc.month, tc.day, 12, 0, 0, 0, loc)
+			want := time.Date(2026, tc.month, tc.day+1, 0, 30, 0, 0, loc)
+
+			got, ok := p.NextSnapshotTime(time.Time{}, now)
+			require.True(t, ok)
+			require.Equal(t, want, got)
+		})
+	}
+}
+
 func TestSortAndDedupeTimesOfDay(t *testing.T) {
 	cases := []struct {
 		input []policy.TimeOfDay
