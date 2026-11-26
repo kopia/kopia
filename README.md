@@ -59,6 +59,9 @@ Getting Started
 ---
 See [Kopia Documentation](https://kopia.io/docs/) for more information. Also check out the [users forum](https://kopia.discourse.group).
 
+To find an archived file without mounting or restoring a backup, see
+[searching names in snapshots](docs/snapshot-search.md).
+
 Licensing
 ---
 Kopia is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full license text.
