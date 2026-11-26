@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/kopia/kopia/internal/serverapi"
@@ -16,6 +17,7 @@ func handleCLIInfo(_ context.Context, rc requestContext) (any, *apiError) {
 
 	return &serverapi.CLIInfo{
 		Executable: maybeQuote(executable) + " --config-file=" + maybeQuote(rc.srv.getOptions().ConfigFile) + "",
+		OS:         runtime.GOOS,
 	}, nil
 }
 

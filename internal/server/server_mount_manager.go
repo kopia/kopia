@@ -3,10 +3,12 @@ package server
 import (
 	"context"
 	"maps"
+	"runtime"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/mount"
+	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -27,7 +29,7 @@ func (s *Server) getMountController(ctx context.Context, rep repo.Repository, oi
 
 	userLog(ctx).Debugf("mount controller for %v not found, starting", oid)
 
-	c, err := mount.Directory(ctx, snapshotfs.DirectoryEntry(rep, oid, nil), "*", mount.Options{})
+	c, err := mount.Directory(ctx, snapshotfs.DirectoryEntry(rep, oid, nil), "*", s.uiMountOptions(ctx))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to mount")
 	}
@@ -35,6 +37,24 @@ func (s *Server) getMountController(ctx context.Context, rep repo.Repository, oi
 	s.mounts[oid] = c
 
 	return c, nil
+}
+
+// uiMountOptions returns mount options for mounts requested through the UI.
+// On macOS the user can choose between FUSE (macFUSE) and WebDAV in UI preferences.
+func (s *Server) uiMountOptions(ctx context.Context) mount.Options {
+	if runtime.GOOS != "darwin" {
+		return mount.Options{}
+	}
+
+	p, err := getUIPreferencesOrEmpty(s)
+	if err != nil {
+		userLog(ctx).Warnf("unable to read UI preferences, using default mount backend: %v", err)
+		return mount.Options{}
+	}
+
+	return mount.Options{
+		PreferWebDAV: p.MountBackend == serverapi.MountBackendWebDAV,
+	}
 }
 
 func (s *Server) listMounts() map[object.ID]mount.Controller {

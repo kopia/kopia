@@ -54,6 +54,12 @@ func handleSetUIPreferences(_ context.Context, rc requestContext) (any, *apiErro
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
 	}
 
+	switch p.MountBackend {
+	case "", serverapi.MountBackendFUSE, serverapi.MountBackendWebDAV:
+	default:
+		return nil, requestError(serverapi.ErrorMalformedRequest, "invalid mount backend")
+	}
+
 	if err := atomic.WriteFile(rc.srv.getOptions().UIPreferencesFile, bytes.NewReader(rc.body)); err != nil {
 		return nil, internalServerError(err)
 	}

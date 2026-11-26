@@ -116,5 +116,5 @@ As an alternative, FUSE-based mounts with `kopia mount` can be achieved using [m
 its kernel backend. Refer to the [macFUSE getting started guide](https://github.com/macfuse/macfuse/wiki/Getting-Started#kernel-backend) for the current installation requirements
 for your macOS version and architecture.
 
->NOTE: KopiaUI "Mount as Local Filesystem" button currently uses FUSE-based mount paths on macOS, thus it requires
->macFUSE to be installed.
+>NOTE: On macOS, the mount backend used by the KopiaUI "Mount as Local Filesystem" button can be selected in
+>KopiaUI preferences: FUSE (the default, requires macFUSE to be installed) or WebDAV (no additional software needed).
