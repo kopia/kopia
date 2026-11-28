@@ -25,6 +25,9 @@ type policyFilesFlags struct {
 	policyOneFileSystem string
 
 	policyIgnoreCacheDirs string
+
+	// Record excluded (ignored) files/directories in the snapshot manifest.
+	policyIgnoreRecord string
 }
 
 func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
@@ -43,6 +46,8 @@ func (c *policyFilesFlags) setup(cmd *kingpin.CmdClause) {
 	cmd.Flag("one-file-system", "Stay in parent filesystem when finding files ('true', 'false', 'inherit')").EnumVar(&c.policyOneFileSystem, booleanEnumValues...)
 
 	cmd.Flag("ignore-cache-dirs", "Ignore cache directories ('true', 'false', 'inherit')").EnumVar(&c.policyIgnoreCacheDirs, booleanEnumValues...)
+
+	cmd.Flag("ignore-record", "Record files/directories excluded by ignore rules in the snapshot manifest ('true', 'false', 'inherit')").EnumVar(&c.policyIgnoreRecord, booleanEnumValues...)
 }
 
 func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, changeCount *int) error {
@@ -54,6 +59,10 @@ func (c *policyFilesFlags) setFilesPolicyFromFlags(ctx context.Context, fp *poli
 	applyPolicyStringList(ctx, "ignore rules", &fp.IgnoreRules, c.policySetAddIgnore, c.policySetRemoveIgnore, c.policySetClearIgnore, changeCount)
 
 	if err := applyPolicyBoolPtr(ctx, "ignore cache dirs", &fp.IgnoreCacheDirectories, c.policyIgnoreCacheDirs, changeCount); err != nil {
+		return err
+	}
+
+	if err := applyPolicyBoolPtr(ctx, "ignore record", &fp.IgnoreRecord, c.policyIgnoreRecord, changeCount); err != nil {
 		return err
 	}
 
